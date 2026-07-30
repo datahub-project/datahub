@@ -14,8 +14,14 @@ source:
     # aws_connection:
     #   aws_region: us-east-1
     # gcs_connection:
-    #   hmac_key_id: "..."
-    #   hmac_key_secret: "..."
+    #   credential:
+    #     hmac_access_id: "..."
+    #     hmac_access_secret: "..."
+    # http_connection:                    # auth for http(s):// URLs; omit for public URLs
+    #   token: "${ODCS_HTTP_TOKEN}"       # bearer token (Authorization: Bearer ...)
+    #   # username: my-user               # OR basic auth (mutually exclusive with token)
+    #   # password: "${ODCS_HTTP_PASSWORD}"
+    #   # verify_ssl: false               # skip TLS verification (trusted hosts only)
 
     # Or clone a Git repository and scan it; non-URI `path` entries above are
     # resolved relative to the checkout (e.g. `path: contracts/`).
@@ -68,6 +74,14 @@ source:
     # owner_email_domain: acme.com       # alice -> corpuser alice@acme.com
     # odcs_versions: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"]
     # logical_dataset_name_template: "{contract_id}.{schema_name}"  # logical odcs dataset URN name
+    #
+    # Filter which logical datasets are ingested by their composed name
+    # ({contract_id}.{schema_name}). Deny takes precedence over allow.
+    # dataset_pattern:
+    #   allow:
+    #     - ".*"
+    #   deny:
+    #     - "^sandbox\\..*"
     # follow_symlinks: false             # follow symlinks when scanning a directory
     # file_extensions: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"]
     # max_input_file_bytes: 5242880      # 5 MB; larger files are skipped with a warning

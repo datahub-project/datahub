@@ -341,14 +341,15 @@ class S3Source(StatefulIngestionSourceBase):
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
                 self.report.warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
                     log=False,
                 )
         else:
             self.report.warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+                message="File has unsupported extension",
+                context=table_data.full_path,
                 log=False,
             )
         file.close()

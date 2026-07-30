@@ -83,9 +83,10 @@ class UserResolver:
             )
             if self.report:
                 self.report.warning(
-                    "user_loading",
-                    f"Could not load users from BDP API: {e}. "
+                    message="Could not load users from BDP API. "
                     "Ownership will use initiator names instead of emails.",
+                    context="user_loading",
+                    exc=e,
                     log=False,
                 )
         except Exception as e:
@@ -93,8 +94,9 @@ class UserResolver:
             logger.error(f"Unexpected error loading users: {e}", exc_info=True)
             if self.report:
                 self.report.failure(
-                    "user_loading",
-                    f"Unexpected error loading users: {e}. This may indicate a bug.",
+                    message="Unexpected error loading users. This may indicate a bug.",
+                    context="user_loading",
+                    exc=e,
                 )
 
     def resolve_user_email(

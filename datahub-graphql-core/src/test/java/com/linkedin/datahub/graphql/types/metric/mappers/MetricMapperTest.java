@@ -222,6 +222,28 @@ public class MetricMapperTest {
     }
   }
 
+  @Test
+  public void testMapTopLevelAiContextAspect() {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    com.linkedin.common.AiContext aiContext =
+        new com.linkedin.common.AiContext()
+            .setInstructions("Use for financial reporting.")
+            .setSynonyms(new com.linkedin.data.template.StringArray("rev", "revenue_total"));
+    addAspect(entityResponse, AI_CONTEXT_ASPECT_NAME, aiContext);
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(metricUrn))).thenReturn(true);
+
+      Metric result = MetricMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getAiContext());
+      assertEquals(result.getAiContext().getInstructions(), "Use for financial reporting.");
+      assertEquals(result.getAiContext().getSynonyms().size(), 2);
+      assertEquals(result.getAiContext().getSynonyms().get(0), "rev");
+    }
+  }
+
   private EntityResponse createBaseEntityResponse() {
     EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(metricUrn);

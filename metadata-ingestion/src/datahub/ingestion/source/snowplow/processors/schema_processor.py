@@ -313,8 +313,9 @@ class SchemaProcessor(EntityProcessor):
                 )
                 self.report.warning(
                     title="Failed to process data structure",
-                    message=f"Skipping schema {schema_id}: {e}. "
-                    "Remaining schemas will still be processed.",
+                    message="Skipping schema. Remaining schemas will still be processed.",
+                    context=schema_id,
+                    exc=e,
                     log=False,
                 )
                 continue
@@ -389,7 +390,7 @@ class SchemaProcessor(EntityProcessor):
             except Exception as e:
                 logger.error(f"Failed to fetch schema {uri} from Iglu: {e}")
                 self.report.failure(
-                    title=f"Failed to fetch schema {uri}",
+                    title="Failed to fetch schema from Iglu registry",
                     message="Error fetching schema from Iglu registry",
                     context=uri,
                     exc=e,

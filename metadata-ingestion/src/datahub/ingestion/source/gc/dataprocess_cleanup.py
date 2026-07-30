@@ -240,7 +240,9 @@ class DataProcessCleanup:
                     break
             except Exception as e:
                 self.report.failure(
-                    f"Exception while fetching DPIs for job {job_urn}:", exc=e
+                    message="Exception while fetching DPIs for job",
+                    context=job_urn,
+                    exc=e,
                 )
                 break
         return dpis
@@ -266,7 +268,7 @@ class DataProcessCleanup:
                     deleted_count_last_n += 1
                     futures[future]["deleted"] = True
                 except Exception as e:
-                    self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
+                    self.report.failure(message="Exception while deleting DPI", exc=e)
             if (
                 deleted_count_last_n % self.config.batch_size == 0
                 and deleted_count_last_n > 0
@@ -359,7 +361,7 @@ class DataProcessCleanup:
                 deleted_count_retention += 1
                 futures[future]["deleted"] = True
             except Exception as e:
-                self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
+                self.report.failure(message="Exception while deleting DPI", exc=e)
 
             if (
                 deleted_count_retention % self.config.batch_size == 0
@@ -399,7 +401,9 @@ class DataProcessCleanup:
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get dataflows with {scroll_id}", exc=e
+                    message="Exception while fetching dataflows",
+                    context=f"scroll_id={scroll_id}",
+                    exc=e,
                 )
                 break
 
@@ -451,7 +455,9 @@ class DataProcessCleanup:
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get data jobs with {scroll_id}", exc=e
+                    message="Exception while fetching data jobs",
+                    context=f"scroll_id={scroll_id}",
+                    exc=e,
                 )
                 break
             scrollAcrossEntities = result.get("scrollAcrossEntities")
@@ -476,7 +482,9 @@ class DataProcessCleanup:
                         self.delete_dpi_from_datajobs(datajob_entity)
                     except Exception as e:
                         self.report.failure(
-                            f"While trying to delete {datajob_entity} ", exc=e
+                            message="Exception while deleting data job DPIs",
+                            context=datajob_entity.urn,
+                            exc=e,
                         )
                 if (
                     datajob_entity.total_runs == 0

@@ -494,9 +494,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 self._extract_pii_fields_from_pipeline(pipeline.id, pii_fields)
         except Exception as e:
             self.report.warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from enrichments: {e}. "
+                message="Failed to extract PII fields from enrichments. "
                 "PII field tagging may be incomplete.",
+                context="pii_extraction",
+                exc=e,
                 log=False,
             )
             logger.warning(f"Failed to extract PII fields from enrichments: {e}")
@@ -515,9 +516,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 self._extract_pii_fields_from_enrichment(enrichment, pii_fields)
         except Exception as e:
             self.report.warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from pipeline {pipeline_id}: {e}. "
+                message="Failed to extract PII fields from pipeline. "
                 "PII field tagging may be incomplete for this pipeline.",
+                context=f"pii_extraction: pipeline_id={pipeline_id}",
+                exc=e,
                 log=False,
             )
             logger.warning(

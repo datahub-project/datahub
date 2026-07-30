@@ -2718,7 +2718,7 @@ def test_expand_run_results_paths_s3_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("S3 glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_aws_connection():
@@ -2730,7 +2730,7 @@ def test_expand_run_results_paths_missing_aws_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing AWS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def _make_dbt_node(dbt_name, node_type="model", **overrides):
@@ -3077,7 +3077,7 @@ def test_expand_run_results_paths_gcs_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("GCS glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_gcs_connection():
@@ -3089,7 +3089,7 @@ def test_expand_run_results_paths_missing_gcs_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing GCS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def test_gcs_connection_config_builds_s3_compatible():
