@@ -178,6 +178,7 @@ interface Props {
     selectDomainOverride?: (domain: Domain) => void;
     isCollapsed?: boolean;
     variant?: DomainNavigatorVariant;
+    selectedUrns?: string[];
 }
 
 export default function DomainNavigator({
@@ -185,6 +186,7 @@ export default function DomainNavigator({
     isCollapsed,
     selectDomainOverride,
     variant = 'select',
+    selectedUrns,
 }: Props) {
     const { t } = useTranslation('governance.domain');
     const { selectedOwnerUrns, setAvailableOwners } = useDomainSidebarFilters();
@@ -302,6 +304,7 @@ export default function DomainNavigator({
                             isCollapsed={isCollapsed}
                             level={0}
                             variant={variant}
+                            selectedUrns={selectedUrns}
                         />
                     ),
                 )}

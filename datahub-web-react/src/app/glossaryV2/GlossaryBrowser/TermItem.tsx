@@ -6,7 +6,6 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
-import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import {
     TreeRowContainer,
     TreeRowIconSlot,
@@ -16,6 +15,7 @@ import {
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
+import { SelectedMark } from '@app/sharedV2/icons/SelectedMark';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
