@@ -2,7 +2,7 @@ import { Button, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
     Content,
@@ -20,12 +20,13 @@ import {
 import SidebarCollapsedIconRail, {
     type SidebarCollapsedIconRailProps,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarCollapsedIconRail';
+import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import useHierarchicalBrowseSidebarWidth from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/useHierarchicalBrowseSidebarWidth';
 import {
     resolveCollapsedBodyMode,
     shouldPlaceHomeAboveDivider,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/sidebarLayout';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 type BodyRenderProps = {
@@ -85,8 +86,13 @@ type Props = {
     collapseButtonTestId?: string;
     expandTooltip?: string;
     collapseTooltip?: string;
-    /** Skip internal width calculation when the parent already owns width. */
+    /**
+     * Skip internal width + resizer when the parent already owns width.
+     * Prefer omitting this so drag-resize + persistence stay enabled.
+     */
     width?: number;
+    /** Fired when the user resizes (and on mount with the resolved width). */
+    onWidthChange?: (width: number) => void;
     className?: string;
 };
 
@@ -117,15 +123,29 @@ export default function HierarchicalBrowseSidebar({
     expandTooltip,
     collapseTooltip,
     width: widthOverride,
+    onWidthChange,
     className,
 }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const measuredWidth = useSidebarWidth(0.2);
-    const width = widthOverride ?? measuredWidth;
+    const { width: resizableWidth, setWidth } = useHierarchicalBrowseSidebarWidth();
+    const width = widthOverride ?? resizableWidth;
+    const canResize = widthOverride == null;
 
+    const [isResizing, setIsResizing] = useState(false);
     const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(defaultCollapsed);
     const isControlled = controlledCollapsed !== undefined;
     const isCollapsed = isControlled ? controlledCollapsed : uncontrolledCollapsed;
+
+    useEffect(() => {
+        onWidthChange?.(width);
+    }, [width, onWidthChange]);
+
+    const handleResizeWidth = useCallback(
+        (next: number) => {
+            setWidth(next);
+        },
+        [setWidth],
+    );
 
     const toggleCollapsed = useCallback(() => {
         if (onToggleCollapsed) {
@@ -235,6 +255,7 @@ export default function HierarchicalBrowseSidebar({
             $isCollapsed={isCollapsed}
             $width={width}
             $isShowNavBarRedesign={isShowNavBarRedesign}
+            $isResizing={isResizing}
             data-testid={dataTestId}
             id={id}
             className={className}
@@ -254,6 +275,14 @@ export default function HierarchicalBrowseSidebar({
             </HeaderControls>
             <ThinDivider />
             {body}
+            {canResize && !isCollapsed && (
+                <SidebarResizer
+                    width={width}
+                    onWidthChange={handleResizeWidth}
+                    onResizeStart={() => setIsResizing(true)}
+                    onResizeEnd={() => setIsResizing(false)}
+                />
+            )}
         </SidebarContainer>
     );
 }

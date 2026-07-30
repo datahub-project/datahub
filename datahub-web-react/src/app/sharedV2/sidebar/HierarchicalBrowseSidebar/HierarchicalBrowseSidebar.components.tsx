@@ -76,16 +76,19 @@ export const SidebarContainer = styled.div<{
     $isCollapsed: boolean;
     $width: number;
     $isShowNavBarRedesign?: boolean;
+    $isResizing?: boolean;
 }>`
+    position: relative;
     flex-shrink: 0;
     height: 100%;
     max-height: 100%;
     align-self: stretch;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     min-width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
-    transition:
-        width ${SIDEBAR_TRANSITION_MS}ms ease-in-out,
-        min-width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
+    transition: ${(props) =>
+        props.$isResizing
+            ? 'none'
+            : `width ${SIDEBAR_TRANSITION_MS}ms ease-in-out, min-width ${SIDEBAR_TRANSITION_MS}ms ease-in-out`};
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
