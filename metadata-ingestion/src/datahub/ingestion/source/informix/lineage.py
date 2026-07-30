@@ -44,6 +44,15 @@ def build_view_upstream_lineage(
     # coarse (table) lineage, so fall through and emit what did parse.
     if result.debug_info.table_error:
         raise result.debug_info.table_error
+    if result.debug_info.column_error:
+        report.view_column_lineage_failures += 1
+        report.warning(
+            title="View column lineage unavailable",
+            message="The view's sources resolved but its column lineage did not "
+            "parse, so only table-level lineage is emitted.",
+            context=view_urn,
+            exc=result.debug_info.column_error,
+        )
     if not result.in_tables:
         return None
 

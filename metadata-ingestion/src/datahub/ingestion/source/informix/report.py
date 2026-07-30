@@ -15,6 +15,13 @@ class InformixSourceReport(StaleEntityRemovalSourceReport):
     views_with_lineage: int = 0
     views_without_definition: int = 0
     view_lineage_failures: int = 0
+    # A view whose sources resolved but whose column lineage did not parse, so only
+    # table-level lineage was emitted -- see lineage.build_view_upstream_lineage.
+    view_column_lineage_failures: int = 0
+    # Foreign keys dropped because the catalog returned a different number of child
+    # and parent index columns, leaving the pairing ambiguous -- see
+    # source._build_table_schema.
+    foreign_keys_dropped_mismatched: int = 0
     # Informix rewrites a view's projection list, so sqlglot's downstream column
     # names are remapped positionally onto the view's declared columns. A count
     # mismatch means that remap was skipped and the raw inner projection names

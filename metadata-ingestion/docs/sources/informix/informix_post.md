@@ -47,6 +47,23 @@ Views whose stored text retains Informix-specific syntax — `MATCHES` / `NOT MA
 and get no lineage. This is per-view and non-fatal: the rest of the run is unaffected,
 and each failure is counted as `view_lineage_failures` in the ingestion report.
 
+A view can also resolve at the table level while its column lineage fails to parse. In
+that case table-level lineage is still emitted, the shortfall is reported as a warning,
+and it is counted as `view_column_lineage_failures`.
+
+#### Composite foreign keys
+
+Informix's catalog exposes a constraint's child and parent key columns as two
+independent 16-slot `sysindexes` column lists, so a composite foreign key comes back as
+a cross product rather than as ordered column pairs. Single-column foreign keys are
+always exact. For composite keys the columns are paired best-effort and a warning is
+reported, since the catalog does not record the pairing order.
+
+If the two lists come back with different lengths — which happens when a constraint is
+backed by a wider pre-existing index — the pairing is ambiguous, so that constraint is
+skipped rather than emitted misaligned. Skipped constraints are counted as
+`foreign_keys_dropped_mismatched` in the ingestion report.
+
 #### Extended type mapping
 
 Informix extended types (`JSON`, `BSON`, time series, and spatial types such as `ST_Geometry`) are not in the base `syscolumns.coltype` map and fall back to an unknown/null DataHub type. The native type name is still preserved for display.

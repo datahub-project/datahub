@@ -1,5 +1,6 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -596,3 +597,138 @@ def test_stale_entity_removal_processor_wired_when_stateful_enabled():
         for p in source.get_workunit_processors()
     ]
     assert "AutoStaleEntityRemovalProcessor" in processor_owners
+
+
+class _MismatchedFkClient(_FkClient):
+    def get_foreign_keys(self, table):
+        if table.name == "orders":
+            return [
+                # A constraint backed by a wider index: 2 child columns, 1 parent.
+                InformixForeignKey(
+                    name="fk_mismatched",
+                    child_columns=["region", "customer_id"],
+                    parent_table="customers",
+                    parent_owner="informix",
+                    parent_columns=["id"],
+                ),
+                InformixForeignKey(
+                    name="fk_ok",
+                    child_columns=["customer_id"],
+                    parent_table="customers",
+                    parent_owner="informix",
+                    parent_columns=["id"],
+                ),
+            ]
+        return []
+
+
+def test_source_skips_foreign_key_with_mismatched_column_counts():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_MismatchedFkClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    orders = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "orders"
+    )
+    schema_metadata = orders._get_aspect(SchemaMetadataClass)
+    assert schema_metadata is not None
+    # The usable constraint still lands; only the ambiguous one is dropped.
+    assert [fk.name for fk in schema_metadata.foreignKeys or []] == ["fk_ok"]
+    assert source.report.foreign_keys_dropped_mismatched == 1
+    assert any(
+        "mismatched column counts" in str(w.title) for w in source.report.warnings
+    )
+
+
+class _MixedCaseFkClient:
+    def get_tables(self):
+        return [
+            InformixTable(name="Customers", owner="Informix", is_view=False),
+            InformixTable(name="Orders", owner="Informix", is_view=False),
+        ]
+
+    def get_columns(self, table):
+        if table.name == "Orders":
+            return [
+                InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True),
+                InformixColumn(name="customer_id", coltype=2, length=4, colno=2),
+            ]
+        return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
+
+    def get_foreign_keys(self, table):
+        if table.name == "Orders":
+            return [
+                InformixForeignKey(
+                    name="fk_orders_customer",
+                    child_columns=["customer_id"],
+                    parent_table="Customers",
+                    parent_owner="Informix",
+                    parent_columns=["id"],
+                )
+            ]
+        return []
+
+    def get_view_definition(self, table):
+        return None
+
+    def close(self):
+        pass
+
+
+def test_convert_urns_to_lowercase_applies_to_dataset_and_foreign_key_urns():
+    # The dataset path and build_foreign_key_constraints each take the flag
+    # separately, so they can drift; assert both sides come out lowercased.
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "TestDB",
+            "convert_urns_to_lowercase": True,
+        }
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_MixedCaseFkClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    orders = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "Orders"
+    )
+    assert "testdb.informix.orders" in orders.urn.urn()
+
+    schema_metadata = orders._get_aspect(SchemaMetadataClass)
+    assert schema_metadata is not None
+    fk = (schema_metadata.foreignKeys or [])[0]
+    assert "testdb.informix.customers" in fk.foreignDataset
+    assert all("testdb.informix.orders" in f for f in fk.sourceFields)
+    assert all("testdb.informix.customers" in f for f in fk.foreignFields)
+
+
+def test_test_connection_reports_failure_reason_without_raising():
+    with patch(
+        "datahub.ingestion.source.informix.source.InformixClient",
+        side_effect=ConfigurationError("cannot reach server"),
+    ):
+        report = InformixSource.test_connection(
+            {"server": "informix", "database": "testdb"}
+        )
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert "cannot reach server" in str(report.basic_connectivity.failure_reason)
+
+
+def test_test_connection_closes_client_on_query_failure():
+    client = MagicMock()
+    client.get_tables.side_effect = RuntimeError("catalog unreadable")
+    with patch(
+        "datahub.ingestion.source.informix.source.InformixClient", return_value=client
+    ):
+        report = InformixSource.test_connection(
+            {"server": "informix", "database": "testdb"}
+        )
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    client.close.assert_called_once()

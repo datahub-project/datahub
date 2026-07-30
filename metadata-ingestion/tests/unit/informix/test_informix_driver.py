@@ -4,7 +4,7 @@ import pytest
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.informix.config import InformixSourceConfig
-from datahub.ingestion.source.informix.driver import resolve_driver_jars
+from datahub.ingestion.source.informix.driver import _download, resolve_driver_jars
 
 
 def _cfg(**kwargs):
@@ -83,3 +83,43 @@ def test_checksum_mismatch_raises_and_cleans_cache(tmp_path, monkeypatch):
     assert not (cache / "jdbc-4.50.10.jar.sha1").exists()
     assert not (cache / "bson-4.11.1.jar").exists()
     assert not (cache / "bson-4.11.1.jar.sha1").exists()
+
+
+def test_network_failure_raises_configuration_error(tmp_path, monkeypatch):
+    # urlopen raises OSError subclasses (URLError, socket.timeout); the connector
+    # must translate that into actionable config guidance, not a bare traceback.
+    def _boom(url: str, timeout: int = 30) -> bytes:
+        raise OSError("name resolution failed")
+
+    monkeypatch.setattr("datahub.ingestion.source.informix.driver.urlopen", _boom)
+
+    with pytest.raises(ConfigurationError, match="driver_jar_paths"):
+        resolve_driver_jars(
+            _cfg(accept_ibm_jdbc_license=True, driver_cache_dir=str(tmp_path / "c"))
+        )
+
+
+def test_non_https_download_url_refused():
+    with pytest.raises(ConfigurationError, match="non-HTTPS"):
+        _download("file:///etc/passwd")
+
+
+def test_malformed_cached_checksum_file_raises(tmp_path, monkeypatch):
+    # An empty/truncated .sha1 sidecar in the cache must fail loudly rather than
+    # being treated as a cache miss and silently re-downloaded over it.
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "jdbc-4.50.10.jar").write_bytes(b"jdbc-bytes")
+    (cache / "jdbc-4.50.10.jar.sha1").write_text("   ")
+
+    def _fail_download(*args, **kwargs):
+        raise AssertionError("download must not be called for a malformed sidecar")
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.informix.driver._download", _fail_download
+    )
+
+    with pytest.raises(ConfigurationError, match="Malformed"):
+        resolve_driver_jars(
+            _cfg(accept_ibm_jdbc_license=True, driver_cache_dir=str(cache))
+        )
