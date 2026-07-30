@@ -81,6 +81,28 @@ describe('filter utils - getNewFilters', () => {
             { field: 'platform', values: ['two'] },
         ]);
     });
+
+    it('should default domains filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('domains', [], ['urn:li:domain:marketing']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'domains',
+                values: ['urn:li:domain:marketing'],
+                condition: 'DESCENDANTS_INCL',
+            },
+        ]);
+    });
+
+    it('should default container filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('container', [], ['urn:li:container:abc']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'container',
+                values: ['urn:li:container:abc'],
+                condition: 'DESCENDANTS_INCL',
+            },
+        ]);
+    });
 });
 
 describe('filter utils - isFilterOptionSelected', () => {

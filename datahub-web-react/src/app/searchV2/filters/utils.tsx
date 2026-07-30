@@ -90,9 +90,19 @@ export function getNewFilters(
             field: filterField,
             values: selectedFilterValues,
             // TODO: Define on filter field instead
-            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+            condition: getDefaultFilterCondition(filterField),
         },
     ].filter((f) => !(f.values?.length === 0));
+}
+
+function getDefaultFilterCondition(filterField: string): FilterOperator | undefined {
+    if (filterField === LAST_MODIFIED_FILTER_NAME) {
+        return FilterOperator.GreaterThan;
+    }
+    if (filterField === DOMAINS_FILTER_NAME || filterField === CONTAINER_FILTER_NAME) {
+        return FilterOperator.DescendantsIncl;
+    }
+    return undefined;
 }
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
