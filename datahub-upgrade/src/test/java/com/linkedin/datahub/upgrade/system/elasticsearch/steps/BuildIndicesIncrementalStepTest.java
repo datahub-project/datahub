@@ -21,6 +21,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -61,6 +62,7 @@ public class BuildIndicesIncrementalStepTest {
 
   private OperationContext opContext;
   private BuildIndicesIncrementalStep step;
+  private BuildIndicesConfiguration buildIndicesConfig;
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -85,9 +87,19 @@ public class BuildIndicesIncrementalStepTest {
         .thenReturn(true);
     when(indexBuilder.indexExists(any(OperationContext.class), anyString())).thenReturn(true);
 
-    step =
-        new BuildIndicesIncrementalStep(
-            opContext, List.of(indexedService), Set.of(), entityService, UPGRADE_VERSION);
+    buildIndicesConfig =
+        BuildIndicesConfiguration.builder().reconcileInPlaceMappingUpdates(false).build();
+    step = createStep();
+  }
+
+  private BuildIndicesIncrementalStep createStep() {
+    return new BuildIndicesIncrementalStep(
+        opContext,
+        List.of(indexedService),
+        Set.of(),
+        entityService,
+        UPGRADE_VERSION,
+        buildIndicesConfig);
   }
 
   @Test
@@ -105,6 +117,55 @@ public class BuildIndicesIncrementalStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(indexBuilder, never())
         .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+  }
+
+  @Test
+  public void testAppliesInPlaceMappingUpdateWithoutReconciliation() throws Throwable {
+    ReindexConfig inPlaceConfig = mockReindexConfig(INDEX_NAME, false);
+    when(inPlaceConfig.requiresMappingReconciliation()).thenReturn(true);
+    when(inPlaceConfig.requiresApplyMappings()).thenReturn(true);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(inPlaceConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(inPlaceConfig));
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+  }
+
+  @Test
+  public void testReconcilesInPlaceMappingUpdateWhenEnabled() throws Throwable {
+    buildIndicesConfig.setReconcileInPlaceMappingUpdates(true);
+    step = createStep();
+
+    ReindexConfig inPlaceConfig = mockReindexConfig(INDEX_NAME, false);
+    when(inPlaceConfig.requiresMappingReconciliation()).thenReturn(true);
+    when(inPlaceConfig.requiresApplyMappings()).thenReturn(true);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(inPlaceConfig));
+
+    IncrementalReindexResult incrementalResult =
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), eq(inPlaceConfig), eq(UPGRADE_VERSION)))
+        .thenReturn(incrementalResult);
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("task1")))
+        .thenReturn(new PollReindexResult(true, Map.of(), Pair.of(100L, 100L)));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder)
+        .buildIndexIncremental(any(OperationContext.class), eq(inPlaceConfig), eq(UPGRADE_VERSION));
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), eq(inPlaceConfig));
   }
 
   @Test
@@ -514,6 +575,7 @@ public class BuildIndicesIncrementalStepTest {
     when(config.exists()).thenReturn(true);
     when(config.isSettingsReindex()).thenReturn(false);
     when(config.isPureMappingsAddition()).thenReturn(false);
+    when(config.requiresMappingReconciliation()).thenReturn(false);
     when(config.requiresApplyMappings()).thenReturn(false);
     when(config.requiresApplySettings()).thenReturn(false);
     when(config.requiresDataBackfill()).thenReturn(requiresReindex);
