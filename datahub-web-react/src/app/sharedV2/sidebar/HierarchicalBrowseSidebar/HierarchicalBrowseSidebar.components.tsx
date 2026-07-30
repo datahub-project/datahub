@@ -179,7 +179,6 @@ export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
     ${treeRowHitTarget}
     display: flex;
     align-items: center;
-    gap: 8px;
     padding: 4px 2px 4px 8px;
     text-decoration: none;
     cursor: pointer;
