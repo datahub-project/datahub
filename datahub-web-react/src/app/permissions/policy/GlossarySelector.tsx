@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
+import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
 import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -106,9 +107,7 @@ export default function GlossarySelector({ resources, setResources }: Props) {
         });
     };
 
-    const handleGlossarySearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        setGlossaryInputValue(trimmedText);
+    const searchGlossaryEntitiesDebounced = useDebouncedCallback((trimmedText: string) => {
         searchGlossaryEntities({
             variables: {
                 input: {
@@ -119,6 +118,13 @@ export default function GlossarySelector({ resources, setResources }: Props) {
                 },
             },
         });
+    });
+
+    const handleGlossarySearch = (text: string) => {
+        const trimmedText: string = text.trim();
+        // Kept synchronous: this drives whether the glossary browser or the search dropdown shows.
+        setGlossaryInputValue(trimmedText);
+        searchGlossaryEntitiesDebounced(trimmedText);
     };
 
     const renderSearchResult = (result) => {

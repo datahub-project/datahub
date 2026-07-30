@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
+import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -204,15 +205,16 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    // Invokes the user search API as the user types
-    const handleUserSearch = (text: string) => {
-        return handleSearch(EntityType.CorpUser, text, userSearch);
-    };
+    // Invokes the user search API as the user types. Users and groups get their own debouncer so
+    // typing in one select can't cancel the other's pending search.
+    const handleUserSearch = useDebouncedCallback((text: string) => {
+        handleSearch(EntityType.CorpUser, text, userSearch);
+    });
 
     // Invokes the group search API as the user types
-    const handleGroupSearch = (text: string) => {
-        return handleSearch(EntityType.CorpGroup, text, groupSearch);
-    };
+    const handleGroupSearch = useDebouncedCallback((text: string) => {
+        handleSearch(EntityType.CorpGroup, text, groupSearch);
+    });
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (result: SearchResult) => {
