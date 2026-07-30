@@ -1,7 +1,9 @@
 package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -24,6 +26,10 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.search.LineageScrollResult;
+import com.linkedin.metadata.search.LineageSearchEntity;
+import com.linkedin.metadata.search.LineageSearchEntityArray;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -132,6 +138,34 @@ public class EntityAuthorizationUtilsTest {
     assertFalse(
         EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
             opContext, List.of("document", "dataset")));
+  }
+
+  @Test
+  public void testWriteEntityTypeAuthorizationDefersDocuments() {
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, List.of("dataset")))
+        .thenReturn(true);
+
+    assertTrue(
+        EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+            opContext, CREATE, List.of("document")));
+    assertTrue(
+        EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+            opContext, CREATE, List.of("document", "dataset")));
+
+    authUtilMock.verify(
+        () -> AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, List.of("dataset")));
+  }
+
+  @Test
+  public void testWriteEntityTypeAuthorizationStillGatesNonDocuments() {
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, List.of("dataset")))
+        .thenReturn(false);
+
+    assertFalse(
+        EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+            opContext, UPDATE, List.of("document", "dataset")));
   }
 
   @Test
@@ -279,6 +313,16 @@ public class EntityAuthorizationUtilsTest {
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, scrollResult));
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, autoCompleteResult));
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, browseResult));
+
+    LineageSearchEntity lineageSearchEntity = new LineageSearchEntity().setEntity(DOCUMENT_URN);
+    LineageSearchResult lineageSearchResult =
+        new LineageSearchResult()
+            .setEntities(new LineageSearchEntityArray(List.of(lineageSearchEntity)));
+    LineageScrollResult lineageScrollResult =
+        new LineageScrollResult()
+            .setEntities(new LineageSearchEntityArray(List.of(lineageSearchEntity)));
+    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, lineageSearchResult));
+    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, lineageScrollResult));
   }
 
   @Test

@@ -245,20 +245,16 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Entry point for the Search Access Controls feature on the GraphQL mapper layer. Returns {@code
-   * true} (i.e., skips the check) when any of the following short-circuits apply:
+   * View Authorization gate for GraphQL mapper redaction and search-result visibility.
    *
-   * <p>- {@code viewAuthorizationConfiguration.enabled} is {@code false} (feature off globally)
+   * <p>Activation is controlled only by View Authorization ({@code
+   * viewAuthorizationConfiguration.enabled}) plus the restricted-type set. When the gate is
+   * inactive this returns {@code true} without consulting privileges. Privilege evaluation uses the
+   * shared {@link EntityAuthorizationUtils#canViewEntity} evaluator (bridge-aware for documents).
    *
-   * <p>- The caller is system authentication
-   *
-   * <p>- The URN's entity type is in the effective view-unrestricted set (see {@link
-   * com.datahub.authorization.AuthUtil#getViewUnrestrictedEntityTypes})
-   *
-   * <p>When view authorization is enabled, entity types are restricted by default. Only types
-   * explicitly listed as unrestricted bypass this gate. Prefer type-specific helpers when a type
-   * needs privileges beyond standard VIEW (e.g. {@link #canGetDocument} also accepts {@code
-   * MANAGE_DOCUMENTS_PRIVILEGE}).
+   * <p>This is intentionally separate from REST API authorization ({@code
+   * authorization.restApiAuthorization}) and from explicit GraphQL document operations such as
+   * {@link #canGetDocument}, which always evaluate privileges.
    *
    * @see com.datahub.authorization.AuthUtil#isViewRestrictedEntityType
    * @see <a href="https://docs.datahub.com/docs/features/feature-guides/search-access-controls">
@@ -276,9 +272,12 @@ public class AuthorizationUtils {
   }
 
   /**
-   * View-auth gate for documents when {@code documentInfo}/{@code subTypes} are already loaded
-   * (e.g. GraphQL DocumentMapper). Preserves the same view-auth / unrestricted short-circuits as
-   * {@link #canView}, then evaluates bridge-aware VIEW without re-fetching aspects.
+   * View Authorization gate for documents when {@code documentInfo}/{@code subTypes} are already
+   * loaded (e.g. GraphQL DocumentMapper). Same activation short-circuits as {@link #canView}, then
+   * evaluates bridge-aware VIEW without re-fetching aspects.
+   *
+   * <p>For privilege checks that must run regardless of View Authorization (timeline, change
+   * history, mutations), use {@link #canGetDocument} instead.
    */
   public static boolean canViewDocument(
       @Nonnull OperationContext opContext,
@@ -452,9 +451,12 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Returns true if the current user is able to read a specific Document. Delegates to the shared
-   * document view evaluator (ENTITY READ / platform MANAGE_DOCUMENTS, with bridge source
-   * inheritance).
+   * Explicit GraphQL document/entity READ privilege check. Always evaluates the shared document
+   * VIEW evaluator (ENTITY READ / platform MANAGE_DOCUMENTS, with bridge source inheritance) and is
+   * not gated by View Authorization. Non-document URNs fall through to standard ENTITY READ.
+   *
+   * <p>Use this for direct operations such as timeline and change history. Mapper redaction should
+   * use {@link #canView} / {@link #canViewDocument} instead.
    */
   public static boolean canGetDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
     return DocumentAuthorizationUtils.canViewDocumentEntity(

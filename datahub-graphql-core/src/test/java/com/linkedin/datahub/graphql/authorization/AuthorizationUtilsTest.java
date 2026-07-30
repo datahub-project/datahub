@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,8 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
@@ -137,7 +140,7 @@ public class AuthorizationUtilsTest {
   }
 
   @Test(dataProvider = "bridgeDocumentAuthorizationCases")
-  public void testCanViewBridgeDocumentAuthorization(
+  public void testCanViewBridgeDocumentAuthorizationWhenViewAuthorizationEnabled(
       String caseName, boolean canViewDocument, boolean canViewSource, boolean expectedAllowed) {
     OperationContext opContext = mock(OperationContext.class);
     OperationContextConfig config = mock(OperationContextConfig.class);
@@ -149,34 +152,15 @@ public class AuthorizationUtilsTest {
     when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     when(opContext.isSystemAuth()).thenReturn(false);
 
-    DocumentInfo documentInfo = new DocumentInfo();
-    StringMap properties = new StringMap();
-    properties.put(
-        DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, TEST_SOURCE_URN.getEntityType());
-    properties.put(
-        DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY, TEST_SOURCE_URN.toString());
-    documentInfo.setCustomProperties(properties);
-    SubTypes subTypes =
-        new SubTypes()
-            .setTypeNames(new StringArray(DocumentAuthorizationUtils.BRIDGE_DOCUMENT_SUBTYPE));
+    DocumentInfo documentInfo = bridgeDocumentInfo();
+    SubTypes subTypes = bridgeSubTypes();
 
     try (MockedStatic<AuthUtil> authUtil =
         Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
       authUtil
           .when(() -> AuthUtil.isViewRestrictedEntityType(eq(viewAuth), eq("document")))
           .thenReturn(true);
-      authUtil
-          .when(
-              () ->
-                  AuthUtil.isAuthorized(
-                      eq(opContext), eq(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE)))
-          .thenReturn(false);
-      authUtil
-          .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_BRIDGE_DOCUMENT_URN)))
-          .thenReturn(canViewDocument);
-      authUtil
-          .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_SOURCE_URN)))
-          .thenReturn(canViewSource);
+      stubDocumentPrivileges(authUtil, opContext, canViewDocument, canViewSource);
 
       assertEquals(
           AuthorizationUtils.canViewDocument(
@@ -184,5 +168,96 @@ public class AuthorizationUtilsTest {
           expectedAllowed,
           caseName);
     }
+  }
+
+  @Test
+  public void testCanViewDocumentSkipsPrivilegeCheckWhenViewAuthorizationDisabled() {
+    OperationContext opContext = mock(OperationContext.class);
+    OperationContextConfig config = mock(OperationContextConfig.class);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    ViewAuthorizationConfiguration viewAuth =
+        ViewAuthorizationConfiguration.builder().enabled(false).build();
+    when(opContext.getOperationContextConfig()).thenReturn(config);
+    when(config.getViewAuthorizationConfiguration()).thenReturn(viewAuth);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    when(opContext.isSystemAuth()).thenReturn(false);
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      stubDocumentPrivileges(authUtil, opContext, false, false);
+
+      assertTrue(
+          AuthorizationUtils.canViewDocument(
+              opContext, TEST_BRIDGE_DOCUMENT_URN, bridgeDocumentInfo(), bridgeSubTypes()));
+      authUtil.verify(
+          () -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_BRIDGE_DOCUMENT_URN)),
+          Mockito.never());
+    }
+  }
+
+  @Test
+  public void testCanGetDocumentEvaluatesPrivilegesWhenViewAuthorizationDisabled() {
+    QueryContext context = mock(QueryContext.class);
+    OperationContext opContext = mock(OperationContext.class);
+    OperationContextConfig config = mock(OperationContextConfig.class);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    ViewAuthorizationConfiguration viewAuth =
+        ViewAuthorizationConfiguration.builder().enabled(false).build();
+    when(context.getOperationContext()).thenReturn(opContext);
+    when(opContext.getOperationContextConfig()).thenReturn(config);
+    when(config.getViewAuthorizationConfiguration()).thenReturn(viewAuth);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    when(opContext.isSystemAuth()).thenReturn(false);
+    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(TEST_DOCUMENT_URN)), any()))
+        .thenReturn(Map.of(TEST_DOCUMENT_URN, Map.of()));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      eq(opContext), eq(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE)))
+          .thenReturn(false);
+      authUtil
+          .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_DOCUMENT_URN)))
+          .thenReturn(false);
+
+      assertFalse(AuthorizationUtils.canGetDocument(TEST_DOCUMENT_URN, context));
+    }
+  }
+
+  private static DocumentInfo bridgeDocumentInfo() {
+    DocumentInfo documentInfo = new DocumentInfo();
+    StringMap properties = new StringMap();
+    properties.put(
+        DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, TEST_SOURCE_URN.getEntityType());
+    properties.put(
+        DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY, TEST_SOURCE_URN.toString());
+    documentInfo.setCustomProperties(properties);
+    return documentInfo;
+  }
+
+  private static SubTypes bridgeSubTypes() {
+    return new SubTypes()
+        .setTypeNames(new StringArray(DocumentAuthorizationUtils.BRIDGE_DOCUMENT_SUBTYPE));
+  }
+
+  private static void stubDocumentPrivileges(
+      MockedStatic<AuthUtil> authUtil,
+      OperationContext opContext,
+      boolean canViewDocument,
+      boolean canViewSource) {
+    authUtil
+        .when(
+            () ->
+                AuthUtil.isAuthorized(eq(opContext), eq(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE)))
+        .thenReturn(false);
+    authUtil
+        .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_BRIDGE_DOCUMENT_URN)))
+        .thenReturn(canViewDocument);
+    authUtil
+        .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_SOURCE_URN)))
+        .thenReturn(canViewSource);
   }
 }

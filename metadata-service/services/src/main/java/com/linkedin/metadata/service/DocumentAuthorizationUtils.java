@@ -34,6 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Document-specific authorization: privilege relationships for CRUD plus bridge-aware VIEW.
  *
+ * <p>{@link #canViewDocumentEntity} and related helpers are the shared privilege evaluator
+ * (flag-independent). API activation for OpenAPI/Rest.li is handled by {@link
+ * #isAPIAuthorizedDocumentUrns}, which is active only when REST API authorization is enabled.
+ * GraphQL View Authorization activation is handled by GraphQL wrappers such as {@code
+ * AuthorizationUtils.canViewDocument}.
+ *
  * <p>Generic API callers should use {@code EntityAuthorizationUtils}, which delegates here only for
  * document URNs. View decision:
  *

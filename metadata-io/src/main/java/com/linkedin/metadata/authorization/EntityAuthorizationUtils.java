@@ -13,6 +13,8 @@ import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.search.LineageScrollResult;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -31,10 +33,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 
 /**
- * Generic entity API authorization facade.
+ * Generic entity authorization facade.
  *
- * <p>Default behavior delegates to {@link AuthUtil}. Entity-specific utilities are consulted only
- * when a URN or MCP requires specialized authorization (currently documents, with query VIEW
+ * <p>Privilege evaluation is shared; activation is not:
+ *
+ * <ul>
+ *   <li>{@link #isAPIAuthorizedEntityUrns} — OpenAPI / Rest.li; active only when REST API
+ *       authorization is enabled
+ *   <li>{@link #canViewEntity} — shared privilege evaluator (documents bridge-aware, queries
+ *       subject-derived). Callers decide activation: View Authorization wrappers for GraphQL
+ *       redaction, REST API wrappers for OpenAPI/Rest.li, or unconditional use for explicit GraphQL
+ *       document operations
+ * </ul>
+ *
+ * <p>Default API behavior delegates to {@link AuthUtil}. Entity-specific utilities are consulted
+ * only when a URN or MCP requires specialized authorization (currently documents, with query VIEW
  * handled for search/view paths).
  */
 @Slf4j
@@ -43,9 +56,12 @@ public final class EntityAuthorizationUtils {
   private EntityAuthorizationUtils() {}
 
   /**
-   * Authorizes entity URNs for API surfaces (OpenAPI / RestLi). Document URNs use document-specific
-   * CREATE/UPDATE existence classification and bridge-aware READ; all other entity types use {@link
-   * AuthUtil}.
+   * Authorizes entity URNs for API surfaces (OpenAPI / RestLi). Activation follows {@code
+   * authorization.restApiAuthorization}. Document URNs use document-specific CREATE/UPDATE
+   * existence classification and bridge-aware READ; all other entity types use {@link AuthUtil}.
+   *
+   * <p>Independent of View Authorization: when REST API auth is enabled, READ is enforced even if
+   * view/search access controls are disabled.
    */
   public static boolean isAPIAuthorizedEntityUrns(
       @Nonnull OperationContext opContext,
@@ -143,6 +159,21 @@ public final class EntityAuthorizationUtils {
         || AuthUtil.isAPIAuthorizedEntityType(opContext, READ, typeLevelEntityTypes);
   }
 
+  /**
+   * Type-level gate used before write request bodies have been converted to URNs. Documents are
+   * deferred to {@link #isAPIAuthorizedEntityUrns}: their required operation depends on existence,
+   * so an early CREATE or UPDATE check can require both privileges for a single write.
+   */
+  public static boolean isAPIAuthorizedWriteEntityTypes(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<String> entityTypes) {
+    List<String> typeLevelEntityTypes =
+        entityTypes.stream().filter(type -> !DOCUMENT_ENTITY_NAME.equals(type)).toList();
+    return typeLevelEntityTypes.isEmpty()
+        || AuthUtil.isAPIAuthorizedEntityType(opContext, apiOperation, typeLevelEntityTypes);
+  }
+
   public static boolean isAPIAuthorizedResult(
       @Nonnull OperationContext opContext, @Nonnull SearchResult result) {
     return isAPIAuthorizedEntityUrns(
@@ -175,9 +206,32 @@ public final class EntityAuthorizationUtils {
         result.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()));
   }
 
+  public static boolean isAPIAuthorizedResult(
+      @Nonnull OperationContext opContext, @Nonnull LineageSearchResult result) {
+    return isAPIAuthorizedEntityUrns(
+        opContext,
+        READ,
+        result.getEntities().stream()
+            .map(entity -> entity.getEntity())
+            .collect(Collectors.toList()));
+  }
+
+  public static boolean isAPIAuthorizedResult(
+      @Nonnull OperationContext opContext, @Nonnull LineageScrollResult result) {
+    return isAPIAuthorizedEntityUrns(
+        opContext,
+        READ,
+        result.getEntities().stream()
+            .map(entity -> entity.getEntity())
+            .collect(Collectors.toList()));
+  }
+
   /**
-   * Generic entity VIEW used by search filtering and GraphQL view gates. Query entities inherit
-   * from subjects; documents use bridge-aware document VIEW; all others use {@link AuthUtil}.
+   * Shared entity VIEW privilege evaluator. Not gated by View Authorization or REST API
+   * authorization flags — callers wrap this when they need those activation switches.
+   *
+   * <p>Query entities inherit from subjects; documents use bridge-aware document VIEW; all others
+   * use {@link AuthUtil}.
    */
   public static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {

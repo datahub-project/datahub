@@ -10,7 +10,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -434,7 +433,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+        opContext, UPDATE, List.of(entityName))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
@@ -506,7 +506,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(opContext, CREATE, entityTypes)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }

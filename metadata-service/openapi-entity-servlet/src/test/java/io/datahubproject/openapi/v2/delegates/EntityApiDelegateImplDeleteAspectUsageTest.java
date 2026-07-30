@@ -5,8 +5,10 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -26,6 +28,7 @@ import com.linkedin.metadata.usage.store.UsageAggregationStore;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.DatasetEntityRequestV2;
 import io.datahubproject.openapi.generated.DatasetEntityResponseV2;
 import io.datahubproject.openapi.generated.ScrollDatasetEntityResponseV2;
@@ -126,5 +129,44 @@ public class EntityApiDelegateImplDeleteAspectUsageTest {
     assertEquals(recordRequestCount.get(), 1);
     verify(entityService).deleteAspect(any(), eq(TEST_URN), eq("status"), any(), eq(false));
     verify(entityService).deleteUrn(any(), eq(UrnUtils.getUrn(TEST_URN)));
+  }
+
+  @Test
+  public void deleteAspectChecksAuthorizationBeforeMutation() {
+    OperationContext systemOperationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization();
+    HttpServletRequest request = mock(HttpServletRequest.class);
+    EntityService<ChangeItemImpl> entityService = mock(EntityService.class);
+    EntitiesController entitiesController = mock(EntitiesController.class);
+    AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+    EntityApiDelegateImpl<
+            DatasetEntityRequestV2, DatasetEntityResponseV2, ScrollDatasetEntityResponseV2>
+        delegate =
+            new EntityApiDelegateImpl<>(
+                systemOperationContext,
+                request,
+                entityService,
+                mock(SearchService.class),
+                entitiesController,
+                authorizerChain,
+                DatasetEntityRequestV2.class,
+                DatasetEntityResponseV2.class,
+                ScrollDatasetEntityResponseV2.class);
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, "datahub"), "Basic test");
+
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil
+          .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
+          .thenReturn(false);
+
+      expectThrows(UnauthorizedException.class, () -> delegate.deleteAspect(TEST_URN, "status"));
+    }
+
+    verifyNoInteractions(entityService);
+    verifyNoInteractions(entitiesController);
   }
 }

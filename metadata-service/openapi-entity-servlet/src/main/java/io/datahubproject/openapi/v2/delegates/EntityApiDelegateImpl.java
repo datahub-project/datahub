@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
@@ -299,6 +300,11 @@ public class EntityApiDelegateImpl<I, O, S> {
             _authorizationChain,
             auth,
             true);
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, DELETE, List.of(entityUrn))) {
+      throw new UnauthorizedException(
+          auth.getActor().toUrnStr() + " is unauthorized to delete entity " + entityUrn);
+    }
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
     _v1Controller.deleteEntities(
         opContext, auth.getActor().toUrnStr(), Set.of(entityUrn), false, false);

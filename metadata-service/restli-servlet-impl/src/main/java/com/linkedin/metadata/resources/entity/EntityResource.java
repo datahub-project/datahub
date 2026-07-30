@@ -594,6 +594,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     Urn urn = Urn.createFromString(urnStr);
+    // Entity READ is independent of View Authorization: when REST API auth is enabled, the source
+    // and returned lineage URNs must still be authorized.
+    if (!isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+      throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urnStr);
+    }
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.debug(
         "GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
@@ -602,7 +608,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input);
     return RestliUtils.toTask(opContext,
-        () -> validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(
+        () -> {
+          LineageSearchResult result =
+              lineageSearchService.searchAcrossLineage(
                   opContext,
                   urn,
                   LineageDirection.valueOf(direction),
@@ -612,8 +620,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   filter,
                   sortCriterionList,
                   start,
-                  count),
-            entityService),
+                  count);
+          if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+            throw new RestLiServiceException(
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
+          }
+          return validateLineageSearchResult(opContext, result, entityService);
+        },
         "searchAcrossRelationships");
   }
 
@@ -654,6 +667,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     Urn urn = Urn.createFromString(urnStr);
+    if (!isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+      throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urnStr);
+    }
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.debug(
         "GET SCROLL RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
@@ -665,21 +682,26 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     return RestliUtils.toTask(opContext,
-        () ->
-            validateLineageScrollResult(opContext,
-                lineageSearchService.scrollAcrossLineage(
-                        opContext,
-                    urn,
-                    LineageDirection.valueOf(direction),
-                    entityList,
-                    input,
-                    maxHops,
-                    filter,
-                    sortCriterionList,
-                    scrollId,
-                    keepAlive,
-                    count),
-                entityService),
+        () -> {
+          LineageScrollResult result =
+              lineageSearchService.scrollAcrossLineage(
+                  opContext,
+                  urn,
+                  LineageDirection.valueOf(direction),
+                  entityList,
+                  input,
+                  maxHops,
+                  filter,
+                  sortCriterionList,
+                  scrollId,
+                  keepAlive,
+                  count);
+          if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+            throw new RestLiServiceException(
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
+          }
+          return validateLineageScrollResult(opContext, result, entityService);
+        },
         "scrollAcrossLineage");
   }
 
