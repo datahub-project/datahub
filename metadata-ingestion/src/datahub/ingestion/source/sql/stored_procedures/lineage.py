@@ -138,6 +138,14 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[_Procedu
         # Rebuild the surface form sqlglot saw so the regex sees the keyword too.
         expression = parsed.args.get("expression")
         literal = expression.name if expression is not None else ""
+        if keyword in {"EXEC", "EXECUTE"} and literal.lstrip().upper().startswith(
+            "IMMEDIATE"
+        ):
+            # ``EXECUTE IMMEDIATE '<sql>'`` (Snowflake, Oracle) runs SQL assembled
+            # at runtime — there is no static call target. Without this guard the
+            # regex reads the ``IMMEDIATE`` keyword as the procedure name and we
+            # emit an edge to a DataJob that cannot exist.
+            return None
         return _parse_call_target(f"{keyword} {literal}")
 
     return None
@@ -340,6 +348,7 @@ def parse_procedure_code(
     raise_: bool = False,
     procedure_name: Optional[str] = None,
     session_id: Optional[str] = None,
+    additional_input_jobs: Optional[List[str]] = None,
 ) -> Optional[DataJobInputOutputClass]:
     """
     Parse stored procedure code and extract lineage.
@@ -358,6 +367,12 @@ def parse_procedure_code(
         procedure_name: Name of the procedure for logging
         session_id: Optional session ID for deterministic temp table resolution.
             If not provided, generates a random UUID. Useful for testing.
+        additional_input_jobs: DataJob urns the caller already knows to be inputs,
+            from a source the code can't reveal — a system catalogue of procedure
+            dependencies (Oracle's ALL_DEPENDENCIES) or Snowflake's task
+            predecessor list. Merged into the CALL-derived ``inputDatajobs``,
+            deduplicated, CALL-derived first. Dropped when the code yields no
+            lineage at all, same as every other result here.
     """
     # Derive dialect from schema_resolver's platform to support multiple databases
     platform = schema_resolver.platform
@@ -443,18 +458,24 @@ def parse_procedure_code(
             ignore_extra_mcps=True,
         )
 
-    if input_datajobs:
+    # CALL-derived edges first, then the caller's, deduplicated.
+    all_input_jobs = list(input_datajobs)
+    for urn in additional_input_jobs or []:
+        if urn not in all_input_jobs:
+            all_input_jobs.append(urn)
+
+    if all_input_jobs:
         if result is None:
             result = DataJobInputOutputClass(
                 inputDatasets=[],
                 outputDatasets=[],
-                inputDatajobs=list(input_datajobs),
+                inputDatajobs=all_input_jobs,
             )
         elif result.inputDatajobs:
-            for urn in input_datajobs:
+            for urn in all_input_jobs:
                 if urn not in result.inputDatajobs:
                     result.inputDatajobs.append(urn)
         else:
-            result.inputDatajobs = list(input_datajobs)
+            result.inputDatajobs = all_input_jobs
 
     return result

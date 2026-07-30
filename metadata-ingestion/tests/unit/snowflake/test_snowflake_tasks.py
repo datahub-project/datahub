@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Callable, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -76,9 +76,27 @@ def _data_job_input_outputs(wus: List) -> List[DataJobInputOutputClass]:
     ]
 
 
+def _job_urn(wus: List, task_name: str) -> str:
+    """The urn the named task was actually emitted under.
+
+    Asserting predecessor edges against this rather than a substring is what
+    catches an edge pointing at a DataJob that doesn't exist.
+    """
+    urns = [
+        wu.metadata.entityUrn
+        for wu in wus
+        if hasattr(wu.metadata, "aspect")
+        and isinstance(wu.metadata.aspect, DataJobInfoClass)
+        and wu.metadata.aspect.name == task_name
+    ]
+    assert len(urns) == 1, f"Expected one DataJobInfo for {task_name}; got {urns}"
+    return urns[0]
+
+
 def _collect_workunits(
     tasks: List[SnowflakeTask],
     config: Optional[SnowflakeV2Config] = None,
+    is_temp_table: Optional[Callable[[str], bool]] = None,
 ) -> tuple:
     if config is None:
         config = _make_config()
@@ -95,6 +113,7 @@ def _collect_workunits(
         data_dictionary=data_dict,
         identifiers=identifiers,
         schema_resolver=_make_schema_resolver(config),
+        is_temp_table=is_temp_table or (lambda _: False),
     )
     wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
     return wus, report
@@ -230,6 +249,91 @@ class TestSnowflakeTasksExtractor:
         assert any("upstream_task" in c for c in contexts)
         assert any("test_db.public.task_b" in c.lower() for c in contexts)
 
+    def test_predecessor_partially_qualified_and_quoted_names_resolve(self) -> None:
+        """Snowflake reports predecessors as TASK, SCHEMA.TASK or DB.SCHEMA.TASK,
+        any part optionally quoted. All forms pointing at the current schema
+        must resolve rather than falling through to an unresolved warning."""
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(
+            name="task_b",
+            predecessors=["PUBLIC.task_a", '"TEST_DB"."PUBLIC"."task_a"'],
+        )
+        wus, report = _collect_workunits([task_a, task_b])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        # Both forms name the same task, so they collapse to one edge.
+        assert ios[0].inputDatajobs == [_job_urn(wus, "task_a")]
+        assert not report.warnings
+
+    def test_predecessor_listed_twice_emits_single_edge(self) -> None:
+        """The same predecessor referenced both bare and fully-qualified must not
+        produce a duplicate inputDatajobs entry."""
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(
+            name="task_b", predecessors=["task_a", "TEST_DB.PUBLIC.task_a"]
+        )
+        wus, _ = _collect_workunits([task_a, task_b])
+
+        ios = _data_job_input_outputs(wus)
+        assert ios[0].inputDatajobs == [_job_urn(wus, "task_a")]
+
+    def test_predecessor_urn_matches_emitted_task_urn_without_lowercasing(self) -> None:
+        """With convert_urns_to_lowercase disabled the predecessor edge must be
+        built from the task's own name, not the upper-cased predecessor literal,
+        or it points at a DataJob that was never emitted."""
+        config = _make_config()
+        config.convert_urns_to_lowercase = False
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(name="task_b", predecessors=["task_a"])
+        wus, _ = _collect_workunits([task_a, task_b], config=config)
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        assert ios[0].inputDatajobs == [_job_urn(wus, "task_a")]
+
+    def test_temp_table_staging_collapses_through_to_real_target(self) -> None:
+        """Shared-session temp table resolution is the reason task bodies are
+        routed through parse_procedure_code, so the is_temp_table predicate has
+        to actually reach it.
+
+        Deliberately a plain ``CREATE TABLE``, not ``CREATE TEMPORARY TABLE``:
+        the latter is self-identifying, so it would collapse even with the
+        predicate unwired. Here the predicate is the only signal — matching
+        production, where _is_temp_table flags a scratch table that the dataset
+        patterns allow but that was never ingested.
+        """
+        task = _make_task(
+            name="staged_task",
+            definition=(
+                "CREATE TABLE scratch_a AS SELECT id FROM src; "
+                "INSERT INTO tgt SELECT id FROM scratch_a"
+            ),
+        )
+        wus, _ = _collect_workunits(
+            [task], is_temp_table=lambda name: "scratch_" in name
+        )
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        io = ios[0]
+        datasets = (io.inputDatasets or []) + (io.outputDatasets or [])
+        assert not any("scratch_a" in urn for urn in datasets), datasets
+        assert any("src" in urn for urn in io.inputDatasets or [])
+        assert any("tgt" in urn for urn in io.outputDatasets or [])
+
+    def test_task_body_without_lineage_is_counted_not_warned(self) -> None:
+        """COPY INTO is a canonical task body that carries no sqlglot-resolvable
+        lineage. That is not a failure and must not warn on every run."""
+        task = _make_task(
+            name="load_task", definition="COPY INTO my_tbl FROM @my_stage"
+        )
+        wus, report = _collect_workunits([task])
+
+        assert _data_job_input_outputs(wus) == []
+        assert report.tasks_without_sql_lineage == 1
+        assert not report.warnings
+
     def test_ownership_emitted(self) -> None:
         task = _make_task()
         wus, _ = _collect_workunits([task])
@@ -272,6 +376,7 @@ class TestSnowflakeTasksExtractor:
             data_dictionary=data_dict,
             identifiers=identifiers,
             schema_resolver=_make_schema_resolver(config),
+            is_temp_table=lambda _: False,
         )
         wus = list(extractor.get_workunits("TEST_DB", "PUBLIC"))
 
@@ -327,6 +432,35 @@ class TestSnowflakeTasksExtractor:
 
         ios = _data_job_input_outputs(wus)
         assert len(ios) == 0
+
+    def test_datajob_edge_survives_include_table_lineage_disabled(self) -> None:
+        """include_table_lineage governs table-to-table lineage, so disabling it
+        must strip the dataset halves without taking the job-to-job edges with
+        them: predecessor edges have never been gated on it, and procedures run
+        this same CALL path gated only on include_procedures."""
+        config = SnowflakeV2Config(
+            account_id="test_account",
+            username="user",
+            password="pass",  # type: ignore
+            include_tasks=True,
+            include_table_lineage=False,
+            include_column_lineage=False,
+        )
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(
+            name="task_b",
+            predecessors=["task_a"],
+            definition="INSERT INTO target_tbl(col_a) SELECT col_a FROM source_tbl",
+        )
+        wus, _ = _collect_workunits([task_a, task_b], config=config)
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        io = ios[0]
+        assert io.inputDatajobs == [_job_urn(wus, "task_a")]
+        assert not io.inputDatasets
+        assert not io.outputDatasets
+        assert io.fineGrainedLineages is None
 
     def test_column_lineage_skipped_when_include_column_lineage_disabled(
         self,
@@ -466,6 +600,48 @@ class TestSnowflakeTasksExtractor:
         assert any(
             "out_tbl" in (u or "") for io in ios for u in (io.outputDatasets or [])
         )
+
+    def test_sql_parse_failure_still_emits_ownership(self) -> None:
+        """The parse guard sits around the parse call, not the whole task, so a
+        body that blows up must not take the other four aspects with it. Losing
+        Ownership here would silently discard what a previous run wrote."""
+        task = _make_task(name="etl_task", definition="INSERT INTO a SELECT 1")
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_tasks.parse_procedure_code",
+            side_effect=RuntimeError("simulated parse failure"),
+        ):
+            wus, report = _collect_workunits([task])
+
+        assert report.tasks_failed == 1
+        titles = [w.title for w in report.warnings]
+        assert any("Task Lineage Extraction Failed" in (t or "") for t in titles), (
+            f"Expected a lineage-parse warning; got: {titles}"
+        )
+
+        ownerships = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, OwnershipClass)
+        ]
+        assert len(ownerships) == 1
+        # No lineage survived, but the task itself is fully ingested.
+        assert _data_job_input_outputs(wus) == []
+        assert _job_urn(wus, "etl_task")
+
+    def test_execute_immediate_yields_no_datajob_edge(self) -> None:
+        """EXECUTE IMMEDIATE runs SQL built at runtime, so there is no call
+        target to resolve. It must not be mistaken for a procedure call."""
+        task = _make_task(
+            name="dynamic_task",
+            definition="EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'",
+        )
+        wus, report = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert all(not io.inputDatajobs for io in ios)
+        assert not report.warnings
 
     def test_multi_statement_task_emits_combined_lineage(self) -> None:
         """Multi-statement task bodies are split and each statement is parsed

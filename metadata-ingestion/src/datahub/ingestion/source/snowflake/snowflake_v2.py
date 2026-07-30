@@ -567,8 +567,6 @@ class SnowflakeV2Source(
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 
-        yield from self._get_stages_tasks_pipes_workunits(databases)
-
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
@@ -612,12 +610,17 @@ class SnowflakeV2Source(
                     "No tables/views/streams found. Verify dataset permissions in Snowflake.",
                 )
 
+        # Must be set before anything that parses SQL: _is_temp_table treats a
+        # table that's allowed by the dataset patterns but absent from this list
+        # as a temp table, and that arm silently no-ops while the list is None.
         self.discovered_datasets = (
             discovered_tables
             + discovered_views
             + discovered_semantic_views
             + discovered_streams
         )
+
+        yield from self._get_stages_tasks_pipes_workunits(databases)
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):

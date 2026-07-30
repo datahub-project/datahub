@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -22,6 +22,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     MAX_DEFINITION_LENGTH,
     SnowflakeIdentifierBuilder,
+    split_qualified_name,
 )
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
@@ -46,7 +47,7 @@ class SnowflakeTasksExtractor:
     data_dictionary: SnowflakeDataDictionary
     identifiers: SnowflakeIdentifierBuilder
     schema_resolver: SchemaResolver
-    is_temp_table: Callable[[str], bool] = field(default=lambda _: False)
+    is_temp_table: Callable[[str], bool]
 
     def get_workunits(
         self,
@@ -79,8 +80,10 @@ class SnowflakeTasksExtractor:
 
         yield from self._gen_data_flow(flow_urn, db_name, schema_name)
 
+        # Keyed on the upper-cased 3-part FQN so predecessor references can be
+        # normalised to the same shape and looked up directly.
         task_name_map: Dict[str, SnowflakeTask] = {
-            task.name.upper(): task for task in tasks
+            f"{db_name}.{schema_name}.{task.name}".upper(): task for task in tasks
         }
 
         for task in allowed_tasks:
@@ -94,6 +97,12 @@ class SnowflakeTasksExtractor:
                     task_name_map=task_name_map,
                 )
             except Exception as e:
+                # Belt-and-braces. The one call that can realistically throw
+                # (SQL parsing) guards itself in _parse_task_definition_for_lineage
+                # so the other aspects still emit, which should leave this
+                # unreachable — but a single malformed task must never halt the
+                # rest of the schema.
+                self.report.tasks_failed += 1
                 self.report.warning(
                     title="Task Extraction Failed",
                     message="Failed to extract metadata for task; skipping remaining aspects",
@@ -183,26 +192,20 @@ class SnowflakeTasksExtractor:
         input_datajobs: List[str] = []
         unresolved_predecessors: List[str] = []
         for predecessor_name in task.predecessors:
-            pred_name_upper = predecessor_name.strip().upper()
-            # Predecessors may be fully qualified or just task names
-            # Handle both: "DB.SCHEMA.TASK" or just "TASK"
-            pred_name_parts = pred_name_upper.split(".")
-            simple_name = pred_name_parts[-1]
-            # A fully-qualified name only resolves against the current schema's
-            # task list if it actually points at this db/schema; otherwise a
-            # same-named task in another schema would wrongly match on leaf name
-            # alone.
-            is_current_schema = len(pred_name_parts) == 1 or (
-                len(pred_name_parts) == 3
-                and pred_name_parts[0] == db_name.upper()
-                and pred_name_parts[1] == schema_name.upper()
+            pred_task = task_name_map.get(
+                self._predecessor_fqn(predecessor_name, db_name, schema_name)
             )
-            if is_current_schema and simple_name in task_name_map:
-                pred_job_id = self.identifiers.snowflake_identifier(simple_name)
-                pred_job_urn = make_data_job_urn_with_flow(flow_urn, pred_job_id)
-                input_datajobs.append(pred_job_urn)
-            else:
+            if pred_task is None:
                 unresolved_predecessors.append(predecessor_name)
+                continue
+            # Resolve the URN off the task's own name, not the predecessor
+            # literal, so it matches the job_id that task is emitted under
+            # (which may be lower-cased by snowflake_identifier).
+            pred_job_urn = make_data_job_urn_with_flow(
+                flow_urn, self.identifiers.snowflake_identifier(pred_task.name)
+            )
+            if pred_job_urn not in input_datajobs:
+                input_datajobs.append(pred_job_urn)
 
         if unresolved_predecessors:
             # Snowflake allows cross-schema task DAGs via fully-qualified
@@ -215,20 +218,8 @@ class SnowflakeTasksExtractor:
             )
 
         datajob_input_output = self._parse_task_definition_for_lineage(
-            task, task_fqn, db_name, schema_name
+            task, task_fqn, db_name, schema_name, input_datajobs
         )
-
-        if input_datajobs:
-            if datajob_input_output is None:
-                datajob_input_output = DataJobInputOutputClass(
-                    inputDatasets=[],
-                    outputDatasets=[],
-                    inputDatajobs=input_datajobs,
-                )
-            else:
-                datajob_input_output.inputDatajobs = (
-                    list(datajob_input_output.inputDatajobs or []) + input_datajobs
-                )
 
         if datajob_input_output is not None:
             yield MetadataChangeProposalWrapper(
@@ -249,40 +240,109 @@ class SnowflakeTasksExtractor:
                 ),
             ).as_workunit()
 
+    @staticmethod
+    def _predecessor_fqn(
+        predecessor_name: str,
+        db_name: str,
+        schema_name: str,
+    ) -> str:
+        """Normalise a predecessor reference to an upper-cased 3-part FQN.
+
+        Snowflake reports predecessors as ``TASK``, ``SCHEMA.TASK`` or
+        ``DB.SCHEMA.TASK``, optionally quoted. Unqualified parts default to the
+        task's own database and schema; anything else is returned as-is so it
+        simply fails to match and lands in the unresolved bucket.
+        """
+        parts = [
+            part.upper() for part in split_qualified_name(predecessor_name.strip())
+        ]
+        if len(parts) == 1:
+            parts = [db_name.upper(), schema_name.upper(), *parts]
+        elif len(parts) == 2:
+            parts = [db_name.upper(), *parts]
+        return ".".join(parts)
+
     def _parse_task_definition_for_lineage(
         self,
         task: SnowflakeTask,
         task_fqn: str,
         db_name: str,
         schema_name: str,
+        input_datajobs: List[str],
     ) -> Optional[DataJobInputOutputClass]:
-        """Parse task SQL to extract dataset-level inputs/outputs and column lineage.
+        """Build the task's DataJobInputOutput aspect, if it has one.
 
-        Delegates to the same statement-splitting + SqlParsingAggregator path used
-        for stored procedures, so multi-statement task bodies are handled naturally
-        instead of being rejected outright.
+        Parses the SQL body via the same statement-splitting + SqlParsingAggregator
+        path used for stored procedures, so multi-statement bodies are handled
+        naturally, and merges in the predecessor DAG edges the caller resolved.
         """
-        if not task.definition or not self.config.include_table_lineage:
-            return None
+        datajob_input_output: Optional[DataJobInputOutputClass] = None
 
-        datajob_input_output = parse_procedure_code(
-            schema_resolver=self.schema_resolver,
-            default_db=db_name,
-            default_schema=schema_name,
-            code=task.definition,
-            is_temp_table=self.is_temp_table,
-            procedure_name=task_fqn,
-        )
+        if task.definition:
+            try:
+                datajob_input_output = parse_procedure_code(
+                    schema_resolver=self.schema_resolver,
+                    default_db=db_name,
+                    default_schema=schema_name,
+                    code=task.definition,
+                    is_temp_table=self.is_temp_table,
+                    procedure_name=task_fqn,
+                    additional_input_jobs=input_datajobs,
+                )
+            except Exception as e:
+                # Guarded here rather than around the whole task so a body we
+                # can't parse still leaves DataJobInfo/SubTypes/Status/Ownership
+                # intact — dropping Ownership would silently discard what a
+                # previous run wrote.
+                self.report.tasks_failed += 1
+                self.report.warning(
+                    title="Task Lineage Extraction Failed",
+                    message="Failed to parse task definition; task metadata is still ingested",
+                    context=task_fqn,
+                    exc=e,
+                )
+            else:
+                if datajob_input_output is None:
+                    # Not a failure: plenty of valid task bodies carry no lineage
+                    # at all (COPY INTO, TRUNCATE, ALTER TASK, DELETE, literal
+                    # INSERT ... VALUES). parse_procedure_code returns None for
+                    # those as well as for genuine parse errors, and swallows the
+                    # latter at debug level inside its throwaway aggregator, so we
+                    # can't distinguish the two here without surfacing that
+                    # sub-report. Count rather than warn.
+                    self.report.tasks_without_sql_lineage += 1
+                    logger.debug(
+                        f"No lineage-bearing statements in task body: {task_fqn}"
+                    )
 
         if datajob_input_output is None:
-            self.report.warning(
-                title="Task Lineage Extraction Failed",
-                message="Failed to extract lineage from task definition",
-                context=task_fqn,
+            # No body, nothing lineage-bearing in it, or the parse threw. The
+            # predecessor DAG edges still deserve an aspect of their own.
+            if not input_datajobs:
+                return None
+            return DataJobInputOutputClass(
+                inputDatasets=[],
+                outputDatasets=[],
+                inputDatajobs=list(input_datajobs),
             )
-            return None
 
-        if not self.config.include_column_lineage:
+        if not self.config.include_table_lineage:
+            # include_table_lineage is documented as table-to-table lineage, so it
+            # strips the dataset halves only. The job-to-job edges stay: they're
+            # DAG structure, the predecessor-derived ones have never been gated,
+            # and procedures run this same CALL path gated only on
+            # include_procedures.
+            datajob_input_output.inputDatasets = []
+            datajob_input_output.outputDatasets = []
             datajob_input_output.fineGrainedLineages = None
+        elif not self.config.include_column_lineage:
+            datajob_input_output.fineGrainedLineages = None
+
+        if not (
+            datajob_input_output.inputDatasets
+            or datajob_input_output.outputDatasets
+            or datajob_input_output.inputDatajobs
+        ):
+            return None
 
         return datajob_input_output

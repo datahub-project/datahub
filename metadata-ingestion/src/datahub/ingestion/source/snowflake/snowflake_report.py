@@ -108,6 +108,8 @@ class SnowflakeV2Report(
     semantic_views_scanned: int = 0
     stages_scanned: int = 0
     tasks_scanned: int = 0
+    tasks_failed: int = 0
+    tasks_without_sql_lineage: int = 0
     pipes_scanned: int = 0
 
     include_usage_stats: bool = False

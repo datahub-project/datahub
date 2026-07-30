@@ -428,7 +428,9 @@ stage_pattern:
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
 
-Task SQL bodies are also parsed with sqlglot to extract dataset-level and column-level lineage, using the same statement-splitting pipeline as stored procedure lineage. `INSERT`, `MERGE`, and `CREATE TABLE AS SELECT` statements produce `inputDatasets`, `outputDatasets`, and fine-grained (column-to-column) lineage on the DataJobInputOutput aspect, including multi-statement bodies. `CALL <procedure>` statements resolve to an `inputDatajobs` edge pointing at the called procedure's DataJob, matching how procedure-to-procedure calls are resolved for stored procedures.
+Task SQL bodies are also parsed with sqlglot to extract lineage, using the same statement-splitting pipeline as stored procedure lineage. This requires `include_table_lineage: true` for the dataset-level half and additionally `include_column_lineage: true` for the column-level half — `include_tasks: true` on its own only produces the task entities and their predecessor DAG. `INSERT`, `MERGE`, and `CREATE TABLE AS SELECT` statements produce `inputDatasets`, `outputDatasets`, and fine-grained (column-to-column) lineage on the DataJobInputOutput aspect, including multi-statement bodies.
+
+`CALL <procedure>` statements are also detected and produce an `inputDatajobs` edge, using the same mechanism as procedure-to-procedure call resolution. Be aware that the edge may not resolve to the procedure DataJob this connector emits: the call site cannot see the called procedure's argument signature, so the urn carries neither the `_<hash>` suffix that Snowflake procedure urns always include nor the connector's identifier case normalisation. Treat task-to-procedure edges as best-effort until that is addressed.
 
 Cross-schema predecessors (fully-qualified names not found in the current schema's task list) are captured in the report as a warning; task-DAG lineage for those edges will be incomplete.
 

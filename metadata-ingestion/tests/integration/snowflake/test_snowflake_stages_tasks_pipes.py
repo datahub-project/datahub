@@ -142,8 +142,25 @@ def test_snowflake_task_lineage_extracted_end_to_end(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
     """With table/column lineage enabled, task SQL bodies are parsed into
-    real dataset- and column-level lineage on the DataJobInputOutput aspect."""
+    real dataset- and column-level lineage on the DataJobInputOutput aspect.
+
+    Snapshotted rather than hand-asserted so the full aspect shape is covered —
+    the exact column pairs in fineGrainedLineages, every inputDatajobs urn
+    (including the CALL-derived one on CHILD_TASK_1), and the absence of any
+    spurious event.
+
+    KNOWN ISSUE captured in the golden: CHILD_TASK_1's CALL-derived edge reads
+    ``...(snowflake,TEST_DB.TEST_SCHEMA.stored_procedures,PROD),MY_PROCEDURE)``,
+    while the procedure DataJob this connector actually emits is
+    ``...(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_<hash>)``
+    (see snowflake_golden.json). The call site can't see the argument signature,
+    so the urn carries neither the hash nor identifier case normalisation. The
+    golden records current behaviour deliberately, so the fix shows up as a diff
+    here — it is not an assertion that this urn is correct.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
     output_file = tmp_path / "snowflake_task_lineage_events.json"
+    golden_file = test_resources_dir / "snowflake_task_lineage_golden.json"
 
     config = _base_config(
         include_stages=False,
@@ -154,43 +171,14 @@ def test_snowflake_task_lineage_extracted_end_to_end(
     )
     _run_pipeline(config, output_file)
 
-    with open(output_file) as f:
-        events = json.load(f)
-
-    root_task_io = next(
-        e["aspect"]["json"]
-        for e in events
-        if e.get("aspectName") == "dataJobInputOutput"
-        and e["entityUrn"].endswith("root_task)")
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_file,
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]",
+        ],
     )
-    assert any("table_2" in u for u in root_task_io["inputDatasets"])
-    assert any("table_1" in u for u in root_task_io["outputDatasets"])
-    assert root_task_io["fineGrainedLineages"]
-
-    child_task_2_io = next(
-        e["aspect"]["json"]
-        for e in events
-        if e.get("aspectName") == "dataJobInputOutput"
-        and e["entityUrn"].endswith("child_task_2)")
-    )
-    assert any("table_1" in u for u in child_task_2_io["inputDatasets"])
-    assert any("table_3" in u for u in child_task_2_io["outputDatasets"])
-    assert child_task_2_io["fineGrainedLineages"]
-    # Predecessor lineage (from ROOT_TASK) is still combined with the parsed
-    # SQL-body lineage on the same aspect.
-    assert any("root_task" in u for u in child_task_2_io["inputDatajobs"])
-
-    # CHILD_TASK_1's body is a CALL statement, unsupported by sqlglot's
-    # lineage engine — no dataset lineage should be parsed for it.
-    child_task_1_io = next(
-        (
-            e["aspect"]["json"]
-            for e in events
-            if e.get("aspectName") == "dataJobInputOutput"
-            and e["entityUrn"].endswith("child_task_1)")
-        ),
-        None,
-    )
-    assert child_task_1_io is not None
-    assert child_task_1_io["inputDatasets"] == []
-    assert child_task_1_io["outputDatasets"] == []
