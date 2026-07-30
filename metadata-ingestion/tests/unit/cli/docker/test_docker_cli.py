@@ -184,7 +184,9 @@ def test_get_github_file_url_custom_base():
     custom_base = "https://github.com/my-fork/datahub/my-branch"
     with patch.dict("os.environ", {"DOCKER_COMPOSE_BASE": custom_base}):
         result = get_github_file_url("v2.0.0")
-        expected = f"{custom_base}/docker/quickstart/docker-compose.quickstart-profile.yml"
+        expected = (
+            f"{custom_base}/docker/quickstart/docker-compose.quickstart-profile.yml"
+        )
         assert result == expected
 
 
@@ -220,12 +222,18 @@ def test_check_upgrade_and_show_instructions_upgrade_not_supported():
     """Test _check_upgrade_and_show_instructions when check_upgrade_supported returns False"""
     # Mock the dependencies
     mock_status = MagicMock()
-    mock_status.is_ok.return_value = True  # Status is OK, so migration instructions will be shown
+    mock_status.is_ok.return_value = (
+        True  # Status is OK, so migration instructions will be shown
+    )
 
     with (
-        patch("datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status),
+        patch(
+            "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
+        ),
         patch("datahub.cli.docker_cli.check_upgrade_supported", return_value=False),
-        patch("datahub.cli.docker_cli.show_migration_instructions") as mock_show_migration,
+        patch(
+            "datahub.cli.docker_cli.show_migration_instructions"
+        ) as mock_show_migration,
     ):
         # Call the function
         result = _check_upgrade_and_show_instructions([])
@@ -241,10 +249,14 @@ def test_check_upgrade_and_show_instructions_upgrade_not_supported_repair():
     """Test _check_upgrade_and_show_instructions when check_upgrade_supported returns False and status is not OK"""
     # Mock the dependencies
     mock_status = MagicMock()
-    mock_status.is_ok.return_value = False  # Status is not OK, so repair instructions will be shown
+    mock_status.is_ok.return_value = (
+        False  # Status is not OK, so repair instructions will be shown
+    )
 
     with (
-        patch("datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status),
+        patch(
+            "datahub.cli.docker_cli.check_docker_quickstart", return_value=mock_status
+        ),
         patch("datahub.cli.docker_cli.check_upgrade_supported", return_value=False),
         patch("datahub.cli.docker_cli.show_repair_instructions") as mock_show_repair,
     ):
@@ -380,7 +392,9 @@ def test_resolve_secrets_uses_utf8_on_non_utf8_locale(tmp_path: Path) -> None:
         kwargs.setdefault("encoding", "cp949")
         return original_read_text(path, *args, **kwargs)
 
-    def write_text_with_cp949_default(path: Path, data: str, *args: Any, **kwargs: Any) -> int:
+    def write_text_with_cp949_default(
+        path: Path, data: str, *args: Any, **kwargs: Any
+    ) -> int:
         kwargs.setdefault("encoding", "cp949")
         return original_write_text(path, data, *args, **kwargs)
 
