@@ -27,6 +27,78 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 You may create custom assertions using the following APIs for a Dataset in DataHub.
 
+### Required and optional fields
+
+`upsertCustomAssertion` requires:
+
+- `entityUrn` — dataset URN being monitored
+- `type` — free-text category shown in the UI (for example `My Custom Category`)
+- `description` — human-readable assertion description
+- `platform` — **either** `platform.urn` **or** `platform.name` (at least one). An empty `platform: {}` fails with
+  `Failed to upsert Custom Assertion. Platform Name or Platform Urn must be specified.`
+
+Optional:
+
+- `fieldPath` — **optional** bare column name for field-level assertions (for example `profile_id`).
+  DataHub builds the schemaField URN for you. Omit it for dataset-level assertions.
+  Do **not** pass a full `urn:li:schemaField:(...)` string here.
+- `logic` — optional raw query / expression rendered in the UI
+- `externalUrl` — optional link back to your monitoring tool
+- `urn` (mutation argument) — optional stable assertion id; otherwise DataHub generates one
+
+### Minimal field-level write-back (agent example)
+
+Create a field-level custom assertion and report a result in one pass:
+
+```graphql
+mutation writeFieldAssertion {
+  upsertCustomAssertion(
+    urn: "urn:li:assertion:agent-profile-id-not-null"
+    input: {
+      entityUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,example.table,PROD)"
+      type: "Agent Finding"
+      description: "profile_id must not be null"
+      platform: { name: "my-agent" }
+      fieldPath: "profile_id"
+    }
+  ) {
+    urn
+  }
+}
+
+mutation reportFieldAssertionResult {
+  reportAssertionResult(
+    urn: "urn:li:assertion:agent-profile-id-not-null"
+    result: { type: SUCCESS }
+  )
+}
+```
+
+```python
+import time
+
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
+
+graph = DataHubGraph(config=DatahubClientConfig(server="http://localhost:8080"))
+
+assertion_urn = "urn:li:assertion:agent-profile-id-not-null"
+entity_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,example.table,PROD)"
+
+graph.upsert_custom_assertion(
+    urn=assertion_urn,
+    entity_urn=entity_urn,
+    type="Agent Finding",
+    description="profile_id must not be null",
+    platform_name="my-agent",
+    field_path="profile_id",
+)
+graph.report_assertion_result(
+    urn=assertion_urn,
+    timestamp_millis=int(time.time() * 1000),
+    type="SUCCESS",
+)
+```
+
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
@@ -44,7 +116,7 @@ mutation upsertCustomAssertion {
       platform: {
         urn: "urn:li:dataPlatform:great-expectations" # OR you can provide name: "My Custom Platform" if you do not have an URN for the platform.
       }
-      fieldPath: "field_foo" # Optional: if you want to associated with a specific field,
+      fieldPath: "field_foo" # Optional: bare column name for a field-level assertion
       externalUrl: "https://my-monitoring-tool.com/result-for-this-assertion" # Optional: if you want to provide a link to the monitoring tool
       # Optional: If you want to provide a custom SQL query for the assertion. This will be rendered as a query in the UI.
       # logic: "SELECT * FROM X WHERE Y"
