@@ -418,6 +418,9 @@ def dataplatform2instance(
     metadata (ownership, tags, terms, documentation, structured properties, ...)
     is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
     and system-managed aspects (browse paths, incidents summary) are not migrated.
+
+    See ``datahub migrate urns-mapping --help`` for details on how --on-conflict
+    is applied per aspect category (additive vs scalar vs always-overwritten).
     """
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, "
@@ -552,6 +555,9 @@ def instance2instance(
     metadata (ownership, tags, terms, documentation, structured properties, ...)
     is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
     and system-managed aspects (browse paths, incidents summary) are not migrated.
+
+    See ``datahub migrate urns-mapping --help`` for details on how --on-conflict
+    is applied per aspect category (additive vs scalar vs always-overwritten).
     """
     conflict = ConflictStrategy(on_conflict)
     entity_types_to_migrate = _parse_entity_types(
@@ -771,6 +777,41 @@ def urns_mapping(
     instance-migration commands this does not stamp a dataPlatformInstance and does
     not migrate containers or enforce dataFlow/dataJob parent consistency — the
     caller owns the exact mapping.
+
+    \b
+    Conflict resolution (--on-conflict)
+    ------------------------------------
+    When the target entity already exists, --on-conflict controls how each
+    aspect is merged. The strategy is applied per aspect and varies by
+    aspect category:
+
+    \b
+      Always merged (additive):   ownership, tags, glossary terms, lineage.
+                                  Source items are unioned into the target
+                                  regardless of --on-conflict.
+      Strategy-dependent (scalar): schema, editable schema, view properties,
+                                  and any other non-additive registry aspect.
+                                  "overwrite" replaces the target value;
+                                  "patch" keeps the target value when present.
+      Mixed:                      datasetProperties, editableDatasetProperties.
+                                  customProperties keys are always merged;
+                                  description follows the chosen strategy.
+      Always overwritten:         container, status, containerProperties.
+      Preserve:                   skips all merge work — the target is left
+                                  untouched, but incoming references are still
+                                  repointed and the source is deleted.
+
+    \b
+    Examples
+    --------
+    Conservative (safest): keep source entities and preserve existing targets:
+
+      datahub migrate urns-mapping --mapping-file map.json --keep --on-conflict preserve
+
+    This clones aspects to targets that don't exist yet, leaves existing targets
+    untouched, repoints incoming references, and does NOT delete the sources.
+    Useful for a dry-run-like trial where you can inspect results before
+    re-running without --keep.
     """
     pairs = _load_mapping_pairs(mapping_file)
     conflict = ConflictStrategy(on_conflict)
