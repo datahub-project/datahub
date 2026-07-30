@@ -256,20 +256,19 @@ If you manage infrastructure with Terraform, use the public [`remote-ingestion-e
 
    Other commonly used inputs:
 
-   | Input                                                                       | Purpose                                                                                                                             | Default                  |
-   | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-   | `datahub.url`                                                               | DataHub Cloud GMS URL (include the trailing `/gms`)                                                                                 | — (**required**)         |
-   | `datahub.executor_pool_id`                                                  | Executor Pool ID from the DataHub UI                                                                                                | `"remote"`               |
-   | `subnet_ids`                                                                | Subnets for the task. Required in practice — the security group's VPC is derived from the first subnet                              | `[]`                     |
-   | `assign_public_ip`                                                          | Set to `false` for private subnets with a NAT gateway                                                                               | `true`                   |
-   | `desired_count`                                                             | Number of running executor tasks                                                                                                    | `1`                      |
-   | `cpu` / `memory`                                                            | Fargate task size (CPU units / MiB)                                                                                                 | `1024` / `2048`          |
-   | `ephemeral_storage`                                                         | Task disk, e.g. `{ size_in_gib = 20 }`.| Fargate default (20 GiB) |
-   | `datahub.executor_ingestions_workers` / `datahub.executor_monitors_workers` | Concurrent ingestion / monitor tasks                                                                                                | `4` / `10`               |
-   | `datahub.image_tag`                                                         | Remote Executor image version                                                                                                       | pinned by the module tag |
-   | `environment`                                                               | Extra non-secret env vars (`[{ name, value }]`)                                                                                     | `[]`                     |
-   | `tags`                                                                      | Tags applied to all created resources                                                                                               | `{}`                     |
-
+   | Input                                                                       | Purpose                                                                                                | Default                  |
+   | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
+   | `datahub.url`                                                               | DataHub Cloud GMS URL (include the trailing `/gms`)                                                    | — (**required**)         |
+   | `datahub.executor_pool_id`                                                  | Executor Pool ID from the DataHub UI                                                                   | `"remote"`               |
+   | `subnet_ids`                                                                | Subnets for the task. Required in practice — the security group's VPC is derived from the first subnet | `[]`                     |
+   | `assign_public_ip`                                                          | Set to `false` for private subnets with a NAT gateway                                                  | `true`                   |
+   | `desired_count`                                                             | Number of running executor tasks                                                                       | `1`                      |
+   | `cpu` / `memory`                                                            | Fargate task size (CPU units / MiB)                                                                    | `1024` / `2048`          |
+   | `ephemeral_storage`                                                         | Task disk, e.g. `{ size_in_gib = 20 }`.                                                                | Fargate default (20 GiB) |
+   | `datahub.executor_ingestions_workers` / `datahub.executor_monitors_workers` | Concurrent ingestion / monitor tasks                                                                   | `4` / `10`               |
+   | `datahub.image_tag`                                                         | Remote Executor image version                                                                          | pinned by the module tag |
+   | `environment`                                                               | Extra non-secret env vars (`[{ name, value }]`)                                                        | `[]`                     |
+   | `tags`                                                                      | Tags applied to all created resources                                                                  | `{}`                     |
 
 4. **Apply**
 
