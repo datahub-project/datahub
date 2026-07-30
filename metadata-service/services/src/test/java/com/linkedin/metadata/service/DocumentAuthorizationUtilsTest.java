@@ -13,10 +13,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -25,6 +27,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.knowledge.RelatedAsset;
+import com.linkedin.knowledge.RelatedAssetArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -87,9 +91,48 @@ public class DocumentAuthorizationUtilsTest {
 
   @Test
   public void testIsUpdateLike() {
+    assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.CREATE));
     assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.UPSERT));
+    assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.UPDATE));
+    assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.RESTATE));
     assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.PATCH));
     assertFalse(DocumentAuthorizationUtils.isUpdateLike(ChangeType.DELETE));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedDocumentUrns_emptyAllows() {
+    enableRestApiAuthorization();
+
+    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(opContext, READ, List.of()));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedDocumentUrns_deleteUsesStandardEntityAuthorization() {
+    enableRestApiAuthorization();
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(STANDALONE_DOC)))
+        .thenReturn(true);
+
+    assertTrue(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, DELETE, List.of(STANDALONE_DOC)));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedDocumentUrns_mixedExistenceRequiresBothPrivileges() {
+    enableRestApiAuthorization();
+    when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC, BRIDGE_DOC)))
+        .thenReturn(Map.of(STANDALONE_DOC, true, BRIDGE_DOC, false));
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(STANDALONE_DOC)))
+        .thenReturn(true);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(BRIDGE_DOC)))
+        .thenReturn(true);
+
+    assertTrue(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, UPDATE, List.of(STANDALONE_DOC, BRIDGE_DOC)));
   }
 
   @Test
@@ -139,6 +182,19 @@ public class DocumentAuthorizationUtilsTest {
     assertFalse(
         DocumentAuthorizationUtils.canViewDocumentEntity(
             opContext, aspectRetriever, STANDALONE_DOC));
+  }
+
+  @Test
+  public void testCanViewNonDocumentDelegatesForBothOverloads() {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    authUtilMock.when(() -> AuthUtil.canViewEntity(session, SOURCE_DATASET)).thenReturn(true);
+    authUtilMock.when(() -> AuthUtil.canViewEntity(opContext, SOURCE_DATASET)).thenReturn(true);
+
+    assertTrue(
+        DocumentAuthorizationUtils.canViewDocumentEntity(session, aspectRetriever, SOURCE_DATASET));
+    assertTrue(
+        DocumentAuthorizationUtils.canViewDocumentEntity(
+            opContext, aspectRetriever, SOURCE_DATASET, null, null));
   }
 
   @Test
@@ -271,6 +327,71 @@ public class DocumentAuthorizationUtilsTest {
     subTypes.setTypeNames(new StringArray(DocumentAuthorizationUtils.BRIDGE_DOCUMENT_SUBTYPE));
     assertTrue(DocumentAuthorizationUtils.isBridgeDocument(BRIDGE_DOC, subTypes));
     assertFalse(DocumentAuthorizationUtils.isBridgeDocument(STANDALONE_DOC, subTypes));
+    assertFalse(DocumentAuthorizationUtils.isBridgeDocument(SOURCE_DATASET, subTypes));
+    assertFalse(DocumentAuthorizationUtils.isBridgeDocument(BRIDGE_DOC, null));
+    assertFalse(DocumentAuthorizationUtils.isBridgeDocument(BRIDGE_DOC, new SubTypes()));
+    assertFalse(
+        DocumentAuthorizationUtils.isBridgeDocument(
+            BRIDGE_DOC, new SubTypes().setTypeNames(new StringArray("Other"))));
+  }
+
+  @Test
+  public void testResolveDocumentBridgeSourceUrn_rejectsIncompleteBridgeMetadata() {
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, null, bridgeSubTypes()));
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, new DocumentInfo(), bridgeSubTypes()));
+
+    DocumentInfo missingBridgeType = new DocumentInfo();
+    missingBridgeType.setCustomProperties(
+        new StringMap(
+            Map.of(
+                DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY,
+                SOURCE_DATASET.toString())));
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, missingBridgeType, bridgeSubTypes()));
+
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            STANDALONE_DOC, bridgeDocumentInfo(SOURCE_DATASET), bridgeSubTypes()));
+  }
+
+  @Test
+  public void testResolveDocumentBridgeSourceUrn_rejectsMismatchedAndMalformedSources() {
+    DocumentInfo mismatchedType = bridgeDocumentInfo(SOURCE_DATASET);
+    mismatchedType
+        .getCustomProperties()
+        .put(DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, "chart");
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, mismatchedType, bridgeSubTypes()));
+
+    DocumentInfo malformedSource = bridgeDocumentInfo(SOURCE_DATASET);
+    malformedSource
+        .getCustomProperties()
+        .put(DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY, "not-a-urn");
+    assertNull(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, malformedSource, bridgeSubTypes()));
+  }
+
+  @Test
+  public void testResolveDocumentBridgeSourceUrn_fallsBackToLegacyRelatedDataset() {
+    DocumentInfo info = new DocumentInfo();
+    info.setCustomProperties(
+        new StringMap(Map.of(DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, "dataset")));
+    RelatedAsset nonDataset =
+        new RelatedAsset().setAsset(UrnUtils.getUrn("urn:li:corpuser:not-a-dataset"));
+    RelatedAsset dataset = new RelatedAsset().setAsset(SOURCE_DATASET);
+    info.setRelatedAssets(new RelatedAssetArray(nonDataset, dataset));
+
+    assertEquals(
+        DocumentAuthorizationUtils.resolveDocumentBridgeSourceUrn(
+            BRIDGE_DOC, info, bridgeSubTypes()),
+        SOURCE_DATASET);
   }
 
   @Test

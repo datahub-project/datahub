@@ -18,6 +18,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -44,6 +47,7 @@ public class EntityAuthorizationUtilsTest {
   private static final Urn DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:facade-doc");
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD)");
+  private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:facade-query");
 
   private OperationContext opContext;
   private AspectRetriever aspectRetriever;
@@ -94,6 +98,16 @@ public class EntityAuthorizationUtilsTest {
     assertFalse(
         EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
             opContext, READ, List.of(DATASET_URN, DOCUMENT_URN)));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_nonDocumentsOnlyUsesStandardAuthorization() {
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(DATASET_URN)))
+        .thenReturn(true);
+
+    assertTrue(
+        EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(DATASET_URN)));
   }
 
   @Test
@@ -152,6 +166,91 @@ public class EntityAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIngestAuthorization_restApiDisabledDelegatesUnchanged() {
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType("dataset")
+            .setEntityUrn(DATASET_URN)
+            .setChangeType(ChangeType.UPSERT);
+    List<Pair<MetadataChangeProposal, Integer>> expected = List.of(Pair.of(proposal, 200));
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(false);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorized(opContext, ENTITY, entityRegistry, List.of(proposal)))
+        .thenReturn(expected);
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, entityRegistry, List.of(proposal)),
+        expected);
+  }
+
+  @Test
+  public void testIngestAuthorization_resolvesMissingDocumentUrnFromKeyAspect() {
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    AspectSpec keyAspectSpec = mock(AspectSpec.class);
+    when(entityRegistry.getEntitySpec("document")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectSpec()).thenReturn(keyAspectSpec);
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal().setEntityType("document").setChangeType(ChangeType.UPSERT);
+    Pair<ChangeType, Urn> createAuthorizationKey = Pair.of(ChangeType.CREATE_ENTITY, DOCUMENT_URN);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    documentAuthMock
+        .when(() -> DocumentAuthorizationUtils.isUpdateLike(ChangeType.UPSERT))
+        .thenReturn(true);
+    documentAuthMock
+        .when(
+            () ->
+                DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+                    ChangeType.UPSERT, DOCUMENT_URN, false))
+        .thenReturn(createAuthorizationKey);
+    when(aspectRetriever.entityExists(opContext, Set.of(DOCUMENT_URN)))
+        .thenReturn(Map.of(DOCUMENT_URN, false));
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(createAuthorizationKey)))
+        .thenReturn(Map.of(createAuthorizationKey, 201));
+
+    try (MockedStatic<EntityKeyUtils> entityKeyUtils = Mockito.mockStatic(EntityKeyUtils.class)) {
+      entityKeyUtils
+          .when(() -> EntityKeyUtils.getUrnFromProposal(proposal, keyAspectSpec))
+          .thenReturn(DOCUMENT_URN);
+
+      assertEquals(
+          EntityAuthorizationUtils.isAPIAuthorizedIngest(
+              opContext, entityRegistry, List.of(proposal)),
+          List.of(Pair.of(proposal, 201)));
+    }
+  }
+
+  @Test
+  public void testIngestAuthorization_nonDocumentSkipsExistenceLookup() {
+    EntityRegistry entityRegistry = mock(EntityRegistry.class);
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType("dataset")
+            .setEntityUrn(DATASET_URN)
+            .setChangeType(ChangeType.UPSERT);
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(ChangeType.UPSERT, DATASET_URN);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    documentAuthMock
+        .when(
+            () ->
+                DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+                    ChangeType.UPSERT, DATASET_URN, false))
+        .thenReturn(authorizationKey);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(authorizationKey)))
+        .thenReturn(Map.of(authorizationKey, 200));
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, entityRegistry, List.of(proposal)),
+        List.of(Pair.of(proposal, 200)));
+    Mockito.verify(aspectRetriever, Mockito.never()).entityExists(any(), any());
+  }
+
+  @Test
   public void testIsAPIAuthorizedResult_extractsUrnsFromAllResultTypes() {
     documentAuthMock
         .when(
@@ -191,5 +290,20 @@ public class EntityAuthorizationUtilsTest {
 
     authUtilMock.when(() -> AuthUtil.canViewEntity(opContext, DATASET_URN)).thenReturn(false);
     assertFalse(EntityAuthorizationUtils.canViewEntity(opContext, DATASET_URN));
+  }
+
+  @Test
+  public void testCanViewEntity_delegatesQueries() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewQueryEntity(
+                      opContext, opContext, aspectRetriever, QUERY_URN))
+          .thenReturn(true);
+
+      assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, QUERY_URN));
+    }
   }
 }
