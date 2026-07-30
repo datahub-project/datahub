@@ -19,9 +19,13 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
+)
+from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
+    CONFLUENT_CATALOG_CONFIG_PATH,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
@@ -134,6 +138,34 @@ class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+
+
+class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
+    include_lineage: bool = Field(
+        default=False,
+        description="Take connector -> topic lineage from the catalog rather than inferring it from "
+        "connector config. The catalog reports topic names after any topic-routing transform has been "
+        "applied, so the topic is exact rather than predicted. "
+        "Off by default because it is a trade-off: the catalog does not know which source table the "
+        "data came from, so enabling this replaces a source connector's `table -> topic` lineage, and "
+        "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
+        "Sink connectors are unaffected.",
+    )
+    include_tags: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud tags on connectors as DataHub tags.",
+    )
+    include_business_metadata: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud business metadata attributes on connectors as DataHub "
+        "custom properties.",
+    )
+
+    @model_validator(mode="after")
+    def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
+        if self.enabled:
+            self.validate_connection(CONFLUENT_CATALOG_CONFIG_PATH)
+        return self
 
 
 class KafkaConnectSourceConfig(
@@ -259,6 +291,12 @@ class KafkaConnectSourceConfig(
         "When use_schema_resolver=True, this controls whether to generate column-level lineage "
         "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled. "
         "Defaults to True when use_schema_resolver is enabled.",
+    )
+
+    confluent_catalog: ConfluentCatalogConfig = Field(
+        default_factory=ConfluentCatalogConfig,
+        description="Confluent Cloud Stream Catalog settings, used to read connector -> topic lineage, "
+        "tags and business metadata from Stream Governance.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -473,11 +511,19 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
+    catalog_connectors_fetched: int = 0
+    catalog_lineage_connectors: int = 0
+    catalog_tagged_flows: int = 0
+    catalog_lineage_fallbacks: LossyList[str] = field(default_factory=LossyList)
+
     def report_connector_scanned(self, connector: str) -> None:
         self.connectors_scanned += 1
 
     def report_dropped(self, connector: str) -> None:
         self.filtered.append(connector)
+
+    def report_catalog_lineage_fallback(self, connector: str) -> None:
+        self.catalog_lineage_fallbacks.append(connector)
 
 
 @dataclass

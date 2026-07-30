@@ -90,6 +90,70 @@ The `use_connect_topics_api` flag controls topic retrieval behavior:
 - **When `true` (default)**: Uses environment-specific topic discovery with full transform support
 - **When `false`**: Disables all topic discovery for air-gapped environments or performance optimization
 
+#### Confluent Cloud Stream Catalog
+
+Confluent Cloud's Stream Catalog exposes each connector together with the topics it reads or writes, plus any tags and business metadata curated in Stream Governance. Enable the `confluent_catalog` block to read it:
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    confluent_cloud_environment_id: "env-xyz123"
+    confluent_cloud_cluster_id: "lkc-abc456"
+    username: "your-connect-api-key"
+    password: "your-connect-api-secret"
+
+    confluent_catalog:
+      enabled: true
+      # Stream Catalog GraphQL lives at <schema_registry_url>/catalog/graphql
+      schema_registry_url: "https://psrc-xxxxx.region.provider.confluent.cloud"
+      api_key: "your-schema-registry-api-key"
+      api_secret: "your-schema-registry-api-secret"
+
+      include_tags: true # catalog tags as DataHub tags (default)
+      include_business_metadata: true # catalog business metadata as custom properties (default)
+
+      # Off by default - read the trade-off below before enabling
+      include_lineage: false
+```
+
+**Requirements**: Confluent Cloud with Stream Governance enabled, and a Schema Registry API key whose role grants catalog read access. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when the `connect_uri` is not a Confluent Cloud endpoint.
+
+**What each option changes:**
+
+- `include_tags` — catalog tags on a connector are written to its DataHub pipeline (`dataFlow`).
+- `include_business_metadata` — catalog business metadata attributes on a connector become custom properties on the same pipeline.
+- `include_lineage` — for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
+
+This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](/docs/generated/ingestion/sources/kafka) source, which owns those datasets — enable `confluent_catalog` there to pick them up.
+
+##### The `include_lineage` trade-off
+
+Catalog lineage is `connector -> topic` only. The catalog reports topic names _after_ topic-routing SMTs have been applied, so that one edge is exact rather than inferred — but the catalog has no view of the source system, so it cannot say which table a row came from.
+
+Enabling `include_lineage` therefore changes source connectors from:
+
+```
+postgres.ecommerce.public.orders  ->  kafka.public.orders     (plus column-level lineage)
+```
+
+to:
+
+```
+(no input)  ->  kafka.public.orders
+```
+
+The Kafka topic edge becomes exact, but the source table disappears from the graph, and with it the column-level lineage derived from that table's schema. If you want `postgres -> kafka -> snowflake` to read as one connected chain, leave this off.
+
+Scope of the change:
+
+- **Sink connectors are unaffected.** `topic -> table` lineage always comes from the connector config, because the catalog knows nothing about the destination system.
+- **Connectors missing from the catalog are unaffected.** They fall back to the config-matching path automatically, and the count is reported as `catalog_lineage_fallbacks`.
+
+Leaving `include_lineage: false` still gives you every tag and business metadata attribute from Stream Governance.
+
+The catalog is read once per ingestion run, paged via `page_size` (default 100).
+
 #### Advanced Scenarios: Complex Transform Chains
 
 The new reverse transform pipeline strategy handles complex scenarios automatically:

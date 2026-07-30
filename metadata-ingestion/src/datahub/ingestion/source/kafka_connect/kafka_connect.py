@@ -22,6 +22,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
+    KAFKA,
     SINK,
     SOURCE,
     ConnectorManifest,
@@ -30,6 +31,14 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_platform_instance,
     transform_connector_config,
+)
+from datahub.ingestion.source.kafka_connect.confluent_catalog import (
+    CatalogConnector,
+    ConnectorCatalog,
+)
+from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
+    LINEAGE_SOURCE_CATALOG,
+    LINEAGE_SOURCE_PROPERTY,
 )
 from datahub.ingestion.source.kafka_connect.consumer_group_analyzer import (
     ConsumerGroupAnalyzer,
@@ -52,6 +61,11 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.TAGS,
+    "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+    supported=True,
+)
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -126,8 +140,25 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         # Cache for all Kafka topics (single ingestion run)
         self._all_kafka_topics_cache: Optional[List[str]] = None
 
+        self._catalog = self._create_catalog()
+
         if not jpype.isJVMStarted():
             jpype.startJVM()
+
+    def _create_catalog(self) -> Optional[ConnectorCatalog]:
+        if not self.config.confluent_catalog.enabled:
+            return None
+
+        if not self._is_confluent_cloud:
+            self.report.warning(
+                message="'confluent_catalog' is enabled but this does not look like a Confluent Cloud "
+                "deployment — the Stream Catalog is Confluent Cloud only and will be skipped",
+                context=f"connect_uri={self.config.connect_uri}",
+            )
+            return None
+
+        logger.info("Confluent Stream Catalog enabled for connector metadata")
+        return ConnectorCatalog(self.config.confluent_catalog, self.report)
 
     def get_connectors_manifest(self) -> Iterable[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API."""
@@ -188,7 +219,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
+        catalog_connector = self._get_catalog_connector(connector_manifest)
+
         # For Confluent Cloud, populate all_cluster_topics for validation purposes
+        # This stays on the cluster-wide topic list even when the catalog is enabled: a
+        # catalog that is stale or scoped to a subset of topics would otherwise silently
+        # narrow the candidate set and drop sink lineage.
         if connector and self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
             if all_cluster_topics:
@@ -197,8 +233,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
                 )
 
+        catalog_lineages = self._build_catalog_lineages(
+            connector_manifest, catalog_connector
+        )
+
         if not connector:
-            # No handler found for this connector class
+            # No handler found for this connector class. The catalog still knows which
+            # topics the connector writes to, so it can carry lineage on its own.
+            if catalog_lineages:
+                connector_manifest.lineages = catalog_lineages
+                connector_manifest.flow_property_bag = {}
+                self._apply_catalog_flow_properties(
+                    connector_manifest, catalog_connector
+                )
+                return True
+
             if connector_manifest.type == SOURCE:
                 # Source connectors without handlers are skipped (master's behavior with 'continue')
                 self._handle_unsupported_connector(connector_manifest)
@@ -212,9 +261,89 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Handler found - extract lineages and flow_property_bag
         # Master always extracts and yields, regardless of whether they're empty
-        connector_manifest.lineages = connector.extract_lineages()
+        if catalog_lineages:
+            connector_manifest.lineages = catalog_lineages
+        else:
+            connector_manifest.lineages = connector.extract_lineages()
+            if self._catalog_lineage_expected(connector_manifest):
+                self.report.report_catalog_lineage_fallback(connector_manifest.name)
+
         connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
+        self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
         return True  # Always include connectors with handlers
+
+    def _get_catalog_connector(
+        self, connector_manifest: ConnectorManifest
+    ) -> Optional[CatalogConnector]:
+        if not self._catalog:
+            return None
+        return self._catalog.get_connector(connector_manifest.name)
+
+    def _catalog_lineage_expected(self, connector_manifest: ConnectorManifest) -> bool:
+        return (
+            self._catalog is not None
+            and self.config.confluent_catalog.include_lineage
+            and connector_manifest.type == SOURCE
+        )
+
+    def _build_catalog_lineages(
+        self,
+        connector_manifest: ConnectorManifest,
+        catalog_connector: Optional[CatalogConnector],
+    ) -> List[KafkaConnectLineage]:
+        """
+        The catalog reports topic names after any topic-routing SMT has been applied, so
+        this is exact where the config-matching path is a prediction. It only knows about
+        the Kafka side though: for sink connectors the destination table is absent, so
+        those keep using the connector-config path (with the catalog's topic list
+        narrowing the candidate set).
+        """
+        if not catalog_connector or not self.config.confluent_catalog.include_lineage:
+            return []
+
+        if connector_manifest.type != SOURCE:
+            return []
+
+        topics = catalog_connector.get_topic_names()
+        if not topics:
+            return []
+
+        self.report.catalog_lineage_connectors += 1
+        logger.debug(
+            f"Using {len(topics)} Stream Catalog topics for connector '{connector_manifest.name}'"
+        )
+        return [
+            KafkaConnectLineage(
+                source_dataset=None,
+                source_platform=self.platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+                job_property_bag={LINEAGE_SOURCE_PROPERTY: LINEAGE_SOURCE_CATALOG},
+            )
+            for topic in topics
+        ]
+
+    def _apply_catalog_flow_properties(
+        self,
+        connector_manifest: ConnectorManifest,
+        catalog_connector: Optional[CatalogConnector],
+    ) -> None:
+        if (
+            not catalog_connector
+            or not self.config.confluent_catalog.include_business_metadata
+        ):
+            return
+
+        properties = catalog_connector.properties_from_business_metadata()
+        if not properties:
+            return
+
+        # Catalog attributes win: they are curated in Stream Governance, whereas the
+        # existing bag is derived from raw connector config.
+        connector_manifest.flow_property_bag = {
+            **(connector_manifest.flow_property_bag or {}),
+            **properties,
+        }
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
@@ -882,10 +1011,47 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # No source identified - use target with unknown_source prefix
             return f"unknown_source.{lineage.target_dataset}"
 
+    def construct_catalog_metadata_workunits(
+        self, connector: ConnectorManifest
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Only the Kafka Connect pipeline is tagged here. Tags on the topics themselves
+        are emitted by the `kafka` source, which owns those datasets.
+        """
+        catalog_connector = self._get_catalog_connector(connector)
+        if not catalog_connector:
+            return
+
+        if not self.config.confluent_catalog.include_tags or not catalog_connector.tags:
+            return
+
+        flow_urn = builder.make_data_flow_urn(
+            self.platform,
+            connector.name,
+            self.config.env,
+            self.config.platform_instance,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=self._make_global_tags(catalog_connector.tags),
+        ).as_workunit()
+        self.report.catalog_tagged_flows += 1
+
+    @staticmethod
+    def _make_global_tags(tags: List[str]) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[
+                models.TagAssociationClass(tag=builder.make_tag_urn(tag))
+                for tag in sorted(set(tags))
+            ]
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for connector in self.get_connectors_manifest():
             # Always emit flow workunit (connector metadata) for all connectors
             yield self.construct_flow_workunit(connector)
+
+            yield from self.construct_catalog_metadata_workunits(connector)
 
             # Only emit job workunits if connector has lineages
             if connector.lineages:
@@ -896,6 +1062,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def close(self) -> None:
         self.session.close()
         self.kafka_session.close()
+        if self._catalog:
+            self._catalog.close()
         if self._schema_resolver_provider:
             try:
                 self._schema_resolver_provider.close()

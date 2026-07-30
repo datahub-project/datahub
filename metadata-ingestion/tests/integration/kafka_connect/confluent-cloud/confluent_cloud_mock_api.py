@@ -285,6 +285,57 @@ TOPICS_DATA: Dict[str, Any] = {
 }
 
 
+# Stream Catalog (`/catalog/graphql`) view of the same connectors. Topic names here are
+# post-SMT, which is what the catalog reports, and carry the tags / business metadata a
+# customer would have curated in Stream Governance.
+CATALOG_CONNECTORS_DATA = [
+    {
+        "name": "source_postgres_cdc_01",
+        "qualifiedName": "lcc-source01",
+        "class": "PostgresCdcSource",
+        "type": "SOURCE",
+        "status": "RUNNING",
+        "description": "Postgres CDC into Kafka",
+        "tags": ["cdc", "production"],
+        "business_metadata": [
+            {"name": "team", "value": "data-platform"},
+            {"name": "tier", "value": 1},
+        ],
+        "topics": [
+            {
+                "name": "public.customer_profiles",
+                "qualifiedName": "cluster-123:public.customer_profiles",
+                "tags": ["pii"],
+                "business_metadata": [{"name": "retention_days", "value": 30}],
+            },
+            {
+                "name": "analytics.order_events",
+                "qualifiedName": "cluster-123:analytics.order_events",
+                "tags": None,
+                "business_metadata": None,
+            },
+        ],
+    },
+    {
+        "name": "sink_postgres_01",
+        "qualifiedName": "lcc-sink01",
+        "class": "PostgresSink",
+        "type": "SINK",
+        "status": "RUNNING",
+        "tags": ["production"],
+        "business_metadata": [],
+        "topics": [
+            {
+                "name": "analytics.order_events",
+                "qualifiedName": "cluster-123:analytics.order_events",
+                "tags": None,
+                "business_metadata": None,
+            }
+        ],
+    },
+]
+
+
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -404,6 +455,20 @@ def get_topic(cluster_id, topic_name):
     return jsonify({"error": "Topic not found"}), 404
 
 
+@app.route("/catalog/graphql", methods=["POST"])
+@require_auth
+def catalog_graphql():
+    """Minimal stand-in for the Stream Catalog GraphQL API (cn_connector only)."""
+    body = request.get_json(silent=True) or {}
+    variables = body.get("variables") or {}
+
+    offset = int(variables.get("offset") or 0)
+    limit = int(variables.get("limit") or len(CATALOG_CONNECTORS_DATA))
+
+    page = CATALOG_CONNECTORS_DATA[offset : offset + limit]
+    return jsonify({"data": {"cn_connector": page}})
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
@@ -440,6 +505,7 @@ if __name__ == "__main__":
     )
     print("  GET /kafka/v3/clusters/{cluster}/topics")
     print("  GET /kafka/v3/clusters/{cluster}/topics/{topic}")
+    print("  POST /catalog/graphql")
     print("  GET /health")
     print(f"\nServer will be available at: http://localhost:{port}")
     print("\nAuthentication:")
