@@ -129,7 +129,7 @@
     "operator.isLessThan": "on pienempi kuin",
     "operator.isLessThanOrEqualTo": "on pienempi tai yhtä suuri kuin",
     "operator.isNotAnyOf": "ei ole mikään seuraavista",
-    "operator.within": "within",
+    "operator.within": "sisällä",
     "recommendation.viewResultsIn": "Näytä tulokset kohteessa <bold>{{label}}</bold>",
     "results.showingCount": "Näytetään <bold>{{start}}</bold>–<bold>{{end}}</bold> / <bold>{{total}}</bold> tulosta",
     "saveAsView.cannotSaveError": "Tätä suodatinyhdistelmää ei voi tallentaa Näkymäksi tällä hetkellä.",
