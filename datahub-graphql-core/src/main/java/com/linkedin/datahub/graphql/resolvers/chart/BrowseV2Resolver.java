@@ -2,7 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_V2_DELIMITER;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
@@ -12,8 +13,8 @@ import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.generated.BrowseV2Input;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -51,7 +53,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     final QueryContext context = environment.getContext();
     final BrowseV2Input input = bindArgument(environment.getArgument("input"), BrowseV2Input.class);
 
-    final List<String> entityNames = getEntityNames(input);
+    final List<String> entityNames = getEntityNames(input, context.getOperationContext());
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     final String query = input.getQuery() != null ? input.getQuery() : "*";
@@ -76,15 +78,23 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     : "";
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
+            Filter effectiveFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        inputFilter, maybeResolvedView.getDefinition().getFilter())
+                    : inputFilter;
+
+            // Add default entity filters (e.g. showInGlobalContext for documents)
+            effectiveFilter =
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    effectiveFilter, entityNames, searchFlags, context);
+
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityNames,
                     pathStr,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                    effectiveFilter,
                     sanitizedQuery,
                     start,
                     count);
@@ -97,16 +107,15 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
         "get");
   }
 
-  public static List<String> getEntityNames(BrowseV2Input input) {
-    List<EntityType> entityTypes;
+  public static List<String> getEntityNames(
+      BrowseV2Input input, @Nullable OperationContext opContext) {
     if (input.getTypes() != null && input.getTypes().size() > 0) {
-      entityTypes = input.getTypes();
-    } else if (input.getType() != null) {
-      entityTypes = ImmutableList.of(input.getType());
-    } else {
-      entityTypes = BROWSE_ENTITY_TYPES;
+      return input.getTypes().stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
     }
-    return entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    if (input.getType() != null) {
+      return ImmutableList.of(EntityTypeMapper.getName(input.getType()));
+    }
+    return SearchUtils.getBrowseEntityNames(opContext);
   }
 
   private BrowseResultsV2 mapBrowseResults(

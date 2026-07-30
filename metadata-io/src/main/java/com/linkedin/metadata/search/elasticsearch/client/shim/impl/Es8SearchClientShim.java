@@ -1437,10 +1437,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
-      throws IOException {
+      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
     throw new UnsupportedOperationException(
         "Not implemented currently due to no usages for the ES8 shim.");
   }

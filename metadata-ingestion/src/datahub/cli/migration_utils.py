@@ -33,6 +33,21 @@ log = logging.getLogger(__name__)
 
 # --- Constants ---
 
+# Relationship types whose target aspects reference an entity by urn (lineage,
+# foreign keys, containment). Used by commands that *report* — without repointing —
+# inbound references to a migrated urn (e.g. `migrate snowflake-semantic-views
+# --report-inbound-refs`). The generic engine repoints inbound references across
+# all indexed relationship types via `get_incoming_relationships`, so it does not
+# use this list.
+INBOUND_REFERENCE_RELATIONSHIP_TYPES: List[str] = [
+    "DownstreamOf",
+    "Consumes",
+    "Produces",
+    "ForeignKeyToDataset",
+    "DerivedFrom",
+    "IsPartOf",
+]
+
 # Entity types supported by migration commands.
 ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 

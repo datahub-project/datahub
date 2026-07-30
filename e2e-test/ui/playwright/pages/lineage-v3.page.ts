@@ -11,15 +11,15 @@
  * - Time-range filtering
  * - Graph visualization and node expansion
  *
- * Extends LineageV2Page for backward compatibility with V2 selectors.
+ * Extends LineageBasePage for shared lineage-graph selectors.
  */
 
 import { Page, Locator, BrowserContext, expect } from '@playwright/test';
-import { LineageV2Page } from './lineage-v2.page';
+import { LineageBasePage } from './lineage-base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
 
-export class LineageV3Page extends LineageV2Page {
+export class LineageV3Page extends LineageBasePage {
   readonly advSearchAddFilterButton: Locator;
   readonly advSearchAddFilterSelect: Locator;
   readonly explorerViewButton: Locator;
