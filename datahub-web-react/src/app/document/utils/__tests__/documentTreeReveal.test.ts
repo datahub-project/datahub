@@ -122,4 +122,51 @@ describe('revealDocumentInTree', () => {
         expect(loadMoreChildren).toHaveBeenCalledTimes(1);
         expect(nodes.has('urn:li:document:target')).toBe(true);
     });
+
+    it('pages through multiple child pages when the target is far down the list', async () => {
+        const nodes = new Map<string, DocumentTreeNode>();
+        const ensureNode = vi.fn((node: DocumentTreeNode) => {
+            nodes.set(node.urn, node);
+        });
+        const expandNode = vi.fn();
+        // Simulate ~50 siblings (page size 25): target lands on page 3.
+        const pages = [
+            Array.from({ length: 25 }, (_, i) =>
+                makeNode({ urn: `urn:li:document:p1-${i}`, parentUrn: 'urn:li:document:a' }),
+            ),
+            Array.from({ length: 25 }, (_, i) =>
+                makeNode({ urn: `urn:li:document:p2-${i}`, parentUrn: 'urn:li:document:a' }),
+            ),
+            [makeNode({ urn: 'urn:li:document:target', title: 'Target', parentUrn: 'urn:li:document:a' })],
+        ];
+        let loadedPages = 0;
+
+        const loadChildren = vi.fn(async () => {
+            loadedPages = 1;
+            pages[0].forEach((n) => nodes.set(n.urn, n));
+            return pages[0];
+        });
+        const loadMoreChildren = vi.fn(async () => {
+            const next = pages[loadedPages];
+            loadedPages += 1;
+            next.forEach((n) => nodes.set(n.urn, n));
+            return next;
+        });
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:target',
+            documentTitle: 'Target',
+            parentDocuments: [{ urn: 'urn:li:document:a', title: 'A' }],
+            getNode: (urn) => nodes.get(urn),
+            expandNode,
+            ensureNode,
+            loadChildren,
+            loadMoreChildren,
+            hasMoreChildren: () => loadedPages < pages.length,
+        });
+
+        expect(loadChildren).toHaveBeenCalledTimes(1);
+        expect(loadMoreChildren).toHaveBeenCalledTimes(2);
+        expect(nodes.has('urn:li:document:target')).toBe(true);
+    });
 });

@@ -13,6 +13,8 @@ interface RevealLoaders {
     hasMoreChildren: (parentUrn: string) => boolean;
     /** True while the first page of roots is still loading — reveal waits for this. */
     rootsLoading: boolean;
+    /** When true, skip reveal entirely (e.g. picker / multi-select mode). */
+    skip?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export function useRevealDocumentInTree({
     loadMoreChildren,
     hasMoreChildren,
     rootsLoading,
+    skip = false,
 }: RevealLoaders): void {
     const { getCurrentDocumentUrn } = useDocumentNavigation();
     const documentUrn = getCurrentDocumentUrn();
@@ -46,12 +49,12 @@ export function useRevealDocumentInTree({
     // Prefer the profile's cached getDocument (same query + includeParentDocuments).
     const { data, loading: documentLoading } = useGetDocumentQuery({
         variables: { urn: documentUrn || '', includeParentDocuments: true },
-        skip: !documentUrn || rootsLoading,
+        skip: skip || !documentUrn || rootsLoading,
         fetchPolicy: 'cache-first',
     });
 
     useEffect(() => {
-        if (!documentUrn || rootsLoading || documentLoading || !data?.document) {
+        if (skip || !documentUrn || rootsLoading || documentLoading || !data?.document) {
             return undefined;
         }
 
@@ -98,5 +101,5 @@ export function useRevealDocumentInTree({
         return () => {
             cancelled = true;
         };
-    }, [documentUrn, rootsLoading, documentLoading, data]);
+    }, [skip, documentUrn, rootsLoading, documentLoading, data]);
 }

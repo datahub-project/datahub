@@ -99,7 +99,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         loadChildren,
         loadMoreChildren,
         hasMoreChildren,
-        rootsLoading: loading || !isNavigationMode,
+        rootsLoading: loading,
+        skip: !isNavigationMode,
     });
 
     // Section-scoped expand-all / collapse-all (per DataHub + per-platform group).
