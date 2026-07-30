@@ -316,6 +316,11 @@ class KafkaConnectionTest:
     "Not supported",
     supported=False,
 )
+@capability(
+    SourceCapability.TAGS,
+    "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+    supported=True,
+)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """

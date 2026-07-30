@@ -2211,6 +2211,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "For multiple Kafka clusters, use the platform_instance configuration",
           "subtype_modifier": null,
@@ -2245,6 +2251,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
           "subtype_modifier": null,
           "supported": true
         },
