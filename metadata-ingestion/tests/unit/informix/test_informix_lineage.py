@@ -115,6 +115,7 @@ def test_view_lineage_comma_join_from_sysviews_style() -> None:
     assert report.view_column_remap_mismatches == 0
     upstream_names = sorted(u.dataset.split(",")[-2] for u in up.upstreams)
     assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
+    assert up.fineGrainedLineages
 
     def _down(fgl: object) -> str:
         return fgl.downstreams[0].split(",")[-1].rstrip(")")  # type: ignore[attr-defined]

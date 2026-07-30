@@ -193,6 +193,15 @@ import {
     HIVE_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/hive';
 import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/informix';
+import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
     KAFKA_SASL_PASSWORD,
@@ -290,15 +299,6 @@ import {
     MSSQL_PASSWORD,
     MSSQL_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mssql';
-import {
-    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
-    INFORMIX_DATABASE,
-    INFORMIX_HOST_PORT,
-    INFORMIX_INCLUDE_VIEW_LINEAGE,
-    INFORMIX_PASSWORD,
-    INFORMIX_SERVER,
-    INFORMIX_USERNAME,
-} from '@app/ingestV2/source/builder/RecipeForm/informix';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
@@ -735,12 +735,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
         ],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        advancedFields: [
-            INCLUDE_TABLES,
-            INCLUDE_VIEWS,
-            INFORMIX_INCLUDE_VIEW_LINEAGE,
-            STATEFUL_INGESTION_ENABLED,
-        ],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
     },
     [HIVE]: {
