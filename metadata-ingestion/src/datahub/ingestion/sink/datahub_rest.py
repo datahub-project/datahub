@@ -296,6 +296,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             config.server,
             config.token,
             auth=auth,
+            # The sink resolves env OAuth itself in _resolve_auth (with an origin
+            # guard); do not let the emitter re-resolve and bypass that guard.
+            resolve_env_auth=False,
             connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
