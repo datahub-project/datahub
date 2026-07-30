@@ -1,6 +1,10 @@
 fragment assertionInfo on AssertionInfo {
     type
     description
+    customProperties {
+        key
+        value
+    }
     lastUpdated {
         time
         actor
@@ -314,6 +318,10 @@ fragment assertionRunEventDetails on AssertionRunEvent {
     assertionUrn
     status
     runId
+    partitionSpec {
+        type
+        partition
+    }
     runtimeContext {
         key
         value

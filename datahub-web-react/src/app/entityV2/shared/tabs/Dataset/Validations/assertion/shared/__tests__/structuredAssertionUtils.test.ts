@@ -5,7 +5,7 @@ import {
     hasStructuredCustomAssertionFields,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 
-import { AssertionScope, AssertionStdAggregation, AssertionStdOperator, AssertionType } from '@types';
+import { AssertionStdAggregation, AssertionStdOperator, AssertionType, DatasetAssertionScope } from '@types';
 
 describe('structuredAssertionUtils', () => {
     const field = { urn: 'urn:li:schemaField:(urn:li:dataset:1,col_a)', path: 'col_a' };
@@ -51,7 +51,7 @@ describe('structuredAssertionUtils', () => {
         const view = customAssertionToDatasetAssertionView({
             type: 'great_expectations',
             entityUrn: 'urn:li:dataset:1',
-            scope: AssertionScope.DatasetColumn,
+            scope: DatasetAssertionScope.DatasetColumn,
             aggregation: AssertionStdAggregation.Identity,
             operator: AssertionStdOperator.NotNull,
             field,
@@ -60,7 +60,7 @@ describe('structuredAssertionUtils', () => {
         });
         expect(view).toMatchObject({
             datasetUrn: 'urn:li:dataset:1',
-            scope: AssertionScope.DatasetColumn,
+            scope: DatasetAssertionScope.DatasetColumn,
             aggregation: AssertionStdAggregation.Identity,
             operator: AssertionStdOperator.NotNull,
             nativeType: 'expect_column_values_to_not_be_null',
@@ -84,7 +84,7 @@ describe('structuredAssertionUtils', () => {
             type: AssertionType.Dataset,
             datasetAssertion: {
                 datasetUrn: 'urn:li:dataset:1',
-                scope: AssertionScope.DatasetRows,
+                scope: DatasetAssertionScope.DatasetRows,
                 operator: AssertionStdOperator.EqualTo,
             },
         } as any);
@@ -95,7 +95,7 @@ describe('structuredAssertionUtils', () => {
             customAssertion: {
                 type: 'dbt',
                 entityUrn: 'urn:li:dataset:1',
-                scope: AssertionScope.DatasetColumn,
+                scope: DatasetAssertionScope.DatasetColumn,
                 operator: AssertionStdOperator.NotNull,
                 field,
             },

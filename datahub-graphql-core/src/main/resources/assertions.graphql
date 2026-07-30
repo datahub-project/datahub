@@ -334,6 +334,13 @@ extend type AssertionInfo {
   The time that the status last changed and the actor who changed it
   """
   lastUpdated: AuditStamp
+
+  """
+  Custom properties for the assertion (key/value pairs that do not fit
+  into an explicit AssertionInfo field). Used by external tools to attach
+  additional context that surfaces in the assertion details panel.
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 extend type Assertion {

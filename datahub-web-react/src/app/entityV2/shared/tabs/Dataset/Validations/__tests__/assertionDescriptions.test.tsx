@@ -685,7 +685,7 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             customAssertion: {
                 type: 'great_expectations',
                 entityUrn: 'urn:li:dataset:1',
-                scope: AssertionScope.DatasetColumn,
+                scope: DatasetAssertionScope.DatasetColumn,
                 aggregation: AssertionStdAggregation.UniqueCount,
                 fields: [{ path: 'profileId' }],
                 operator: AssertionStdOperator.GreaterThan,
