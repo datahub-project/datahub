@@ -377,9 +377,45 @@ def test_resolve_secrets_generates_and_persists(tmp_path: Path) -> None:
         assert len(os.environ["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"]) > 0
         assert len(os.environ["DATAHUB_TOKEN_SERVICE_SALT"]) > 0
         assert secrets_file.exists()
-        content = secrets_file.read_text()
+        content = secrets_file.read_text(encoding="utf-8")
         assert "DATAHUB_TOKEN_SERVICE_SIGNING_KEY=" in content
         assert "DATAHUB_TOKEN_SERVICE_SALT=" in content
+
+
+def test_resolve_secrets_uses_utf8_on_non_utf8_locale(tmp_path: Path) -> None:
+    """The Unicode comment is portable when the system default encoding is not UTF-8."""
+    original_read_text = Path.read_text
+    original_write_text = Path.write_text
+
+    def read_text_with_cp949_default(path: Path, *args, **kwargs):
+        kwargs.setdefault("encoding", "cp949")
+        return original_read_text(path, *args, **kwargs)
+
+    def write_text_with_cp949_default(path: Path, data: str, *args, **kwargs):
+        kwargs.setdefault("encoding", "cp949")
+        return original_write_text(path, data, *args, **kwargs)
+
+    secrets_file = tmp_path / "quickstart" / ".local-secrets.env"
+    with (
+        patch("datahub.cli.docker_cli.DATAHUB_ROOT_FOLDER", str(tmp_path)),
+        patch.object(Path, "read_text", new=read_text_with_cp949_default),
+        patch.object(Path, "write_text", new=write_text_with_cp949_default),
+        patch.dict(os.environ, {}, clear=False),
+    ):
+        os.environ.pop("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", None)
+        os.environ.pop("DATAHUB_TOKEN_SERVICE_SALT", None)
+        _resolve_token_service_secrets()
+        generated_key = os.environ["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"]
+        generated_salt = os.environ["DATAHUB_TOKEN_SERVICE_SALT"]
+
+        os.environ.pop("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", None)
+        os.environ.pop("DATAHUB_TOKEN_SERVICE_SALT", None)
+        _resolve_token_service_secrets()
+
+        assert os.environ["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"] == generated_key
+        assert os.environ["DATAHUB_TOKEN_SERVICE_SALT"] == generated_salt
+
+    assert "— do not commit" in secrets_file.read_text(encoding="utf-8")
 
 
 def test_resolve_secrets_env_vars_take_priority(tmp_path: Path) -> None:
