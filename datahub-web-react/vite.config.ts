@@ -116,11 +116,19 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
+    // The AI Assistant config endpoints are served directly by GMS (:8080),
+    // not by the frontend service. Route them separately.
+    const gmsProxy = {
+        target: process.env.REACT_APP_GMS_PROXY_TARGET || 'http://localhost:8080',
+        changeOrigin: true,
+        configure: proxyDebugConfig,
+    };
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
-        '/api/ai-config': frontendProxy,
+        '/api/ai-config': gmsProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
         '/mfe/config': frontendProxy,
