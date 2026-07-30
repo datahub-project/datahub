@@ -28,31 +28,17 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Characterizes the PostgreSQL row-lock behavior of {@link EbeanAspectDao#batchGet} with {@code
- * forUpdate=true}, reproducing the production deadlock seen on the logical-model ingest path
- * ({@code EntityServiceImpl.ingestAspectsToLocalDB}).
+ * Guards the PostgreSQL locking invariant that single-wave lock acquisition ({@code
+ * AspectDao.lockLatestRows}) relies on: two concurrent <em>single-statement</em> {@code FOR UPDATE}
+ * batchGets over overlapping key sets cannot deadlock, because PostgreSQL acquires multi-row locks
+ * in physical scan order, which is consistent across both statements regardless of IN-list order.
  *
- * <p>Findings encoded here:
- *
- * <ul>
- *   <li>Two concurrent <em>single-statement</em> {@code FOR UPDATE} batchGets over overlapping key
- *       sets do NOT deadlock: PostgreSQL plans the composite-key IN query as a (bitmap) scan that
- *       locks rows in physical heap order, which is identical for both statements regardless of
- *       IN-list order. Sorting the IN-list is therefore not a fix on PostgreSQL.
- *   <li>Deadlocks arise when transactions acquire locks in <em>multiple waves</em> (multiple
- *       locking statements per transaction), as the ingest path did before {@code
- *       AspectDao.lockLatestRows}: {@code exists(..., forUpdate=true)} (wave 1) followed by {@code
- *       getLatestAspects(..., forUpdate=true)} (wave 2). Two transactions whose waves overlap
- *       crosswise deadlock deterministically — this was the production failure mode behind
- *       "RetryLimitReached: Failed to add after 3 retries".
- * </ul>
- *
- * <p>The fix: {@code EntityServiceImpl.ingestAspectsToLocalDB} now acquires the batch's full lock
- * set in one up-front {@code lockLatestRows} statement (see {@link
- * EntityServiceConcurrentIngestPostgresIT} for the end-to-end regression test). The cross-wave test
- * below intentionally still demonstrates the deadlock at the DAO level — it documents WHY
- * single-wave acquisition is required and must keep passing (i.e. keep deadlocking) as long as
- * PostgreSQL locking semantics are what they are.
+ * <p>Deadlocks arise only when a transaction acquires locks in multiple statements ("waves"), as
+ * the ingest path did before {@code lockLatestRows}: {@code exists(..., forUpdate=true)} followed
+ * by {@code getLatestAspects(..., forUpdate=true)}. Two transactions whose waves overlap crosswise
+ * interlock — the production failure mode behind "RetryLimitReached: Failed to add after 3
+ * retries". See {@link EntityServiceConcurrentIngestPostgresIT} for the end-to-end regression test
+ * of the fixed ingest path.
  */
 public class EbeanAspectDaoConcurrentLockPostgresIT {
 
@@ -142,68 +128,6 @@ public class EbeanAspectDaoConcurrentLockPostgresIT {
         deadlocks.get(), 0, "Single-statement FOR UPDATE batchGets must not deadlock each other");
   }
 
-  /**
-   * Reproduces the production deadlock: each transaction locks rows in TWO waves (two batchGet FOR
-   * UPDATE statements), and the waves overlap crosswise. Transaction A locks rows [0,100) then
-   * wants [100,200); transaction B locks [100,200) then wants [0,100). This mirrors {@code
-   * ingestAspectsToLocalDB}: {@code exists()} locks key-aspect rows, then {@code
-   * getLatestAspects()} locks batch-aspect rows, so two ingests touching overlapping entities
-   * interlock across statements.
-   *
-   * <p>This test asserts the deadlock DOES occur, characterizing the defect. A fix that collapses
-   * lock acquisition into a single wave (or otherwise prevents the interlock) should flip this
-   * assertion to zero deadlocks.
-   */
-  @Test(timeOut = 300_000)
-  public void crossWaveForUpdate_overlappingSets_deadlocks() throws Exception {
-    Set<EntityAspectIdentifier> firstHalf = new HashSet<>(allKeys.subList(0, 100));
-    Set<EntityAspectIdentifier> secondHalf = new HashSet<>(allKeys.subList(100, 200));
-
-    // Both threads hold their wave-1 locks before either starts wave 2.
-    CyclicBarrier midTransactionBarrier = new CyclicBarrier(2);
-    AtomicInteger deadlocks = new AtomicInteger();
-    AtomicInteger commits = new AtomicInteger();
-    AtomicInteger unexpectedFailures = new AtomicInteger();
-
-    ExecutorService executor = Executors.newFixedThreadPool(2);
-    try {
-      Future<?> workerA =
-          executor.submit(
-              () ->
-                  twoWaveTransaction(
-                      firstHalf,
-                      secondHalf,
-                      midTransactionBarrier,
-                      deadlocks,
-                      commits,
-                      unexpectedFailures));
-      Future<?> workerB =
-          executor.submit(
-              () ->
-                  twoWaveTransaction(
-                      secondHalf,
-                      firstHalf,
-                      midTransactionBarrier,
-                      deadlocks,
-                      commits,
-                      unexpectedFailures));
-      workerA.get(120, TimeUnit.SECONDS);
-      workerB.get(120, TimeUnit.SECONDS);
-    } finally {
-      executor.shutdownNow();
-    }
-
-    assertEquals(unexpectedFailures.get(), 0, "Non-deadlock failures during cross-wave locking");
-    // PostgreSQL picks exactly one victim; the survivor's second wave proceeds and commits.
-    assertEquals(
-        deadlocks.get(),
-        1,
-        "Cross-wave FOR UPDATE lock acquisition should deadlock (production failure mode); "
-            + "if this now reports 0, the locking strategy changed — update this test to assert "
-            + "the fixed behavior");
-    assertEquals(commits.get(), 1, "The non-victim transaction should commit successfully");
-  }
-
   private void singleStatementLoop(
       Set<EntityAspectIdentifier> keys,
       CyclicBarrier barrier,
@@ -225,34 +149,6 @@ public class EbeanAspectDaoConcurrentLockPostgresIT {
         } else {
           unexpectedFailures.incrementAndGet();
         }
-      }
-    }
-  }
-
-  private void twoWaveTransaction(
-      Set<EntityAspectIdentifier> waveOne,
-      Set<EntityAspectIdentifier> waveTwo,
-      CyclicBarrier midTransactionBarrier,
-      AtomicInteger deadlocks,
-      AtomicInteger commits,
-      AtomicInteger unexpectedFailures) {
-    try (Transaction transaction = database.beginTransaction()) {
-      forceIndexPlan();
-      aspectDao.batchGet(opContext, waveOne, true);
-      try {
-        midTransactionBarrier.await(30, TimeUnit.SECONDS);
-      } catch (Exception e) {
-        unexpectedFailures.incrementAndGet();
-        return;
-      }
-      aspectDao.batchGet(opContext, waveTwo, true);
-      transaction.commit();
-      commits.incrementAndGet();
-    } catch (Exception e) {
-      if (isDeadlock(e)) {
-        deadlocks.incrementAndGet();
-      } else {
-        unexpectedFailures.incrementAndGet();
       }
     }
   }
