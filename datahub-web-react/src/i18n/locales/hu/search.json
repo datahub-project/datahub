@@ -129,6 +129,7 @@
     "operator.isLessThan": "kisebb mint",
     "operator.isLessThanOrEqualTo": "kisebb vagy egyenlő mint",
     "operator.isNotAnyOf": "egyik sem ezek közül",
+    "operator.within": "within",
     "recommendation.viewResultsIn": "Eredmények megtekintése itt: <bold>{{label}}</bold>",
     "results.showingCount": "<bold>{{start}}</bold>–<bold>{{end}}</bold> megjelenítése, összesen <bold>{{total}}</bold> találatból",
     "saveAsView.cannotSaveError": "Ez a szűrőkombináció jelenleg nem menthető el nézetként.",
