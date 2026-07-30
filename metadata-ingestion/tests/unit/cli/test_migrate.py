@@ -625,3 +625,96 @@ class TestSnowflakeSemanticViewsCli:
         assert result.exit_code == 0, result.output
         mock_discover_sm.assert_called_once()
         assert mock_run_migration.call_args.kwargs["urns"] == [sm_urn]
+
+
+# --- container migration ---
+
+
+class TestMigrateContainers:
+    """Container migration must regenerate the target instance aspect."""
+
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_reemits_new_instance_aspect(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """A migrated container is stamped with a dataPlatformInstance for the new
+        instance — it is excluded from the clone, so the migration regenerates it."""
+        from datahub.cli.migrate import _migrate_containers
+
+        mock_get.return_value = [
+            {
+                "urn": "urn:li:container:oldguid",
+                "aspects": {
+                    "subTypes": {"value": {"typeNames": ["Database"]}},
+                    "containerProperties": {
+                        "value": {
+                            "customProperties": {
+                                "platform": "snowflake",
+                                "instance": "oldinst",
+                                "env": "PROD",
+                                "database": "db1",
+                            }
+                        }
+                    },
+                },
+            }
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+        emitted = [c.args[0].aspect for c in emitter.emit_mcp.call_args_list]
+        instances = [a for a in emitted if isinstance(a, DataPlatformInstanceClass)]
+        assert instances, "no dataPlatformInstance emitted for the migrated container"
+        assert instances[-1].instance == make_dataplatform_instance_urn(
+            "snowflake", "newinst"
+        )
+
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_dry_run_emits_nothing(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """A dry-run container migration emits no MCPs."""
+        from datahub.cli.migrate import _migrate_containers
+
+        mock_get.return_value = [
+            {
+                "urn": "urn:li:container:oldguid",
+                "aspects": {
+                    "subTypes": {"value": {"typeNames": ["Database"]}},
+                    "containerProperties": {
+                        "value": {
+                            "customProperties": {
+                                "platform": "snowflake",
+                                "instance": "oldinst",
+                                "env": "PROD",
+                                "database": "db1",
+                            }
+                        }
+                    },
+                },
+            }
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=True,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+        emitter.emit_mcp.assert_not_called()

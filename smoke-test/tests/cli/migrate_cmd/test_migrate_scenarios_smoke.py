@@ -10,12 +10,14 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
     AuditStampClass,
     ChangeAuditStampsClass,
+    ContainerPropertiesClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
@@ -39,6 +41,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     StructuredPropertyValueAssignmentClass,
+    SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -101,6 +104,20 @@ asrt_dst = make_dataset_urn_with_platform_instance(
     PLATFORM, "my_db.my_schema.asrt_tbl", ASRT_NEW, ENV
 )
 assertion_urn = f"urn:li:assertion:mig_smoke_{_suffix}"
+
+# --- container migration scenario ---
+CT_OLD = f"mig_ctold_{_suffix}"
+CT_NEW = f"mig_ctnew_{_suffix}"
+_ct_src_key = DatabaseKey(
+    platform=PLATFORM, instance=CT_OLD, env=ENV, database=f"mig_ctdb_{_suffix}"
+)
+_ct_props = _ct_src_key.model_dump(by_alias=True, exclude_none=True)
+ct_src = f"urn:li:container:{_ct_src_key.guid()}"
+# The migrated container's URN is a hash of the same key with the new instance —
+# computed exactly as _migrate_containers does (parse props → reseat instance → guid).
+_ct_dst_key = DatabaseKey.model_validate(dict(_ct_props))
+_ct_dst_key.instance = CT_NEW
+ct_dst = f"urn:li:container:{_ct_dst_key.guid()}"
 
 
 def _schema(field_name: str) -> SchemaMetadataClass:
@@ -501,6 +518,60 @@ def test_assertion_reference_is_rewritten(graph_client: DataHubGraph) -> None:
         info = graph_client.get_aspect(assertion_urn, AssertionInfoClass)
         assert info is not None and info.datasetAssertion is not None
         assert info.datasetAssertion.dataset == asrt_dst
+    finally:
+        delete_urns(graph_client, all_urns)
+        wait_for_writes_to_sync()
+
+
+def test_container_migration_regenerates_instance(graph_client: DataHubGraph) -> None:
+    """instance2instance migrates containers and stamps the *new* instance on the
+    migrated container. dataPlatformInstance is excluded from the clone, so the
+    migration must regenerate it — without this the container would have no instance
+    aspect and drop out of instance-scoped search."""
+    all_urns = [ct_src, ct_dst]
+    delete_urns(graph_client, all_urns)
+    wait_for_writes_to_sync()
+    for mcp in [
+        MetadataChangeProposalWrapper(
+            entityUrn=ct_src, aspect=SubTypesClass(typeNames=["Database"])
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=ct_src,
+            aspect=ContainerPropertiesClass(name="mig_ct", customProperties=_ct_props),
+        ),
+        MetadataChangeProposalWrapper(entityUrn=ct_src, aspect=_instance(CT_OLD)),
+    ]:
+        graph_client.emit_mcp(mcp)
+    wait_for_writes_to_sync()
+
+    try:
+        # No dataset entities on this instance; the run still migrates containers.
+        result = run_datahub_cmd(
+            [
+                "migrate",
+                "instance2instance",
+                "--platform",
+                PLATFORM,
+                "--old-instance",
+                CT_OLD,
+                "--new-instance",
+                CT_NEW,
+                "--env",
+                ENV,
+                "--entity-types",
+                "dataset",
+                "--force",
+                "--keep",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        wait_for_writes_to_sync()
+
+        assert graph_client.exists(ct_dst)
+        instance = graph_client.get_aspect(ct_dst, DataPlatformInstanceClass)
+        assert instance is not None and instance.instance == (
+            make_dataplatform_instance_urn(PLATFORM, CT_NEW)
+        )
     finally:
         delete_urns(graph_client, all_urns)
         wait_for_writes_to_sync()

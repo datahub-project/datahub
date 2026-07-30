@@ -24,6 +24,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     DatabaseKey,
@@ -235,6 +236,25 @@ def _migrate_containers(
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
+
+        # dataPlatformInstance is excluded from the clone (it is instance-bound and
+        # would otherwise carry the *old* instance) and GMS does not derive it, so
+        # re-emit a fresh one for the new instance — mirroring the entity engine's
+        # _emit_target_instance. Without it the migrated container has no instance
+        # aspect and drops out of instance-scoped search and filters.
+        if not dry_run:
+            rest_emitter.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dst_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=make_data_platform_urn(platform),
+                        instance=make_dataplatform_instance_urn(
+                            platform, target_instance
+                        ),
+                    ),
+                )
+            )
+        migration_report.on_entity_create(dst_urn, "dataPlatformInstance")
 
         _process_container_relationships(
             container_id_map, dry_run, src_urn, dst_urn, migration_report, rest_emitter
