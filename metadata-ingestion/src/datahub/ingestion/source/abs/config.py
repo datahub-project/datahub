@@ -70,15 +70,6 @@ class DataLakeSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
-    spark_driver_memory: str = Field(
-        default="4g", description="Max amount of memory to grant Spark."
-    )
-
-    spark_config: Dict[str, Any] = Field(
-        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
-        default={},
-    )
-
     max_rows: int = Field(
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",

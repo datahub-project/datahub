@@ -990,9 +990,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         if len(connector.lineage) >= max_table_lineage:
             self.report.warning(
                 title="Table lineage truncated",
-                message=f"The connector had more than {max_table_lineage} table lineage entries. "
-                f"Only the most recent {max_table_lineage} entries were ingested.",
-                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                message="The connector had more table lineage entries than the configured limit. "
+                "Only the most recent entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id}), max_table_lineage={max_table_lineage}",
             )
 
         # Connector-level DataJob: anchors sync run-history and connector
@@ -1022,9 +1022,10 @@ class FivetranSource(StatefulIngestionSourceBase):
         if len(connector.jobs) >= max_jobs:
             self.report.warning(
                 title="Not all sync history was captured",
-                message=f"The connector had more than {max_jobs} sync runs in the past {self.config.history_sync_lookback_period} days. "
-                f"Only the most recent {max_jobs} syncs were ingested.",
-                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                message="The connector had more sync runs than the configured limit. "
+                "Only the most recent syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id}), "
+                f"max_jobs={max_jobs}, lookback_days={self.config.history_sync_lookback_period}",
             )
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)

@@ -5,16 +5,13 @@ import React, { useCallback, useContext, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CompactLineageTab } from '@app/entityV2/shared/tabs/Lineage/CompactLineageTab';
 import { LineageColumnView } from '@app/entityV2/shared/tabs/Lineage/LineageColumnView';
 import { useLineageViewState } from '@app/entityV2/shared/tabs/Lineage/hooks';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
 import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
-import LineageExplorer from '@app/lineage/LineageExplorer';
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import LineageGraph from '@app/lineageV3/LineageGraph';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { LineageDirection } from '@types';
@@ -60,8 +57,6 @@ export function LineageTab({ properties, renderType }: Props) {
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
     const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
-    const { urn, entityType } = useEntityData();
-    const isLineageV2 = useLineageV2();
     const { isVisualizeView, setVisualizeView, setVisualizeViewInEditMode } = useLineageViewState();
 
     const activeKey = isVisualizeView ? LINEAGE_VIEW_EXPLORER : LINEAGE_VIEW_IMPACT;
@@ -77,12 +72,10 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                     </TabLabel>
                 ),
                 dataTestId: 'lineage-view-explorer',
-                content: isLineageV2 ? (
+                content: (
                     <VisualizationWrapper>
                         <LineageGraph />
                     </VisualizationWrapper>
-                ) : (
-                    <LineageExplorer urn={urn} type={entityType} />
                 ),
             },
             {
@@ -102,7 +95,7 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                 ),
             },
         ],
-        [t, isLineageV2, urn, entityType, defaultDirection, setVisualizeViewInEditMode],
+        [t, defaultDirection, setVisualizeViewInEditMode],
     );
 
     const onLineageViewTabClick = useCallback(

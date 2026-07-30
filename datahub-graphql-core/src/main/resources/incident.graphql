@@ -197,26 +197,31 @@ enum IncidentStage {
 }
 
 """
-The priority of the incident
+The priority of the incident.
+
+This API accepts and returns only the enum names below. The underlying
+'incidentInfo' aspect stores priority as an integer where a *lower* number is
+more severe: CRITICAL = 0, HIGH = 1, MEDIUM = 2, LOW = 3. Callers writing the
+aspect directly (OpenAPI / RestLI) use those integers instead.
 """
 enum IncidentPriority {
   """
-  A low priority incident (P3)
+  A low priority incident (P3). Stored as 3 on the 'incidentInfo' aspect.
   """
   LOW
 
   """
-  A medium priority incident (P2)
+  A medium priority incident (P2). Stored as 2 on the 'incidentInfo' aspect.
   """
   MEDIUM
 
   """
-  A high priority incident (P1)
+  A high priority incident (P1). Stored as 1 on the 'incidentInfo' aspect.
   """
   HIGH
 
   """
-  A critical priority incident (P0)
+  A critical priority incident (P0). Stored as 0 on the 'incidentInfo' aspect.
   """
   CRITICAL
 }
@@ -361,7 +366,8 @@ input RaiseIncidentInput {
   """
   status: IncidentStatusInput
   """
-  An optional priority for the incident.
+  An optional priority for the incident: CRITICAL, HIGH, MEDIUM or LOW.
+  Must be one of these enum names, not the integer stored on the 'incidentInfo' aspect.
   """
   priority: IncidentPriority
   """
@@ -395,7 +401,8 @@ input UpdateIncidentInput {
   status: IncidentStatusInput
 
   """
-  An optional priority for the incident.
+  An optional priority for the incident: CRITICAL, HIGH, MEDIUM or LOW.
+  Must be one of these enum names, not the integer stored on the 'incidentInfo' aspect.
   """
   priority: IncidentPriority
 

@@ -218,7 +218,9 @@ public class RelatedDocumentsResolverTest {
     Filter capturedFilter = filterCaptor.getValue();
     assertNotNull(capturedFilter);
     assertNotNull(capturedFilter.getOr());
-    assertEquals(capturedFilter.getOr().size(), 2); // PUBLISHED OR UNPUBLISHED owned
+    // 4 clauses: lifecycle published, lifecycle non-published owned, legacy published, legacy
+    // unpublished owned
+    assertEquals(capturedFilter.getOr().size(), 4);
 
     // Check that relatedAssets filter is in both clauses
     boolean foundRelatedAssetsFilter = false;

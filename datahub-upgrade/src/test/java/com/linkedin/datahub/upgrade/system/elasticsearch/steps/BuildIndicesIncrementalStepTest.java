@@ -6,9 +6,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -27,6 +29,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.Po
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
@@ -37,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -389,6 +394,115 @@ public class BuildIndicesIncrementalStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testSwapFailurePersistsInProgressNotCompleted() throws Throwable {
+    // Regression: a reindex that completes but whose alias swap fails (doc-count mismatch) must be
+    // persisted as IN_PROGRESS, NOT COMPLETED. If it were marked COMPLETED, a rerun would hit the
+    // "already COMPLETED, skipping" branch and silently succeed while the alias still points at the
+    // stale index. Keeping it IN_PROGRESS lets the rerun resume and retry the swap.
+    IncrementalReindexResult incrementalResult =
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(incrementalResult);
+
+    // Reindex (data copy) completes...
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 90L));
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            anyString()))
+        .thenReturn(pollResult);
+    // ...but the alias swap fails (e.g. doc-count mismatch on a live, high-write index).
+    when(indexBuilder.validateAndSwapAlias(
+            any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME)))
+        .thenReturn(false);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    // The run must fail loudly, not silently succeed.
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+
+    // The last persisted checkpoint must record IN_PROGRESS (not COMPLETED), with the next index
+    // name retained so a resumed run can re-poll and retry the swap.
+    Map<String, String> persisted = captureLastPersistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(persisted, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.IN_PROGRESS));
+    assertEquals(
+        IncrementalReindexState.get(persisted, INDEX_NAME, IncrementalReindexState.NEXT_INDEX_NAME),
+        Optional.of(NEXT_INDEX_NAME));
+  }
+
+  @Test
+  public void testRerunAfterSwapFailureRetriesSwapInsteadOfSkipping() throws Throwable {
+    // End-to-end: run 1 reindexes then fails the swap; run 2 (fed run 1's persisted state) must
+    // resume and RETRY the swap — not skip the index as "already COMPLETED".
+    IncrementalReindexResult incrementalResult =
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(incrementalResult);
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 90L));
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            anyString()))
+        .thenReturn(pollResult);
+
+    // Run 1: swap fails.
+    when(indexBuilder.validateAndSwapAlias(
+            any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME)))
+        .thenReturn(false);
+    UpgradeStepResult run1 = step.executable().apply(upgradeContext);
+    assertEquals(run1.result(), DataHubUpgradeState.FAILED);
+
+    // Feed run 1's persisted state back in as the previous state for run 2.
+    Map<String, String> stateAfterRun1 = captureLastPersistedState();
+    DataHubUpgradeResult previousResult = mock(DataHubUpgradeResult.class);
+    when(previousResult.getResult()).thenReturn(new StringMap(stateAfterRun1));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
+
+    // Run 2: swap now succeeds.
+    when(indexBuilder.validateAndSwapAlias(
+            any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME)))
+        .thenReturn(true);
+    UpgradeStepResult run2 = step.executable().apply(upgradeContext);
+
+    assertEquals(run2.result(), DataHubUpgradeState.SUCCEEDED);
+    // Run 2 must have resumed (re-polled + retried the swap), NOT re-run the reindex from scratch,
+    // and NOT skipped the index.
+    verify(indexBuilder, times(1))
+        .buildIndexIncremental(any(OperationContext.class), any(), eq(UPGRADE_VERSION));
+    verify(indexBuilder, times(2))
+        .validateAndSwapAlias(any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
+  }
+
+  private Map<String, String> captureLastPersistedState() {
+    ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityService, atLeastOnce())
+        .ingestProposal(any(OperationContext.class), captor.capture(), any(), anyBoolean());
+    List<MetadataChangeProposal> proposals = captor.getAllValues();
+    MetadataChangeProposal last = proposals.get(proposals.size() - 1);
+    DataHubUpgradeResult decoded =
+        GenericRecordUtils.deserializeAspect(
+            last.getAspect().getValue(),
+            last.getAspect().getContentType(),
+            DataHubUpgradeResult.class);
+    return decoded.getResult() == null ? Map.of() : decoded.getResult();
   }
 
   private static ReindexConfig mockReindexConfig(String name, boolean requiresReindex) {

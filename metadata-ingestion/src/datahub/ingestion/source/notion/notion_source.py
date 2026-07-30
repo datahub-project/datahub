@@ -1357,7 +1357,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.failure(str(e))
+            self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
             if self.config.advanced.raise_on_error:
                 raise
 

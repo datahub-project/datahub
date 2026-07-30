@@ -1,0 +1,9 @@
+{
+  "@odata.context": "https://RECORDED_TENANT/api/v1/dwc/catalog/$metadata#spaces",
+  "value": [
+    {
+      "name": "DEMO_SPACE",
+      "label": "DEMO_SPACE"
+    }
+  ]
+}

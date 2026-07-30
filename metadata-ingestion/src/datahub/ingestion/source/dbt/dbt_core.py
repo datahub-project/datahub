@@ -778,25 +778,28 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     ) -> List[str]:
         # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
         # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
-        connection_label = connection_field.split("_")[0].upper()
         if not connection:
             self.report.failure(
-                title=f"Missing {connection_label} connection for {store_label} glob",
-                message=f"{connection_field} is required for {store_label} glob pattern: {path}",
+                title="Missing cloud connection for glob expansion",
+                message="Cloud connection is required for glob pattern",
+                context=f"{connection_field}: {path}",
             )
             return []
         try:
             matched_paths = expand_object_store_glob(path, connection, scheme)
         except Exception as e:
             self.report.failure(
-                title=f"{store_label} glob expansion failed",
-                message=f"Failed to expand {store_label} glob pattern '{path}': {e}",
+                title="Cloud glob expansion failed",
+                message="Failed to expand cloud glob pattern",
+                context=f"{store_label}: {path}",
+                exc=e,
             )
             return []
         if not matched_paths:
             self.report.warning(
-                title=f"{store_label} glob pattern matched no objects",
-                message=f"Pattern '{path}' did not match any {store_label} objects",
+                title="Cloud glob pattern matched no objects",
+                message="Glob pattern did not match any objects",
+                context=f"{store_label}: {path}",
             )
         else:
             logger.info(
@@ -839,15 +842,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             elif is_http_uri(path):
                 self.report.warning(
                     title="Glob patterns not supported for HTTP(S) URIs",
-                    message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
-                    "Please provide explicit file paths.",
+                    message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
+                    context=path,
                 )
             else:
                 local_paths = expand_local_glob(path)
                 if not local_paths:
                     self.report.warning(
                         title="Local glob pattern matched no files",
-                        message=f"Pattern '{path}' did not match any local files",
+                        message="Glob pattern did not match any local files",
+                        context=path,
                     )
                 else:
                     logger.info(
