@@ -11,10 +11,10 @@ import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 
 import {
     AssertionRunEvent,
+    AssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     DatasetAssertionInfo,
-    DatasetAssertionScope,
     SchemaFieldRef,
 } from '@types';
 
@@ -97,12 +97,12 @@ const boldComponents = { bold: <Typography.Text strong /> };
  * than across concatenated fragments.
  */
 export const getAggregationDescriptor = (
-    scope: DatasetAssertionScope | undefined | null,
+    scope: AssertionScope | undefined | null,
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
 ): { key: AggregationKey; column?: string; columns?: string } => {
     switch (scope) {
-        case DatasetAssertionScope.DatasetSchema:
+        case AssertionScope.DatasetSchema:
             switch (aggregation) {
                 case AssertionStdAggregation.ColumnCount:
                     return { key: 'columnCount' };
@@ -117,7 +117,7 @@ export const getAggregationDescriptor = (
                     console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
                     return { key: 'columns' };
             }
-        case DatasetAssertionScope.DatasetRows:
+        case AssertionScope.DatasetRows:
             switch (aggregation) {
                 case AssertionStdAggregation.RowCount:
                     return { key: 'rowCount' };
@@ -127,7 +127,7 @@ export const getAggregationDescriptor = (
                     console.error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
                     return { key: 'rows' };
             }
-        case DatasetAssertionScope.DatasetColumn: {
+        case AssertionScope.DatasetColumn: {
             const field = fields?.length === 1 ? fields[0] : undefined;
             let column = decodeSchemaField(field?.path || '');
             if (field === undefined) {

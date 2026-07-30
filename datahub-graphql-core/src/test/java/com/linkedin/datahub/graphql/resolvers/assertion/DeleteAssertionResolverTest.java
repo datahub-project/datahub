@@ -7,11 +7,11 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionScope;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
@@ -47,7 +47,7 @@ public class DeleteAssertionResolverTest {
                 .setDatasetAssertion(
                     new DatasetAssertionInfo()
                         .setDataset(Urn.createFromString(TEST_DATASET_URN))
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                        .setScope(AssertionScope.DATASET_COLUMN)
                         .setOperator(AssertionStdOperator.BETWEEN)));
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
@@ -195,7 +195,7 @@ public class DeleteAssertionResolverTest {
                 .setDatasetAssertion(
                     new DatasetAssertionInfo()
                         .setDataset(Urn.createFromString(TEST_DATASET_URN))
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                        .setScope(AssertionScope.DATASET_COLUMN)
                         .setOperator(AssertionStdOperator.BETWEEN)));
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);

@@ -310,7 +310,11 @@ Snowflake DMF (Data Metric Functions) rules are ingested as assertions:
 
 ### Legacy Dataset Assertion Type
 
-The `DATASET` assertion type is a legacy format that predates the more specific field, volume, freshness, and schema assertion types. It uses `DatasetAssertionInfo` with a generic structure. New integrations should use the more specific assertion types (FIELD, VOLUME, FRESHNESS, DATA_SCHEMA, SQL) as they provide better type safety and UI rendering.
+The `DATASET` assertion type is a **deprecated** legacy format for externally managed checks (historically used by dbt tests and Great Expectations). It uses `DatasetAssertionInfo` with a generic structure.
+
+**New external integrations must use `AssertionType.CUSTOM` with `CustomAssertionInfo`**, which now supports the same structured display fields (scope, aggregation, operator, parameters, fields, nativeType). Prefer `upsertCustomAssertion` / the SDK `sync_custom_assertion` helper and `reportAssertionResult` for self-reporting.
+
+Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and must not be used for external self-reporting.
 
 ### Assertion Results vs. Assertion Metrics
 

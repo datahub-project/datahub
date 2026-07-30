@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionScope;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
@@ -15,7 +16,6 @@ import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -82,7 +82,7 @@ public class EntityAssertionsResolverTest {
                         .setDatasetAssertion(
                             new DatasetAssertionInfo()
                                 .setDataset(datasetUrn)
-                                .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                                .setScope(AssertionScope.DATASET_COLUMN)
                                 .setAggregation(AssertionStdAggregation.MAX)
                                 .setOperator(AssertionStdOperator.EQUAL_TO)
                                 .setFields(
@@ -172,7 +172,7 @@ public class EntityAssertionsResolverTest {
     assertEquals(assertion.getInfo().getDatasetAssertion().getDatasetUrn(), datasetUrn.toString());
     assertEquals(
         assertion.getInfo().getDatasetAssertion().getScope(),
-        com.linkedin.datahub.graphql.generated.DatasetAssertionScope.DATASET_COLUMN);
+        com.linkedin.datahub.graphql.generated.AssertionScope.DATASET_COLUMN);
     assertEquals(
         assertion.getInfo().getDatasetAssertion().getAggregation(),
         com.linkedin.datahub.graphql.generated.AssertionStdAggregation.MAX);
@@ -446,7 +446,7 @@ public class EntityAssertionsResolverTest {
                         .setDatasetAssertion(
                             new DatasetAssertionInfo()
                                 .setDataset(datasetUrn)
-                                .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                                .setScope(AssertionScope.DATASET_COLUMN)
                                 .setAggregation(AssertionStdAggregation.MAX)
                                 .setOperator(AssertionStdOperator.EQUAL_TO))
                         .data())));
@@ -491,7 +491,7 @@ public class EntityAssertionsResolverTest {
                         .setDatasetAssertion(
                             new DatasetAssertionInfo()
                                 .setDataset(datasetUrn)
-                                .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                                .setScope(AssertionScope.DATASET_COLUMN)
                                 .setAggregation(AssertionStdAggregation.MAX)
                                 .setOperator(AssertionStdOperator.EQUAL_TO))
                         .data())));

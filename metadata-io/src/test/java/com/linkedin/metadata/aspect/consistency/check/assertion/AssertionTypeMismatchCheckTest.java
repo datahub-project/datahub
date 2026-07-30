@@ -5,10 +5,10 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionScope;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionType;
@@ -311,7 +311,7 @@ public class AssertionTypeMismatchCheckTest {
       case DATASET:
         DatasetAssertionInfo datasetInfo = new DatasetAssertionInfo();
         datasetInfo.setDataset(entityUrn);
-        datasetInfo.setScope(DatasetAssertionScope.DATASET_ROWS);
+        datasetInfo.setScope(AssertionScope.DATASET_ROWS);
         info.setDatasetAssertion(datasetInfo);
         break;
       case VOLUME:

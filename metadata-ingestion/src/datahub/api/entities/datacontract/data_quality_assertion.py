@@ -9,6 +9,7 @@ from datahub.api.entities.datacontract.assertion_operator import Operators
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionScopeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -17,7 +18,6 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     AssertionValueChangeTypeClass,
     DatasetAssertionInfoClass,
-    DatasetAssertionScopeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )
@@ -72,7 +72,7 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
     def generate_assertion_info(self, entity_urn: str) -> AssertionInfoClass:
         dataset_assertion_info = DatasetAssertionInfoClass(
             dataset=entity_urn,
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+            scope=AssertionScopeClass.DATASET_COLUMN,
             fields=[builder.make_schema_field_urn(entity_urn, self.column)],
             operator=AssertionStdOperatorClass.EQUAL_TO,
             aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,  # purposely using the misspelled version to work with gql

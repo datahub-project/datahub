@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionScope;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -14,7 +15,6 @@ import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
@@ -299,7 +299,7 @@ public class AssertionMapperTest {
     info.setType(com.linkedin.assertion.AssertionType.DATASET);
     DatasetAssertionInfo datasetAssertionInfo = new DatasetAssertionInfo();
     datasetAssertionInfo.setDataset(UrnUtils.getUrn("urn:li:dataset:1"));
-    datasetAssertionInfo.setScope(DatasetAssertionScope.DATASET_COLUMN);
+    datasetAssertionInfo.setScope(AssertionScope.DATASET_COLUMN);
     datasetAssertionInfo.setOperator(AssertionStdOperator.GREATER_THAN);
     info.setDatasetAssertion(datasetAssertionInfo);
     return info;
