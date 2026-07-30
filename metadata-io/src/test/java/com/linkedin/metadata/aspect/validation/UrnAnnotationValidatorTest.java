@@ -148,7 +148,53 @@ public class UrnAnnotationValidatorTest {
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
     assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for invalid URN");
-    assertTrue(exceptions.get(0).getMessage().contains("invalid urn"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /urn"), message);
+    assertTrue(message.contains("expected a dataset URN"), message);
+    assertTrue(message.contains(invalidUrn), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_WithBareStringField() {
+    String bareField = "segment_denial_rate";
+
+    DataMap dataMap = new DataMap();
+    dataMap.put("field", bareField);
+
+    UrnValidationAnnotation annotation = mock(UrnValidationAnnotation.class);
+    when(annotation.isStrict()).thenReturn(true);
+    when(annotation.getEntityTypes()).thenReturn(Collections.singletonList("schemaField"));
+
+    UrnValidationFieldSpec fieldSpec = mock(UrnValidationFieldSpec.class);
+    when(fieldSpec.getUrnValidationAnnotation()).thenReturn(annotation);
+
+    Map<String, UrnValidationFieldSpec> fieldSpecMap = new HashMap<>();
+    fieldSpecMap.put("/field", fieldSpec);
+    when(mockAspectSpec.getUrnValidationFieldSpecMap()).thenReturn(fieldSpecMap);
+
+    when(mockBatchItem.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(mockBatchItem.getRecordTemplate()).thenReturn(mockRecordTemplate);
+    when(mockRecordTemplate.data()).thenReturn(dataMap);
+
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspects(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext);
+
+    List<AspectValidationException> exceptions = result.collect(Collectors.toList());
+    assertFalse(
+        exceptions.isEmpty(), "Validation exception should be thrown for bare string field");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /field"), message);
+    assertTrue(
+        message.contains("expected a schemaField URN (urn:li:schemaField:(<dataset>,<column>))"),
+        message);
+    assertTrue(message.contains(bareField), message);
+    assertFalse(message.contains("Failed to retrieve entity"), message);
   }
 
   @Test
@@ -194,7 +240,11 @@ public class UrnAnnotationValidatorTest {
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
     assertFalse(
         exceptions.isEmpty(), "Validation exception should be thrown for invalid entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN entity type at path /urn"), message);
+    assertTrue(message.contains("expected one of [dataset]"), message);
+    assertTrue(message.contains("got corpuser"), message);
+    assertTrue(message.contains(invalidUrn.toString()), message);
   }
 
   @Test
