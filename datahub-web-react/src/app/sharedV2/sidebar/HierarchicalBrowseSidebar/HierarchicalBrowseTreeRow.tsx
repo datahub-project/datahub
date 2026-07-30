@@ -53,7 +53,7 @@ export type HierarchicalBrowseTreeRowProps = {
 };
 
 const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalBrowseTreeRowProps>(
-    function HierarchicalBrowseTreeRow(
+    (
         {
             level,
             isSelected,
@@ -75,7 +75,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             onMouseLeave,
         },
         ref,
-    ) {
+    ) => {
         const { t: tc } = useTranslation('common.actions');
         const theme = useTheme();
 
@@ -160,5 +160,6 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
         );
     },
 );
+HierarchicalBrowseTreeRow.displayName = 'HierarchicalBrowseTreeRow';
 
 export default HierarchicalBrowseTreeRow;
