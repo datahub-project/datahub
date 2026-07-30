@@ -1,6 +1,6 @@
 import itertools
 import logging
-from typing import IO, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import IO, Dict, List, Type, Union
 
 import ijson
 import jsonlines as jsl
@@ -33,32 +33,42 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 logger = logging.getLogger(__name__)
 
+_JsonContainer = Union[Dict[str, object], List[object]]
 
-def _bounded_json_value(file: IO[bytes], max_rows: int) -> Any:
-    """Stream-rebuild a single JSON value, truncating each array to ``max_rows``
-    elements so a huge single object (e.g. ``{"data": [ ...millions... ]}``) is
+
+def _bounded_json_value(file: IO[bytes], max_rows: int) -> object:
+    """Stream-rebuild a single JSON value, truncating every array to ``max_rows``
+    elements so a large single object (e.g. ``{"data": [ ...millions... ]}``) is
     not fully loaded into memory just to infer its schema.
 
-    ponytail: array items beyond ``max_rows`` are dropped, so the inferred schema
-    reflects only the first ``max_rows`` items of each array.
+    Only arrays are bounded. A wide object (``{"user_1": {...}, "user_2": {...},
+    ...}``) is still rebuilt in full, because dropping keys would drop the fields
+    they describe - a column-oriented dump would silently lose columns.
+
+    Array items beyond ``max_rows`` are dropped, so the inferred schema reflects
+    only the first ``max_rows`` items of each array: a field that first appears in
+    a later item is not reported, and nullability is decided from that sample.
     """
     root: List[object] = []
-    stack: List[Tuple[object, str]] = []  # (container, "map" | "array")
-    keys: List[Optional[str]] = []
+    stack: List[_JsonContainer] = []
+    keys: List[str] = []  # pending key of each open object, innermost last
     skip_depth = 0  # >0 while skipping a subtree that is over the array limit
 
     def _at_array_limit() -> bool:
-        return bool(stack) and stack[-1][1] == "array" and len(stack[-1][0]) >= max_rows  # type: ignore[arg-type]
+        if not stack:
+            return False
+        container = stack[-1]
+        return isinstance(container, list) and len(container) >= max_rows
 
     def _attach(value: object) -> None:
         if not stack:
             root.append(value)
             return
-        container, kind = stack[-1]
-        if kind == "map":
-            container[keys[-1]] = value  # type: ignore[index]
+        container = stack[-1]
+        if isinstance(container, list):
+            container.append(value)
         else:
-            container.append(value)  # type: ignore[attr-defined]
+            container[keys[-1]] = value
 
     # use_float keeps numbers as native int/float (not Decimal), matching json.load.
     for _prefix, event, value in ijson.parse(file, use_float=True):
@@ -75,11 +85,11 @@ def _bounded_json_value(file: IO[bytes], max_rows: int) -> Any:
             if _at_array_limit():
                 skip_depth = 1
                 continue
-            container: object = {} if event == "start_map" else []
+            container: _JsonContainer = {} if event == "start_map" else []
             _attach(container)
-            stack.append((container, "map" if event == "start_map" else "array"))
+            stack.append(container)
             if event == "start_map":
-                keys.append(None)
+                keys.append("")
         elif event == "end_map":
             stack.pop()
             keys.pop()
@@ -90,7 +100,11 @@ def _bounded_json_value(file: IO[bytes], max_rows: int) -> Any:
                 continue
             _attach(value)
 
-    return root[0] if root else {}
+    if not root:
+        # Any valid document emits at least one event, so this is a parse anomaly.
+        # Raise rather than invent {}, letting the caller fall back to jsonlines.
+        raise ijson.common.JSONError("no JSON value found")
+    return root[0]
 
 
 class JsonInferrer(SchemaInferenceBase):
@@ -119,7 +133,9 @@ class JsonInferrer(SchemaInferenceBase):
                 if not datastore:
                     # Not a top-level array — likely a single JSON object.
                     file.seek(0)
-                    datastore = [_bounded_json_value(file, self.max_rows)]
+                    root_value = _bounded_json_value(file, self.max_rows)
+                    # A non-object root (bare scalar, empty array) has no fields.
+                    datastore = [root_value] if isinstance(root_value, dict) else []
             except (
                 ujson.JSONDecodeError,
                 ijson.common.JSONError,

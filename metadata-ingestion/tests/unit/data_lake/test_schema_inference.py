@@ -1,5 +1,5 @@
 import tempfile
-from typing import List, Type
+from typing import Dict, List, Type
 
 import pandas as pd
 import ujson
@@ -159,30 +159,42 @@ def test_bounded_json_value_truncates_array_of_objects():
 
         result = json._bounded_json_value(file, max_rows=3)
 
-    assert [r["a"] for r in result["rows"]] == [0, 1, 2]
+    assert result == {"rows": [{"a": 0}, {"a": 1}, {"a": 2}]}
 
 
-def test_infer_schema_json_single_object_large_array_capped():
-    """Schema inference on a single object with a giant array still works and
-    is bounded (regression guard for the ujson.load whole-file fallback)."""
+def test_bounded_json_value_skips_nested_containers_past_limit():
+    """Skipped array items may themselves contain nested containers, so the skip
+    bookkeeping has to unwind to exactly the right depth. The trailing key proves
+    parsing resumed at the top level."""
+    rows = [{"a": {"b": [i, i + 1]}} for i in range(10)]
     with tempfile.TemporaryFile(mode="w+b") as file:
-        file.write(
-            ujson.dumps(
-                {
-                    "integer_field": 1,
-                    "boolean_field": True,
-                    "string_field": "a",
-                    "big_array": list(range(5000)),
-                }
-            ).encode("utf-8")
-        )
+        file.write(ujson.dumps({"rows": rows, "tail": "sentinel"}).encode("utf-8"))
         file.seek(0)
 
-        fields = json.JsonInferrer(max_rows=10).infer_schema(file)
+        result = json._bounded_json_value(file, max_rows=2)
+
+    assert result == {
+        "rows": [{"a": {"b": [0, 1]}}, {"a": {"b": [1, 2]}}],
+        "tail": "sentinel",
+    }
+
+
+def test_infer_schema_json_single_object_is_sampled():
+    """A single JSON object is sampled rather than read whole, so a field that
+    first appears past max_rows is not reported. This fails against the old
+    ujson.load fallback, which saw every record."""
+    records: List[Dict[str, int]] = [{"integer_field": i} for i in range(200)]
+    records[150]["late_field"] = 1
+
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps({"rows": records}).encode("utf-8"))
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=100).infer_schema(file)
 
     field_paths = [f.fieldPath for f in fields]
-    assert "integer_field" in field_paths
-    assert "big_array" in field_paths
+    assert "rows.integer_field" in field_paths
+    assert "rows.late_field" not in field_paths
 
 
 def test_infer_schema_json_fallback_to_jsonlines():
