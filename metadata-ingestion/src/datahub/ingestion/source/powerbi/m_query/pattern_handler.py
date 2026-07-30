@@ -1583,6 +1583,14 @@ class NativeQueryLineage(AbstractLineage):
 # the enum so a platform-name rename can't silently disable the catalog drop.
 ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
 
+# Three-tier platforms whose connector URNs require all three levels
+# (e.g. BigQuery's project.dataset.table). For these, a two-part database.table
+# name is not a valid qualified name — it must be skipped rather than emitted as
+# a truncated (and therefore wrong) upstream URN.
+ODBC_THREE_TIER_PLATFORMS = {
+    SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name
+}
+
 
 class OdbcLineage(AbstractLineage):
     def create_lineage(
@@ -1937,7 +1945,15 @@ class OdbcLineage(AbstractLineage):
             and table_name is not None
         ):
             qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
-        elif database_name is not None and table_name is not None:
+        elif (
+            database_name is not None
+            and table_name is not None
+            and data_platform not in ODBC_THREE_TIER_PLATFORMS
+        ):
+            # Only genuinely two-part platforms (e.g. MySQL's database.table) may
+            # use this fallback. For three-tier platforms a missing schema means
+            # the name is incomplete, so fall through to the warning below rather
+            # than emit a truncated URN.
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:

@@ -1776,6 +1776,44 @@ def test_bigquery_odbc_navigation_project_and_dataset_from_dsn_mapping():
 
 
 @pytest.mark.integration
+def test_bigquery_odbc_navigation_table_only_single_segment_mapping_warns():
+    """Three-tier guard: ODBC navigation exposes only the leaf table and
+    dsn_to_database_schema has a single segment (project only), so the dataset
+    level is missing. BigQuery requires project.dataset.table, so no truncated
+    two-part URN must be emitted — instead lineage is skipped with a warning."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_TABLE_ONLY,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"bq_events": "bigquery"},
+            "dsn_to_database_schema": {"bq_events": "my_project"},
+        }
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert "Can not determine qualified table name" in warning_titles, (
+        f"Expected the qualified-table-name warning; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
 def test_bigquery_odbc_navigation_wins_over_dsn_mapping():
     """Navigation values take precedence over dsn_to_database_schema. Navigation
     supplies the dataset (analytics_ds), so only the missing project is filled
