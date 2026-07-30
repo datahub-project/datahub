@@ -1,4 +1,5 @@
 import { Pill, Text } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -26,6 +27,7 @@ const Header = styled(Text)`
     justify-content: start;
     gap: 6px;
     margin-bottom: 8px;
+    width: 100%;
 
     color: ${(props) => props.theme.colors.text};
     font-size: 14px;
@@ -51,6 +53,22 @@ const ShowAllButton = styled(Text)`
     cursor: pointer;
 `;
 
+const HistoryButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding: 2px 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.textSecondary};
+    border-radius: 4px;
+    &:hover {
+        color: ${(props) => props.theme.colors.text};
+        background: ${(props) => props.theme.colors.bgHover};
+    }
+`;
+
 interface Props {
     versionSet?: VersionSet;
 }
@@ -64,10 +82,15 @@ export default function VersionsPreview({ versionSet }: Props) {
     const count = versionSet?.versionsSearch?.count;
     const total = versionSet?.versionsSearch?.total;
     return (
-        <Wrapper>
+        <Wrapper data-testid="versions-preview-panel">
             <Header size="xl" type="div">
                 <Text weight="semiBold">{t('versionsTitle')}</Text>
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
+                {setDrawer && (
+                    <HistoryButton title={t('viewHistory')} onClick={() => setDrawer(DrawerType.CHANGE_HISTORY)}>
+                        <ClockCounterClockwise size={15} />
+                    </HistoryButton>
+                )}
             </Header>
             <VersionsWrapper>
                 {versionSet?.versionsSearch?.searchResults?.map((result) => (

@@ -16,6 +16,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -23,6 +24,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
 import java.util.List;
@@ -114,10 +116,39 @@ public class TestUtils {
     when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
+  }
+
+  /**
+   * Enriches an {@link OperationContext} with YAML-default entity-type lists on {@link
+   * SearchContext} so GraphQL resolvers that fall back to configured defaults behave like
+   * production in unit tests.
+   */
+  public static OperationContext withDefaultSearchEntityTypes(
+      @Nonnull OperationContext operationContext) {
+    SearchContext enriched =
+        operationContext.getSearchContext().toBuilder()
+            .defaultSearchEntityNames(
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES))
+            .defaultAutocompleteEntityNames(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES))
+            .defaultBrowseEntityNames(
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_BROWSE_ENTITY_TYPES))
+            .prioritizedSourceEntityTypes(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_PRIORITIZED_SOURCE_ENTITY_TYPES))
+            .prioritizedDatahubEntityTypes(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_PRIORITIZED_DATAHUB_ENTITY_TYPES))
+            .build();
+    return operationContext.toBuilder()
+        .searchContext(enriched)
+        .build(operationContext.getSessionActorContext(), false);
   }
 
   public static QueryContext getMockDenyContext() {
@@ -152,7 +183,8 @@ public class TestUtils {
     when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;

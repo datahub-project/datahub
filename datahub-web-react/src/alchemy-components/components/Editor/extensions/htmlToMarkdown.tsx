@@ -101,6 +101,7 @@ const turndownService = new TurndownService({
         replacement: (_, node, options) => {
             invariant(isElementDomNode(node.firstChild), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.firstChild?.nodeName}\` encountered for codeblock when converting html to markdown.`,
             });
 
@@ -121,6 +122,7 @@ const turndownService = new TurndownService({
         replacement: (_, node) => {
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.nodeName}\` encountered for mentions when converting html to markdown.`,
             });
             const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn);
@@ -141,6 +143,7 @@ const turndownService = new TurndownService({
         replacement: (_, node) => {
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.nodeName}\` encountered for file nodes when converting html to markdown.`,
             });
 

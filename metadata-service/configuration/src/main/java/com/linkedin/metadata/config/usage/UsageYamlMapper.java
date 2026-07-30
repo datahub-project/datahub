@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import javax.annotation.Nonnull;
 
-/** Shared snake_case YAML mapper for usage and billing manifest loaders. */
+/** Shared snake_case YAML mapper for usage registry / operations loaders. */
 public final class UsageYamlMapper {
 
   private UsageYamlMapper() {}

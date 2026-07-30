@@ -33,6 +33,8 @@ public class DataHubConfiguration {
 
   private S3Configuration s3;
 
+  private ObjectStorageConfiguration objectStorage;
+
   /** Neutral API usage aggregation (OSS). */
   private UsageConfiguration usage;
 

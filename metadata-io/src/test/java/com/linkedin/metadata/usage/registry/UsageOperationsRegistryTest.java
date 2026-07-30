@@ -106,6 +106,13 @@ public class UsageOperationsRegistryTest {
   }
 
   @Test
+  public void testMcpQueryAllowsMcpApiOnly() {
+    UsageOperationsRegistry.UsageOperationEntry entry = ossRegistry().require("mcp_query");
+    Assert.assertTrue(ossRegistry().isAllowedForApi(entry, RequestContext.RequestAPI.MCP));
+    Assert.assertFalse(ossRegistry().isAllowedForApi(entry, RequestContext.RequestAPI.OPENAPI));
+  }
+
+  @Test
   public void testIsAllowedForApiWhenRestricted() {
     UsageOperationsRegistry.UsageOperationEntry entry = ossRegistry().require("metadata_read");
     Assert.assertTrue(ossRegistry().isAllowedForApi(entry, RequestContext.RequestAPI.RESTLI));

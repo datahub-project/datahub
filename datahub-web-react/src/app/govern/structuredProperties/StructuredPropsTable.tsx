@@ -18,7 +18,7 @@ import {
     PropDescription,
     PropName,
 } from '@app/govern/structuredProperties/styledComponents';
-import { getDisplayName } from '@app/govern/structuredProperties/utils';
+import { getDisplayName, getFilteredSortedStructuredProperties } from '@app/govern/structuredProperties/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
@@ -76,16 +76,8 @@ const StructuredPropsTable = ({
 
     const structuredProperties = (searchQuery && (searchResults as StructuredPropertyEntity[])) || [];
 
-    // Filter the search results on just displayName based on the search query
-    const filteredProperties = structuredProperties
-        .filter((prop: StructuredPropertyEntity) =>
-            prop.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
-        .sort(
-            (propA, propB) =>
-                ((propB as StructuredPropertyEntity).definition.created?.time || 0) -
-                ((propA as StructuredPropertyEntity).definition.created?.time || 0),
-        );
+    // Filter on the displayed name (displayName, falling back to qualifiedName) and sort by newest first.
+    const filteredProperties = getFilteredSortedStructuredProperties(structuredProperties, searchQuery);
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
 

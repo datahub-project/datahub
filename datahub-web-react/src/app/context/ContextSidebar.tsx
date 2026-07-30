@@ -224,6 +224,7 @@ export default function ContextSidebar({
 }: Props) {
     const { t } = useTranslation('misc');
     const { t: tc } = useTranslation('common.actions');
+    const { t: tet } = useTranslation('entity.types');
     const [creating, setCreating] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -472,11 +473,11 @@ export default function ContextSidebar({
                                 {searchResults.map((doc) => {
                                     // Build breadcrumb from parentDocuments array
                                     let breadcrumb: string | null = null;
-                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) 'Untitled' is a fallback default for a missing document title (data, not UI chrome); ' > ' is a punctuation separator */
+                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) ' > ' is a decorative punctuation separator between breadcrumb segments */
                                     if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                         const parents = [...doc.parentDocuments.documents].reverse();
                                         breadcrumb = parents
-                                            .map((parent) => parent.info?.title || 'Untitled')
+                                            .map((parent) => parent.info?.title || tet('document.untitledFallback'))
                                             .join(' > ');
                                     }
                                     /* eslint-enable i18next/no-literal-string */

@@ -14,6 +14,9 @@
     "changeEventString.defaultRelationship": "relaterad",
     "changeEventString.fieldDocEmpty": "Fältdokumentationen för {{fieldPath}} är tom.",
     "changeEventString.modifiedColumn": "Kolumnen {{column}} har ändrats.",
+    "changeEventString.relationshipLabel.contained": "innehållen",
+    "changeEventString.relationshipLabel.inherited": "ärvd",
+    "changeEventString.relationshipLabel.value": "värde",
     "changeEventString.removedAsset": "Tillgången \"{{assetName}}\" har tagits bort.",
     "changeEventString.removedColumn": "Kolumnen {{column}} har tagits bort.",
     "changeEventString.removedFromApplication": "Har tagits bort från applikationen \"{{appName}}\".",
@@ -158,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Vissa Tags hämtades från {{platform}}. De synkroniseras om regelbundet under schemalagd Ingestion.",
     "tagTermRenderer.tagsNotEditable": "Vissa Tags kan inte redigeras.",
     "usageStatsRenderer.hasColumnStats": "Har kolumnstatistik",
-    "usageStatsRenderer.noColumnStats": "Ingen kolumnstatistik"
+    "usageStatsRenderer.noColumnStats": "Ingen kolumnstatistik",
+    "fieldLogical.andMore": "och {{count}} till",
+    "fieldLogical.logicalParentInfo": "Kolumn i den logiska modellen som definierar den här kolumnens metadata. Ändringar i den logiska överordnades kolumnmetadata propageras automatiskt till den här kolumnen.",
+    "fieldLogical.logicalParentTitle": "Logisk överordnad",
+    "fieldLogical.physicalChildrenInfo": "Fysiska implementationer av den här logiska modellkolumnen. Ändringar i den här kolumnens metadata propageras automatiskt till dessa underordnade kolumner.",
+    "fieldLogical.physicalChildrenTitle": "Fysiska underordnade",
+    "fieldLogical.viewAllPhysicalChildren": "Visa alla fysiska underordnade"
 }

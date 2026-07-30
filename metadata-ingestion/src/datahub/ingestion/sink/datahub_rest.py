@@ -7,7 +7,7 @@ import threading
 import uuid
 from datetime import timedelta
 from enum import auto
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import pydantic
 import requests
@@ -57,6 +57,9 @@ from datahub.utilities.partition_executor import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +224,15 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
 
     @classmethod
+    def make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+        """Build a REST emitter from sink config.
+
+        Public so other sinks (e.g. the Kafka sink's REST fallback) can reuse the
+        exact emitter construction.
+        """
+        return cls._make_emitter(config, auth=cls._resolve_auth(config))
+
+    @classmethod
     def _resolve_auth(
         cls, config: DatahubRestSinkConfig
     ) -> Optional[requests.auth.AuthBase]:
@@ -318,6 +330,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.config, auth=self._resolved_auth
             )
         return thread_local.emitter
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        return self.emitter.to_graph()
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):

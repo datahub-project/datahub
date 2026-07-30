@@ -3,7 +3,7 @@ import logging
 import time
 import urllib
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import pytest
 import requests
@@ -538,6 +538,7 @@ def test_ingest_with_system_metadata(auth_session, test_run_ingestion):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -570,6 +571,7 @@ def test_ingest_with_blank_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -599,6 +601,7 @@ def test_ingest_without_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -757,7 +760,7 @@ def test_add_remove_members_from_group(auth_session):
             }
         }
     }"""
-    variables = {"urn": "urn:li:corpuser:jdoe"}
+    variables: Dict[str, Any] = {"urn": "urn:li:corpuser:jdoe"}
     res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data["data"]["corpUser"]
@@ -936,7 +939,7 @@ def test_remove_group(auth_session):
 def test_create_group(auth_session):
     query = """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }"""
-    variables = {
+    variables: Dict[str, Any] = {
         "input": {
             "id": "test-id",
             "name": "Test Group",

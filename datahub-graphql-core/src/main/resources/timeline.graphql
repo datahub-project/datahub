@@ -83,6 +83,14 @@ enum ChangeCategoryType {
   When assets have been added to or removed from a Data Product
   """
   ASSET_MEMBERSHIP
+  """
+  When a new version has been created within a VersionSet, or when an existing version's
+  versionTag changes. Currently emitted for versioned GlossaryTerms and Datasets; will become
+  available for other versioned entity types as their event generators are registered.
+  Lifecycle-stage transitions (DRAFT → PUBLISHED etc.) are NOT covered by this category — see
+  LIFECYCLE.
+  """
+  VERSIONING
 }
 
 """
@@ -127,6 +135,21 @@ input GetTimelineInput {
   The change category types to filter by. If left empty, will fetch all.
   """
   changeCategories: [ChangeCategoryType!]
+
+  """
+  When true and the entity belongs to a VersionSet, fetch and merge the timelines of ALL
+  versions in the set. The result is a unified chronological history across the entire concept
+  lifecycle — version creation milestones interleaved with per-version metadata changes.
+  Only applies to versioned entities (those with a versionProperties aspect). For non-versioned
+  URNs the flag is silently ignored and the response is shape-identical to a normal single-URN
+  fetch — existing consumers are unaffected.
+
+  When sibling versions exist beyond the server-side walk limit (currently 50) or some are
+  inaccessible (e.g. missing view permission, deletion race), they are omitted from the merged
+  result. The omitted count is surfaced on GetTimelineResult.skippedVersionCount so callers can
+  warn the user that the view may be partial.
+  """
+  includeVersionSet: Boolean
 }
 
 """
@@ -220,6 +243,14 @@ Result of getting timeline from a specific version.
 """
 type GetTimelineResult {
   changeTransactions: [ChangeTransaction!]!
+
+  """
+  Number of sibling version URNs that were resolved but whose events were omitted from the
+  merged stream — typically because the caller lacks view permission on them, they were
+  deleted between resolve and fetch, or they exceeded the server-side walk limit.
+  Always 0 when includeVersionSet is false or the entity is not versioned.
+  """
+  skippedVersionCount: Int
 }
 
 """
