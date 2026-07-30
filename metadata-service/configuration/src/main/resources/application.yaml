@@ -114,7 +114,7 @@ authorization:
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:

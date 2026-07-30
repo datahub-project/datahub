@@ -59,6 +59,35 @@ applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on sel
 gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
 note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
 
+#### Columns (`schemaField`) after you restrict them
+
+Once `schemaField` is removed from the unrestricted list, two different paths apply:
+
+1. **Entity page / schema tab (VBAC)** — Viewing a column inherits **View Entity** from the parent dataset encoded
+   in the schemaField URN (`urn:li:schemaField:(<datasetUrn>,<fieldPath>)`), then falls back to a direct grant on
+   the column URN. Users who can open a dataset can open its columns even when the column itself has no domains,
+   owners, or containers.
+2. **Search results (SBAC, Cloud only)** — Query-time filters still evaluate **facets on the indexed hit**. Column
+   documents generally do **not** store parent domain, container, or owner fields, so those policy criteria do not
+   match columns the way they match datasets.
+
+**Cloud SBAC limitations for `schemaField`:**
+
+| Policy shape                                                                        | Datasets in search                    | Columns (`schemaField`) in search                                                                                      |
+| ----------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Domain / container / resource-owner filters                                         | Matched via facets on the dataset doc | **Not matched** — column docs lack those facets; there is no parent-domain/container/owner pushdown                    |
+| `TYPE = dataset` (alone or ANDed with other filters)                                | Matched                               | **Excluded** — the type clause requires `dataset`, so `schemaField` hits fail even if a sibling URN clause would match |
+| URN equals / starts-with on a dataset (and type is unset or includes `schemaField`) | Matched                               | **Matched** — Cloud expands URN filters with a prefix on `urn:li:schemaField:(<datasetUrn>,`                           |
+
+So domain-scoped “View Entity on datasets in Finance” policies correctly hide Finance datasets from unauthorized
+users and still allow authorized users to browse columns on the dataset page, but they **will not list those
+columns as separate search hits**. To surface columns in search under SAC, use URN-scoped grants (without a
+`TYPE = dataset`-only constraint), an explicit `TYPE = schemaField` policy, or keep `schemaField` unrestricted
+(not recommended if columns must not leak in search).
+
+OSS does **not** implement this URN-prefix search pushdown; self-hosted `VIEW_AUTHORIZATION_ENABLED` only gates
+entity pages / post-search masking.
+
 ### Policy-Based Filtering
 
 Search results are automatically filtered based on:
@@ -330,6 +359,14 @@ Yes. The same filtering applies to programmatic access via the GraphQL API. User
 `VIEW_UNRESTRICTED_ENTITY_TYPES`). Documents are view-restricted by default; if users can view them without a grant,
 check whether `document` was added through `VIEW_UNRESTRICTED_ENTITY_TYPES` or `_ADD`. See
 [Entity types that bypass view checks](#entity-types-that-bypass-view-checks).
+
+**After restricting `schemaField`, why don’t columns appear in search for users who can see the parent dataset?**
+
+Entity-page access inherits from the parent dataset, but **Cloud search filtering does not**. Domain, container,
+and resource-owner policies match facets on the search document; column docs usually lack those facets.
+Policies that set `TYPE = dataset` also exclude `schemaField` hits. URN-scoped dataset grants can match columns
+via a Cloud-only URN prefix. See
+[Columns (`schemaField`) after you restrict them](#columns-schemafield-after-you-restrict-them).
 
 **Can I create a policy that denies access instead of granting it?**
 

@@ -54,6 +54,9 @@ public class EntityAuthorizationUtilsTest {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD)");
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:facade-query");
+  private static final Urn SCHEMA_FIELD_URN =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD),field_foo)");
 
   private OperationContext opContext;
   private AspectRetriever aspectRetriever;
@@ -348,6 +351,21 @@ public class EntityAuthorizationUtilsTest {
           .thenReturn(true);
 
       assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, QUERY_URN));
+    }
+  }
+
+  @Test
+  public void testCanViewEntity_delegatesSchemaFields() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      schemaFieldAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+                      opContext, SCHEMA_FIELD_URN))
+          .thenReturn(true);
+
+      assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, SCHEMA_FIELD_URN));
     }
   }
 }

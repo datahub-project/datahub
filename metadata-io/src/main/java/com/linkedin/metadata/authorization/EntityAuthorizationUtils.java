@@ -2,6 +2,7 @@ package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
@@ -47,8 +48,8 @@ import org.apache.http.HttpStatus;
  * </ul>
  *
  * <p>Default API behavior delegates to {@link AuthUtil}. Entity-specific utilities are consulted
- * only when a URN or MCP requires specialized authorization (currently documents, with query VIEW
- * handled for search/view paths).
+ * only when a URN or MCP requires specialized authorization (currently documents, with query and
+ * schema field VIEW handled for search/view paths).
  */
 @Slf4j
 public final class EntityAuthorizationUtils {
@@ -230,8 +231,8 @@ public final class EntityAuthorizationUtils {
    * Shared entity VIEW privilege evaluator. Not gated by View Authorization or REST API
    * authorization flags — callers wrap this when they need those activation switches.
    *
-   * <p>Query entities inherit from subjects; documents use bridge-aware document VIEW; all others
-   * use {@link AuthUtil}.
+   * <p>Query entities inherit from subjects; schema fields inherit from their containing dataset;
+   * documents use bridge-aware document VIEW; all others use {@link AuthUtil}.
    */
   public static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {
@@ -240,6 +241,9 @@ public final class EntityAuthorizationUtils {
     }
     if (DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())) {
       return DocumentAuthorizationUtils.canViewDocumentEntity(opContext, urn);
+    }
+    if (SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())) {
+      return EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(opContext, urn);
     }
     return AuthUtil.canViewEntity(opContext, urn);
   }
