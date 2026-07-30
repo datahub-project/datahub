@@ -17,6 +17,7 @@ import json
 import os
 
 import anthropic
+import httpx
 
 from contextlib import asynccontextmanager
 
@@ -25,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
-from agent import run_agent
+from agent import DEFAULT_MODEL, run_agent
 from mcp_tools import get_mcp, shutdown_mcp
 import mysql.connector
 import uuid
@@ -50,19 +51,70 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory config store (hackathon only). Production -> DataHub secret manager.
-_CONFIG = {"model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")}
+# In-memory model selection store. Provider keys are fetched from GMS at runtime.
+_CONFIG = {"model": DEFAULT_MODEL}
+DATAHUB_GMS_URL = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8080")
+DATAHUB_GMS_TOKEN = os.environ.get("DATAHUB_GMS_TOKEN", "")
+INTERNAL_PROVIDER_KEY_URL = f"{DATAHUB_GMS_URL}/api/ai-config/internal/provider-key"
 
 
 class ChatRequest(BaseModel):
     message: str
     context: dict | None = None
     session_id: Optional[str] = None
+    model: Optional[str] = None
 
 
 class ConfigRequest(BaseModel):
     apiKey: str | None = None
     model: str | None = None
+
+
+def _gms_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if DATAHUB_GMS_TOKEN:
+        headers["Authorization"] = f"Bearer {DATAHUB_GMS_TOKEN}"
+    return headers
+
+
+async def _get_runtime_ai_config(model: str | None = None) -> dict[str, Any]:
+    selected_model = (model or _CONFIG["model"]).strip().lower()
+    env_api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(
+                INTERNAL_PROVIDER_KEY_URL,
+                headers=_gms_headers(),
+                params={"model": selected_model},
+            )
+    except Exception as exc:
+        if env_api_key and selected_model.startswith("claude-"):
+            return {
+                "model": selected_model,
+                "provider": "claude",
+                "apiKey": env_api_key,
+                "hasKey": True,
+                "source": "env-fallback",
+            }
+        raise HTTPException(status_code=503, detail=f"Failed to reach GMS AI config endpoint: {exc}") from exc
+
+    if response.status_code == 404:
+        return {"model": selected_model, "provider": None, "apiKey": None, "hasKey": False}
+    if response.status_code >= 400:
+        detail = response.text
+        raise HTTPException(
+            status_code=502,
+            detail=f"GMS AI config endpoint returned {response.status_code}: {detail}",
+        )
+
+    payload = response.json()
+    return {
+        "model": payload.get("model", selected_model),
+        "provider": payload.get("provider"),
+        "apiKey": payload.get("apiKey"),
+        "hasKey": bool(payload.get("apiKey")),
+    }
 
 
 @app.get("/health")
@@ -80,9 +132,9 @@ SUMMARY_KEEP_RECENT = 6
 SUMMARY_MODEL = "claude-haiku-4-5"
 
 
-async def _summarize_messages(messages: list[dict]) -> str:
+async def _summarize_messages(messages: list[dict], api_key: str) -> str:
     """Call Claude Haiku to produce a concise summary of old conversation turns."""
-    client = anthropic.AsyncAnthropic()
+    client = anthropic.AsyncAnthropic(api_key=api_key)
     text_turns = "\n".join(
         f"{m['role'].upper()}: {m['content']}" for m in messages
     )
@@ -101,6 +153,14 @@ async def _summarize_messages(messages: list[dict]) -> str:
 
 @app.post("/api/ai/chat")
 async def chat(req: ChatRequest) -> StreamingResponse:
+    selected_model = req.model.strip().lower() if req.model else _CONFIG["model"]
+    runtime_config = await _get_runtime_ai_config(selected_model)
+    if runtime_config["provider"] not in (None, "claude"):
+        raise HTTPException(
+            status_code=501,
+            detail=f"Provider {runtime_config['provider']} is not yet supported by the orchestrator.",
+        )
+
     # Load conversation history from MySQL if a session_id was provided
     history: list[dict] = []
     if req.session_id:
@@ -156,22 +216,36 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                         if existing_summary else []
                     ) + old_messages
 
-                    new_summary = await _summarize_messages(to_summarize)
+                    if runtime_config["apiKey"]:
+                        new_summary = await _summarize_messages(
+                            to_summarize, runtime_config["apiKey"]
+                        )
+                    else:
+                        new_summary = existing_summary
 
                     # Persist the updated summary back to sessions table
-                    cursor3 = conn.cursor()
-                    cursor3.execute(
-                        "UPDATE sessions SET summary = %s WHERE id = %s",
-                        (new_summary, req.session_id),
-                    )
-                    conn.commit()
-                    cursor3.close()
+                    if new_summary != existing_summary:
+                        cursor3 = conn.cursor()
+                        cursor3.execute(
+                            "UPDATE sessions SET summary = %s WHERE id = %s",
+                            (new_summary, req.session_id),
+                        )
+                        conn.commit()
+                        cursor3.close()
 
                     # Build history: summary as a synthetic user note + recent turns
-                    history = [
-                        {"role": "user", "content": f"[Conversation summary so far]: {new_summary}"},
-                        {"role": "assistant", "content": "Understood, I have the context from the summary."},
-                    ] + recent_messages
+                    history = recent_messages
+                    if new_summary:
+                        history = [
+                            {
+                                "role": "user",
+                                "content": f"[Conversation summary so far]: {new_summary}",
+                            },
+                            {
+                                "role": "assistant",
+                                "content": "Understood, I have the context from the summary.",
+                            },
+                        ] + recent_messages
                 else:
                     history = all_messages
 
@@ -202,9 +276,23 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     async def event_stream():
         accumulated = ""
         try:
-            async for token in run_agent(req.message, req.context, history=history):
+            if not runtime_config["apiKey"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No API key configured for model {runtime_config['model']}.",
+                )
+
+            async for token in run_agent(
+                req.message,
+                req.context,
+                api_key=runtime_config["apiKey"],
+                model=selected_model,
+                history=history,
+            ):
                 accumulated += token
                 yield f"data: {json.dumps({'token': token})}\n\n"
+        except HTTPException as exc:
+            yield f"data: {json.dumps({'token': f'[error: {exc.detail}]'})}\n\n"
         except Exception as exc:  # noqa: BLE001
             yield f"data: {json.dumps({'token': f'[error: {exc}]'})}\n\n"
         finally:

@@ -51,6 +51,10 @@ public class AiAssistantConfigPersistenceService {
     return secretService.encrypt(opContext, value);
   }
 
+  String decrypt(OperationContext opContext, String value) {
+    return secretService.decrypt(opContext, value);
+  }
+
   Urn getActorUrn(OperationContext opContext) {
     try {
       return Urn.createFromString(opContext.getAuthentication().getActor().toUrnStr());
