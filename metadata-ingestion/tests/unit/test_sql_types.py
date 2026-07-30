@@ -56,6 +56,26 @@ def test_resolve_trino_modified_type(data_type, expected_data_type):
 @pytest.mark.parametrize(
     "data_type, expected_data_type",
     [
+        # Trino is case-insensitive for type names; dbt manifest `data_type` strings
+        # can arrive uppercase or mixed-case. See issue #17078.
+        ("VARCHAR(10)", "varchar"),
+        ("DECIMAL(10,2)", "decimal"),
+        ("TIMESTAMP(6) WITH TIME ZONE", "timestamp"),
+        ("TIMESTAMP", "timestamp"),
+        ("BIGINT", "bigint"),
+        ("Varchar(20)", "varchar"),
+    ],
+)
+def test_resolve_trino_modified_type_case_insensitive(data_type, expected_data_type):
+    assert (
+        resolve_trino_modified_type(data_type)
+        == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )
+
+
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [
         ("boolean", "boolean"),
         ("tinyint", "tinyint"),
         ("smallint", "smallint"),

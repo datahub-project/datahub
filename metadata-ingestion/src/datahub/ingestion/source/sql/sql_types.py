@@ -243,6 +243,10 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
 
 
 def resolve_trino_modified_type(type_string: str) -> Any:
+    # Trino is case-insensitive for type names, and TRINO_SQL_TYPES_MAP keys are
+    # all lowercase. dbt manifest `data_type` strings frequently arrive uppercase
+    # (e.g. "VARCHAR(10)", "TIMESTAMP(6) WITH TIME ZONE"). See issue #17078.
+    type_string = type_string.lower()
     # for cases like timestamp(3), decimal(10,0), row(...)
     match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
     if match:
