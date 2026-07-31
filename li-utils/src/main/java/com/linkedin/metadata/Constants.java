@@ -202,6 +202,7 @@ public class Constants {
   public static final String AI_CONTEXT_ASPECT_NAME = "aiContext";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
+  public static final String ALIASES_ASPECT_NAME = "aliases";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";

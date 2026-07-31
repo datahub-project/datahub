@@ -6,7 +6,7 @@ interface NodeLoaders {
     /** Loads (and returns) the first page of a node's children. */
     loadChildren: (parentUrn: string | null) => Promise<DocumentTreeNode[]>;
     /** Loads the next page of an already-expanded node's children. */
-    loadMoreChildren: (parentUrn: string) => Promise<void>;
+    loadMoreChildren: (parentUrn: string) => Promise<DocumentTreeNode[] | void>;
 }
 
 interface NodeChildrenLoading {

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.FLOAT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.INTEGER_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
@@ -143,12 +144,14 @@ public class FieldTypeMapper {
   /**
    * Creates a mapping configuration for a keyword field with ignore_above set to prevent indexing
    * failures on long TEXT values. The Lucene keyword term limit is 32,766 bytes; ignore_above
-   * silently skips indexing values that exceed the threshold (they remain in _source). The
-   * threshold is measured in characters, so it is set byte-safe — see ESUtils.KEYWORD_IGNORE_ABOVE.
+   * silently skips indexing values that exceed the threshold (they remain in _source).
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
-    return getMappingsForKeywordWithIgnoreAbove(KEYWORD_MAXLENGTH);
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", KEYWORD_FIELD_TYPE);
+    mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
+    return mapping;
   }
 
   /**
@@ -159,7 +162,7 @@ public class FieldTypeMapper {
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
+    mapping.put(IGNORE_ABOVE, keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
     return mapping;
   }
 
@@ -172,7 +175,7 @@ public class FieldTypeMapper {
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", 255);
+    mapping.put(IGNORE_ABOVE, 255);
     return mapping;
   }
 

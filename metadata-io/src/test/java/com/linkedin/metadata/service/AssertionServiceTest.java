@@ -296,33 +296,94 @@ public class AssertionServiceTest {
   }
 
   @Test
-  public void testGetEntityUrnForAssertion() throws Exception {
-    // Test data and mocks
+  public void testGetAssertionInfo() throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    GraphClient mockGraphClient = mock(GraphClient.class);
-
+    AssertionInfo assertionInfo =
+        new AssertionInfo().setType(AssertionType.CUSTOM).setEntityUrn(TEST_DATASET_URN);
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap(new HashMap<>());
+    aspects.put(
+        ASSERTION_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(assertionInfo.data())));
     Mockito.when(
-            mockGraphClient.getRelatedEntities(
-                Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableSet.of("Asserts")),
-                Mockito.eq(RelationshipDirection.OUTGOING),
-                Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.anyString()))
-        .thenReturn(
-            new EntityRelationships()
-                .setTotal(1)
-                .setRelationships(
-                    new EntityRelationshipArray(
-                        ImmutableList.of(new EntityRelationship().setEntity(TEST_DATASET_URN)))));
+            mockClient.getV2(
+                opContext,
+                ASSERTION_ENTITY_NAME,
+                TEST_ASSERTION_URN,
+                ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME),
+                false))
+        .thenReturn(new EntityResponse().setUrn(TEST_ASSERTION_URN).setAspects(aspects));
 
-    final AssertionService service = new AssertionService(mockClient, mockGraphClient);
+    final AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
 
-    // Test method
-    final Urn entityUrn = service.getEntityUrnForAssertion(opContext, TEST_ASSERTION_URN);
+    Assert.assertEquals(service.getAssertionInfo(opContext, TEST_ASSERTION_URN), assertionInfo);
+  }
 
-    // Assert result
-    Assert.assertEquals(entityUrn, TEST_DATASET_URN);
+  @Test
+  public void testGetAssertionInfoReturnsNullWhenMissing() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    Mockito.when(
+            mockClient.getV2(
+                opContext,
+                ASSERTION_ENTITY_NAME,
+                TEST_ASSERTION_URN,
+                ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME),
+                false))
+        .thenReturn(null);
+
+    final AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
+
+    Assert.assertNull(service.getAssertionInfo(opContext, TEST_ASSERTION_URN));
+  }
+
+  @Test
+  public void testGetEntityUrnForAssertion() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    AssertionInfo assertionInfo =
+        new AssertionInfo().setType(AssertionType.CUSTOM).setEntityUrn(TEST_DATASET_URN);
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap(new HashMap<>());
+    aspects.put(
+        ASSERTION_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(assertionInfo.data())));
+    Mockito.when(
+            mockClient.getV2(
+                opContext,
+                ASSERTION_ENTITY_NAME,
+                TEST_ASSERTION_URN,
+                ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME),
+                false))
+        .thenReturn(new EntityResponse().setUrn(TEST_ASSERTION_URN).setAspects(aspects));
+
+    final AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
+
+    Assert.assertEquals(
+        service.getEntityUrnForAssertion(opContext, TEST_ASSERTION_URN), TEST_DATASET_URN);
+  }
+
+  @Test
+  public void testGetEntityUrnForAssertionFallsBackToTypeSpecificEntity() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.CUSTOM)
+            .setCustomAssertion(
+                new CustomAssertionInfo().setEntity(TEST_DATASET_URN).setField(TEST_FIELD_URN));
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap(new HashMap<>());
+    aspects.put(
+        ASSERTION_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(assertionInfo.data())));
+    Mockito.when(
+            mockClient.getV2(
+                opContext,
+                ASSERTION_ENTITY_NAME,
+                TEST_ASSERTION_URN,
+                ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME),
+                false))
+        .thenReturn(new EntityResponse().setUrn(TEST_ASSERTION_URN).setAspects(aspects));
+
+    final AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
+
+    Assert.assertEquals(
+        service.getEntityUrnForAssertion(opContext, TEST_ASSERTION_URN), TEST_DATASET_URN);
   }
 
   @Test
@@ -385,7 +446,8 @@ public class AssertionServiceTest {
                 opContext,
                 ASSERTION_ENTITY_NAME,
                 TEST_ASSERTION_URN,
-                ImmutableSet.of(ASSERTION_RUN_SUMMARY_ASPECT_NAME)))
+                ImmutableSet.of(ASSERTION_RUN_SUMMARY_ASPECT_NAME),
+                false))
         .thenReturn(new EntityResponse().setUrn(TEST_ASSERTION_URN).setAspects(aspects));
 
     AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
@@ -401,7 +463,8 @@ public class AssertionServiceTest {
                 opContext,
                 ASSERTION_ENTITY_NAME,
                 TEST_ASSERTION_URN,
-                ImmutableSet.of(ASSERTION_RUN_SUMMARY_ASPECT_NAME)))
+                ImmutableSet.of(ASSERTION_RUN_SUMMARY_ASPECT_NAME),
+                false))
         .thenReturn(null);
 
     AssertionService service = new AssertionService(mockClient, mock(GraphClient.class));
