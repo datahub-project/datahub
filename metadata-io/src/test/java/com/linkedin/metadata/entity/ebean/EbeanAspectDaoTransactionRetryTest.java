@@ -83,9 +83,39 @@ public class EbeanAspectDaoTransactionRetryTest {
 
     assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
     assertEquals(thrown.getSqlState(), "40001");
+    assertEquals(thrown.getRetryAfterSeconds(), 1L);
     verify(mockServer, times(4)).beginTransaction(any(TxScope.class));
     assertEquals(dao.getSleepCallCount(), 3);
     assertEquals(dao.getSleepDelays().size(), 3);
+  }
+
+  @Test
+  public void testDeadlockExhaustion_propagatesConfiguredRetryAfterSeconds() {
+    PrimaryStorageResolver resolver = mock(PrimaryStorageResolver.class);
+    when(resolver.resolveEbeanPrimary()).thenReturn(mockServer);
+    EbeanConfiguration config =
+        EbeanConfiguration.builder()
+            .transactionRetry(
+                TransactionRetryConfiguration.builder()
+                    .backoffSqlStates("40001,40P01")
+                    .backoffVendorCodes("1213")
+                    .retryAfterSeconds(5)
+                    .build())
+            .build();
+    TestableEbeanAspectDao customDao = new TestableEbeanAspectDao(resolver, config, metricUtils);
+    customDao.setConnectionValidated(true);
+
+    Function<TransactionContext, TransactionResult<String>> block =
+        tx -> {
+          throw deadlockPersistenceException("40001", 1213);
+        };
+
+    DatabaseTransactionConflictException thrown =
+        expectThrows(
+            DatabaseTransactionConflictException.class,
+            () -> customDao.runInTransactionWithRetryUnlocked(opContext, block, null, MAX_RETRIES));
+
+    assertEquals(thrown.getRetryAfterSeconds(), 5L);
   }
 
   @Test
