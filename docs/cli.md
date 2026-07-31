@@ -1255,8 +1255,15 @@ Options:
 
 Each pair's source and target must be the **same entity type**. Unlike the instance-migration
 commands, `urns-mapping` does **not** stamp a `dataPlatformInstance` (a platform instance cannot be
-recovered from a target URN), does not migrate containers, and does not enforce dataFlow/dataJob
-parent-URN consistency — you own the exact mapping.
+recovered from a target URN), does not migrate containers (see note below), and does not enforce
+dataFlow/dataJob parent-URN consistency — you own the exact mapping.
+
+**Containers are not migrated.** Container URNs are GUID-based (derived from a container key), so
+they cannot be included in a simple source → target mapping. The next ingestion run against the new
+names will re-create the containers automatically, but any user-authored governance metadata on the
+old containers (tags, terms, documentation, ownership) will be lost. `dataplatform2instance` and
+`instance2instance` handle container migration via a dedicated code path; adding container support
+to `urns-mapping` is a potential future enhancement.
 
 **Ordering across cross-referenced entities**: when a single mapping migrates entities that
 reference one another (e.g. a dashboard that consumes a dataset you are also migrating), list the
