@@ -2764,6 +2764,11 @@ type GlossaryNode implements Entity {
   properties: GlossaryNodeProperties
 
   """
+  Tags associated with the glossary node
+  """
+  tags: GlobalTags
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
