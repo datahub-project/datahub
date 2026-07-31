@@ -1049,6 +1049,46 @@ def test_bigquery_external_query_unmapped_connection_skips_with_info():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_non_literal_args_warns():
+    # An EXTERNAL_QUERY whose arguments are not string literals cannot be extracted into a
+    # connection id / inner SQL. The federated lineage is dropped, so it must surface a
+    # warning and a parse-error counter rather than being silently swallowed at debug.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(123, 456)) select col from tab", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_parse_errors == 1
+    assert len(reporter.warnings) == 1
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_combined_with_native_table():
     # A query can reference both an EXTERNAL_QUERY federation and a native BigQuery table.
     # The federation is stripped and resolved against the external platform, while the

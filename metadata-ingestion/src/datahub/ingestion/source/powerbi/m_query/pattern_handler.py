@@ -446,6 +446,18 @@ class AbstractLineage(ABC):
             )
             return upstreams, extraction.rewritten_query
 
+        # EXTERNAL_QUERY calls detected but not extractable (non-literal args or placement
+        # outside a FROM/JOIN table position) drop federated lineage. Surface them so the
+        # skip is visible in the run summary rather than debug-only.
+        for unresolvable_sql in extraction.unresolvable:
+            self.reporter.m_query_external_query_parse_errors += 1
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="BigQuery EXTERNAL_QUERY could not be extracted (non-literal "
+                "arguments or unsupported placement); federated lineage will be skipped.",
+                context=f"table-name={self.table.full_name}, external-query={unresolvable_sql}",
+            )
+
         mapping = self.config.bigquery_external_query_connection_to_platform
         for reference in extraction.references:
             connection_detail = mapping.get(reference.connection)

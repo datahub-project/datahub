@@ -412,6 +412,19 @@ def test_extract_external_queries_with_options_arg():
     assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
 
 
+def test_extract_external_queries_non_literal_args_are_unresolvable():
+    # Non-string-literal arguments (e.g. numbers/params) can't yield a connection id or
+    # inner SQL, so no reference is produced and the call is recorded as unresolvable so
+    # the caller can surface the dropped federated lineage.
+    query = "SELECT * FROM EXTERNAL_QUERY(123, 456)"
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    assert "EXTERNAL_QUERY" in extraction.unresolvable[0].upper()
+
+
 def test_extract_external_queries_unparseable_flags_parse_failed():
     # An unparseable outer query is a no-op (no raise), returns the original query, and
     # flags parse_failed so the caller can report the federated lineage it lost.
