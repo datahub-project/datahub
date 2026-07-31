@@ -50,6 +50,7 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
     filtered_lakehouses: LossyList[str] = field(default_factory=LossyList)
     filtered_warehouses: LossyList[str] = field(default_factory=LossyList)
+    filtered_schemas: LossyList[str] = field(default_factory=LossyList)
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
 
@@ -112,6 +113,10 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     def report_schema_scanned(self) -> None:
         """Increment schemas scanned counter."""
         self.schemas_scanned += 1
+
+    def report_schema_filtered(self, schema_name: str) -> None:
+        """Record a filtered schema."""
+        self.filtered_schemas.append(schema_name)
 
     def report_table_scanned(self) -> None:
         """Increment tables scanned counter."""
