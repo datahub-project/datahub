@@ -1563,6 +1563,7 @@ sqlalchemy = [
     { name = "sqlparse" },
 ]
 sqlmesh = [
+    { name = "cachetools" },
     { name = "sqlmesh" },
 ]
 starburst-trino-usage = [
@@ -1883,6 +1884,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'snowflake-summary'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'snowplow'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'sqlalchemy'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'sqlmesh'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'starburst-trino-usage'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'starrocks'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'teradata'", specifier = "<6.0.0" },

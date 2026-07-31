@@ -1106,6 +1106,7 @@ sqlalchemy = [
 ]
 
 sqlmesh = [
+    "cachetools<6.0.0",
     "sqlmesh>=0.235.2,<0.236",
 ]
 
