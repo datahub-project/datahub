@@ -12,7 +12,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
-    EnvConfigMixin,
+    DatasetLineageProviderConfigBase,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
@@ -261,7 +261,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
 
 class SnowflakeIdentifierConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+    PlatformInstanceConfigMixin,
+    DatasetLineageProviderConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
@@ -279,6 +281,22 @@ class SnowflakeIdentifierConfig(
         month="June",
         year=2025,
     )
+
+    platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Platform instances of the external storage that Snowflake reads "
+        "from, keyed by platform, e.g. `{'s3': 'my_instance'}`. Only the `s3`, `gcs`, "
+        "and `abs` keys are read. Each value must exactly match (case-sensitively) the "
+        "`platform_instance` used in that storage source's own recipe -- and both "
+        "recipes must use the same `env` -- otherwise the upstream URNs will not match "
+        "and the lineage will silently not appear.",
+    )
+
+    def lineage_platform_instance(self, platform: str) -> Optional[str]:
+        # Snowflake reads these platforms as upstreams, so the instance that matters is
+        # the one the *storage* recipe was ingested with, not this source's
+        # `platform_instance`.
+        return (self.platform_instance_map or {}).get(platform)
 
 
 class SnowflakeUsageConfig(BaseUsageConfig):

@@ -1,12 +1,20 @@
+import json
 from datetime import datetime
-from typing import List
+from typing import Any, List, Optional
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+    SnowflakeLineageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeStage,
     SnowflakeStageType,
+)
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
@@ -16,17 +24,19 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
 )
 
 
-def _make_config() -> SnowflakeV2Config:
+def _make_config(**kwargs: Any) -> SnowflakeV2Config:
     return SnowflakeV2Config(
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
         include_stages=True,
+        **kwargs,
     )
 
 
@@ -63,9 +73,10 @@ def _make_external_stage(
 
 def _collect_workunits(
     stages: List[SnowflakeStage],
+    config: Optional[SnowflakeV2Config] = None,
 ) -> tuple:
     """Returns (workunits, extractor) so tests can inspect the stage_lookup."""
-    config = _make_config()
+    config = config or _make_config()
     report = SnowflakeV2Report()
     identifiers = SnowflakeIdentifierBuilder(
         identifier_config=config, structured_reporter=report
@@ -235,3 +246,178 @@ class TestSnowflakeStagesExtractor:
         # Lookup should work regardless of case
         assert extractor.get_stage_lookup_entry("test_db.public.my_stage") is not None
         assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.MY_STAGE") is not None
+
+
+class TestS3UpstreamPlatformInstance:
+    """
+    S3 upstreams emitted by Snowflake must carry the platform instance that the *S3*
+    recipe was ingested with. If they don't, the Snowflake-side URN
+    (`s3,bucket/path,PROD`) and the S3-side URN (`s3,product.bucket/path,PROD`) never
+    join, and cross-platform lineage silently breaks with no error reported.
+    """
+
+    def test_urn_unchanged_without_platform_instance(self) -> None:
+        assert (
+            make_s3_urn_for_lineage("s3://my-bucket/data", "PROD")
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data,PROD)"
+        )
+
+    def test_urn_carries_platform_instance_prefix(self) -> None:
+        assert (
+            make_s3_urn_for_lineage(
+                "s3://my-bucket/data", "PROD", platform_instance="product"
+            )
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_urn_escapes_reserved_characters(self) -> None:
+        # `,` and `(` `)` are legal in S3 object keys but structural in a URN. The S3
+        # source escapes them; if this side stops, the two URNs stop joining. The comma
+        # case also produced a malformed URN before this helper used the shared builder.
+        assert (
+            make_s3_urn_for_lineage("s3://my-bucket/report (1).csv", "PROD")
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/report %281%29.csv,PROD)"
+        )
+        assert (
+            make_s3_urn_for_lineage("s3://my-bucket/a,b", "PROD")
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/a%2Cb,PROD)"
+        )
+
+    def test_s3_instance_is_not_snowflakes_own_platform_instance(self) -> None:
+        # The two are independent: `platform_instance` names this Snowflake account,
+        # `platform_instance_map["s3"]` names the S3 recipe that owns the bucket.
+        config = _make_config(
+            platform_instance="snowflake_prod",
+            platform_instance_map={"s3": "product"},
+        )
+        _, extractor, _ = _collect_workunits([_make_external_stage()], config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_external_stage_urn_applies_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        _, extractor, _ = _collect_workunits([_make_external_stage()], config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_gcs_and_abs_stage_urns_apply_platform_instance(self) -> None:
+        config = _make_config(
+            platform_instance_map={"gcs": "gcs_inst", "abs": "abs_inst"}
+        )
+        stages = [
+            _make_external_stage("gcs_stage", url="gcs://my-bucket/data"),
+            _make_external_stage(
+                "abs_stage",
+                url="azure://myacct.blob.core.windows.net/my-container/data",
+            ),
+        ]
+        _, extractor, _ = _collect_workunits(stages, config)
+
+        gcs_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.GCS_STAGE")
+        abs_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ABS_STAGE")
+        assert gcs_entry is not None and abs_entry is not None
+        assert gcs_entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.my-bucket/data,PROD)"
+        )
+        assert abs_entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,abs_inst.my-container/data,PROD)"
+        )
+
+    def test_unsupported_stage_scheme_warns(self) -> None:
+        # Previously logger.debug -- invisible at default level, so a user with 500
+        # unsupported stages saw stages_scanned=500 and silently zero lineage.
+        _, _, report = _collect_workunits(
+            [_make_external_stage("hdfs_stage", url="hdfs://namenode/data")]
+        )
+
+        assert len(report.warnings) == 1
+
+    def test_copy_history_lineage_applies_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(["s3://my-bucket/data"]),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert mapping is not None
+        assert mapping.upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_external_upstreams_apply_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        extractor = SnowflakeLineageExtractor(
+            config=config,
+            report=SnowflakeV2Report(),
+            connection=MagicMock(),
+            filters=MagicMock(),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=config, structured_reporter=SnowflakeV2Report()
+            ),
+            redundant_run_skip_handler=None,
+            sql_aggregator=MagicMock(),
+        )
+
+        upstreams = extractor.get_external_upstreams({"s3://my-bucket/data"})
+
+        assert len(upstreams) == 1
+        assert upstreams[0].dataset == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+        assert upstreams[0].type == DatasetLineageTypeClass.COPY
+
+    def test_external_table_ddl_lineage_applies_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "EXT_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            },
+            {
+                "name": "GCS_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "gcs://other-bucket/data",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen,
+                ["test_db.test_schema.ext_table", "test_db.test_schema.gcs_table"],
+            )
+        )
+
+        # Only the S3 row yields lineage; gcs:// is not handled on this path.
+        assert len(mappings) == 1
+        assert mappings[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+        # Both rows are scanned exactly once -- the S3 row used to be counted twice.
+        assert report.num_external_table_edges_scanned == 2

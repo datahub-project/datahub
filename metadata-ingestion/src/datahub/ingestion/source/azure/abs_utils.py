@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+
 # This file should not import any abs spectific modules as we import it in path_spec.py in datat_lake_common.py
 
 ABS_PREFIXES_REGEX = re.compile(
@@ -119,7 +121,9 @@ def strip_abs_prefix(abs_uri: str) -> str:
     return abs_uri[length_abs_prefix:]
 
 
-def make_abs_urn(abs_uri: str, env: str) -> str:
+def make_abs_urn(
+    abs_uri: str, env: str, *, platform_instance: Optional[str] = None
+) -> str:
     abs_name = strip_abs_prefix(abs_uri)
 
     if abs_name.endswith("/"):
@@ -129,9 +133,17 @@ def make_abs_urn(abs_uri: str, env: str) -> str:
 
     if extension != "":
         extension = extension[1:]  # remove the dot
-        return f"urn:li:dataset:(urn:li:dataPlatform:abs,{name}_{extension},{env})"
+        abs_name = f"{name}_{extension}"
 
-    return f"urn:li:dataset:(urn:li:dataPlatform:abs,{abs_name},{env})"
+    # Built via the shared URN builder so the platform instance prefix matches what the
+    # ABS source emits for the same container; a warehouse source naming an ABS dataset
+    # is the reader side of a lineage join, and any drift silently dangles the upstream.
+    return make_dataset_urn_with_platform_instance(
+        platform="abs",
+        name=abs_name,
+        platform_instance=platform_instance,
+        env=env,
+    )
 
 
 def get_container_name(abs_uri: str) -> str:

@@ -379,7 +379,11 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 if loc.startswith("s3://"):
                     return KnownLineageMapping(
                         upstream_urn=make_s3_urn_for_lineage(
-                            loc, identifiers.identifier_config.env
+                            loc,
+                            identifiers.identifier_config.env,
+                            platform_instance=identifiers.identifier_config.lineage_platform_instance(
+                                "s3"
+                            ),
                         ),
                         downstream_urn=identifiers.gen_dataset_urn(key),
                     )
@@ -566,7 +570,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             if external_lineage_entry.startswith("s3://"):
                 external_upstream_table = UpstreamClass(
                     dataset=make_s3_urn_for_lineage(
-                        external_lineage_entry, self.config.env
+                        external_lineage_entry,
+                        self.config.env,
+                        platform_instance=self.config.lineage_platform_instance("s3"),
                     ),
                     type=DatasetLineageTypeClass.COPY,
                 )

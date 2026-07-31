@@ -214,7 +214,11 @@ class SnowflakeStagesExtractor:
         if not url:
             return None
         if url.startswith("s3://"):
-            return make_s3_urn_for_lineage(url, self.config.env)
+            return make_s3_urn_for_lineage(
+                url,
+                self.config.env,
+                platform_instance=self.config.lineage_platform_instance("s3"),
+            )
         if url.startswith("gcs://"):
             # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
             path = url[len("gcs://") :]
@@ -224,13 +228,21 @@ class SnowflakeStagesExtractor:
                 platform="gcs",
                 name=path,
                 env=self.config.env,
-                platform_instance=None,
+                platform_instance=self.config.lineage_platform_instance("gcs"),
             )
         if url.startswith("azure://"):
             # Snowflake stores azure://<account>.blob.core.windows.net/<container>/<path>
             abs_url = url.replace("azure://", "https://", 1)
-            return make_abs_urn(abs_url, self.config.env)
-        logger.debug(f"Unsupported external stage URL scheme: {url}")
+            return make_abs_urn(
+                abs_url,
+                self.config.env,
+                platform_instance=self.config.lineage_platform_instance("abs"),
+            )
+        self.report.warning(
+            title="Unsupported external stage URL scheme",
+            message="Stage lineage will be skipped. Only s3://, gcs://, and azure:// are supported.",
+            context=url,
+        )
         return None
 
     def get_stage_lookup_entry(self, stage_fqn: str) -> Optional[StageLookupEntry]:

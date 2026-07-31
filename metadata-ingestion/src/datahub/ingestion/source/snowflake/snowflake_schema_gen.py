@@ -2760,11 +2760,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if db_row["location"].startswith("s3://"):
                     yield KnownLineageMapping(
                         upstream_urn=make_s3_urn_for_lineage(
-                            db_row["location"], self.config.env
+                            db_row["location"],
+                            self.config.env,
+                            platform_instance=self.config.lineage_platform_instance(
+                                "s3"
+                            ),
                         ),
                         downstream_urn=self.identifiers.gen_dataset_urn(key),
                     )
-                    self.report.num_external_table_edges_scanned += 1
 
                 self.report.num_external_table_edges_scanned += 1
         except Exception as e:
