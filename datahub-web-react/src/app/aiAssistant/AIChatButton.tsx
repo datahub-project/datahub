@@ -243,6 +243,36 @@ const MarkdownContent = styled.div`
     }
 `;
 
+// Confirmation buttons shown under an assistant bubble when a PII proposal is
+// awaiting the user's yes/no. Keeps the two-step propose→apply flow but replaces
+// the "type yes" chore with one click.
+const ConfirmBar = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+`;
+
+const ConfirmBtn = styled.button<{ $variant: 'apply' | 'cancel' }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+
+    ${({ $variant }) =>
+        $variant === 'apply'
+            ? `background: #7c6af7; color: #fff; &:hover { background: #5c4fcf; }`
+            : `background: #fff; color: #c0392b; border-color: #e6c4c0; &:hover { background: #fdf0ef; }`}
+
+    &:disabled { opacity: 0.5; cursor: default; }
+`;
+
 const TypingIndicator = styled.div`
     align-self: flex-start;
     background: white;
@@ -303,6 +333,13 @@ interface ChatMessage {
     id: number | string;
     text: string;
     isUser: boolean;
+    // Set when the backend signals a fresh PII proposal is awaiting confirmation.
+    // Renders Apply/Cancel buttons under this bubble instead of making the
+    // user type "yes". Cleared once the user acts on it (see confirmResolved).
+    awaitingConfirm?: boolean;
+    // True after the user has clicked one of the confirm buttons, so they hide and
+    // can't be double-submitted.
+    confirmResolved?: boolean;
 }
 
 const WELCOME: ChatMessage = {
@@ -443,6 +480,7 @@ export const AIChatButton: React.FC = () => {
         };
     }, [sessionId]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     // ── Maximize + drag state ────────────────────────────────────────────────
     const [maximized, setMaximized] = useState(false);
@@ -587,13 +625,18 @@ export const AIChatButton: React.FC = () => {
         };
     }, []);
 
-    const sendMessage = async () => {
-        const text = inputText.trim();
+    const sendMessage = async (overrideText?: string, displayText?: string) => {
+        // overrideText lets the confirm buttons send a canned message ("Yes, apply…")
+        // without going through the input box. displayText lets the visible user
+        // bubble differ from what's sent to the backend — e.g. show "✕ Cancel"
+        // while the gate still receives "No, do not apply the tags." unchanged.
+        const text = (overrideText ?? inputText).trim();
         if (!text || isTyping) return;
 
-        const userMsg: ChatMessage = { id: Date.now(), text, isUser: true };
+        const bubbleText = (displayText ?? text).trim() || text;
+        const userMsg: ChatMessage = { id: Date.now(), text: bubbleText, isUser: true };
         setMessages((prev) => [...prev, userMsg]);
-        setInputText('');
+        if (overrideText === undefined) setInputText('');
         setIsTyping(true);
 
         try {
@@ -633,8 +676,19 @@ export const AIChatButton: React.FC = () => {
                     const payload = line.slice(6).trim();
                     if (payload === '[DONE]') break;
                     try {
-                        const { token } = JSON.parse(payload) as { token: string };
-                        accumulated += token;
+                        const evt = JSON.parse(payload) as { token?: string; confirm?: boolean };
+                        // A fresh PII proposal is awaiting confirmation → show buttons
+                        // under this bubble instead of requiring the user to type "yes".
+                        if (evt.confirm) {
+                            setMessages((prev) =>
+                                prev.map((m) =>
+                                    m.id === aiMsgId ? { ...m, awaitingConfirm: true } : m,
+                                ),
+                            );
+                            continue;
+                        }
+                        if (typeof evt.token !== 'string') continue;
+                        accumulated += evt.token;
                         // Update the message bubble live as each token arrives
                         setMessages((prev) =>
                             prev.map((m) => (m.id === aiMsgId ? { ...m, text: accumulated } : m)),
@@ -657,7 +711,30 @@ export const AIChatButton: React.FC = () => {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') void sendMessage();
+    };
+
+    // Resolve a message's confirm buttons so they hide and can't be re-clicked.
+    const resolveConfirm = (msgId: number | string) => {
+        setMessages((prev) =>
+            prev.map((m) => (m.id === msgId ? { ...m, confirmResolved: true } : m)),
+        );
+    };
+
+    // Apply / Cancel send a canned instruction; the backend gate then runs apply
+    // (or not) on this next turn — same path as if the user had typed it.
+    const handleConfirmApply = (msgId: number | string) => {
+        if (isTyping) return;
+        resolveConfirm(msgId);
+        // Send the full instruction to the backend gate, but show a compact label
+        // in the user bubble to reflect the button that was clicked.
+        void sendMessage('Yes, apply the tags.', '✓ Apply');
+    };
+
+    const handleConfirmCancel = (msgId: number | string) => {
+        if (isTyping) return;
+        resolveConfirm(msgId);
+        void sendMessage('No, do not apply the tags.', '✕ Cancel');
     };
 
     const handleModelChange = async (nextModel: string) => {
@@ -717,6 +794,26 @@ export const AIChatButton: React.FC = () => {
                                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </MarkdownContent>
                                 )}
+                                {!msg.isUser && msg.awaitingConfirm && !msg.confirmResolved && (
+                                    <ConfirmBar>
+                                        <ConfirmBtn
+                                            $variant="apply"
+                                            onClick={() => handleConfirmApply(msg.id)}
+                                            disabled={isTyping}
+                                            title="Apply the proposed tags"
+                                        >
+                                            ✓ Apply
+                                        </ConfirmBtn>
+                                        <ConfirmBtn
+                                            $variant="cancel"
+                                            onClick={() => handleConfirmCancel(msg.id)}
+                                            disabled={isTyping}
+                                            title="Don't apply"
+                                        >
+                                            ✕ Cancel
+                                        </ConfirmBtn>
+                                    </ConfirmBar>
+                                )}
                             </Message>
                         ))}
                         {isTyping && <TypingIndicator>···</TypingIndicator>}
@@ -725,13 +822,14 @@ export const AIChatButton: React.FC = () => {
 
                     <InputArea>
                         <Input
+                            ref={inputRef}
                             placeholder="Ask about datasets, schemas, PII..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
                             autoFocus
                         />
-                        <SendBtn onClick={sendMessage} disabled={!inputText.trim() || isTyping}>
+                        <SendBtn onClick={() => void sendMessage()} disabled={!inputText.trim() || isTyping}>
                             ➤
                         </SendBtn>
                     </InputArea>
