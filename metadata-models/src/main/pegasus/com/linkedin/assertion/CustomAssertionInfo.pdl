@@ -65,11 +65,6 @@ record CustomAssertionInfo {
         "entityTypes": [ "schemaField" ]
       }
     }
-    @Searchable = {
-      "/*": {
-        "fieldType": "URN"
-      }
-    }
     @UrnValidation = {
       "exist": false,
       "strict": true,
@@ -81,20 +76,17 @@ record CustomAssertionInfo {
     * Scope of the Assertion. What part of the dataset does this assertion apply to?
     * Optional structured metadata for display/reporting (migrated from DatasetAssertionInfo).
     **/
-    @Searchable = {}
     scope: optional DatasetAssertionScope
 
     /**
     * Standardized assertion aggregation / metric.
     * Left blank if there is no selected aggregation or metric for a particular column.
     */
-    @Searchable = {}
     aggregation: optional AssertionStdAggregation
 
     /**
     * Standardized assertion operator.
     */
-    @Searchable = {}
     operator: optional AssertionStdOperator
 
     /**
