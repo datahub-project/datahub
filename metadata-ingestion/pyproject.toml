@@ -2075,6 +2075,11 @@ ban-relative-imports = "all"
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+# Pin datahub as first-party so import grouping is identical whether or not the
+# package is installed in the environment running ruff (CI installs it, the
+# containerised pre-commit hook does not) — otherwise the two disagree on
+# whether datahub.* is first- or third-party.
+known-first-party = ["datahub"]
 combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]

@@ -87,6 +87,12 @@ logger = logging.getLogger(__name__)
 # SAP Analytics Cloud serializes dates in OData verbose-JSON as "/Date(<ms-since-epoch>[±<offset>])/".
 _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\)/$")
 
+# SAP Datasphere is surfaced to SAC as a live "Data Warehouse Cloud" (DWC) connection.
+# DWC models carry an empty externalId, so their upstream urn is built from the model
+# name plus the per-connection datasphere_space rather than a parsed external id.
+_DWC_SYSTEM_TYPE = "DWC"
+_DATASPHERE_PLATFORM = "sap-datasphere"
+
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
@@ -101,6 +107,29 @@ class ConnectionMappingConfig(EnvConfigMixin):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that this connection mapping belongs to",
+    )
+
+    datasphere_space: Optional[str] = Field(
+        default=None,
+        description=(
+            "For SAP Datasphere ('DWC') connections only: the Datasphere space id that "
+            "backs this connection (e.g. `bdap_sac`). SAC does not expose the space for "
+            "Datasphere-backed live models, so it must be supplied here to build the "
+            "upstream sap-datasphere dataset urn (`<space>.<model_name>`). Leave unset "
+            "for non-Datasphere connections."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Whether to lower-case identifiers when constructing the upstream dataset "
+            "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
+            "used by the corresponding upstream connector recipe so the urns stitch. "
+            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
+            "upstreams preserve case as before. Defaults to True (matching the SAP "
+            "Datasphere connector default)."
+        ),
     )
 
 
@@ -169,6 +198,20 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
+    resolve_datasphere_lineage: bool = Field(
+        default=True,
+        description=(
+            "For SAC Live Data Models backed by SAP Datasphere (Data Warehouse Cloud / "
+            "'DWC' connections), emit upstream lineage to the backing SAP Datasphere "
+            "dataset. The Datasphere object's technical name is derived from the SAC "
+            "model name; the Datasphere space is not exposed by SAC and must be supplied "
+            "via `connection_mapping.<connection_id>.datasphere_space`. The upstream urn "
+            "is built deterministically (`<space>.<model_name>`) with no DataHub graph "
+            "lookup. Models on connections without a configured `datasphere_space` are "
+            "skipped with a warning."
+        ),
+    )
+
     @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
@@ -180,6 +223,11 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     acquired_model_schema_resolved: int = 0
     acquired_model_schema_skipped_live: int = 0
     acquired_model_schema_failed: int = 0
+    # SAC Live Data Models backed by SAP Datasphere (DWC connections).
+    dwc_models_scanned: int = 0
+    dwc_lineage_resolved: int = 0
+    dwc_lineage_unresolved: int = 0
+    dwc_lineage_skipped_no_space: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
@@ -521,6 +569,25 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
                     log=False,
                 )
+        elif model.system_type == _DWC_SYSTEM_TYPE:
+            # DWC is a known type; when resolution is disabled we skip it quietly rather
+            # than falling through to the "Unknown system type" warning below.
+            if self.config.resolve_datasphere_lineage:
+                self.report.dwc_models_scanned += 1
+                datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
+                if datasphere_upstream_urn is not None:
+                    self.report.dwc_lineage_resolved += 1
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=datasphere_upstream_urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                ),
+                            ],
+                        ),
+                    ).as_workunit()
         elif model.system_type is not None:
             self.report.warning(
                 message="Unknown system type for model",
@@ -537,7 +604,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        if model.external_id and model.connection_id and model.system_type:
+        if (
+            model.connection_id
+            and model.system_type
+            and (model.external_id or model.system_type == _DWC_SYSTEM_TYPE)
+        ):
             type_name = DatasetSubTypes.SAC_LIVE_DATA_MODEL
         elif model.is_import:
             type_name = DatasetSubTypes.SAC_IMPORT_DATA_MODEL
@@ -874,6 +945,51 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             return f"{schema}.{namespace}::{view}"
 
         return f"{schema}.{view}"
+
+    def _resolve_datasphere_upstream(self, model: ResourceModel) -> Optional[str]:
+        # SAC exposes the Datasphere object's technical name (the model name) but not its
+        # space, so the space comes from connection_mapping and the urn is built directly.
+        object_name = (model.name or "").strip()
+        if not object_name:
+            self.report.dwc_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere model has no name",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because the model has no name to derive the object from."
+                ),
+                context=f"{model.connection_id}: {model.namespace}:{model.model_id}",
+            )
+            return None
+
+        connection = self.config.connection_mapping.get(model.connection_id or "")
+        if connection is None or not connection.datasphere_space:
+            self.report.dwc_lineage_skipped_no_space += 1
+            self.report.warning(
+                title="SAP Datasphere space not configured",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because no datasphere_space is set for the connection. Add "
+                    "connection_mapping.<connection_id>.datasphere_space (the Datasphere "
+                    "space id), or set resolve_datasphere_lineage=false to silence this."
+                ),
+                context=f"{model.connection_id}: {model.name}",
+            )
+            return None
+
+        platform = connection.platform or _DATASPHERE_PLATFORM
+
+        # Match the Datasphere connector's urn casing so the upstream stitches.
+        dataset_name = f"{connection.datasphere_space}.{object_name}"
+        if connection.convert_urns_to_lowercase:
+            dataset_name = dataset_name.lower()
+
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=dataset_name,
+            platform_instance=connection.platform_instance,
+            env=connection.env,
+        )
 
     def get_schema_field_data_type(
         self, column: ImportDataModelColumn

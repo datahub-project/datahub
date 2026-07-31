@@ -8,7 +8,8 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 - Browse Paths for models cannot be created because the folder where the models are saved is not returned by the API.
 - Schema metadata is only ingested for Import Data Models because there is no possibility to get the schema metadata of the other model types.
 - Lineages for Import Data Models cannot be ingested because the API is not providing any information about it.
-- Currently, only SAP BW and SAP HANA are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
+- SAP BW, SAP HANA, and SAP Datasphere (Data Warehouse Cloud / `DWC` connections) are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
+- For SAP Datasphere-backed Live Data Models, SAC exposes the underlying object's name but not its Datasphere **space**. Configure the space per connection via `connection_mapping.<connection_id>.datasphere_space` so the upstream `sap-datasphere` dataset urn (`<space>.<model_name>`) can be built. Set `connection_mapping.<connection_id>.convert_urns_to_lowercase` (default `true`) to match the casing used by your SAP Datasphere connector recipe. Models on connections without a configured `datasphere_space` are skipped with a warning (or set `resolve_datasphere_lineage: false` to disable this entirely).
 - For some models (e.g., builtin models) it cannot be detected whether the models are Live Data or Import Data Models. Therefore, these models will be ingested only with the `Story` subtype.
 
 #### Limitations
