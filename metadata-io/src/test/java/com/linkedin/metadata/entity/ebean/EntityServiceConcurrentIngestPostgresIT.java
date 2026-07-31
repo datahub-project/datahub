@@ -39,12 +39,12 @@ import org.testng.annotations.Test;
  * overlapping batches): two threads repeatedly ingest aspect batches over overlapping URN sets
  * through the real {@link EntityServiceImpl} path against PostgreSQL.
  *
- * <p>Before single-wave lock acquisition ({@code AspectDao.lockLatestRows}), each ingest
- * transaction locked rows in multiple statements — {@code exists()} inside {@code
- * withAdditionalChanges}, then {@code getLatestAspects} — so concurrent overlapping batches could
- * interlock crosswise and exhaust the retry budget. With the fix, every batch's locks are acquired
- * in a single up-front statement and concurrent ingests serialize instead of deadlocking. See
- * {@link EbeanAspectDaoConcurrentLockPostgresIT} for the statement-level characterization.
+ * <p>Before single-wave lock acquisition, each ingest transaction locked rows in multiple
+ * statements — {@code exists()} inside {@code withAdditionalChanges}, then {@code getLatestAspects}
+ * — so concurrent overlapping batches could interlock crosswise and exhaust the retry budget. With
+ * the fix, every batch's locks are acquired by a single up-front locking read and concurrent
+ * ingests serialize instead of deadlocking. See {@link EbeanAspectDaoConcurrentLockPostgresIT} for
+ * the statement-level characterization.
  */
 public class EntityServiceConcurrentIngestPostgresIT {
 

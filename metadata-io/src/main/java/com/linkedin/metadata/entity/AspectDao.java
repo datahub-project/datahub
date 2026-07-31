@@ -90,6 +90,13 @@ public interface AspectDao {
   }
 
   /**
+   * When {@code forUpdate=true}, implementations with row-level locking MUST acquire all row locks
+   * in a single statement: multi-statement (wave) lock acquisition deadlocks when two concurrent
+   * transactions' waves overlap crosswise, whereas a single statement acquires row locks in
+   * consistent scan order. Write transactions should issue ONE locking read covering the union of
+   * every row they will later read with {@code forUpdate=true} or modify, as their first statement
+   * (see {@code EntityServiceImpl#ingestAspectsToLocalDB}).
+   *
    * @param urnAspects urn/aspects to fetch
    * @param forUpdate set to true if the result is used for versioning <a
    *     href="https://ebean.io/docs/query/option#forUpdate">link</a>
@@ -98,24 +105,6 @@ public interface AspectDao {
   @Nonnull
   Map<String, Map<String, SystemAspect>> getLatestAspects(
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
-
-  /**
-   * Acquires write locks (e.g. {@code SELECT ... FOR UPDATE}) on the latest-version rows of the
-   * given urn/aspect pairs in a single statement, without reading the aspect payloads. Rows that do
-   * not exist are not locked (there is nothing to lock).
-   *
-   * <p>Intended to be the FIRST locking statement of a write transaction, covering the union of
-   * every row the transaction will later read with {@code forUpdate=true} or modify. Acquiring all
-   * locks in one statement prevents lock-ordering deadlocks between concurrent transactions:
-   * multi-statement (wave) acquisition deadlocks when two transactions' waves overlap crosswise,
-   * whereas a single statement acquires row locks in consistent scan order.
-   *
-   * <p>Implementations without row-level locking transactions may no-op.
-   *
-   * @param urnAspects urn/aspects whose latest-version rows should be locked
-   */
-  default void lockLatestRows(
-      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {}
 
   /**
    * Updates the system aspect

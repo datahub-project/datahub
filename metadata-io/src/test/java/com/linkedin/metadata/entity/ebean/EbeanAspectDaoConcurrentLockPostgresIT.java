@@ -28,17 +28,17 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Guards the PostgreSQL locking invariant that single-wave lock acquisition ({@code
- * AspectDao.lockLatestRows}) relies on: two concurrent <em>single-statement</em> {@code FOR UPDATE}
- * batchGets over overlapping key sets cannot deadlock, because PostgreSQL acquires multi-row locks
- * in physical scan order, which is consistent across both statements regardless of IN-list order.
+ * Guards the PostgreSQL locking invariant that the ingest path's single up-front locking read
+ * relies on: two concurrent <em>single-statement</em> {@code FOR UPDATE} reads over overlapping key
+ * sets cannot deadlock, because PostgreSQL acquires multi-row locks in physical scan order, which
+ * is consistent across both statements regardless of IN-list order.
  *
  * <p>Deadlocks arise only when a transaction acquires locks in multiple statements ("waves"), as
- * the ingest path did before {@code lockLatestRows}: {@code exists(..., forUpdate=true)} followed
- * by {@code getLatestAspects(..., forUpdate=true)}. Two transactions whose waves overlap crosswise
- * interlock — the production failure mode behind "RetryLimitReached: Failed to add after 3
- * retries". See {@link EntityServiceConcurrentIngestPostgresIT} for the end-to-end regression test
- * of the fixed ingest path.
+ * the ingest path once did: {@code exists(..., forUpdate=true)} followed by {@code
+ * getLatestAspects(..., forUpdate=true)}. Two transactions whose waves overlap crosswise interlock
+ * — the production failure mode behind "RetryLimitReached: Failed to add after 3 retries". See
+ * {@link EntityServiceConcurrentIngestPostgresIT} for the end-to-end regression test of the fixed
+ * ingest path.
  */
 public class EbeanAspectDaoConcurrentLockPostgresIT {
 

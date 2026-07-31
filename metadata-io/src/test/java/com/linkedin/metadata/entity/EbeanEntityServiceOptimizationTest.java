@@ -38,13 +38,14 @@ import org.testng.annotations.Test;
 
 public class EbeanEntityServiceOptimizationTest {
   /*
-   Counts for ORM optimization calculations
+   Counts for ORM optimization calculations.
+   The transaction's first statement is a single up-front FOR UPDATE read over the batch's aspect
+   rows plus each entity's key aspect row; it replaced the separate locking exists() check
+   (single-wave lock acquisition, prevents lock-ordering deadlocks), so totals match the
+   pre-lock-rework counts: the up-front read is counted where the exists()/key read used to be.
   */
-  // Up-front single-statement FOR UPDATE lock acquisition (AspectDao.lockLatestRows), the first
-  // statement of every ingest transaction (prevents multi-wave lock-ordering deadlocks)
-  private static final int upfrontLockAcquisition = 1;
   // Default Aspect Generation Step
-  // 1. *Key,
+  // 1. up-front locking read (*Key + batch aspects)
   // 2. browsePathsV2 & dataPlatformInstance
   // 3. dataPlatformInfo
   private static final int defaultAspectsGeneration = 3;
@@ -54,17 +55,17 @@ public class EbeanEntityServiceOptimizationTest {
   private static final int defaultAspectsNextVersion = 2;
   // Final default select
   private static final int nonExistingBaseCount =
-      upfrontLockAcquisition + defaultAspectsGeneration + defaultAspectsNextVersion;
+      defaultAspectsGeneration + defaultAspectsNextVersion;
 
   // Existing
-  // 1. *Key
-  private static final int existingDefaultAspectsGeneration = 1;
+  // 0. key-existence check shares the up-front locking read (counted at call sites as the final
+  //    select), so default aspect generation issues no SQL of its own for existing entities
+  private static final int existingDefaultAspectsGeneration = 0;
   // Retention lookup (disabled for test)
   // 1. dataHubRetentionConfig (if enabled add 1 for read)
   private static final int existingRetention = 0;
   // Final default select existing (no retention)
-  private static final int existingBaseCount =
-      upfrontLockAcquisition + existingDefaultAspectsGeneration + existingRetention;
+  private static final int existingBaseCount = existingDefaultAspectsGeneration + existingRetention;
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
