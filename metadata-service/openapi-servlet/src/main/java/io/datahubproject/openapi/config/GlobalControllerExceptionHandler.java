@@ -116,11 +116,6 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
 
   private static final long ASYNC_TIMEOUT_RETRY_AFTER_SECONDS = 30;
 
-  /**
-   * Hint for clients backing off after a retryable transaction conflict (deadlock / serialization).
-   */
-  private static final long DATABASE_TRANSACTION_CONFLICT_RETRY_AFTER_SECONDS = 1;
-
   @ExceptionHandler(AsyncRequestTimeoutException.class)
   public ResponseEntity<Map<String, String>> handleAsyncTimeout(
       AsyncRequestTimeoutException e, HttpServletRequest request) {
@@ -150,8 +145,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     body.put("code", e.getCode());
     body.put("retryable", e.isRetryable());
     HttpHeaders headers = new HttpHeaders();
-    headers.add(
-        HttpHeaders.RETRY_AFTER, String.valueOf(DATABASE_TRANSACTION_CONFLICT_RETRY_AFTER_SECONDS));
+    headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()));
     return new ResponseEntity<>(body, headers, HttpStatus.SERVICE_UNAVAILABLE);
   }
 

@@ -631,6 +631,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.transactionRetry.backoffVendorCodes",
           "ebean.transactionRetry.initialBackoffMs",
           "ebean.transactionRetry.maxBackoffMs",
+          "ebean.transactionRetry.retryAfterSeconds",
           "ebean.url",
           "ebean.useIamAuth",
           "ebean.username",

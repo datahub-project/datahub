@@ -13,6 +13,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
 import com.linkedin.restli.common.HttpStatus;
@@ -51,6 +52,28 @@ public class RestliUtilsTest {
         (DatabaseTransactionConflictRestLiServiceException) thrown;
     assertEquals(
         conflictEx.getResponseHeaders().get(ThrottleResponseHeaders.RETRY_AFTER), "1");
+  }
+
+  @Test
+  public void testToTask_DatabaseTransactionConflict_customRetryAfter() {
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", null, 9L);
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw conflict;
+                    }));
+
+    assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+    DatabaseTransactionConflictRestLiServiceException conflictEx =
+        (DatabaseTransactionConflictRestLiServiceException) thrown;
+    assertEquals(
+        conflictEx.getResponseHeaders().get(ThrottleResponseHeaders.RETRY_AFTER), "9");
   }
 
   @Test
@@ -122,6 +145,44 @@ public class RestliUtilsTest {
                     }));
 
     assertEquals(thrown.getStatus(), HttpStatus.S_500_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
+  public void testToTask_PlainRetryLimitReached_Returns500_Not503() {
+    RetryLimitReached retryExhausted = new RetryLimitReached("Failed to add after 3 retries");
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw retryExhausted;
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_500_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
+  public void testToTask_ConflictSubclassOfRetryLimitReached_Returns503() {
+    // DatabaseTransactionConflictException extends RetryLimitReached — cause walk must match
+    // the subclass before falling through to generic 500.
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+    RuntimeException wrapper = new RuntimeException("wrapper", conflict);
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw wrapper;
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
+    assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
   }
 
   @Test

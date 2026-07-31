@@ -95,6 +95,22 @@ public class RestliThrottleResponseFilterTest {
   }
 
   @Test
+  public void testOnErrorAddsRetryAfterForNestedDatabaseTransactionConflict() throws Exception {
+    Map<String, String> headers = new HashMap<>();
+    FilterResponseContext responseContext = mockResponseContext(headers);
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+    DatabaseTransactionConflictRestLiServiceException nested =
+        new DatabaseTransactionConflictRestLiServiceException(conflict);
+    RuntimeException error = new RuntimeException("outer", new RuntimeException("mid", nested));
+
+    filter.onError(error, Mockito.mock(FilterRequestContext.class), responseContext).get();
+
+    assertEquals(headers.get(ThrottleResponseHeaders.RETRY_AFTER), "1");
+  }
+
+  @Test
   public void testOnErrorIgnoresNonThrottleExceptions() throws Exception {
     Map<String, String> headers = new HashMap<>();
     FilterResponseContext responseContext = mockResponseContext(headers);

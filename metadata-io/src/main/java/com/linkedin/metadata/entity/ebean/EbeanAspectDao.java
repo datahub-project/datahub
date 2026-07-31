@@ -1000,6 +1000,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               matchedSql != null ? matchedSql.getSQLState() : null,
               matchedSql != null ? matchedSql.getErrorCode() : null,
               exception.getMessage());
+          // attempt index: exceptions.size()-1 → 0 on first retry after the initial failure
           sleepBeforeRetry(
               transactionRetryPolicy.backoffMillis(transactionContext.exceptions().size() - 1));
         } else if (backoff) {
@@ -1028,7 +1029,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         throw new DatabaseTransactionConflictException(
             "Failed to add after " + maxTransactionRetry + " retries due to transaction conflict",
             sqlState,
-            last);
+            last,
+            transactionRetryPolicy.getRetryAfterSeconds());
       }
       throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", last);
     }

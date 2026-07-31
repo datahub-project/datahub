@@ -12,6 +12,7 @@ import static org.testng.Assert.expectThrows;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.RetryLimitReached;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.TransactionContext;
@@ -112,6 +113,24 @@ public class EbeanAspectDaoTransactionRetryTest {
         .incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0), eq("path"), eq("delete"));
     verify(metricUtils, times(4)).increment(eq(txFailed), eq(1.0));
     verify(metricUtils, times(1)).increment(eq(txFailedAfterRetries), eq(1.0));
+  }
+
+  @Test
+  public void testDeadlockExhaustion_withBatch_recordsIngestPathMetrics() {
+    Function<TransactionContext, TransactionResult<String>> block =
+        tx -> {
+          throw deadlockPersistenceException("40001", 1213);
+        };
+    AspectsBatch batch = mock(AspectsBatch.class);
+
+    expectThrows(
+        DatabaseTransactionConflictException.class,
+        () -> dao.runInTransactionWithRetryUnlocked(opContext, block, batch, MAX_RETRIES));
+
+    verify(metricUtils, times(3))
+        .incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0), eq("path"), eq("ingest"));
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0), eq("path"), eq("ingest"));
   }
 
   @Test

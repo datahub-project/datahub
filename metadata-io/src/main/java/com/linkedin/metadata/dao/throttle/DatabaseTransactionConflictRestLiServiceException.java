@@ -15,9 +15,6 @@ import javax.annotation.Nonnull;
  */
 public class DatabaseTransactionConflictRestLiServiceException extends RestLiServiceException {
 
-  /** Matches OpenAPI {@code GlobalControllerExceptionHandler} Retry-After hint. */
-  public static final long RETRY_AFTER_SECONDS = 1L;
-
   private final DatabaseTransactionConflictException conflict;
 
   public DatabaseTransactionConflictRestLiServiceException(
@@ -37,6 +34,7 @@ public class DatabaseTransactionConflictRestLiServiceException extends RestLiSer
 
   @Nonnull
   public Map<String, String> getResponseHeaders() {
-    return Map.of(ThrottleResponseHeaders.RETRY_AFTER, String.valueOf(RETRY_AFTER_SECONDS));
+    return Map.of(
+        ThrottleResponseHeaders.RETRY_AFTER, String.valueOf(conflict.getRetryAfterSeconds()));
   }
 }

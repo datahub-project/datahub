@@ -546,6 +546,8 @@ ebean:
     backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
     initialBackoffMs: ${EBEAN_RETRY_INITIAL_BACKOFF_MS:50}
     maxBackoffMs: ${EBEAN_RETRY_MAX_BACKOFF_MS:1000}
+    # Retry-After hint (seconds) returned on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li).
+    retryAfterSeconds: ${EBEAN_RETRY_AFTER_SECONDS:1}
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}

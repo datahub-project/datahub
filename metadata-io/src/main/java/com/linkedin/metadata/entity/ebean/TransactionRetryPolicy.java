@@ -19,6 +19,7 @@ public class TransactionRetryPolicy {
   private final Set<Integer> backoffVendorCodes;
   private final long initialBackoffMs;
   private final long maxBackoffMs;
+  private final long retryAfterSeconds;
   private final boolean jitterEnabled;
 
   public TransactionRetryPolicy(@Nonnull TransactionRetryConfiguration config) {
@@ -38,12 +39,20 @@ public class TransactionRetryPolicy {
         config.getMaxBackoffMs() > 0
             ? config.getMaxBackoffMs()
             : TransactionRetryConfiguration.DEFAULT_MAX_BACKOFF_MS;
+    this.retryAfterSeconds =
+        config.getRetryAfterSeconds() > 0
+            ? config.getRetryAfterSeconds()
+            : TransactionRetryConfiguration.DEFAULT_RETRY_AFTER_SECONDS;
     this.jitterEnabled = jitterEnabled;
     if (backoffSqlStates.isEmpty() && backoffVendorCodes.isEmpty()) {
       log.warn(
           "ebean.transactionRetry has empty backoffSqlStates and backoffVendorCodes; "
               + "transient deadlock/serialization retry backoff is disabled");
     }
+  }
+
+  public long getRetryAfterSeconds() {
+    return retryAfterSeconds;
   }
 
   public boolean shouldBackoff(@Nullable Throwable throwable) {
@@ -73,6 +82,7 @@ public class TransactionRetryPolicy {
 
   @Nonnull
   private static Set<String> parseSqlStates(@Nullable String csv) {
+    // Empty/blank → empty set → backoff disabled (constructor warns if both allowlists empty).
     if (csv == null || csv.isBlank()) {
       return Collections.emptySet();
     }
@@ -84,6 +94,7 @@ public class TransactionRetryPolicy {
 
   @Nonnull
   private static Set<Integer> parseVendorCodes(@Nullable String csv) {
+    // Empty/blank → empty set → backoff disabled (constructor warns if both allowlists empty).
     if (csv == null || csv.isBlank()) {
       return Collections.emptySet();
     }

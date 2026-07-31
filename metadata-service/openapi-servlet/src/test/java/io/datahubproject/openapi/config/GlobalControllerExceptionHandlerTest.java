@@ -529,6 +529,19 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(response.getHeaders().getFirst("Retry-After"), "1");
   }
 
+  @Test
+  public void testHandleDatabaseTransactionConflict_usesConfiguredRetryAfter() {
+    DatabaseTransactionConflictException ex =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", null, 5L);
+
+    ResponseEntity<Map<String, Object>> response =
+        exceptionHandler.handleDatabaseTransactionConflict(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "5");
+  }
+
   private static void injectMetricUtils(
       GlobalControllerExceptionHandler handler, MetricUtils metricUtils) throws Exception {
     Field field = GlobalControllerExceptionHandler.class.getDeclaredField("metricUtils");

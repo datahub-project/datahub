@@ -66,4 +66,20 @@ public class TransactionRetryPolicyTest {
     SQLException unmatched = new SQLException("nope", null, 999);
     assertFalse(policy.shouldBackoff(unmatched));
   }
+
+  @Test
+  public void testRetryAfterSeconds_fromConfig() {
+    TransactionRetryPolicy policy =
+        new TransactionRetryPolicy(
+            TransactionRetryConfiguration.builder().retryAfterSeconds(7).build(), false);
+    assertEquals(policy.getRetryAfterSeconds(), 7L);
+  }
+
+  @Test
+  public void testRetryAfterSeconds_builderDefault() {
+    TransactionRetryPolicy policy =
+        new TransactionRetryPolicy(TransactionRetryConfiguration.builder().build(), false);
+    assertEquals(
+        policy.getRetryAfterSeconds(), TransactionRetryConfiguration.DEFAULT_RETRY_AFTER_SECONDS);
+  }
 }

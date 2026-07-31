@@ -42,11 +42,16 @@ public class RestliThrottleResponseFilter implements Filter {
   @Nullable
   private static DatabaseTransactionConflictRestLiServiceException
       extractDatabaseTransactionConflict(Throwable th) {
-    if (th instanceof DatabaseTransactionConflictRestLiServiceException conflict) {
-      return conflict;
-    }
-    if (th.getCause() instanceof DatabaseTransactionConflictRestLiServiceException conflict) {
-      return conflict;
+    Throwable cur = th;
+    while (cur != null) {
+      if (cur instanceof DatabaseTransactionConflictRestLiServiceException conflict) {
+        return conflict;
+      }
+      Throwable cause = cur.getCause();
+      if (cause == null || cause == cur) {
+        break;
+      }
+      cur = cause;
     }
     return null;
   }

@@ -18,6 +18,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
 
+  /**
+   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
+   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * DatabaseTransactionConflictException} → {@link IllegalStateException} → {@link
+   * RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because {@code
+   * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
+   */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
       DataFetcherExceptionHandlerParameters handlerParameters) {
