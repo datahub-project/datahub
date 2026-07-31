@@ -29,5 +29,8 @@ public class EbeanConfiguration {
   private String batchGetMethod;
   private Integer queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
 
+  @Builder.Default
+  private TransactionRetryConfiguration transactionRetry = new TransactionRetryConfiguration();
+
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }
