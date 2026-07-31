@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Analytics.xml">
+    <edmx:Include Alias="Analytics" Namespace="com.sap.vocabularies.Analytics.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Alias="Capabilities" Namespace="Org.OData.Capabilities.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Common.xml">
+    <edmx:Include Alias="Common" Namespace="com.sap.vocabularies.Common.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://oasis-tcs.github.io/odata-vocabularies/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Alias="Core" Namespace="Org.OData.Core.V1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/DataIntegration.xml">
+    <edmx:Include Alias="DataIntegration" Namespace="com.sap.vocabularies.DataIntegration.v1"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="https://sap.github.io/odata-vocabularies/vocabularies/Hierarchy.xml">
+    <edmx:Include Alias="Hierarchy" Namespace="com.sap.vocabularies.Hierarchy.v1"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema Namespace="StandaloneService" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityContainer Name="EntityContainer">
+        <EntitySet Name="SAP_TIME_VIEW_DIMENSION_MONTH" EntityType="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH"/>
+      </EntityContainer>
+      <EntityType Name="SAP_TIME_VIEW_DIMENSION_MONTH">
+        <Key>
+          <PropertyRef Name="CALMONTH"/>
+        </Key>
+        <Property Name="CALMONTH" Type="Edm.String" MaxLength="6" Nullable="false"/>
+        <Property Name="MONTH" Type="Edm.String" MaxLength="2"/>
+        <Property Name="CALQUARTER" Type="Edm.String" MaxLength="5"/>
+        <Property Name="QUARTER" Type="Edm.String" MaxLength="2"/>
+        <Property Name="YEAR" Type="Edm.String" MaxLength="4"/>
+      </EntityType>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH">
+        <Annotation Term="Hierarchy.leveled">
+          <Collection>
+            <Record>
+              <PropertyValue Property="name" String="YQM"/>
+              <PropertyValue Property="label" String="Year, Quarter, Month"/>
+              <PropertyValue Property="levels">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="element" Path="YEAR"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALQUARTER"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALMONTH"/>
+                  </Record>
+                </Collection>
+              </PropertyValue>
+            </Record>
+            <Record>
+              <PropertyValue Property="name" String="YM"/>
+              <PropertyValue Property="label" String="Year, Month"/>
+              <PropertyValue Property="levels">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="element" Path="YEAR"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="element" Path="CALMONTH"/>
+                  </Record>
+                </Collection>
+              </PropertyValue>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Annotation Term="Analytics.dimensionType" String="#TIME"/>
+        <Annotation Term="Common.Label" String="Time Dimension - Month"/>
+        <Annotation Term="DataIntegration.OriginalName" String="SAP.TIME.VIEW_DIMENSION_MONTH"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.EntityContainer/SAP_TIME_VIEW_DIMENSION_MONTH">
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record Type="Capabilities.DeleteRestrictionsType">
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record Type="Capabilities.InsertRestrictionsType">
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record Type="Capabilities.UpdateRestrictionsType">
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH/CALMONTH">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Calendar Month"/>
+        <Annotation Term="Common.IsCalendarYearMonth" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH/MONTH">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Month"/>
+        <Annotation Term="Common.IsCalendarMonth" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH/CALQUARTER">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Calendar Quarter"/>
+        <Annotation Term="Common.IsCalendarYearQuarter" Bool="true"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH/QUARTER">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Quarter"/>
+      </Annotations>
+      <Annotations Target="StandaloneService.SAP_TIME_VIEW_DIMENSION_MONTH/YEAR">
+        <Annotation Term="Analytics.dimension" Bool="true"/>
+        <Annotation Term="Common.Label" String="Year"/>
+        <Annotation Term="Common.IsCalendarYear" Bool="true"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

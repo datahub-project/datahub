@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -20,6 +21,7 @@ import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityPrivileges, Incident } from '@types';
 
 export const IncidentList = () => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityType } = useEntityData();
     const location = useLocation();
     const refetchEntity = useRefetch();
@@ -108,7 +110,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

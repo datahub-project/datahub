@@ -1,0 +1,31 @@
+plugins {
+  id 'java-library'
+}
+
+description = "In-repo replacement for com.linkedin.avroutil1:helper-all (0.2.138 fork with patched commons-text/lang3 in the fat JAR)."
+
+// Single fat JAR, not published to Maven. Example:
+//   cp /path/to/helper-0.2.138-fork-0.1.0-all.jar vendor/avroutil1-helper-all-fork/
+def forkJarName = 'helper-0.2.138-fork-0.1.0-all.jar'
+def forkJar = layout.projectDirectory.file(forkJarName).asFile
+
+dependencies {
+  if (forkJar.isFile()) {
+    api files(forkJar)
+  } else {
+    // Allow Gradle to configure and resolve lockfiles (pre-commit) without the binary. Do not
+    // fall back to the Maven com.linkedin helper-all artifact.
+    logger.lifecycle("avroutil1-helper-all-fork: add ${forkJarName} to ${projectDir} before " +
+        "assembling a release or compiling dependents that need helper-all at compile time")
+  }
+}
+
+tasks.register('assertAvroutilHelperForkPresent') { group = 'build'
+  doLast {
+    if (!forkJar.isFile()) {
+      throw new GradleException("Missing ${forkJarName} in ${projectDir}. " +
+          "Copy the patched avro-util helper fat JAR to that path (see top-of-file comment).")
+    }
+  }
+}
+tasks.named('assemble') { dependsOn 'assertAvroutilHelperForkPresent' }

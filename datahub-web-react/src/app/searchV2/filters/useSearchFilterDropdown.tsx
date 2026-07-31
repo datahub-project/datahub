@@ -71,7 +71,7 @@ export default function useSearchFilterDropdown({
         data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
     const searchAggregations = filter.aggregations;
     const activeAggregations = searchAggregations.filter((agg) =>
-        activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
+        activeFilters.find((f) => f.values?.includes(agg.value)),
     );
 
     const prevNewAggregations = usePrevious(newAggregations);

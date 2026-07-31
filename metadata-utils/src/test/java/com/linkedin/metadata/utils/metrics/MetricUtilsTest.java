@@ -695,4 +695,60 @@ public class MetricUtilsTest {
     assertNotNull(summary);
     assertEquals(summary.getId().getTags().size(), 0);
   }
+
+  private static final class QueueLagKafkaScope {}
+
+  private static final class QueueLagPgQueueScope {}
+
+  @Test
+  public void testRecordInboundMessageQueueLagRecordsHistogramAndKafkaTimer() {
+    Class<?> scope = QueueLagKafkaScope.class;
+    String topic = "logical-topic";
+    String group = "consumer-group-id";
+    long enqueuedAt = System.currentTimeMillis() - 42L;
+
+    MetricUtils.recordInboundMessageQueueLag(
+        metricUtils, scope, topic, group, enqueuedAt, MetricUtils.MESSAGING_SYSTEM_KAFKA, null);
+
+    String histName = MetricRegistry.name(scope, "kafkaLag");
+    DistributionSummary summary =
+        meterRegistry.summary(histName, MetricUtils.DROPWIZARD_METRIC, "true");
+    assertEquals(summary.count(), 1);
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
+            topic,
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
+            group);
+    assertEquals(timer.count(), 1);
+    assertEquals(timer.getId().getTag(MetricUtils.MESSAGING_PRIORITY), null);
+  }
+
+  @Test
+  public void testRecordInboundMessageQueueLagPgQueueIncludesPriority() {
+    Class<?> scope = QueueLagPgQueueScope.class;
+    String topic = "logical-topic";
+    String group = "consumer-group-id";
+    long enqueuedAt = System.currentTimeMillis() - 42L;
+
+    MetricUtils.recordInboundMessageQueueLag(
+        metricUtils, scope, topic, group, enqueuedAt, MetricUtils.MESSAGING_SYSTEM_PGQUEUE, 2);
+
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_PGQUEUE,
+            MetricUtils.MESSAGING_TOPIC,
+            topic,
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
+            group,
+            MetricUtils.MESSAGING_PRIORITY,
+            "2");
+    assertEquals(timer.count(), 1);
+  }
 }

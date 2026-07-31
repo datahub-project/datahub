@@ -36,7 +36,7 @@ env:
       {
         "key": "OBS",
         "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
-        "assignee_id": "2bd2434a-cf1e-47a4-8243-0e77ed19faf7",
+        "assignee_id": "f81f2754-6338-467c-9c91-a12e727b4c36",
         "description": "Data Quality and Assertions. Any PR touching the Assertions codebase belongs to this team."
       }
     ]
@@ -138,8 +138,12 @@ jobs:
           if [ -z "$TEAM_MEMBERS" ]; then
             echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           else
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
           fi

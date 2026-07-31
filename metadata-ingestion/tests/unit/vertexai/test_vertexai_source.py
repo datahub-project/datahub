@@ -3,6 +3,7 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import NotFound
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
@@ -414,6 +415,24 @@ def test_list_experiments_excludes_tensorboard_and_wraps_the_rest(
     assert experiments[0]._metadata_context is regular_ctx
 
 
+def test_list_experiments_returns_empty_on_not_found(
+    experiment_extractor: VertexAIExperimentExtractor,
+) -> None:
+    """Projects without a Vertex AI Metadata Store return 404 — must skip, not crash."""
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_experiment_extractor.rate_limited_gapic_list",
+            side_effect=NotFound("Requested Metadata Store default not found"),
+        ),
+        patch.object(experiment_extractor, "_metadata_store_parent", return_value="p"),
+    ):
+        experiments = experiment_extractor._list_experiments_rate_limited()
+
+    assert experiments == []
+    warning_titles = [w.title for w in experiment_extractor.report.warnings]
+    assert "Vertex AI Metadata Store not found" in warning_titles
+
+
 def test_list_experiment_runs_combines_context_and_execution_nodes(
     experiment_extractor: VertexAIExperimentExtractor,
 ) -> None:
@@ -485,3 +504,64 @@ def test_state_handler_checkpointing_disabled_returns_empty_state() -> None:
     handler = _make_state_handler(stateful_ingestion_config=None)
     state = handler.get_last_checkpoint_state()
     assert state.last_update_times == {}
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
+@patch.object(VertexAISource, "_setup_credentials")
+def test_resolve_target_projects_passes_credentialed_client(
+    mock_setup_credentials: MagicMock,
+    mock_projects_client: MagicMock,
+    mock_resolve_gcp_projects: MagicMock,
+) -> None:
+    """Regression: project discovery must use the recipe's SA credentials.
+
+    If self._credentials is not threaded into ProjectsClient, the Resource
+    Manager client falls back to Application Default Credentials, which do not
+    exist on the executor -> DefaultCredentialsError. Dataplex threads them;
+    VertexAI must too.
+    """
+    sentinel_creds = MagicMock(name="service_account_credentials")
+    mock_setup_credentials.return_value = sentinel_creds
+    mock_resolve_gcp_projects.return_value = []
+
+    VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-cred-test"),
+        config=VertexAIConfig(
+            project_id_pattern={"allow": [".*-production$"]},
+            region=REGION,
+        ),
+    )
+
+    # The Resource Manager client must be built with the source's credentials...
+    mock_projects_client.assert_called_once_with(credentials=sentinel_creds)
+    # ...and that client must be handed to the shared resolver.
+    _, kwargs = mock_resolve_gcp_projects.call_args
+    assert kwargs.get("projects_client") is mock_projects_client.return_value
+
+
+@patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
+@patch.object(VertexAISource, "_setup_credentials")
+def test_resolve_target_projects_skips_client_for_explicit_project_ids(
+    mock_setup_credentials: MagicMock,
+    mock_projects_client: MagicMock,
+    mock_resolve_gcp_projects: MagicMock,
+) -> None:
+    """With explicit project_ids, discovery is skipped, so no Resource Manager
+    client is constructed and None is forwarded to resolve_gcp_projects.
+
+    Guards the `else None` branch and matches Dataplex, which only builds a
+    discovery client when project_ids is empty (avoids an unused gRPC client).
+    """
+    mock_setup_credentials.return_value = MagicMock(name="service_account_credentials")
+    mock_resolve_gcp_projects.return_value = []
+
+    VertexAISource(
+        ctx=PipelineContext(run_id="vertexai-explicit-projects-test"),
+        config=VertexAIConfig(project_ids=[PROJECT_ID], region=REGION),
+    )
+
+    mock_projects_client.assert_not_called()
+    _, kwargs = mock_resolve_gcp_projects.call_args
+    assert kwargs.get("projects_client") is None

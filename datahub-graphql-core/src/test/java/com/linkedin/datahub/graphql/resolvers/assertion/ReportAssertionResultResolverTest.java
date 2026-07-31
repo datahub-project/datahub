@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionResultErrorInput;
 import com.linkedin.datahub.graphql.generated.AssertionResultErrorType;
 import com.linkedin.datahub.graphql.generated.AssertionResultInput;
+import com.linkedin.datahub.graphql.generated.AssertionResultSeverity;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.metadata.service.AssertionService;
@@ -42,9 +43,26 @@ public class ReportAssertionResultResolverTest {
           ImmutableList.of(new StringMapEntryInput("prop1", "value1")),
           customAssertionUrl,
           new AssertionResultErrorInput(
-              AssertionResultErrorType.UNKNOWN_ERROR, "an unknown error occurred"));
+              AssertionResultErrorType.UNKNOWN_ERROR, "an unknown error occurred"),
+          null);
 
-  ;
+  private static final AssertionResultInput TEST_FAILURE_INPUT_WITH_SEVERITY =
+      new AssertionResultInput(
+          0L,
+          AssertionResultType.FAILURE,
+          ImmutableList.of(new StringMapEntryInput("prop1", "value1")),
+          customAssertionUrl,
+          null,
+          AssertionResultSeverity.HIGH);
+
+  private static final AssertionResultInput TEST_SUCCESS_INPUT_WITH_SEVERITY =
+      new AssertionResultInput(
+          0L,
+          AssertionResultType.SUCCESS,
+          ImmutableList.of(new StringMapEntryInput("prop1", "value1")),
+          customAssertionUrl,
+          null,
+          AssertionResultSeverity.HIGH);
 
   private static final AssertionRunEvent TEST_ASSERTION_RUN_EVENT =
       new AssertionRunEvent()
@@ -156,5 +174,74 @@ public class ReportAssertionResultResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testReportAssertionFailureWithSeverity() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    ReportAssertionResultResolver resolver = new ReportAssertionResultResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("result")))
+        .thenReturn(TEST_FAILURE_INPUT_WITH_SEVERITY);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            mockedService.getEntityUrnForAssertion(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_DATASET_URN);
+
+    resolver.get(mockEnv).get();
+
+    AssertionResult expectedResult =
+        new AssertionResult()
+            .setType(com.linkedin.assertion.AssertionResultType.FAILURE)
+            .setSeverity(com.linkedin.assertion.AssertionResultSeverity.HIGH)
+            .setExternalUrl(customAssertionUrl)
+            .setNativeResults(new StringMap(Map.of("prop1", "value1")));
+
+    Mockito.verify(mockedService, Mockito.times(1))
+        .addAssertionRunEvent(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(0L),
+            Mockito.eq(expectedResult));
+  }
+
+  @Test
+  public void testReportAssertionSuccessIgnoresSeverity() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    ReportAssertionResultResolver resolver = new ReportAssertionResultResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("result")))
+        .thenReturn(TEST_SUCCESS_INPUT_WITH_SEVERITY);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            mockedService.getEntityUrnForAssertion(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_DATASET_URN);
+
+    resolver.get(mockEnv).get();
+
+    AssertionResult expectedResult =
+        new AssertionResult()
+            .setType(com.linkedin.assertion.AssertionResultType.SUCCESS)
+            .setExternalUrl(customAssertionUrl)
+            .setNativeResults(new StringMap(Map.of("prop1", "value1")));
+
+    Mockito.verify(mockedService, Mockito.times(1))
+        .addAssertionRunEvent(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(0L),
+            Mockito.eq(expectedResult));
   }
 }

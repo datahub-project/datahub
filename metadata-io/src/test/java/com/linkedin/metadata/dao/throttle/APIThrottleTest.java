@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
+import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -65,8 +68,8 @@ public class APIThrottleTest {
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15");
 
     for (ThrottleEvent event : ALL_EVENTS) {
-      when(mockRequestContext.getUserAgent()).thenReturn(null);
-      when(mockRequestContext.getAgentClass()).thenReturn(null);
+      when(mockRequestContext.getUserAgent()).thenReturn("");
+      when(mockRequestContext.getAgentClass()).thenReturn(AgentClass.UNKNOWN);
       try {
         APIThrottle.evaluate(opContext, Set.of(event), false);
       } catch (Exception ex) {
@@ -83,7 +86,9 @@ public class APIThrottleTest {
         try {
           when(mockRequestContext.getUserAgent()).thenReturn(ua);
           when(mockRequestContext.getAgentClass())
-              .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+              .thenReturn(
+                  AgentClass.fromRawUserAgentClass(
+                      RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
           APIThrottle.evaluate(opContext, Set.of(event), true);
         } catch (Exception ex) {
           Assert.fail("Exception was thrown and NOT expected! " + event);
@@ -91,12 +96,35 @@ public class APIThrottleTest {
         try {
           when(mockRequestContext.getUserAgent()).thenReturn(ua);
           when(mockRequestContext.getAgentClass())
-              .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+              .thenReturn(
+                  AgentClass.fromRawUserAgentClass(
+                      RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
           APIThrottle.evaluate(opContext, Set.of(event), false);
         } catch (Exception ex) {
           Assert.fail("Exception was thrown and NOT expected! " + event);
         }
       }
+    }
+  }
+
+  @Test
+  public void testThrottleExceptionIncludesResponseMetadata() {
+    when(mockRequestContext.getUserAgent()).thenReturn("python-requests/2.28.2");
+    when(mockRequestContext.getAgentClass())
+        .thenReturn(
+            AgentClass.fromRawUserAgentClass(
+                RequestContext.UAA
+                    .parse("python-requests/2.28.2")
+                    .get(UserAgent.AGENT_CLASS)
+                    .getValue()));
+
+    try {
+      APIThrottle.evaluate(opContext, Set.of(MCL_TIMESERIES_THROTTLED_EVENT), true);
+      Assert.fail("Expected APIThrottleException");
+    } catch (APIThrottleException ex) {
+      Assert.assertEquals(ex.getMechanismType(), ThrottleMechanismType.INGEST);
+      Assert.assertEquals(ex.getSource(), ThrottleResponseSource.METADATA_WRITE);
+      Assert.assertEquals(ex.getRuleId(), MCL_TIMESERIES_LAG.name());
     }
   }
 
@@ -117,7 +145,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), true);
             Assert.fail(String.format("Exception WAS expected! %s %s", ua, event));
           } catch (Exception ignored) {
@@ -128,7 +158,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), true);
           } catch (Exception ex) {
             Assert.fail(String.format("Exception was thrown and NOT expected! %s %s", ua, event));
@@ -141,7 +173,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), false);
             Assert.fail(String.format("Exception WAS expected! %s %s", ua, event));
           } catch (Exception ignored) {
@@ -152,7 +186,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), false);
           } catch (Exception ex) {
             Assert.fail(String.format("Exception was thrown and NOT expected! %s %s", ua, event));
@@ -164,7 +200,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), true);
             Assert.fail(String.format("Exception WAS expected! %s %s", ua, event));
           } catch (Exception ignored) {
@@ -172,7 +210,9 @@ public class APIThrottleTest {
           try {
             when(mockRequestContext.getUserAgent()).thenReturn(ua);
             when(mockRequestContext.getAgentClass())
-                .thenReturn(RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue());
+                .thenReturn(
+                    AgentClass.fromRawUserAgentClass(
+                        RequestContext.UAA.parse(ua).get(UserAgent.AGENT_CLASS).getValue()));
             APIThrottle.evaluate(opContext, Set.of(event), false);
             Assert.fail(String.format("Exception WAS expected! %s %s", ua, event));
           } catch (Exception ignored) {

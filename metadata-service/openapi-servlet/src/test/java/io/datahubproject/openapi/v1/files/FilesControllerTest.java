@@ -2,7 +2,7 @@ package io.datahubproject.openapi.v1.files;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -39,10 +39,10 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
@@ -118,7 +118,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     // Setup AuthUtil mock - by default, allow access
     authUtilMock = Mockito.mockStatic(AuthUtil.class);
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(true);
 
     // Setup default EntityService behavior - return a valid file entity with ASSET_DOCUMENTATION
@@ -157,7 +157,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     // Use any(Urn.class) to match any file URN since different tests may use different file IDs
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -364,7 +364,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithoutAssetDocumentationPermissions() throws Exception {
     // Override AuthUtil to deny access
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(false);
 
     mockMvc
@@ -378,7 +378,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWhenFileEntityDoesNotExist() throws Exception {
     // Override EntityService to return null
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -401,7 +401,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     entityResponse.setAspects(new com.linkedin.entity.EnvelopedAspectMap(new HashMap<>()));
 
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -419,7 +419,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithEntityServiceException() throws Exception {
     // Override EntityService to throw exception
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -524,7 +524,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     // Override AuthUtil to deny access
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(false);
 
     // Setup EntityService to return file entity with ASSET_DOCUMENTATION_LINKS scenario
@@ -543,7 +543,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
       throws Exception {
     // Override EntityService to return null
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),

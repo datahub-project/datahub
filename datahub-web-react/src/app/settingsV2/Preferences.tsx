@@ -1,9 +1,12 @@
 import { PageTitle, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
+import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -66,9 +69,11 @@ const DescriptionText = styled.div`
 `;
 
 export const Preferences = () => {
+    const { t } = useTranslation('settings.preferences');
     const theme = useTheme();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
+    const i18nEnabled = useIsI18nEnabled();
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
@@ -81,18 +86,15 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <HeaderContainer>
-                        <PageTitle title="Appearance" subTitle="Manage your appearance settings." />
+                        <PageTitle title={t('appearance.title')} subTitle={t('appearance.subTitle')} />
                     </HeaderContainer>
                 </TokensContainer>
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
-                                <SettingText>Show Applications</SettingText>
-                                <DescriptionText>
-                                    Applications are another way to organize your data, similar to Domains. They are
-                                    hidden by default.
-                                </DescriptionText>
+                                <SettingText>{t('showApplications.title')}</SettingText>
+                                <DescriptionText>{t('showApplications.description')}</DescriptionText>
                             </TextContainer>
                             <Switch
                                 label=""
@@ -105,15 +107,29 @@ export const Preferences = () => {
                                             },
                                         },
                                     });
-                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                    message.success({
+                                        content: t('showApplications.successMessage'),
+                                        duration: 2,
+                                    });
                                     appConfig?.refreshContext();
                                 }}
                             />
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!canManageApplicationAppearance && (
-                    <div style={{ color: theme.colors.textSecondary }}>No appearance settings found.</div>
+                {i18nEnabled && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>{t('language.title')}</SettingText>
+                                <DescriptionText>{t('language.description')}</DescriptionText>
+                            </TextContainer>
+                            <LanguageSelect />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
+                {!canManageApplicationAppearance && !i18nEnabled && (
+                    <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>
                 )}
             </SourceContainer>
         </Page>

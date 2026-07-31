@@ -2,6 +2,7 @@ import { Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { isEqual } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DraggableEntityItem from '@app/homeV3/modules/assetCollection/dragAndDrop/DraggableEntityItem';
@@ -32,6 +33,7 @@ type Props = {
 };
 
 const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
+    const { t } = useTranslation('modules');
     const [orderedUrns, setOrderedUrns] = useState(selectedAssetUrns);
 
     useEffect(() => {
@@ -92,7 +94,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     } else {
         content = (
             <EmptyContainer>
-                <Text color="gray">No assets selected.</Text>
+                <Text color="gray">{t('assetCollection.noAssetsSelected')}</Text>
             </EmptyContainer>
         );
     }
@@ -100,7 +102,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <SelectedAssetsContainer>
             <Text color="gray" weight="bold">
-                Selected Assets
+                {t('assetCollection.selectedAssetsHeader')}
             </Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
                 <ResultsContainer data-testid="selected-assets-list">{content}</ResultsContainer>

@@ -1,8 +1,22 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme } from 'styled-components';
 
-import { pluralize } from '@app/shared/textUtil';
+export const PILL_TERM_COUNT = 'common.counts:termCount';
+export const PILL_TAG_COUNT = 'common.counts:tagCount';
+export const PILL_OWNER_COUNT = 'common.counts:ownerCount';
+export const PILL_MATCH_COUNT = 'common.counts:matchCount';
+export const PILL_UPSTREAM_COLUMN_COUNT = 'pill.upstreamColumnCount';
+export const PILL_DOWNSTREAM_COLUMN_COUNT = 'pill.downstreamColumnCount';
+
+type PillCountKey =
+    | typeof PILL_TERM_COUNT
+    | typeof PILL_TAG_COUNT
+    | typeof PILL_OWNER_COUNT
+    | typeof PILL_MATCH_COUNT
+    | typeof PILL_UPSTREAM_COLUMN_COUNT
+    | typeof PILL_DOWNSTREAM_COLUMN_COUNT;
 
 type Props = {
     icon: any;
@@ -10,7 +24,7 @@ type Props = {
     label: string;
     onClick?: (e: React.MouseEvent) => void;
     enabled?: boolean;
-    countLabel: string;
+    countLabelKey: PillCountKey;
     active?: boolean;
     highlightedText?: string;
 };
@@ -19,7 +33,7 @@ const computeColor = (theme: DefaultTheme, enabled?: boolean, active?: boolean) 
     let color = theme.colors.textDisabled;
     if (enabled) {
         if (active) {
-            color = theme.colors.bg;
+            color = theme.colors.textOnFillDefault;
         } else {
             color = theme.colors.textTertiary;
         }
@@ -51,13 +65,13 @@ const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighli
     }
 
     :hover {
-        color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+        color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
         background-color: ${({ enabled, theme }) =>
             enabled ? `${theme.colors.buttonFillBrand}` : theme.colors.bgSurface};
 
         svg {
-            color: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
-            fill: ${({ enabled, theme }) => (enabled ? theme.colors.bg : theme.colors.iconDisabled)};
+            color: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
+            fill: ${({ enabled, theme }) => (enabled ? theme.colors.iconOnFillBrand : theme.colors.iconDisabled)};
         }
 
         >div: last-child {
@@ -91,15 +105,11 @@ const HighlightedText = styled.div`
     text-overflow: ellipsis;
 `;
 
-// pluralize
-
-const SearchPill = ({ icon, onClick, enabled, label, count, countLabel, active, highlightedText }: Props) => {
+const SearchPill = ({ icon, onClick, enabled, label, count, countLabelKey, active, highlightedText }: Props) => {
+    const { t } = useTranslation('entity.preview');
     const isHighlightedTextPresent = !!highlightedText;
     return (
-        <Tooltip
-            title={`${count} ${pluralize(count, countLabel, countLabel === 'match' ? 'es' : 's')}`}
-            showArrow={false}
-        >
+        <Tooltip title={t(countLabelKey, { count })} showArrow={false}>
             <PillContainer
                 active={active}
                 enabled={enabled}

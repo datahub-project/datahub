@@ -16,6 +16,7 @@ import uuid
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Any,
     Callable,
     Dict,
@@ -23,6 +24,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
     cast,
@@ -56,13 +58,16 @@ from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
+    ProfilerRequest,
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    EditableSchemaFieldInfo,
     EditableSchemaMetadata,
     NumberType,
+    SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -71,8 +76,10 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
     QuantileClass,
+    SchemaFieldClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
@@ -175,24 +182,9 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
             yield
 
 
-@dataclasses.dataclass
-class GEProfilerRequest:
-    pretty_name: str
-    batch_kwargs: dict
-
-
-# Alias for clearer naming in new code
-# GEProfilerRequest is misleadingly named - it's actually a generic profiling request
-# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
-# more appropriate name without breaking existing code.
-#
-# Migration strategy:
-# 1. New code should use ProfilerRequest instead of GEProfilerRequest
-# 2. Once GE profiler is removed, deprecate GEProfilerRequest with a warning
-# 3. Eventually rename the class itself to ProfilerRequest
-# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
-#    generic profiling infrastructure, not source-specific
-ProfilerRequest = GEProfilerRequest
+# Legacy alias - GEProfilerRequest is the historical name. New code should
+# import ProfilerRequest from datahub.ingestion.source.profiling.common.
+GEProfilerRequest = ProfilerRequest
 
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
@@ -531,11 +523,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Cardinality",
                 message="The cardinality for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -619,11 +612,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Min",
                 message="The min for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -639,11 +633,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Max",
                 message="The max for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -659,11 +654,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Mean",
                 message="The mean for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -706,11 +702,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Medians",
                 message="The medians for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -725,11 +722,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Standard Deviation",
                 message="The standard deviation for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -769,11 +767,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Quantiles",
                 message="The quantiles for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -809,11 +808,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Distinct Value Frequencies",
                 message="Distinct value frequencies for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -846,11 +846,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Histogram",
                 message="The histogram for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -881,11 +882,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Sample Values",
                 message="The sample values for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
@@ -1585,9 +1587,11 @@ def create_athena_temp_table(
         if not instance.config.catch_exceptions:
             raise e
         logger.exception(f"Encountered exception while profiling {table_pretty_name}")
-        instance.report.report_warning(
-            table_pretty_name,
-            f"Profiling exception {e} when running custom sql {sql}",
+        instance.report.warning(
+            message="Profiling exception when running custom sql",
+            context=f"{table_pretty_name}: sql={sql}",
+            exc=e,
+            log=False,
         )
         return None
     finally:
@@ -1618,9 +1622,11 @@ def create_bigquery_temp_table(
             logger.exception(
                 f"Encountered exception while profiling {table_pretty_name}"
             )
-            instance.report.report_warning(
-                table_pretty_name,
-                f"Profiling exception {e} when running custom sql {bq_sql}",
+            instance.report.warning(
+                message="Profiling exception when running custom sql",
+                context=f"{table_pretty_name}: sql={bq_sql}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -1672,42 +1678,58 @@ def create_bigquery_temp_table(
         raw_connection.close()
 
 
+def _matching_field_paths(
+    fields: Sequence[Union[SchemaFieldClass, EditableSchemaFieldInfo]],
+    tags: AbstractSet[str],
+) -> List[str]:
+    return [
+        field.fieldPath
+        for field in fields
+        if field.globalTags
+        and any(TagUrn.from_string(ta.tag).name in tags for ta in field.globalTags.tags)
+    ]
+
+
 def _get_columns_to_ignore_sampling(
     dataset_name: str, tags_to_ignore: Optional[List[str]], platform: str, env: str
 ) -> Tuple[bool, List[str]]:
     logger.debug("Collecting columns to ignore for sampling")
 
-    ignore_table: bool = False
-    columns_to_ignore: List[str] = []
-
     if not tags_to_ignore:
-        return ignore_table, columns_to_ignore
+        return False, []
 
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
-
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags:
-        ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-            for tag_association in dataset_tags.tags
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
+        return True, []
+
+    # Collect from both aspects; use a set to deduplicate across them.
+    # SchemaMetadata holds ingestion-sourced column tags (e.g. from Snowflake).
+    # EditableSchemaMetadata holds tags applied via the DataHub UI.
+    columns_to_ignore: set[str] = set()
+
+    schema_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=SchemaMetadata
+    )
+    if schema_metadata:
+        columns_to_ignore.update(
+            _matching_field_paths(schema_metadata.fields, tags_set)
         )
 
-    if not ignore_table:
-        metadata = datahub_graph.get_aspect(
-            entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    editable_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    )
+    if editable_metadata:
+        columns_to_ignore.update(
+            _matching_field_paths(editable_metadata.editableSchemaFieldInfo, tags_set)
         )
 
-        if metadata:
-            for schemaField in metadata.editableSchemaFieldInfo:
-                if schemaField.globalTags:
-                    columns_to_ignore.extend(
-                        schemaField.fieldPath
-                        for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-                    )
-
-    return ignore_table, columns_to_ignore
+    return False, list(columns_to_ignore)

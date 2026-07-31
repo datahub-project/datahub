@@ -1,5 +1,11 @@
+import i18next from 'i18next';
+
 import { EntityType } from '@types';
 
+// These DEFINE the deprecated raw palettes that the color initiative is migrating away from, so
+// hardcoded hex values here are intentional. Usages are caught via no-restricted-imports; the
+// definitions must remain until all consumers migrate to semantic tokens.
+/* eslint-disable rulesdir/no-hardcoded-colors */
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
@@ -28,63 +34,120 @@ export const ANTD_GRAY_V2 = {
     8: '#5E666E',
     10: '#1B1E22',
 };
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 export const EMPTY_MESSAGES = {
     documentation: {
-        title: 'No documentation yet',
-        description: 'Share your knowledge by adding documentation and links to helpful resources.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.documentation.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.documentation.description');
+        },
     },
     tags: {
-        title: 'No tags added yet',
-        description: 'Tag entities to help make them more discoverable and call out their most important attributes.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.tags.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.tags.description');
+        },
     },
     terms: {
-        title: 'No terms added yet',
-        description: 'Apply glossary terms to entities to classify their data.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.terms.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.terms.description');
+        },
     },
     owners: {
-        title: 'No owners added yet',
-        description: 'Adding owners helps you keep track of who is responsible for this data.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.owners.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.owners.description');
+        },
     },
     properties: {
-        title: 'No properties',
-        description: 'Properties will appear here if they exist in your data source.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.properties.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.properties.description');
+        },
     },
     queries: {
-        title: 'No queries yet',
-        description: 'Create, view, and share commonly used queries for this dataset.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.queries.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.queries.description');
+        },
     },
     domain: {
-        title: 'No domain set',
-        description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.domain.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.domain.description');
+        },
     },
     dataProduct: {
-        title: 'No data product set',
-        description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.dataProduct.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.dataProduct.description');
+        },
     },
     contains: {
-        title: 'Contains no Terms',
-        description: 'Terms can contain other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.contains.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.contains.description');
+        },
     },
     inherits: {
-        title: 'Does not inherit from any terms',
-        description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.inherits.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.inherits.description');
+        },
     },
     'contained by': {
-        title: 'Is not contained by any terms',
-        description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.containedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.containedBy.description');
+        },
     },
     'inherited by': {
-        title: 'Is not inherited by any terms',
-        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.inheritedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.inheritedBy.description');
+        },
     },
     businessAttributes: {
-        title: 'No business attributes added yet',
-        description: 'Add business attributes to entities to classify their data.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.description');
+        },
     },
     mlModel: {
-        title: 'No ML models',
-        description: 'ML models will appear here if they are associated with this ML model group.',
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.mlModel.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.mlModel.description');
+        },
     },
 };
 

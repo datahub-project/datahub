@@ -1,3 +1,7 @@
+---
+description: "Configure the Kafka event source to consume DataHub metadata change events directly from Kafka topics for custom Action pipelines."
+---
+
 # Kafka Event Source
 
 ## Overview

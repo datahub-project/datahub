@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import LastMonthStats from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/LastMonthStats';
@@ -16,6 +17,7 @@ import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Dataset } from '@src/types.generated';
 
 const StatsHighlights = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const baseEntityData = baseEntity?.dataset as Dataset;
 
@@ -27,8 +29,8 @@ const StatsHighlights = () => {
         <>
             <Header>
                 <PageTitle
-                    title="Highlights"
-                    subTitle="View the latest statistics for this table"
+                    title={t('statsHighlights.title')}
+                    subTitle={t('statsHighlights.subtitle')}
                     variant="sectionHeader"
                 />
                 {isSiblingsMode && baseEntityData && (

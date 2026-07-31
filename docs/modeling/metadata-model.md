@@ -1,5 +1,6 @@
 ---
 title: The Metadata Model
+description: "DataHub's schema-first metadata model uses Pegasus PDL with custom annotations to define entities, aspects, and relationships."
 sidebar_label: The Metadata Model
 slug: /metadata-modeling/metadata-model
 ---

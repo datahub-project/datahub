@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.s3;
 
 import com.linkedin.metadata.utils.aws.S3Util;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

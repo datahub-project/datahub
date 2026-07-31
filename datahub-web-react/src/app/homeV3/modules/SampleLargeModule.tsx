@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 
 export default function SampleLargeModule(props: ModuleProps) {
-    return <LargeModule {...props}>Content of the sample module</LargeModule>;
+    const { t } = useTranslation('modules');
+    return <LargeModule {...props}>{t('sampleModule.content')}</LargeModule>;
 }

@@ -5,6 +5,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
+import { DocumentSourceType } from '@types';
+
 // Mock the context hooks
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
@@ -13,6 +15,11 @@ vi.mock('@app/context/useUserContext', () => ({
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
+
+const makeEntityData = (sourceType: DocumentSourceType | undefined, canEditDescription = true) => ({
+    privileges: { canEditDescription, canManageEntity: false },
+    info: sourceType ? { source: { sourceType } } : undefined,
+});
 
 describe('useDocumentPermissions', () => {
     const mockUseUserContext = vi.mocked(useUserContext);
@@ -270,6 +277,45 @@ describe('useDocumentPermissions', () => {
         rerender();
 
         expect(result.current.canCreate).toBe(true);
+    });
+
+    it('should lock canEditState and canEditType to false for external documents regardless of privileges', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: true } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(DocumentSourceType.External, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(false);
+        expect(result.current.canEditType).toBe(false);
+        // other permissions are unaffected
+        expect(result.current.canEditContents).toBe(true);
+        expect(result.current.canEditTitle).toBe(true);
+    });
+
+    it('should allow canEditState and canEditType for native documents with canEditDescription', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: false } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(DocumentSourceType.Native, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(true);
+        expect(result.current.canEditType).toBe(true);
+    });
+
+    it('should allow canEditState and canEditType when source is not set (native/no source)', () => {
+        mockUseUserContext.mockReturnValue({ platformPrivileges: { manageDocuments: false } } as any);
+        mockUseEntityData.mockReturnValue({
+            entityData: makeEntityData(undefined, true),
+        } as any);
+
+        const { result } = renderHook(() => useDocumentPermissions());
+
+        expect(result.current.canEditState).toBe(true);
+        expect(result.current.canEditType).toBe(true);
     });
 
     it('should allow delete/move with either canManageEntity OR manageDocuments', () => {

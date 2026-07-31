@@ -1,7 +1,9 @@
 import contextlib
+import itertools
 import json
+import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -23,7 +25,12 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
 )
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    _PLAIN_LITERAL_PATTERN_RE,
+    SnowflakeQuery,
+    _compose_deny,
+    _make_composable,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
@@ -809,7 +816,9 @@ class TestParseDdlQuery:
         mock_identifiers.platform = "snowflake"
         mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
         mock_identifiers.gen_dataset_urn = Mock(
-            side_effect=lambda x: f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+            side_effect=lambda x: (
+                f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+            )
         )
         mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
             side_effect=lambda x: x.lower()
@@ -1992,6 +2001,518 @@ class TestMultiTableInsert:
         extractor.structured_reporter.warning.assert_called_once()  # type: ignore[attr-defined]
 
 
+class TestStreamUpstreamMultiTableInsert:
+    """Stream upstream + multi-target INSERT ALL must reach the per-downstream emission path."""
+
+    UPSTREAM_STREAM_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)"
+    DOWNSTREAM_PROFILE_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD)"
+    DOWNSTREAM_ERROR_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD)"
+
+    def _create_mock_extractor(self) -> SnowflakeQueriesExtractor:
+        mock_connection = Mock()
+        mock_connection.query.return_value = []
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2026, 4, 30, tzinfo=timezone.utc),
+                end_time=datetime(2026, 4, 30, 23, 59, 59, tzinfo=timezone.utc),
+            ),
+        )
+        # Use a real SourceReport so the DDL path's
+        # `with self.structured_reporter.report_exc(...)` context manager works.
+        structured_report = SourceReport()
+        mock_filters = Mock(spec=SnowflakeFilter)
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeIdentifierConfig(),
+            structured_reporter=structured_report,
+        )
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=structured_report,
+            filters=mock_filters,
+            identifiers=identifiers,
+            redundant_run_skip_handler=None,
+        )
+
+    def _audit_row(
+        self,
+        direct_objects_accessed: list,
+        objects_modified: list,
+        query_text: str = (
+            "INSERT ALL"
+            " WHEN 1 = 1 THEN INTO stage_dwh.st_dw_customer_profile (a) VALUES (a)"
+            " WHEN 1 = 1 THEN INTO raw_betler.st_dw_jsonschemavalidation_error (b) VALUES (b)"
+            " SELECT a, b FROM raw_betler.s_dw_customer_profile_2_stage"
+        ),
+    ) -> dict:
+        return {
+            "QUERY_ID": "customer-q-001",
+            "QUERY_TEXT": query_text,
+            "QUERY_START_TIME": datetime(2026, 4, 30, 11, 50, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 1000,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "ETL_USER",
+            "ROLE_NAME": "ETL_ROLE",
+            "SESSION_ID": "session-001",
+            "WAREHOUSE_NAME": "ETL_WH",
+            "DATABASE_NAME": "PROD",
+            "SCHEMA_NAME": "STAGE_DWH",
+            "DEFAULT_DB": "PROD",
+            "DEFAULT_SCHEMA": "STAGE_DWH",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 5000,
+            "OBJECTS_MODIFIED": json.dumps(objects_modified),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(direct_objects_accessed),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    def _two_clean_targets(self) -> list:
+        return [
+            {
+                "objectName": "PROD.STAGE_DWH.ST_DW_CUSTOMER_PROFILE",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "ADDRESS",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            },
+            {
+                "objectName": "PROD.RAW_BETLER.ST_DW_JSONSCHEMAVALIDATION_ERROR",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "RECORD_CONTENT",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            },
+        ]
+
+    def test_stream_upstream_clean_metadata_uses_per_downstream_path(self):
+        """Customer's case: Stream upstream, clean object names in
+        objects_modified. Both downstreams must each get a PreparsedQuery
+        with column lineage referencing the Stream URN."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [
+                        {"columnName": "RECORD_CONTENT"},
+                        {"columnName": "RECORD_METADATA"},
+                    ],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 2
+        prepared = [r for r in results if isinstance(r, PreparsedQuery)]
+        assert len(prepared) == 2
+        downstreams = {r.downstream for r in prepared}
+        assert downstreams == {self.DOWNSTREAM_PROFILE_URN, self.DOWNSTREAM_ERROR_URN}
+        for entry in prepared:
+            assert entry.upstreams == [self.UPSTREAM_STREAM_URN]
+            assert entry.column_lineage and len(entry.column_lineage) == 1
+            cl = entry.column_lineage[0]
+            assert len(cl.upstreams) == 1
+            assert cl.upstreams[0].table == self.UPSTREAM_STREAM_URN
+        assert extractor.report.num_stream_queries_observed == 0
+        assert extractor.report.num_stream_queries_clean_fast_path == 1
+
+    def test_stream_upstream_with_sys_view_in_objects_modified_falls_back(self):
+        """$SYS_VIEW_<id> placeholder in objects_modified -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        corrupt_targets = self._two_clean_targets()
+        corrupt_targets[1]["objectName"] = "PROD.RAW_BETLER.$SYS_VIEW_42"
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=corrupt_targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+
+    def test_stream_upstream_with_sys_view_in_direct_objects_falls_back(self):
+        """$SYS_VIEW_<id> placeholder in direct_objects_accessed -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.$SYS_VIEW_99",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+
+    def test_no_stream_upstream_uses_per_downstream_path(self):
+        """Table upstream -> per-downstream path."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=self._two_clean_targets(),
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 2
+        assert all(isinstance(r, PreparsedQuery) for r in results)
+        assert extractor.report.num_stream_queries_observed == 0
+
+    def test_create_temp_view_still_falls_back(self):
+        """CREATE TEMPORARY VIEW -> bypass to ObservedQuery."""
+        extractor = self._create_mock_extractor()
+        row = self._audit_row(
+            query_text="CREATE TEMPORARY VIEW v AS SELECT * FROM raw_betler.t",
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.T",
+                    "objectDomain": "Table",
+                    "columns": [{"columnName": "C"}],
+                }
+            ],
+            objects_modified=[],
+        )
+        row["QUERY_TYPE"] = "CREATE_VIEW"
+        row["OBJECT_MODIFIED_BY_DDL"] = json.dumps(
+            {
+                "objectName": "PROD.RAW_BETLER.V",
+                "objectDomain": "View",
+                "operationType": "CREATE",
+                "properties": {},
+            }
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_create_temp_view_queries_observed == 1
+
+    def test_single_target_stream_falls_back_unchanged(self):
+        """Single-target stream INSERT -> bypass (only multi-target uses fast path)."""
+        extractor = self._create_mock_extractor()
+        single_target = [
+            {
+                "objectName": "PROD.STAGE_DWH.ST_DW_CUSTOMER_PROFILE",
+                "objectDomain": "Table",
+                "columns": [
+                    {
+                        "columnName": "ADDRESS",
+                        "directSources": [
+                            {
+                                "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                                "objectDomain": "Stream",
+                                "columnName": "RECORD_CONTENT",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=single_target,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+        assert extractor.report.num_stream_queries_clean_fast_path == 0
+
+    def test_multi_target_stream_with_unknown_dollar_prefix_falls_back(self):
+        """$-prefix objectName that isn't $SYS_VIEW_ -> bypass + drift counter."""
+        extractor = self._create_mock_extractor()
+        anomalous_targets = self._two_clean_targets()
+        anomalous_targets[1]["objectName"] = "PROD.RAW_BETLER.$FUTURE_PLACEHOLDER_99"
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=anomalous_targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert extractor.report.num_stream_queries_observed == 1
+        assert extractor.report.num_audit_rows_unknown_dollar_prefix == 1
+
+    def test_audit_row_missing_object_name_increments_counter(self):
+        """None objectName in objects_modified -> missing-name counter increments, no crash.
+
+        stream_clean_multi_target fires (None doesn't trigger has_corrupt_object_names
+        or has_unknown_dollar_prefix).  _build_downstream_targets drops the None-name
+        target via its per-object exception handler (logged as a structured warning),
+        so only the one clean target emits a PreparsedQuery with intact column lineage.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()
+        targets[1]["objectName"] = None
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {
+                    "objectName": "PROD.RAW_BETLER.S_DW_CUSTOMER_PROFILE_2_STAGE",
+                    "objectDomain": "Stream",
+                    "columns": [{"columnName": "RECORD_CONTENT"}],
+                }
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        # Exactly one missing name (the None target); use == to catch double-counting.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        # Only the clean target produces a PreparsedQuery; the None-name target is dropped.
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        # Column lineage to the stream upstream must survive on the clean target.
+        assert results[0].column_lineage and len(results[0].column_lineage) == 1
+        assert (
+            results[0].column_lineage[0].upstreams[0].table == self.UPSTREAM_STREAM_URN
+        )
+
+    def test_audit_row_none_direct_object_falls_back_to_sql(self):
+        """None objectName in direct_objects_accessed → fall back to sqlglot.
+
+        Emitting a PreparsedQuery with upstreams=[] at confidence 1.0 would
+        overwrite previously-correct lineage; ObservedQuery defers to sqlglot.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": None, "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        # Sqlglot needs the original SQL + DB/schema context to resolve unqualified names.
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert results[0].usage_multiplier == 1
+        # Counter must reflect exactly one missing-name entry from this row.
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_audit_row_whitespace_direct_object_falls_back_to_sql(self):
+        """Whitespace-only objectName in direct_objects_accessed → fall back to sqlglot.
+
+        The `.strip()` guard closes the gap that `not obj_name` alone misses.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                {"objectName": "   ", "objectDomain": "Table", "columns": []},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], ObservedQuery)
+        assert results[0].query == row["QUERY_TEXT"]
+        assert results[0].default_db == "PROD"
+        assert results[0].default_schema == "STAGE_DWH"
+        assert extractor.report.num_audit_rows_missing_object_name == 1
+        warning_messages = [w.message for w in extractor.structured_reporter.warnings]
+        assert any("falling back to SQL-based lineage" in m for m in warning_messages)
+
+    def test_direct_object_with_missing_columns_key_does_not_crash(self):
+        """Direct object with no 'columns' key is treated as having no columns.
+
+        Validates the `obj.get("columns") or []` guard against future Snowflake
+        schema changes that might omit the 'columns' key entirely.
+        """
+        extractor = self._create_mock_extractor()
+        targets = self._two_clean_targets()[:1]
+
+        row = self._audit_row(
+            direct_objects_accessed=[
+                # Valid objectName but 'columns' key entirely absent.
+                {"objectName": "PROD.RAW_BETLER.SOME_TABLE", "objectDomain": "Table"},
+            ],
+            objects_modified=targets,
+        )
+
+        results = list(extractor._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        assert len(results[0].upstreams) == 1
+
+
+class TestClassifyAuditLogObjects:
+    """Unit tests for SnowflakeQueriesExtractor._classify_audit_log_objects."""
+
+    def _obj(self, name: Optional[str], domain: str = "Table") -> Dict[str, Any]:
+        return {"objectName": name, "objectDomain": domain}
+
+    def test_empty_list(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([])
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_clean_object(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("DB.SCHEMA.TABLE")]
+        )
+        assert not result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+        assert not result.has_unknown_dollar_prefix
+
+    def test_sys_view_placeholder_detected(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW_42")]
+        )
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_sys_view_without_trailing_underscore_is_not_placeholder(self):
+        # "$SYS_VIEW" (no trailing underscore) must NOT match $SYS_VIEW_* prefix.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$SYS_VIEW")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+
+    def test_unknown_dollar_prefix_counted_separately(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("PROD.SCHEMA.$FUTURE_PLACEHOLDER_99")]
+        )
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 1
+        assert result.has_unknown_dollar_prefix
+
+    def test_none_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj(None)]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_empty_string_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects([self._obj("")])
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_whitespace_only_name_increments_missing(self):
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("   ")]
+        )
+        assert result.n_missing_name == 1
+        assert not result.has_placeholder
+        assert result.n_unknown_dollar == 0
+
+    def test_name_with_no_dot_still_classified(self):
+        # objectName without any dot: unqualified == name itself.
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(
+            [self._obj("$SYS_VIEW_7")]
+        )
+        assert result.has_placeholder
+
+    def test_mixed_objects_only_one_corrupt(self):
+        # Multiple objects where only one has a $SYS_VIEW_ placeholder.
+        objects = [
+            self._obj("PROD.SCHEMA.CLEAN_TABLE"),
+            self._obj("PROD.SCHEMA.$SYS_VIEW_99"),
+            self._obj("PROD.SCHEMA.ANOTHER_CLEAN"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert result.has_placeholder
+        assert result.n_missing_name == 0
+        assert result.n_unknown_dollar == 0
+
+    def test_mixed_missing_and_unknown_dollar(self):
+        objects = [
+            self._obj(None),
+            self._obj("DB.SCHEMA.$WEIRD_123"),
+            self._obj("DB.SCHEMA.NORMAL"),
+        ]
+        result = SnowflakeQueriesExtractor._classify_audit_log_objects(objects)
+        assert not result.has_placeholder
+        assert result.n_missing_name == 1
+        assert result.n_unknown_dollar == 1
+
+
 class TestBuildPatternFilter:
     """Tests for the _build_pattern_filter method used for metadata extraction pushdown."""
 
@@ -2025,61 +2546,61 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB'",
+                "UPPER(col) RLIKE '(PROD_DB)'",
                 id="single_allow_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB", "ANALYTICS_DB"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_DB' OR UPPER(col) RLIKE 'ANALYTICS_DB')",
+                "UPPER(col) RLIKE '(PROD_DB)|(ANALYTICS_DB)'",
                 id="multiple_allow_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB"], ignoreCase=False),
                 "col",
-                "col RLIKE 'Prod_DB'",
+                "col RLIKE '(Prod_DB)'",
                 id="case_sensitive_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*", "DEV_.*"]),
                 "col",
-                "(UPPER(col) RLIKE 'PROD_.*' OR UPPER(col) RLIKE 'DEV_.*')",
+                "UPPER(col) RLIKE '(PROD_.*)|(DEV_.*)'",
                 id="regex_allow_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="single_deny_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(deny=[".*_TEMP", ".*_BACKUP"]),
                 "col",
-                "(UPPER(col) NOT RLIKE '.*_TEMP' AND UPPER(col) NOT RLIKE '.*_BACKUP')",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'",
                 id="multiple_deny_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_DB' AND UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) RLIKE '(PROD_DB)' AND UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_combined",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=["PROD_TEMP", ".*_ARCHIVE"]),
                 "col",
-                "UPPER(col) RLIKE 'PROD_.*' AND (UPPER(col) NOT RLIKE 'PROD_TEMP' AND UPPER(col) NOT RLIKE '.*_ARCHIVE')",
+                "UPPER(col) RLIKE '(PROD_.*)' AND UPPER(col) NOT RLIKE '(PROD_TEMP)|(.*_ARCHIVE)'",
                 id="single_allow_multiple_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*", "PROD_DB"], deny=[".*_TEMP"]),
                 "col",
-                "UPPER(col) NOT RLIKE '.*_TEMP'",
+                "UPPER(col) NOT RLIKE '(.*_TEMP)'",
                 id="allow_all_in_list_with_deny",
             ),
             pytest.param(
@@ -2091,19 +2612,19 @@ class TestBuildPatternFilter:
             pytest.param(
                 AllowDenyPattern(allow=["DB'NAME"]),
                 "col",
-                "UPPER(col) RLIKE 'DB''NAME'",
+                "UPPER(col) RLIKE '(DB''NAME)'",
                 id="sql_injection_protection_single_quote",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
                 "database_name",
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(PROD_DB)'",
                 id="database_column_expression",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.TABLE"]),
                 "CONCAT(table_catalog, '.', table_schema, '.', table_name)",
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.TABLE'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.TABLE)'",
                 id="fqn_column_expression",
             ),
         ],
@@ -2132,19 +2653,19 @@ class TestBuildDatabaseFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB"]),
-                "UPPER(database_name) RLIKE 'PROD_DB'",
+                "UPPER(database_name) RLIKE '(PROD_DB)'",
                 id="single_database",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_.*"], deny=[".*_TEMP"]),
-                "UPPER(database_name) RLIKE 'PROD_.*' AND UPPER(database_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(database_name) RLIKE '(PROD_.*)' AND UPPER(database_name) NOT RLIKE '(.*_TEMP)'",
                 id="pattern_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(
                     deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
                 ),
-                "(UPPER(database_name) NOT RLIKE '^UTIL_DB$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE$' AND UPPER(database_name) NOT RLIKE '^SNOWFLAKE_SAMPLE_DATA$')",
+                "UPPER(database_name) NOT RLIKE '(^UTIL_DB$)|(^SNOWFLAKE$)|(^SNOWFLAKE_SAMPLE_DATA$)'",
                 id="default_snowflake_deny_pattern",
             ),
         ],
@@ -2199,10 +2720,8 @@ class TestGetDatabasesQueryWithFilter:
         assert len(parsed) == 1
 
         # Verify filter components are present
-        assert "RLIKE 'PROD_.*'" in query
-        assert "RLIKE 'DEV_.*'" in query
-        assert "NOT RLIKE '.*_TEMP'" in query
-        assert "NOT RLIKE '.*_BACKUP'" in query
+        assert "RLIKE '(PROD_.*)|(DEV_.*)'" in query
+        assert "NOT RLIKE '(.*_TEMP)|(.*_BACKUP)'" in query
 
 
 class TestBuildSchemaFilter:
@@ -2229,70 +2748,70 @@ class TestBuildSchemaFilter:
                 AllowDenyPattern(allow=["PUBLIC"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC'",
+                "UPPER(schema_name) RLIKE '(PUBLIC)'",
                 id="fqn_false_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC", "ANALYTICS"]),
                 "PROD_DB",
                 False,
-                "(UPPER(schema_name) RLIKE 'PUBLIC' OR UPPER(schema_name) RLIKE 'ANALYTICS')",
+                "UPPER(schema_name) RLIKE '(PUBLIC)|(ANALYTICS)'",
                 id="fqn_false_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=[".*_STAGING"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE '.*_STAGING'",
+                "UPPER(schema_name) RLIKE '(.*_STAGING)'",
                 id="fqn_false_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB.PUBLIC)'",
                 id="fqn_true_single_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC", "PROD_DB.ANALYTICS"]),
                 "PROD_DB",
                 True,
-                "(UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.PUBLIC' OR UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB.ANALYTICS')",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB.PUBLIC)|(PROD_DB.ANALYTICS)'",
                 id="fqn_true_multiple_patterns",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\..*_STAGING"]),
                 "PROD_DB",
                 True,
-                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE 'PROD_DB\\\\..*_STAGING'",
+                "UPPER(CONCAT('PROD_DB', '.', schema_name)) RLIKE '(PROD_DB\\\\..*_STAGING)'",
                 id="fqn_true_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Public"], ignoreCase=False),
                 "PROD_DB",
                 False,
-                "schema_name RLIKE 'Public'",
+                "schema_name RLIKE '(Public)'",
                 id="case_sensitive_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public"], ignoreCase=False),
                 "Prod_DB",
                 True,
-                "CONCAT('Prod_DB', '.', schema_name) RLIKE 'Prod_DB.Public'",
+                "CONCAT('Prod_DB', '.', schema_name) RLIKE '(Prod_DB.Public)'",
                 id="case_sensitive_fqn_true",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PUBLIC"], deny=[".*_TEMP"]),
                 "PROD_DB",
                 False,
-                "UPPER(schema_name) RLIKE 'PUBLIC' AND UPPER(schema_name) NOT RLIKE '.*_TEMP'",
+                "UPPER(schema_name) RLIKE '(PUBLIC)' AND UPPER(schema_name) NOT RLIKE '(.*_TEMP)'",
                 id="allow_and_deny_fqn_false",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["TEST'DB.PUBLIC"]),
                 "TEST'DB",
                 True,
-                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE 'TEST''DB.PUBLIC'",
+                "UPPER(CONCAT('TEST''DB', '.', schema_name)) RLIKE '(TEST''DB.PUBLIC)'",
                 id="sql_injection_protection_db_name",
             ),
         ],
@@ -2351,8 +2870,7 @@ class TestSchemasForDatabaseQueryWithFilter:
 
         # Verify FQN filter components are present
         assert "CONCAT" in query
-        assert "RLIKE 'TEST_DB.PUBLIC'" in query
-        assert "RLIKE 'TEST_DB.ANALYTICS'" in query
+        assert "RLIKE '(TEST_DB.PUBLIC)|(TEST_DB.ANALYTICS)'" in query
 
 
 class TestBuildTableFilter:
@@ -2373,31 +2891,31 @@ class TestBuildTableFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.PUBLIC.CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.CUSTOMERS)'",
                 id="single_table_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.PUBLIC.CUSTOMERS", "PROD_DB.PUBLIC.ORDERS"]
                 ),
-                "(UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.CUSTOMERS' OR UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.PUBLIC.ORDERS')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.PUBLIC.CUSTOMERS)|(PROD_DB.PUBLIC.ORDERS)'",
                 id="multiple_tables_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB\\.PUBLIC\\.CUSTOMER_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\.CUSTOMER_.*)'",
                 id="regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB\\.PUBLIC\\..*"], deny=[".*_TEMP$", ".*_BACKUP$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB\\\\.PUBLIC\\\\..*' AND (UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_TEMP$' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_BACKUP$')",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB\\\\.PUBLIC\\\\..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_TEMP$)|(.*_BACKUP$)'",
                 id="allow_with_deny",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["Prod_DB.Public.Table"], ignoreCase=False),
-                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE 'Prod_DB.Public.Table'",
+                "CONCAT(table_catalog, '.', table_schema, '.', table_name) RLIKE '(Prod_DB.Public.Table)'",
                 id="case_sensitive",
             ),
         ],
@@ -2426,19 +2944,19 @@ class TestBuildViewFilter:
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_CUSTOMERS"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_CUSTOMERS'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING.V_CUSTOMERS)'",
                 id="single_view_fqn",
             ),
             pytest.param(
                 AllowDenyPattern(allow=["PROD_DB.REPORTING.V_.*"]),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING.V_.*'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING.V_.*)'",
                 id="view_regex_pattern",
             ),
             pytest.param(
                 AllowDenyPattern(
                     allow=["PROD_DB.REPORTING..*"], deny=[".*_DEPRECATED$"]
                 ),
-                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE 'PROD_DB.REPORTING..*' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '.*_DEPRECATED$'",
+                "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) RLIKE '(PROD_DB.REPORTING..*)' AND UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name)) NOT RLIKE '(.*_DEPRECATED$)'",
                 id="view_allow_with_deny",
             ),
         ],
@@ -2555,3 +3073,569 @@ class TestViewsForDatabaseQueryWithFilter:
         assert "WHERE" in query.upper()
         assert "RLIKE" in query.upper()
         assert "CONCAT" in query
+
+
+# ===========================================================================
+# Query-optimization unit tests (merged from test_snowflake_query_optimizations.py):
+#   _build_pattern_filter composition/security, _make_composable fast path
+# ===========================================================================
+
+FQN_EXPR = "UPPER(CONCAT(table_catalog, '.', table_schema, '.', table_name))"
+
+
+# ---------------------------------------------------------------------------
+# Security and correctness: SQL escaping and RLIKE quoting
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPatternFilterSecurity:
+    """Verify that all allow patterns go through RLIKE and produce correctly
+    quoted SQL regardless of pattern content — no injection path exists."""
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "DB.SCHEMA.TABLE'; DROP TABLE t; --$",
+            "DB.SCHEMA.TABLE\\$",
+            "DB.SCHEMA.TABLE;$",
+            "DB.SCHEMA.TABLE NAME$",
+            "DB.SCHEMA.TABLE*$",
+            "DB.SCHEMA.TABLE+$",
+            "DB.SCHEMA.TABLE?$",
+            "(DB.SCHEMA.TABLE)$",
+            "DB.SCHEMA.TABLE|OTHER$",
+            "DB.SCHEMA.[TABLE]$",
+            "^DB.SCHEMA.TABLE$",
+            "DB.SCHEMA.TABLE{2}$",
+        ],
+    )
+    def test_all_patterns_use_rlike(self, pattern):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=[pattern]), FQN_EXPR
+        )
+        assert "RLIKE" in result, (
+            f"Expected RLIKE for pattern {pattern!r}, got: {result}"
+        )
+
+    def test_single_quote_in_rlike_pattern_is_doubled(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.O'BRIEN_TABLE$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "O''BRIEN" in result
+        stripped = result.replace("''", "")
+        assert "'" not in stripped.split("RLIKE")[1].split("'")[1]
+
+    def test_backslash_in_rlike_pattern_is_doubled_for_sql_and_regex(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\d$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "\\\\" in result
+
+    def test_exact_literal_dollar_anchor_kept_in_rlike(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.TABLE$" in result
+
+    def test_ignore_case_false_preserves_case_in_rlike(self):
+        pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=False)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "Db.Schema.MyTable" in result
+
+    def test_ignore_case_true_uppercases_rlike_pattern(self):
+        pattern = AllowDenyPattern(allow=["Db.Schema.MyTable$"], ignoreCase=True)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.MYTABLE" in result
+        assert "Db" not in result
+
+    def test_empty_allow_list_returns_false(self):
+        pattern = AllowDenyPattern(allow=[])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert result == "FALSE"
+
+    def test_none_pattern_returns_empty_string(self):
+        result = SnowflakeQuery._build_pattern_filter(None, FQN_EXPR)
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# Composition: wildcard patterns → single RLIKE alternation
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPatternFilterComposition:
+    """Wildcard/regex patterns that can be safely wrapped in (...) should
+    produce a single RLIKE alternation rather than an OR-chain."""
+
+    def test_wildcard_patterns_compose_to_single_rlike(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.*_PROD$", "DB.SCHEMA.TABLE_\\d+$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(" in result
+
+    def test_single_wildcard_composes(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.*$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+
+    def test_unbalanced_open_paren_skipped_with_warning(self):
+        # "TABLE(unclosed" has an unbalanced open paren — _make_composable returns None
+        pattern = AllowDenyPattern(
+            allow=["DB.SCHEMA.TABLE(unclosed", "DB.SCHEMA.OTHER.*$"]
+        )
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # The bad pattern is skipped; the good one is still composed
+        assert "(DB.SCHEMA.OTHER" in result
+        assert "unclosed" not in result
+
+    def test_all_unbalanced_skipped_fails_closed(self):
+        pattern = AllowDenyPattern(allow=["TABLE(bad1", "TABLE(bad2"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # All allow patterns dropped → must fail CLOSED (match nothing), not emit
+        # an empty filter that would allow everything.
+        assert result == "FALSE"
+
+    def test_bare_open_paren_at_end_is_noncomposable(self):
+        # "TABLE(" — the inner ( is closed by our wrapper's ), leaving (... unclosed
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE("])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # Sole allow pattern dropped → fail closed.
+        assert result == "FALSE"
+
+    def test_backslash_escaped_paren_is_composable(self):
+        # \) in regex means literal ')' (escaped), so (TABLE\)) is a valid closed group
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\)$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        # Backslash doubled in SQL literal; the regex seen by Snowflake is TABLE\)
+        assert "\\\\" in result
+
+    def test_composable_backslash_pattern_doubles_in_sql(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_\\d+$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        # One backslash in the regex must become two in the SQL string literal
+        assert "\\\\" in result
+
+    def test_composable_pattern_with_ignorecase(self):
+        pattern = AllowDenyPattern(allow=["db.schema.*_prod$"], ignoreCase=True)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "DB.SCHEMA.*_PROD" in result
+
+    def test_exact_literal_patterns_compose_to_single_rlike(self):
+        # Exact-literal patterns (no metacharacters beyond '$') go through the
+        # fast path in _make_composable and emerge as a single RLIKE alternation.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE_A$", "DB.SCHEMA.TABLE_B$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(DB.SCHEMA.TABLE_A$)" in result
+        assert "(DB.SCHEMA.TABLE_B$)" in result
+
+    def test_exact_literal_with_deny_still_composes(self):
+        # Adding a deny pattern no longer gates the IN-clause path (removed);
+        # allow patterns still compose into a single RLIKE alternation.
+        pattern = AllowDenyPattern(
+            allow=["DB.SCHEMA.TABLE_A$"], deny=["DB.SCHEMA.SECRET.*"]
+        )
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+
+    def test_large_exact_literal_list_is_single_rlike(self):
+        names = [f"DB.SCHEMA.TABLE_{i}$" for i in range(500)]
+        pattern = AllowDenyPattern(allow=names)
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert " OR " not in result
+        assert "(DB.SCHEMA.TABLE_0$)" in result
+        assert "(DB.SCHEMA.TABLE_499$)" in result
+
+    def test_dollar_sign_in_name_is_composable(self):
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE$1$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert "RLIKE" in result
+        assert "(DB.SCHEMA.TABLE$1$)" in result
+
+
+# ---------------------------------------------------------------------------
+# Adversarial: SQL injection, escape abuse, and regex breakout attempts
+# ---------------------------------------------------------------------------
+
+
+def _rlike_string_properly_escaped(sql: str) -> bool:
+    """After collapsing '' (escaped SQL quotes), the RLIKE argument should have
+    exactly one opening and one closing quote with no bare quote inside."""
+    rlike_idx = sql.find("RLIKE ")
+    if rlike_idx == -1:
+        return True  # no RLIKE — trivially safe
+    rlike_part = sql[rlike_idx + 6 :]
+    collapsed = rlike_part.replace("''", "\x00")  # neutralise escaped quotes
+    return collapsed.count("'") == 2  # exactly the opening and closing delimiters
+
+
+class TestBuildPatternFilterAdversarial:
+    """
+    Adversarial inputs designed to break SQL quoting, inject statements,
+    or exploit double/triple backslash escaping.
+
+    The invariant: regardless of pattern content, the SQL output must either
+    (a) contain no RLIKE (pattern was skipped), or (b) have a properly delimited
+    RLIKE '...' string with no unescaped quotes that could terminate the literal.
+    """
+
+    @pytest.mark.parametrize(
+        "attack",
+        [
+            # ---- SQL injection via single quote ----
+            "DB.SCHEMA.TABLE'; DROP TABLE t; --",
+            "DB.SCHEMA.TABLE' OR '1'='1",
+            "DB.SCHEMA.TABLE'; SELECT * FROM sensitive; --$",
+            "DB.SCHEMA.TABLE' UNION SELECT password FROM users --",
+            # ---- Backslash + quote escape abuse ----
+            # If escaping is naive (one pass), \' could become \\' → unescaped quote
+            "DB.SCHEMA.TABLE\\'",
+            "DB.SCHEMA.TABLE\\\\'",
+            "DB.SCHEMA.TABLE\\\\\\'",
+            # ---- Semicolons ----
+            # Semicolons terminate SQL statements; must stay inside the literal
+            "DB.SCHEMA.TABLE; DELETE FROM metadata; --$",
+            "DB.SCHEMA.TABLE$; exec xp_cmdshell('bad'); --",
+            # ---- Snowflake comment injection ----
+            "DB.SCHEMA.TABLE/**/UNION SELECT",
+            "DB.SCHEMA.TABLE--$",
+            # ---- Regex composition breakout via )| ----
+            # If (...) wrapper can be escaped, arbitrary alternation is added
+            "DB.SCHEMA.TABLE)|(evil_table",
+            ")|(DB.SCHEMA.TABLE",
+            "DB.SCHEMA.TABLE)||(extra",
+            # ---- Null byte ----
+            "DB.SCHEMA.TABLE\x00EVIL",
+            # ---- Unicode single quote (U+0027 == standard ', but belt-and-suspenders) ----
+            "DB.SCHEMA.TABLE'EVIL",
+            # ---- Double-percent / format-string attempts ----
+            "DB.SCHEMA.TABLE%(injection)s",
+            "DB.SCHEMA.TABLE{injection}",
+        ],
+    )
+    def test_sql_injection_attempt_stays_in_string_literal(self, attack):
+        pattern = AllowDenyPattern(allow=[attack])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+
+        # Must produce a valid SQL fragment — never an empty-string exception
+        assert isinstance(result, str)
+
+        # The pattern either contributed no RLIKE (skipped as non-composable)
+        # or the RLIKE string is properly quoted with no injection path
+        assert _rlike_string_properly_escaped(result), (
+            f"Possible SQL injection with pattern {attack!r}: {result!r}"
+        )
+
+    def test_backslash_quote_two_pass_correctness(self):
+        # Naive single-pass escaping of \' produces \'' which is still an
+        # unescaped backslash before a doubled quote. Correct order:
+        # escape backslashes FIRST, then escape single quotes.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.O\\'BRIEN$"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        # Should be safe regardless of whether it composed or was skipped
+        assert _rlike_string_properly_escaped(result)
+
+    def test_regex_composition_breakout_does_not_inject_sql(self):
+        # "TABLE)|(evil" composes as (TABLE)|(evil) — a valid regex alternation
+        # that matches 'evil' too. This widens what gets ingested but is NOT SQL
+        # injection: it stays within the RLIKE string literal.
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE)|(evil_table"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert _rlike_string_properly_escaped(result)
+        # Confirm no SQL keywords leaked outside the literal
+        if "RLIKE" in result:
+            after_rlike = result.split("RLIKE")[1]
+            assert "DROP" not in after_rlike or "'" in after_rlike.split("DROP")[0]
+
+    def test_triple_backslash_before_quote_is_safe(self):
+        # \\\ before a ' — after proper two-pass escaping:
+        # step 1: \\\' → \\\\\' (backslashes doubled)
+        # step 2: ...\'' (quotes doubled)
+        # No bare quote should escape the literal
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.TABLE\\\\'"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert _rlike_string_properly_escaped(result)
+
+    def test_curly_brace_format_string_does_not_interpolate(self):
+        # A pattern containing {in_values} or similar should not accidentally
+        # trigger Python str.format() substitution in any code path
+        pattern = AllowDenyPattern(allow=["DB.SCHEMA.{in_values}"])
+        result = SnowflakeQuery._build_pattern_filter(pattern, FQN_EXPR)
+        assert isinstance(result, str)
+        assert _rlike_string_properly_escaped(result)
+
+
+# ---------------------------------------------------------------------------
+# _make_composable fast path: the re.compile-skip safety contract
+# ---------------------------------------------------------------------------
+#
+# _make_composable wraps a pattern in (...) and, for patterns matching
+# _PLAIN_LITERAL_PATTERN_RE, returns it WITHOUT the re.compile validation
+# every other pattern goes through. Skipping validation is only safe because that
+# subset admits no SQL-quote, backslash, or regex group/alternation metacharacter.
+# These tests pin that contract so any future loosening of the subset (or of the
+# escaping) trips a red test instead of shipping a scope-widening / literal-
+# breaking pattern straight into SQL.
+
+
+def _extract_rlike_literal(sql: str) -> str:
+    """Return the FIRST ``RLIKE '...'`` literal in *sql*, parsed with Snowflake's
+    real escaping rules. Raises ``ValueError`` if the literal is unterminated
+    (a backslash/quote broke out of it)."""
+    marker = "RLIKE '"
+    idx = sql.find(marker)
+    assert idx != -1, f"no RLIKE literal in: {sql!r}"
+    i = idx + len(marker)
+    chars: list = []
+    n = len(sql)
+    while i < n:
+        c = sql[i]
+        if c == "\\":
+            if i + 1 >= n:
+                raise ValueError(
+                    "backslash escaped the closing quote of the RLIKE literal"
+                )
+            chars.append(sql[i + 1])
+            i += 2
+            continue
+        if c == "'":
+            if i + 1 < n and sql[i + 1] == "'":
+                chars.append("'")
+                i += 2
+                continue
+            return "".join(chars)
+        chars.append(c)
+        i += 1
+    raise ValueError(f"unterminated RLIKE literal (recovered {''.join(chars)!r})")
+
+
+# SQL-literal breakers (quote, backslash) and regex group/alternation breakers
+# that the validation-skipping subset must never admit.
+_FORBIDDEN_IN_FAST_PATH = ["'", "\\", "(", ")", "|", "[", "]", "{", "}", "*", "+", "?"]
+
+
+class TestMakeComposableFastPath:
+    """Lock the safety contract of the re.compile-skipping fast path."""
+
+    @pytest.mark.parametrize("ch", _FORBIDDEN_IN_FAST_PATH)
+    def test_subset_regex_rejects_dangerous_characters(self, ch):
+        """If the subset ever admits a SQL-literal breaker or a regex
+        group/alternation metacharacter, skipping re.compile becomes unsafe."""
+        assert not _PLAIN_LITERAL_PATTERN_RE.match(f"DB.T{ch}ABLE$"), (
+            f"subset regex now admits {ch!r} — re.compile skip is unsafe"
+        )
+
+    def test_every_subset_pattern_is_a_valid_wrapped_regex(self):
+        """Skipping re.compile is sound only if EVERY subset-matching pattern is a
+        valid regex once wrapped. Fuzz the alphabet to confirm there is no input
+        the slow path would have rejected."""
+        offenders = []
+        for length in range(1, 5):
+            for combo in itertools.product("AZ09_$.", repeat=length):
+                p = "".join(combo) + "$"
+                if not _PLAIN_LITERAL_PATTERN_RE.match(p):
+                    continue
+                wrapped = _make_composable(p)
+                assert wrapped is not None
+                try:
+                    re.compile(wrapped)
+                except re.error:
+                    offenders.append(p)
+        assert not offenders, (
+            f"fast path accepts but re.compile rejects: {offenders[:10]}"
+        )
+
+    def test_fast_path_output_equals_validated_path(self):
+        """The optimization must be behavior-preserving: for subset patterns the
+        fast path returns exactly what the validate-then-wrap path would."""
+        for p in ["A.B.C$", "PROD_DB.PUBLIC.T$", "9X$", "A$B$", "X...$", "T_1$"]:
+            wrapped = f"({p})"
+            re.compile(wrapped)  # the slow path would accept it
+            assert _make_composable(p) == wrapped
+
+    @pytest.mark.parametrize(
+        "allow",
+        [
+            ["DB.SCHEMA.TABLE'; DROP TABLE t; --"],
+            ["DB.SCHEMA.TABLE\\"],  # trailing backslash
+            ["DB.SCHEMA.O\\'BRIEN"],  # backslash + quote
+            ["DB.SCHEMA.T\\\\"],  # double backslash
+            ["DB.SCHEMA.TABLE)|(.*"],  # regex-breakout attempt via )|(
+            ["A'$", "B\\$"],  # quote/backslash patterns that LOOK subset-ish
+            ["NORMAL.TABLE$"],  # benign control
+        ],
+    )
+    def test_allow_pattern_rlike_literal_is_always_well_formed(self, allow):
+        """Whatever the allow pattern, the emitted RLIKE literal must be a single,
+        properly-terminated Snowflake literal — no quote/backslash may break out.
+        (Patterns may still WIDEN regex matching, but that is within the recipe
+        author's existing authority; SQL breakout is not.)"""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=allow), FQN_EXPR
+        )
+        if "RLIKE '" in result:
+            _extract_rlike_literal(result)  # raises on breakout
+
+    def test_quotey_subsetlike_pattern_routes_through_escaping(self):
+        """``A'$`` resembles a safe literal but contains a quote, so it must NOT
+        take the validation-skip fast path, and its quote must be doubled."""
+        assert not _PLAIN_LITERAL_PATTERN_RE.match("A'$")
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["A'$"]), FQN_EXPR
+        )
+        assert "''" in result
+        _extract_rlike_literal(result)
+
+
+# ---------------------------------------------------------------------------
+# Adversarial deny patterns (NOT RLIKE)
+# ---------------------------------------------------------------------------
+
+
+def _all_rlike_literals(sql: str) -> list:
+    """Return every ``RLIKE '...'`` / ``NOT RLIKE '...'`` literal in *sql*, parsed
+    with Snowflake's real escaping rules. Raises ``ValueError`` if any literal is
+    left unterminated (backslash/quote breakout)."""
+    results: list = []
+    marker = "RLIKE '"
+    i, n = 0, len(sql)
+    while True:
+        idx = sql.find(marker, i)
+        if idx == -1:
+            return results
+        j = idx + len(marker)
+        chars: list = []
+        terminated = False
+        while j < n:
+            c = sql[j]
+            if c == "\\":
+                if j + 1 >= n:
+                    raise ValueError(
+                        "backslash consumed the closing quote of a RLIKE literal"
+                    )
+                chars.append(sql[j + 1])
+                j += 2
+                continue
+            if c == "'":
+                if j + 1 < n and sql[j + 1] == "'":
+                    chars.append("'")
+                    j += 2
+                    continue
+                j += 1
+                terminated = True
+                break
+            chars.append(c)
+            j += 1
+        if not terminated:
+            raise ValueError(
+                f"unterminated RLIKE literal (recovered {''.join(chars)!r})"
+            )
+        results.append("".join(chars))
+        i = j
+
+
+class TestDenyPatternInjection:
+    """Deny patterns are recipe-controlled (untrusted). Every NOT RLIKE literal we
+    push to the server must stay self-contained (no string-literal breakout). A
+    pattern that can't be pushed safely — unparsable as a regex, or over the byte
+    budget — is left out of the server clause and caught by the client-side deny
+    pass instead of being sent to a query it would break."""
+
+    @pytest.mark.parametrize(
+        "deny",
+        [
+            "SECRET.*'; DROP TABLE t; --",
+            "O\\'BRIEN_SECRET",  # backslash + quote
+            "X\\\\",  # double backslash
+            ".*_TEMP' OR '1'='1",
+            "SECRET)|(.*",  # regex widen attempt (must stay inside the literal)
+        ],
+    )
+    def test_single_deny_literal_is_well_formed(self, deny):
+        # ignoreCase=False keeps the round-trip exact; escaping is case-independent.
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=[deny], ignoreCase=False), FQN_EXPR
+        )
+        literals = _all_rlike_literals(result)  # raises on breakout
+        # Composable deny patterns are now wrapped in (...) before alternation, so the
+        # recovered literal is "(deny)" rather than "deny"; the pattern must still be
+        # present intact inside some literal (uncomposable ones stay unwrapped).
+        assert any(deny in lit for lit in literals), (
+            f"deny pattern {deny!r} not recovered intact from: {result!r}"
+        )
+
+    def test_backslash_deny_is_escaped(self):
+        # A composable pattern containing a backslash must have it doubled for the
+        # SQL literal (a lone backslash would otherwise consume the closing quote).
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["A\\.B"]), FQN_EXPR
+        )
+        assert "\\\\" in result  # backslash doubled for the SQL literal
+        _all_rlike_literals(result)  # well-formed
+
+    def test_allow_and_deny_both_literals_well_formed(self):
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["DB.GOOD.*$"], deny=["DB.SECRET.*", "X'Y"]),
+            FQN_EXPR,
+        )
+        literals = _all_rlike_literals(result)
+        assert any("GOOD" in lit for lit in literals)
+        assert "NOT RLIKE" in result and " AND " in result
+
+    def test_unparsable_deny_is_skipped_server_side(self):
+        """A deny pattern that isn't parsable as a regex (e.g. an unbalanced paren)
+        must NOT be sent to the server — RLIKE would reject it and break the whole
+        query. It is left out of the server clause and caught by the mandatory
+        client-side deny pass instead."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(allow=["GOOD.*"], deny=["SECRET("], ignoreCase=False),
+            "col",
+        )
+        assert "SECRET(" not in result  # skipped, not pushed to the server
+        assert result == "col RLIKE '(GOOD.*)'"  # allow still composes
+        _all_rlike_literals(result)  # well-formed
+
+    def test_composable_denies_compose_into_single_clause(self):
+        """Composable deny patterns are routed through _make_composable and composed
+        (by De Morgan) into a single NOT RLIKE alternation, each wrapped in (...)."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["A.*", "B.*"], ignoreCase=False), "col"
+        )
+        assert result == "col NOT RLIKE '(A.*)|(B.*)'"
+        _all_rlike_literals(result)  # well-formed
+
+    def test_mixed_composable_and_unparsable_denies(self):
+        """With a mix, only the composable deny patterns are pushed to the server
+        (in one alternation); the unparsable ones are skipped server-side and left
+        to the client-side deny pass."""
+        result = SnowflakeQuery._build_pattern_filter(
+            AllowDenyPattern(deny=["GOOD.*", "SECRET("], ignoreCase=False), "col"
+        )
+        _all_rlike_literals(result)  # raises on breakout
+        assert result == "col NOT RLIKE '(GOOD.*)'"  # only the composable one
+        assert "SECRET(" not in result
+
+
+def test_compose_deny_drops_patterns_past_byte_budget():
+    """Deny patterns that would push the composed clause past deny_budget are left
+    out of the server-side clause (caught by the client-side deny pass). With a tiny
+    budget only the first pattern fits."""
+    # overhead "col NOT RLIKE ''" = 16 bytes; "(AAAA)" = 6 -> 22 <= 25 fits;
+    # adding "|(BBBB)" = 7 -> 29 > 25, so BBBB and CCCC are dropped.
+    clause = _compose_deny(["AAAA", "BBBB", "CCCC"], "col", False, deny_budget=25)
+    assert clause == "col NOT RLIKE '(AAAA)'"
+
+
+def test_compose_deny_returns_none_when_nothing_fits():
+    # Even the first pattern exceeds the budget -> no server-side clause at all.
+    assert _compose_deny(["AAAA"], "col", False, deny_budget=5) is None

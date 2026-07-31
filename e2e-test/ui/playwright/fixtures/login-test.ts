@@ -38,7 +38,7 @@
 import { mergeTests } from '@playwright/test';
 import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
-import { LoginPage } from '../pages/login-page';
+import { LoginPage } from '../pages/login.page';
 
 // ── Compose logger + mocking (no auth) ───────────────────────────────────────
 

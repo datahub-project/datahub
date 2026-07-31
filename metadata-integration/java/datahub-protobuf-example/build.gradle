@@ -3,15 +3,6 @@ plugins {
     id "com.google.protobuf" version "0.8.18"
 }
 
-repositories {
-    if (project.hasProperty('apacheMavenRepositoryUrl')) {
-        maven { url project.getProperty('apacheMavenRepositoryUrl') }
-    } else {
-        mavenCentral()
-    }
-    mavenLocal()
-}
-
 ext {
     protobuf_version = '4.32.0'
     datahub_protobuf_version = '1.1.0'

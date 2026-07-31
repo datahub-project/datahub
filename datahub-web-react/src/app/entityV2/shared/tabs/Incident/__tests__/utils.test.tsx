@@ -241,3 +241,155 @@ describe('Utility Functions', () => {
         });
     });
 });
+
+// Regression tests locking the CURRENT (pre-i18n-refactor) behavior of the filter
+// grouping/ordering pipeline. The upcoming refactor changes the generate*Filters
+// helpers to match on the raw enum `name` instead of the translated `displayName`,
+// and turns the *_ORDER arrays + *_NAME_MAP constants into i18next getters. The
+// canonical ordering and the English displayName values produced here MUST stay
+// identical after that refactor.
+describe('getFilteredTransformedIncidentData - filter option ordering & display names', () => {
+    const noFilter: IncidentListFilter = {
+        sortBy: '',
+        groupBy: '',
+        filterCriteria: {
+            searchText: '',
+            priority: [],
+            stage: [],
+            state: [],
+            category: [],
+        },
+    };
+
+    // Build incidents whose stage/priority/state appear in a deliberately
+    // non-canonical order so the ordering logic is actually exercised.
+    const unorderedIncidents: any = [
+        {
+            title: 'A',
+            incidentStatus: { stage: 'FIXED', state: 'RESOLVED' },
+            incidentType: 'OPERATIONAL',
+            priority: 'LOW',
+            type: 'INCIDENT',
+            created: { time: 1 },
+        },
+        {
+            title: 'B',
+            incidentStatus: { stage: 'TRIAGE', state: 'ACTIVE' },
+            incidentType: 'FRESHNESS',
+            priority: 'CRITICAL',
+            type: 'INCIDENT',
+            created: { time: 2 },
+        },
+        {
+            title: 'C',
+            incidentStatus: { stage: 'WORK_IN_PROGRESS', state: 'ACTIVE' },
+            incidentType: 'VOLUME',
+            priority: 'MEDIUM',
+            type: 'INCIDENT',
+            created: { time: 3 },
+        },
+        {
+            title: 'D',
+            incidentStatus: { stage: 'NO_ACTION_REQUIRED', state: 'RESOLVED' },
+            incidentType: 'SQL',
+            priority: 'HIGH',
+            type: 'INCIDENT',
+            created: { time: 4 },
+        },
+        {
+            title: 'E',
+            incidentStatus: { stage: 'INVESTIGATION', state: 'ACTIVE' },
+            incidentType: 'FIELD',
+            priority: 'HIGH',
+            type: 'INCIDENT',
+            created: { time: 5 },
+        },
+    ];
+
+    test('stage filter options come back in canonical order (Triage -> Investigation -> In progress -> Fixed -> No Action)', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+        const stageOptions = result.filterOptions.filterGroupOptions.stage;
+
+        expect(stageOptions.map((o) => o.name)).toEqual([
+            'TRIAGE',
+            'INVESTIGATION',
+            'WORK_IN_PROGRESS',
+            'FIXED',
+            'NO_ACTION_REQUIRED',
+        ]);
+        expect(stageOptions.map((o) => o.displayName)).toEqual([
+            'Triage',
+            'Investigation',
+            'In Progress',
+            'Fixed',
+            'No Action',
+        ]);
+    });
+
+    test('priority filter options come back in canonical order (Critical -> High -> Medium -> Low)', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+        const priorityOptions = result.filterOptions.filterGroupOptions.priority;
+
+        expect(priorityOptions.map((o) => o.name)).toEqual(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
+        expect(priorityOptions.map((o) => o.displayName)).toEqual(['Critical', 'High', 'Medium', 'Low']);
+    });
+
+    test('state filter options come back in canonical order (Active -> Resolved)', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+        const stateOptions = result.filterOptions.filterGroupOptions.state;
+
+        expect(stateOptions.map((o) => o.name)).toEqual(['ACTIVE', 'RESOLVED']);
+        expect(stateOptions.map((o) => o.displayName)).toEqual(['Active', 'Resolved']);
+    });
+
+    test('each ordered filter option carries category and aggregated count', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+        const priorityOptions = result.filterOptions.filterGroupOptions.priority;
+
+        // 'HIGH' appears twice (incidents D and E), the rest once.
+        const high = priorityOptions.find((o) => o.name === 'HIGH');
+        expect(high).toMatchObject({ name: 'HIGH', category: 'priority', count: 2, displayName: 'High' });
+
+        const low = priorityOptions.find((o) => o.name === 'LOW');
+        expect(low).toMatchObject({ name: 'LOW', category: 'priority', count: 1, displayName: 'Low' });
+    });
+
+    test('category display names map raw enum types to English labels', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+        const categoryOptions = result.filterOptions.filterGroupOptions.category;
+        const byName = Object.fromEntries(categoryOptions.map((o) => [o.name, o.displayName]));
+
+        expect(byName.OPERATIONAL).toBe('Operational');
+        expect(byName.FRESHNESS).toBe('Freshness');
+        expect(byName.VOLUME).toBe('Volume');
+        expect(byName.SQL).toBe('SQL');
+        expect(byName.FIELD).toBe('Column');
+    });
+
+    test('groupBy output exposes ordered priority groups and group counts', () => {
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, noFilter);
+
+        // priority groups are ordered via PRIORITY_ORDER (Critical, High, Medium, Low).
+        expect(result.groupBy.priority.map((g) => g.name)).toEqual(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
+
+        const highGroup = result.groupBy.priority.find((g) => g.name === 'HIGH');
+        expect(highGroup.incidents).toHaveLength(2);
+        expect(highGroup.priority).toBe('HIGH');
+    });
+
+    test('originalFilterOptions reflects the full unfiltered set even when a filter is applied', () => {
+        const filteredToCritical: IncidentListFilter = {
+            ...noFilter,
+            filterCriteria: { ...noFilter.filterCriteria, priority: ['CRITICAL'] },
+        };
+        const result = getFilteredTransformedIncidentData(unorderedIncidents, filteredToCritical);
+
+        // Only the single CRITICAL incident survives filtering...
+        expect(result.incidents).toHaveLength(1);
+        expect(result.incidents[0].priority).toBe('CRITICAL');
+
+        // ...but originalFilterOptions still aggregates across all incidents.
+        const originalPriority = result.originalFilterOptions.filterGroupOptions.priority;
+        expect(originalPriority.find((o) => o.name === 'HIGH')?.count).toBe(2);
+    });
+});

@@ -359,7 +359,11 @@ class TestGetLineagePathsBetween:
         assert "auto-discovered" in result["metadata"]["direction"]
 
     def test_path_not_found_raises_error(self, mock_client):
-        """Test that no path found raises ItemNotFoundError."""
+        """No lineage path raises ItemNotFoundError from the function itself.
+
+        The create_context_wrapper converts this to a message dict when called
+        through the agent adapter, but the raw function raises.
+        """
         mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {"searchResults": []}
         }
@@ -370,6 +374,20 @@ class TestGetLineagePathsBetween:
                     source_urn="urn:li:dataset:source",
                     target_urn="urn:li:dataset:target",
                     direction="downstream",
+                )
+
+    def test_path_not_found_auto_discover_raises_error(self, mock_client):
+        """Auto-discover with no path in either direction raises ItemNotFoundError."""
+        mock_client._graph.execute_graphql.return_value = {
+            "searchAcrossLineage": {"searchResults": []}
+        }
+
+        with pytest.raises(ItemNotFoundError, match="No lineage"):
+            with DataHubContext(mock_client):
+                get_lineage_paths_between(
+                    source_urn="urn:li:dataset:source",
+                    target_urn="urn:li:dataset:target",
+                    # direction=None triggers auto-discovery
                 )
 
     def test_column_mismatch_raises_error(self, mock_client):

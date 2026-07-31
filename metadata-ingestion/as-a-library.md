@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's Python emitters to construct and push metadata events programmatically from CI/CD pipelines, custom scripts, and orchestrators."
+---
+
 # Python Emitter
 
 In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc.
@@ -58,6 +62,43 @@ emitter.emit(metadata_event)
 Other examples:
 
 - [lineage_emitter_mcpw_rest.py](./examples/library/lineage_emitter_mcpw_rest.py) - emits simple bigquery table-to-table (dataset-to-dataset) lineage via REST as MetadataChangeProposalWrapper.
+
+### Emit Modes
+
+`emit()` and `emit_mcp()` accept an optional `emit_mode: EmitMode` argument that controls how long the call waits and what consistency it guarantees. The emitter default is `SYNC_PRIMARY`. You can override it per call, or set `default_emit_mode` once on the emitter.
+
+| `EmitMode`                 | Call returns after…                          | Use when                                                                  |
+| -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
+| `SYNC_WAIT`                | SQL **and** Elasticsearch are updated        | The write must be immediately searchable; strongest consistency, slowest. |
+| `SYNC_PRIMARY` _(default)_ | SQL is updated (Elasticsearch indexed async) | Low-volume writes that need read-after-write on direct entity gets.       |
+| `ASYNC`                    | The change is queued (returns immediately)   | High-throughput or bulk ingestion where eventual consistency is fine.     |
+| `ASYNC_WAIT`               | The queued change is confirmed persisted     | You want async batching/parallelism but still need persistence confirmed. |
+
+#### Choosing a mode
+
+- **Low volume, and you read back or need failures raised at the call site** → keep `SYNC_PRIMARY` (or `SYNC_WAIT` if the write must be searchable immediately).
+- **High-volume or bulk ingestion** → set `ASYNC` explicitly.
+
+The default `SYNC_PRIMARY` is **not** suited to high-throughput or bulk ingestion: a synchronous primary-storage commit per write puts heavy load on GMS and its backing SQL store at volume. Custom scripts and direct SDK usage that emit at scale should opt into `ASYNC`.
+
+#### Async behavior to be aware of
+
+With `ASYNC`, the change is processed after the call returns. Two consequences:
+
+- **`emit()` does not raise on a rejected or invalid write.** The call succeeds once the change is queued; validation or persistence failures surface later in the Failed-MCP topic and consumer logs, not at the call site.
+- **No read-after-write guarantee.** Any flow that writes and then immediately reads the same entity must tolerate eventual consistency.
+
+#### Example
+
+```python
+from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+
+# Set the default for every emit on this emitter (recommended for bulk ingestion)
+emitter = DatahubRestEmitter(gms_server="http://localhost:8080", default_emit_mode=EmitMode.ASYNC)
+
+# Or override per call
+emitter.emit(metadata_event, emit_mode=EmitMode.ASYNC)
+```
 
 ### Emitter Code
 

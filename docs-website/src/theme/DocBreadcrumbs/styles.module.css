@@ -1,0 +1,10 @@
+/**
+ * Copied from @docusaurus/theme-classic v2.4.1.
+ * Required by the swizzled DocBreadcrumbs/index.js so the breadcrumb container
+ * keeps the same visual styling as upstream.
+ */
+
+.breadcrumbsContainer {
+  --ifm-breadcrumb-size-multiplier: 0.8;
+  margin-bottom: 0.8rem;
+}

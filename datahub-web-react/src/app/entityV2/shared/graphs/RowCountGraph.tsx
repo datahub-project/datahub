@@ -1,5 +1,6 @@
 import { GraphCard, LineChart } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
 import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/GraphPopover';
@@ -7,13 +8,13 @@ import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import { RowCountData } from '@app/entityV2/shared/useRowCountData';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize } from '@src/app/shared/textUtil';
 import dayjs from '@utils/dayjs';
 
-const DEFAULT_GRAPH_NAME = 'Row Count';
 const DEFAULT_GRAPH_HEIGHT = '290px';
 const DEFAULT_GRAPH_LEFT_AXIS_PROPS = { hideZero: true };
 const DEFAULT_GRAPH_MARGIN = { left: 50 };
+const AXIS_DATE_FORMAT = 'DD MMM';
+const POPOVER_DATE_FORMAT = 'dddd. MMM. D ’YY';
 
 type RowsProps = {
     /**
@@ -66,18 +67,19 @@ export default function RowCountGraph({
     renderControls,
     showHeader = true,
     showEmptyMessageHeader = true,
-    emptyMessage = 'No stats colllected for this asset at the moment.',
+    emptyMessage,
     moreInfoModalContent = <MoreInfoModalContent />,
     dataTestId,
 }: RowsProps): JSX.Element {
+    const { t } = useTranslation('entity.shared.stats');
     return (
         <GraphCard
-            title={DEFAULT_GRAPH_NAME}
+            title={t('graph.title')}
             showHeader={showHeader}
             showEmptyMessageHeader={showEmptyMessageHeader}
-            emptyMessage={emptyMessage}
+            emptyMessage={emptyMessage ?? t('graph.empty')}
             isEmpty={data.length === 0 || !canViewDatasetProfile}
-            emptyContent={!canViewDatasetProfile && <NoPermission statName="row count" />}
+            emptyContent={!canViewDatasetProfile && <NoPermission statName={t('graph.statName')} />}
             loading={loading}
             graphHeight={chartHeight}
             renderControls={renderControls}
@@ -85,14 +87,17 @@ export default function RowCountGraph({
             renderGraph={() => (
                 <LineChart
                     data={data}
-                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
+                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format(AXIS_DATE_FORMAT) }}
                     leftAxisProps={DEFAULT_GRAPH_LEFT_AXIS_PROPS}
                     margin={DEFAULT_GRAPH_MARGIN}
                     dataTestId={dataTestId ? `${dataTestId}-chart` : undefined}
                     popoverRenderer={(datum: RowCountData) => (
                         <GraphPopover
-                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
-                            value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Row')}`}
+                            header={dayjs(datum.x).format(POPOVER_DATE_FORMAT)}
+                            value={t('graph.rowCount', {
+                                count: datum.y,
+                                formattedCount: formatNumberWithoutAbbreviation(datum.y),
+                            })}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />
                     )}

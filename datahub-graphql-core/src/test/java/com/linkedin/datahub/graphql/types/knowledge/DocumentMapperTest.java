@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePathEntryArray;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
@@ -15,8 +17,12 @@ import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.SemanticText;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -36,6 +42,7 @@ import com.linkedin.knowledge.RelatedAssetArray;
 import com.linkedin.knowledge.RelatedDocument;
 import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -52,6 +59,7 @@ public class DocumentMapperTest {
   private static final String TEST_DOCUMENT_TITLE = "Test Tutorial";
   private static final String TEST_DOCUMENT_DESCRIPTION = "Test document description";
   private static final String TEST_CONTENT = "Test content";
+  private static final String TEST_SEMANTIC_TEXT = "Test semantic text";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String TEST_PARENT_URN = "urn:li:document:parent-document";
   private static final String TEST_ASSET_URN = "urn:li:dataset:test-dataset";
@@ -61,6 +69,8 @@ public class DocumentMapperTest {
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:confluence,prod)";
   private static final String DEFAULT_DATAHUB_PLATFORM_URN = "urn:li:dataPlatform:datahub";
   private static final Long TEST_TIMESTAMP = 1640995200000L; // 2022-01-01 00:00:00 UTC
+  private static final Long INGESTION_TIME = 1641081600000L; // 2022-01-02 00:00:00 UTC
+  private static final Long LAST_OBSERVED_TIME = 1641168000000L; // 2022-01-03 00:00:00 UTC
 
   private Urn documentUrn;
   private Urn actorUrn;
@@ -115,6 +125,11 @@ public class DocumentMapperTest {
 
     addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
 
+    // Curated embedding-source text lives in the standalone semanticText aspect.
+    SemanticText semanticText = new SemanticText();
+    semanticText.setText(TEST_SEMANTIC_TEXT);
+    addAspectToResponse(entityResponse, SEMANTIC_TEXT_ASPECT_NAME, semanticText);
+
     // Embed relationships inside DocumentInfo
     ParentDocument parentDocument = new ParentDocument();
     parentDocument.setDocument(parentUrn);
@@ -156,7 +171,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -170,6 +187,7 @@ public class DocumentMapperTest {
       assertNotNull(result.getInfo());
       assertEquals(result.getInfo().getTitle(), TEST_DOCUMENT_TITLE);
       assertEquals(result.getInfo().getContents().getText(), TEST_CONTENT);
+      assertEquals(result.getInfo().getContents().getSemanticText(), TEST_SEMANTIC_TEXT);
       assertNotNull(result.getInfo().getCreated());
       assertEquals(result.getInfo().getCreated().getTime(), TEST_TIMESTAMP);
       // Verify actor is set as CorpUser in ResolvedAuditStamp
@@ -225,7 +243,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -259,7 +279,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -279,7 +301,7 @@ public class DocumentMapperTest {
     // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canView(any(), eq(documentUrn)))
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
           .thenReturn(false);
 
       Document restrictedDocument = new Document();
@@ -294,7 +316,8 @@ public class DocumentMapperTest {
       assertEquals(result, restrictedDocument);
 
       // Verify authorization calls
-      authUtilsMock.verify(() -> AuthorizationUtils.canView(any(), eq(documentUrn)));
+      authUtilsMock.verify(
+          () -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()));
       authUtilsMock.verify(
           () -> AuthorizationUtils.restrictEntity(any(Document.class), eq(Document.class)));
     }
@@ -345,7 +368,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -389,7 +414,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -427,10 +454,20 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(), eq(documentUrn), eq(documentInfo), eq(subTypes)))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      authUtilsMock.verify(
+          () ->
+              AuthorizationUtils.canViewDocument(
+                  any(), eq(documentUrn), eq(documentInfo), eq(subTypes)));
 
       // Verify subType is set to the first type
       assertNotNull(result.getSubType());
@@ -465,7 +502,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping - should not throw exception
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -501,7 +540,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -536,7 +577,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -573,7 +616,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -605,7 +650,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -645,7 +692,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -686,7 +735,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -739,7 +790,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -786,7 +839,9 @@ public class DocumentMapperTest {
 
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
 
       // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -797,6 +852,285 @@ public class DocumentMapperTest {
       assertEquals(result.getInstitutionalMemory().getElements().size(), 1);
       assertEquals(
           result.getInstitutionalMemory().getElements().get(0).getUrl(), "https://example.com/doc");
+    }
+  }
+
+  @Test
+  public void testMapPopulatesDeprecatedGlobalTagsAlias() throws URISyntaxException {
+    // The shared sidebar tags section reads the deprecated `globalTags` alias (matching
+    // Dataset / DataProduct / Domain), so Document must populate both `tags` and
+    // `globalTags` from the GlobalTags aspect.
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    GlobalTags globalTags = new GlobalTags();
+    globalTags.setTags(
+        new TagAssociationArray(
+            com.google.common.collect.ImmutableList.of(
+                new TagAssociation().setTag(new TagUrn("bug-repro-a")))));
+    addAspectToResponse(entityResponse, GLOBAL_TAGS_ASPECT_NAME, globalTags);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getTags(), "tags field must be populated");
+      assertNotNull(result.getGlobalTags(), "deprecated globalTags alias must also be populated");
+      // Both fields must point to the same mapped instance — guards against regressions where
+      // only one of the two setter calls is kept.
+      assertSame(result.getGlobalTags(), result.getTags());
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // lastIngested mapping
+  // -----------------------------------------------------------------------
+
+  @Test
+  public void testLastIngestedExternalDocWithRunBasedTime() {
+    // External doc ingested via a real connector run → value comes from SystemMetadataUtils
+    EntityResponse entityResponse = createBasicEntityResponse();
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, makeMinimalExternalDocInfo());
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setRunId("confluence-run-abc123");
+    systemMetadata.setLastObserved(INGESTION_TIME);
+    entityResponse.getAspects().get(DOCUMENT_INFO_ASPECT_NAME).setSystemMetadata(systemMetadata);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertEquals(result.getLastIngested(), INGESTION_TIME);
+    }
+  }
+
+  @Test
+  public void testLastIngestedExternalDocFallsBackToLastObservedWhenDefaultRunId() {
+    // External doc written with DEFAULT_RUN_ID (e.g. via DataHub API) → SystemMetadataUtils
+    // returns null because DEFAULT_RUN_ID is filtered out, so we fall back to lastObserved.
+    EntityResponse entityResponse = createBasicEntityResponse();
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, makeMinimalExternalDocInfo());
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setRunId("no-run-id-provided"); // DEFAULT_RUN_ID value
+    systemMetadata.setLastObserved(LAST_OBSERVED_TIME);
+    entityResponse.getAspects().get(DOCUMENT_INFO_ASPECT_NAME).setSystemMetadata(systemMetadata);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertEquals(result.getLastIngested(), LAST_OBSERVED_TIME);
+    }
+  }
+
+  @Test
+  public void testLastIngestedNativeDocDoesNotFallBackToLastObserved() {
+    // Native doc written with DEFAULT_RUN_ID — the fallback must not apply to native docs.
+    EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = makeMinimalDocInfo();
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.NATIVE);
+    documentInfo.setSource(source);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setRunId("no-run-id-provided");
+    systemMetadata.setLastObserved(LAST_OBSERVED_TIME);
+    entityResponse.getAspects().get(DOCUMENT_INFO_ASPECT_NAME).setSystemMetadata(systemMetadata);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getLastIngested());
+    }
+  }
+
+  @Test
+  public void testLastIngestedExternalDocWithNoSourceSetOnInfo() {
+    // documentInfo exists but has no source → treated as not external, fallback must not fire.
+    EntityResponse entityResponse = createBasicEntityResponse();
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, makeMinimalDocInfo());
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setRunId("no-run-id-provided");
+    systemMetadata.setLastObserved(LAST_OBSERVED_TIME);
+    entityResponse.getAspects().get(DOCUMENT_INFO_ASPECT_NAME).setSystemMetadata(systemMetadata);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getLastIngested());
+    }
+  }
+
+  @Test
+  public void testLastIngestedNullWhenNoDocumentInfoAspect() {
+    // No documentInfo aspect at all → lastIngested must be null.
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getLastIngested());
+    }
+  }
+
+  @Test
+  public void testLastIngestedNullWhenExternalDocHasNoSystemMetadataOnInfo() {
+    // External doc but envelopedInfo carries no systemMetadata → both paths return null.
+    EntityResponse entityResponse = createBasicEntityResponse();
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, makeMinimalExternalDocInfo());
+    // No systemMetadata set on the envelopedAspect.
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getLastIngested());
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // DocumentSettings mapping
+  // -----------------------------------------------------------------------
+
+  @Test
+  public void testMapDocumentSettingsShowInGlobalContextTrue() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    com.linkedin.knowledge.DocumentSettings settings =
+        new com.linkedin.knowledge.DocumentSettings();
+    settings.setShowInGlobalContext(true);
+    addAspectToResponse(entityResponse, DOCUMENT_SETTINGS_ASPECT_NAME, settings);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNotNull(result.getSettings());
+      assertTrue(result.getSettings().getShowInGlobalContext());
+    }
+  }
+
+  @Test
+  public void testMapDocumentSettingsShowInGlobalContextFalse() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    com.linkedin.knowledge.DocumentSettings settings =
+        new com.linkedin.knowledge.DocumentSettings();
+    settings.setShowInGlobalContext(false);
+    addAspectToResponse(entityResponse, DOCUMENT_SETTINGS_ASPECT_NAME, settings);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNotNull(result.getSettings());
+      assertFalse(result.getSettings().getShowInGlobalContext());
+    }
+  }
+
+  @Test
+  public void testMapDocumentSettingsAbsentWhenNoAspect() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getSettings());
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // BrowsePathsV2 mapping
+  // -----------------------------------------------------------------------
+
+  @Test
+  public void testMapDocumentWithBrowsePathsV2() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    BrowsePathsV2 browsePaths = new BrowsePathsV2();
+    browsePaths.setPath(new BrowsePathEntryArray());
+    addAspectToResponse(entityResponse, BROWSE_PATHS_V2_ASPECT_NAME, browsePaths);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNotNull(result.getBrowsePathV2());
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Edge cases: SubTypes and Domains
+  // -----------------------------------------------------------------------
+
+  @Test
+  public void testMapDocumentSubTypesEmptyArrayLeavesSubTypeNull() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    com.linkedin.common.SubTypes subTypes = new com.linkedin.common.SubTypes();
+    subTypes.setTypeNames(new com.linkedin.data.template.StringArray());
+    addAspectToResponse(entityResponse, SUB_TYPES_ASPECT_NAME, subTypes);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getSubType());
+    }
+  }
+
+  @Test
+  public void testMapDocumentDomainsEmptyArrayLeavesDomainNull() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    com.linkedin.domain.Domains domains = new com.linkedin.domain.Domains();
+    domains.setDomains(new com.linkedin.common.UrnArray());
+    addAspectToResponse(entityResponse, DOMAINS_ASPECT_NAME, domains);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNull(result.getDomain());
+    }
+  }
+
+  @Test
+  public void testMapDocumentSourceExternalWithNoUrlOrId() {
+    // EXTERNAL source with only sourceType set — externalUrl and externalId must not be populated.
+    EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = makeMinimalDocInfo();
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.EXTERNAL);
+    documentInfo.setSource(source);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .thenReturn(true);
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+      assertNotNull(result.getInfo().getSource());
+      assertEquals(result.getInfo().getSource().getSourceType(), DocumentSourceType.EXTERNAL);
+      assertNull(result.getInfo().getSource().getExternalUrl());
+      assertNull(result.getInfo().getSource().getExternalId());
     }
   }
 
@@ -825,5 +1159,27 @@ public class DocumentMapperTest {
     EnvelopedAspect aspect = new EnvelopedAspect();
     aspect.setValue(new Aspect(((com.linkedin.data.template.RecordTemplate) aspectData).data()));
     entityResponse.getAspects().put(aspectName, aspect);
+  }
+
+  /** Creates a minimal DocumentInfo with no source, suitable for native-document tests. */
+  private DocumentInfo makeMinimalDocInfo() {
+    DocumentInfo info = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    info.setContents(contents);
+    AuditStamp stamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(actorUrn);
+    info.setCreated(stamp);
+    info.setLastModified(stamp);
+    return info;
+  }
+
+  /** Creates a minimal DocumentInfo with EXTERNAL source and a sample URL. */
+  private DocumentInfo makeMinimalExternalDocInfo() {
+    DocumentInfo info = makeMinimalDocInfo();
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.EXTERNAL);
+    source.setExternalUrl("https://confluence.example.com/doc/123");
+    info.setSource(source);
+    return info;
   }
 }

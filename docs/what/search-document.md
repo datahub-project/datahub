@@ -1,3 +1,7 @@
+---
+description: "Explanation of how DataHub models search documents in PDL to power filtering, ranking, and snippet generation in the search API."
+---
+
 # What is a search document?
 
 [Search documents](https://en.wikipedia.org/wiki/Search_engine_indexing) are also modeled using [PDL](https://linkedin.github.io/rest.li/pdl_schema) explicitly.

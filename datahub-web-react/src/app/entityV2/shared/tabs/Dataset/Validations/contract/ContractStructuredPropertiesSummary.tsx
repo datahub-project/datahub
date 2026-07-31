@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -28,12 +29,13 @@ type Props = {
 };
 
 export const ContractStructuredPropertiesSummary = ({ contract, refetch }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     // turn `contract` into a `GenericEntityProperties` object
     const entityRegistry = useEntityRegistry();
     const entityData = entityRegistry.getGenericEntityProperties(EntityType.DataContract, contract);
     return (
         <Container>
-            <TitleText>PROPERTIES</TitleText>
+            <TitleText>{t('contractSection.properties')}</TitleText>
             <EntityContext.Provider
                 value={{
                     urn: contract.urn,

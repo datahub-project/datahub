@@ -4,8 +4,8 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import partial
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     Generic,
@@ -21,7 +21,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from typing_extensions import LiteralString, Self
+from typing_extensions import LiteralString, Self, deprecated
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
@@ -29,35 +29,19 @@ from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_report_warning_sample_size,
 )
-from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
-from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
-    ValidateInputFieldsProcessor,
-)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import ExamplesReport, Report
 from datahub.ingestion.api.source_helpers import (
     AutoSystemMetadata,
-    auto_browse_path_v2,
-    auto_fix_duplicate_schema_field_paths,
-    auto_fix_empty_field_paths,
-    auto_lowercase_urns,
-    auto_materialize_referenced_tags_terms,
-    auto_status_aspect,
     auto_workunit,
-    auto_workunit_reporter,
 )
 from datahub.ingestion.api.source_protocols import (
     MetadataWorkUnitIterable,
     ProfilingCapable,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorReport
 from datahub.ingestion.source_report.ingestion_stage import (
     IngestionHighStage,
     IngestionStageReport,
@@ -65,6 +49,12 @@ from datahub.ingestion.source_report.ingestion_stage import (
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessor
+    from datahub.ingestion.source.state.entity_removal_state import (
+        GenericCheckpointState,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +66,7 @@ class SourceCapability(Enum):
     DOMAINS = "Domains"
     DATA_PROFILING = "Data Profiling"
     USAGE_STATS = "Dataset Usage"
+    OPERATION_CAPTURE = "Operation Capture"
     PARTITION_SUPPORT = "Partition Support"
     DESCRIPTIONS = "Descriptions"
     LINEAGE_COARSE = "Table-Level Lineage"
@@ -85,8 +76,8 @@ class SourceCapability(Enum):
     TAGS = "Extract Tags"
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
-    CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
+    GLOSSARY_TERMS = "Glossary Terms"
 
 
 class StructuredLogLevel(Enum):
@@ -184,7 +175,11 @@ class StructuredLogs(Report):
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
-            context_list: LossyList[str] = LossyList()
+            # Size the per-entry context list to match the level's configured
+            # sample size, so DATAHUB_REPORT_*_SAMPLE_SIZE controls both the
+            # number of distinct entries and the number of grouped contexts
+            # under each entry.
+            context_list: LossyList[str] = LossyList(max_elements=entries.max_elements)
             if context is not None:
                 context_list.append(context)
             entries[log_key] = StructuredLogEntry(
@@ -209,12 +204,20 @@ class StructuredLogs(Report):
         log warnings/errors during __init__, so existing entries are pruned
         if they exceed the new limit.
         """
-        if failure_size is not None:
-            self._entries[StructuredLogLevel.ERROR].resize(failure_size)
-        if warning_size is not None:
-            self._entries[StructuredLogLevel.WARN].resize(warning_size)
-        if info_size is not None:
-            self._entries[StructuredLogLevel.INFO].resize(info_size)
+        for level, size in (
+            (StructuredLogLevel.ERROR, failure_size),
+            (StructuredLogLevel.WARN, warning_size),
+            (StructuredLogLevel.INFO, info_size),
+        ):
+            if size is None:
+                continue
+            entries = self._entries[level]
+            entries.resize(size)
+            # Also resize the nested context list on any entries that were
+            # already recorded (e.g. during source __init__ before pipeline
+            # applied the configured sample size).
+            for entry in entries.values():
+                entry.context.resize(size)
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
@@ -244,7 +247,9 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
-    num_input_fields_filtered: int = 0
+    workunit_processor_reports: Dict[str, WorkunitProcessorReport] = field(
+        default_factory=dict
+    )
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -279,27 +284,6 @@ class SourceReport(ExamplesReport, IngestionStageReport):
 
         super()._store_workunit_data(wu)
 
-    def report_warning(
-        self,
-        message: LiteralString,
-        context: Optional[str] = None,
-        title: Optional[LiteralString] = None,
-        exc: Optional[BaseException] = None,
-        log_category: Optional[StructuredLogCategory] = None,
-    ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
-        """
-        self._structured_logs.report_log(
-            StructuredLogLevel.WARN,
-            message,
-            title,
-            context,
-            exc,
-            log=False,
-            log_category=log_category,
-        )
-
     def warning(
         self,
         message: LiteralString,
@@ -309,8 +293,25 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
+        """Report a user-facing warning for the ingestion run.
+
+        Warnings are surfaced in the ingestion report UI and optionally logged
+        to the console. Use for non-fatal issues that operators should be aware
+        of (e.g. skipped entities, degraded functionality, missing permissions).
+
+        Args:
+            message: Human-readable description of the warning. Must be a
+                literal string (no f-strings) so that identical warnings are
+                grouped together in the report.
+            context: Additional detail such as the affected entity or query.
+                Multiple calls with the same ``message`` but different
+                ``context`` values are grouped under one report entry.
+            title: Optional heading / category shown in the UI.
+            exc: Exception that triggered the warning, if any. The stack trace
+                is logged at DEBUG level when *log* is True.
+            log: Whether to also emit the warning to the Python logger
+                (default ``True``).
+            log_category: Optional structured-log category for filtering.
         """
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
@@ -322,7 +323,8 @@ class SourceReport(ExamplesReport, IngestionStageReport):
             log_category=log_category,
         )
 
-    def report_failure(
+    @deprecated("Use warning() instead.")
+    def report_warning(
         self,
         message: LiteralString,
         context: Optional[str] = None,
@@ -331,15 +333,12 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
-        """
-        self._structured_logs.report_log(
-            StructuredLogLevel.ERROR,
-            message,
-            title,
-            context,
-            exc,
+        """Deprecated: use ``warning()`` instead. Will be removed in a future release."""
+        self.warning(
+            message=message,
+            context=context,
+            title=title,
+            exc=exc,
             log=log,
             log_category=log_category,
         )
@@ -353,8 +352,22 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
+        """Report a user-facing failure for the ingestion run.
+
+        Failures indicate errors that prevented metadata from being ingested
+        correctly. They are surfaced prominently in the ingestion report UI
+        and logged to the console by default.
+
+        Args:
+            message: Human-readable description of the failure. Must be a
+                literal string (no f-strings) so that identical failures are
+                grouped together in the report.
+            context: Additional detail such as the affected entity or query.
+            title: Optional heading / category shown in the UI.
+            exc: Exception that triggered the failure, if any.
+            log: Whether to also emit the failure to the Python logger
+                (default ``True``).
+            log_category: Optional structured-log category for filtering.
         """
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
@@ -362,6 +375,26 @@ class SourceReport(ExamplesReport, IngestionStageReport):
             title,
             context,
             exc,
+            log=log,
+            log_category=log_category,
+        )
+
+    @deprecated("Use failure() instead.")
+    def report_failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        """Deprecated: use ``failure()`` instead. Will be removed in a future release."""
+        self.failure(
+            message=message,
+            context=context,
+            title=title,
+            exc=exc,
             log=log,
             log_category=log_category,
         )
@@ -541,53 +574,151 @@ class Source(Closeable, metaclass=ABCMeta):
         # method abstract.
         raise NotImplementedError('sources must implement "create"')
 
+    def get_excluded_workunit_processors(
+        self,
+    ) -> "List[Union[str, Type[WorkunitProcessor]]]":
+        """Processor classes or names to exclude from automatic discovery.
+
+        Override ONLY when specific processors are architecturally unsafe for this source
+        (e.g. parallelism incompatibilities). Default: empty list (no exclusions).
+
+        Pass processor classes directly for type safety and IDE autocomplete:
+            return [AutoStatusAspectProcessor, AutoBrowsePathV2Processor]
+
+        The order in the master processor list is preserved.
+        """
+        return []
+
+    def get_allowed_workunit_processors(
+        self,
+    ) -> "Optional[List[Union[str, Type[WorkunitProcessor]]]]":
+        """Whitelist of processor classes or names to use. If None, all are considered.
+
+        Override when your source should use ONLY a specific small set of
+        processors (e.g. utility/cleanup sources). Default: None (use all).
+
+        Pass processor classes directly for type safety and IDE autocomplete:
+            return [AutoLowercaseUrnsProcessor, EnsureAspectSizeProcessor]
+
+        The order in the master processor list is preserved.
+        """
+        return None
+
+    def get_stale_entity_state_type(self) -> "Optional[Type[GenericCheckpointState]]":
+        """Override to provide a custom checkpoint state type for stale entity removal."""
+        return None
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
-        browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if self.ctx.flags.generate_browse_path_v2:
-            browse_path_processor = self._get_browse_path_processor(
-                self.ctx.flags.generate_browse_path_v2_dry_run
+        # Deferred imports to avoid circular dependency:
+        # source.py → workunit_processors → stale_entity_removal → stateful_ingestion_base → source.py
+        from datahub.ingestion.api.workunit_processor import (
+            StaleEntityRemovalContext,
+            WorkunitProcessor,
+            WorkunitProcessorContext,
+        )
+        from datahub.ingestion.source.state.entity_removal_state import (
+            GenericCheckpointState,
+        )
+        from datahub.ingestion.workunit_processors import (
+            AutoBrowsePathV2Processor,
+            AutoIncrementalLineageProcessor,
+            AutoIncrementalOwnershipProcessor,
+            AutoIncrementalPropertiesProcessor,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            AutoPatchLastModifiedProcessor,
+            AutoResolveLineageUrnsProcessor,
+            AutoStaleEntityRemovalProcessor,
+            AutoStatusAspectProcessor,
+            AutoWorkunitsReporterProcessor,
+            EnsureAspectSizeProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            ValidateInputFieldsProcessor,
+        )
+
+        # Build stale entity removal context for stateful sources.
+        stale_entity_removal_ctx = None
+        state_provider = getattr(self, "state_provider", None)
+        if state_provider is not None:
+            state_type_class = (
+                self.get_stale_entity_state_type() or GenericCheckpointState
+            )
+            stale_entity_removal_ctx = StaleEntityRemovalContext(
+                state_provider=state_provider,
+                state_type_class=state_type_class,
             )
 
-        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-            and (
-                (
-                    hasattr(
-                        self.ctx.pipeline_config.source.config,
-                        "convert_urns_to_lowercase",
-                    )
-                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
-                )
-                or (
-                    hasattr(self.ctx.pipeline_config.source.config, "get")
-                    and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
-                    )
-                )
-            )
-        ):
-            auto_lowercase_dataset_urns = auto_lowercase_urns
+        ctx = WorkunitProcessorContext(
+            source_report=self.get_report(),
+            pipeline_context=self.ctx,
+            source_config=self.get_config(),
+            # Use the raw platform instance attribute to preserve backward-compatible
+            # job IDs. Sources without self.platform fall back to "default" in
+            # StaleEntityRemovalHandler._init_job_id(), matching the pre-refactor
+            # behavior of getattr(source, "platform", "default").
+            platform=getattr(self, "platform", None),
+            # Fully inferred platform (includes @platform_name decorator fallback)
+            # for processors like browse path that need the complete platform value.
+            source_platform=self.infer_platform(),
+            stale_entity_removal_context=stale_entity_removal_ctx,
+        )
 
-        return [
-            auto_lowercase_dataset_urns,
-            auto_status_aspect,
-            auto_materialize_referenced_tags_terms,
-            partial(
-                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
-            ),
-            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
-            browse_path_processor,
-            partial(auto_workunit_reporter, self.get_report()),
-            auto_patch_last_modified,
-            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
-            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
+        # ORDER IS CRITICAL for deterministic output and golden file validation.
+        # Do NOT reorder without understanding the impact on all sources.
+        _ALL_PROCESSOR_CLASSES: List[Type[WorkunitProcessor]] = [
+            AutoLowercaseUrnsProcessor,
+            AutoStatusAspectProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            AutoBrowsePathV2Processor,
+            AutoResolveLineageUrnsProcessor,
+            AutoIncrementalLineageProcessor,
+            AutoIncrementalPropertiesProcessor,
+            AutoIncrementalOwnershipProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            ValidateInputFieldsProcessor,
+            EnsureAspectSizeProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
+
+        # Convert processor classes to names for comparison
+        def _to_name(p: "Union[str, Type[WorkunitProcessor]]") -> str:
+            return p.__name__ if isinstance(p, type) else p
+
+        excluded = set(_to_name(p) for p in self.get_excluded_workunit_processors())
+        allowed = self.get_allowed_workunit_processors()
+        allowed_set = set(_to_name(p) for p in allowed) if allowed is not None else None
+
+        processors: List[WorkunitProcessor] = []
+        for processor_class in _ALL_PROCESSOR_CLASSES:
+            name = processor_class.__name__
+            if name in excluded:
+                logger.info(f"Workunit processor '{name}' excluded by source")
+                continue
+            if allowed_set is not None and name not in allowed_set:
+                logger.info(f"Workunit processor '{name}' not in allowed list")
+                continue
+            if processor_class.should_enable(ctx):
+                logger.info(f"Workunit processor '{name}' enabled")
+                try:
+                    processors.append(processor_class.create(ctx))
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create workunit processor '{name}'", exc_info=True
+                    )
+                    raise RuntimeError(
+                        f"Failed to initialize workunit processor '{name}': {e}"
+                    ) from e
+            else:
+                logger.info(f"Workunit processor '{name}' disabled by should_enable()")
+
+        return [p.process for p in processors]
 
     @staticmethod
     def _apply_workunit_processors(
@@ -661,31 +792,6 @@ class Source(Closeable, metaclass=ABCMeta):
             platform = type(self).get_platform_id()
 
         return platform
-
-    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
-        config = self.get_config()
-
-        platform = self.infer_platform()
-        env = getattr(config, "env", None)
-        browse_path_drop_dirs = [
-            platform,
-            platform and platform.lower(),
-            env,
-            env and env.lower(),
-        ]
-
-        platform_instance: Optional[str] = None
-        if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
-            platform_instance = config.platform_instance
-
-        browse_path_processor = partial(
-            auto_browse_path_v2,
-            platform=platform,
-            platform_instance=platform_instance,
-            drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
-            dry_run=dry_run,
-        )
-        return lambda stream: browse_path_processor(stream)
 
 
 class TestableSource(Source):

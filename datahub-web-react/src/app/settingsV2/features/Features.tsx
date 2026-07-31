@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -26,6 +27,8 @@ const Container = styled.div`
 `;
 
 export const Features = () => {
+    const { t } = useTranslation('settings.features');
+
     /*
      * Note: When adding new features, make sure to update the features array below
      * and create a hook file for the new feature in the same directory
@@ -39,28 +42,27 @@ export const Features = () => {
     const features: FeatureType[] = [
         {
             key: uuidv4(),
-            title: 'Documentation Propagation',
-            description: 'Automatically propagate documentation from upstream to downstream columns and assets.',
+            title: t('docPropagation.title'),
+            description: t('docPropagation.description'),
             settings: [
                 {
                     key: uuidv4(),
-                    title: 'Rollback Propagation Changes',
+                    title: t('docPropagation.rollbackTitle'),
                     isAvailable: false,
-                    buttonText: 'Rollback',
+                    buttonText: t('docPropagation.rollbackButton'),
                 },
                 {
                     key: uuidv4(),
-                    title: 'Backfill existing documentation from upstream to downstream columns/assets',
+                    title: t('docPropagation.backfillTitle'),
                     isAvailable: false,
-                    buttonText: 'Initialize',
+                    buttonText: t('docPropagation.backfillButton'),
                 },
             ],
             options: [
                 {
                     key: uuidv4(),
-                    title: 'Column Level Propagation',
-                    description:
-                        'Propagate new documentation from upstream to downstream columns based on column-level lineage relationships.',
+                    title: t('docPropagation.columnLevelTitle'),
+                    description: t('docPropagation.columnLevelDescription'),
                     isAvailable: true,
                     checked: isColPropagateChecked,
                     onChange: (checked: boolean) => {
@@ -72,14 +74,13 @@ export const Features = () => {
                 },
                 {
                     key: uuidv4(),
-                    title: 'Asset Level Propagation',
-                    description:
-                        'Propagate new documentation from upstream to downstream assets based on data lineage relationships.',
+                    title: t('docPropagation.assetLevelTitle'),
+                    description: t('docPropagation.assetLevelDescription'),
                     checked: false,
                     onChange: (_: boolean) => null,
                     isAvailable: true,
                     isDisabled: true,
-                    disabledMessage: 'Coming soon!',
+                    disabledMessage: t('docPropagation.comingSoon'),
                 },
             ],
             isNew: true,
@@ -93,7 +94,7 @@ export const Features = () => {
         <Page>
             <SourceContainer>
                 <Container>
-                    <PageTitle title="Features" subTitle="Explore and configure specific features" />
+                    <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
                 </Container>
                 {features.map((feature) => (
                     <Feature {...feature} />

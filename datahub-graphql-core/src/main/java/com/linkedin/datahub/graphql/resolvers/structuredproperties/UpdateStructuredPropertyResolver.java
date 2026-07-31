@@ -217,6 +217,10 @@ public class UpdateStructuredPropertyResolver
       input.getNewEntityTypes().forEach(builder::addEntityType);
       hasUpdatedDefinition = true;
     }
+    if (input.getNewAllowedPlatforms() != null) {
+      input.getNewAllowedPlatforms().forEach(builder::addAllowedPlatform);
+      hasUpdatedDefinition = true;
+    }
 
     if (hasUpdatedDefinition) {
       builder.setLastModified(context.getOperationContext().getAuditStamp());

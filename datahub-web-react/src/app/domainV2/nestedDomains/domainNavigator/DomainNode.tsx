@@ -1,22 +1,34 @@
 import { Pill, Tooltip } from '@components';
-import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { useTreeExpansionRegistry } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain } from '@types';
 
-const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
+// --- Select-variant styled components ---------------------------------------
+// These mirror the prior layout used by the "select" variant of the navigator
+// (parent-domain picker in CreateDomainModal / DomainParentSelect). They are
+// kept exactly as before so embeds outside the sidebar don't shift visually.
+
+const NameWrapper = styled.div<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
     ${(props) => props.$isSelected && `color: ${props.theme.colors.textSelected};`}
@@ -25,7 +37,7 @@ const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadd
     &:hover {
         cursor: pointer;
     }
-    display: flex !important;
+    display: flex;
     align-items: center;
     justify-content: space-between;
     transition: font-weight 0.3s ease-out;
@@ -55,12 +67,12 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     }
 `;
 
-const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant: DomainNavigatorVariant }>`
+const SelectRowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
     align-items: center;
     display: flex;
     width: 100%;
-    border-bottom: ${(props) => (props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`)};
-    padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    padding: 12px;
     ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
     ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}
     &:hover {
@@ -82,7 +94,7 @@ const StyledExpander = styled(BodyGridExpander)<{ paddingLeft: number }>`
     display: flex;
     width: 100%;
     overflow: auto;
-    ${RowWrapper} {
+    ${SelectRowWrapper} {
         padding-left: ${(props) => props.paddingLeft + 12}px;
     }
 `;
@@ -95,8 +107,29 @@ const Text = styled.div`
     width: 80%;
 `;
 
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
 const LoadingWrapper = styled.div`
     padding: 16px;
+`;
+
+// Expander used by the sidebar variant. Unlike the select-variant expander,
+// children are responsible for their own indent via the `level` prop, so this
+// is just an animated open/close wrapper.
+const SidebarExpander = styled(BodyGridExpander)`
+    width: 100%;
+    overflow: hidden;
+`;
+
+const SidebarLoadingWrapper = styled.div<{ $level: number }>`
+    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
 `;
 
 interface Props {
@@ -105,8 +138,13 @@ interface Props {
     isCollapsed?: boolean;
     domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
-    unhideSidebar?: () => void;
     $paddingLeft?: number;
+    /**
+     * Tree depth for the sidebar variant. Root rows are level 0; children get
+     * `level + 1`. Drives the leading padding so nested rows visually nest
+     * under their parent at the same cadence as DocumentTreeItem.
+     */
+    level?: number;
     variant?: DomainNavigatorVariant;
 }
 
@@ -116,8 +154,8 @@ export default function DomainNode({
     domainUrnToHide,
     isCollapsed,
     selectDomainOverride,
-    unhideSidebar,
     $paddingLeft = 0,
+    level = 0,
     variant = 'select',
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
@@ -128,14 +166,31 @@ export default function DomainNode({
         initialValue: false,
         closeDelay: 250,
     });
+    const expansion = useTreeExpansionRegistry();
+    const isInSelectMode = !!selectDomainOverride;
+    const isSidebarVariant = variant === 'sidebar';
+    // Propagate the sidebar's owner selection down into every level of the
+    // tree so child-domain scrolls are filtered server-side too (mirrors how
+    // the root scroll is filtered in `DomainNavigator`). Picker variants
+    // intentionally don't inherit the sidebar filter — they have their own
+    // scope. Returns noop defaults outside the sidebar provider tree.
+    const { selectedOwnerUrns } = useDomainSidebarFilters();
     const { domains, loading, scrollRef } = useScrollDomains({
         parentDomain: domain.urn,
         skip: !isOpen || shouldHideDomain,
+        selectedOwnerUrns: isSidebarVariant ? selectedOwnerUrns : undefined,
     });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
-    const isInSelectMode = !!selectDomainOverride;
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
+    // Prefer the profile page's live (post-mutation) deprecation state over the sidebar's own
+    // fetch when this row is the currently-open entity, mirroring glossary `TermItem`.
+    const deprecation = isOnEntityPage ? entityData?.deprecation : domain.deprecation;
+    const deprecationBadge = !isCollapsed && deprecation?.deprecated && (
+        <DeprecationSlot>
+            <DeprecationIcon urn={domain.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+        </DeprecationSlot>
+    );
     const shouldAutoOpen = useMemo(
         () => !isInSelectMode && entityData?.parentDomains?.domains?.some((parent) => parent.urn === domain.urn),
         [isInSelectMode, entityData, domain.urn],
@@ -152,27 +207,103 @@ export default function DomainNode({
         }
     }, [isCollapsed, toggleClose]);
 
+    const hasDomainChildren = !!numDomainChildren;
+    const isExpanded = isOpen && !isClosing;
+
+    useEffect(() => {
+        if (!expansion || !hasDomainChildren || shouldHideDomain || !isSidebarVariant) return undefined;
+        const api = {
+            expand: () => toggleOpen(),
+            collapse: () => toggleClose(),
+        };
+        expansion.register(domain.urn, api);
+        return () => expansion.unregister(domain.urn, api);
+    }, [expansion, hasDomainChildren, domain.urn, shouldHideDomain, isSidebarVariant, toggleOpen, toggleClose]);
+
+    useEffect(() => {
+        if (!expansion || !hasDomainChildren || shouldHideDomain || !isSidebarVariant) return;
+        expansion.reportExpanded(domain.urn, isExpanded);
+    }, [expansion, hasDomainChildren, isExpanded, domain.urn, shouldHideDomain, isSidebarVariant]);
+
     function handleSelectDomain() {
+        // Picker variant (CreateDomainModal / DomainParentSelect) takes
+        // priority: clicking a row inside the picker should select the
+        // domain, not navigate. Collapsed mode is irrelevant inside pickers.
         if (selectDomainOverride && !isCollapsed) {
             selectDomainOverride(domain);
-        } else if (unhideSidebar && isCollapsed) {
-            unhideSidebar();
-        } else {
-            history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
+            return;
         }
+        // Sidebar mode (both collapsed and expanded): clicking a row
+        // navigates to that domain's entity page. In collapsed mode we used
+        // to just re-open the sidebar, but that swallowed the user's intent
+        // — they're explicitly clicking a recognizable icon. Navigate
+        // straight through.
+        history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
     }
 
     if (shouldHideDomain) return null;
 
-    const hasDomainChildren = !!numDomainChildren;
+    // ------------------------------------------------------------------ sidebar
+    if (variant === 'sidebar') {
+        return (
+            <>
+                <HierarchicalBrowseTreeRow
+                    data-testid="domain-options-list"
+                    level={level}
+                    isSelected={isDomainNodeSelected}
+                    isCollapsed={!!isCollapsed}
+                    hasChildren={hasDomainChildren}
+                    isExpanded={isExpanded}
+                    count={numDomainChildren}
+                    icon={
+                        <DomainColoredIcon
+                            domain={domain}
+                            size={TREE_ROW_ENTITY_ICON_SIZE}
+                            fontSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
+                        />
+                    }
+                    label={displayName}
+                    labelTitle={displayName}
+                    afterLabel={deprecationBadge || undefined}
+                    onSelect={handleSelectDomain}
+                    onToggleExpand={isCollapsed || !hasDomainChildren ? undefined : toggle}
+                />
+                <SidebarExpander isOpen={isExpanded}>
+                    <BodyContainer>
+                        {isExpanded && (
+                            <>
+                                {domains?.map((childDomain) => (
+                                    <DomainNode
+                                        key={childDomain.urn}
+                                        domain={childDomain as Domain}
+                                        numDomainChildren={childDomain.children?.total || 0}
+                                        domainUrnToHide={domainUrnToHide}
+                                        selectDomainOverride={selectDomainOverride}
+                                        level={level + 1}
+                                        variant={variant}
+                                    />
+                                ))}
+                                {loading && (
+                                    <SidebarLoadingWrapper $level={level + 1}>
+                                        <Loading height={16} marginTop={0} />
+                                    </SidebarLoadingWrapper>
+                                )}
+                                {(domains?.length ?? 0) > 0 && <div ref={scrollRef} />}
+                            </>
+                        )}
+                    </BodyContainer>
+                </SidebarExpander>
+            </>
+        );
+    }
 
+    // ------------------------------------------------------------------- select
     return (
         <>
-            <RowWrapper
+            <SelectRowWrapper
                 data-testid="domain-options-list"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
                 isOpen={isOpen && !isClosing}
-                $variant={variant}
             >
                 {!isCollapsed && hasDomainChildren && (
                     <ButtonWrapper
@@ -204,23 +335,23 @@ export default function DomainNode({
                             <DisplayName $isSelected={isDomainNodeSelected && !isCollapsed}>
                                 {!isCollapsed && displayName}
                             </DisplayName>
+                            {deprecationBadge}
                         </Text>
                         {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
                 </Tooltip>
-            </RowWrapper>
+            </SelectRowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing} paddingLeft={paddingLeft}>
                 <BodyContainer style={{ width: '100%' }}>
                     {isOpen && (
                         <>
                             {domains?.map((childDomain) => (
                                 <DomainNode
-                                    key={domain.urn}
+                                    key={childDomain.urn}
                                     domain={childDomain as Domain}
                                     numDomainChildren={childDomain.children?.total || 0}
                                     domainUrnToHide={domainUrnToHide}
                                     selectDomainOverride={selectDomainOverride}
-                                    unhideSidebar={unhideSidebar}
                                     $paddingLeft={paddingLeft}
                                     variant={variant}
                                 />

@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's LoadIndices upgrade task to bulk-load metadata aspects from the database into Elasticsearch or OpenSearch at high speed."
+---
+
 # Load Indices: High-Performance Bulk Index Loading
 
 LoadIndices is a high-performance upgrade task designed for bulk loading metadata aspects directly from the database into Elasticsearch/OpenSearch indices. Unlike RestoreIndices which focuses on correctness and consistency, LoadIndices is optimized for speed and throughput during initial deployments or large-scale data migrations.
@@ -107,10 +111,10 @@ Before using LoadIndices in any environment:
 
    ```bash
    # Check if using Cassandra (LoadIndices NOT supported)
-   grep -i cassandra /path/to/datahub/docker/docker-compose.yml
+   grep -i cassandra /path/to/datahub/docker/profiles/docker-compose.prerequisites.yml
 
    # Verify MySQL/PostgreSQL database is configured
-   grep -E "mysql\|postgres" /path/to/datahub/docker/docker-compose.yml
+   grep -E "mysql\|postgres" /path/to/datahub/docker/profiles/docker-compose.prerequisites.yml
 
    # ⚠️ If Cassandra detected, LoadIndices is NOT available
    # Must use RestoreIndices instead
@@ -120,7 +124,7 @@ Before using LoadIndices in any environment:
 
    ```bash
    # Check if using Neo4j (graph updates will be MISSING)
-   grep -r "neo4j" /path/to/datahub/docker/docker-compose.yml
+   grep -r "neo4j" /path/to/datahub/docker/profiles/docker-compose.prerequisites.yml
 
    # Check DataHub configuration for graph service selection
    grep -i "graph.*elasticsearch\|neo4j" /path/to/datahub/conf/application.yml

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for adding, updating, and removing custom properties on DataHub Datasets via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

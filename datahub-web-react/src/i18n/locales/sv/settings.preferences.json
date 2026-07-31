@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Hantera dina utseendeinställningar.",
+    "appearance.title": "Utseende",
+    "language.description": "Välj ditt önskade visningsspråk",
+    "language.title": "Språk för användargränssnitt",
+    "noSettings": "Inga utseendeinställningar hittades.",
+    "showApplications.description": "Applikationer är ytterligare ett sätt att organisera din data, liknande domäner. De är dolda som standard.",
+    "showApplications.successMessage": "Inställning uppdaterad!",
+    "showApplications.title": "Visa applikationer"
+}

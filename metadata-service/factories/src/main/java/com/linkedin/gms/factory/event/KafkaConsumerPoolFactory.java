@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.event;
 
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import java.time.Duration;
@@ -14,6 +15,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
 @Configuration
+@KafkaMessagingEnabled
 public class KafkaConsumerPoolFactory {
   @Value("${kafka.consumerPool.initialSize:5}")
   private int initialPoolSize;

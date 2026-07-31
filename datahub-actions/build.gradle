@@ -16,7 +16,9 @@
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 apply from: '../gradle/docker/docker.gradle'
+apply from: '../gradle/docker/python-docker.gradle'
 
 ext {
   python_executable = 'python3'
@@ -74,16 +76,16 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check src/ tests/ && " +
-    "ruff format --check src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check --fix src/ tests/ && " +
-    "ruff format src/ tests/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -134,6 +136,7 @@ docker {
     include "docker/datahub-actions/**"
     include "docker/snippets/**"
     include "metadata-ingestion/**"
+    exclude "metadata-ingestion/docs/**"
     include "datahub-actions/**"
     include "python-build/**"
   }.exclude {
@@ -156,7 +159,11 @@ docker {
   // Set build args for non-bake builds based on dockerTarget property
   def targetVariant = docker_target ?: defaultVariant.get()
   def variantArgs = variants.get()[targetVariant]?.args ?: variants.get()[defaultVariant.get()].args
-  buildArgs(variantArgs)
+  def mergedArgs = new LinkedHashMap<>(variantArgs)
+  if (project.hasProperty('dockerBaseImage')) {
+    mergedArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  buildArgs(resolveUvBuildArgs(mergedArgs))
 }
 
 build.dependsOn install

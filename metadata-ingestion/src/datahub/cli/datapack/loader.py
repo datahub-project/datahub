@@ -1,5 +1,6 @@
 """Download, cache, verify, and load data packs into DataHub."""
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -11,21 +12,52 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Iterator, List, Optional
 from urllib.parse import urlparse
 
 import click
 import requests
+from requests.adapters import HTTPAdapter
+from typing_extensions import NotRequired, TypedDict
+from urllib3.util.retry import Retry
 
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
+from datahub.ingestion.auth.registry import AuthConfig
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 logger = logging.getLogger(__name__)
 
 CACHE_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-cache")
 LOADS_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-loads")
+
+EMIT_MODE_ENV = "DATAHUB_EMIT_MODE"
+
+# Datapack files are fetched from a public host (e.g. raw.githubusercontent.com)
+# that rate-limits with HTTP 429 under load. Without retries a transient 429
+# silently drops a file and produces a partial, broken load. Retry transient
+# statuses with backoff (urllib3 also honors Retry-After for 429/503).
+_FETCH_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_FETCH_RETRY_TOTAL = 5
+_FETCH_RETRY_BACKOFF_FACTOR = 1.0
+
+
+def _build_fetch_session() -> requests.Session:
+    """A requests session that retries transient HTTP errors with backoff."""
+    retry = Retry(
+        total=_FETCH_RETRY_TOTAL,
+        status_forcelist=list(_FETCH_RETRY_STATUSES),
+        allowed_methods=frozenset({"GET"}),
+        backoff_factor=_FETCH_RETRY_BACKOFF_FACTOR,
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 def _cache_key(url: str) -> str:
@@ -70,21 +102,22 @@ def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
             raise click.ClickException(f"Local file not found: {local_path}")
         shutil.copy2(local_path, dest)
     else:
-        response = requests.get(url, stream=True, timeout=120)
-        response.raise_for_status()
+        with _build_fetch_session() as session:
+            response = session.get(url, stream=True, timeout=120)
+            response.raise_for_status()
 
-        content_length = response.headers.get("content-length")
-        total = int(content_length) if content_length else None
+            content_length = response.headers.get("content-length")
+            total = int(content_length) if content_length else None
 
-        with open(dest, "wb") as f:
-            if total:
-                with click.progressbar(length=total, label="Downloading") as bar:
+            with open(dest, "wb") as f:
+                if total:
+                    with click.progressbar(length=total, label="Downloading") as bar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                            bar.update(len(chunk))
+                else:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
-                        bar.update(len(chunk))
-            else:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
 
 
 def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
@@ -289,44 +322,6 @@ def _resolve_index_file(
     return entries
 
 
-def _wait_for_entities(
-    urns: set[str],
-    client_config: DatahubClientConfig,
-    timeout_seconds: int = 60,
-    poll_interval: float = 0.5,
-) -> None:
-    """Wait until all given URNs exist on the server."""
-    if not urns:
-        return
-
-    from datahub.ingestion.graph.client import DataHubGraph
-
-    graph = DataHubGraph(client_config)
-    pending = set(urns)
-    deadline = time.time() + timeout_seconds
-
-    click.echo(f"Waiting for {len(pending)} entities to be processed...")
-    while pending and time.time() < deadline:
-        still_pending = set()
-        for urn in pending:
-            try:
-                if not graph.exists(urn):
-                    still_pending.add(urn)
-            except Exception:
-                still_pending.add(urn)
-        pending = still_pending
-        if pending:
-            time.sleep(poll_interval)
-
-    if pending:
-        click.echo(
-            f"Warning: {len(pending)} entities not yet available after "
-            f"{timeout_seconds}s (proceeding anyway)"
-        )
-    else:
-        click.echo("All entities available.")
-
-
 def check_trust(
     pack: DataPackInfo,
     trust_community: bool = False,
@@ -466,6 +461,17 @@ def remove_load_record(pack_name: str) -> None:
     path.unlink(missing_ok=True)
 
 
+def _is_mcp_compatible(
+    specs: EntityAspectSpecs, entity_type: str, aspect_name: str
+) -> bool:
+    """Whether the server supports this entity/aspect, allowing unknown entity types."""
+    try:
+        return specs.supports(entity_type, aspect_name)
+    except ValueError:
+        # Unknown entity type -- let the server decide rather than dropping it.
+        return True
+
+
 def _apply_schema_filter(
     pack_path: pathlib.Path,
     client_config: DatahubClientConfig,
@@ -475,14 +481,10 @@ def _apply_schema_filter(
     Returns the original path if no filtering is needed, or a new
     temporary file with incompatible MCPs removed.
     """
-    from datahub.cli.datapack.schema_compat import (
-        fetch_server_schema,
-        is_mcp_compatible,
-    )
+    from datahub.ingestion.graph.client import DataHubGraph
 
-    token = client_config.token
-    server_schema = fetch_server_schema(str(client_config.server), token=token)
-    if not server_schema:
+    specs = DataHubGraph(client_config).get_entity_aspect_specs()
+    if specs is None:
         click.echo("Could not fetch server schema -- skipping compatibility filter.")
         return pack_path
 
@@ -498,7 +500,7 @@ def _apply_schema_filter(
         entity_type = mcp.get("entityType", "")
         aspect_name = mcp.get("aspectName", "")
 
-        if is_mcp_compatible(entity_type, aspect_name, server_schema):
+        if _is_mcp_compatible(specs, entity_type, aspect_name):
             filtered.append(mcp)
         else:
             key = f"{entity_type}/{aspect_name}"
@@ -653,22 +655,55 @@ def _check_referential_integrity(
         click.echo(f"  {ref_urn} (referenced by {len(referrers)} entities)")
 
 
-def _extract_urns_from_file(file_path: pathlib.Path) -> set[str]:
-    """Extract unique entity URNs from an MCP JSON file."""
+class _DatapackSinkConfig(TypedDict):
+    """The datahub-rest sink config the datapack loader feeds to Pipeline.create."""
+
+    server: str
+    endpoint: str
+    mode: str
+    token: NotRequired[str]
+    auth: NotRequired[AuthConfig]
+
+
+def _build_datapack_sink_config(
+    client_config: DatahubClientConfig,
+) -> _DatapackSinkConfig:
+    """Sink config for datapack ingest: OpenAPI endpoint with async_batch mode."""
+    sink_config: _DatapackSinkConfig = {
+        "server": str(client_config.server),
+        "endpoint": "openapi",
+        "mode": "async_batch",
+    }
+    if client_config.token:
+        sink_config["token"] = client_config.token
+    if client_config.auth:
+        # Carry the OAuth token-provider config through — token and auth are
+        # mutually exclusive, and dropping auth here would make the datapack
+        # sink emit unauthenticated in OAuth mode.
+        sink_config["auth"] = client_config.auth
+    return sink_config
+
+
+@contextlib.contextmanager
+def _datapack_emit_mode(wait_for_completion: bool) -> Iterator[str]:
+    """Set DATAHUB_EMIT_MODE for one datapack file pipeline run."""
+    emit_mode = "async_wait" if wait_for_completion else "async"
+    prior = os.environ.get(EMIT_MODE_ENV)
+    os.environ[EMIT_MODE_ENV] = emit_mode
     try:
-        with open(file_path) as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return {m.get("entityUrn", "") for m in data if m.get("entityUrn")}
-    except Exception:
-        pass
-    return set()
+        yield emit_mode
+    finally:
+        if prior is None:
+            os.environ.pop(EMIT_MODE_ENV, None)
+        else:
+            os.environ[EMIT_MODE_ENV] = prior
 
 
 def _run_pipeline_for_file(
     file_path: pathlib.Path,
     run_id: str,
-    sink_config: dict[str, str],
+    sink_config: _DatapackSinkConfig,
+    wait_for_completion: bool = False,
 ) -> None:
     """Run an ingestion pipeline for a single data file."""
     from datahub.ingestion.run.pipeline import Pipeline
@@ -684,9 +719,66 @@ def _run_pipeline_for_file(
             "config": sink_config,
         },
     }
-    pipeline = Pipeline.create(pipeline_config)
-    pipeline.run()
-    pipeline.pretty_print_summary()
+    with _datapack_emit_mode(wait_for_completion) as emit_mode:
+        if wait_for_completion:
+            click.echo(f"  Using OpenAPI async_batch with emit mode {emit_mode}")
+        # report_to=None disables the CLI ingestion-run reporter for these internal
+        # per-file pipelines. Without it, each "file" pipeline would register itself
+        # as a standalone "[CLI] file" ingestion source in the UI. The outer
+        # demo-data source / datapack-load command owns the run's provenance.
+        pipeline = Pipeline.create(pipeline_config, report_to=None)
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+
+def ingest_datapack_file_entries(
+    pack: DataPackInfo,
+    file_entries: List[IndexFileEntry],
+    run_id: str,
+    *,
+    client_config: Optional[DatahubClientConfig] = None,
+    no_time_shift: bool = False,
+    as_of: Optional[datetime] = None,
+    log_progress: bool = True,
+) -> None:
+    """Ingest datapack index files sequentially with per-file emit modes.
+
+    Uses OpenAPI async_batch for all files. Index entries with wait_for_completion
+    use async_wait (trace blocking) before the next file starts.
+    """
+    if client_config is None:
+        client_config = load_client_config()
+
+    sink_config = _build_datapack_sink_config(client_config)
+
+    for i, entry in enumerate(file_entries):
+        if log_progress:
+            click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {entry.path.name} ---")
+            click.echo(f"Loading {entry.path.name} into DataHub (run_id={run_id})...")
+
+        effective_path = entry.path
+        effective_path = _apply_schema_filter(
+            effective_path, client_config=client_config
+        )
+
+        if i == len(file_entries) - 1:
+            _check_referential_integrity(effective_path, client_config=client_config)
+
+        if not no_time_shift and pack.reference_timestamp:
+            target_ts = int(as_of.timestamp() * 1000) if as_of else None
+            effective_path = time_shift_file(
+                input_path=effective_path,
+                reference_timestamp=pack.reference_timestamp,
+                target_timestamp=target_ts,
+            )
+
+        _run_pipeline_for_file(
+            effective_path,
+            run_id,
+            sink_config,
+            wait_for_completion=entry.wait_for_completion,
+        )
 
 
 def load_pack_into_datahub(
@@ -699,8 +791,8 @@ def load_pack_into_datahub(
     """Build and run ingestion pipelines to load the data pack.
 
     For index files with multiple entries, runs a separate pipeline per file.
-    Files marked with wait_for_completion=True will block until all emitted
-    entities exist on the server before proceeding to the next file.
+    Files marked with wait_for_completion=True use OpenAPI async_wait trace
+    blocking before the next file is ingested.
 
     Args:
         pack: The data pack metadata.
@@ -715,62 +807,23 @@ def load_pack_into_datahub(
     client_config = load_client_config()
     run_id = _generate_run_id(pack.name)
 
-    sink_config: dict[str, str] = {"server": str(client_config.server)}
-    if client_config.token:
-        sink_config["token"] = client_config.token
-
-    # Process each file entry
-    last_pipeline = None
-    for i, entry in enumerate(file_entries):
-        file_label = entry.path.name
-        click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {file_label} ---")
-
-        effective_path = entry.path
-
-        # Apply schema compatibility filter (downshift)
-        effective_path = _apply_schema_filter(
-            effective_path, client_config=client_config
-        )
-
-        # Check referential integrity (only on last file to avoid noise)
-        if i == len(file_entries) - 1:
-            _check_referential_integrity(effective_path, client_config=client_config)
-
-        # Apply time-shifting if applicable
-        if not no_time_shift and pack.reference_timestamp:
-            target_ts = int(as_of.timestamp() * 1000) if as_of else None
-            effective_path = time_shift_file(
-                input_path=effective_path,
-                reference_timestamp=pack.reference_timestamp,
-                target_timestamp=target_ts,
-            )
-
-        if dry_run:
-            click.echo(f"Dry run - would load {effective_path}")
-            continue
-
-        click.echo(f"Loading {file_label} into DataHub (run_id={run_id})...")
-
-        # Collect URNs before loading if we need to wait
-        urns_to_wait: set[str] = set()
-        if entry.wait_for_completion:
-            urns_to_wait = _extract_urns_from_file(effective_path)
-
-        _run_pipeline_for_file(effective_path, run_id, sink_config)
-
-        # Wait for entities to be processed if flagged
-        if entry.wait_for_completion and urns_to_wait:
-            _wait_for_entities(urns_to_wait, client_config)
-
     if dry_run:
+        for i, entry in enumerate(file_entries):
+            click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {entry.path.name} ---")
+            click.echo(f"Dry run - would load {entry.path}")
         click.echo(f"\nDry run complete for {len(file_entries)} files.")
         return run_id
 
-    # Save load record before raising so unload works even on partial failures
-    save_load_record(pack, run_id)
+    ingest_datapack_file_entries(
+        pack,
+        file_entries,
+        run_id,
+        client_config=client_config,
+        no_time_shift=no_time_shift,
+        as_of=as_of,
+    )
 
-    if last_pipeline:
-        last_pipeline.raise_from_status()
+    save_load_record(pack, run_id)
 
     click.echo(f"Data pack '{pack.name}' loaded successfully.")
     return run_id

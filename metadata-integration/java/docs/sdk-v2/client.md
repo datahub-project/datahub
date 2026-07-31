@@ -1,3 +1,7 @@
+---
+description: "Configure DataHubClientV2 connections, authentication, and operation modes for interacting with DataHub from Java applications."
+---
+
 # DataHubClientV2 Configuration
 
 The `DataHubClientV2` is the primary entry point for interacting with DataHub using SDK V2. This guide covers client configuration, connection management, and operation modes.

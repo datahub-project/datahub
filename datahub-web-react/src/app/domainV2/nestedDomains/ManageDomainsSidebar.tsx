@@ -1,106 +1,148 @@
-import { Button } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { Divider } from 'antd';
-import React, { useCallback, useState } from 'react';
+import { Avatar, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+import { SimpleSelect } from '@components/components/Select/SimpleSelect';
+
+import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import DomainSearch from '@app/domainV2/DomainSearch';
-import DomainsSidebarHeader from '@app/domainV2/nestedDomains/DomainsSidebarHeader';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import {
+    DomainSidebarFiltersProvider,
+    useDomainSidebarFilters,
+} from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
+import { PageRoutes } from '@conf/Global';
 
-const PLATFORM_BROWSE_TRANSITION_MS = 300;
+import { EntityType } from '@types';
 
-// TODO: Clean up how we do expand / collapse
-const StyledEntitySidebarContainer = styled.div<{
-    isCollapsed: boolean;
-    $width?: number;
-    backgroundColor?: string;
-    $isShowNavBarRedesign?: boolean;
-    $isEntityProfile?: boolean;
-}>`
-    flex-shrink: 0;
-    max-height: 100%;
-
-    width: ${(props) => (props.isCollapsed ? '63px' : `${props.$width}px`)};
-    margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
-    transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
-
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    display: flex;
-    flex-direction: column;
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
- margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
- box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
- `}
-`;
-
-const Controls = styled.div<{ isCollapsed: boolean }>`
+const OwnerOptionRow = styled.span`
     display: flex;
     align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 12px;
-    overflow: hidden;
-    height: 50px;
+    gap: 8px;
 `;
 
-const ThinDivider = styled(Divider)`
-    margin: 0px;
-    padding: 0px;
-`;
-
-const StyledSidebar = styled.div`
-    overflow: auto;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-`;
-
-type Props = {
-    isEntityProfile?: boolean;
-};
-
-export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
-    const width = useSidebarWidth(0.2);
+function ManageDomainsSidebarInner() {
+    const { t } = useTranslation('governance.domain');
+    const location = useLocation();
     const [isClosed, setIsClosed] = useState(false);
-    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [isCreatingDomain, setIsCreatingDomain] = useState(false);
+    const { selectedOwnerUrns, setSelectedOwnerUrns, availableOwners } = useDomainSidebarFilters();
+
+    const isHomeSelected = matchPath(location.pathname, { path: PageRoutes.DOMAINS, exact: true }) !== null;
 
     const unhideSidebar = useCallback(() => {
         setIsClosed(false);
     }, []);
 
+    const ownerOptions = useMemo(
+        () =>
+            availableOwners.map((owner) => ({
+                value: owner.urn,
+                label: owner.displayName,
+                owner,
+            })),
+        [availableOwners],
+    );
+
+    const headerActions = (
+        <Tooltip showArrow={false} title={t('sidebar.createTooltip')} placement="right">
+            <SidebarCreateButton
+                variant="filled"
+                color="primary"
+                isCircle
+                icon={{ icon: Plus }}
+                onClick={() => setIsCreatingDomain(true)}
+                data-testid="sidebar-create-domain-button"
+            />
+        </Tooltip>
+    );
+
+    const ownerFilter = (
+        <SimpleSelect
+            size="sm"
+            width="fit-content"
+            isMultiSelect
+            showSearch
+            filterResultsByQuery
+            isDisabled={ownerOptions.length === 0}
+            placeholder={t('navigator.ownerFilter.placeholder')}
+            selectLabelProps={{
+                variant: 'labeled',
+                label: t('navigator.ownerFilter.label'),
+            }}
+            options={ownerOptions}
+            values={selectedOwnerUrns}
+            onUpdate={setSelectedOwnerUrns}
+            renderCustomOptionText={(option) => {
+                const { owner } = option as (typeof ownerOptions)[number];
+                return (
+                    <OwnerOptionRow>
+                        <Avatar
+                            name={owner.displayName}
+                            imageUrl={owner.pictureLink ?? undefined}
+                            type={owner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                            showInPill
+                            size="sm"
+                        />
+                    </OwnerOptionRow>
+                );
+            }}
+            dataTestId="domain-sidebar-owner-filter"
+        />
+    );
+
     return (
-        <StyledEntitySidebarContainer
-            isCollapsed={isClosed}
-            $width={width}
-            id="browse-v2"
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            $isEntityProfile={isEntityProfile}
-        >
-            <Controls isCollapsed={isClosed}>
-                {!isClosed && <DomainsSidebarHeader />}
-                <Button
-                    variant="text"
-                    color="gray"
-                    size="lg"
-                    isCircle
-                    icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
-                    isActive={!isClosed}
-                    onClick={() => setIsClosed(!isClosed)}
+        <>
+            <HierarchicalBrowseSidebar
+                title={t('page.title')}
+                isCollapsed={isClosed}
+                onToggleCollapsed={() => setIsClosed((prev) => !prev)}
+                onExpandSidebar={unhideSidebar}
+                headerActions={headerActions}
+                id="browse-v2"
+                search={<DomainSearch />}
+                filters={ownerFilter}
+                homeNav={
+                    <SidebarHomeNavLink
+                        to={PageRoutes.DOMAINS}
+                        isSelected={isHomeSelected}
+                        label={t('navigator.overview')}
+                        data-testid="domain-sidebar-overview"
+                    />
+                }
+            >
+                {({ isCollapsed }) =>
+                    isCollapsed ? (
+                        <>
+                            <DomainSearch isCollapsed unhideSidebar={unhideSidebar} />
+                            <DomainNavigator isCollapsed variant="sidebar" includeHome />
+                        </>
+                    ) : (
+                        <DomainNavigator variant="sidebar" includeHome={false} />
+                    )
+                }
+            </HierarchicalBrowseSidebar>
+            {isCreatingDomain && (
+                <CreateDomainModal
+                    onClose={() => setIsCreatingDomain(false)}
+                    onCreate={() => setIsCreatingDomain(false)}
                 />
-            </Controls>
-            <ThinDivider />
-            <StyledSidebar>
-                <DomainSearch isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
-                <ThinDivider />
-                <DomainNavigator isCollapsed={isClosed} unhideSidebar={unhideSidebar} variant="sidebar" />
-            </StyledSidebar>
-        </StyledEntitySidebarContainer>
+            )}
+        </>
+    );
+}
+
+export default function ManageDomainsSidebarV2() {
+    return (
+        <DomainSidebarFiltersProvider>
+            <ManageDomainsSidebarInner />
+        </DomainSidebarFiltersProvider>
     );
 }

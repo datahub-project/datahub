@@ -2,10 +2,12 @@ package com.linkedin.datahub.graphql.types.domain;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainAssociation;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -29,17 +31,21 @@ public class DomainAssociationMapper {
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.domain.Domains domains,
       @Nonnull final String entityUrn) {
-    if (domains.getDomains().size() > 0
-        && (context == null
-            || canView(context.getOperationContext(), domains.getDomains().get(0)))) {
-      DomainAssociation association = new DomainAssociation();
-      association.setDomain(
-          Domain.builder()
-              .setType(EntityType.DOMAIN)
-              .setUrn(domains.getDomains().get(0).toString())
-              .build());
-      association.setAssociatedUrn(entityUrn);
-      return association;
+    if (domains.getDomainAssociations() != null && !domains.getDomainAssociations().isEmpty()) {
+      com.linkedin.domain.DomainAssociation association =
+          domains.getDomainAssociations().getFirst();
+      Urn domainUrn = association.getDomain();
+      if (context == null || canView(context.getOperationContext(), domainUrn)) {
+        DomainAssociation gqlAssociation = new DomainAssociation();
+        gqlAssociation.setDomain(
+            Domain.builder().setType(EntityType.DOMAIN).setUrn(domainUrn.toString()).build());
+        gqlAssociation.setAssociatedUrn(entityUrn);
+        if (association.getAttribution() != null) {
+          gqlAssociation.setAttribution(
+              MetadataAttributionMapper.map(context, association.getAttribution()));
+        }
+        return gqlAssociation;
+      }
     }
     return null;
   }

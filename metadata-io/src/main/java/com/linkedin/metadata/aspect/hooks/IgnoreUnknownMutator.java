@@ -5,6 +5,7 @@ import static com.linkedin.events.metadata.ChangeType.CREATE_ENTITY;
 import static com.linkedin.events.metadata.ChangeType.UPDATE;
 import static com.linkedin.events.metadata.ChangeType.UPSERT;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.transform.filter.request.MaskTree;
@@ -43,7 +44,9 @@ public class IgnoreUnknownMutator extends MutationHook {
 
   @Override
   protected Stream<MCPItem> proposalMutation(
-      @Nonnull Collection<MCPItem> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<MCPItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return mcpItems.stream()
         .filter(
             item -> {

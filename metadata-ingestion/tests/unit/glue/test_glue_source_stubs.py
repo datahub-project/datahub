@@ -1,6 +1,8 @@
+import base64
 import datetime
 import io
-from typing import Any, Dict
+import json
+from typing import Any, Dict, List
 
 from botocore.response import StreamingBody
 
@@ -48,6 +50,61 @@ target_database_tables = [
     }
 ]
 get_tables_response_for_target_database = {"TableList": target_database_tables}
+
+# A regular (non-resource-link) database that contains a mix of normal tables and
+# table-level resource links. Lake Formation can share individual tables across
+# accounts at table granularity, so the database itself has no TargetDatabase but
+# some tables expose a TargetTable pointer.
+mixed_database = {
+    "Name": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "CreateTableDefaultPermissions": [],
+    "CatalogId": "123412341234",
+}
+
+normal_table_in_mixed_database = {
+    "Name": "normal-table",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "UpdateTime": datetime.datetime(
+        2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+    ),
+    "Retention": 0,
+    "StorageDescriptor": {
+        "Columns": [{"Name": "id", "Type": "bigint", "Comment": ""}],
+        "Location": "s3://test-db-123412341234/normal-table",
+        "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+        "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+        "Compressed": False,
+        "NumberOfBuckets": 0,
+        "SerdeInfo": {
+            "Parameters": {"serialization.format": "1"},
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+        },
+        "SortColumns": [],
+        "StoredAsSubDirectories": False,
+    },
+    "TableType": "EXTERNAL_TABLE",
+    "Parameters": {"classification": "parquet"},
+    "CatalogId": "123412341234",
+}
+
+resource_link_table_in_mixed_database = {
+    "Name": "shared-transactions",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "TargetTable": {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    },
+    "CatalogId": "123412341234",
+}
+
+get_databases_response_with_mixed_database = {"DatabaseList": [mixed_database]}
+get_tables_response_for_mixed_database = {
+    "TableList": [normal_table_in_mixed_database, resource_link_table_in_mixed_database]
+}
 
 get_databases_response = {
     "DatabaseList": [
@@ -105,7 +162,7 @@ tables_1 = [
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "UpdateTime": datetime.datetime(
-            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+            2021, 6, 10, 12, 3, 31, tzinfo=datetime.timezone.utc
         ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
@@ -410,6 +467,38 @@ get_jobs_response = {
             "Command": {
                 "Name": "glueetl",
                 "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py",
+                "PythonVersion": "3",
+            },
+            "DefaultArguments": {
+                "--TempDir": "s3://aws-glue-assets-123412341234-us-west-2/temporary/",
+                "--class": "GlueApp",
+                "--enable-continuous-cloudwatch-log": "true",
+                "--enable-glue-datacatalog": "true",
+                "--enable-metrics": "true",
+                "--enable-spark-ui": "true",
+                "--encryption-type": "sse-s3",
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--job-language": "python",
+                "--spark-event-logs-path": "s3://aws-glue-assets-123412341234-us-west-2/sparkHistoryLogs/",
+            },
+            "MaxRetries": 3,
+            "AllocatedCapacity": 10,
+            "Timeout": 2880,
+            "MaxCapacity": 10.0,
+            "WorkerType": "G.1X",
+            "NumberOfWorkers": 10,
+            "GlueVersion": "2.0",
+        },
+        {
+            "Name": "test-job-3",
+            "Description": "The third test job",
+            "Role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+            "CreatedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "LastModifiedOn": datetime.datetime(2021, 6, 10, 16, 58, 32, 469000),
+            "ExecutionProperty": {"MaxConcurrentRuns": 1},
+            "Command": {
+                "Name": "glueetl",
+                "ScriptLocation": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-3.py",
                 "PythonVersion": "3",
             },
             "DefaultArguments": {
@@ -766,6 +855,11 @@ get_dataflow_graph_response_2 = {
         },
     ],
 }
+# for job 3
+get_dataflow_graph_response_3: dict[str, Any] = {
+    "DagNodes": [],
+    "DagEdges": [],
+}
 
 get_object_body_1 = """
 import sys
@@ -879,6 +973,34 @@ DataSink0 = glueContext.write_dynamic_frame.from_options(frame = Transform3, con
 ## @return: Transform0
 ## @inputs: [frame = Transform1]
 Transform0 = SplitFields.apply(frame = Transform1, paths = ["yr", "quarter", "month", "dayofmonth", "dayofweek", "flightdate", "uniquecarrier", "airlineid", "carrier"], name2 = "Transform0Output1", name1 = "Transform0Output0", transformation_ctx = "Transform0")
+job.commit()
+"""
+
+get_object_body_3 = """
+import sys
+from awsglue.utils import getResolvedOptions
+from pyspark.sql import SparkSession
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+spark = (
+    SparkSession.builder
+    .config("spark.sql.catalogImplementation", "hive")
+    .config("spark.hadoop.hive.metastore.client.factory.class", "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory")
+    .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config("spark.sql.catalog.glue_catalog.catalog-impl", "org.apache.iceberg.aws.glue.GlueCatalog")
+    .config("spark.sql.catalog.glue_catalog", "org.apache.iceberg.spark.SparkCatalog")
+    .config("spark.sql.catalog.glue_catalog.warehouse", warehouse)
+    .config("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
+    .getOrCreate()
+)
+glueContext = GlueContext(spark.sparkContext, sparkSession=spark)
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+df = glueContext.create_dynamic_frame.from_options(connection_type = "postgresql", connection_options = {"url": "jdbc:postgresql://my-db-endpoint:5432/dbname", "password": "mypassword"}, transformation_ctx = "df")
+df.createOrReplaceTempView("myDataSource")
+spark.sql("CREATE TABLE IF NOT EXISTS glue_catalog.warehouse.items_agg USING iceberg TBLPROPERTIES ('format-version'='2') AS (SELECT name, count(1) as num_items FROM myDataSource);")
 job.commit()
 """
 
@@ -1190,9 +1312,120 @@ def get_object_response_2() -> Dict[str, Any]:
     return mock_get_object_response(get_object_body_2)
 
 
+def get_object_response_3() -> Dict[str, Any]:
+    return mock_get_object_response(get_object_body_3)
+
+
 def get_bucket_tagging() -> Dict[str, Any]:
     return {"TagSet": [{"Key": "foo", "Value": "bar"}]}
 
 
 def get_object_tagging() -> Dict[str, Any]:
     return {"TagSet": [{"Key": "baz", "Value": "bob"}]}
+
+
+def _presto_view_text(original_sql: str, columns: List[Dict[str, str]]) -> str:
+    """Build an Athena/Presto-encoded ViewOriginalText for test fixtures."""
+    payload = json.dumps(
+        {
+            "originalSql": original_sql,
+            "catalog": "awsdatacatalog",
+            "schema": "my_db",
+            "columns": columns,
+        }
+    )
+    encoded = base64.b64encode(payload.encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
+# Single database with a base table, a view over it, and a view over that view —
+# exercises the end-to-end VIRTUAL_VIEW path: View subtype, ViewProperties, and
+# (table + column-level) view lineage via the SqlParsingAggregator.
+get_databases_response_views = {
+    "DatabaseList": [
+        {
+            "Name": "my_db",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "CatalogId": "123412341234",
+        },
+    ]
+}
+
+get_tables_response_views = {
+    "TableList": [
+        {
+            "Name": "base_table",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "EXTERNAL_TABLE",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+                "Location": "s3://my-bucket/base_table",
+            },
+        },
+        {
+            "Name": "view_from_table",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id, name FROM base_table",
+                [
+                    {"name": "id", "type": "varchar"},
+                    {"name": "name", "type": "varchar"},
+                ],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+            },
+        },
+        {
+            "Name": "view_on_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id FROM view_from_table",
+                [{"name": "id", "type": "varchar"}],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                ],
+            },
+        },
+        {
+            # Raw (non-Presto) view authored by Spark/Hive: SQL is stored verbatim
+            # with backtick-quoted identifiers, which parse under the Spark/Hive
+            # dialect but NOT under Trino — so resolving its lineage proves per-view
+            # dialect detection works end-to-end.
+            "Name": "spark_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": "SELECT `id`, `name` FROM `base_table`",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+            },
+        },
+    ]
+}

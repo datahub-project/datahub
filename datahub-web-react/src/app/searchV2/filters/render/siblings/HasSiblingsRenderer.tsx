@@ -1,4 +1,5 @@
 import { BuildOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -19,8 +20,8 @@ export class HasSiblingsRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Siblings</>;
+            return <>{i18next.t('search:filters.siblings.hasSiblingsLabel')}</>;
         }
-        return <>Has No Siblings</>;
+        return <>{i18next.t('search:filters.siblings.hasNoSiblingsLabel')}</>;
     };
 }

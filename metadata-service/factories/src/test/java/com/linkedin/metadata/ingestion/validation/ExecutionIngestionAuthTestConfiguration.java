@@ -26,13 +26,17 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
+// All dependencies are @Bean methods rather than @MockitoBean fields because @MockitoBean on a
+// @Configuration class requires an existing bean definition to override — but in this test
+// context many factories are not loaded, so no definitions exist for these types/names.
 @Configuration
 @ComponentScan(
     basePackages = {
@@ -54,19 +58,36 @@ public class ExecutionIngestionAuthTestConfiguration {
             .getResourceAsStream("entity-registry.yml"));
   }
 
-  @MockBean(name = INDEX_CONVENTION_BEAN)
-  private IndexConvention indexConvention;
+  @Bean(name = INDEX_CONVENTION_BEAN)
+  @Primary
+  public IndexConvention indexConvention() {
+    return Mockito.mock(IndexConvention.class);
+  }
 
-  @MockBean(name = "entityService")
-  private EntityService<?> entityService;
+  @Bean(name = "entityService")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public EntityService<?> entityService() {
+    return Mockito.mock(EntityService.class);
+  }
 
-  @MockBean(name = "graphClient")
-  private GraphClient graphClient;
+  @Bean(name = "graphClient")
+  @Primary
+  public GraphClient graphClient() {
+    return Mockito.mock(GraphClient.class);
+  }
 
-  @MockBean private GraphService graphService;
+  @Bean
+  @Primary
+  public GraphService graphService() {
+    return Mockito.mock(GraphService.class);
+  }
 
-  @MockBean(name = "searchService")
-  private SearchService searchService;
+  @Bean(name = "searchService")
+  @Primary
+  public SearchService searchService() {
+    return Mockito.mock(SearchService.class);
+  }
 
   @Bean(name = "baseElasticSearchComponents")
   public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents(
@@ -80,38 +101,84 @@ public class ExecutionIngestionAuthTestConfiguration {
         );
   }
 
-  @MockBean(name = "deleteEntityService")
-  private DeleteEntityService deleteEntityService;
+  @Bean(name = "deleteEntityService")
+  @Primary
+  public DeleteEntityService deleteEntityService() {
+    return Mockito.mock(DeleteEntityService.class);
+  }
 
-  @MockBean(name = "entitySearchService")
-  private EntitySearchService entitySearchService;
+  @Bean(name = "entitySearchService")
+  @Primary
+  public EntitySearchService entitySearchService() {
+    return Mockito.mock(EntitySearchService.class);
+  }
 
-  @MockBean(name = "cachingEntitySearchService")
-  private CachingEntitySearchService cachingEntitySearchService;
+  @Bean(name = "cachingEntitySearchService")
+  @Primary
+  public CachingEntitySearchService cachingEntitySearchService() {
+    return Mockito.mock(CachingEntitySearchService.class);
+  }
 
-  @MockBean(name = "timeseriesAspectService")
-  private TimeseriesAspectService timeseriesAspectService;
+  @Bean(name = "timeseriesAspectService")
+  @Primary
+  public TimeseriesAspectService timeseriesAspectService() {
+    return Mockito.mock(TimeseriesAspectService.class);
+  }
 
-  @MockBean(name = "relationshipSearchService")
-  private LineageSearchService lineageSearchService;
+  @Bean(name = "relationshipSearchService")
+  @Primary
+  public LineageSearchService lineageSearchService() {
+    return Mockito.mock(LineageSearchService.class);
+  }
 
-  @MockBean(name = "kafkaEventProducer")
-  private EventProducer eventProducer;
+  @Bean(name = "kafkaEventProducer")
+  @Primary
+  public EventProducer eventProducer() {
+    return Mockito.mock(EventProducer.class);
+  }
 
-  @MockBean private RollbackService rollbackService;
+  @Bean
+  @Primary
+  public RollbackService rollbackService() {
+    return Mockito.mock(RollbackService.class);
+  }
 
-  @MockBean private SystemTelemetryContext systemTelemetryContext;
+  @Bean
+  @Primary
+  public SystemTelemetryContext systemTelemetryContext() {
+    return Mockito.mock(SystemTelemetryContext.class);
+  }
 
-  @MockBean private MetricUtils metricUtils;
+  @Bean
+  @Primary
+  public MetricUtils metricUtils() {
+    return Mockito.mock(MetricUtils.class);
+  }
 
-  @MockBean private RestrictedService restrictedService;
+  @Bean
+  @Primary
+  public RestrictedService restrictedService() {
+    return Mockito.mock(RestrictedService.class);
+  }
 
-  @MockBean(name = "systemEntityClient")
-  private SystemEntityClient systemEntityClient;
+  @Bean(name = "systemEntityClient")
+  @Primary
+  public SystemEntityClient systemEntityClient() {
+    return Mockito.mock(SystemEntityClient.class);
+  }
 
-  @MockBean(name = "dataHubSecretService")
-  private SecretService service;
+  @Bean(name = "dataHubSecretService")
+  @Primary
+  public SecretService dataHubSecretService() {
+    return Mockito.mock(SecretService.class);
+  }
 
-  @MockBean(name = "searchClientShim")
-  private SearchClientShim<?> searchClientShim;
+  @Bean(name = "searchClientShim")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return mock;
+  }
 }

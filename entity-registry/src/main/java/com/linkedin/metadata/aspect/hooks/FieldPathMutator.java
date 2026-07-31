@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.hooks;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -40,7 +41,9 @@ public class FieldPathMutator extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
 
     List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 
@@ -66,7 +69,9 @@ public class FieldPathMutator extends MutationHook {
   */
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     List<Pair<ReadItem, Boolean>> results = new LinkedList<>();
 
     for (ReadItem item : items) {

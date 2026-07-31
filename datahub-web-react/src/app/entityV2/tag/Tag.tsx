@@ -1,4 +1,5 @@
 import { Tag as TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
@@ -39,9 +40,9 @@ export class TagEntity implements Entity<Tag> {
 
     getPathName: () => string = () => this.getGraphName();
 
-    getCollectionName: () => string = () => 'Tags';
+    getCollectionName: () => string = () => i18next.t('entity.types:tag.namePlural');
 
-    getEntityName: () => string = () => 'Tag';
+    getEntityName: () => string = () => i18next.t('entity.types:tag.name');
 
     renderProfile: (urn: string) => JSX.Element = (urn) => <TagProfile urn={urn} />;
 
@@ -58,6 +59,7 @@ export class TagEntity implements Entity<Tag> {
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
+                deprecation={data.deprecation}
                 propagationDetails={extraContext?.propagationDetails}
             />
         );
@@ -76,6 +78,6 @@ export class TagEntity implements Entity<Tag> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.DEPRECATION]);
     };
 }

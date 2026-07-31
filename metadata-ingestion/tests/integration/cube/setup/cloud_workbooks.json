@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": 5001,
+      "name": "orders_overview",
+      "user": { "id": 1, "email": "analyst@example.com" },
+      "createdAt": "2024-01-10T09:00:00.000Z",
+      "updatedAt": "2024-02-03T10:00:00.000Z",
+      "dashboardPublished": {
+        "title": "Orders Overview",
+        "description": "KPIs for the orders pipeline."
+      },
+      "publishedDashboard": {
+        "reportSnapshots": [{ "reportId": 101 }, { "reportId": 102 }]
+      }
+    }
+  ],
+  "pageInfo": { "hasNextPage": false, "endCursor": null }
+}

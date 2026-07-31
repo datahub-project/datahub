@@ -1,3 +1,7 @@
+---
+title: Slack Action
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Slack

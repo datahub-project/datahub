@@ -3,7 +3,7 @@ from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -16,7 +16,7 @@ from tests.integration.snowflake.common import FROZEN_TIME, default_query_result
 pytestmark = pytest.mark.integration_batch_5
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_ingestion(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -86,7 +86,7 @@ def test_snowflake_streamlit_ingestion(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_filtering(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -160,7 +160,7 @@ def test_snowflake_streamlit_filtering(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_streamlit_disabled(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

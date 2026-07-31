@@ -1,5 +1,6 @@
 import { Avatar, Table } from '@components';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -33,6 +34,8 @@ interface Props {
 }
 
 const TopUsers = ({ users }: Props) => {
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistryV2();
 
     const {
@@ -62,7 +65,7 @@ const TopUsers = ({ users }: Props) => {
 
     const topUsersTableColumns = [
         {
-            title: 'Name',
+            title: tl('name'),
             key: 'name',
             render: (record) => {
                 const userEntity = record.user;
@@ -85,7 +88,7 @@ const TopUsers = ({ users }: Props) => {
             width: '50%',
         },
         {
-            title: 'Queries last month',
+            title: t('topUsers.queriesLastMonthColumn'),
             key: 'queries',
             alignment: 'right' as AlignmentOptions,
             render: (record) => {
@@ -104,10 +107,10 @@ const TopUsers = ({ users }: Props) => {
     return (
         <CardWrapper>
             <GraphCard
-                title="Top Users"
+                title={t('topUsers.title')}
                 renderGraph={renderTopUsersTable}
                 isEmpty={!isUsersDataPresent || !canViewDatasetUsage}
-                emptyContent={!canViewDatasetUsage && <NoPermission statName="top users" />}
+                emptyContent={!canViewDatasetUsage && <NoPermission statName={t('topUsers.statName')} />}
                 moreInfoModalContent={<MoreInfoModalContent />}
             />
         </CardWrapper>

@@ -1,0 +1,150 @@
+# Patch for DataHub customizations in SaveIntoDataSourceCommandVisitor.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-07-09 14:51:43 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/SaveIntoDataSourceCommandVisitor.patch
+#
+--- /Users/treff7es/shadow/datahub/.claude/worktrees/ol-1.45-rebase/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.50.0/spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java	2026-07-03 10:30:28.531816430 +0200
++++ /Users/treff7es/shadow/datahub/.claude/worktrees/ol-1.45-rebase/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java	2026-07-09 16:50:00.423546179 +0200
+@@ -29,6 +29,7 @@
+ import java.util.Locale;
+ import java.util.Optional;
+ import java.util.Properties;
++import java.util.Set;
+ import java.util.stream.Collectors;
+ import lombok.extern.slf4j.Slf4j;
+ import org.apache.spark.scheduler.SparkListenerEvent;
+@@ -57,6 +58,12 @@
+         SparkListenerEvent, SaveIntoDataSourceCommand, OutputDataset>
+     implements JobNameSuffixProvider<SaveIntoDataSourceCommand> {
+ 
++  // Default Spark catalog namespace used when resolving catalog-based (saveAsTable) Delta writes.
++  private static final String SPARK_CATALOG_NAMESPACE = "spark_catalog";
++
++  // Optional qualifier tokens that may sit between "CREATE TABLE" and the real table name.
++  private static final Set<String> CREATE_TABLE_QUALIFIER_TOKENS = Set.of("if", "not", "exists");
++
+   public SaveIntoDataSourceCommandVisitor(OpenLineageContext context) {
+     super(context, false);
+   }
+@@ -146,6 +153,7 @@
+         (SaveMode.Overwrite == command.mode()) ? OVERWRITE : CREATE;
+ 
+     if (command.dataSource().getClass().getName().contains("DeltaDataSource")) {
++      // Path-based Delta tables.
+       if (command.options().contains("path")) {
+         return Collections.singletonList(
+             outputDataset()
+@@ -155,6 +163,39 @@
+                 .lifecycleStateChange(lifecycleStateChange)
+                 .build());
+       }
++
++      // Catalog-based Delta tables (saveAsTable). OpenLineage's SaveIntoDataSource handling only
++      // covers the path case, so DataHub resolves the catalog table name itself — otherwise a
++      // saveAsTable write emits no OutputDataset from this visitor. See PR #14911 review.
++      if (command.options().contains("table")) {
++        String tableName = command.options().get("table").get();
++        return Collections.singletonList(
++            outputDataset()
++                .sparkDatasetBuilder()
++                .dataset(new DatasetIdentifier(tableName, SPARK_CATALOG_NAMESPACE))
++                .schema(schema)
++                .lifecycleStateChange(lifecycleStateChange)
++                .build());
++      }
++
++      // saveAsTable without an explicit "table" option: recover the table name from the query
++      // execution's SQL text as a last resort.
++      if (context.getQueryExecution().isPresent()) {
++        String extractedTableName = extractTableNameFromContext(context.getQueryExecution().get());
++        if (extractedTableName != null) {
++          return Collections.singletonList(
++              outputDataset()
++                  .sparkDatasetBuilder()
++                  .dataset(new DatasetIdentifier(extractedTableName, SPARK_CATALOG_NAMESPACE))
++                  .schema(schema)
++                  .lifecycleStateChange(lifecycleStateChange)
++                  .build());
++        }
++      }
++
++      log.debug(
++          "Delta table detected but could not determine path or table name from options: {}",
++          command.options());
+     }
+ 
+     if (command
+@@ -162,6 +203,11 @@
+         .getClass()
+         .getCanonicalName()
+         .equals(JdbcRelationProvider.class.getCanonicalName())) {
++      if (!command.options().get("dbtable").isDefined()
++          || !command.options().get("url").isDefined()) {
++        log.warn("JDBC SaveIntoDataSource missing 'dbtable' or 'url' option; skipping lineage");
++        return Collections.emptyList();
++      }
+       String tableName = command.options().get("dbtable").get();
+       String url = command.options().get("url").get();
+       return Collections.singletonList(
+@@ -250,6 +296,59 @@
+     return schema;
+   }
+ 
++  /**
++   * Best-effort recovery of the target table name for a Delta {@code saveAsTable} whose command
++   * options carry neither a "path" nor a "table" entry. Inspects the QueryExecution's SQL text
++   * (when the Spark version exposes {@code sqlText()}) for a {@code CREATE TABLE} target. Returns
++   * {@code null} when nothing usable can be extracted.
++   */
++  private String extractTableNameFromContext(QueryExecution qe) {
++    try {
++      // sqlText() is not present on every Spark version, so reach it reflectively.
++      java.lang.reflect.Method sqlTextMethod = qe.getClass().getMethod("sqlText");
++      Object sqlOption = sqlTextMethod.invoke(qe);
++      if (sqlOption instanceof Option && ((Option<?>) sqlOption).isDefined()) {
++        return parseCreateTableName((String) ((Option<?>) sqlOption).get());
++      }
++    } catch (Exception e) {
++      log.debug("Could not extract table name from QueryExecution: {}", e.getMessage());
++    }
++    return null;
++  }
++
++  /**
++   * Parses the target table name out of a {@code CREATE TABLE} SQL statement (as generated by a
++   * Delta {@code saveAsTable}), stripping quoting and any database qualifier. Returns {@code null}
++   * when the SQL is not a recognizable CREATE TABLE. Package-private for unit testing.
++   */
++  static String parseCreateTableName(String sql) {
++    if (sql == null || !sql.toLowerCase(Locale.ROOT).contains("create table")) {
++      return null;
++    }
++    String[] tokens = sql.split("\\s+");
++    for (int i = 0; i < tokens.length - 1; i++) {
++      if (tokens[i].toLowerCase(Locale.ROOT).equals("table")) {
++        // Skip an optional "IF NOT EXISTS" qualifier so we reach the real table name.
++        int j = i + 1;
++        while (j < tokens.length
++            && CREATE_TABLE_QUALIFIER_TOKENS.contains(tokens[j].toLowerCase(Locale.ROOT))) {
++          j++;
++        }
++        if (j >= tokens.length) {
++          return null;
++        }
++        // Strip quoting and any db-qualifier, keeping just the table name.
++        String candidate = tokens[j].replaceAll("[`'\"]", "");
++        if (candidate.contains(".")) {
++          String[] parts = candidate.split("\\.");
++          candidate = parts[parts.length - 1];
++        }
++        return candidate.isEmpty() ? null : candidate;
++      }
++    }
++    return null;
++  }
++
+   @Override
+   public Optional<String> jobNameSuffix(OpenLineageContext context) {
+     return context

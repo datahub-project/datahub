@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.linkedin.data.codec.AbstractJacksonDataCodec;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.filter.RestliLoggingFilter;
+import com.linkedin.metadata.filter.RestliThrottleResponseFilter;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.r2.filter.FilterChains;
@@ -33,6 +34,9 @@ public class RAPServletFactory {
 
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
+
+  @Value("${" + INGESTION_MAX_SERIALIZED_NAME_LENGTH + ":16000000}")
+  private int maxSerializedNameLength;
 
   @Autowired private GMSConfiguration gmsConfiguration;
 
@@ -67,12 +71,16 @@ public class RAPServletFactory {
     // Without this the limit is
     // whatever Jackson is defaulting to (5 MB currently).
     AbstractJacksonDataCodec.JSON_FACTORY.setStreamReadConstraints(
-        StreamReadConstraints.builder().maxStringLength(maxSerializedStringLength).build());
+        StreamReadConstraints.builder()
+            .maxStringLength(maxSerializedStringLength)
+            .maxNameLength(maxSerializedNameLength)
+            .build());
     // !!!!!!! IMPORTANT !!!!!!!
 
     RestLiConfig config = new RestLiConfig();
     config.setDocumentationRequestHandler(new DefaultDocumentationRequestHandler());
     config.setResourcePackageNames("com.linkedin.metadata.resources");
+    config.addFilter(new RestliThrottleResponseFilter());
     config.addFilter(new RestliLoggingFilter());
 
     RestLiServer restLiServer = new RestLiServer(config, springInjectResourceFactory, parseqEngine);

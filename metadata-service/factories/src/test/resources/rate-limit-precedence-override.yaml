@@ -1,0 +1,7 @@
+# Test fixture: a mounted RATE_LIMITS_CONFIG_FILE override. Sets a scalar that also has a bundled
+# default in application.yaml (minRetryAfterSeconds), to prove the override property source wins.
+# Deliberately does NOT set retryAfterJitterPercent, to prove unset keys keep the bundled default.
+datahub:
+  gms:
+    rateLimits:
+      minRetryAfterSeconds: 120

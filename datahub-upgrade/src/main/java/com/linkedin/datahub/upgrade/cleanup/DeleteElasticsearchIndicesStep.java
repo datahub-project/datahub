@@ -16,6 +16,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.Request;
@@ -62,6 +63,7 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      OperationContext opContext = context.opContext();
       try {
         SearchClientShim<?> client = esComponents.getSearchClient();
         IndexConvention convention = esComponents.getIndexConvention();
@@ -69,22 +71,26 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
 
         // Entity search indices (V2/V3) — enumerate concrete names before deleting
         for (String pattern : convention.getAllEntityIndicesPatterns()) {
-          deleteIndicesByPattern(client, pattern);
+          deleteIndicesByPattern(opContext, client, pattern);
         }
 
         // Timeseries aspect indices
-        deleteIndicesByPattern(client, convention.getAllTimeseriesAspectIndicesPattern());
+        deleteIndicesByPattern(
+            opContext, client, convention.getAllTimeseriesAspectIndicesPattern());
 
         // Well-known named indices
-        safeDeleteIndex(client, convention.getIndexName(ElasticSearchGraphService.INDEX_NAME));
         safeDeleteIndex(
-            client, convention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME));
+            opContext, client, convention.getIndexName(ElasticSearchGraphService.INDEX_NAME));
+        safeDeleteIndex(
+            opContext,
+            client,
+            convention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME));
 
         // Usage event resources (data stream/alias, template, ILM/ISM policy)
-        deleteUsageEventResources(client, convention, isOpenSearch);
+        deleteUsageEventResources(opContext, client, convention, isOpenSearch);
 
         // Security roles and users created by the ES setup job
-        deleteSecurityResources(client, convention, isOpenSearch);
+        deleteSecurityResources(opContext, client, convention, isOpenSearch);
 
         log.info("Elasticsearch cleanup completed successfully");
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -99,12 +105,13 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
    * Resolves a glob pattern to concrete index names and deletes each by exact name. This avoids
    * issuing a wildcard DELETE, which would be unsafe on shared clusters.
    */
-  private void deleteIndicesByPattern(SearchClientShim<?> client, String pattern) {
+  private void deleteIndicesByPattern(
+      OperationContext opContext, SearchClientShim<?> client, String pattern) {
     try {
       GetIndexResponse response =
-          client.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+          client.getIndex(opContext, new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       for (String indexName : response.getIndices()) {
-        safeDeleteIndex(client, indexName);
+        safeDeleteIndex(opContext, client, indexName);
       }
     } catch (ResponseException e) {
       if (e.getResponse().getStatusLine().getStatusCode() == 404) {
@@ -121,9 +128,10 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
     }
   }
 
-  private void safeDeleteIndex(SearchClientShim<?> client, String indexName) {
+  private void safeDeleteIndex(
+      OperationContext opContext, SearchClientShim<?> client, String indexName) {
     try {
-      String tracked = IndexDeletionUtils.deleteIndex(client, indexName);
+      String tracked = IndexDeletionUtils.deleteIndex(client, opContext, indexName);
       if (tracked != null) {
         log.info("Deleted index/alias {}", indexName);
       } else {
@@ -136,56 +144,73 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
 
   /** Deletes usage event data streams, index templates, and ILM/ISM policies. */
   private void deleteUsageEventResources(
-      SearchClientShim<?> client, IndexConvention convention, boolean isOpenSearch) {
+      OperationContext opContext,
+      SearchClientShim<?> client,
+      IndexConvention convention,
+      boolean isOpenSearch) {
     String dataStreamName = convention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
     String templateName = convention.getIndexName("datahub_usage_event_index_template");
     String policyName = convention.getIndexName("datahub_usage_event_policy");
 
     if (isOpenSearch) {
-      safeDeleteLowLevel(client, "/" + dataStreamName, "usage event alias");
-      safeDeleteLowLevel(client, "/_index_template/" + templateName, "usage event index template");
-      safeDeleteLowLevel(client, "/_plugins/_ism/policies/" + policyName, "ISM policy (plugins)");
+      safeDeleteLowLevel(opContext, client, "/" + dataStreamName, "usage event alias");
       safeDeleteLowLevel(
-          client, "/_opendistro/_ism/policies/" + policyName, "ISM policy (opendistro)");
+          opContext, client, "/_index_template/" + templateName, "usage event index template");
+      safeDeleteLowLevel(
+          opContext, client, "/_plugins/_ism/policies/" + policyName, "ISM policy (plugins)");
+      safeDeleteLowLevel(
+          opContext, client, "/_opendistro/_ism/policies/" + policyName, "ISM policy (opendistro)");
     } else {
-      safeDeleteLowLevel(client, "/_data_stream/" + dataStreamName, "usage event data stream");
-      safeDeleteLowLevel(client, "/_index_template/" + templateName, "usage event index template");
-      safeDeleteLowLevel(client, "/_ilm/policy/" + policyName, "ILM policy");
+      safeDeleteLowLevel(
+          opContext, client, "/_data_stream/" + dataStreamName, "usage event data stream");
+      safeDeleteLowLevel(
+          opContext, client, "/_index_template/" + templateName, "usage event index template");
+      safeDeleteLowLevel(opContext, client, "/_ilm/policy/" + policyName, "ILM policy");
     }
   }
 
   /** Deletes the security role and user created by the ES setup job. */
   private void deleteSecurityResources(
-      SearchClientShim<?> client, IndexConvention convention, boolean isOpenSearch) {
+      OperationContext opContext,
+      SearchClientShim<?> client,
+      IndexConvention convention,
+      boolean isOpenSearch) {
     String roleName = convention.getIndexName("access");
     String username = EnvironmentUtils.getString("CREATE_USER_ES_USERNAME");
 
     if (isOpenSearch) {
       safeDeleteLowLevel(
-          client, "/_plugins/_security/api/rolesmapping/" + roleName, "OpenSearch role mapping");
+          opContext,
+          client,
+          "/_plugins/_security/api/rolesmapping/" + roleName,
+          "OpenSearch role mapping");
       safeDeleteLowLevel(
+          opContext,
           client,
           "/_opendistro/_security/api/rolesmapping/" + roleName,
           "OpenSearch role mapping (opendistro)");
       if (username != null && !username.isEmpty()) {
         safeDeleteLowLevel(
+            opContext,
             client,
             "/_opendistro/_security/api/internalusers/" + username,
             "OpenSearch internal user");
       }
-      safeDeleteLowLevel(client, "/_opendistro/_security/api/roles/" + roleName, "OpenSearch role");
+      safeDeleteLowLevel(
+          opContext, client, "/_opendistro/_security/api/roles/" + roleName, "OpenSearch role");
     } else {
       if (username != null && !username.isEmpty()) {
-        safeDeleteLowLevel(client, "/_security/user/" + username, "Elasticsearch user");
+        safeDeleteLowLevel(opContext, client, "/_security/user/" + username, "Elasticsearch user");
       }
-      safeDeleteLowLevel(client, "/_security/role/" + roleName, "Elasticsearch role");
+      safeDeleteLowLevel(opContext, client, "/_security/role/" + roleName, "Elasticsearch role");
     }
   }
 
   /** Performs a low-level DELETE request, logging but not throwing on 404. */
-  private void safeDeleteLowLevel(SearchClientShim<?> client, String endpoint, String description) {
+  private void safeDeleteLowLevel(
+      OperationContext opContext, SearchClientShim<?> client, String endpoint, String description) {
     try {
-      performDelete(client, endpoint);
+      performDelete(opContext, client, endpoint);
       log.info("Deleted {}: {}", description, endpoint);
     } catch (ResponseException e) {
       int status = e.getResponse().getStatusLine().getStatusCode();
@@ -199,10 +224,11 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
     }
   }
 
-  private void performDelete(SearchClientShim<?> client, String endpoint) throws Exception {
+  private void performDelete(
+      OperationContext opContext, SearchClientShim<?> client, String endpoint) throws Exception {
     log.info("DELETE => {}", endpoint);
     Request request = new Request("DELETE", endpoint);
-    RawResponse response = client.performLowLevelRequest(request);
+    RawResponse response = client.performLowLevelRequest(opContext, request);
     int statusCode = response.getStatusLine().getStatusCode();
     if (statusCode >= 400) {
       throw new RuntimeException("DELETE " + endpoint + " returned HTTP " + statusCode);

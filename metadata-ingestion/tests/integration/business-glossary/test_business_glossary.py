@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -36,7 +36,7 @@ def get_default_recipe(
         (True, "glossary_events_auto_id_golden.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_glossary_ingest(
     mock_datahub_graph_instance,
@@ -70,7 +70,7 @@ def test_glossary_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_single_owner_types(
     mock_datahub_graph_instance,
@@ -101,7 +101,7 @@ def test_single_owner_types(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_same_type(
     mock_datahub_graph_instance,
@@ -134,7 +134,7 @@ def test_multiple_owners_same_type(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_different_types(
     mock_datahub_graph_instance,
@@ -167,7 +167,7 @@ def test_multiple_owners_different_types(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_custom_ownership_urns(
     mock_datahub_graph_instance,
@@ -198,7 +198,7 @@ def test_custom_ownership_urns(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_url_cleaning(
     mock_datahub_graph_instance,

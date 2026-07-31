@@ -2,7 +2,7 @@
 
 Demo Data is a DataHub utility or metadata-focused integration. Learn more in the [official Demo Data documentation](https://datahub.com/docs/).
 
-The DataHub integration for Demo Data covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Demo Data covers metadata entities and operational objects relevant to this connector. It ingests pre-built sample metadata to populate a DataHub instance for demonstration purposes.
 
 ## Concept Mapping
 

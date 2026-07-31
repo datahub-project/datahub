@@ -1,5 +1,6 @@
 import { Dropdown } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
@@ -95,6 +96,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOptions, setSelectedOptions] = useState<OptionType[]>(initialValues);
     const [stagedOptions, setStagedOptions] = useState<OptionType[]>(initialValues);
@@ -323,7 +325,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         <SelectLabelRenderer
                             selectedValues={selectedOptions.map((o) => o.value)}
                             options={options}
-                            placeholder={placeholder || 'Select an option'}
+                            placeholder={placeholder || t('select.placeholder')}
                             isMultiSelect={isMultiSelect}
                             removeOption={(option) => removeOptions([option], true)}
                             {...(selectLabelProps || {})}

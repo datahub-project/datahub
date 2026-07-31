@@ -1,10 +1,10 @@
 import { Pill, Text } from '@components';
 import { Skeleton } from 'antd';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { pluralize } from '@src/app/shared/textUtil';
 import dayjs from '@utils/dayjs';
 
 const HeaderContainer = styled.div`
@@ -27,6 +27,7 @@ type TimelineHeaderProps = {
 };
 
 export default function TimelineHeader({ day, numberOfChanges, loading }: TimelineHeaderProps) {
+    const { t } = useTranslation('entity.profile.stats');
     const formattedDay = useMemo(() => dayjs(day).format('LL'), [day]);
 
     if (!day) return null;
@@ -40,7 +41,10 @@ export default function TimelineHeader({ day, numberOfChanges, loading }: Timeli
                 <PillSkeleton shape="round" active />
             ) : (
                 <Pill
-                    label={`${abbreviateNumber(numberOfChanges)} ${pluralize(numberOfChanges, 'Change')}`}
+                    label={t('timelineHeader.changesCount', {
+                        count: numberOfChanges,
+                        formattedCount: abbreviateNumber(numberOfChanges),
+                    })}
                     color="primary"
                     size="xs"
                     clickable={false}

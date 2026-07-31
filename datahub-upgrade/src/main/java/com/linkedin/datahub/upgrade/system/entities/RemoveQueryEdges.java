@@ -92,7 +92,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
         deleteQuery.filter(QueryBuilders.termQuery("source.entityType", QUERY_ENTITY_NAME));
 
         try {
-          esWriteDAO.deleteByQuerySync(indexName, deleteQuery, deleteConfig);
+          esWriteDAO.deleteByQuerySync(opContext, indexName, deleteQuery, deleteConfig);
           BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } catch (Exception e) {

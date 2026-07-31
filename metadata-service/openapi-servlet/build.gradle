@@ -13,6 +13,7 @@ dependencies {
   implementation project(':metadata-service:schema-registry-api')
   implementation project (':metadata-service:openapi-servlet:models')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:rate-limit')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
@@ -47,6 +48,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
+  // Spring Boot 4.0: WebMvc test slice moved to separate module
+  testImplementation externalDependency.springBootWebMvcTest
   testImplementation project(':mock-entity-registry')
   testImplementation testFixtures(project(':metadata-io'))
   testImplementation externalDependency.springBoot

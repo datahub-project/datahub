@@ -1,3 +1,7 @@
+---
+description: "DataHub Lite is a lightweight, embeddable build of DataHub with no external dependencies, designed for local CLI and scripting use."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

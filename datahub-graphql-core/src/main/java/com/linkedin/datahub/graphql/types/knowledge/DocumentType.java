@@ -50,7 +50,8 @@ public class DocumentType
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-          Constants.DOCUMENTATION_ASPECT_NAME);
+          Constants.DOCUMENTATION_ASPECT_NAME,
+          Constants.SEMANTIC_TEXT_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

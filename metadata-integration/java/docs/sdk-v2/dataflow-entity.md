@@ -1,3 +1,7 @@
+---
+description: "Create and manage DataFlow entities for Airflow, Spark, dbt, and other orchestrated pipelines using the DataHub Java SDK V2."
+---
+
 # DataFlow Entity
 
 The `DataFlow` entity represents a data processing pipeline or workflow in DataHub. It models orchestrated workflows from tools like Apache Airflow, Apache Spark, dbt, Apache Flink, and other data orchestration platforms.

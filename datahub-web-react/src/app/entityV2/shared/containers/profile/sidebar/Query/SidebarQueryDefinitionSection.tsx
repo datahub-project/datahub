@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -29,6 +30,7 @@ const DefinitionName = styled.span`
 `;
 
 export default function SidebarQueryDefinitionSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const query = useBaseEntity<{ entity: QueryEntity | null }>()?.entity;
     const entityRegistry = useEntityRegistry();
 
@@ -41,7 +43,7 @@ export default function SidebarQueryDefinitionSection() {
 
     return (
         <SidebarSection
-            title="Definition"
+            title={t('sidebar.query.definitionTitle')}
             content={
                 <>
                     <DefinitionLink to={entityRegistry.getEntityUrl(origin.type, origin.urn)}>

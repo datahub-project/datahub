@@ -25,6 +25,7 @@ export interface MFEConfig {
 
 // MFESchema: The overall config schema.
 export interface MFESchema {
+    topLevelMenuTitle: string;
     subNavigationMode: boolean;
     microFrontends: MFEConfig[];
 }

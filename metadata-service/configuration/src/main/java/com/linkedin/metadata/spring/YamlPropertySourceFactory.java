@@ -19,6 +19,11 @@ public class YamlPropertySourceFactory implements PropertySourceFactory {
 
     Properties properties = factory.getObject();
 
-    return new PropertiesPropertySource(encodedResource.getResource().getFilename(), properties);
+    // Honor an explicit @PropertySource(name=...) when given so callers can disambiguate sources
+    // that share a filename (e.g. a mounted override named the same as the bundled default).
+    // Falls back to the filename to preserve existing behavior for nameless @PropertySource usage.
+    String sourceName =
+        (name != null && !name.isEmpty()) ? name : encodedResource.getResource().getFilename();
+    return new PropertiesPropertySource(sourceName, properties);
   }
 }

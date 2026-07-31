@@ -1,3 +1,4 @@
+# Service account authentication (default)
 source:
   type: bigquery
   config:
@@ -19,3 +20,46 @@ source:
 
 sink:
   # sink configs
+
+---
+# Workload Identity Federation with configuration file
+source:
+  type: bigquery
+  config:
+    auth_type: workload_identity_federation
+    gcp_wif_configuration: "/path/to/gcp_wif_configuration.json"
+    include_table_lineage: true
+    include_usage_statistics: true
+
+---
+# Workload Identity Federation with inline configuration (dict)
+source:
+  type: bigquery
+  config:
+    auth_type: workload_identity_federation
+    gcp_wif_configuration_json:
+      type: external_account
+      audience: "//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID"
+      subject_token_type: "urn:ietf:params:oauth:token-type:jwt"
+      token_url: "https://sts.googleapis.com/v1/token"
+      credential_source:
+        file: "/var/run/secrets/tokens/gcp-ksa/token"
+      service_account_impersonation_url: "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/SERVICE_ACCOUNT_EMAIL:generateAccessToken"
+
+---
+# Workload Identity Federation with JSON string (copy-paste from file)
+source:
+  type: bigquery
+  config:
+    auth_type: workload_identity_federation
+    gcp_wif_configuration_json_string: |
+      {
+        "type": "external_account",
+        "audience": "//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_url": "https://sts.googleapis.com/v1/token",
+        "credential_source": {
+          "file": "/var/run/secrets/tokens/gcp-ksa/token"
+        },
+        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/SERVICE_ACCOUNT_EMAIL:generateAccessToken"
+      }

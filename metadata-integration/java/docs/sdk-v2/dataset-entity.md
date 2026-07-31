@@ -1,3 +1,7 @@
+---
+description: "Use the DataHub Java SDK V2 to create and manage Dataset entities representing tables, views, files, and Kafka topics."
+---
+
 # Dataset Entity
 
 The Dataset entity represents collections of data with a common schema (tables, views, files, topics, etc.). This guide covers comprehensive dataset operations in SDK V2.

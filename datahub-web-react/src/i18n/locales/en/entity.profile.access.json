@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Access already granted",
+    "accessManagement.accessGrantedTooltip": "You already have access to this role",
+    "accessManagement.columnAccess": "Access",
+    "accessManagement.columnAccessType": "Access Type",
+    "accessManagement.columnRoleName": "Role Name",
+    "accessManagement.granted": "Granted",
+    "accessManagement.request": "Request",
+    "accessManagement.requestAccess": "Request access",
+    "accessManagement.tableAriaLabel": "Access management roles table"
+}

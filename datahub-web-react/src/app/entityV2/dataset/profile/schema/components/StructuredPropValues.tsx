@@ -59,6 +59,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
                     })}
                     {hasMoreValues && (
                         <Tooltip title={tooltipContent} showArrow={false}>
+                            {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) decorative more-indicator ellipsis */}
                             <MoreIndicator>...</MoreIndicator>
                         </Tooltip>
                     )}

@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Redshift Configuration
 ---
 
 # Configuring Your Redshift Connector to DataHub

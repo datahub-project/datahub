@@ -1,33 +1,16 @@
-import { useUserContext } from '@src/app/context/useUserContext';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 import { RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES } from '@src/app/entityV2/shared/constants';
-import { useListRecommendationsQuery } from '@src/graphql/recommendations.generated';
-import { Entity, ScenarioType } from '@src/types.generated';
-
-const LIMIT_OF_RECOMMENDATIONS = 5;
+import { Entity } from '@src/types.generated';
 
 interface Response {
     entities: Entity[];
     loading: boolean;
 }
 
-export default function useRecentlyViewedEntities(skip?: boolean): Response {
-    const { user, loaded } = useUserContext();
+export default function useRecentlyViewedEntities(): Response {
+    const { modules, loading } = useHomeRecommendations();
 
-    const { data, loading } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: user?.urn as string,
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: LIMIT_OF_RECOMMENDATIONS,
-            },
-        },
-        fetchPolicy: 'cache-first',
-        skip: skip || !user?.urn,
-    });
-
-    const viewedModule = data?.listRecommendations?.modules?.find(
+    const viewedModule = modules?.find(
         (module) => module.moduleId === RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,
     );
 
@@ -36,5 +19,5 @@ export default function useRecentlyViewedEntities(skip?: boolean): Response {
             .map((content) => content.entity)
             .filter((entity): entity is Entity => entity?.type !== undefined) || [];
 
-    return { entities, loading: loading || loaded };
+    return { entities, loading };
 }

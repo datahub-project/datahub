@@ -89,6 +89,7 @@ describe('Service Account Cache Utils', () => {
                                 createdBy: null,
                                 createdAt: null,
                                 updatedAt: null,
+                                defaultView: null,
                                 roles: {
                                     __typename: 'EntityRelationshipsResult',
                                     start: 0,
@@ -171,6 +172,7 @@ describe('Service Account Cache Utils', () => {
                                 createdBy: null,
                                 createdAt: null,
                                 updatedAt: null,
+                                defaultView: null,
                                 roles: {
                                     __typename: 'EntityRelationshipsResult',
                                     start: 0,
@@ -189,6 +191,7 @@ describe('Service Account Cache Utils', () => {
                                 createdBy: null,
                                 createdAt: null,
                                 updatedAt: null,
+                                defaultView: null,
                                 roles: {
                                     __typename: 'EntityRelationshipsResult',
                                     start: 0,

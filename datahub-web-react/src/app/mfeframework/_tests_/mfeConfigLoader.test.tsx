@@ -1,7 +1,10 @@
 import { render, waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
+import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import themes from '@conf/theme/themes';
 
 /**
  * Test Isolation and Mocking Strategy
@@ -347,7 +350,13 @@ describe('mfeConfigLoader', () => {
         mockReactRouter();
         mockMFEBasePage();
         const { MFERoutes } = await import('../mfeConfigLoader');
-        const { container } = render(<MFERoutes />);
+        // NoPageFound (the catch-all route) reads theme.colors via styled-components,
+        // so MFERoutes must render inside a theme provider.
+        const { container } = render(
+            <ThemeProvider theme={themes.themeV2}>
+                <MFERoutes />
+            </ThemeProvider>,
+        );
         await waitFor(() => {
             expect(container.textContent).toContain('Route: /mfe/example-mfe-item');
             expect(container.textContent).toContain('Route: /mfe/myapp-mfe');

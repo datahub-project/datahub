@@ -3,16 +3,16 @@ package com.linkedin.datahub.upgrade.cleanup;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 
-import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import io.ebean.Database;
 import java.lang.reflect.Field;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -185,6 +185,8 @@ public class CleanupUpgradeConfigTest {
         "localhost",
         3306,
         "testdb",
-        false);
+        null,
+        false,
+        null);
   }
 }

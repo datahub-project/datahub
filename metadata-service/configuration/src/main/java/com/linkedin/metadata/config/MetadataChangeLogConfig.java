@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,8 +18,17 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MetadataChangeLogConfig {
 
-  /** Consumer configuration for MCL processing */
   private ConsumerBatchConfig consumer;
+  private ThrottleConfig throttle;
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder(toBuilder = true)
+  @Accessors(chain = true)
+  public static class ThrottleConfig {
+    private TimeseriesWriteThrottleConfiguration timeseries;
+  }
 
   @Data
   @NoArgsConstructor
@@ -26,7 +36,6 @@ public class MetadataChangeLogConfig {
   @Builder(toBuilder = true)
   @Accessors(chain = true)
   public static class ConsumerBatchConfig {
-    /** Batch processing configuration */
     private BatchConfig batch;
   }
 
@@ -36,10 +45,15 @@ public class MetadataChangeLogConfig {
   @Builder(toBuilder = true)
   @Accessors(chain = true)
   public static class BatchConfig {
-    /** Whether batch processing is enabled */
     private boolean enabled;
 
-    /** Maximum batch size in bytes */
+    /** Maximum cumulative raw payload bytes per batch */
     private Integer size;
+
+    /** Maximum number of messages per batch */
+    private Integer maxMessages;
+
+    /** Maximum age (linger) in milliseconds before a partial batch is flushed */
+    private Long maxAgeMs;
   }
 }

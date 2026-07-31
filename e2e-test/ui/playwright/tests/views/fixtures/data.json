@@ -1,0 +1,140 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightViewsTestTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Test glossary term for Playwright views testing",
+              "name": "PlaywrightViewsTestTerm",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,PlaywrightViewsTest1,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Test dataset 1 for views filter testing",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "test_schema_1",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "modified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "test_field_1",
+                  "nullable": false,
+                  "description": "Test field 1",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false,
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:PlaywrightViewsTestTerm"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,PlaywrightViewsTest2,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Test dataset 2 for views filter testing",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "test_schema_2",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "modified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "test_field_2",
+                  "nullable": false,
+                  "description": "Test field 2",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false,
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:PlaywrightViewsTestTerm"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

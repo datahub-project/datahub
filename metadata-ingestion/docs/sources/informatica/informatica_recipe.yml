@@ -1,0 +1,97 @@
+source:
+  type: informatica
+  config:
+    # -------------------------------------------------------------------------
+    # Connection
+    # -------------------------------------------------------------------------
+
+    # Regional login URL for your IDMC pod. The connector discovers the runtime
+    # API URL from the login response. Common values:
+    #   US     https://dm-us.informaticacloud.com
+    #   US2    https://dm2-us.informaticacloud.com
+    #   EMEA   https://dm-em.informaticacloud.com
+    #   APAC   https://dm-ap.informaticacloud.com
+    login_url: "https://dm-us.informaticacloud.com"
+
+    # IDMC service account. Prefer a dedicated user with the Observer role
+    # plus "Asset - export" (required for lineage, see README).
+    username: "${IDMC_USERNAME}"
+    password: "${IDMC_PASSWORD}"
+
+    # Optional: group entities into a platform instance if you ingest more than
+    # one IDMC org/pod into the same DataHub instance.
+    # platform_instance: "idmc_prod"
+    # env: "PROD"
+
+    # -------------------------------------------------------------------------
+    # Filtering — combine any or all three layers
+    # -------------------------------------------------------------------------
+
+    # Layer 1 (recommended for large orgs): only ingest objects tagged in IDMC
+    # with at least one of these names. Tags are matched exactly.
+    # Applies to Projects, Folders, Taskflows, and Mapping Tasks only —
+    # Mappings and Connections are always fetched in full regardless of this filter.
+    # tag_filter_names: ["datahub", "critical"]
+
+    # Layer 2: filter by project/folder name (regex).
+    # project_pattern:
+    #   allow:
+    #     - "^Production_.*"
+    #   deny:
+    #     - ".*_sandbox$"
+    # folder_pattern:
+    #   allow:
+    #     - ".*"
+
+    # Layer 3: filter by mapping/taskflow name (regex, applied across all matches).
+    # mapping_pattern:
+    #   allow:
+    #     - ".*"
+    # taskflow_pattern:
+    #   allow:
+    #     - ".*"
+
+    # -------------------------------------------------------------------------
+    # Features
+    # -------------------------------------------------------------------------
+
+    # Requires the "Asset - export" privilege on the service account.
+    extract_lineage: true
+
+    # Derives owners from IDMC createdBy/updatedBy fields.
+    extract_ownership: true
+
+    # Emits IDMC object tags as DataHub GlobalTags on Projects, Folders,
+    # Taskflows, and Mapping Tasks. Defaults to true — tags will be ingested
+    # even if this field is not specified.
+    extract_tags: true
+
+    # -------------------------------------------------------------------------
+    # Connection → platform overrides
+    # -------------------------------------------------------------------------
+
+    # Use when IDMC reports a connection type the connector doesn't know about.
+    # Keys are IDMC connection IDs; values are DataHub platform names.
+    # connection_type_overrides:
+    #   "01DM180B000000000008": "snowflake"
+
+    # -------------------------------------------------------------------------
+    # Performance (tune for large orgs)
+    # -------------------------------------------------------------------------
+
+    # page_size: 200                 # v3 objects per page (max 200)
+    # export_batch_size: 1000        # mappings per export job (max 1000)
+    # export_poll_timeout_secs: 300  # seconds to wait for an export job
+    # export_poll_interval_secs: 5   # seconds between export polls
+
+    # -------------------------------------------------------------------------
+    # Stateful ingestion — recommended for automatic stale-entity removal
+    # -------------------------------------------------------------------------
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

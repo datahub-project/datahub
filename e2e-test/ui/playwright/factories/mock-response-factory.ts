@@ -8,10 +8,7 @@
  */
 
 export type { GraphQLResponse, GraphQLErrorResponse } from './mock-responses/common';
-export {
-  createErrorResponse,
-  createSuccessResponse,
-} from './mock-responses/common';
+export { createErrorResponse, createSuccessResponse } from './mock-responses/common';
 export { createSearchResponse } from './mock-responses/search';
 export { createDatasetResponse } from './mock-responses/dataset';
 
@@ -22,10 +19,7 @@ import type { GraphQLResponse, GraphQLErrorResponse } from './mock-responses/com
 
 /** @deprecated Use the named function exports from factories/mock-responses/ instead. */
 export class MockResponseFactory {
-  static createSearchResponse(
-    entities: Record<string, unknown>[],
-    total: number,
-  ): GraphQLResponse {
+  static createSearchResponse(entities: Record<string, unknown>[], total: number): GraphQLResponse {
     return createSearchResponse(entities, total);
   }
 
@@ -33,10 +27,7 @@ export class MockResponseFactory {
     return createDatasetResponse(dataset);
   }
 
-  static createErrorResponse(
-    message: string,
-    code: string = 'INTERNAL_SERVER_ERROR',
-  ): GraphQLErrorResponse {
+  static createErrorResponse(message: string, code: string = 'INTERNAL_SERVER_ERROR'): GraphQLErrorResponse {
     return createErrorResponse(message, code);
   }
 

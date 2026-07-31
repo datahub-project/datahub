@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -78,10 +79,8 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     mockEntityClient = mock(EntityClient.class);
     mockEnvironment = mock(DataFetchingEnvironment.class);
     mockQueryContext = getMockAllowContext();
-    mockOperationContext = mock(OperationContext.class);
+    mockOperationContext = mockQueryContext.getOperationContext();
 
-    when(mockQueryContext.getOperationContext()).thenReturn(mockOperationContext);
-    when(mockOperationContext.withSearchFlags(any())).thenReturn(mockOperationContext);
     when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
 
     resolver =
@@ -247,11 +246,11 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     // Then: Should handle gracefully
     assertNotNull(result);
 
-    // Verify service was called with all searchable entity types (default when none specified)
+    // Verify service was called with configured default searchable entity types
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
-            anyList(), // Should be all searchable entity types, not empty list
+            argThat(types -> types != null && !types.isEmpty()),
             eq("analytics"),
             any(),
             anyList(),
@@ -441,7 +440,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
                             new CriterionArray(
                                 new Criterion()
                                     .setField("platform")
-                                    .setValue("snowflake")
+                                    .setValues(new StringArray("snowflake"))
                                     .setCondition(Condition.EQUAL)))));
     DataHubViewInfo viewInfo =
         new DataHubViewInfo()
@@ -729,11 +728,11 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     CompletableFuture<SearchResults> resultFuture = resolver.get(mockEnvironment);
     resultFuture.get();
 
-    // Then: Should call semantic search with default searchable entity types
+    // Then: Should call semantic search with configured default searchable entity types
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
-            anyList(), // Should be all searchable entity types
+            argThat(types -> types != null && !types.isEmpty()),
             eq("data"),
             any(),
             anyList(),

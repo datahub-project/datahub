@@ -3,12 +3,14 @@ namespace com.linkedin.assertion
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
  */
 @Aspect = {
-  "name": "assertionInfo"
+  "name": "assertionInfo",
+  "schemaVersion": 4
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
@@ -16,7 +18,8 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldName": "assertionType",
-      "fieldType": "KEYWORD"
+      "fieldType": "KEYWORD",
+      "addToFilters": true
     }
     type: AssertionType
 
@@ -93,4 +96,13 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * The UI will render this in markdown format.
     */
     note: optional AssertionNote
+
+    /**
+    * The entity targeted by this assertion. Automatically populated from the type-specific assertion definition.
+    */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "entity"
+    }
+    entityUrn: optional Urn
 }

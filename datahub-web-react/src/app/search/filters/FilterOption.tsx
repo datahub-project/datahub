@@ -58,7 +58,7 @@ const StyledCheckbox = styled(Checkbox)`
     }
     .ant-checkbox-checked {
         .ant-checkbox-inner {
-            border-color: ${(props) => props.theme.styles['primary-color']};
+            border-color: ${(props) => props.theme.colors.borderBrand};
         }
     }
 `;

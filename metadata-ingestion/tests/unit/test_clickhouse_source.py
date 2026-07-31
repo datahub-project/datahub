@@ -1,6 +1,8 @@
 import pytest
+from sqlalchemy.engine.url import make_url
 
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
 
 
 def test_clickhouse_uri_https():
@@ -13,10 +15,15 @@ def test_clickhouse_uri_https():
             "uri_opts": {"protocol": "https"},
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "clickhouse://user:password@host:1111/db?protocol=https"
-    )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.drivername == "clickhouse"
+    assert url.username == "user"
+    assert url.password == "password"
+    assert url.host == "host"
+    assert url.port == 1111
+    assert url.database == "db"
+    assert url.query.get("protocol") == "https"
+    assert url.query.get("header__User-Agent") == CLICKHOUSE_CLIENT_NAME
 
 
 def test_clickhouse_uri_native():
@@ -28,7 +35,10 @@ def test_clickhouse_uri_native():
             "scheme": "clickhouse+native",
         }
     )
-    assert config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111"
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.drivername == "clickhouse+native"
+    assert url.query.get("client_name") == CLICKHOUSE_CLIENT_NAME
+    assert "header__User-Agent" not in url.query
 
 
 def test_clickhouse_uri_native_secure():
@@ -42,10 +52,9 @@ def test_clickhouse_uri_native_secure():
             "uri_opts": {"secure": True},
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "clickhouse+native://user:password@host:1111/db?secure=True"
-    )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("secure") == "True"
+    assert url.query.get("client_name") == CLICKHOUSE_CLIENT_NAME
 
 
 def test_clickhouse_uri_default_password():
@@ -57,7 +66,9 @@ def test_clickhouse_uri_default_password():
             "scheme": "clickhouse+native",
         }
     )
-    assert config.get_sql_alchemy_url() == "clickhouse+native://user@host:1111/db"
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.password is None
+    assert url.query.get("client_name") == CLICKHOUSE_CLIENT_NAME
 
 
 def test_clickhouse_uri_native_secure_backward_compatibility():
@@ -71,10 +82,9 @@ def test_clickhouse_uri_native_secure_backward_compatibility():
             "secure": True,
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "clickhouse+native://user:password@host:1111/db?secure=True"
-    )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("secure") == "True"
+    assert url.query.get("client_name") == CLICKHOUSE_CLIENT_NAME
 
 
 def test_clickhouse_uri_https_backward_compatibility():
@@ -87,10 +97,32 @@ def test_clickhouse_uri_https_backward_compatibility():
             "protocol": "https",
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "clickhouse://user:password@host:1111/db?protocol=https"
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("protocol") == "https"
+    assert url.query.get("header__User-Agent") == CLICKHOUSE_CLIENT_NAME
+
+
+def test_clickhouse_uri_preserves_user_supplied_ua():
+    config = ClickHouseConfig.model_validate(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1111",
+            "database": "db",
+            "uri_opts": {"header__User-Agent": "mycorp"},
+        }
     )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("header__User-Agent") == "mycorp"
+
+
+def test_clickhouse_sqlalchemy_uri_gets_client_identity():
+    # A hand-written sqlalchemy_uri (the docs-preferred form) is still tagged.
+    config = ClickHouseConfig.model_validate(
+        {"sqlalchemy_uri": "clickhouse://user:password@host:1111/db"}
+    )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("header__User-Agent") == CLICKHOUSE_CLIENT_NAME
 
 
 # Query log extraction tests

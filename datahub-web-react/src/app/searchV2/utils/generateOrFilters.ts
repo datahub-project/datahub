@@ -50,7 +50,12 @@ export function generateOrFilters(
     const finalFilters: FacetFilterInput[] = filterOutAllEqualsFilters(filters);
     filters.filter(isAllEqualsFilter).forEach((filterToSplit) => {
         filterToSplit.values?.forEach((value) => {
-            finalFilters.push({ ...filterToSplit, value, values: [value], condition: FilterOperator.Equal });
+            finalFilters.push({
+                field: filterToSplit.field,
+                values: [value],
+                condition: FilterOperator.Equal,
+                negated: filterToSplit.negated,
+            });
         });
     });
 

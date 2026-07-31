@@ -30,7 +30,8 @@ const clickOnMoreOption = () => {
   cy.get('[data-testid="dropdown-menu-item"]').first().click();
 };
 
-describe("create announcement and link post", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("create announcement and link post", () => {
   beforeEach(() => {
     cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showHomePageRedesign = false;

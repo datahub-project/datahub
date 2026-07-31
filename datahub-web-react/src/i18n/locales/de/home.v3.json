@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Standard-Startseite der Organisation wird bearbeitet",
+    "header.discoverLabel": "Entdecken",
+    "error.failedToAddSummaryElement": "Zusammenfassungselement konnte nicht hinzugefügt werden",
+    "error.failedToRemoveSummaryElement": "Zusammenfassungselement konnte nicht entfernt werden",
+    "error.failedToReplaceSummaryElement": "Zusammenfassungselement konnte nicht ersetzt werden",
+    "error.noTemplateAvailable": "Keine Vorlage zum Aktualisieren verfügbar",
+    "toast.editedDescription": "Um deine Startseite zurückzusetzen, klicke auf \"Auf Organisationsstandard zurücksetzen\"",
+    "toast.editedTitle": "Du hast deine Startseite bearbeitet"
+}

@@ -1,3 +1,7 @@
+---
+description: "Developer documentation for DataHub's semantic search, which uses vector embeddings to enable natural language search over metadata."
+---
+
 # DataHub Semantic Search
 
 This directory contains documentation for DataHub's semantic search capability, which enables natural language search across metadata entities using vector embeddings.

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { VIEW_ENTITY_TYPES } from '@app/entityV2/view/builder/constants';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
@@ -12,8 +14,12 @@ import { EntityType } from '@types';
 export const viewBuilderProperties: Property[] = [
     {
         id: '_entityType',
-        displayName: 'Type',
-        description: 'The type of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.type');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.typeDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
@@ -22,8 +28,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'typeNames',
-        displayName: 'Sub Type',
-        description: 'The sub type of the asset (e.g. Table, View, Topic).',
+        get displayName() {
+            return i18next.t('entity.views:prop.subType');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.subTypeDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             aggregationField: 'typeNames',
@@ -32,8 +42,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'platform',
-        displayName: 'Platform',
-        description: 'The data platform where the asset lives.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.platform');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.platformDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.DataPlatform],
@@ -42,8 +56,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'owners',
-        displayName: 'Owner',
-        description: 'The owners of an asset.',
+        get displayName() {
+            return i18next.t('entity.views:prop.owner');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.ownerDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
@@ -52,8 +70,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'domains',
-        displayName: 'Domain',
-        description: 'The domain that the asset is a part of.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.domain');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.domainDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Domain],
@@ -62,8 +84,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'dataProducts',
-        displayName: 'Data Product',
-        description: 'The data product the asset belongs to.',
+        get displayName() {
+            return i18next.t('entity.views:prop.dataProduct');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.dataProductDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.DataProduct],
@@ -72,8 +98,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'tags',
-        displayName: 'Tags',
-        description: 'The tags applied to an asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.tags');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.tagsAppliedDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Tag],
@@ -82,8 +112,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'glossaryTerms',
-        displayName: 'Glossary Terms',
-        description: 'The glossary terms applied to an asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.glossaryTerms');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.glossaryTermsAppliedDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.GlossaryTerm],
@@ -92,8 +126,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'container',
-        displayName: 'Container',
-        description: 'The parent container of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.container');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.containerDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Container],
@@ -102,14 +140,22 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'fieldPaths',
-        displayName: 'Column Name',
-        description: 'The name of a schema field / column.',
+        get displayName() {
+            return i18next.t('entity.views:prop.columnName');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.columnNameDesc');
+        },
         valueType: ValueTypeId.STRING,
     },
     {
         id: 'fieldTags',
-        displayName: 'Column Tag',
-        description: 'Tags applied to a schema field / column.',
+        get displayName() {
+            return i18next.t('entity.views:prop.columnTag');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.columnTagDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Tag],
@@ -118,8 +164,12 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'fieldGlossaryTerms',
-        displayName: 'Column Glossary Term',
-        description: 'Glossary terms applied to a schema field / column.',
+        get displayName() {
+            return i18next.t('entity.views:prop.columnGlossaryTerm');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.columnGlossaryTermDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.GlossaryTerm],
@@ -128,46 +178,85 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'hasDescription',
-        displayName: 'Has Description',
-        description: 'Whether the asset has a description.',
+        get displayName() {
+            return i18next.t('entity.views:prop.hasDescription');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.hasDescriptionDesc');
+        },
         valueType: ValueTypeId.BOOLEAN,
     },
     {
         id: 'removed',
-        displayName: 'Soft Deleted',
-        description: 'Whether the asset has been soft deleted.',
+        get displayName() {
+            return i18next.t('entity.views:prop.softDeleted');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.softDeletedDesc');
+        },
         valueType: ValueTypeId.BOOLEAN,
     },
     {
         id: 'hasActiveIncidents',
-        displayName: 'Has Active Incidents',
-        description: 'Whether the asset has active incidents.',
+        get displayName() {
+            return i18next.t('entity.views:prop.hasActiveIncidents');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.hasActiveIncidentsDesc');
+        },
         valueType: ValueTypeId.BOOLEAN,
     },
     {
         id: 'hasFailingAssertions',
-        displayName: 'Has Failing Assertions',
-        description: 'Whether the asset has failing data quality assertions.',
+        get displayName() {
+            return i18next.t('entity.views:prop.hasFailingAssertions');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.hasFailingAssertionsDesc');
+        },
         valueType: ValueTypeId.BOOLEAN,
     },
     {
         id: 'origin',
-        displayName: 'Environment',
-        description: 'The environment / origin of the asset (e.g. PROD, DEV).',
+        get displayName() {
+            return i18next.t('entity.views:prop.environment');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.environmentDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
             options: [
-                { id: 'PROD', displayName: 'Production' },
-                { id: 'DEV', displayName: 'Development' },
-                { id: 'STAGING', displayName: 'Staging' },
+                {
+                    id: 'PROD',
+                    get displayName() {
+                        return i18next.t('entity.views:prop.environmentProd');
+                    },
+                },
+                {
+                    id: 'DEV',
+                    get displayName() {
+                        return i18next.t('entity.views:prop.environmentDev');
+                    },
+                },
+                {
+                    id: 'STAGING',
+                    get displayName() {
+                        return i18next.t('entity.views:prop.environmentStaging');
+                    },
+                },
             ],
         },
     },
     {
         id: 'platformInstance',
-        displayName: 'Platform Instance',
-        description: 'The specific platform instance where the asset lives.',
+        get displayName() {
+            return i18next.t('entity.views:prop.platformInstance');
+        },
+        get description() {
+            return i18next.t('entity.views:prop.platformInstanceDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             aggregationField: 'platformInstance',

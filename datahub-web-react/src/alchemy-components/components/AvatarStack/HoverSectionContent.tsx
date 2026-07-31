@@ -1,5 +1,6 @@
 import { Avatar, Button } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -25,6 +26,7 @@ interface Props {
 }
 
 const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, type }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const [expanded, setExpanded] = useState(false);
 
     const visibleAvatars = expanded ? avatars : avatars.slice(0, maxVisible);
@@ -59,7 +61,7 @@ const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, ty
             </PillsContainer>
             {hasMore && (
                 <Button variant="text" size="sm" color="gray" onClick={() => setExpanded((prev) => !prev)}>
-                    {expanded ? 'View less' : 'View more'}
+                    {expanded ? tc('viewLess') : tc('viewMore')}
                 </Button>
             )}
         </div>

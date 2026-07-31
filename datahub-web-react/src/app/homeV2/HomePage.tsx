@@ -6,7 +6,6 @@ import { useRedirectToIntroduceYourself } from '@app/homeV2/introduce/useRedirec
 import { CenterContent } from '@app/homeV2/layout/CenterContent';
 import { LeftSidebar } from '@app/homeV2/layout/LeftSidebar';
 import { RightSidebar } from '@app/homeV2/layout/RightSidebar';
-import { NavBarStateType, useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import PersonalizationLoadingModal from '@app/homeV2/persona/PersonalizationLoadingModal';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
@@ -35,16 +34,10 @@ export const HomePage = () => {
     useRedirectToIntroduceYourself();
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { setDefaultNavBarState } = useNavBarContext();
 
     useEffect(() => {
         analytics.event({ type: EventType.HomePageViewEvent });
     }, []);
-
-    useEffect(() => {
-        setDefaultNavBarState(NavBarStateType.Opened);
-        return () => setDefaultNavBarState(NavBarStateType.Collapsed);
-    });
 
     return (
         <>

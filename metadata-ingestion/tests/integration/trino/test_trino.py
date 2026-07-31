@@ -5,11 +5,6 @@ import requests
 import time_machine
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -36,10 +31,10 @@ def trino_runner(docker_compose_runner, pytestconfig):
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
-            check=lambda: requests.get("http://localhost:5300/v1/info").json()[
-                "starting"
-            ]
-            is False,
+            check=lambda: (
+                requests.get("http://localhost:5300/v1/info").json()["starting"]
+                is False
+            ),
         )
 
         yield docker_services
@@ -58,9 +53,7 @@ def loaded_trino(trino_runner):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
@@ -93,18 +86,6 @@ def test_trino_ingest(
                         include_field_histogram=True,
                         include_field_sample_values=True,
                     ),
-                    classification=ClassificationConfig(
-                        enabled=True,
-                        classifiers=[
-                            DynamicTypedClassifierConfig(
-                                type="datahub",
-                                config=DataHubClassifierConfig(
-                                    minimum_values_threshold=1,
-                                ),
-                            )
-                        ],
-                        max_workers=1,
-                    ),
                     catalog_to_connector_details={
                         "postgresqldb": ConnectorDetail(
                             connector_database="postgres",
@@ -133,9 +114,7 @@ def test_trino_ingest(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_hive_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
     mce_out_file = "trino_hive_mces.json"
     events_file = tmp_path / mce_out_file
@@ -149,18 +128,6 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
-                classification=ClassificationConfig(
-                    enabled=True,
-                    classifiers=[
-                        DynamicTypedClassifierConfig(
-                            type="datahub",
-                            config=DataHubClassifierConfig(
-                                minimum_values_threshold=1,
-                            ),
-                        )
-                    ],
-                    max_workers=1,
-                ),
             ).model_dump(),
         },
         "sink": {
@@ -201,7 +168,7 @@ def test_trino_hive_ingest(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino, test_resources_dir, pytestconfig, tmp_path
 ):
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file

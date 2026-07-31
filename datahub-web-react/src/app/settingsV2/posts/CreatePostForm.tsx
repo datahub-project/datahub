@@ -1,5 +1,6 @@
 import { Editor } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
@@ -31,14 +32,26 @@ type Props = {
 };
 
 export default function CreatePostForm({ formData, onChange }: Props) {
+    const { t } = useTranslation('settings.posts');
+
     return (
         <form onSubmit={(e) => e.preventDefault()}>
             <FormField>
-                <Label>Content Type</Label>
+                <Label>{t('contentTypeLabel')}</Label>
                 <TabButtons
                     tabs={[
-                        { key: PostContentType.Text, label: 'Announcement', content: null },
-                        { key: PostContentType.Link, label: 'Pinned Link', content: null },
+                        {
+                            key: PostContentType.Text,
+                            label: t('announcementTab'),
+                            content: null,
+                            dataTestId: 'post-type-announcement',
+                        },
+                        {
+                            key: PostContentType.Link,
+                            label: t('pinnedLinkTab'),
+                            content: null,
+                            dataTestId: 'post-type-pinned-link',
+                        },
                     ]}
                     activeTab={formData.type}
                     onTabClick={(key) => onChange('type', key as PostContentType)}
@@ -47,9 +60,9 @@ export default function CreatePostForm({ formData, onChange }: Props) {
 
             <FormField>
                 <Input
-                    label="Title"
+                    label={t('titleLabel')}
                     inputTestId="create-post-title"
-                    placeholder="Your title"
+                    placeholder={t('titlePlaceholder')}
                     value={formData.title}
                     setValue={(val) => onChange('title', val)}
                     isRequired
@@ -58,7 +71,7 @@ export default function CreatePostForm({ formData, onChange }: Props) {
 
             {formData.type === PostContentType.Text && (
                 <FormField>
-                    <Label>Description</Label>
+                    <Label>{t('descriptionLabel')}</Label>
                     <StyledEditor
                         className="create-post-description"
                         doNotFocus
@@ -72,9 +85,9 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                 <>
                     <FormField>
                         <Input
-                            label="Link URL"
+                            label={t('linkUrlLabel')}
                             inputTestId="create-post-link"
-                            placeholder="Your link URL"
+                            placeholder={t('linkUrlPlaceholder')}
                             value={formData.link}
                             setValue={(val) => onChange('link', val)}
                         />
@@ -82,16 +95,16 @@ export default function CreatePostForm({ formData, onChange }: Props) {
 
                     <FormField>
                         <Input
-                            label="Image URL"
+                            label={t('imageUrlLabel')}
                             inputTestId="create-post-media-location"
-                            placeholder="Your image URL"
+                            placeholder={t('imageUrlPlaceholder')}
                             value={formData.location}
                             setValue={(val) => onChange('location', val)}
                         />
                     </FormField>
 
                     <FormField>
-                        <Label>Description</Label>
+                        <Label>{t('descriptionLabel')}</Label>
                         <StyledEditor
                             doNotFocus
                             content={formData.description || undefined}

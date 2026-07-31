@@ -1,16 +1,30 @@
 import {
-    ALL_CATEGORY_OPTIONS,
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
     CATEGORY_STRUCTURED_PROPERTY,
+    CATEGORY_VERSIONING,
+    CategoryOption,
     filterChangeEntries,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
 
+const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
+    { value: ChangeCategoryType.TechnicalSchema, label: 'Schema' },
+    { value: ChangeCategoryType.Documentation, label: 'Documentation' },
+    { value: ChangeCategoryType.Tag, label: 'Tags' },
+    { value: ChangeCategoryType.GlossaryTerm, label: 'Terms' },
+    { value: ChangeCategoryType.Ownership, label: 'Owners' },
+    { value: CATEGORY_DOMAIN, label: 'Domains' },
+    { value: CATEGORY_STRUCTURED_PROPERTY, label: 'Properties' },
+    { value: CATEGORY_APPLICATION, label: 'Applications' },
+    { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
+    { value: CATEGORY_VERSIONING, label: 'Versions' },
+];
+
 describe('getCategoryOptions', () => {
-    it('returns all 8 categories for datasets', () => {
+    it('returns all 9 categories for datasets', () => {
         const options = getCategoryOptions(EntityType.Dataset);
         const values = options.map((o) => o.value);
 
@@ -23,10 +37,11 @@ describe('getCategoryOptions', () => {
             CATEGORY_DOMAIN,
             CATEGORY_STRUCTURED_PROPERTY,
             CATEGORY_APPLICATION,
+            CATEGORY_VERSIONING,
         ]);
     });
 
-    it('returns Documentation, Terms, Owners, Domains, Properties, Applications for glossary terms', () => {
+    it('returns Documentation, Terms, Owners, Domains, Properties, Applications, Versions for glossary terms', () => {
         const options = getCategoryOptions(EntityType.GlossaryTerm);
         const values = options.map((o) => o.value);
 
@@ -37,6 +52,7 @@ describe('getCategoryOptions', () => {
             CATEGORY_DOMAIN,
             CATEGORY_STRUCTURED_PROPERTY,
             CATEGORY_APPLICATION,
+            CATEGORY_VERSIONING,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
         expect(values).not.toContain(ChangeCategoryType.Tag);

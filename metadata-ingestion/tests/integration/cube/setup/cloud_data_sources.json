@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data_sources": [
+      {
+        "name": "default",
+        "type": "postgres",
+        "database": "analytics",
+        "schema": "public"
+      }
+    ]
+  }
+}

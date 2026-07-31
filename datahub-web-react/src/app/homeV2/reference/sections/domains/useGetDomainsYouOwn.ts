@@ -21,7 +21,6 @@ export const useGetDomainsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_T
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn as string],
                     },
                 ],

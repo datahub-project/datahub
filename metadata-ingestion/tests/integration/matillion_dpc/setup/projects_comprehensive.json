@@ -1,0 +1,13 @@
+{
+  "results": [
+    {
+      "id": "proj-1",
+      "name": "Full Feature Project",
+      "description": "Project with all features",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

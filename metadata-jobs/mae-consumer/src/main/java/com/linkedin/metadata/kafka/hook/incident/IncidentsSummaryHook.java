@@ -59,7 +59,6 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
 
-  private OperationContext systemOperationContext;
   private final IncidentService incidentService;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
@@ -89,7 +88,6 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   @Override
   public IncidentsSummaryHook init(@Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
     return this;
   }
 
@@ -99,15 +97,17 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog event) {
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event)
+      throws Exception {
     if (isEnabled && isEligibleForProcessing(event)) {
       log.debug("Urn {} received by Incident Summary Hook.", event.getEntityUrn());
-      final Urn urn = HookUtils.getUrnFromEvent(event, systemOperationContext.getEntityRegistry());
+      final Urn urn = HookUtils.getUrnFromEvent(event, operationContext.getEntityRegistry());
       // Handle the deletion case.
       if (isIncidentSoftDeleted(event)) {
-        handleIncidentSoftDeleted(urn);
+        handleIncidentSoftDeleted(operationContext, urn);
       } else if (isIncidentUpdate(event)) {
-        handleIncidentUpdated(event, urn);
+        handleIncidentUpdated(operationContext, event, urn);
       }
     }
   }
@@ -115,10 +115,10 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   /**
    * Handles an incident deletion by removing the incident from either resolved or active incidents.
    */
-  private void handleIncidentSoftDeleted(@Nonnull final Urn incidentUrn) {
+  private void handleIncidentSoftDeleted(
+      @Nonnull OperationContext operationContext, @Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info.
-    IncidentInfo incidentInfo =
-        incidentService.getIncidentInfo(systemOperationContext, incidentUrn);
+    IncidentInfo incidentInfo = incidentService.getIncidentInfo(operationContext, incidentUrn);
 
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
@@ -127,7 +127,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
       // 3. For each urn, resolve the entity incidents aspect and remove from active and resolved
       // incidents.
       for (Urn entityUrn : incidentEntities) {
-        removeIncidentFromSummary(incidentUrn, entityUrn);
+        removeIncidentFromSummary(operationContext, incidentUrn, entityUrn);
       }
     } else {
       log.warn(
@@ -139,10 +139,12 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   /** Handle an incident update by adding to either resolved or active incidents for an entity. */
   private void handleIncidentUpdated(
-      @Nonnull final MetadataChangeLog event, @Nonnull final Urn incidentUrn) {
+      @Nonnull OperationContext operationContext,
+      @Nonnull final MetadataChangeLog event,
+      @Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info + status
     final IncidentInfo incidentInfo =
-        incidentService.getIncidentInfo(systemOperationContext, incidentUrn);
+        incidentService.getIncidentInfo(operationContext, incidentUrn);
 
     final IncidentInfo previousInfo;
     if (event.getAspectName().equals(INCIDENT_INFO_ASPECT_NAME)
@@ -169,7 +171,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
                 .collect(Collectors.toSet());
         if (!removedFromEntities.isEmpty()) {
           for (Urn entityUrn : removedFromEntities) {
-            removeIncidentFromSummary(incidentUrn, entityUrn);
+            removeIncidentFromSummary(operationContext, incidentUrn, entityUrn);
           }
         }
       }
@@ -177,7 +179,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
       // 3. For each urn, resolve the entity incidents aspect and add to active or resolved
       // incidents.
       for (Urn entityUrn : incidentEntities) {
-        addIncidentToSummary(incidentUrn, entityUrn, incidentInfo);
+        addIncidentToSummary(operationContext, incidentUrn, entityUrn, incidentInfo);
       }
     } else {
       log.warn(
@@ -189,16 +191,18 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   /** Removes an incident to the IncidentSummary aspect for a related entity. */
   private void removeIncidentFromSummary(
-      @Nonnull final Urn incidentUrn, @Nonnull final Urn entityUrn) {
+      @Nonnull OperationContext operationContext,
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final Urn entityUrn) {
     // 1. Fetch the latest incident summary for the entity
-    IncidentsSummary summary = getIncidentsSummary(entityUrn);
+    IncidentsSummary summary = getIncidentsSummary(operationContext, entityUrn);
 
     // 2. Remove the incident from active and resolved incidents
     IncidentsSummaryUtils.removeIncidentFromResolvedSummary(incidentUrn, summary);
     IncidentsSummaryUtils.removeIncidentFromActiveSummary(incidentUrn, summary);
 
     // 3. Emit the change back!
-    updateIncidentSummary(entityUrn, summary);
+    updateIncidentSummary(operationContext, entityUrn, summary);
   }
 
   /**
@@ -206,11 +210,12 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
    * entity by active and resolved incidents.
    */
   private void addIncidentToSummary(
+      @Nonnull OperationContext operationContext,
       @Nonnull final Urn incidentUrn,
       @Nonnull final Urn entityUrn,
       @Nonnull final IncidentInfo info) {
     // 1. Fetch the latest incident summary for the entity
-    IncidentsSummary summary = getIncidentsSummary(entityUrn);
+    IncidentsSummary summary = getIncidentsSummary(operationContext, entityUrn);
     IncidentStatus status = info.getStatus();
     IncidentSummaryDetails details = buildIncidentSummaryDetails(incidentUrn, info);
 
@@ -231,13 +236,14 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     }
 
     // 3. Emit the change back!
-    updateIncidentSummary(entityUrn, summary);
+    updateIncidentSummary(operationContext, entityUrn, summary);
   }
 
   @Nonnull
-  private IncidentsSummary getIncidentsSummary(@Nonnull final Urn entityUrn) {
+  private IncidentsSummary getIncidentsSummary(
+      @Nonnull OperationContext operationContext, @Nonnull final Urn entityUrn) {
     IncidentsSummary maybeIncidentsSummary =
-        incidentService.getIncidentsSummary(systemOperationContext, entityUrn);
+        incidentService.getIncidentsSummary(operationContext, entityUrn);
     return maybeIncidentsSummary == null
         ? new IncidentsSummary()
             .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
@@ -299,9 +305,11 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   /** Updates the incidents summary for a given entity */
   private void updateIncidentSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) {
+      @Nonnull OperationContext operationContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final IncidentsSummary newSummary) {
     try {
-      incidentService.updateIncidentsSummary(systemOperationContext, entityUrn, newSummary);
+      incidentService.updateIncidentsSummary(operationContext, entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
           String.format(

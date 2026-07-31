@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -14,6 +15,7 @@ import { EntityType } from '@types';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 export const GroupsYouAreIn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -34,8 +36,8 @@ export const GroupsYouAreIn = ({ hideIfEmpty, trackClickInSection }: ReferenceSe
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your groups"
-                tip="The groups or teams you are part of"
+                title={t('yourGroups.title')}
+                tip={t('yourGroups.tip')}
                 showMore={entities.length > entityCount}
                 showMoreCount={
                     entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW > entities.length

@@ -6,31 +6,83 @@ source:
     port: 9047
     tls: true
 
-    # Credentials with personal access token(recommended)
+    # Credentials — Personal Access Token (recommended)
+    # The user must have READ METADATA and SELECT ON SYSTEM privileges.
     authentication_method: PAT
     password: pass
-    # OR Credentials with basic auth
+    # OR basic auth:
     # authentication_method: password
     # username: user
     # password: pass
 
-    #For cloud instance
-    #is_dremio_cloud: True
-    #dremio_cloud_project_id: <project_id>
+    # For Dremio Cloud instances
+    # is_dremio_cloud: True
+    # dremio_cloud_project_id: <project_id>
 
-    include_query_lineage: True
-
+    # Extract ownership information
     ingest_owner: true
 
-    #Optional
+    # --- Lineage ---
+
+    # Enable query-based lineage (reads SYS.JOBS_RECENT)
+    include_query_lineage: true
+
+    # Emit lineage as PATCH rather than full-replace, preserving any
+    # lineage edges added manually in the DataHub UI between runs.
+    # Defaults to false; set true if your GMS supports patch aspects.
+    incremental_lineage: false
+
+    # --- Incremental properties ---
+
+    # Emit dataset properties as PATCH rather than full-replace, so
+    # descriptions and tags set in the DataHub UI are not overwritten on
+    # subsequent runs. Particularly useful when Dremio acts as a semantic
+    # layer on top of raw sources that are re-documented in DataHub.
+    incremental_properties: false
+
+    # --- Stateful ingestion (checkpointing) ---
+
+    # Stateful ingestion records a checkpoint after each run so that
+    # subsequent runs can skip already-processed data and remove stale entities.
+    stateful_ingestion:
+      enabled: true
+
+    # Advance the query lineage extraction window to start from the end of
+    # the previous run, avoiding re-processing job history already ingested.
+    # Requires stateful_ingestion to be configured.
+    enable_stateful_time_window: false
+
+    # --- Profiling ---
+
+    profiling:
+      enabled: false
+      # Skip re-profiling tables that DataHub profiled within this many days.
+      # Dremio has no table modification timestamps, so this is compared against
+      # the last-profiled time rather than last-modified time.
+      # Requires stateful_ingestion to be enabled.
+      # profile_if_updated_since_days: 1
+
+    # --- Filtering ---
+
+    # Optional: map Dremio sources to external platforms for cross-source lineage
     source_mappings:
       - platform: s3
         source_name: samples
 
-    #Optional
+    # Optional: register Dremio source types not yet in the built-in map
+    # (e.g. Dremio ARP connectors). Scoped to this recipe.
+    # source_type_mappings:
+    #   MYNEWCONNECTOR:        # Dremio source type (case-insensitive)
+    #     platform: myplatform # DataHub platform name to emit
+    #     category: database   # optional: "database" or "file_object_storage"
+
+    # Optional: restrict ingestion to specific schemas or datasets
     schema_pattern:
       allow:
-        - "<source_name>.<table_name>"
+        - "<source_name>.*"
+    dataset_pattern:
+      allow:
+        - "<source_name>.<schema>.*"
 
 sink:
   # sink configs

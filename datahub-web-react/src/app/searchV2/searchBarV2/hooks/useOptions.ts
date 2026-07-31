@@ -34,7 +34,7 @@ export default function useOptions(
     }, [isDataLoading, previousIsLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions(skipRecommendations);
-    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions(skipRecommendations);
+    const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
 
     const initialOptions = useMemo(() => {
         return [...recentlyViewedEntitiesOptions, ...recentlySearchedQueriesOptions];

@@ -55,16 +55,16 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -80,11 +80,11 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
   private static final Urn TEST_URN_1 = UrnUtils.getUrn("urn:li:assertion:test-123");
   private static final Urn TEST_URN_2 = UrnUtils.getUrn("urn:li:assertion:test-456");
 
+  @MockitoBean private ConsistencyService mockConsistencyService;
+
   @Autowired private ConsistencyController consistencyController;
 
   @Autowired private MockMvc mockMvc;
-
-  @Autowired private ConsistencyService mockConsistencyService;
 
   @Autowired private AuthorizerChain authorizerChain;
 
@@ -1224,7 +1224,6 @@ public class ConsistencyControllerTest extends AbstractTestNGSpringContextTests 
 
   @TestConfiguration
   public static class ConsistencyControllerTestConfig {
-    @MockBean public ConsistencyService consistencyService;
 
     @Bean
     public ObjectMapper objectMapper() {

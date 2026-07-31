@@ -1,3 +1,5 @@
+import ColorTheme from '@conf/theme/colorThemes/types';
+
 // General types
 export enum SizeValues {
     xs = 'xs',
@@ -80,7 +82,7 @@ export enum FontSizeValues {
 }
 export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
-export type FontColorOptions = MiscColorOptions | ColorOptions | (string & Record<never, never>);
+export type FontColorOptions = MiscColorOptions | ColorOptions | keyof ColorTheme;
 export type FontColorLevelOptions = keyof Color;
 
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';

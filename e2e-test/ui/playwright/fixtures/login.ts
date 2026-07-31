@@ -5,12 +5,15 @@
  * All other modules that need to locate an auth file must import from here
  * rather than constructing paths inline.
  *
- * Files produced by auth.setup.ts:
+ * Files written by loginFixture (login.fixture.ts) on first use:
  *   .auth/{username}.json           — Playwright storageState (browser cookies + localStorage)
  *   .auth/gms-token-{username}.json — GMS personal access token (for REST/GraphQL API calls)
  *
- * NOTE: The old `test` export (UI-login fixture) has been removed. All
- * authentication is now managed by base-test.ts via per-user storageState.
+ * There is NO separate auth-setup project required. loginFixture handles
+ * authentication lazily on the first test run per worker and caches the
+ * results to .auth/. Subsequent tests reuse the cached session directly.
+ * auth.setup.ts exists only for manual pre-population of the .auth/ files
+ * and is intentionally excluded from the default project via testIgnore.
  */
 
 import * as fs from 'fs';

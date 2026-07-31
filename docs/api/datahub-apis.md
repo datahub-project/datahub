@@ -1,3 +1,7 @@
+---
+description: "Compare DataHub's APIs (GraphQL, OpenAPI, Python SDK, Java SDK, CLI) to choose the right interface for managing metadata in your use case."
+---
+
 # DataHub APIs and SDKs Overview
 
 DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
@@ -12,7 +16,11 @@ DataHub has several APIs to manipulate metadata on the platform. Here's the list
 In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance, especially for programmatic use cases.
 
 :::warning
-About async usage of APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
+About async MCP ingest — When you submit MCPs through GMS APIs with `async=true` (Rest.li `ingestProposal`, OpenAPI entity writes, and SDK clients that target those endpoints), GMS runs the full proposal validation pipeline **before** accepting the request. That includes schema checks, entity-level authorization (`isAPIAuthorized`), and registered aspect payload validators (for example tag privilege constraints and aspect-specific authorization such as `logicalParent`). Unauthorized or invalid proposals are rejected synchronously with 403/422 and are **not** published to Kafka.
+
+Async only means GMS does not commit the write to primary storage at accept time. Instead it publishes the MCP to the MetadataChangeProposal topic; the MCE consumer applies it later with `async=false`. Failures that occur during that later processing (for example pre-commit validation or storage errors) are captured on the Failed MCP topic and are not surfaced to the original API caller.
+
+**Do not confuse async GMS ingest with direct Kafka produce.** Writing MCPs directly to the MetadataChangeProposal topic bypasses GMS accept-time authorization and validation. The MCE consumer processes those messages under system context and is not a second user-authorization gate. Restrict Kafka access accordingly.
 :::
 
 ## Python and Java SDK

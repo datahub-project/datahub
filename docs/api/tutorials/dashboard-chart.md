@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for creating and managing Dashboard and Chart entities in DataHub using the GraphQL and Python APIs."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

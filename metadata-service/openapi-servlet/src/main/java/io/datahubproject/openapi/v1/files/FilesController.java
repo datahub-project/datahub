@@ -4,7 +4,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,10 +12,12 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.aws.S3Util;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class FilesController {
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("s3Util")
   private S3Util s3Util;
 
@@ -98,6 +99,10 @@ public class FilesController {
     }
 
     try {
+      if (s3Util == null) {
+        log.error("S3Util bean is not available; S3 is not configured");
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
       String bucket = configProvider.getDatahub().getS3().getBucketName();
       if (bucket == null) {
         log.error("S3 bucket name not configured");
@@ -141,7 +146,8 @@ public class FilesController {
     return OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder()
-            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames),
+            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames)
+            .withUsageOperation(UsageOperation.METADATA_READ),
         authorizationChain,
         authentication,
         true);
@@ -166,7 +172,7 @@ public class FilesController {
     try {
       response =
           entityService.getEntityV2(
-              systemOperationContext,
+              opContext,
               Constants.DATAHUB_FILE_ENTITY_NAME,
               fileUrn,
               new HashSet<>(Collections.singleton(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)),
@@ -215,7 +221,8 @@ public class FilesController {
   private void validateAssetReadPermissions(
       DataHubFileInfo fileInfo, OperationContext opContext, Authentication authentication) {
     Urn relatedUrn = fileInfo.getReferencedByAsset();
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, Collections.singleton(relatedUrn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, READ, Collections.singleton(relatedUrn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "

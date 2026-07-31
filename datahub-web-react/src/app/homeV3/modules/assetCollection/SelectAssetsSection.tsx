@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DynamicSelectAssetsTab from '@app/homeV3/modules/assetCollection/DynamicSelectAssetsTab';
@@ -31,10 +32,12 @@ const SelectAssetsSection = ({
     dynamicFilter,
     setDynamicFilter,
 }: Props) => {
+    const { t } = useTranslation('modules');
+
     const tabs: Tab[] = [
         {
             key: SELECT_ASSET_TYPE_MANUAL,
-            label: 'Select Assets',
+            label: t('assetCollection.selectAssetsTab'),
             content: (
                 <ManualSelectAssetsTab
                     selectedAssetUrns={selectedAssetUrns}
@@ -44,7 +47,7 @@ const SelectAssetsSection = ({
         },
         {
             key: SELECT_ASSET_TYPE_DYNAMIC,
-            label: 'Dynamic Filter',
+            label: t('assetCollection.dynamicFilterTab'),
             content: <DynamicSelectAssetsTab dynamicFilter={dynamicFilter} setDynamicFilter={setDynamicFilter} />,
         },
     ];

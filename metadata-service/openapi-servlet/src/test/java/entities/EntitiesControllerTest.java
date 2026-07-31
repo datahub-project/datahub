@@ -70,6 +70,7 @@ public class EntitiesControllerTest {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
     when(aspectDao.runInTransactionWithRetry(
+            any(OperationContext.class),
             ArgumentMatchers
                 .<Function<TransactionContext, TransactionResult<List<UpdateAspectResult>>>>any(),
             any(AspectsBatch.class),
@@ -77,7 +78,7 @@ public class EntitiesControllerTest {
         .thenAnswer(
             i ->
                 ((Function<TransactionContext, TransactionResult<IngestAspectsResult>>)
-                        i.getArgument(0))
+                        i.getArgument(1))
                     .apply(TransactionContext.empty(Mockito.mock(Transaction.class), 0))
                     .getResults());
     doReturn(Pair.of(Optional.empty(), Optional.empty()))

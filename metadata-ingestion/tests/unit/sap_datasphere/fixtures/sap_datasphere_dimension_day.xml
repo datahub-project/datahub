@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="SAP_TIME_VIEW_DIMENSION_DAY" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="SAP_TIME_VIEW_DIMENSION_DAY">
+        <Key><PropertyRef Name="DATE_SQL"/></Key>
+        <Property Name="DATE_SQL" Type="Edm.Date" Nullable="false"/>
+        <Property Name="DATE_SAP" Type="Edm.String" MaxLength="8"/>
+        <Property Name="CALMONTH" Type="Edm.String" MaxLength="6"/>
+        <Property Name="MONTH" Type="Edm.String" MaxLength="2"/>
+        <Property Name="YEAR" Type="Edm.String" MaxLength="4"/>
+        <Property Name="DAY_INT" Type="Edm.Byte"/>
+        <Property Name="AMOUNT" Type="Edm.Decimal" Precision="10" Scale="2"/>
+      </EntityType>
+      <Annotations Target="SAP_TIME_VIEW_DIMENSION_DAY.SAP_TIME_VIEW_DIMENSION_DAY">
+        <Annotation Term="Common.Label" String="Time Dimension - Day"/>
+        <Annotation Term="Analytics.dimensionType" EnumMember="Analytics.DimensionType/Time"/>
+      </Annotations>
+      <Annotations Target="SAP_TIME_VIEW_DIMENSION_DAY.SAP_TIME_VIEW_DIMENSION_DAY/DATE_SQL">
+        <Annotation Term="Common.Label" String="Date"/>
+        <Annotation Term="Common.IsCalendarDate"/>
+      </Annotations>
+      <Annotations Target="SAP_TIME_VIEW_DIMENSION_DAY.SAP_TIME_VIEW_DIMENSION_DAY/CALMONTH">
+        <Annotation Term="Common.Label" String="Calendar Month"/>
+        <Annotation Term="Common.IsCalendarMonth"/>
+      </Annotations>
+      <Annotations Target="SAP_TIME_VIEW_DIMENSION_DAY.SAP_TIME_VIEW_DIMENSION_DAY/YEAR">
+        <Annotation Term="Common.Label" String="Year"/>
+        <Annotation Term="Common.IsCalendarYear"/>
+      </Annotations>
+      <Annotations Target="SAP_TIME_VIEW_DIMENSION_DAY.SAP_TIME_VIEW_DIMENSION_DAY/AMOUNT">
+        <Annotation Term="Common.IsCurrency"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

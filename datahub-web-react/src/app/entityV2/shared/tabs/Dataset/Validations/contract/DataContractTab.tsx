@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { DataContractEmptyState } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
 import { getAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { ContractStructuredPropertiesSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/ContractStructuredPropertiesSummary';
+import { DataContractEmptyState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
 import { DataContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummary';
 import { DataQualityContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
 import { FreshnessContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
 import { SchemaContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
 import { DataContractBuilderModal } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal';
+import { createBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 
 import { useGetDatasetContractQuery } from '@graphql/contract.generated';
 import { DataContract, DataContractState } from '@types';
@@ -116,6 +117,7 @@ export const DataContractTab = () => {
             )}
             {showContractBuilder && (
                 <DataContractBuilderModal
+                    initialState={createBuilderState(contract as DataContract | undefined)}
                     entityUrn={urn}
                     onCancel={() => setShowContractBuilder(false)}
                     onSubmit={onContractUpdate}

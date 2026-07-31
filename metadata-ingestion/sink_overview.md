@@ -1,3 +1,7 @@
+---
+description: "Overview of metadata sinks in DataHub ingestion, the destinations where extracted metadata events are written."
+---
+
 # Sinks
 
 Sinks are **destinations for metadata**.

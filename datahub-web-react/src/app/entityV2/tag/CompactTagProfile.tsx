@@ -1,5 +1,6 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -32,13 +33,14 @@ interface Props {
  * Responsible for displaying metadata about a tag
  */
 export default function CompactTagProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const { isClosed, width } = useContext(EntitySidebarContext);
 
     const tabs: EntitySidebarTab[] = [
         {
-            name: 'About',
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: defaultTabDisplayConfig,

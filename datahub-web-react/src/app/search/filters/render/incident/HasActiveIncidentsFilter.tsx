@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import BooleanMoreFilter from '@app/search/filters/render/shared/BooleanMoreFilter';
 import BooleanSearchFilter from '@app/search/filters/render/shared/BooleanSearchFilter';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
     const isSelected = activeFilters?.find((f) => f.field === 'hasActiveIncidents')?.values?.includes('true');
 
     const toggleFilter = () => {
@@ -38,8 +40,8 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon
         <>
             {scenario === FilterScenarioType.SEARCH_V1 && (
                 <BooleanSimpleSearchFilter
-                    title="Incidents"
-                    option="Has active incidents"
+                    title={t('filters.incidents.title')}
+                    option={t('filters.incidents.hasActive')}
                     isSelected={isSelected || false}
                     onSelect={toggleFilter}
                     defaultDisplayFilters
@@ -49,8 +51,8 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon
             {scenario === FilterScenarioType.SEARCH_V2_PRIMARY && (
                 <BooleanSearchFilter
                     icon={icon}
-                    title="Incidents"
-                    option="Has active incidents"
+                    title={t('filters.incidents.title')}
+                    option={t('filters.incidents.hasActive')}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}
@@ -59,8 +61,8 @@ export function HasActiveIncidentsFilter({ scenario, filter, activeFilters, icon
             {scenario === FilterScenarioType.SEARCH_V2_SECONDARY && (
                 <BooleanMoreFilter
                     icon={icon}
-                    title="Incidents"
-                    option="Has active incidents"
+                    title={t('filters.incidents.title')}
+                    option={t('filters.incidents.hasActive')}
                     initialSelected={isSelected || false}
                     onUpdate={toggleFilter}
                     count={aggregateCount}

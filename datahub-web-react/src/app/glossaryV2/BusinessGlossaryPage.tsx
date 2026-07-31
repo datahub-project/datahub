@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -24,10 +25,11 @@ const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     height: 100%;
+    min-height: 0;
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm}`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -36,6 +38,7 @@ const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BusinessGlossaryPage = () => {
+    const { t } = useTranslation('governance.glossary');
     const {
         data: termsData,
         refetch: refetchForTerms,
@@ -92,11 +95,9 @@ const BusinessGlossaryPage = () => {
                 )} */}
                 <GlossaryWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {(termsLoading || nodesLoading) && (
-                        <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
+                        <Message type="loading" content={t('list.loading')} style={{ marginTop: '10%' }} />
                     )}
-                    {(termsError || nodesError) && (
-                        <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
-                    )}
+                    {(termsError || nodesError) && <Message type="error" content={t('list.error')} />}
                     <GlossaryContentProvider
                         setIsCreateNodeModalVisible={setIsCreateNodeModalVisible}
                         setIsCreateTermModalVisible={setIsCreateTermModalVisible}
@@ -122,7 +123,6 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
-                    canSelectParentUrn={false}
                 />
             )}
         </>

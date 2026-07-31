@@ -1,5 +1,6 @@
 import { Breadcrumb } from '@components';
 import React, { useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function IngestionSourceBuilderLayout({ children }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { getCurrentStep, state, steps, goToStep, isStepVisited } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
@@ -54,13 +56,15 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             items={[
                 {
                     key: 'back',
-                    label: 'Manage Data Sources',
+                    label: t('multiStep.builder.breadcrumbManageDataSources'),
                     href: tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
                 {
                     key: 'action',
-                    label: isEditing ? 'Update Source' : 'Create Source',
+                    label: isEditing
+                        ? t('multiStep.builder.breadcrumbUpdateSource')
+                        : t('multiStep.builder.breadcrumbCreateSource'),
                     separator: <VerticalDivider type="vertical" />,
                 },
                 ...breadCrumbStepItems,

@@ -1,20 +1,20 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import com.datahub.context.OperationFingerprint;
 import java.util.function.Supplier;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
 
 /**
  * Abstract base class that provides common bulk processor functionality for search client shims.
- * This class handles the common patterns of managing multiple bulk processors with round-robin
- * distribution and URN-based consistent hashing.
+ * This class handles the common patterns of managing multiple bulk processors with URN-based
+ * consistent hashing.
  */
 @Slf4j
 public abstract class AbstractBulkProcessorShim<T> {
 
   protected int threadCount = 1;
-  protected AtomicInteger roundRobinCounter;
   protected T[] bulkProcessors;
 
   /**
@@ -23,7 +23,6 @@ public abstract class AbstractBulkProcessorShim<T> {
    */
   protected void initBulkProcessors(int threadCount, Supplier<T> processorSupplier) {
     this.threadCount = threadCount;
-    this.roundRobinCounter = new AtomicInteger(0);
 
     @SuppressWarnings("unchecked")
     T[] processors = (T[]) new Object[threadCount];
@@ -34,19 +33,17 @@ public abstract class AbstractBulkProcessorShim<T> {
   }
 
   /**
-   * Add a write request using round-robin distribution across processors. Subclasses must implement
-   * the actual processor-specific add logic.
-   */
-  public void addBulk(DocWriteRequest<?> writeRequest) {
-    int index = roundRobinCounter.getAndIncrement() % threadCount;
-    addToProcessor(bulkProcessors[index], writeRequest);
-  }
-
-  /**
    * Add a write request using URN-based consistent hashing for entity document consistency.
    * Subclasses must implement the actual processor-specific add logic.
+   *
+   * <p>The {@link OperationContext} is forwarded for wrapper-layer decoration (e.g. tenant routing
+   * on the underlying write request). The base impl ignores it — bulk batching is intrinsically
+   * cross-tenant, so per-request enrichment lives in the wrapper.
    */
-  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
+  public void addBulk(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String urn,
+      @Nonnull DocWriteRequest<?> writeRequest) {
     int index = Math.abs(urn.hashCode()) % threadCount;
     addToProcessor(bulkProcessors[index], writeRequest);
   }

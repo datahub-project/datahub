@@ -1,16 +1,59 @@
 /**
  * Derive the GMS REST URL from a DataHub frontend URL.
  * DataHub runs the frontend on :9002 and GMS on :8080 by convention.
+ * Override with GMS_URL env var for non-standard port assignments (e.g. multi-worktree setups).
  */
 export function gmsUrl(baseUrl?: string): string {
-  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002').replace(':9002', ':8080');
+  if (process.env.GMS_URL) return process.env.GMS_URL;
+  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002')
+    .replace(':10002', ':9080')
+    .replace(':9002', ':8080');
 }
 
 export const DEFAULT_TIMEOUT = 30000;
+export const LONG_TIMEOUT = DEFAULT_TIMEOUT * 3;
 export const NETWORK_IDLE_TIMEOUT = 10000;
+export const WAIT_TIMEOUT = 10000;
+export const SHORT_TIMEOUT = 5000;
+export const MODAL_TIMEOUT = 15000;
 export const ANIMATION_TIMEOUT = 500;
+export const POLL_INTERVAL = 500;
+export const UI_SYNC_DELAY = 200;
+export const TABLE_LOAD_DELAY = 500;
 
-// TEST_CREDENTIALS removed — use fixtures/users.ts (resolvedUsers) as the
+// Playwright test timeouts
+export const TIMEOUTS = {
+  LONG: 15000, // Initial page loads, element appearance
+  EXTRA_LONG: 20000, // Slow operations, async operations, dynamic content loading
+  MEDIUM: 10000, // Standard element visibility
+  SHORT: 5000, // Quick interactions, menu closes
+  OPERATION: 1500, // Async operations (document updates, searches, input debounce delays)
+  BETWEEN_OPS: 500, // Wait between sequential operations
+  QUICK: 300, // Brief pause for rendering
+  INGESTION_EXECUTION: 100000, // Ingestion source execution completion
+} as const;
+
+// Interaction delays
+export const DELAYS = {
+  TYPING: 10, // Keyboard typing speed
+  SEQUENTIAL: 50, // Sequential key presses
+} as const;
+
+// Playwright load states
+export const LOAD_STATES = {
+  DOMCONTENTLOADED: 'domcontentloaded',
+  LOAD: 'load',
+  NETWORKIDLE: 'networkidle',
+} as const;
+
+// Keyboard keys
+export const KEYS = {
+  CTRL_A: 'Control+A',
+  ENTER: 'Enter',
+  ESCAPE: 'Escape',
+} as const;
+
+// TEST_CREDENTIALS removed — use data/users.ts (users) as the
 // single source of truth for user credentials.
 
 export const ROUTES = {
@@ -21,6 +64,9 @@ export const ROUTES = {
   dashboards: '/dashboards',
   businessAttributes: '/business-attributes',
 };
+
+/** Frontend GraphQL endpoint path (Play proxy → GMS /api/graphql). */
+export const DATAHUB_GRAPHQL_PATH = '/api/v2/graphql';
 
 export const ENTITY_TYPES = {
   DATASET: 'dataset',
@@ -37,3 +83,10 @@ export const DATA_SOURCES = {
   MYSQL: 'mysql',
   SNOWFLAKE: 'snowflake',
 };
+
+// Pinned datahub CLI version for ingestion run/execute tests. Pinning a fixed
+// version keeps the executor's package resolution deterministic and fast enough
+// to finish within the test's status timeout. Must stay in sync with the
+// `config.version` pinned on the seeded execute sources in the
+// ingestion-v2/v3 fixtures.
+export const INGESTION_CLI_VERSION = '1.6.0.10';

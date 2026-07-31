@@ -726,11 +726,11 @@ public abstract class Entity {
     List<MetadataChangeProposal> patches = new ArrayList<>();
     for (com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder<?> builder :
         patchBuilders.values()) {
-      // Check if builder has operations (pathValues is protected, so we check by trying to build)
       try {
-        MetadataChangeProposal mcp = builder.build();
-        patches.add(mcp);
-        log.debug("Built accumulated patch for aspect: {}", mcp.getAspectName());
+        List<MetadataChangeProposal> mcps = builder.buildAll();
+        patches.addAll(mcps);
+        mcps.forEach(
+            mcp -> log.debug("Built accumulated patch for aspect: {}", mcp.getAspectName()));
       } catch (IllegalArgumentException e) {
         // Builder has no operations, skip
         log.debug("Skipping empty patch builder");

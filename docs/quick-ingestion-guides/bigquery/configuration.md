@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: BigQuery Configuration
 ---
 
 # Configuring Your BigQuery Connector to DataHub

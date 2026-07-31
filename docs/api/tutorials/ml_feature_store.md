@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for emitting ML feature store metadata to DataHub, including features, feature tables, and primary keys."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

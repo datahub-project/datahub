@@ -11,10 +11,7 @@ export interface GraphQLErrorResponse {
 }
 
 /** Build a generic GraphQL error response. */
-export function createErrorResponse(
-  message: string,
-  code: string = 'INTERNAL_SERVER_ERROR',
-): GraphQLErrorResponse {
+export function createErrorResponse(message: string, code: string = 'INTERNAL_SERVER_ERROR'): GraphQLErrorResponse {
   return {
     status: 200,
     body: { errors: [{ message, extensions: { code } }] },

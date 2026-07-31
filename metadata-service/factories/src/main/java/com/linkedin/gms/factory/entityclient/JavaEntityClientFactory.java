@@ -16,7 +16,6 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -28,7 +27,6 @@ import org.springframework.context.annotation.Configuration;
 public class JavaEntityClientFactory {
 
   @Bean("entityClient")
-  @Singleton
   public EntityClient entityClient(
       final @Qualifier("entityService") EntityService<?> _entityService,
       final @Qualifier("deleteEntityService") DeleteEntityService _deleteEntityService,
@@ -57,7 +55,6 @@ public class JavaEntityClientFactory {
   }
 
   @Bean("systemEntityClient")
-  @Singleton
   public SystemEntityClient systemEntityClient(
       final @Qualifier("entityService") EntityService<?> _entityService,
       final @Qualifier("deleteEntityService") DeleteEntityService _deleteEntityService,

@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.combineFilters;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
@@ -20,7 +23,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -51,7 +56,7 @@ public class SearchDocumentsResolver
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
-  private final GroupService _groupService;
+  private final ViewService _viewService;
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -71,7 +76,8 @@ public class SearchDocumentsResolver
             // Get current user and their groups for ownership filtering
             final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
             final List<Urn> userGroupUrns =
-                _groupService.getGroupsForUser(context.getOperationContext(), currentUserUrn);
+                new ArrayList<>(
+                    context.getOperationContext().getSessionActorContext().getGroupMembership());
             final List<String> userAndGroupUrns = new ArrayList<>();
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
@@ -79,8 +85,28 @@ public class SearchDocumentsResolver
             // Build filter that combines user filters with ownership constraints
             // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
             List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            // Users with MANAGE_DOCUMENTS privilege can see all unpublished documents
+            final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             Filter filter =
-                DocumentSearchFilterUtils.buildCombinedFilter(baseUserCriteria, userAndGroupUrns);
+                DocumentSearchFilterUtils.buildCombinedFilter(
+                    baseUserCriteria, userAndGroupUrns, true, canManageDocuments);
+
+            // Scope results to the active View, if one is provided. We combine the View's filter
+            // (domains, ownership, etc.) with the document filter so the Documents overview and
+            // sidebar respect the selected View, mirroring searchAcrossEntities. Entity-type
+            // intersection is intentionally omitted: this is a document-only search, so a View that
+            // does not list the "document" entity type should still scope by its field filter
+            // rather than return nothing.
+            if (input.getViewUrn() != null) {
+              final DataHubViewInfo resolvedView =
+                  resolveView(
+                      context.getOperationContext(),
+                      _viewService,
+                      UrnUtils.getUrn(input.getViewUrn()));
+              if (resolvedView != null) {
+                filter = combineFilters(filter, resolvedView.getDefinition().getFilter());
+              }
+            }
 
             // Step 1: Search using service to get URNs
             final SearchResult gmsResult;

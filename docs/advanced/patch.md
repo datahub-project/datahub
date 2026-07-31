@@ -1,3 +1,7 @@
+---
+description: "Use DataHub patch APIs to make partial updates to metadata aspects without overwriting unrelated fields on the same entity."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

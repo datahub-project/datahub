@@ -92,9 +92,8 @@ export class CleanupHelper {
     };
 
     const response = await this.graphqlHelper.executeQuery(SEARCH_ACROSS_ENTITIES_QUERY, variables);
-    const results = (response?.data?.searchAcrossEntities?.searchResults ?? []) as Array<{
-      entity: { urn: string };
-    }>;
+    const data = response?.data as Record<string, { searchResults?: Array<{ entity: { urn: string } }> }> | undefined;
+    const results = data?.searchAcrossEntities?.searchResults ?? [];
     const urns = results.map((r) => r.entity.urn);
 
     if (urns.length > 0) {
@@ -157,9 +156,8 @@ export class GlobalCleanupHelper {
 
     try {
       const response = await this.graphqlHelper.executeQuery(SEARCH_QUERY, variables);
-      const results = (response?.data?.search?.searchResults ?? []) as Array<{
-        entity: { urn: string };
-      }>;
+      const data = response?.data as Record<string, { searchResults?: Array<{ entity: { urn: string } }> }> | undefined;
+      const results = data?.search?.searchResults ?? [];
       return results.map((r) => r.entity.urn);
     } catch {
       return [];

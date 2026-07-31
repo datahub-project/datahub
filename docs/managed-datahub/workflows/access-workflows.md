@@ -1,3 +1,7 @@
+---
+description: "Use DataHub Cloud Data Access Workflows to centralize approval processes for data access requests with reviewer routing."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Data Access Workflows

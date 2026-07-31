@@ -143,8 +143,7 @@ public class SearchUsersResolverTest {
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
     input.setQuery("test");
     input.setFilters(
-        ImmutableList.of(
-            new FacetFilterInput("status", null, ImmutableList.of("ACTIVE"), false, null)));
+        ImmutableList.of(new FacetFilterInput("status", ImmutableList.of("ACTIVE"), false, null)));
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

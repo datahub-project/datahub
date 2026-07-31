@@ -1,3 +1,7 @@
+---
+description: "Executive summary of the design and architectural goals behind the DataHub Java SDK V2, covering motivations and key tradeoffs."
+---
+
 # DataHub Java SDK V2 Design Document
 
 ## Executive Summary

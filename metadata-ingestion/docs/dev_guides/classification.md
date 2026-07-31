@@ -1,6 +1,33 @@
-# Classification (Deprecated)
+---
+description: "Auto-detect glossary terms for columns during ingestion. The built-in classifier has been removed; the framework is retained for custom classifiers."
+---
 
-The classification feature enables sources to be configured to automatically predict info types for columns and use them as glossary terms. This is an explicit opt-in feature and is not enabled by default.
+# Classification
+
+The classification framework lets sources automatically predict info types for
+columns and apply them as glossary terms during ingestion. It is an explicit
+opt-in feature and is not enabled by default.
+
+:::warning Built-in classifier removed
+
+The built-in **`datahub`** classifier (`DataHubClassifier`) has been **removed**.
+It relied on the unmaintained [`acryl-datahub-classify`](https://pypi.org/project/acryl-datahub-classify/)
+library, which pinned `numpy<2` and an outdated spaCy stack and blocked dependency
+upgrades across the ingestion framework.
+
+The classification **framework** — the `Classifier` interface, the classifier
+registry, and the per-source orchestration — is retained so you can register your
+own classifier. There is no longer a classifier registered out of the box, so a
+recipe that sets `classification.enabled: true` without registering a replacement
+fails fast at startup with guidance.
+
+**If you still need the built-in classifier**, pin the last release that ships it:
+
+```shell
+pip install 'acryl-datahub==1.6.0.5'
+```
+
+:::
 
 ## Config details
 
@@ -22,433 +49,50 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | column_pattern.deny       |          | Array of string                         | List of regex patterns to exclude from ingestion.                                                                                                                                                                                                                                                                                         | []                                                         |
 | column_pattern.ignoreCase |          | boolean                                 | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                                                               | True                                                       |
 
-## DataHub Classifier
+## Bring your own classifier
 
-DataHub Classifier is the default classifier implementation, which uses [acryl-datahub-classify](https://pypi.org/project/acryl-datahub-classify/) library to predict info types.
+Implement the `Classifier` interface and register it before running ingestion. The
+columns handed to `classify` are `ColumnInfo` instances (see
+`datahub.ingestion.glossary.classification_types`); return the same list with
+`infotype_proposals` populated.
 
-### Config Details
+```python
+from typing import Any, Dict, List
 
-| Field                                                  | Required                                               | Type                                           | Description                                                                                                                                                         | Default                                                                                                                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| confidence_level_threshold                             |                                                        | number                                         |                                                                                                                                                                     | 0.68                                                                                                                                                                  |
-| strip_exclusion_formatting                             |                                                        | bool                                           | A flag that determines whether the exclusion list uses exact matching or format stripping (case-insensitivity, punctuation removal, and special character removal). | True                                                                                                                                                                  |
-| info_types                                             |                                                        | list[string]                                   | List of infotypes to be predicted. By default, all supported infotypes are considered, along with any custom infotypes configured in `info_types_config`.           | None                                                                                                                                                                  |
-| info_types_config                                      | Configuration details for infotypes                    | Dict[str, InfoTypeConfig]                      |                                                                                                                                                                     | See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration. |
-| info_types_config.`key`.prediction_factors_and_weights | ❓ (required if info_types_config.`key` is set)        | Dict[str,number]                               | Factors and their weights to consider when predicting info types                                                                                                    |                                                                                                                                                                       |
-| info_types_config.`key`.exclude_name                   |                                                        | list[string]                                   | Optional list of names to exclude from classification.                                                                                                              | None                                                                                                                                                                  |
-| info_types_config.`key`.name                           |                                                        | NameFactorConfig (see below for fields)        |                                                                                                                                                                     |                                                                                                                                                                       |
-| info_types_config.`key`.name.regex                     |                                                        | Array of string                                | List of regex patterns the column name follows for the info type                                                                                                    | ['.*']                                                                                                                                                                |
-| info_types_config.`key`.description                    |                                                        | DescriptionFactorConfig (see below for fields) |                                                                                                                                                                     |                                                                                                                                                                       |
-| info_types_config.`key`.description.regex              |                                                        | Array of string                                | List of regex patterns the column description follows for the info type                                                                                             | ['.*']                                                                                                                                                                |
-| info_types_config.`key`.datatype                       |                                                        | DataTypeFactorConfig (see below for fields)    |                                                                                                                                                                     |                                                                                                                                                                       |
-| info_types_config.`key`.datatype.type                  |                                                        | Array of string                                | List of data types for the info type                                                                                                                                | ['.*']                                                                                                                                                                |
-| info_types_config.`key`.values                         |                                                        | ValuesFactorConfig (see below for fields)      |                                                                                                                                                                     |                                                                                                                                                                       |
-| info_types_config.`key`.values.prediction_type         | ❓ (required if info_types_config.`key`.values is set) | string                                         |                                                                                                                                                                     | None                                                                                                                                                                  |
-| info_types_config.`key`.values.regex                   |                                                        | Array of string                                | List of regex patterns the column value follows for the info type                                                                                                   | None                                                                                                                                                                  |
-| info_types_config.`key`.values.library                 |                                                        | Array of string                                | Library used for prediction                                                                                                                                         | None                                                                                                                                                                  |
-| minimum_values_threshold                               |                                                        | number                                         | Minimum number of non-null column values required to process `values` prediction factor.                                                                            | 50                                                                                                                                                                    |
-|                                                        |
+from datahub.ingestion.glossary.classification_types import ColumnInfo
+from datahub.ingestion.glossary.classifier import Classifier
+from datahub.ingestion.glossary.classifier_registry import classifier_registry
 
-### Supported infotypes
 
-- `Email_Address`
-- `Gender`
-- `Credit_Debit_Card_Number`
-- `Phone_Number`
-- `Street_Address`
-- `Full_Name`
-- `Age`
-- `IBAN`
-- `US_Social_Security_Number`
-- `Vehicle_Identification_Number`
-- `IP_Address_v4`
-- `IP_Address_v6`
-- `US_Driving_License_Number`
-- `Swift_Code`
-- Regex based Custom InfoTypes
+class MyClassifier(Classifier):
+    def __init__(self, config: Dict[str, Any]) -> None:
+        self.config = config
+
+    @classmethod
+    def create(cls, config_dict: Dict[str, Any]) -> "MyClassifier":
+        return cls(config_dict or {})
+
+    def classify(self, columns: List[ColumnInfo]) -> List[ColumnInfo]:
+        # Populate column.infotype_proposals here.
+        return columns
+
+
+classifier_registry.register("my-classifier", MyClassifier)
+```
+
+Then reference it from the recipe:
+
+```yml
+source:
+  type: snowflake
+  config:
+    # ... source config ...
+    classification:
+      enabled: true
+      classifiers:
+        - type: my-classifier
+```
 
 ## Supported sources
 
 - All SQL sources
-
-## Future Work
-
-- Classification for nested columns (struct, array type)
-
-## Examples
-
-### Basic
-
-```yml
-source:
-  type: snowflake
-  config:
-    env: PROD
-    # Coordinates
-    account_id: account_name
-    warehouse: "COMPUTE_WH"
-
-    # Credentials
-    username: user
-    password: pass
-    role: "sysadmin"
-
-    # Options
-    top_n_queries: 10
-    email_domain: mycompany.com
-
-    classification:
-      enabled: True
-      classifiers:
-        - type: datahub
-```
-
-### Advanced Configuration: Customizing configuration for supported info types
-
-```yml
-source:
-  type: snowflake
-  config:
-    env: PROD
-    # Coordinates
-    account_id: account_name
-    warehouse: "COMPUTE_WH"
-
-    # Credentials
-    username: user
-    password: pass
-    role: "sysadmin"
-
-    # Options
-    top_n_queries: 10
-    email_domain: mycompany.com
-
-    classification:
-      enabled: True
-      info_type_to_term:
-        Email_Address: "Email"
-      classifiers:
-        - type: datahub
-          config:
-            confidence_level_threshold: 0.7
-            info_types_config:
-              Email_Address:
-                prediction_factors_and_weights:
-                  name: 0.4
-                  description: 0
-                  datatype: 0
-                  values: 0.6
-                name:
-                  regex:
-                    - "^.*mail.*id.*$"
-                    - "^.*id.*mail.*$"
-                    - "^.*mail.*add.*$"
-                    - "^.*add.*mail.*$"
-                    - email
-                    - mail
-                description:
-                  regex:
-                    - "^.*mail.*id.*$"
-                    - "^.*mail.*add.*$"
-                    - email
-                    - mail
-                datatype:
-                  type:
-                    - str
-                values:
-                  prediction_type: regex
-                  regex:
-                    - "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}"
-                  library: []
-              Gender:
-                prediction_factors_and_weights:
-                  name: 0.4
-                  description: 0
-                  datatype: 0
-                  values: 0.6
-                name:
-                  regex:
-                    - "^.*gender.*$"
-                    - "^.*sex.*$"
-                    - gender
-                    - sex
-                description:
-                  regex:
-                    - "^.*gender.*$"
-                    - "^.*sex.*$"
-                    - gender
-                    - sex
-                datatype:
-                  type:
-                    - int
-                    - str
-                values:
-                  prediction_type: regex
-                  regex:
-                    - male
-                    - female
-                    - man
-                    - woman
-                    - m
-                    - f
-                    - w
-                    - men
-                    - women
-                  library: []
-              Credit_Debit_Card_Number:
-                prediction_factors_and_weights:
-                  name: 0.4
-                  description: 0
-                  datatype: 0
-                  values: 0.6
-                name:
-                  regex:
-                    - "^.*card.*number.*$"
-                    - "^.*number.*card.*$"
-                    - "^.*credit.*card.*$"
-                    - "^.*debit.*card.*$"
-                description:
-                  regex:
-                    - "^.*card.*number.*$"
-                    - "^.*number.*card.*$"
-                    - "^.*credit.*card.*$"
-                    - "^.*debit.*card.*$"
-                datatype:
-                  type:
-                    - str
-                    - int
-                values:
-                  prediction_type: regex
-                  regex:
-                    - "^4[0-9]{12}(?:[0-9]{3})?$"
-                    - "^(?:5[1-5][0-9]{2}|222[1-9]|22[3-9][0-9]|2[3-6][0-9]{2}|27[01][0-9]|2720)[0-9]{12}$"
-                    - "^3[47][0-9]{13}$"
-                    - "^3(?:0[0-5]|[68][0-9])[0-9]{11}$"
-                    - "^6(?:011|5[0-9]{2})[0-9]{12}$"
-                    - "^(?:2131|1800|35\\d{3})\\d{11}$"
-                    - "^(6541|6556)[0-9]{12}$"
-                    - "^389[0-9]{11}$"
-                    - "^63[7-9][0-9]{13}$"
-                    - "^9[0-9]{15}$"
-                    - "^(6304|6706|6709|6771)[0-9]{12,15}$"
-                    - "^(5018|5020|5038|6304|6759|6761|6763)[0-9]{8,15}$"
-                    - "^(62[0-9]{14,17})$"
-                    - "^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})$"
-                    - "^(4903|4905|4911|4936|6333|6759)[0-9]{12}|(4903|4905|4911|4936|6333|6759)[0-9]{14}|(4903|4905|4911|4936|6333|6759)[0-9]{15}|564182[0-9]{10}|564182[0-9]{12}|564182[0-9]{13}|633110[0-9]{10}|633110[0-9]{12}|633110[0-9]{13}$"
-                    - "^(6334|6767)[0-9]{12}|(6334|6767)[0-9]{14}|(6334|6767)[0-9]{15}$"
-                  library: []
-              Phone_Number:
-                prediction_factors_and_weights:
-                  name: 0.4
-                  description: 0
-                  datatype: 0
-                  values: 0.6
-                name:
-                  regex:
-                    - ".*phone.*(num|no).*"
-                    - ".*(num|no).*phone.*"
-                    - ".*[^a-z]+ph[^a-z]+.*(num|no).*"
-                    - ".*(num|no).*[^a-z]+ph[^a-z]+.*"
-                    - ".*mobile.*(num|no).*"
-                    - ".*(num|no).*mobile.*"
-                    - ".*telephone.*(num|no).*"
-                    - ".*(num|no).*telephone.*"
-                    - ".*cell.*(num|no).*"
-                    - ".*(num|no).*cell.*"
-                    - ".*contact.*(num|no).*"
-                    - ".*(num|no).*contact.*"
-                    - ".*landline.*(num|no).*"
-                    - ".*(num|no).*landline.*"
-                    - ".*fax.*(num|no).*"
-                    - ".*(num|no).*fax.*"
-                    - phone
-                    - telephone
-                    - landline
-                    - mobile
-                    - tel
-                    - fax
-                    - cell
-                    - contact
-                description:
-                  regex:
-                    - ".*phone.*(num|no).*"
-                    - ".*(num|no).*phone.*"
-                    - ".*[^a-z]+ph[^a-z]+.*(num|no).*"
-                    - ".*(num|no).*[^a-z]+ph[^a-z]+.*"
-                    - ".*mobile.*(num|no).*"
-                    - ".*(num|no).*mobile.*"
-                    - ".*telephone.*(num|no).*"
-                    - ".*(num|no).*telephone.*"
-                    - ".*cell.*(num|no).*"
-                    - ".*(num|no).*cell.*"
-                    - ".*contact.*(num|no).*"
-                    - ".*(num|no).*contact.*"
-                    - ".*landline.*(num|no).*"
-                    - ".*(num|no).*landline.*"
-                    - ".*fax.*(num|no).*"
-                    - ".*(num|no).*fax.*"
-                    - phone
-                    - telephone
-                    - landline
-                    - mobile
-                    - tel
-                    - fax
-                    - cell
-                    - contact
-                datatype:
-                  type:
-                    - int
-                    - str
-                values:
-                  prediction_type: library
-                  regex: []
-                  library:
-                    - phonenumbers
-              Street_Address:
-                prediction_factors_and_weights:
-                  name: 0.5
-                  description: 0
-                  datatype: 0
-                  values: 0.5
-                name:
-                  regex:
-                    - ".*street.*add.*"
-                    - ".*add.*street.*"
-                    - ".*full.*add.*"
-                    - ".*add.*full.*"
-                    - ".*mail.*add.*"
-                    - ".*add.*mail.*"
-                    - add[^a-z]+
-                    - address
-                    - street
-                description:
-                  regex:
-                    - ".*street.*add.*"
-                    - ".*add.*street.*"
-                    - ".*full.*add.*"
-                    - ".*add.*full.*"
-                    - ".*mail.*add.*"
-                    - ".*add.*mail.*"
-                    - add[^a-z]+
-                    - address
-                    - street
-                datatype:
-                  type:
-                    - str
-                values:
-                  prediction_type: library
-                  regex: []
-                  library:
-                    - spacy
-              Full_Name:
-                prediction_factors_and_weights:
-                  name: 0.3
-                  description: 0
-                  datatype: 0
-                  values: 0.7
-                name:
-                  regex:
-                    - ".*person.*name.*"
-                    - ".*name.*person.*"
-                    - ".*user.*name.*"
-                    - ".*name.*user.*"
-                    - ".*full.*name.*"
-                    - ".*name.*full.*"
-                    - fullname
-                    - name
-                    - person
-                    - user
-                description:
-                  regex:
-                    - ".*person.*name.*"
-                    - ".*name.*person.*"
-                    - ".*user.*name.*"
-                    - ".*name.*user.*"
-                    - ".*full.*name.*"
-                    - ".*name.*full.*"
-                    - fullname
-                    - name
-                    - person
-                    - user
-                datatype:
-                  type:
-                    - str
-                values:
-                  prediction_type: library
-                  regex: []
-                  library:
-                    - spacy
-              Age:
-                prediction_factors_and_weights:
-                  name: 0.65
-                  description: 0
-                  datatype: 0
-                  values: 0.35
-                name:
-                  regex:
-                    - age[^a-z]+.*
-                    - ".*[^a-z]+age"
-                    - ".*[^a-z]+age[^a-z]+.*"
-                    - age
-                description:
-                  regex:
-                    - age[^a-z]+.*
-                    - ".*[^a-z]+age"
-                    - ".*[^a-z]+age[^a-z]+.*"
-                    - age
-                datatype:
-                  type:
-                    - int
-                values:
-                  prediction_type: library
-                  regex: []
-                  library:
-                    - rule_based_logic
-```
-
-### Advanced Configuration: Specifying Custom InfoType
-
-```yml
-source:
-  type: snowflake
-  config:
-    env: PROD
-    # Coordinates
-    account_id: account_name
-    warehouse: "COMPUTE_WH"
-
-    # Credentials
-    username: user
-    password: pass
-    role: "sysadmin"
-
-    # Options
-    top_n_queries: 10
-    email_domain: mycompany.com
-
-    classification:
-      enabled: True
-      classifiers:
-        - type: datahub
-          config:
-            confidence_level_threshold: 0.7
-            minimum_values_threshold: 10
-            info_types_config:
-              CloudRegion:
-                prediction_factors_and_weights:
-                  name: 0
-                  description: 0
-                  datatype: 0
-                  values: 1
-                values:
-                  prediction_type: regex
-                  regex:
-                    - "(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\\d+"
-                  library: []
-```
-
-## Additional Resources
-
-### DataHub Blog
-
-- [PII Classification just got easier with DataHub](https://medium.com/datahub-project/pii-classification-just-got-easier-with-datahub-6bab2b63abcb)

@@ -207,6 +207,72 @@ class TestSnowflakeDataDictionary:
         assert result[0].view_definition == "SELECT * FROM table1"
         assert result[1].view_definition == "SELECT col1 FROM table2"
 
+    def test_maybe_populate_empty_view_definitions_covers_all_prefixes(
+        self, mock_snowflake_data_dictionary_information_schema
+    ):
+        """Regression: every prefix group must get its own SHOW VIEWS query.
+
+        The original code took `batch[0]` from each batch returned by
+        build_prefix_batches, assuming `max_groups_in_batch=1` meant one
+        group per batch. The packer's off-by-one silently let two groups
+        land in one batch, so every other prefix range was dropped.
+        Construct a workload that forces the packer to pair groups: one
+        large group ("A") that occupies a batch alone, and several small
+        follow-on groups that fit two-per-batch.
+        """
+        # 990 names under "A" plus 55 each under B and C. Under the old
+        # packer, B and C landed in one batch [[A], [B, C]] and the old
+        # batch[0]-only caller silently dropped C. Both fixes prevent that.
+        view_names = (
+            [f"A_VIEW_{i:04d}" for i in range(990)]
+            + [f"B_VIEW_{i:02d}" for i in range(55)]
+            + [f"C_VIEW_{i:02d}" for i in range(55)]
+        )
+        empty_views = [
+            SnowflakeView(
+                name=name,
+                view_definition=None,
+                comment=None,
+                created=datetime(2024, 1, 1),
+                last_altered=datetime(2024, 1, 1),
+            )
+            for name in view_names
+        ]
+
+        executed_queries: list[str] = []
+
+        def query_side_effect(query: str) -> Any:
+            executed_queries.append(query)
+            # Echo back rows whose name matches the LIKE prefix in this query.
+            # Extract the prefix between the single quotes around 'X%'.
+            start = query.index("LIKE '") + len("LIKE '")
+            end = query.index("%'", start)
+            prefix = query[start:end]
+            cursor = MagicMock()
+            cursor.__iter__.return_value = [
+                {"name": n, "text": f"SELECT * FROM src_{n}"}
+                for n in view_names
+                if n.startswith(prefix)
+            ]
+            return cursor
+
+        cast(
+            MagicMock,
+            mock_snowflake_data_dictionary_information_schema.connection.query,
+        ).side_effect = query_side_effect
+
+        result = mock_snowflake_data_dictionary_information_schema._maybe_populate_empty_view_definitions(
+            "TEST_DB", "PUBLIC", empty_views
+        )
+
+        # Every view, including those in the second-of-pair prefix group, must
+        # have its definition populated.
+        unpopulated = [v.name for v in result if not v.view_definition]
+        assert unpopulated == [], (
+            f"{len(unpopulated)} views missing definitions; sample={unpopulated[:5]}. "
+            f"Executed queries: {executed_queries}"
+        )
+
     def test_get_views_for_schema_using_information_schema(
         self, mock_snowflake_data_dictionary_information_schema
     ):

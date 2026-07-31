@@ -2,6 +2,7 @@ import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Pagination } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -48,6 +49,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const { t } = useTranslation('entity.types');
     const theme = useTheme();
     const { refetch } = useEntityContext();
     const { entityData } = useEntityData();
@@ -112,11 +114,11 @@ export default function DataProductsTab() {
                     onClick={() => setIsCreateModalVisible(true)}
                     data-testid="create-data-product-button"
                 >
-                    <PlusOutlined /> New Data Product
+                    <PlusOutlined /> {t('dataProduct.newDataProduct')}
                 </Button>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search data products..."
+                    placeholderText={t('dataProduct.searchPlaceholder')}
                     suggestions={[]}
                     style={{
                         maxWidth: 220,
@@ -135,7 +137,7 @@ export default function DataProductsTab() {
             <ResultsWrapper>
                 {!loading && !displayedDataProducts.length && (
                     <Empty
-                        description="No Data Products"
+                        description={t('dataProduct.noDataProductsEmpty')}
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         style={{ color: theme.colors.textTertiary }}
                     />

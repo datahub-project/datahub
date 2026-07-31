@@ -1,3 +1,8 @@
+---
+title: Tags API Tutorial
+description: "Step-by-step tutorial for adding, updating, and removing Tags on DataHub Datasets via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

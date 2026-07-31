@@ -2,7 +2,7 @@
 
 Slack is a documentation or collaboration platform. Learn more in the [official Slack documentation](https://slack.com/).
 
-The DataHub integration for Slack covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Slack covers document/workspace entities and hierarchy context for knowledge assets. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

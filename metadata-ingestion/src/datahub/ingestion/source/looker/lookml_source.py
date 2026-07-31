@@ -21,7 +21,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -70,9 +70,6 @@ from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -93,7 +90,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnRef,
+    column_refs_to_schema_field_urns,
+)
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
 VIEW_LANGUAGE_SQL: str = "sql"
@@ -367,10 +367,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(cll_ref.table, cll_ref.column)
-                        for cll_ref in field.upstream_fields
-                    ],
+                    upstreams=column_refs_to_schema_field_urns(field.upstream_fields),
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         make_schema_field_urn(
@@ -440,6 +437,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_view.id.view_name,
             looker_view.fields,
             self.reporter,
+            tag_measures_and_dimensions=self.source_config.tag_measures_and_dimensions,
         )
 
         custom_properties: DatasetPropertiesClass = self._get_custom_properties(
@@ -492,10 +490,11 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest_file = folder / "manifest.lkml"
 
         if not manifest_file.exists():
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Manifest File Missing",
                 message="manifest.lkml file missing from project",
                 context=str(manifest_file),
+                log=False,
             )
             return None
 
@@ -518,14 +517,6 @@ class LookMLSource(StatefulIngestionSourceBase):
         )
         return manifest
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
             # Clone the base_folder if necessary.
@@ -533,11 +524,20 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                checkout_dir = self.source_config.git_info.clone(
-                    tmp_path=tmp_dir,
-                )
-                self.reporter.git_clone_latency = datetime.now() - start_time
-                self.source_config.base_folder = checkout_dir.resolve()
+                try:
+                    checkout_dir = self.source_config.git_info.clone(
+                        tmp_path=tmp_dir,
+                    )
+                    self.reporter.git_clone_latency = datetime.now() - start_time
+                    self.source_config.base_folder = checkout_dir.resolve()
+                except Exception as e:
+                    self.reporter.failure(
+                        title="Failed to clone LookML repository",
+                        message="Unable to clone the git repository.",
+                        context=self.source_config.git_info.repo,
+                        exc=e,
+                    )
+                    return
 
             self.base_projects_folder[BASE_PROJECT_NAME] = (
                 self.source_config.base_folder
@@ -582,9 +582,8 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
-                self.report.report_failure(
-                    "No Metadata Produced",
-                    "No metadata was produced. Check the logs for more details.",
+                self.report.failure(
+                    message="No metadata was produced. Check the logs for more details.",
                 )
 
     def _recursively_check_manifests(
@@ -737,11 +736,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                 logger.debug(f"Attempting to load model: {file_path}")
                 model = self._load_model(str(file_path))
             except Exception as e:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Error Loading Model File",
                     message="Unable to load Looker model from file.",
                     context=f"Model Name: {model_name}, File Path: {file_path}",
                     exc=e,
+                    log=False,
                 )
                 continue
 
@@ -754,10 +754,11 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
 
             if connection_definition is None:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Failed to Load Connection",
                     message="Failed to load connection. Check your API key permissions and/or connection_to_platform_map configuration.",
                     context=f"Connection: {model.connection}",
+                    log=False,
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -779,6 +780,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                     if LookerRefinementResolver.is_refinement(explore_dict["name"]):
                         continue
 
+                    # Abstract explores (extension: required) are base templates that
+                    # cannot be queried via the Looker API — skip to avoid 404 errors.
+                    # https://docs.cloud.google.com/looker/docs/reference/param-explore-extension
+                    if explore_dict.get("extension") == "required":
+                        continue
+
                     explore_dict = looker_refinement_resolver.apply_explore_refinement(
                         explore_dict
                     )
@@ -798,11 +805,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                             view_to_explores[view_name.include].add(explore.name)
                             explore_to_views[explore.name].add(view_name.include)
                 except Exception as e:
-                    self.reporter.report_warning(
+                    self.reporter.warning(
                         title="Failed to process explores",
                         message="Failed to process explore dictionary.",
                         context=f"Explore Details: {explore_dict}",
                         exc=e,
+                        log=False,
                     )
                     logger.debug("Failed to process explore", exc_info=e)
 
@@ -907,11 +915,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_to_explore_map=view_to_explore_map,
                             )
                         except Exception as e:
-                            self.reporter.report_warning(
+                            self.reporter.warning(
                                 title="Error Loading View",
                                 message="Unable to load Looker View.",
                                 context=f"View Details: {raw_view}",
                                 exc=e,
+                                log=False,
                             )
 
                             logger.debug(e, exc_info=e)
@@ -1046,12 +1055,13 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         for project, view_paths in skipped_view_paths.items():
             for path in view_paths:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Skipped View File",
                     message=(
                         "The Looker view file was skipped because it may not be referenced by any models."
                     ),
                     context=(f"Project: {project}, View File Path: {path}"),
+                    log=False,
                 )
 
     def _optimize_views_by_common_explore(

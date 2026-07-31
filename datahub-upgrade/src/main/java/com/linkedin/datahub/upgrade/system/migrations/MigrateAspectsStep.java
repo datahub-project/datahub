@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.migrations;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.StringMap;
@@ -22,6 +23,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +58,27 @@ public class MigrateAspectsStep implements UpgradeStep {
   static final String LAST_CREATED_ON_MS_KEY = "lastCreatedOnMs";
 
   static final String STEP_ID_PREFIX = "migrate-aspects-";
+
+  // Test-only knob — see waitForTestRaceWindow() below. Default 0 in production.
+  private static final int PRE_WRITE_DELAY_MS =
+      Integer.parseInt(
+          System.getenv().getOrDefault("SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS", "0"));
+
+  /**
+   * Test-only: injects a deterministic race window between the pre-write URN log and {@link
+   * EntityService#ingestProposal}. No-op in production (the env var defaults to {@code 0}). Driven
+   * by {@code SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS}; used by the ZDU integration test
+   * (TC-403) to guarantee concurrent client writes win the race against the sweep's stale-version
+   * write.
+   */
+  private void waitForTestRaceWindow() {
+    try {
+      Thread.sleep(PRE_WRITE_DELAY_MS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
+    }
+  }
 
   public static String stepId(@Nonnull String upgradeVersion) {
     return STEP_ID_PREFIX + upgradeVersion;
@@ -153,24 +176,6 @@ public class MigrateAspectsStep implements UpgradeStep {
   // ---------------------------------------------------------------------------
 
   @Override
-  public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    if (prevResult
-        .filter(
-            r ->
-                DataHubUpgradeState.SUCCEEDED.equals(r.getState())
-                    || DataHubUpgradeState.ABORTED.equals(r.getState()))
-        .isPresent()) {
-      log.info("{}: Previous result was {}; skipping.", id(), prevResult.get().getState());
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     log.info(
         "{}: Starting migration sweep across {} aspect(s).", id(), aspectTargetVersions.size());
@@ -195,7 +200,7 @@ public class MigrateAspectsStep implements UpgradeStep {
                           .flatMap(
                               ea ->
                                   EntityUtils.toSystemAspectFromEbeanAspects(
-                                      opContext.getRetrieverContext(), Set.of(ea))
+                                      opContext, opContext.getRetrieverContext(), Set.of(ea))
                                       .stream())
                           .map(
                               systemAspect ->
@@ -209,10 +214,22 @@ public class MigrateAspectsStep implements UpgradeStep {
                                       .auditStamp(systemAspect.getAuditStamp())
                                       .systemMetadata(
                                           withAppSource(systemAspect.getSystemMetadata()))
+                                      .headers(
+                                          versionHeaders(
+                                              systemAspect.getSystemMetadata().getVersion()))
                                       .build(opContext.getAspectRetriever()))
                           .collect(Collectors.toList());
 
                   if (!items.isEmpty()) {
+                    log.info(
+                        "{}: Processing batch URNs: {}",
+                        id(),
+                        items.stream()
+                            .map(i -> i.getUrn().toString())
+                            .collect(Collectors.joining(",")));
+                    if (PRE_WRITE_DELAY_MS > 0) {
+                      waitForTestRaceWindow();
+                    }
                     entityService.ingestProposal(
                         opContext,
                         AspectsBatchImpl.builder()
@@ -252,6 +269,15 @@ public class MigrateAspectsStep implements UpgradeStep {
       context.report().addLine("State updated: " + getUpgradeIdUrn());
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  private static Map<String, String> versionHeaders(@Nullable String version) {
+    if (version == null) {
+      return Map.of();
+    }
+    Map<String, String> headers = new HashMap<>();
+    headers.put(HTTP_HEADER_IF_VERSION_MATCH, version);
+    return headers;
   }
 
   private static SystemMetadata withAppSource(@Nullable SystemMetadata systemMetadata) {

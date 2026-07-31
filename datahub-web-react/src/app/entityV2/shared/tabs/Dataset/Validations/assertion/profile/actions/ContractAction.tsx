@@ -1,6 +1,7 @@
 import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -42,6 +43,7 @@ type Props = {
 };
 
 export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
@@ -59,13 +61,13 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Added assertion to contract!', duration: 2 });
+                    message.success({ content: t('action.addedToContract'), duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to add Assertion to Contract. An unexpected error occurred' });
+                message.error({ content: t('action.failedAddToContract') });
             });
     };
 
@@ -75,20 +77,20 @@ export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpand
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed assertion from contract.', duration: 2 });
+                    message.success({ content: t('action.removedFromContract'), duration: 2 });
                     refetch?.();
                 }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to remove Assertion from Contract. An unexpected error occurred' });
+                message.error({ content: t('action.failedRemoveFromContract') });
             });
     };
 
     const isPartOfContract = contract ? isAssertionPartOfContract(assertion, contract) : false;
-    const contractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
+    const contractTip = isPartOfContract ? t('action.removeFromContract') : t('action.addToContract');
 
-    const unauthorizedTip = canEdit ? undefined : 'You do not have permission to edit the contract';
+    const unauthorizedTip = canEdit ? undefined : t('action.noPermissionEditContract');
     const tip = canEdit ? contractTip : unauthorizedTip;
 
     return (

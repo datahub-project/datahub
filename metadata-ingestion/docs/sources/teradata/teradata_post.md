@@ -45,6 +45,18 @@ profile_pattern:
 
 When `databases` is not set the connector automatically scopes `DBC.QryLogV` queries to the databases discovered during metadata extraction, filtered by `database_pattern`. This avoids scanning the entire audit log. You can further restrict the scope with an explicit `databases` list.
 
+**Slow lineage query detection**
+
+Large `DBC.QryLogV` tables can cause individual lineage queries to run for several minutes without producing an obvious error. Set `lineage_slow_query_log_seconds` to emit a `WARNING`-level log line whenever the total database time for a single lineage query (execute call plus all `fetchmany` calls — downstream sqlglot processing time is excluded) exceeds the threshold. The warning includes the query label and elapsed DB time. The log line additionally includes the first 500 characters of the SQL text — check `WARNING`-level logs to see the SQL snippet.
+
+```yaml
+lineage_slow_query_log_seconds: 120 # warn if any lineage query takes longer than 2 minutes (DB time)
+```
+
+The default is `60` seconds. Set to `0` to disable slow-query warnings entirely. Each slow query is also counted in `report.lineage_slow_queries_detected`, and per-query DB timings are available in `report.lineage_query_timings` for post-run analysis.
+
+> **Note:** if the driver retries a failed fetchmany call, the retry backoff sleep time is included in the DB time measurement — set the threshold well above the expected base query time.
+
 **SQL parse cache size**
 
 When usage statistics or lineage are enabled, every query row from `DBC.QryLogV` is parsed with sqlglot to extract table references. Identical query text in a session (e.g. a BI dashboard query that runs thousands of times per day) hits an LRU cache and avoids re-parsing. The default cache holds 1 000 entries, which is too small for production Teradata installations where hundreds of distinct queries each execute thousands of times.
@@ -62,6 +74,16 @@ Each cache entry holds a parsed query result in memory. 50 000 entries typically
 
 Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver timeouts. Increase `request_timeout_ms` (default: 120 000 ms) if lineage queries against large `DBC.QryLogV` tables time out silently.
 
+**Hang protection for bulk parallel runs**
+
+Parallel view processing and audit-log fetching can stall indefinitely if a single Teradata call blocks (for example, when a firewall silently drops an idle TCP connection mid-query). The connector ships with three knobs that prevent this from manifesting as a fully silent halt:
+
+- **`view_processing_timeout_seconds`** (default 1800) — wall-clock cap per view in the parallel pool. A stalled view is abandoned and the run continues. Abandoned views are counted in `report.num_view_processing_timeouts` and listed in `report.stalled_views`. Set to `0` to disable.
+- **`view_processing_heartbeat_seconds`** (default 30) — interval between `View processing heartbeat: ...` log lines that report completed/in-progress counts and the longest-running view. Use this to identify which view is stuck if a run is making no progress. Set to `0` to disable.
+- **`lineage_fetch_stall_warning_seconds`** (default 300) — if no `DBC.QryLogV` batch arrives within this window, a `Lineage fetch stall` warning is logged with the current phase (`executing_query`, `awaiting_first_batch`, or `fetching_batches`). Pure observability — does not interrupt the fetch. Set to `0` to disable.
+
+The defaults are conservative and safe to leave alone. Tighten `view_processing_timeout_seconds` (for example to `300`) on installations where individual views are known to complete quickly and you want stalls to surface sooner.
+
 ### Limitations
 
 - `use_dbc_columns_for_views` falls back to `HELP` for any view that contains derived expression columns. Views with _only_ explicit-type columns benefit most from this option.
@@ -74,3 +96,14 @@ Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver ti
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
 
 If lineage queries fail silently and return no results, increase `request_timeout_ms`. The default 2-minute timeout can be insufficient for `DBC.QryLogV` on busy systems with large audit logs.
+
+#### Ingestion appears to stop without an error
+
+Bulk parallel runs on large Teradata installations can appear to halt with no error or status update when a single underlying call blocks (hung DB query, dropped TCP connection, exhausted resources). To diagnose:
+
+1. Enable debug logging (`datahub ingest run -c recipe.yml --debug`) and re-run one failing recipe. The last log line before the halt identifies the phase: a `View processing heartbeat` line points to the parallel view pool, a `Lineage fetch stall` warning points to `DBC.QryLogV` streaming, and silence in both points to network or pod-level termination.
+2. Confirm the stalled-view path by checking `report.num_view_processing_timeouts` and `report.stalled_views` in the ingestion report after the run finishes. A non-zero count means the hang-protection logic abandoned one or more views; the listed views are the candidates for further investigation.
+3. To rule out the parallel view pool entirely, re-run with `max_workers: 1`. If the run completes, the issue is confined to the parallel path.
+4. For Kubernetes-hosted runs, check the executor pod for `OOMKilled` / `CrashLoopBackOff` events. Pod-level termination produces identical symptoms but cannot be addressed in the connector — provision more memory or reduce `max_workers`.
+
+The defaults of `view_processing_timeout_seconds: 1800`, `view_processing_heartbeat_seconds: 30`, and `lineage_fetch_stall_warning_seconds: 300` ensure that even an unattended run will surface progress information and recover from stalls on its own. See the **Hang protection for bulk parallel runs** section above for details on tuning these.

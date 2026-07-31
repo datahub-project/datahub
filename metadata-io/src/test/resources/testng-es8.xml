@@ -8,5 +8,15 @@
             <package name="com.linkedin.metadata.search.elasticsearch.*"/>
         </packages>
     </test>
+    <test name="es8-semantic-search-it">
+        <groups>
+            <run>
+                <include name="es8-semantic"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl"/>
+        </packages>
+    </test>
 </suite>
 

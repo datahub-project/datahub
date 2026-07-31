@@ -82,7 +82,7 @@ export const Checkbox = ({
             ) : null}
             <CheckboxBase
                 onClick={onClick}
-                data-testid={dataTestId}
+                data-testid={dataTestId || 'checkbox-base'}
                 data-disabled={isDisabled}
                 data-checked={isActive}
                 $size={size || 'sm'}

@@ -1,3 +1,7 @@
+---
+description: "Introduction to DataHub's metadata service authentication architecture, including tokens, sessions, and identity propagation."
+---
+
 # Metadata Service Authentication
 
 ## Introduction

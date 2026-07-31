@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
+import time_machine
 from deepdiff import DeepDiff
-from freezegun import freeze_time
 from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.api.common import PipelineContext
@@ -80,7 +80,7 @@ def get_default_recipe(output_file_path, base_folder_path):
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with a previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -108,7 +108,7 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -145,7 +145,7 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "refinement_include_order_mces_output.json"
@@ -177,7 +177,7 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
     looker_model = LookerModel(
         explores=[
@@ -218,7 +218,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
     assert new_explore["extends"].sort() == ["order", "transaction"].sort()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
     raw_view: dict = {
         "sql_table_name": "flightstats.accidents",
@@ -321,7 +321,7 @@ def test_lookml_view_merge(pytestconfig, tmp_path, mock_time):
     assert DeepDiff(expected_view, merged_view) == {}
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -376,7 +376,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -423,7 +423,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_time):
     """New form of config with offline specification of connection defaults"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -480,7 +480,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest_api_bigquery(pytestconfig, tmp_path, mock_time):
     # test with BigQuery connection
     ingestion_test(
@@ -493,7 +493,7 @@ def test_lookml_ingest_api_bigquery(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_ingest_api_hive(pytestconfig, tmp_path, mock_time):
     # test with Hive connection
     ingestion_test(
@@ -573,7 +573,7 @@ def ingestion_test(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     """Add github info to config"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -629,7 +629,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_reachable_views(pytestconfig, tmp_path, mock_time):
     """Test for reachable views"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -706,7 +706,7 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     """Test omit db name from hive ids"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -761,7 +761,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                         assert "hive." not in upstream.dataset
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     output_file_name: str = "lookml_mces.json"
     state_file_name: str = "lookml_state_mces.json"
@@ -850,7 +850,7 @@ def test_lookml_base_folder():
         LookMLSourceConfig.model_validate({"api": fake_api})
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
     """Test for reachable views"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
@@ -914,7 +914,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     assert manifest
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
@@ -937,7 +937,7 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "vv_lineage_liquid_template_golden.json"
@@ -972,7 +972,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "vv_lineage_lookml_constant_golden.json"
@@ -998,7 +998,7 @@ def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_t
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_special_liquid_variables():
     text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
         SELECT
@@ -1076,7 +1076,7 @@ def test_special_liquid_variables():
     assert actual_text == expected_text
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_incremental_liquid_expression():
     text: str = """SELECT 
         user_id,
@@ -1184,7 +1184,7 @@ def test_incremental_liquid_expression():
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_constant_transformer(view, expected_result, warning_expected):
     """
     Test LookmlConstantTransformer with various view structures.
@@ -1218,7 +1218,7 @@ def test_lookml_constant_transformer(view, expected_result, warning_expected):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "field_tag_mces_output.json"
@@ -1243,7 +1243,7 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_drop_hive(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "drop_hive_dot.json"
@@ -1270,7 +1270,7 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "drop_hive_dot.json"
@@ -1307,7 +1307,7 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_unreachable_views(pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
 
@@ -1354,7 +1354,7 @@ def test_unreachable_views(pytestconfig):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_col_lineage_looker_api_based(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     golden_path = test_resources_dir / "lkml_col_lineage_looker_api_based_golden.json"

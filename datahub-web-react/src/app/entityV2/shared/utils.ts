@@ -1,6 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { TimeWindowSize } from '@app/shared/time/timeUtils';
@@ -143,8 +145,7 @@ function getGraphqlErrorCode(e) {
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
-            content:
-                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            content: i18next.t('entity.shared.actions:bulkEditUnauthorized'),
             duration: 3,
         };
     }
@@ -240,7 +241,7 @@ export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldP
         .filter((profile) => profile.fieldProfiles)
         .map((profile) => {
             const fieldProfiles = profile.fieldProfiles
-                ?.filter((field) => field.fieldPath === fieldPath)
+                ?.filter((field) => pathMatchesInsensitiveToV2(field.fieldPath, fieldPath))
                 .filter((field) => field[statName] !== null && field[statName] !== undefined);
 
             if (fieldProfiles?.length === 1) {

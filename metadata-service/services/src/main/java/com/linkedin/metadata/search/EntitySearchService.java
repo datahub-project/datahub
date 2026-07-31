@@ -446,6 +446,9 @@ public interface EntitySearchService {
    *
    * @return true if swapped, false if doc counts didn't match
    */
-  boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+  boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex)
       throws Exception;
 }

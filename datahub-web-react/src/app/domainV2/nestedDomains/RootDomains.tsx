@@ -1,5 +1,6 @@
 import { ReadOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EmptyDomainDescription from '@app/domainV2/EmptyDomainDescription';
@@ -37,16 +38,17 @@ interface Props {
     setIsCreatingDomain: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export default function RootDomains({ setIsCreatingDomain }: Props) {
+    const { t } = useTranslation('governance.domain');
     const entityRegistry = useEntityRegistry();
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
 
     return (
         <>
-            {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
+            {error && <Message type="error" content={t('list.loadError')} />}
             {hasInitialized && domains.length === 0 && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}
-                    title="Organize your data"
+                    title={t('empty.organizeTitle')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
                 />

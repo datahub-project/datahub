@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -73,7 +74,12 @@ public class EbeanEntityServiceOptimizationTest {
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
 
     AspectDao aspectDao =
-        new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
@@ -138,7 +144,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: single no-op",
@@ -165,7 +171,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: multiple no-ops. expected no additional interactions vs single no-op",
@@ -187,7 +193,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: single change",
@@ -215,7 +221,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: multiple change. expected no additional statements over single change",
@@ -274,7 +280,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "with retention: existing no-op",
@@ -295,7 +301,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         1,
         1,
         "with retention: existing single change (expect version-history INSERT + UPDATE)",

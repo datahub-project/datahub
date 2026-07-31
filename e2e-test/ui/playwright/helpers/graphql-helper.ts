@@ -1,13 +1,17 @@
 import { Page } from '@playwright/test';
 
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
+
+export type GraphQLResponse = Record<string, unknown>;
+
 export class GraphQLHelper {
   constructor(private page: Page) {}
 
-  async executeQuery(query: string, variables?: any): Promise<any> {
-    const response = await this.page.request.post('/api/v2/graphql', {
+  async executeQuery(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse> {
+    const response = await this.page.request.post(DATAHUB_GRAPHQL_PATH, {
       data: {
         query,
-        variables: variables || {},
+        variables: variables ?? {},
       },
       headers: {
         'Content-Type': 'application/json',
@@ -23,16 +27,15 @@ export class GraphQLHelper {
       throw new Error('GraphQL response is empty');
     }
 
-    return JSON.parse(text);
+    return JSON.parse(text) as GraphQLResponse;
   }
 
-  async waitForGraphQLResponse(operationName: string): Promise<any> {
+  async waitForGraphQLResponse(operationName: string): Promise<GraphQLResponse> {
     const response = await this.page.waitForResponse(
-      (response) =>
-        response.url().includes('/graphql') &&
-        response.request().postDataJSON()?.operationName === operationName
+      (r) =>
+        r.url().includes('/graphql') &&
+        (r.request().postDataJSON() as Record<string, unknown> | null)?.operationName === operationName,
     );
-    return await response.json();
+    return response.json() as Promise<GraphQLResponse>;
   }
-
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getVerificationAuditStamp } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function VerificationAuditStamp({ formUrn }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
     const verifiedAuditStamp = getVerificationAuditStamp(entityData, formUrn);
@@ -18,10 +20,14 @@ export default function VerificationAuditStamp({ formUrn }: Props) {
 
     if (!verifiedTimestamp) return null;
 
+    const date = dayjs(verifiedTimestamp).format('ll');
+    const actor = verifiedActor ? entityRegistry.getDisplayName(verifiedActor.type, verifiedActor) : undefined;
+
     return (
         <div>
-            On {dayjs(verifiedTimestamp).format('ll')}{' '}
-            {verifiedActor && <>by {entityRegistry.getDisplayName(verifiedActor.type, verifiedActor)}</>}
+            {actor
+                ? t('formInfo.auditStamp.onDateByActor', { date, actor })
+                : t('formInfo.auditStamp.onDate', { date })}
         </div>
     );
 }

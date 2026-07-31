@@ -9,7 +9,7 @@ import Template from '@app/homeV3/template/Template';
 const HomePageContent = () => {
     return (
         <ContentContainer>
-            <CenteredContainer>
+            <CenteredContainer data-testid="modules-container">
                 <ContentDiv>
                     <HomePageSettingsButtonWrapper />
                     <Announcements />

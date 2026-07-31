@@ -2,6 +2,7 @@ import { Note } from '@phosphor-icons/react/dist/csr/Note';
 import removeMd from '@tommoor/remove-markdown';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -17,17 +18,35 @@ import { Column } from '@src/alchemy-components/components/Table/types';
 import { useListPostsQuery } from '@graphql/post.generated';
 import { PostContentType } from '@types';
 
-const PostsContainer = styled.div`
+const PageContainer = styled.div`
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
+`;
+
+const PostsContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+    overflow: hidden;
 `;
 
 const TableContainer = styled.div`
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
+
+const PaginationContainer = styled.div`
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -38,6 +57,7 @@ type PostListProps = {
 };
 
 export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) => {
+    const { t } = useTranslation('settings.posts');
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -89,20 +109,20 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
 
     const allColumns: Column<PostEntry>[] = [
         {
-            title: 'Title',
+            title: t('columnTitle'),
             key: 'title',
             sorter: (a, b) => a.title.localeCompare(b.title),
             render: (record) => record.title,
             width: '25%',
         },
         {
-            title: 'Description',
+            title: t('columnDescription'),
             key: 'description',
             render: (record) => <OverflowText text={removeMd(record.description || '')} />,
             width: '40%',
         },
         {
-            title: 'Type',
+            title: t('columnType'),
             key: 'type',
             render: (record) => (
                 <Pill
@@ -159,15 +179,15 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
             );
         }
-        return <EmptyState icon={Note} title="No Posts" description="Create a new post to get started." />;
+        return <EmptyState icon={Note} title={t('emptyTitle')} description={t('emptyDescription')} />;
     };
 
     return (
-        <>
-            {error && <Alert variant="error" title="Failed to load Posts! An unexpected error occurred." />}
+        <PageContainer>
+            {error && <Alert variant="error" title={t('loadError')} />}
             <PostsContainer>
                 <SearchBar
-                    placeholder="Search posts..."
+                    placeholder={t('searchPlaceholder')}
                     value={query || ''}
                     onChange={(value) => {
                         setPage(1);
@@ -178,13 +198,15 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
                 <TableContainer>{renderContent()}</TableContainer>
                 {totalPosts > pageSize && (
-                    <Pagination
-                        currentPage={page}
-                        itemsPerPage={pageSize}
-                        total={totalPosts}
-                        onPageChange={onChangePage}
-                        showSizeChanger={false}
-                    />
+                    <PaginationContainer>
+                        <Pagination
+                            currentPage={page}
+                            itemsPerPage={pageSize}
+                            total={totalPosts}
+                            onPageChange={onChangePage}
+                            showSizeChanger={false}
+                        />
+                    </PaginationContainer>
                 )}
                 {isCreatingPost && (
                     <CreatePostModal
@@ -208,6 +230,6 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                     />
                 )}
             </PostsContainer>
-        </>
+        </PageContainer>
     );
 };

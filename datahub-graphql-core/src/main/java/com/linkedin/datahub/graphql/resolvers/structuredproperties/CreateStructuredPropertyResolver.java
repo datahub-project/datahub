@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.applyProposalUiSource;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.metadata.Constants.*;
 
@@ -166,10 +167,13 @@ public class CreateStructuredPropertyResolver
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
     }
+    if (input.getAllowedPlatforms() != null) {
+      input.getAllowedPlatforms().forEach(builder::addAllowedPlatform);
+    }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());
 
-    return builder.build();
+    return applyProposalUiSource(builder.build());
   }
 
   private void buildTypeQualifier(

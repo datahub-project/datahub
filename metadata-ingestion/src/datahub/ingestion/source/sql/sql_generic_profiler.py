@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 from sqlalchemy import create_engine, inspect
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -18,9 +19,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import (
-    DatahubGEProfiler,
-    GEProfilerRequest,
+from datahub.ingestion.source.profiling.common import (
+    ProfilerRequest,
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
@@ -32,7 +33,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
 
 
 @dataclass
-class TableProfilerRequest(GEProfilerRequest):
+class TableProfilerRequest(ProfilerRequest):
     table: Union[BaseTable, BaseView]
     profile_table_level_only: bool = False
 
@@ -63,12 +64,12 @@ class GenericProfiler:
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
         # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
-        ge_profile_requests: List[GEProfilerRequest] = []
+        profile_requests: List[ProfilerRequest] = []
         for request in requests:
             if not request.profile_table_level_only or request.table.rows_count == 0:
                 # Runtime validation instead of cast
-                assert isinstance(request, GEProfilerRequest)
-                ge_profile_requests.append(request)
+                assert isinstance(request, ProfilerRequest)
+                profile_requests.append(request)
         table_level_profile_requests: List[TableProfilerRequest] = [
             request for request in requests if request.profile_table_level_only
         ]
@@ -93,14 +94,14 @@ class GenericProfiler:
                     entityUrn=dataset_urn, aspect=table_level_profile
                 ).as_workunit()
 
-        if not ge_profile_requests:
+        if not profile_requests:
             return
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         ge_profiler = self.get_profiler_instance(db_name)
 
         for ge_profiler_request, profile in ge_profiler.generate_profiles(
-            ge_profile_requests, max_workers, platform, profiler_args
+            profile_requests, max_workers, platform, profiler_args
         ):
             if profile is None:
                 continue
@@ -242,7 +243,7 @@ class GenericProfiler:
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

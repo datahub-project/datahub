@@ -4,15 +4,15 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.config.RequestConfig;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.RequestOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Slf4j
 @Configuration
 public class ElasticSearchBulkProcessorFactory {
   @Autowired
@@ -43,9 +43,13 @@ public class ElasticSearchBulkProcessorFactory {
   @Value("${elasticsearch.threadCount}")
   private Integer threadCount;
 
+  @Value("${elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds}")
+  private int slowByQueryOperationTimeoutSeconds;
+
   @Bean(name = "elasticSearchBulkProcessor")
   @Nonnull
   protected ESBulkProcessor getInstance(MetricUtils metricUtils) {
+    RequestOptions byQueryOpts = buildByQueryRequestOptions(slowByQueryOperationTimeoutSeconds);
     return ESBulkProcessor.builder(searchClient, metricUtils)
         .async(async)
         .bulkFlushPeriod(bulkFlushPeriod)
@@ -54,7 +58,19 @@ public class ElasticSearchBulkProcessorFactory {
         .numRetries(numRetries)
         .threadCount(threadCount)
         .batchDelete(enableBatchDelete)
+        .byQueryRequestOptions(byQueryOpts)
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
         .build();
+  }
+
+  @Nonnull
+  static RequestOptions buildByQueryRequestOptions(int slowOperationTimeoutSeconds) {
+    int socketTimeoutMs = Math.max(1, slowOperationTimeoutSeconds) * 1000;
+    RequestConfig baseConfig = RequestOptions.DEFAULT.getRequestConfig();
+    RequestConfig requestConfig =
+        baseConfig != null
+            ? RequestConfig.copy(baseConfig).setSocketTimeout(socketTimeoutMs).build()
+            : RequestConfig.custom().setSocketTimeout(socketTimeoutMs).build();
+    return RequestOptions.DEFAULT.toBuilder().setRequestConfig(requestConfig).build();
   }
 }

@@ -62,6 +62,12 @@ def get_adapter(
         )
 
         adapter_class = MySQLAdapter
+    elif platform_lower in ("mssql", "sqlserver"):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.mssql import (
+            MSSQLAdapter,
+        )
+
+        adapter_class = MSSQLAdapter
     elif platform_lower == "redshift":
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
             RedshiftAdapter,
@@ -86,6 +92,12 @@ def get_adapter(
         )
 
         adapter_class = TrinoAdapter
+    elif platform_lower == "clickhouse":
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.clickhouse import (
+            ClickHouseAdapter,
+        )
+
+        adapter_class = ClickHouseAdapter
     else:
         # Fallback to generic adapter for unknown platforms
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
@@ -94,6 +106,6 @@ def get_adapter(
 
         adapter_class = GenericAdapter
 
-    logger.debug(f"Using {adapter_class.__name__} for platform '{platform}'")
+    logger.info(f"Using {adapter_class.__name__} for platform '{platform}'")
 
     return adapter_class(config, report, base_engine)

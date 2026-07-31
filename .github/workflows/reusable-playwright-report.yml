@@ -1,0 +1,115 @@
+name: Reusable - Merge Playwright HTML report
+
+on:
+  workflow_call:
+
+jobs:
+  playwright_report:
+    name: Merge Playwright HTML report
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          restore-keys: playwright-${{ runner.os }}-yarn-
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+
+      - name: Download all Playwright blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: playwright-blob-report-*
+          path: playwright-blob-reports
+
+      - name: Merge blob reports into unified HTML report
+        run: |
+          # download-artifact v4+ places each artifact in its own subfolder under
+          # playwright-blob-reports/. Flatten all .zip files into a single dir so
+          # `playwright merge-reports` can find them.
+          mkdir -p playwright-blobs-flat
+          # Playwright blob filenames include the shard index, so cp overwrites are safe.
+          find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
+          if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
+            ./e2e-test/ui/playwright/node_modules/.bin/playwright merge-reports --reporter html ./playwright-blobs-flat
+          else
+            echo "No blob reports found — all shards may have been skipped or crashed"
+            exit 1
+          fi
+
+      - name: Upload merged Playwright HTML report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          retention-days: 5
+
+      - name: Configure AWS credentials for S3 report upload
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
+        with:
+          role-to-assume: ${{ vars.PLAYWRIGHT_TEST_REPORT_PUBLISH_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Publish Playwright report to S3
+        id: publish-s3-report
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
+        env:
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PLAYWRIGHT_REPORTS_S3_BUCKET: ${{ vars.PLAYWRIGHT_REPORTS_S3_BUCKET }}
+        run: |
+          if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
+            echo "No playwright-report directory — skipping S3 upload"
+            exit 0
+          fi
+
+          BUCKET="${PLAYWRIGHT_REPORTS_S3_BUCKET}"
+
+          WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9]/-/g' \
+            | sed -E 's/-+/-/g' \
+            | sed 's/^-//;s/-$//')
+          S3_PATH="${GH_REPOSITORY_OWNER}/${GH_EVENT_REPOSITORY_NAME}/workflows/${GH_EVENT_NAME}/${GH_RUN_ID}_${GH_RUN_ATTEMPT}/${WORKFLOW_NAME}/playwright-report"
+
+          aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --sse AES256 \
+            --delete
+
+          REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
+          echo "report_url=${REPORT_URL}" >> "$GITHUB_OUTPUT"
+          echo "Published Playwright report to: ${REPORT_URL}"
+
+      - name: Add report link to GitHub Summary
+        if: ${{ always() && !cancelled() && env.IS_FORK == 'false' && steps.publish-s3-report.outputs.report_url != '' }}
+        run: |
+          {
+            echo "## Playwright HTML Report"
+            echo ""
+            echo "| Resource | Link |"
+            echo "|----------|------|"
+            echo "| HTML Report (incl. Traces) | ${{ steps.publish-s3-report.outputs.report_url }} |"
+            echo ""
+            echo "> [!NOTE]"
+            echo "> Accessible from the DataHub VPN only."
+          } >> "$GITHUB_STEP_SUMMARY"

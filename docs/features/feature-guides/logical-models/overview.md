@@ -4,6 +4,10 @@
 Currently we only support datasets and by extension schema fields for logical models. No other entity types are supported.
 :::
 
+:::note Permissions
+Creating a logical model and editing its **columns** require the **Create Logical Models** platform privilege, which is granted to the Admin role by default. Admins can grant it to other roles (e.g. Editor) via a custom platform policy. Linking or unlinking a physical child requires normal dataset **Edit** privileges on the affected datasets. Annotating a logical model (tags, glossary terms, owners, descriptions) requires normal dataset **Edit** privileges, and deleting one requires the **Delete** privilege — exactly like any dataset.
+:::
+
 ## What is a Logical Model
 
 A logical model represents the concept and structure of a database table, without being tied to any single physical instantiation in some source system. Like any DataHub dataset entity, a logical model describes its columns, including data types and descriptions, and can be attributed with other metadata like tags, terms, owners, and custom properties. But unlike physical datasets, logical models do not represent a table in a source system that actually exists, in which data is stored and can be queried.
@@ -40,8 +44,12 @@ Columns on the logical parent and physical children can be linked as well:
 
 Logical models are created like any DataHub dataset. We recommend using the Python SDK.
 
+### From the UI
+
+With `LOGICAL_MODELS_ENABLED`, logical models can also be created directly in the UI: use the **Create Logical Model** action in the search results controls bar, which opens a form for the model's name, platform, and columns. After creation, columns can be added, renamed, retyped, or deleted from the model's **Schema** tab.
+
 :::note Logical Model Platform
-All DataHub datasets require a platform, representing where the dataset exists. If your logical models are stored in a system users are familiar with, we recommend creating a custom platform for that system and providing a custom icon. Otherwise, we recommend using the platform `logical`, which has a special default icon.
+A logical model is a dataset on a **logical platform** — a data platform marked as such — rather than being identified by an entity subtype. The platform picker offers existing logical platforms, including the built-in `logical` platform, or a custom name (up to 15 characters) that becomes a new logical platform. Logical models cannot be created on a regular, non-logical platform. If your logical models are stored in a system users are familiar with, we recommend creating a custom platform for that system and providing a custom icon. Otherwise, we recommend using the built-in `logical` platform, which has a special default icon.
 :::
 
 ### Create Dataset in "logical" Platform
@@ -100,6 +108,10 @@ All DataHub datasets require a platform, representing where the dataset exists. 
 
 At its core, the logical -> physical relationship is created by the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect. To link columns, this aspect must also be created on each child schema field entity. However, for ease of use, we recommend the OpenAPI endpoint.
 
+### From the UI
+
+On a logical model's profile, the **Physical Children** sidebar section provides actions to link a physical dataset (with optional column mapping) and to unlink existing children. Editing a logical model's columns in a breaking way (removing, renaming, or retyping a column) only tears down the child column mappings that referenced the changed column: a child keeps its link, along with any other unaffected column mappings, as long as at least one mapping survives, and is fully unlinked only if none do. Adding a column is non-breaking and never affects existing links. There is no automatic re-linking after a breaking change — affected children must be re-linked manually against the new schema.
+
 ### OpenAPI
 
 The OpenAPI endpoint creates a logical -> physical relationship for a single logical-physical pair, as well as the column-level relationships between their columns, if specified.
@@ -155,3 +167,13 @@ The relationship can also be removed:
 
     client._graph.emit(MetadataChangeProposalWrapper(entityUrn=child_urn, aspect=LogicalParentClass(parent=None)))
 ```
+
+## Authorization
+
+Linking or unlinking a physical dataset to a logical parent writes the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect on the **child** entity (dataset and, for column links, schema field). Authorization requires **Edit Entity** on **both** the child and proposed parent when setting a link; clearing a parent requires **Edit Entity** on the child only.
+
+Each side is checked independently: **datasets** require **Edit Entity** on that dataset; **schema fields** accept **Edit Entity** on the containing dataset or on the schema field URN. The child and parent sides may use different grant types (for example, a dataset policy on the physical side and a schema-field policy on the logical side). OpenAPI logical-model endpoints apply the same rules before batch-writing MCPs.
+
+This applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI relationship endpoints.
+
+See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#logical-parent-logicalparent-aspect).

@@ -1,5 +1,6 @@
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -16,12 +17,15 @@ const EditorContainer = styled.div`
     border-radius: 12px;
 `;
 
+const CONTENT_FIELD_NAME = 'content';
+
 type Props = {
     content: string | undefined;
     form: FormInstance;
 };
 
 const RichTextContent = ({ content, form }: Props) => {
+    const { t } = useTranslation('modules');
     const { urn: assetUrn } = useEntityData();
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -35,10 +39,10 @@ const RichTextContent = ({ content, form }: Props) => {
                 <EditorContainer>
                     <Editor
                         content={content}
-                        placeholder="Write some text here..."
+                        placeholder={t('documentation.contentPlaceholder')}
                         hideBorder
                         dataTestId="rich-text-documentation"
-                        onChange={(newContent) => form.setFieldValue('content', newContent)}
+                        onChange={(newContent) => form.setFieldValue(CONTENT_FIELD_NAME, newContent)}
                         uploadFileProps={
                             assetUrn // only support file upload on profile pages for now due to permissions
                                 ? {

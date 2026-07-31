@@ -44,7 +44,7 @@ if enable_extractors:
     # Airflow 3.0+ SQLParser patch
     if patch_sql_parser:
         try:
-            from datahub_airflow_plugin.airflow3._airflow3_sql_parser_patch import (
+            from datahub_airflow_plugin.airflow3._sql_parser_patch import (
                 patch_sqlparser,
             )
 

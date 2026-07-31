@@ -1,5 +1,6 @@
 import { Text, Timeline } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import TimelineSkeleton from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimeLineSkeleton';
@@ -8,7 +9,6 @@ import TimelineDot from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/grap
 import TimelineHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/components/TimelineHeader';
 import { OPERATIONS_LIMIT } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/constants';
 import usePrepareOperations from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/components/ChangeHistoryDrawer/usePrepareOperations';
-import { pluralize } from '@src/app/shared/textUtil';
 import { CorpUser, Operation } from '@src/types.generated';
 
 const TimelineWrapper = styled.div`
@@ -24,6 +24,7 @@ type ChangeHistoryTimelineProps = {
 };
 
 export default function ChangeHistoryTimeline({ selectedDay, operations, users, loading }: ChangeHistoryTimelineProps) {
+    const { t } = useTranslation('entity.profile.stats');
     const preparedOperations = usePrepareOperations(operations);
 
     const timelineItems = useMemo(() => {
@@ -46,7 +47,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
     const renderTimeline = () => {
         if (loading) return <TimelineSkeleton />;
 
-        if (operations.length === 0) return <Text>There are no operations for the selected day</Text>;
+        if (operations.length === 0) return <Text>{t('changeHistoryTimeline.noOperations')}</Text>;
 
         return (
             <TimelineWrapper>
@@ -66,9 +67,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
             {renderTimeline()}
 
             {numberOfOriginalOperations >= OPERATIONS_LIMIT && (
-                <Text>
-                    Truncated to show first {numberOfOperations} {pluralize(numberOfOperations, 'operation')}
-                </Text>
+                <Text>{t('changeHistoryTimeline.truncatedOperations', { count: numberOfOperations })}</Text>
             )}
         </>
     );

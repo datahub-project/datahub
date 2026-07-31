@@ -2,7 +2,7 @@
 
 Amazon S3 is a storage and lakehouse platform. Learn more in the [official Amazon S3 documentation](https://aws.amazon.com/s3/).
 
-The DataHub integration for Amazon S3 covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Amazon S3 covers file/lakehouse metadata entities such as datasets, paths, and containers. It also captures data profiling, tags, and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -1,5 +1,4 @@
-import { expandColumns } from "../lineageV2/utils";
-import { setLineageV3FeatureFlags } from "./utils";
+import { expandColumns, setLineageV3FeatureFlags } from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =
@@ -20,7 +19,8 @@ const verifyColumnPathModal = (from, to) => {
     .should("be.visible");
 };
 
-describe("column-Level lineage and impact analysis path test", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("column-Level lineage and impact analysis path test", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
   });

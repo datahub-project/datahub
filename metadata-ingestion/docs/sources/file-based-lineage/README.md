@@ -2,7 +2,7 @@
 
 File Based Lineage is a storage and lakehouse platform. Learn more in the [official File Based Lineage documentation](https://datahub.com/docs/).
 
-The DataHub integration for File Based Lineage covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for File Based Lineage covers file/lakehouse metadata entities such as datasets, paths, and containers. It also captures table- and column-level lineage.
 
 ## Concept Mapping
 

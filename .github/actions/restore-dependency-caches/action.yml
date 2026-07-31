@@ -1,0 +1,56 @@
+name: Restore dependency caches (docker-unified buckets)
+description: >
+  Read-only restore of ~/.cache/uv, ~/.cache/yarn, and optionally shared ~/.gradle
+  cache paths (gradle-plugins-cache key). Callers pass keys produced by the same
+  hashFiles / prefix convention as docker-unified. Do not add actions/cache/save
+  for these buckets in workflows that only restore here.
+
+inputs:
+  uv_cache_key:
+    description: Full Actions cache key for the UV path.
+    required: true
+  uv_cache_key_prefix:
+    description: restore-keys prefix for the UV path.
+    required: true
+  yarn_cache_key:
+    description: Full Actions cache key for the Yarn path.
+    required: true
+  yarn_cache_key_prefix:
+    description: restore-keys prefix for the Yarn path.
+    required: true
+  restore_gradle:
+    description: If true, also restore ~/.gradle/* for the gradle-plugins-cache key.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          ~/.cache/uv
+        key: ${{ inputs.uv_cache_key }}
+        restore-keys: |
+          ${{ inputs.uv_cache_key_prefix }}
+
+    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          ~/.cache/yarn
+        key: ${{ inputs.yarn_cache_key }}
+        restore-keys: |
+          ${{ inputs.yarn_cache_key_prefix }}
+
+    - name: Restore Gradle plugins cache (docker-unified bucket)
+      if: ${{ inputs.restore_gradle == 'true' }}
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          ~/.gradle/wrapper
+          ~/.gradle/caches/modules-2
+          ~/.gradle/caches/jars-*
+          ~/.gradle/caches/transforms-*
+        key: gradle-plugins-cache
+        restore-keys: |
+          gradle-plugins-cache

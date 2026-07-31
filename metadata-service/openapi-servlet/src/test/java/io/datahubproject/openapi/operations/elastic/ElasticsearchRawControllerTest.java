@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -19,12 +20,15 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,11 +36,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -57,19 +62,17 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
   private static final Urn TEST_URN_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)");
 
+  @MockitoBean private SystemMetadataService mockSystemMetadataService;
+  @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
+  @MockitoBean private EntitySearchService mockSearchService;
+  @MockitoBean private GraphService mockGraphService;
+  @MockitoBean private AuthorizerChain authorizerChain;
+  @MockitoBean private EntityService<?> entityService;
+  @MockitoBean private ESSearchDAO esSearchDAO;
+
   @Autowired private ElasticsearchRawController elasticsearchRawController;
 
   @Autowired private MockMvc mockMvc;
-
-  @Autowired private SystemMetadataService mockSystemMetadataService;
-
-  @Autowired private TimeseriesAspectService mockTimeseriesAspectService;
-
-  @Autowired private EntitySearchService mockSearchService;
-
-  @Autowired private GraphService mockGraphService;
-
-  @Autowired private AuthorizerChain authorizerChain;
 
   @BeforeMethod
   public void setupMocks() {
@@ -78,9 +81,8 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    // Setup AuthorizerChain to allow access
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    // Default: 1-arg stub only (OperationContextAuthorizer null fallback).
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
   }
 
   @Test
@@ -90,6 +92,9 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
 
   @Test
   public void testGetEntityRaw() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     // Mock raw entity response
     Map<Urn, Map<String, Object>> rawEntityMap = new HashMap<>();
 

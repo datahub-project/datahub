@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { DocumentEditType, EventType } from '@app/analytics';
 
@@ -35,6 +36,7 @@ export interface UpdateDocumentRelatedEntitiesInput {
 }
 
 export function useUpdateDocument() {
+    const { t } = useTranslation('misc');
     const [updateContentsMutation, { loading: updatingContents }] = useUpdateDocumentContentsMutation();
     const [updateStatusMutation, { loading: updatingStatus }] = useUpdateDocumentStatusMutation();
     const [updateSubTypeMutation, { loading: updatingSubType }] = useUpdateDocumentSubTypeMutation();
@@ -71,14 +73,15 @@ export function useUpdateDocument() {
                     return true;
                 }
 
+                /* untranslated-text -- internal error, not user-visible */
                 throw new Error('Failed to update document');
             } catch (error) {
                 console.error('Failed to update document:', error);
-                message.error('Failed to update document. An unexpected error occurred!');
+                message.error(t('document.updateError'));
                 return false;
             }
         },
-        [updateContentsMutation],
+        [updateContentsMutation, t],
     );
 
     const updateStatus = useCallback(
@@ -103,14 +106,15 @@ export function useUpdateDocument() {
                     return true;
                 }
 
+                /* untranslated-text -- internal error, not user-visible */
                 throw new Error('Failed to update document status');
             } catch (error) {
                 console.error('Failed to update document status:', error);
-                message.error('Failed to update document status. An unexpected error occurred!');
+                message.error(t('document.updateStatusError'));
                 return false;
             }
         },
-        [updateStatusMutation],
+        [updateStatusMutation, t],
     );
 
     const updateSubType = useCallback(
@@ -136,14 +140,15 @@ export function useUpdateDocument() {
                     return true;
                 }
 
+                /* untranslated-text -- internal error, not user-visible */
                 throw new Error('Failed to update document sub-type');
             } catch (error) {
                 console.error('Failed to update document sub-type:', error);
-                message.error('Failed to update document sub-type. An unexpected error occurred!');
+                message.error(t('document.updateSubTypeError'));
                 return false;
             }
         },
-        [updateSubTypeMutation],
+        [updateSubTypeMutation, t],
     );
 
     const updateRelatedEntities = useCallback(
@@ -163,15 +168,16 @@ export function useUpdateDocument() {
                     return true;
                 }
 
+                /* untranslated-text -- internal error, not user-visible */
                 throw new Error('Failed to update related entities');
             } catch (error) {
                 console.error('Failed to update related entities:', error);
-                message.error('Failed to update related assets. An unexpected error occurred!');
+                message.error(t('document.updateRelatedAssetsError'));
                 // Silent fail - don't show error message for this operation
                 return false;
             }
         },
-        [updateRelatedEntitiesMutation],
+        [updateRelatedEntitiesMutation, t],
     );
 
     return {

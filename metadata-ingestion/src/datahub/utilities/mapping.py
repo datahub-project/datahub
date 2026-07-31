@@ -4,7 +4,7 @@ import operator
 import re
 import time
 from functools import reduce
-from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
+from typing import Any, Dict, List, Mapping, Match, Optional, TypedDict, Union, cast
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter import mce_builder
@@ -22,6 +22,11 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceClass,
     OwnershipTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
+)
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,12 +61,50 @@ def _make_owner_category_list(
 _match_regexp = re.compile(r"{{\s*\$match\s*}}", flags=re.MULTILINE)
 
 
+class _StructuredPropertyEntry(TypedDict):
+    """One structured-property value assignment flowing through operations_map."""
+
+    urn: str
+    value: Union[str, float]
+
+
 def _insert_match_value(original_value: str, match_value: str) -> str:
     """
     If the original value is something like "foo{{ $match }}bar", then we insert the match value
     e.g. "foo<match_value>bar". Otherwise, it will leave the original value unchanged.
     """
     return _match_regexp.sub(match_value, original_value)
+
+
+def _coerce_structured_property_value(value: Any) -> Optional[Union[str, float]]:
+    """
+    Coerce a single value to one of the types supported by
+    com.linkedin.structured.PrimitivePropertyValue (string | double).
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        # bool is a subtype of int in Python; stringify to avoid coercing
+        # True/False into 1.0/0.0 silently.
+        return str(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _coerce_structured_property_values(value: Any) -> List[Union[str, float]]:
+    """Coerce a value (or list of values) into a list of primitive property values."""
+    if isinstance(value, list):
+        coerced_list: List[Union[str, float]] = []
+        for item in value:
+            coerced = _coerce_structured_property_value(item)
+            if coerced is not None:
+                coerced_list.append(coerced)
+        return coerced_list
+    coerced = _coerce_structured_property_value(value)
+    return [coerced] if coerced is not None else []
 
 
 class Constants:
@@ -71,6 +114,7 @@ class Constants:
     ADD_TERMS_OPERATION = "add_terms"
     ADD_OWNER_OPERATION = "add_owner"
     ADD_DOMAIN_OPERATION = "add_domain"
+    ADD_STRUCTURED_PROPERTY_OPERATION = "add_structured_property"
 
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
@@ -88,6 +132,11 @@ class Constants:
     TAG_DIST_KEY = "DIST_KEY"
     TAG_SORT_KEY = "SORT_KEY"
     SEPARATOR = "separator"
+    STRUCTURED_PROPERTY_URN = "structured_property_urn"
+    STRUCTURED_PROPERTY_VALUE = "value"
+    STRUCTURED_PROPERTY_VALUE_TYPE = "value_type"
+    STRUCTURED_PROPERTY_VALUE_TYPE_STRING = "string"
+    STRUCTURED_PROPERTY_VALUE_TYPE_NUMBER = "number"
 
 
 class _MappingOwner(ConfigModel):
@@ -95,11 +144,15 @@ class _MappingOwner(ConfigModel):
     owner_type: str = OwnershipTypeClass.DATAOWNER
 
 
+_StructuredPropertyValueT = Union[str, float, int, bool, List[Union[str, float, int]]]
+
+
 class _DatahubProps(ConfigModel):
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
     owners: Optional[List[Union[str, _MappingOwner]]] = None
     domain: Optional[str] = None
+    structured_properties: Optional[Dict[str, _StructuredPropertyValueT]] = None
 
     def make_owner_category_list(self) -> List[Dict]:
         if self.owners is None:
@@ -131,7 +184,8 @@ class OperationProcessor:
     A general class that processes a dictionary of properties and operations defined on it.
     An action is defined over a property with a specific match condition. If the condition is satisfied then the
     operation is carried out.
-    Supported operations in this context include creating tags, terms or owners.
+    Supported operations include: add_tag, add_term, add_terms, add_owner, add_domain,
+    add_doc_link, and add_structured_property.
     For e.g below is a sample definition of two operations in yaml format
     operation_def:
       business_owner:
@@ -144,6 +198,11 @@ class OperationProcessor:
         operation: "add_tag"
         config:
           tag: "has_pii"
+      data_load_frequency:
+        match: ".*"
+        operation: "add_structured_property"
+        config:
+          structured_property_urn: "urn:li:structuredProperty:data.load.frequency"
 
     The raw input properties can be -
     "meta": {
@@ -207,6 +266,11 @@ class OperationProcessor:
                     operations_map.setdefault(
                         Constants.ADD_DOMAIN_OPERATION, []
                     ).append(mce_builder.make_domain_urn(datahub_prop.domain))
+
+                if datahub_prop.structured_properties:
+                    self._add_datahub_structured_properties_to_map(
+                        datahub_prop.structured_properties, operations_map
+                    )
         except Exception as e:
             logger.error(f"Error while processing datahub property: {e}")
 
@@ -236,7 +300,11 @@ class OperationProcessor:
                 )
                 if maybe_match is not None:
                     operation = self.get_operation_value(
-                        operation_key, operation_type, operation_config, maybe_match
+                        operation_key,
+                        operation_type,
+                        operation_config,
+                        maybe_match,
+                        raw_props_value=raw_props_value,
                     )
 
                     if operation_type == Constants.ADD_TERMS_OPERATION:
@@ -272,6 +340,30 @@ class OperationProcessor:
         except Exception as e:
             logger.error(f"Error while converting operations map to aspects: {e}")
         return aspect_map
+
+    def _add_datahub_structured_properties_to_map(
+        self,
+        raw_properties: Dict[str, _StructuredPropertyValueT],
+        operations_map: Dict[str, list],
+    ) -> None:
+        """Translate `datahub.structured_properties` shorthand entries into the
+        flat `{"urn": ..., "value": ...}` form that `convert_to_aspects` consumes."""
+        for prop_id, prop_value in raw_properties.items():
+            # Wrap per-property so one bad key (e.g. urn:li:tag:...) doesn't
+            # abort the whole bag and silently drop the surviving entries.
+            try:
+                urn = make_structured_property_urn(prop_id)
+            except Exception as e:
+                logger.warning(
+                    f"Skipping datahub.structured_properties entry '{prop_id}': "
+                    f"could not build structured property URN: {e}"
+                )
+                continue
+            for coerced in _coerce_structured_property_values(prop_value):
+                entry: _StructuredPropertyEntry = {"urn": urn, "value": coerced}
+                operations_map.setdefault(
+                    Constants.ADD_STRUCTURED_PROPERTY_OPERATION, []
+                ).append(entry)
 
     def convert_to_aspects(self, operation_map: Dict[str, list]) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
@@ -319,6 +411,43 @@ class OperationProcessor:
                 ]
             )
             aspect_map[Constants.ADD_DOMAIN_OPERATION] = domain_aspect
+
+        if Constants.ADD_STRUCTURED_PROPERTY_OPERATION in operation_map:
+            # Aggregate multiple rules targeting the same property URN into a
+            # single value-list assignment, dropping duplicates.
+            grouped_values: Dict[str, List[Union[str, float]]] = {}
+            for entry in operation_map[Constants.ADD_STRUCTURED_PROPERTY_OPERATION]:
+                if not isinstance(entry, dict):
+                    logger.warning(
+                        f"Dropping malformed structured-property entry "
+                        f"(expected dict, got {type(entry).__name__}): {entry!r}"
+                    )
+                    continue
+                urn = entry.get("urn")
+                value = entry.get("value")
+                if not urn or value is None:
+                    logger.warning(
+                        f"Dropping incomplete structured-property entry "
+                        f"(urn={urn!r}, value={value!r})"
+                    )
+                    continue
+                values_list = grouped_values.setdefault(urn, [])
+                if value not in values_list:
+                    values_list.append(value)
+
+            if grouped_values:
+                structured_properties_aspect = StructuredPropertiesClass(
+                    properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=urn,
+                            values=values_list,
+                        )
+                        for urn, values_list in sorted(grouped_values.items())
+                    ]
+                )
+                aspect_map[Constants.ADD_STRUCTURED_PROPERTY_OPERATION] = (
+                    structured_properties_aspect
+                )
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:
@@ -372,7 +501,10 @@ class OperationProcessor:
         operation_type: str,
         operation_config: Dict,
         match: Match,
-    ) -> Optional[Union[str, Dict, List[str], List[Dict]]]:
+        raw_props_value: Any = None,
+    ) -> Optional[
+        Union[str, Dict, List[str], List[Dict], List[_StructuredPropertyEntry]]
+    ]:
         if (
             operation_type == Constants.ADD_TAG_OPERATION
             and operation_config[Constants.TAG]
@@ -444,6 +576,70 @@ class OperationProcessor:
                 for term in captured_terms.split(separator)
                 if term.strip()
             ]
+        elif operation_type == Constants.ADD_STRUCTURED_PROPERTY_OPERATION:
+            raw_urn = operation_config.get(Constants.STRUCTURED_PROPERTY_URN)
+            if not raw_urn:
+                logger.warning(
+                    f"add_structured_property rule '{operation_key}' is missing "
+                    f"required config field '{Constants.STRUCTURED_PROPERTY_URN}'."
+                )
+                return None
+            try:
+                property_urn = make_structured_property_urn(raw_urn)
+            except Exception as e:
+                logger.warning(
+                    f"add_structured_property rule '{operation_key}' has invalid "
+                    f"{Constants.STRUCTURED_PROPERTY_URN}='{raw_urn}': {e}"
+                )
+                return None
+
+            # An explicit `value` is treated as a template (`{{ $match }}` substitution),
+            # otherwise we fall back to the raw meta value so int/float types are
+            # preserved into the PrimitivePropertyValue coercion below.
+            if Constants.STRUCTURED_PROPERTY_VALUE in operation_config:
+                raw_value = operation_config[Constants.STRUCTURED_PROPERTY_VALUE]
+                best_match = _get_best_match(match, "value")
+                if isinstance(raw_value, str):
+                    raw_value = _insert_match_value(raw_value, best_match)
+                elif isinstance(raw_value, list):
+                    raw_value = [
+                        _insert_match_value(v, best_match) if isinstance(v, str) else v
+                        for v in raw_value
+                    ]
+            else:
+                raw_value = raw_props_value
+
+            # value_type is a coercion hint: `number` casts string -> float.
+            # string/date/urn/rich_text are all stored as strings and pass through;
+            # GMS validates the definition's real type server-side.
+            value_type = operation_config.get(Constants.STRUCTURED_PROPERTY_VALUE_TYPE)
+            if (
+                value_type == Constants.STRUCTURED_PROPERTY_VALUE_TYPE_NUMBER
+                and isinstance(raw_value, str)
+            ):
+                try:
+                    raw_value = float(raw_value)
+                except ValueError:
+                    logger.warning(
+                        f"add_structured_property rule '{operation_key}' configured with "
+                        f"value_type=number but value '{raw_value}' is not numeric."
+                    )
+                    return None
+
+            coerced_values = _coerce_structured_property_values(raw_value)
+            if not coerced_values:
+                # Matched but no coercible value — warn so it isn't a silent no-op.
+                logger.warning(
+                    f"add_structured_property rule '{operation_key}' matched "
+                    f"but produced no usable value for "
+                    f"{Constants.STRUCTURED_PROPERTY_URN}='{property_urn}' "
+                    f"(raw value: {raw_value!r}); skipping."
+                )
+                return None
+            entries: List[_StructuredPropertyEntry] = [
+                {"urn": property_urn, "value": v} for v in coerced_values
+            ]
+            return entries
         return None
 
     def sanitize_owner_ids(self, owner_id: str) -> str:

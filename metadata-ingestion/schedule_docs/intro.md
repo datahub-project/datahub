@@ -1,3 +1,7 @@
+---
+description: "Overview of options for scheduling DataHub metadata ingestion recipes, including Airflow, Kubernetes CronJobs, and crontab."
+---
+
 # Introduction to Scheduling Metadata Ingestion
 
 Given a recipe file `/home/ubuntu/datahub_ingest/mysql_to_datahub.yml`.

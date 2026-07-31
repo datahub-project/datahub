@@ -188,12 +188,7 @@ public class ResolverUtils {
       condition = Condition.EQUAL;
     }
 
-    final List<String> values;
-    if (filter.getValues() == null && filter.getValue() != null) {
-      values = Collections.singletonList(filter.getValue());
-    } else {
-      values = filter.getValues();
-    }
+    final List<String> values = filter.getValues();
 
     return buildCriterion(filter.getField(), condition, filter.getNegated(), values);
   }

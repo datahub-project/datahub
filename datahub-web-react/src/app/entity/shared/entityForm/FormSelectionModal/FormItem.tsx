@@ -1,9 +1,9 @@
 import { Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
 import useIsUserAssigned from '@app/entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
 import {
@@ -12,7 +12,6 @@ import {
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
 import { WhiteButton } from '@app/shared/components';
-import { pluralize } from '@app/shared/textUtil';
 
 import { FormAssociation } from '@types';
 
@@ -30,13 +29,13 @@ const FormName = styled.div`
 
 const FormAssigner = styled.div`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     margin-top: -4px;
     margin-bottom: 4px;
 `;
 
 const OptionalText = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: normal;
 `;
 
@@ -47,7 +46,7 @@ const CompleteWrapper = styled.div`
 
 const FormInfoWrapper = styled.div`
     font-size: 12px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 
@@ -57,6 +56,8 @@ interface Props {
 }
 
 export default function FormItem({ formAssociation, selectFormUrn }: Props) {
+    const { t } = useTranslation('entity.form');
+    const { t: tc } = useTranslation('common.actions');
     const { entityData } = useEntityData();
     const { form } = formAssociation;
     const { numRequiredPromptsRemaining, numOptionalPromptsRemaining } = useGetPromptInfo(form.urn);
@@ -79,26 +80,24 @@ export default function FormItem({ formAssociation, selectFormUrn }: Props) {
                 )}
                 <FormInfoWrapper>
                     {isComplete && (
-                        <CompleteWrapper>{showVerificationInfo ? <>Verified</> : <>Complete</>}</CompleteWrapper>
+                        <CompleteWrapper>
+                            {showVerificationInfo ? <>{t('statusVerified')}</> : <>{t('statusComplete')}</>}
+                        </CompleteWrapper>
                     )}
                     {!isComplete && (
-                        <div>
-                            {numRequiredPromptsRemaining} required {pluralize(numRequiredPromptsRemaining, 'response')}{' '}
-                            remaining
-                        </div>
+                        <div>{t('requiredResponsesRemaining', { count: numRequiredPromptsRemaining })}</div>
                     )}
                     {numOptionalPromptsRemaining > 0 && (
                         <OptionalText>
-                            {numOptionalPromptsRemaining} optional {pluralize(numOptionalPromptsRemaining, 'response')}{' '}
-                            remaining
+                            {t('optionalResponsesRemaining', { count: numOptionalPromptsRemaining })}
                         </OptionalText>
                     )}
                 </FormInfoWrapper>
             </div>
-            <Tooltip title={!isUserAssigned ? 'You are not assigned to view or edit this form' : undefined}>
+            <Tooltip title={!isUserAssigned ? t('notAssignedTooltip') : undefined}>
                 <WhiteButton type="primary" onClick={() => selectFormUrn(form.urn)} disabled={!isUserAssigned}>
-                    {isComplete && 'View'}
-                    {!isComplete && <>{showVerificationInfo ? 'Verify' : 'Complete'}</>}
+                    {isComplete && tc('view')}
+                    {!isComplete && <>{showVerificationInfo ? t('verify') : t('statusComplete')}</>}
                 </WhiteButton>
             </Tooltip>
         </FormItemWrapper>

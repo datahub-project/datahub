@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
@@ -9,13 +10,12 @@ interface Props {
 }
 
 export default function CancelExecutionConfirmation({ isOpen, onConfirm, onCancel }: Props) {
+    const { t } = useTranslation('ingestion');
     return (
         <ConfirmationModal
             isOpen={isOpen}
-            modalTitle="Confirm Cancel"
-            modalText="Are you sure you want to continue? 
-            Cancelling a running execution will NOT remove any data that has already been ingested. 
-            You can use the DataHub CLI to rollback this ingestion run."
+            modalTitle={t('executions.cancelConfirmTitle')}
+            modalText={t('executions.cancelConfirmText')}
             handleConfirm={onConfirm}
             handleClose={onCancel}
         />

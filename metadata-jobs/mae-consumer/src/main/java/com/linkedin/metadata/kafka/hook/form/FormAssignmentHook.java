@@ -58,7 +58,6 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   private final FormService formService;
   private final boolean isEnabled;
 
-  private OperationContext systemOperationContext;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
@@ -78,7 +77,6 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
 
   @Override
   public FormAssignmentHook init(@Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
     return this;
   }
 
@@ -88,16 +86,19 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog event) {
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event)
+      throws Exception {
     if (isEnabled && isEligibleForProcessing(event)) {
       if (isFormDynamicFilterUpdated(event)) {
-        handleFormFilterUpdated(event);
+        handleFormFilterUpdated(operationContext, event);
       }
     }
   }
 
   /** Handle an form filter update by adding updating the targeting automation for it. */
-  private void handleFormFilterUpdated(@Nonnull final MetadataChangeLog event) {
+  private void handleFormFilterUpdated(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
     // 1. Get the new form assignment
     DynamicFormAssignment formFilters =
         GenericRecordUtils.deserializeAspect(
@@ -106,8 +107,7 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    formService.upsertFormAssignmentRunner(
-        systemOperationContext, event.getEntityUrn(), formFilters);
+    formService.upsertFormAssignmentRunner(operationContext, event.getEntityUrn(), formFilters);
   }
 
   /**

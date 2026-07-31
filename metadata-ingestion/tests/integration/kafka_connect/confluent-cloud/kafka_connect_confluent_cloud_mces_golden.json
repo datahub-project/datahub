@@ -148,7 +148,7 @@
           "urn:li:dataset:(urn:li:dataPlatform:kafka,public.customer_profiles,PROD)"
         ],
         "outputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.public.customer_profiles,PROD)"
+          "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.customer_profiles,PROD)"
         ]
       }
     },
@@ -494,7 +494,7 @@
           "urn:li:dataset:(urn:li:dataPlatform:kafka,public.product_catalog,PROD)"
         ],
         "outputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.public.product_catalog,PROD)"
+          "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.product_catalog,PROD)"
         ]
       }
     },

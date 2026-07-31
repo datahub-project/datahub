@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { Button, Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FULL_TABLE_PARTITION_KEYS } from '@app/entityV2/shared/tabs/Dataset/Stats/constants';
@@ -26,6 +27,7 @@ const bytesFormatter = (bytes: number) => {
 };
 
 export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
     const [showModal, setShowModal] = useState(false);
     const [selectedProfileIndex, setSelectedProfileIndex] = useState(-1);
 
@@ -43,16 +45,18 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
         const profileDate = new Date(profile.timestampMillis);
         return {
             timestamp: `${profileDate.toLocaleDateString()} at ${profileDate.toLocaleTimeString()}`,
-            rowCount: profile.rowCount?.toString() || 'unknown',
-            columnCount: profile.columnCount?.toString() || 'unknown',
-            sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : 'unknown',
+            rowCount: profile.rowCount?.toString() || t('profilingRunsChart.unknown'),
+            columnCount: profile.columnCount?.toString() || t('profilingRunsChart.unknown'),
+            sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : t('profilingRunsChart.unknown'),
             partition: profile.partitionSpec?.partition || '',
         };
     });
 
     const tableColumns = [
         {
-            title: areAllProfilesPartitioned ? 'Partition' : 'Date',
+            title: areAllProfilesPartitioned
+                ? t('profilingRunsChart.partitionColumn')
+                : t('profilingRunsChart.dateColumn'),
             key: 'Date',
             dataIndex: 'timestamp',
             render: (title, record, index) => {
@@ -66,17 +70,17 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
             },
         },
         {
-            title: 'Row Count',
+            title: t('profilingRunsChart.rowCountColumn'),
             key: 'Row Count',
             dataIndex: 'rowCount',
         },
         {
-            title: 'Column Count',
+            title: t('profilingRunsChart.columnCountColumn'),
             key: 'Column Count',
             dataIndex: 'columnCount',
         },
         {
-            title: 'Size',
+            title: t('profilingRunsChart.sizeColumn'),
             key: 'Size',
             dataIndex: 'sizeInBytes',
         },
@@ -85,9 +89,10 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
     const selectedProfile = (selectedProfileIndex >= 0 && profiles[selectedProfileIndex]) || undefined;
     const profileModalTitle =
         selectedProfile &&
-        `Showing profile from ${new Date(selectedProfile?.timestampMillis).toLocaleDateString()} at ${new Date(
-            selectedProfile?.timestampMillis,
-        ).toLocaleTimeString()}`;
+        t('profilingRunsChart.showingProfile', {
+            date: new Date(selectedProfile?.timestampMillis).toLocaleDateString(),
+            time: new Date(selectedProfile?.timestampMillis).toLocaleTimeString(),
+        });
 
     return (
         <>
@@ -95,7 +100,7 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
                 <Modal
                     buttons={[]}
                     width="100%"
-                    title={profileModalTitle || 'Profile'}
+                    title={profileModalTitle || t('profilingRunsChart.profileFallbackTitle')}
                     open={showModal}
                     onCancel={onClose}
                 >

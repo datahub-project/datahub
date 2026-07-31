@@ -3,6 +3,7 @@ import { Popover } from '@components';
 import { Table, TablePaginationConfig, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
@@ -125,6 +126,7 @@ export default function QueriesListSection({
     onAddQuery,
     isTopSection,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
     /**
      * Table state
      */
@@ -233,7 +235,7 @@ export default function QueriesListSection({
                 {section === QueriesTabSection.Highlighted && (
                     <AddButton
                         dataTestId="add-query-button"
-                        buttonLabel="Add Highlighted Query"
+                        buttonLabel={t('queriesTab.addHighlightedQueryButton')}
                         isButtonDisabled={addQueryDisabled}
                         onButtonClick={onAddQuery}
                     />

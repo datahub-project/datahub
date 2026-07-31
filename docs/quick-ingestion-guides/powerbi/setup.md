@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Power BI Setup
 ---
 
 # Power BI Ingestion Guide: Setup & Prerequisites

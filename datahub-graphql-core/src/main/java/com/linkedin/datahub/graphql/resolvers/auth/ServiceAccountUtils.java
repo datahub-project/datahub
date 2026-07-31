@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
 import com.linkedin.common.SubTypes;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ServiceAccount;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.Constants;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -110,6 +113,19 @@ public final class ServiceAccountUtils {
   }
 
   /**
+   * Returns the given settings if non-null, otherwise creates a new empty {@link CorpUserSettings}
+   * with the default appearance preset.
+   */
+  @Nonnull
+  public static CorpUserSettings getOrCreateSettings(@Nullable CorpUserSettings existing) {
+    if (existing != null) {
+      return existing;
+    }
+    return new CorpUserSettings()
+        .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
+  }
+
+  /**
    * Maps an EntityResponse to a ServiceAccount GraphQL object.
    *
    * @param response The entity response to map
@@ -143,6 +159,26 @@ public final class ServiceAccountUtils {
       } catch (Exception e) {
         log.warn(
             "Failed to parse corpUserInfo for service account: {}",
+            response.getUrn().toString(),
+            e);
+      }
+    }
+
+    // Extract default view from corpUserSettings aspect
+    final EnvelopedAspect settingsAspect =
+        response.getAspects().get(Constants.CORP_USER_SETTINGS_ASPECT_NAME);
+    if (settingsAspect != null) {
+      try {
+        final CorpUserSettings settings = new CorpUserSettings(settingsAspect.getValue().data());
+        if (settings.hasViews() && settings.getViews().hasDefaultView()) {
+          final DataHubView viewStub = new DataHubView();
+          viewStub.setUrn(settings.getViews().getDefaultView().toString());
+          viewStub.setType(EntityType.DATAHUB_VIEW);
+          serviceAccount.setDefaultView(viewStub);
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Failed to parse corpUserSettings for service account: {}",
             response.getUrn().toString(),
             e);
       }

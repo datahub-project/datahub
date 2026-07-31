@@ -1,0 +1,993 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "cube",
+                "instance": "cube_demo",
+                "env": "PROD",
+                "deployment": "cube_demo",
+                "deployment_type": "CubeDeploymentType.CLOUD"
+            },
+            "externalUrl": "https://demo.cubecloud.dev",
+            "name": "cube_demo",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781859424191,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543489,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Cube Deployment"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543489,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543489,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543490,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:cube",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "count",
+                    "nullable": false,
+                    "description": "Count",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "measure (count)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"format\": \"number\", \"drillMembers\": [\"id\", \"status\"]}"
+                },
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "description": "Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": false,
+                    "description": "Status",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781863406525,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pg_prod.analytics.public.orders,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.users,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pg_prod.analytics.public.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),count)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pg_prod.analytics.public.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pg_prod.analytics.public.orders,PROD),status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),status)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543491,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "cube",
+                "measures": "1",
+                "dimensions": "2",
+                "file_name": "model/cubes/orders.yml",
+                "join.users": "many_to_one"
+            },
+            "name": "Orders",
+            "description": "Order transactions",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781863406526,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543491,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Cube"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543491,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+                },
+                {
+                    "id": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+                    "urn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543491,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543492,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:cube",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "count",
+                    "nullable": false,
+                    "description": "Count",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"format\": \"number\"}"
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": false,
+                    "description": "Status",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781863406527,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),count)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD),count)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD),status)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543492,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "type": "view",
+                "measures": "1",
+                "dimensions": "1",
+                "file_name": "model/views/orders_view.yml",
+                "folder.Key Metrics": "count"
+            },
+            "name": "Orders View",
+            "description": "Curated, query-ready orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781863406527,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "includes:\n  - orders.count\n  - orders.status",
+            "viewLanguage": "YAML"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781865165814,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+                },
+                {
+                    "id": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+                    "urn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000a1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313053,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000a1)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "report_id": "101"
+            },
+            "title": "Orders by Status",
+            "description": "Daily order counts grouped by status.",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1706790600000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313053,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000a1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:analyst@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313053,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000b2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313054,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000b2)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "report_id": "102"
+            },
+            "title": "Raw Order Count",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1706861700000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313054,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000b2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:lead@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313054,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543493,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781857543494,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313056,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cube",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313054,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Orders Overview",
+            "description": "KPIs for the orders pipeline.",
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(cube,cube_demo.rpt0000000a1)"
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(cube,cube_demo.rpt0000000b2)"
+                }
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1706954400000,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313054,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000a1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313055,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:analyst@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313055,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313055,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(cube,cube_demo.5001)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:cube,cube_demo)"
+                },
+                {
+                    "id": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004",
+                    "urn": "urn:li:container:0a6e8bb4a1a1ce147774695a6169b004"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313055,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(cube,cube_demo.rpt0000000b2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1781867313055,
+        "runId": "cube-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -48,6 +48,16 @@ meta_mapping:
     config:
       link: {{ $match }}
       description: "Documentation Link"
+  business_domain:
+    match: ".*"
+    operation: "add_domain"
+    config:
+      domain: "{{ $match }}"
+  data_load_frequency:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.data_load_frequency"
 column_meta_mapping:
   terms_list:
     match: ".*"
@@ -64,6 +74,11 @@ column_meta_mapping:
     operation: "add_tag"
     config:
       tag: "pii"
+  classification:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.classification"
 ```
 
 We support the following operations:
@@ -77,10 +92,12 @@ We support the following operations:
    - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
 
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
+6. add_domain - Adds the dataset to a DataHub Domain. The `domain` config value can be a short ID (e.g. `Marketing`) or a fully-qualified URN (`urn:li:domain:Marketing`). Supports `{{ $match }}` substitution.
+7. add_structured_property - Assigns a value to a [DataHub Structured Property](../../../../docs/features/feature-guides/properties/overview.md). Required config: `structured_property_urn` (full URN or qualified name). Optional config: `value` (literal or `{{ $match }}` template; defaults to the raw meta value, preserving numeric types) and `value_type` (`string` or `number`). Multiple rules targeting the same property URN have their values aggregated into a single assignment. The structured property itself must be defined in DataHub before ingestion runs — this operation only assigns values, it does not create the property definition.
 
 Note:
 
-1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
+1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level. The `add_structured_property` operation is supported at both levels — at the column level it produces a `structuredProperties` aspect attached to each matching `schemaField` URN.
 2. For string meta properties we support regex matching.
 3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 
@@ -237,6 +254,42 @@ The connector will produce the following things:
 
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
+
+##### How dbt test statuses map to DataHub assertion results
+
+Each dbt test result is translated into a DataHub `AssertionResult` with a `type` (SUCCESS, FAILURE, or ERROR) and, on failures, an optional `severity` (LOW, MEDIUM, HIGH).
+
+DataHub distinguishes **the test produced a verdict** (SUCCESS / FAILURE) from **the test could not run** (ERROR). This lets you separate data-quality regressions from infrastructure or SQL-compile problems downstream.
+
+The mapping for regular dbt tests:
+
+| dbt status      | Meaning                                                                             | `AssertionResult.type` | `AssertionResult.severity` |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------- | -------------------------- |
+| `pass`          | Test ran, no failing rows                                                           | `SUCCESS`              | —                          |
+| `warn`          | Test ran, found failing rows, configured with `severity: warn`                      | see below              | `LOW` (if emitted)         |
+| `fail`          | Test ran, found failing rows, configured with `severity: error` (the default)       | `FAILURE`              | `HIGH`                     |
+| `error`         | Test invocation failed to compile/start (SQL error, missing ref, permissions, etc.) | `ERROR`                | —                          |
+| `runtime error` | Test started running and then the warehouse raised an exception                     | `ERROR`                | —                          |
+
+The `warn` row depends on the `test_warnings_are_errors` config:
+
+- `test_warnings_are_errors: false` (default): `warn` → `SUCCESS`. Honors dbt's author-declared "soft concern" semantics.
+- `test_warnings_are_errors: true`: `warn` → `FAILURE` with `severity: LOW`. Stricter — every failing test row counts as a failure, but soft ones are tagged for downstream filtering.
+
+:::note Default will change in a future release
+
+`test_warnings_are_errors` is planned to default to `true` once assertion result consumers (UI, saved searches, alerting) can filter by severity. At that point, `warn` will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. Set `test_warnings_are_errors: true` today to adopt the forthcoming behavior.
+
+:::
+
+For dbt source freshness checks, the semantics of `error` differ: `error` means the `error_after` threshold was exceeded, i.e. the check ran and the source is considered stale. The freshness mapping:
+
+| dbt freshness status | Meaning                              | `AssertionResult.type`               | `AssertionResult.severity` |
+| -------------------- | ------------------------------------ | ------------------------------------ | -------------------------- |
+| `pass`               | Source is fresh                      | `SUCCESS`                            | —                          |
+| `warn`               | `warn_after` threshold exceeded      | see `test_warnings_are_errors` above | `LOW` (if emitted)         |
+| `error`              | `error_after` threshold exceeded     | `FAILURE`                            | `HIGH`                     |
+| `runtime error`      | Freshness check itself failed to run | `ERROR`                              | —                          |
 
 :::note Missing test results?
 

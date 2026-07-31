@@ -38,10 +38,13 @@ class TestDemoDataSource:
         pack_file.write_text(json.dumps([]))
         return pack_file
 
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.registry.get_pack")
     @patch("datahub.cli.datapack.loader.download_pack")
     @patch("datahub.cli.datapack.loader.check_trust")
-    def test_default_loads_bootstrap(self, mock_trust, mock_download, mock_get_pack):
+    def test_default_loads_bootstrap(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
+    ):
         """Default config resolves 'bootstrap' pack from registry."""
         from datahub.cli.datapack.models import DataPackInfo, TrustTier
 
@@ -65,11 +68,13 @@ class TestDemoDataSource:
             mock_get_pack.assert_called_once_with("bootstrap")
             mock_trust.assert_called_once()
             mock_download.assert_called_once()
+            mock_ingest.assert_called_once()
             assert source.file_source is not None
 
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.loader.download_pack")
     @patch("datahub.cli.datapack.loader.check_trust")
-    def test_pack_url_creates_custom_pack(self, mock_trust, mock_download):
+    def test_pack_url_creates_custom_pack(self, mock_trust, mock_download, mock_ingest):
         """pack_url creates an ad-hoc custom pack without hitting registry."""
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
             json.dump([], f)
@@ -85,13 +90,14 @@ class TestDemoDataSource:
             trust_call_pack = mock_trust.call_args[0][0]
             assert trust_call_pack.name == "custom"
             assert trust_call_pack.trust.value == "custom"
+            mock_ingest.assert_called_once()
 
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.registry.get_pack")
     @patch("datahub.cli.datapack.loader.download_pack")
     @patch("datahub.cli.datapack.loader.check_trust")
-    @patch("datahub.cli.datapack.time_shift.time_shift_file")
     def test_time_shift_when_enabled(
-        self, mock_time_shift, mock_trust, mock_download, mock_get_pack
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
         """Time-shifting is invoked when no_time_shift=False and pack has reference_timestamp."""
         from datahub.cli.datapack.models import DataPackInfo, TrustTier
@@ -108,24 +114,22 @@ class TestDemoDataSource:
         with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
             json.dump([], f)
             f.flush()
-            pack_path = Path(f.name)
-            mock_download.return_value = [IndexFileEntry(path=pack_path)]
-
-            shifted_path = Path(f.name)
-            mock_time_shift.return_value = shifted_path
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
             ctx = MagicMock()
+            ctx.run_id = "test-run-id"
             config = DemoDataConfig(pack_name="test", no_time_shift=False)
             _source = DemoDataSource(ctx, config)
 
-            mock_time_shift.assert_called_once()
+            mock_ingest.assert_called_once()
+            assert mock_ingest.call_args.kwargs["no_time_shift"] is False
 
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
     @patch("datahub.cli.datapack.registry.get_pack")
     @patch("datahub.cli.datapack.loader.download_pack")
     @patch("datahub.cli.datapack.loader.check_trust")
-    @patch("datahub.cli.datapack.time_shift.time_shift_file")
     def test_no_time_shift_by_default(
-        self, mock_time_shift, mock_trust, mock_download, mock_get_pack
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
         """Default config (no_time_shift=True) skips time-shifting."""
         from datahub.cli.datapack.models import DataPackInfo, TrustTier
@@ -148,4 +152,64 @@ class TestDemoDataSource:
             config = DemoDataConfig()  # default no_time_shift=True
             _source = DemoDataSource(ctx, config)
 
-            mock_time_shift.assert_not_called()
+            mock_ingest.assert_called_once()
+            assert mock_ingest.call_args.kwargs["no_time_shift"] is True
+
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.registry.get_pack")
+    @patch("datahub.cli.datapack.loader.download_pack")
+    @patch("datahub.cli.datapack.loader.check_trust")
+    def test_as_of_passed_to_ingest(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
+    ):
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
+
+        mock_get_pack.return_value = DataPackInfo(
+            name="test",
+            description="test",
+            url="https://example.com/test.json",
+            trust=TrustTier.VERIFIED,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
+            json.dump([], f)
+            f.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
+
+            ctx = MagicMock()
+            ctx.run_id = "demo-run"
+            config = DemoDataConfig(as_of="2024-06-01T12:00:00+00:00")
+            DemoDataSource(ctx, config)
+
+            mock_ingest.assert_called_once()
+            as_of = mock_ingest.call_args.kwargs["as_of"]
+            assert as_of is not None
+            assert as_of.year == 2024
+            assert as_of.month == 6
+
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.registry.get_pack")
+    @patch("datahub.cli.datapack.loader.download_pack")
+    @patch("datahub.cli.datapack.loader.check_trust")
+    def test_get_workunits_and_report(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest
+    ):
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
+
+        mock_get_pack.return_value = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w") as f:
+            json.dump([], f)
+            f.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
+
+            ctx = MagicMock()
+            source = DemoDataSource(ctx, DemoDataConfig())
+
+            assert list(source.get_workunits()) == []
+            assert source.get_report() is not None

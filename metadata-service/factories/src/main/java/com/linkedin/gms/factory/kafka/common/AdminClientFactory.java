@@ -8,14 +8,14 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.codehaus.plexus.util.StringUtils;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 
 public class AdminClientFactory {
   public static AdminClient buildKafkaAdminClient(
       KafkaConfiguration kafkaConfiguration,
       final KafkaProperties kafkaProperties,
       String clientId) {
-    Map<String, Object> adminProperties = new HashMap<>(kafkaProperties.buildAdminProperties(null));
+    Map<String, Object> adminProperties = new HashMap<>(kafkaProperties.buildAdminProperties());
     adminProperties.put(AdminClientConfig.CLIENT_ID_CONFIG, clientId);
 
     // We use the producer configuration because the admin client is used for checking availability

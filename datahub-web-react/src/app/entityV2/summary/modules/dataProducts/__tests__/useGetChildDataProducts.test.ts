@@ -93,7 +93,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -119,7 +118,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -288,7 +286,6 @@ describe('useGetChildDataProducts', () => {
                     filters: [
                         {
                             field: DOMAINS_FILTER_NAME,
-                            value: urn,
                             values: [urn],
                         },
                     ],
@@ -347,7 +344,6 @@ describe('useGetChildDataProducts', () => {
                             filters: [
                                 {
                                     field: DOMAINS_FILTER_NAME,
-                                    value: urn,
                                     values: [urn],
                                 },
                             ],
@@ -381,7 +377,6 @@ describe('useGetChildDataProducts', () => {
                 (filter) => filter.field === DOMAINS_FILTER_NAME,
             );
             expect(domainFilter).toBeDefined();
-            expect(domainFilter.value).toBe(urn);
             expect(domainFilter.values).toEqual([urn]);
         });
 
@@ -405,7 +400,7 @@ describe('useGetChildDataProducts', () => {
             expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledTimes(2);
 
             const secondCallArgs = (useGetSearchResultsForMultipleQuery as any).mock.calls[1][0];
-            expect(secondCallArgs.variables.input.filters[0].value).toBe('urn:li:domain:newDomain');
+            expect(secondCallArgs.variables.input.filters[0].values).toEqual(['urn:li:domain:newDomain']);
         });
     });
 });

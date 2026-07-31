@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Zugriff bereits erteilt",
+    "accessManagement.accessGrantedTooltip": "Du hast bereits Zugriff auf diese Rolle",
+    "accessManagement.columnAccess": "Zugriff",
+    "accessManagement.columnAccessType": "Zugriffstyp",
+    "accessManagement.columnRoleName": "Rollenname",
+    "accessManagement.granted": "Erteilt",
+    "accessManagement.request": "Anfragen",
+    "accessManagement.requestAccess": "Zugriff anfragen",
+    "accessManagement.tableAriaLabel": "Tabelle der Rollen für die Zugriffsverwaltung"
+}

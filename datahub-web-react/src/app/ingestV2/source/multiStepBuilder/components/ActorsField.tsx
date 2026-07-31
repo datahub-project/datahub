@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
@@ -8,10 +9,12 @@ interface Props {
     label: string;
     ownerUrns?: string[];
     updateOwners?: (owners: ActorEntity[]) => void;
-    defaultActors?: ActorEntity[];
+    isDisabled?: boolean;
+    isLoading?: boolean;
 }
 
-export function ActorsField({ label, ownerUrns, updateOwners, defaultActors }: Props) {
+export function ActorsField({ label, ownerUrns, updateOwners, isDisabled, isLoading }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const urns = useMemo(() => ownerUrns ?? [], [ownerUrns]);
     const onUpdate = useCallback((owners: ActorEntity[]) => updateOwners?.(owners), [updateOwners]);
 
@@ -20,8 +23,9 @@ export function ActorsField({ label, ownerUrns, updateOwners, defaultActors }: P
             <ActorsSearchSelect
                 selectedActorUrns={urns}
                 onUpdate={onUpdate}
-                placeholder="Search for users or groups"
-                defaultActors={defaultActors}
+                placeholder={t('multiStep.builder.actorsPlaceholder')}
+                isDisabled={isDisabled}
+                isLoading={isLoading}
             />
         </FieldWrapper>
     );

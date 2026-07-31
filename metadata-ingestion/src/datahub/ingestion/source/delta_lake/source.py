@@ -22,7 +22,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
@@ -46,9 +46,6 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -95,6 +92,10 @@ OPERATION_STATEMENT_TYPES = {
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Delta table history",
+)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -439,14 +440,6 @@ class DeltaLakeSource(StatefulIngestionSourceBase):
         )
         for folder in list_folders(path_parts.container_name, prefix, azure_config):
             yield azure_config.get_abfss_url(folder)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(

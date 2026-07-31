@@ -1,3 +1,7 @@
+---
+description: "Search and filter audit events in DataHub to investigate metadata changes, user activity, and platform usage history."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Audit Events Search API V1

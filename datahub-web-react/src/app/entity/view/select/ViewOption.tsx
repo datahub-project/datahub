@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ViewDropdownMenu } from '@app/entity/view/menu/ViewDropdownMenu';
@@ -43,11 +44,12 @@ export const ViewOption = ({
     onClickEdit,
     onClickPreview,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
     return (
         <Container>
             <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
+                {isUserDefault && <UserDefaultViewIcon title={t('userDefaultTooltip')} />}
+                {isGlobalDefault && <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} />}
             </IconPlaceholder>
             <ViewOptionName name={view.name} description={view.description} />
             <ViewDropdownMenu

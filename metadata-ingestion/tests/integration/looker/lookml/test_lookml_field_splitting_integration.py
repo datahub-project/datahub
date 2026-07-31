@@ -10,7 +10,7 @@ from typing import Dict, List
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from looker_sdk.sdk.api40.models import (
     Category,
     DBConnection,
@@ -60,7 +60,7 @@ def create_mock_sql_response(fields: List[str], table_name: str = "test_table") 
     return f"SELECT {field_list} FROM {table_name}"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_field_splitting_with_large_view(pytestconfig, tmp_path, mock_time):
     """
@@ -174,7 +174,7 @@ def test_integration_field_splitting_with_large_view(pytestconfig, tmp_path, moc
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_individual_field_fallback_on_chunk_failure(
     pytestconfig, tmp_path, mock_time
@@ -285,7 +285,7 @@ def test_integration_individual_field_fallback_on_chunk_failure(
         assert len(warnings) > 0, "Expected problematic fields to be reported"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_view_explore_optimization_reduces_api_calls(
     pytestconfig, tmp_path, mock_time
@@ -375,7 +375,7 @@ def test_integration_view_explore_optimization_reduces_api_calls(
         )  # Allow some buffer for views in test data
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_parallel_processing_performance(pytestconfig, tmp_path, mock_time):
     """
@@ -474,7 +474,7 @@ def test_integration_parallel_processing_performance(pytestconfig, tmp_path, moc
             assert avg_time_diff < 1.0, "Queries should be processed in parallel"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_partial_lineage_with_parsing_errors(
     pytestconfig, tmp_path, mock_time
@@ -570,7 +570,7 @@ def test_integration_partial_lineage_with_parsing_errors(
         assert len(warnings) > 0, "Expected warnings about partial lineage results"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_integration_configuration_validation(pytestconfig, tmp_path, mock_time):
     """

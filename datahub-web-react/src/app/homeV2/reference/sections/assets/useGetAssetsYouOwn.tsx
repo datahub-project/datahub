@@ -25,7 +25,6 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn || '', ...groupUrns],
                     },
                 ],

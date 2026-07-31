@@ -14,9 +14,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -25,6 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.graph.cache.client.AspectDirectChildrenWalker;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -36,6 +35,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -199,14 +199,9 @@ public class DomainUtils {
       @Nonnull final Urn domainUrn,
       @Nonnull final QueryContext context,
       @Nonnull final EntityClient entityClient)
-      throws RemoteInvocationException {
-    Filter parentDomainFilter = buildParentDomainFilter(domainUrn);
-    // Search for entities matching parent domain
-    // Limit count to 1 for existence check
-    final SearchResult searchResult =
-        entityClient.filter(
-            context.getOperationContext(), DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1);
-    return (searchResult.getNumEntities() > 0);
+      throws RemoteInvocationException, URISyntaxException {
+    return AspectDirectChildrenWalker.hasDomainDirectChildren(
+        context.getOperationContext(), entityClient, domainUrn);
   }
 
   private static Map<Urn, EntityResponse> getDomainsByNameAndParent(
@@ -262,35 +257,6 @@ public class DomainUtils {
             });
   }
 
-  @Nullable
-  public static Entity getParentDomain(
-      @Nonnull final Urn urn,
-      @Nonnull final QueryContext context,
-      @Nonnull final EntityClient entityClient) {
-    try {
-      final EntityResponse entityResponse =
-          entityClient.getV2(
-              context.getOperationContext(),
-              DOMAIN_ENTITY_NAME,
-              urn,
-              Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME));
-
-      if (entityResponse != null
-          && entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
-        final DomainProperties properties =
-            new DomainProperties(
-                entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
-        final Urn parentDomainUrn = getParentDomainSafely(properties);
-        return parentDomainUrn != null ? UrnToEntityMapper.map(context, parentDomainUrn) : null;
-      }
-    } catch (Exception e) {
-      throw new RuntimeException(
-          String.format("Failed to retrieve parent domain for entity %s", urn), e);
-    }
-
-    return null;
-  }
-
   /**
    * Get a parent domain only if hasParentDomain was set. There is strange elastic behavior where
    * moving a domain to the root leaves the parentDomain field set but makes hasParentDomain false.
@@ -302,6 +268,9 @@ public class DomainUtils {
    */
   @Nullable
   public static Urn getParentDomainSafely(@Nonnull final DomainProperties properties) {
+    if (properties == null) {
+      return null;
+    }
     return properties.hasParentDomain() ? properties.getParentDomain() : null;
   }
 }

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.config.search;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -219,6 +219,18 @@ public class BuildIndicesConfiguration {
       throw new IllegalArgumentException(
           "minimumReplicasForPromotion must be >= 0, got: " + minimumReplicasForPromotion);
     }
+    if (catchUpSqlPageSize <= 0) {
+      throw new IllegalArgumentException(
+          "catchUpSqlPageSize must be > 0, got: " + catchUpSqlPageSize);
+    }
+    if (catchUpFlushInterval <= 0) {
+      throw new IllegalArgumentException(
+          "catchUpFlushInterval must be > 0, got: " + catchUpFlushInterval);
+    }
+    if (catchUpFlushBytesThreshold < 0) {
+      throw new IllegalArgumentException(
+          "catchUpFlushBytesThreshold must be >= 0, got: " + catchUpFlushBytesThreshold);
+    }
     log.info(
         "BuildIndicesConfiguration stability windows: yellowStability={}s, greenStability={}s, redRecovery={}s",
         yellowStabilitySeconds,
@@ -259,6 +271,15 @@ public class BuildIndicesConfiguration {
   private boolean incrementalReindexEnabled;
 
   /**
+   * When true, mapping parameters applied live are also reconciled through the incremental
+   * alias-rebuild path so historical documents are indexed under the new mapping. This is opt-in
+   * because a broad mapping change can rebuild many indices; incremental reindexing must also be
+   * enabled. Enable it on the system-update run that first applies the mapping change because the
+   * reconciliation need can no longer be inferred after the live mapping matches.
+   */
+  @Builder.Default private boolean reconcileInPlaceMappingUpdates = false;
+
+  /**
    * Seconds between polls when checking if a timeseries catch-up reindex task is still running via
    * the listTasks API. Default 5 seconds.
    */
@@ -270,4 +291,16 @@ public class BuildIndicesConfiguration {
    * DUAL_WRITE_DISABLED to prevent a later enable from writing to stale or deleted old indices.
    */
   private boolean rollbackDualWriteEnabled;
+
+  /** Default max accumulated metadata-column chars between catch-up flushes (128 MiB). */
+  public static final long DEFAULT_CATCH_UP_FLUSH_BYTES_THRESHOLD = 128L * 1024 * 1024;
+
+  /** SQL page size for incremental reindex catch-up MCL streaming. Default 50. */
+  @Builder.Default private int catchUpSqlPageSize = 50;
+
+  /** Rows between producer flush and checkpoint during catch-up. Default 500. */
+  @Builder.Default private int catchUpFlushInterval = 500;
+
+  /** Byte threshold for early flush during catch-up; 0 disables. Default 128 MiB. */
+  @Builder.Default private long catchUpFlushBytesThreshold = DEFAULT_CATCH_UP_FLUSH_BYTES_THRESHOLD;
 }

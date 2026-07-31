@@ -21,7 +21,7 @@ const darkTheme: ColorTheme = {
     bgHover: colors.gray1000,
     text: colors.gray200,
     textSecondary: colors.gray300,
-    textTertiary: colors.gray400,
+    textTertiary: colors.gray500,
     textBrand: colors.violet500,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,
@@ -46,6 +46,7 @@ const darkTheme: ColorTheme = {
     iconInformation: colors.blue400,
     iconSuccess: colors.green150,
     iconWarning: colors.yellow500,
+    iconOnFillBrand: colors.gray0,
     buttonFillBrand: colors.violet800,
     buttonFillFocus: colors.violet500,
     buttonSurfaceBrandFocus: colors.violet500,
@@ -66,6 +67,8 @@ const darkTheme: ColorTheme = {
     borderError: colors.red300,
     borderSuccess: colors.green300,
     borderWarning: colors.yellow800,
+    borderWhite: colors.gray0,
+
     // Interactive states: Hover
     textHover: colors.violet400,
     iconHover: colors.violet400,
@@ -229,7 +232,7 @@ const darkTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet600,
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,
     glossaryPalettePurple: colors.violet500,

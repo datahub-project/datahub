@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for managing user subscriptions to DataHub Dataset events via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -8,6 +12,10 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Subscriptions on Datasets?
 
 Subscriptions are a way to receive notifications when entity changes occur (e.g. deprecations, schema changes, ownership changes, etc.) or when assertions change state (pass, fail, or error). Subscriptions can be created at the dataset level (affecting any changes on the dataset, as well as all assertions on the dataset) or at the assertion level (affecting only specific assertions).
+
+:::tip
+For more on how assertion alerts are delivered (Slack DMs, channel notifications, incident alerts, EventBridge), see [Assertions › Alerts](../../managed-datahub/observe/assertions.md#alerts).
+:::
 
 ### Goal Of This Guide
 
@@ -73,9 +81,11 @@ The following change types are available for subscriptions:
 
 #### Assertion Events
 
-- `ASSERTION_PASSED` - When an assertion run passes
+- `ASSERTION_PASSED` - When an assertion run passes. Note these are suppressed until a failure or error occurs, so its semantically closer to an assertion recovery notification.
 - `ASSERTION_FAILED` - When an assertion run fails
 - `ASSERTION_ERROR` - When an assertion run encounters an error
+
+See [Assertions › Alerts](../../managed-datahub/observe/assertions.md#alerts) for details on how these events are delivered as alerts.
 
 #### Incident Status Changes
 

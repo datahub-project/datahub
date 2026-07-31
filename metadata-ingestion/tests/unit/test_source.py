@@ -437,3 +437,34 @@ def test_stale_entity_removal_excludes_all_aspects():
     assert source.source_report.aspects_by_subtypes == {
         "dataset": {"Table": {"status": 1, "subTypes": 1, "datasetProfile": 1}}
     }
+
+
+def test_report_tracks_cross_platform_and_container_entities():
+    """Container URNs and cross-platform dataset URNs must appear in report stats."""
+    source = FakeSource(PipelineContext(run_id="test_cross_platform"))
+
+    # container URN — no platform embedded, guess_platform_name() returns None
+    container_urn = "urn:li:container:abcdef1234567890abcdef1234567890"
+    # bigquery dataset — platform "bigquery" differs from source platform "fake"
+    bigquery_urn = str(
+        DatasetUrn.create_from_ids(
+            platform_id="bigquery",
+            table_name="proj.ds.tbl",
+            env="PROD",
+        )
+    )
+
+    for urn in (container_urn, bigquery_urn):
+        source.source_report.report_workunit(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+        )
+
+    source.source_report.compute_stats()
+
+    assert "container" in source.source_report.aspects
+    assert "status" in source.source_report.aspects["container"]
+    assert "dataset" in source.source_report.aspects
+    assert "status" in source.source_report.aspects["dataset"]
