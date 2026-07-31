@@ -18,7 +18,6 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetricExpressionClass,
     SchemaFieldClass,
-    SchemaMetadataClass,
     SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
@@ -336,14 +335,14 @@ class SemanticModel(
         self._ensure_model_props().relationships = [
             self._build_relationship(rel) for rel in relationships
         ]
-        self._validate_relationship_aliases()
+        self._validate_relationships()
 
     def add_relationship(self, relationship: SemanticModelRelationshipInput) -> None:
         props = self._ensure_model_props()
         if props.relationships is None:
             props.relationships = []
         props.relationships.append(self._build_relationship(relationship))
-        self._validate_relationship_aliases()
+        self._validate_relationships()
 
     @staticmethod
     def _build_relationship(
@@ -359,44 +358,81 @@ class SemanticModel(
             aiContext=build_ai_context(rel.ai_context),
         )
 
-    def _attached_dataset_aliases(self) -> Set[str]:
-        return {ds.alias for ds in self._attached_logical_datasets}
+    def _attached_datasets_by_urn(self) -> Dict[str, "SemanticModelDataset"]:
+        # Keyed by URN so duplicate attachments of the same dataset collapse,
+        # matching how props.datasets dedupes URNs.
+        return {str(ds.urn): ds for ds in self._attached_logical_datasets}
 
-    def _validate_relationship_aliases(self, *, strict: bool = False) -> None:
-        """Warn — or, when ``strict``, raise — when a relationship alias has no
-        matching attached dataset.
+    def _attached_dataset_aliases(self) -> Set[str]:
+        return {ds.alias for ds in self._attached_datasets_by_urn().values()}
+
+    def _validate_relationships(self, *, strict: bool = False) -> None:
+        """Warn — or, when ``strict``, raise — when a relationship references an
+        alias with no matching attached dataset, or a join column absent from
+        that dataset's schema.
 
         Datasets are commonly attached *after* relationships, so at construction
-        time the set of known aliases may still be empty/incomplete and this can
-        only flag what it can see. Re-run with ``strict=True`` at emit time
-        (:meth:`as_mcps`), when all datasets and relationships are known.
+        time this can only flag what it can see. Re-run with ``strict=True`` at
+        emit time (:meth:`as_mcps`).
 
-        ``strict`` only raises when we have *full* alias coverage: every dataset
-        listed on the model is an attached :class:`SemanticModelDataset` (so its
-        alias is known). Datasets attached as raw URN strings carry no alias, so
-        a definitive mismatch cannot be proven and we fall back to a warning.
+        Alias checks raise (under ``strict``) only under *full* alias coverage:
+        every declared dataset URN is an attached :class:`SemanticModelDataset`,
+        so all aliases are known. Datasets attached as raw URN strings carry no
+        alias/schema, so mismatches there downgrade to a warning. Column checks
+        run only for aliases whose dataset is attached with a non-empty schema.
         """
-        rels = self._ensure_model_props().relationships
+        props = self._ensure_model_props()
+        rels = props.relationships
         if not rels:
             return
-        known = self._attached_dataset_aliases()
-        if not known:
+        attached_by_urn = self._attached_datasets_by_urn()
+        by_alias = {ds.alias: ds for ds in attached_by_urn.values()}
+        known_aliases = set(by_alias)
+        # Non-strict callers are construction-time setters that commonly run
+        # before datasets are attached; stay quiet until there is something to
+        # check. Strict (emit-time) validation still runs with no aliases so the
+        # relationships-without-datasets case is caught.
+        if not known_aliases and not strict:
             return
-        props = self._ensure_model_props()
-        full_coverage = len(self._attached_logical_datasets) == len(
-            props.datasets or []
-        )
+        # Subset check (not a length comparison): duplicates and instance/URN
+        # mixes no longer break coverage detection. An empty declared set with
+        # relationships present is full coverage too — the aliases can't match
+        # anything, which is exactly the broken case we want to raise on.
+        declared_urns = set(props.datasets or [])
+        full_coverage = declared_urns <= set(attached_by_urn)
+
+        def flag(message: str, *, definitive: bool) -> None:
+            if strict and definitive:
+                raise SdkUsageError(message)
+            logger.warning(message)
+
         for rel in rels:
-            for alias in (rel.from_, rel.to):
-                if alias and alias not in known:
-                    msg = (
+            for alias, columns in (
+                (rel.from_, rel.fromColumns),
+                (rel.to, rel.toColumns),
+            ):
+                if not alias:
+                    continue
+                if alias not in known_aliases:
+                    flag(
                         f"SemanticModel {str(self.urn)}: relationship alias "
                         f"{alias!r} does not match any attached dataset alias "
-                        f"(known: {sorted(known)}). Join path may be broken."
+                        f"(known: {sorted(known_aliases)}). Join path may be "
+                        f"broken.",
+                        definitive=full_coverage,
                     )
-                    if strict and full_coverage:
-                        raise SdkUsageError(msg)
-                    logger.warning(msg)
+                    continue
+                field_paths = {f.field_path for f in by_alias[alias].schema}
+                if not field_paths:
+                    continue  # schema unavailable; cannot validate columns
+                missing = [c for c in (columns or []) if c not in field_paths]
+                if missing:
+                    flag(
+                        f"SemanticModel {str(self.urn)}: relationship join "
+                        f"column(s) {missing} not found in dataset {alias!r} "
+                        f"(known: {sorted(field_paths)}).",
+                        definitive=True,
+                    )
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:
@@ -417,7 +453,7 @@ class SemanticModel(
         # By emit time all datasets and relationships are attached, so validate
         # join-path aliases against the full picture (a construction-time check
         # sees an incomplete set when datasets are attached after relationships).
-        self._validate_relationship_aliases(strict=True)
+        self._validate_relationships(strict=True)
         return super().as_mcps(change_type=change_type)
 
 
@@ -435,11 +471,12 @@ class SemanticModelDataset(Dataset):
     logical datasets stay unique across semantic models.
 
     Per-field ``semanticFieldAnnotation`` and field-level ``aiContext`` are
-    **create-only**: they are not preserved on a read-modify-write cycle. A
-    graph read returns a :class:`SemanticModelDataset` but its
-    ``_semantic_field_annotations`` is empty, so re-emitting the result drops
-    every field-anchored annotation. Re-attach fields via the ``schema``
-    constructor kwarg to preserve them.
+    **create-only**: they are field-anchored (on ``schemaField`` URNs), not part
+    of the dataset aspect bag. A logical dataset shares the ``dataset`` entity
+    type, so ``client.entities.get(...)`` hydrates it as a base :class:`Dataset`
+    and the annotations are not carried back on a read. To update one, rebuild a
+    fresh ``SemanticModelDataset`` and re-attach its fields via the ``schema``
+    constructor kwarg rather than read-modify-writing the fetched ``Dataset``.
 
     Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
     Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
@@ -609,27 +646,7 @@ class SemanticModelDataset(Dataset):
         entity = cls.__new__(cls)
         Entity.__init__(entity, urn)  # type: ignore[arg-type]
         entity._semantic_field_annotations = {}
-        entity = entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
-        # Field annotations are create-only: a graph read never repopulates
-        # them. When the read-back carries schema fields, a subsequent
-        # read-modify-upsert cycle silently drops every semanticFieldAnnotation
-        # and aiContext. Warn so the loss is at least traceable.
-        schema_meta = entity._get_aspect(SchemaMetadataClass)
-        if (
-            schema_meta is not None
-            and schema_meta.fields
-            and not entity._semantic_field_annotations
-        ):
-            logger.warning(
-                "SemanticModelDataset %s was read from the graph with %d schema "
-                "field(s) but no field annotations (semanticFieldAnnotation and "
-                "field-level aiContext are create-only). Re-emitting this "
-                "instance will NOT preserve them; re-attach fields via the "
-                "`schema` constructor kwarg to retain them.",
-                str(urn),
-                len(schema_meta.fields),
-            )
-        return entity
+        return entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
 
     def as_mcps(
         self,

@@ -454,6 +454,11 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
                 is_part_of_key=True,
             ),
             SemanticFieldInput(
+                field_path="customer_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            ),
+            SemanticFieldInput(
                 field_path="order_ts",
                 type="timestamp",
                 semantic_type=SemanticFieldTypeClass.DIMENSION,
@@ -930,31 +935,6 @@ def test_relationship_alias_mismatch_raises_at_emit() -> None:
         model.as_mcps()
 
 
-def test_graph_read_drops_field_annotations_warns(caplog: Any) -> None:
-    # Field annotations are create-only. A graph read-back that carries schema
-    # fields but no annotations must warn, so a later re-emit dropping them is
-    # traceable.
-    import logging
-
-    ds = SemanticModelDataset(
-        platform="snowflake",
-        name="analytics.orders_model.orders_ds",
-        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
-        alias="ORDERS",
-        schema=[
-            SemanticFieldInput(
-                field_path="order_id",
-                type="int",
-                semantic_type=SemanticFieldTypeClass.DIMENSION,
-            )
-        ],
-    )
-    with caplog.at_level(logging.WARNING, logger="datahub.sdk.semantic_model"):
-        read_back = SemanticModelDataset._new_from_graph(ds.urn, dict(ds._aspects))
-    assert not read_back._semantic_field_annotations
-    assert any("create-only" in r.message for r in caplog.records)
-
-
 def test_field_annotation_mcps_inherit_change_type() -> None:
     # schemaField-anchored aspects must follow the requested change_type, not
     # silently default to UPSERT (e.g. EntityClient.create requests CREATE).
@@ -978,3 +958,155 @@ def test_field_annotation_mcps_inherit_change_type() -> None:
     field_mcps = [m for m in mcps if m.entityUrn and "schemaField" in m.entityUrn]
     assert field_mcps  # both semanticFieldAnnotation and aiContext are anchored here
     assert all(m.changeType == ChangeTypeClass.CREATE for m in field_mcps)
+
+
+def _orders_ds(schema: list) -> SemanticModelDataset:
+    return SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.orders_ds",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias="ORDERS",
+        schema=schema,
+    )
+
+
+def test_relationship_no_datasets_raises_at_emit() -> None:
+    # Relationships with zero datasets attached can't resolve any alias; the
+    # strict emit-time check must catch this instead of returning early.
+    from datahub.errors import SdkUsageError
+
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        relationships=[
+            SemanticModelRelationshipInput(
+                from_alias="ORDERS",
+                from_columns=["customer_id"],
+                to_alias="CUSTOMERS",
+                to_columns=["customer_id"],
+            )
+        ],
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_relationship_duplicate_dataset_does_not_defeat_coverage() -> None:
+    # A duplicated attachment must not make full-coverage detection fail and
+    # downgrade a real alias mismatch to a warning.
+    from datahub.errors import SdkUsageError
+
+    orders_ds = _orders_ds(
+        [
+            SemanticFieldInput(
+                field_path="customer_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ]
+    )
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[orders_ds, orders_ds],  # duplicate on purpose
+        relationships=[
+            SemanticModelRelationshipInput(
+                from_alias="ORDERS",
+                from_columns=["customer_id"],
+                to_alias="TYPO_CUSTOMERS",
+                to_columns=["customer_id"],
+            )
+        ],
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_relationship_missing_join_column_raises_at_emit() -> None:
+    # Aliases match, but the join column is absent from the dataset schema.
+    from datahub.errors import SdkUsageError
+
+    orders_ds = _orders_ds(
+        [
+            SemanticFieldInput(
+                field_path="order_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ]
+    )
+    customers_ds = SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.customers_ds",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias="CUSTOMERS",
+        schema=[
+            SemanticFieldInput(
+                field_path="customer_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ],
+    )
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[orders_ds, customers_ds],
+        relationships=[
+            SemanticModelRelationshipInput(
+                from_alias="ORDERS",
+                from_columns=["customer_id"],  # not in ORDERS schema
+                to_alias="CUSTOMERS",
+                to_columns=["customer_id"],
+            )
+        ],
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_metric_expression_empty_list_rejected() -> None:
+    from datahub.errors import SdkUsageError
+
+    with pytest.raises(SdkUsageError):
+        Metric(
+            platform="snowflake",
+            path="analytics",
+            id="revenue",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            expression=[],
+        )
+
+
+def test_metric_expression_prebuilt_empty_dialects_rejected() -> None:
+    from datahub.errors import SdkUsageError
+    from datahub.metadata.schema_classes import MetricExpressionClass
+
+    with pytest.raises(SdkUsageError):
+        Metric(
+            platform="snowflake",
+            path="analytics",
+            id="revenue",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            expression=MetricExpressionClass(dialects=[]),
+        )
+
+
+def test_require_metrics_support_accepts_client() -> None:
+    # require_metrics_support unwraps DataHubClient._graph (the client keeps its
+    # graph private), so passing the client works as the docs show.
+    from unittest.mock import MagicMock
+
+    from datahub.errors import SdkUsageError
+    from datahub.sdk import DataHubClient, require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.is_version_at_least.return_value = False
+    graph.server_config.service_version = "1.0.0"
+    client = DataHubClient(graph=graph)
+    with pytest.raises(SdkUsageError):
+        require_metrics_support(client)

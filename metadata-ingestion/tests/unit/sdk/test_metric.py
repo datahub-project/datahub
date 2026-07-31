@@ -235,3 +235,43 @@ def test_metric_platform() -> None:
         semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
     )
     assert metric.platform == DataPlatformUrn("urn:li:dataPlatform:snowflake")
+
+
+def test_derived_from_mutators_preserve_sibling_relationship_fields() -> None:
+    # Read-modify-write must not clobber parentMetric/relatedMetrics when only
+    # derivedFrom changes.
+    from datahub.metadata.schema_classes import EdgeClass
+
+    parent = "urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,base_revenue)"
+    related = "urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,related_revenue)"
+    existing = "urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,seed_revenue)"
+    new = "urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,extra_revenue)"
+
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+    )
+    # Simulate a graph-hydrated aspect carrying server-set sibling fields.
+    metric._set_aspect(
+        MetricRelationshipsClass(
+            parentMetric=parent,
+            relatedMetrics=[EdgeClass(destinationUrn=related)],
+            derivedFrom=[DerivedMetricInputClass(destinationUrn=existing)],
+        )
+    )
+
+    metric.add_derived_from(new)
+    rels = metric._get_aspect(MetricRelationshipsClass)
+    assert rels is not None
+    assert rels.parentMetric == parent
+    assert [e.destinationUrn for e in rels.relatedMetrics] == [related]
+    assert {d.destinationUrn for d in rels.derivedFrom} == {existing, new}
+
+    metric.set_derived_from([new])
+    rels = metric._get_aspect(MetricRelationshipsClass)
+    assert rels is not None
+    assert rels.parentMetric == parent
+    assert [e.destinationUrn for e in rels.relatedMetrics] == [related]
+    assert [d.destinationUrn for d in rels.derivedFrom] == [new]

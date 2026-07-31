@@ -89,12 +89,28 @@ def _require_nonempty_expression(expression: str) -> str:
     return expression
 
 
+def _require_dialects(
+    dialects: List[DialectExpressionClass],
+) -> List[DialectExpressionClass]:
+    # A MetricExpression with no dialects carries no evaluable SQL. Require at
+    # least one so an empty list input can't silently produce an empty aspect.
+    if not dialects:
+        raise SdkUsageError(
+            "Metric/field expression must contain at least one dialect expression."
+        )
+    return dialects
+
+
 def build_metric_expression(
     expression: MetricExpressionInputType,
     *,
     default_dialect: Union[str, DialectClass] = DialectClass.ANSI_SQL,
 ) -> MetricExpressionClass:
     if isinstance(expression, MetricExpressionClass):
+        # A pre-built aspect still has to satisfy the same invariants.
+        _require_dialects(expression.dialects)
+        for dialect in expression.dialects:
+            _require_nonempty_expression(dialect.expression)
         return expression
     if isinstance(expression, DialectExpressionInput):
         dialects = [
@@ -120,7 +136,7 @@ def build_metric_expression(
         ]
     else:  # pragma: no cover - defensive
         raise TypeError(f"Unsupported expression input type: {type(expression)!r}")
-    return MetricExpressionClass(dialects=dialects)
+    return MetricExpressionClass(dialects=_require_dialects(dialects))
 
 
 def make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
@@ -129,9 +145,12 @@ def make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
     return AuditStampClass(time=make_ts_millis(ts), actor=DEFAULT_ACTOR_URN)
 
 
-def require_metrics_support(graph: object) -> None:
+def require_metrics_support(client_or_graph: object) -> None:
     """Opt-in preflight check that the connected GMS supports the
     ``semanticModel``/``metric``/logical-``dataset`` entities.
+
+    Accepts either a :class:`~datahub.sdk.main_client.DataHubClient` or a raw
+    ``DataHubGraph``; the client's underlying graph is unwrapped automatically.
 
     Mirrors the Snowflake connector gate's asymmetry:
 
@@ -149,8 +168,18 @@ def require_metrics_support(graph: object) -> None:
         from datahub.sdk import DataHubClient, require_metrics_support
 
         client = DataHubClient(server=..., token=...)
-        require_metrics_support(client.graph)
+        require_metrics_support(client)
     """
+    # DataHubClient keeps its DataHubGraph private (behind entities/resolve
+    # facades); unwrap it here so callers can pass the client they already hold.
+    # Imported lazily to avoid a module-load cycle (main_client -> entity_client
+    # -> _all_entities -> semantic_model -> _semantic_shared).
+    from datahub.sdk.main_client import DataHubClient
+
+    if isinstance(client_or_graph, DataHubClient):
+        graph: object = client_or_graph._graph
+    else:
+        graph = client_or_graph
     server_config = getattr(graph, "server_config", None)
     if server_config is None:
         # No server config available (e.g. offline/emitter-only); fail open.

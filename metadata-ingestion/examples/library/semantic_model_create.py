@@ -57,6 +57,12 @@ def build_graph() -> tuple[SemanticModel, List[Entity]]:
                 semantic_type=SemanticFieldTypeClass.DIMENSION,
                 is_part_of_key=True,
             ),
+            # Foreign key the ORDERS -> CUSTOMERS relationship joins on.
+            SemanticFieldInput(
+                field_path="customer_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            ),
             SemanticFieldInput(
                 field_path="order_ts",
                 type="timestamp",
@@ -164,9 +170,9 @@ def main() -> None:
     #
     #   from datahub.sdk import DataHubClient, require_metrics_support
     #   client = DataHubClient(server=..., token=...)
-    #   require_metrics_support(client.graph)  # raises on old SaaS; no-op on OSS
-    #   for mcp in all_mcps:
-    #       client.graph.emit_mcp(mcp)
+    #   require_metrics_support(client)  # raises on old SaaS; no-op on OSS
+    #   for entity in [model, *entities]:
+    #       client.entities.upsert(entity)
 
 
 if __name__ == "__main__":

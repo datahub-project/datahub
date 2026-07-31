@@ -243,24 +243,27 @@ class Metric(
             return []
         return list(rels.derivedFrom)
 
+    def _ensure_metric_relationships(self) -> MetricRelationshipsClass:
+        # Always present so hasParentMetric indexes as false; on a graph-hydrated
+        # metric this preserves server-set parentMetric/relatedMetrics instead of
+        # clobbering them when only derivedFrom changes.
+        rels = self._get_aspect(MetricRelationshipsClass)
+        if rels is None:
+            rels = MetricRelationshipsClass()
+            self._set_aspect(rels)
+        return rels
+
     def set_derived_from(self, derived_from: Sequence[DerivedFromInputType]) -> None:
-        # Always emit metricRelationships (even with empty derivedFrom) so
-        # hasParentMetric indexes as false. parentMetric is left unset: these
-        # metrics have no parent.
-        self._set_aspect(
-            MetricRelationshipsClass(
-                derivedFrom=[
-                    DerivedMetricInputClass(destinationUrn=str(d)) for d in derived_from
-                ]
-            )
-        )
+        # Mutate only derivedFrom; leave parentMetric/relatedMetrics untouched.
+        self._ensure_metric_relationships().derivedFrom = [
+            DerivedMetricInputClass(destinationUrn=str(d)) for d in derived_from
+        ]
 
     def add_derived_from(self, metric: DerivedFromInputType) -> None:
-        current = self.derived_from
+        rels = self._ensure_metric_relationships()
         dest = str(metric)
-        if all(d.destinationUrn != dest for d in current):
-            current.append(DerivedMetricInputClass(destinationUrn=dest))
-        self._set_aspect(MetricRelationshipsClass(derivedFrom=current))
+        if all(d.destinationUrn != dest for d in rels.derivedFrom):
+            rels.derivedFrom.append(DerivedMetricInputClass(destinationUrn=dest))
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:

@@ -53,7 +53,7 @@ wires the lineage chain automatically:
 - **`semanticModel`**: a `Status`, a `SemanticModelInfo` (with `datasets` preserving
   insertion order, plus optional `relationships`), and a model-level `AiContext` **only when
   non-empty**.
-- **Logical `dataset`s**: each gets `Status`, `SubTypes([SEMANTIC_MODEL_DATASET])`, a
+- **Logical `dataset`s**: each gets `SubTypes([SEMANTIC_MODEL_DATASET])`, a
   `SemanticModelProperties(alias, semanticModel=<model urn>)` back-ref, a
   `SchemaMetadata` with the declared fields, and an `UpstreamLineage` to the physical
   datasets. For every field, the SDK emits a `schemaField`-anchored
@@ -114,7 +114,7 @@ opt-in preflight helper before emitting:
 from datahub.sdk import DataHubClient, require_metrics_support
 
 client = DataHubClient(server="...", token="...")
-require_metrics_support(client.graph)  # raises on old SaaS; no-op on OSS
+require_metrics_support(client)  # raises on old SaaS; no-op on OSS
 ```
 
 The helper mirrors the Snowflake connector gate's asymmetry: it version-checks
@@ -125,8 +125,10 @@ when you want the preflight.
 ### Read-modify-write caveat for logical datasets
 
 Per-field `semanticFieldAnnotation` and field-level `aiContext` on a
-`SemanticModelDataset` are **create-only**. A graph read of a logical dataset
-returns a `SemanticModelDataset`, but its per-field annotation store is empty,
-so re-emitting the read result drops every field-anchored annotation. To
-preserve them on an update, re-attach the fields via the `schema` constructor
-kwarg.
+`SemanticModelDataset` are **create-only**. A logical dataset shares the
+`dataset` entity type, so `client.entities.get(<dataset urn>)` hydrates it as a
+base `Dataset` — the field-anchored annotations live on `schemaField` URNs, not
+in the dataset's aspect bag, and are not carried back on a read. To update a
+logical dataset, rebuild a fresh `SemanticModelDataset` and re-attach its fields
+via the `schema` constructor kwarg rather than read-modify-writing the fetched
+`Dataset`.
