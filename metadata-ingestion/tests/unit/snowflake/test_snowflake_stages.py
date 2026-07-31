@@ -333,6 +333,24 @@ class TestS3UpstreamPlatformInstance:
             "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
         )
 
+    def test_copy_history_lineage_returns_none_without_s3_location(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(["gcs://my-bucket/data"]),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert mapping is None
+
     def test_external_upstreams_apply_platform_instance(self) -> None:
         config = _make_config(platform_instance_map={"s3": "product"})
         extractor = SnowflakeLineageExtractor(
@@ -393,3 +411,32 @@ class TestS3UpstreamPlatformInstance:
         )
         # Both rows are scanned exactly once -- the S3 row used to be counted twice.
         assert report.num_external_table_edges_scanned == 2
+
+    def test_external_table_ddl_lineage_skips_undiscovered_table(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "NOT_DISCOVERED",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            }
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen, ["test_db.test_schema.ext_table"]
+            )
+        )
+
+        # The row's key is not in discovered_tables, so it's filtered before the S3
+        # check ever runs -- no lineage, and it isn't counted as a scanned edge either.
+        assert mappings == []
+        assert report.num_external_table_edges_scanned == 0
