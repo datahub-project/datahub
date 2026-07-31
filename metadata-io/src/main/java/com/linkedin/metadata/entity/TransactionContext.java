@@ -4,6 +4,7 @@ import io.ebean.DuplicateKeyException;
 import io.ebean.Transaction;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NonNull;
@@ -16,6 +17,8 @@ import org.springframework.lang.Nullable;
 @Accessors(fluent = true)
 public class TransactionContext {
   public static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  public static final long RETRY_BACKOFF_BASE_MS = 50;
+  public static final long RETRY_BACKOFF_MAX_MS = 2000;
 
   public static TransactionContext empty() {
     return empty(DEFAULT_MAX_TRANSACTION_RETRY);
@@ -58,6 +61,38 @@ public class TransactionContext {
 
   public boolean shouldAttemptRetry() {
     return exceptions.size() <= maxRetries;
+  }
+
+  /**
+   * Sleeps with exponential backoff and jitter before the next retry attempt. Immediate lockstep
+   * retries tend to re-collide with the concurrent transaction that caused the failure (e.g. a
+   * deadlock victim retrying while its peer is still mid-transaction); jitter desynchronizes the
+   * contenders so a retry can succeed.
+   */
+  public void backoffBeforeRetry() {
+    long backoffMs = nextBackoffMs(exceptions.size());
+    if (backoffMs > 0) {
+      try {
+        Thread.sleep(backoffMs);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  /**
+   * Backoff for the given number of failed attempts: base * 2^(attempts-1), jittered to 50-150% of
+   * that value, capped at {@link #RETRY_BACKOFF_MAX_MS}. Returns 0 for non-positive attempts.
+   */
+  static long nextBackoffMs(int failedAttempts) {
+    if (failedAttempts <= 0) {
+      return 0;
+    }
+    long exponential =
+        Math.min(
+            RETRY_BACKOFF_MAX_MS, RETRY_BACKOFF_BASE_MS * (1L << Math.min(failedAttempts - 1, 20)));
+    double jitter = 0.5 + ThreadLocalRandom.current().nextDouble();
+    return Math.min(RETRY_BACKOFF_MAX_MS, (long) (exponential * jitter));
   }
 
   public void commitAndContinue() {

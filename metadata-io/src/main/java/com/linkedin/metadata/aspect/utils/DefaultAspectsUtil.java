@@ -60,11 +60,21 @@ public class DefaultAspectsUtil {
     return !item.getEntitySpec().getKeyAspectName().equals(item.getAspectName());
   }
 
+  /**
+   * Variant that answers entity existence from a caller-provided set instead of querying the
+   * database. Used by the ingest transaction, which has already read (and FOR UPDATE locked) every
+   * key aspect row in its up-front read — issuing another locking exists() query here would
+   * reintroduce the multi-wave lock acquisition that deadlocks against concurrent overlapping
+   * batches.
+   *
+   * @param urnsWithExistingKeyAspects batch urns whose key aspect row exists in the database
+   */
   public static AspectsBatch withAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch inputBatch,
       @Nonnull EntityService<?> entityService,
-      boolean enableBrowseV2) {
+      boolean enableBrowseV2,
+      @Nonnull Set<Urn> urnsWithExistingKeyAspects) {
     /*
      * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
      *    if the batch is fixed with a key aspect prior to the transaction.
@@ -82,26 +92,49 @@ public class DefaultAspectsUtil {
     // Key aspect restored if needed
     result.addAll(
         DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2));
+            opContext,
+            inputBatch.getMCPItems(),
+            entityService,
+            enableBrowseV2,
+            urnsWithExistingKeyAspects));
     return AspectsBatchImpl.builder()
         .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
         .build(opContext);
   }
 
+  /** Standalone variant: answers entity existence with a (non-locking) database read. */
   public static List<MCPItem> getAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MCPItem> batch,
       @Nonnull EntityService<?> entityService,
       boolean browsePathV2) {
 
+    Set<Urn> urns =
+        batch.stream()
+            .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+
+    return getAdditionalChanges(
+        opContext,
+        batch,
+        entityService,
+        browsePathV2,
+        entityService.exists(opContext, urns, true, false));
+  }
+
+  public static List<MCPItem> getAdditionalChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<MCPItem> batch,
+      @Nonnull EntityService<?> entityService,
+      boolean browsePathV2,
+      @Nonnull Set<Urn> urnsWithExistingKeyAspects) {
+
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
-
-    Set<Urn> urnsWithExistingKeyAspects =
-        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()

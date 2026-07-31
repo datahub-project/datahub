@@ -114,7 +114,7 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, false, false);
+    return createEbeanDatabase(container, serverName, false, false, null);
   }
 
   /**
@@ -124,7 +124,34 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanPrimaryDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, true, false);
+    return createEbeanDatabase(container, serverName, true, false, null);
+  }
+
+  /**
+   * Primary Ebean pool confined to its own PostgreSQL schema. Use when a test class runs aspect
+   * DDL: suite classes execute in parallel, and two classes drop/creating {@code
+   * metadata_aspect_v2} in the shared {@code public} schema race each other. The schema is created
+   * if absent; pass {@link #newIntegrationNamespace(String)}'s schema for a unique namespace.
+   */
+  @Nonnull
+  public static Database createEbeanPrimaryDatabase(
+      @Nonnull PostgreSQLContainer<?> container,
+      @Nonnull String serverName,
+      @Nonnull String schema) {
+    createSchemaIfAbsent(container, schema);
+    return createEbeanDatabase(container, serverName, true, false, schema);
+  }
+
+  private static void createSchemaIfAbsent(
+      @Nonnull PostgreSQLContainer<?> container, @Nonnull String schema) {
+    try (java.sql.Connection connection =
+            java.sql.DriverManager.getConnection(
+                container.getJdbcUrl(), container.getUsername(), container.getPassword());
+        java.sql.Statement statement = connection.createStatement()) {
+      statement.execute("CREATE SCHEMA IF NOT EXISTS " + schema);
+    } catch (java.sql.SQLException e) {
+      throw new IllegalStateException("Failed to create test schema " + schema, e);
+    }
   }
 
   /**
@@ -133,7 +160,7 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanReadPoolDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, false, true);
+    return createEbeanDatabase(container, serverName, false, true, null);
   }
 
   @Nonnull
@@ -141,9 +168,14 @@ public final class PostgresTestUtils {
       @Nonnull PostgreSQLContainer<?> container,
       @Nonnull String serverName,
       boolean runAspectDdl,
-      boolean readOnlyPool) {
+      boolean readOnlyPool,
+      @Nullable String schema) {
     DataSourceConfig dsc = new DataSourceConfig();
-    dsc.setUrl(container.getJdbcUrl());
+    String url = container.getJdbcUrl();
+    if (schema != null) {
+      url += (url.contains("?") ? "&" : "?") + "currentSchema=" + schema;
+    }
+    dsc.setUrl(url);
     dsc.setUsername(container.getUsername());
     dsc.setPassword(container.getPassword());
     dsc.setDriver("org.postgresql.Driver");

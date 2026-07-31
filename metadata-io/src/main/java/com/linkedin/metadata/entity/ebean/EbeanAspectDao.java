@@ -212,10 +212,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
             .collect(Collectors.toSet());
 
-    // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
-    // (range_optimizer_max_mem_size)
-    final List<EbeanAspectV2> results =
-        batchGet(opContext, keys, queryKeysCount, forUpdate && canWrite);
+    // Non-locking reads use batchGet chunking to bound IN-clause size and avoid optimizer memory
+    // exhaustion (range_optimizer_max_mem_size). Locking reads must NOT be chunked: a FOR UPDATE
+    // read split across multiple statements acquires locks in waves, and two concurrent
+    // transactions whose waves overlap crosswise deadlock. All row locks are acquired in a single
+    // statement instead.
+    final boolean locking = forUpdate && canWrite;
+    final int chunkSize = locking ? Math.max(keys.size(), 1) : queryKeysCount;
+    final List<EbeanAspectV2> results = batchGet(opContext, keys, chunkSize, locking);
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
@@ -977,6 +981,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
         log.warn("Retryable PersistenceException: {}", exception.getMessage());
         transactionContext.addException(exception);
+        if (transactionContext.shouldAttemptRetry()) {
+          transactionContext.backoffBeforeRetry();
+        }
       }
     } while (transactionContext.shouldAttemptRetry());
 

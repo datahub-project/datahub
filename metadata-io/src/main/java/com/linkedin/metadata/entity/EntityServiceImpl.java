@@ -1071,6 +1071,78 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return Details about the new and old version of the aspect
    */
   @Nonnull
+  /**
+   * The urn/aspect rows a batch's ingest transaction locks and reads up front: each item's aspect
+   * row plus each entity's key aspect row (the latter answers the entity-existence check in {@link
+   * DefaultAspectsUtil#withAdditionalChanges} and serializes concurrent writers of the same
+   * entity).
+   */
+  private static Map<String, Set<String>> batchLockTargets(@Nonnull final AspectsBatch batch) {
+    final Map<String, Set<String>> targets = new HashMap<>();
+    batch
+        .getUrnAspectsMap()
+        .forEach(
+            (urn, aspects) -> targets.computeIfAbsent(urn, k -> new HashSet<>()).addAll(aspects));
+    for (BatchItem item : batch.getItems()) {
+      targets
+          .computeIfAbsent(item.getUrn().toString(), k -> new HashSet<>())
+          .add(item.getEntitySpec().getKeyAspectName());
+    }
+    return targets;
+  }
+
+  /** Urns from the batch whose key aspect row exists in the locked up-front read. */
+  private static Set<Urn> urnsWithExistingKeyAspects(
+      @Nonnull final AspectsBatch batch,
+      @Nonnull final Map<String, Map<String, SystemAspect>> lockedAspects) {
+    final Set<Urn> existing = new HashSet<>();
+    for (BatchItem item : batch.getItems()) {
+      if (lockedAspects
+          .getOrDefault(item.getUrn().toString(), Collections.emptyMap())
+          .containsKey(item.getEntitySpec().getKeyAspectName())) {
+        existing.add(item.getUrn());
+      }
+    }
+    return existing;
+  }
+
+  /** Restricts {@code source} to the urn/aspect pairs present in {@code pairs}. */
+  private static Map<String, Map<String, SystemAspect>> filterToPairs(
+      @Nonnull final Map<String, Map<String, SystemAspect>> source,
+      @Nonnull final Map<String, Set<String>> pairs) {
+    final Map<String, Map<String, SystemAspect>> filtered = new HashMap<>();
+    pairs.forEach(
+        (urn, aspects) -> {
+          Map<String, SystemAspect> sourceAspects = source.get(urn);
+          if (sourceAspects != null) {
+            for (String aspect : aspects) {
+              SystemAspect value = sourceAspects.get(aspect);
+              if (value != null) {
+                filtered.computeIfAbsent(urn, k -> new HashMap<>()).put(aspect, value);
+              }
+            }
+          }
+        });
+    return filtered;
+  }
+
+  /** The urn/aspect pairs in {@code pairs} that are not covered by {@code covered}. */
+  private static Map<String, Set<String>> uncoveredPairs(
+      @Nonnull final Map<String, Set<String>> pairs,
+      @Nonnull final Map<String, Set<String>> covered) {
+    final Map<String, Set<String>> uncovered = new HashMap<>();
+    pairs.forEach(
+        (urn, aspects) -> {
+          Set<String> coveredAspects = covered.getOrDefault(urn, Collections.emptySet());
+          for (String aspect : aspects) {
+            if (!coveredAspects.contains(aspect)) {
+              uncovered.computeIfAbsent(urn, k -> new HashSet<>()).add(aspect);
+            }
+          }
+        });
+    return uncovered;
+  }
+
   private IngestAspectsResult ingestAspectsToLocalDB(
       @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch inputBatch,
@@ -1098,29 +1170,55 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .runInTransactionWithRetry(
                         opContext,
                         (txContext) -> {
+                          // read #1 (also the transaction's lock acquisition)
+                          // READ COMMITTED is used in conjunction with SELECT FOR UPDATE (read
+                          // lock) to ensure that the aspect's version is not modified outside the
+                          // transaction. We rely on the retry mechanism if the row is modified and
+                          // will re-read (require the lock).
+                          //
+                          // All row locks for this batch are acquired in this SINGLE statement,
+                          // before any other locking read. Acquiring locks in multiple statements
+                          // (previously: exists() inside withAdditionalChanges, then a
+                          // getLatestAspects over the batch) deadlocks when two concurrent batches
+                          // overlap crosswise — each holds rows from its first statement that the
+                          // other's second statement needs. The lock set is the union of every row
+                          // this transaction reads with forUpdate or modifies: each item's aspect
+                          // row plus each entity's key aspect row. Locking the key aspect row also
+                          // preserves the per-entity write mutex previously provided by the
+                          // locking exists() check.
+                          final Map<String, Set<String>> lockTargets = batchLockTargets(inputBatch);
+                          final Map<String, Map<String, SystemAspect>> lockedAspects =
+                              aspectDao.getLatestAspects(opContext, lockTargets, true);
+
                           // Generate default aspects within the transaction (they are re-calculated
-                          // on
-                          // retry)
+                          // on retry). Entity existence is answered from the up-front read rather
+                          // than a second (locking) exists() query.
                           AspectsBatch batchWithDefaults =
                               DefaultAspectsUtil.withAdditionalChanges(
-                                  opContext, inputBatch, this, enableBrowseV2);
+                                  opContext,
+                                  inputBatch,
+                                  this,
+                                  enableBrowseV2,
+                                  urnsWithExistingKeyAspects(inputBatch, lockedAspects));
 
                           final Map<String, Set<String>> urnAspects =
                               batchWithDefaults.getUrnAspectsMap();
 
-                          // read #1
-                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
-                          // in
-                          // order
-                          // to ensure that the aspect's version is not modified outside the
-                          // transaction.
-                          // We rely on the retry mechanism if the row is modified and will re-read
-                          // (require the
-                          // lock)
-
-                          // Initial database state from database
+                          // Initial database state: the up-front read restricted to the batch's
+                          // pairs, plus a follow-up read for pairs it did not cover (default
+                          // aspects generated for new entities — normally zero existing rows).
+                          Map<String, Map<String, SystemAspect>> initialAspects =
+                              filterToPairs(lockedAspects, urnAspects);
+                          final Map<String, Set<String>> unreadPairs =
+                              uncoveredPairs(urnAspects, lockTargets);
+                          if (!unreadPairs.isEmpty()) {
+                            initialAspects =
+                                AspectsBatch.merge(
+                                    initialAspects,
+                                    aspectDao.getLatestAspects(opContext, unreadPairs, true));
+                          }
                           final Map<String, Map<String, SystemAspect>> batchAspects =
-                              aspectDao.getLatestAspects(opContext, urnAspects, true);
+                              initialAspects;
                           final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
 
                           // read #2 (potentially)

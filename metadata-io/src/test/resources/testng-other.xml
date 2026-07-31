@@ -17,6 +17,17 @@
 
         <!-- Explicitly exclude the specific test class -->
         <classes>
+            <!-- PostgreSQL Testcontainers ITs run in the testPostgresql leg (testng-postgresql.xml) -->
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConcurrentLockPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.ebean.EntityServiceConcurrentIngestPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest">
                 <methods>
                     <exclude name=".*" />
