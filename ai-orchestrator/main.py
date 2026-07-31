@@ -45,7 +45,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("orchestrator")
 
-from agent import DEFAULT_MODEL, run_agent  # noqa: E402
+from agent import CONFIRM_SENTINEL, DEFAULT_MODEL, run_agent  # noqa: E402
 from mcp_tools import get_mcp, shutdown_mcp  # noqa: E402
 import mysql.connector
 import uuid
@@ -322,6 +322,12 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 model=selected_model,
                 history=history,
             ):
+                # The agent emits this sentinel when a fresh PII proposal is awaiting
+                # confirmation. Turn it into a distinct event the UI can render as
+                # Apply/Cancel/Custom buttons, and keep it out of the saved transcript.
+                if token == CONFIRM_SENTINEL:
+                    yield f"data: {json.dumps({'confirm': True})}\n\n"
+                    continue
                 accumulated += token
                 yield f"data: {json.dumps({'token': token})}\n\n"
         except HTTPException as exc:

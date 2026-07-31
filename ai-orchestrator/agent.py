@@ -23,6 +23,12 @@ from mcp_tools import get_mcp
 
 logger = logging.getLogger("agent")
 
+# Sentinel emitted after the final answer when a fresh PII proposal is awaiting the
+# user's confirmation. main.py turns this into a distinct {"confirm": true} SSE event
+# and keeps it out of the saved transcript. Uses a control char so it can never collide
+# with real model output.
+CONFIRM_SENTINEL = "\x00CONFIRM\x00"
+
 DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 # 1024 truncated mid-table once a proposal was involved.
 MAX_TOKENS = int(os.environ.get("ANTHROPIC_MAX_TOKENS", "4096"))
@@ -143,6 +149,11 @@ async def run_agent(
         messages.append({"role": "assistant", "content": assistant_blocks})
 
         if not tool_uses:
+            # A fresh (non-reused) proposal was armed this turn and the model has now
+            # stopped to ask for confirmation. Signal the UI to show Apply/Cancel/Custom
+            # buttons instead of making the user type "yes".
+            if tools.proposed_this_turn:
+                yield CONFIRM_SENTINEL
             return  # model produced a final answer, we're done
 
         # Sequential on purpose. Running these concurrently would let an apply land

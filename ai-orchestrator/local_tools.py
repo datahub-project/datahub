@@ -95,6 +95,12 @@ class ToolRegistry:
             d for d in mcp.definitions if not _is_write_tool(d["name"])
         ] + LOCAL_DEFINITIONS
 
+    @property
+    def proposed_this_turn(self) -> bool:
+        """True if a fresh (non-reused) PII proposal was armed this turn and is now
+        awaiting the user's confirmation. The agent uses this to signal the UI."""
+        return bool(self._proposed_this_turn)
+
     async def execute_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
         if name in (PROPOSE, APPLY):
             return await self._execute_local(name, args)
