@@ -540,7 +540,7 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
-transactionRetry:
+  transactionRetry:
     # SQLStates / vendor codes that get exponential backoff between retries (all PersistenceExceptions still retry).
     backoffSqlStates: ${EBEAN_RETRY_BACKOFF_SQL_STATES:40001,40P01}
     backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
