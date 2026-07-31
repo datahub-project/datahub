@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 import pytest
+
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DialectClass,
@@ -28,8 +30,6 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     SemanticModelUrn,
 )
-
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk.entity import Entity
 from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
