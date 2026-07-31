@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -50,6 +52,7 @@ import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Table;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -96,6 +99,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
+  @Nonnull private final TransactionRetryPolicy transactionRetryPolicy;
 
   // Whether the primary store is PostgreSQL. The deterministic-lock-order work below (ORDER BY on
   // FOR UPDATE reads, the up-front lock in deleteUrn) targets PostgreSQL, whose default plan can
@@ -142,6 +146,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     this.metricUtils = metricUtils;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
+    TransactionRetryConfiguration retryConfig = ebeanConfiguration.getTransactionRetry();
+    this.transactionRetryPolicy =
+        new TransactionRetryPolicy(
+            retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
   }
@@ -1138,20 +1146,82 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
         if (metricUtils != null)
           metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
-        log.warn("Retryable PersistenceException: {}", exception.getMessage());
+
+        boolean backoff = transactionRetryPolicy.shouldBackoff(exception);
+        SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(exception);
         transactionContext.addException(exception);
+        // Sleep only when another attempt will run — skip delay before exhaustion throw.
+        // try-with-resources closes/rolls back the Transaction before this catch runs, so the
+        // DB connection is returned to the pool during backoff sleep.
+        if (backoff && transactionContext.shouldAttemptRetry()) {
+          if (metricUtils != null) {
+            metricUtils.incrementMicrometer(
+                "ebean.tx.transient_backoff", 1.0, transientMetricTags(batch));
+          }
+          log.warn(
+              "Retryable PersistenceException with backoff: sqlState={}, vendorCode={}, message={}",
+              matchedSql != null ? matchedSql.getSQLState() : null,
+              matchedSql != null ? matchedSql.getErrorCode() : null,
+              exception.getMessage());
+          // attempt index: exceptions.size()-1 → 0 on first retry after the initial failure
+          sleepBeforeRetry(
+              transactionRetryPolicy.backoffMillis(transactionContext.exceptions().size() - 1));
+        } else if (backoff) {
+          if (metricUtils != null) {
+            metricUtils.incrementMicrometer(
+                "ebean.tx.transient_exhausted", 1.0, transientMetricTags(batch));
+          }
+          log.warn(
+              "Retryable PersistenceException with backoff (retries exhausted): sqlState={}, vendorCode={}, message={}",
+              matchedSql != null ? matchedSql.getSQLState() : null,
+              matchedSql != null ? matchedSql.getErrorCode() : null,
+              exception.getMessage());
+        } else {
+          log.warn("Retryable PersistenceException: {}", exception.getMessage());
+        }
       }
     } while (transactionContext.shouldAttemptRetry());
 
     if (transactionContext.lastException() != null) {
       if (metricUtils != null)
         metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailedAfterRetries"), 1);
-      throw new RetryLimitReached(
-          "Failed to add after " + maxTransactionRetry + " retries",
-          transactionContext.lastException());
+      RuntimeException last = transactionContext.lastException();
+      if (transactionRetryPolicy.shouldBackoff(last)) {
+        SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(last);
+        String sqlState = matchedSql != null ? matchedSql.getSQLState() : null;
+        throw new DatabaseTransactionConflictException(
+            "Failed to add after " + maxTransactionRetry + " retries due to transaction conflict",
+            sqlState,
+            last,
+            transactionRetryPolicy.getRetryAfterSeconds());
+      }
+      throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", last);
     }
 
     return result;
+  }
+
+  /**
+   * Metric path for the two EntityServiceImpl call sites: ingest (batch present) and delete (no
+   * batch). Other writers (link/restore/migrate) go through ingestAspectsToLocalDB → {@code
+   * ingest}.
+   */
+  @VisibleForTesting
+  static String[] transientMetricTags(@Nullable AspectsBatch batch) {
+    return new String[] {"path", batch != null ? "ingest" : "delete"};
+  }
+
+  @VisibleForTesting
+  protected void sleepBeforeRetry(long backoffMs) {
+    if (backoffMs <= 0) {
+      return;
+    }
+    try {
+      Thread.sleep(backoffMs);
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      throw new RetryLimitReached("Interrupted during retry backoff", ie);
+    }
   }
 
   @Override
