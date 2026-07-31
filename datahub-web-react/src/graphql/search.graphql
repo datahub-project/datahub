@@ -1438,6 +1438,20 @@ fragment facetFields on FacetMetadata {
                     name
                 }
             }
+            ... on Document {
+                info {
+                    title
+                }
+                parentDocuments {
+                    documents {
+                        urn
+                        type
+                        info {
+                            title
+                        }
+                    }
+                }
+            }
         }
     }
 }
