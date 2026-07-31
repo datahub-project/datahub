@@ -50,6 +50,7 @@
     "fieldLabel.environment": "Ympäristö",
     "fieldLabel.glossaryTerm": "Sanaston termi",
     "fieldLabel.owner": "Omistaja",
+    "fieldLabel.parentDocument": "Ylätason dokumentti",
     "fieldLabel.path": "Polku",
     "fieldLabel.platform": "Alusta",
     "fieldLabel.platformInstance": "Alustainstanssi",

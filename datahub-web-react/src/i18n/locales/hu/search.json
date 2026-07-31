@@ -50,6 +50,7 @@
     "fieldLabel.environment": "Környezet",
     "fieldLabel.glossaryTerm": "Fogalomtári kifejezés",
     "fieldLabel.owner": "Tulajdonos",
+    "fieldLabel.parentDocument": "Szülő dokumentum",
     "fieldLabel.path": "Elérési út",
     "fieldLabel.platform": "Platform",
     "fieldLabel.platformInstance": "Platformpéldány",

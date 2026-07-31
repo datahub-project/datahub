@@ -20,12 +20,13 @@ import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
 } from '@src/app/search/utils/constants';
 
 import { FilterOperator } from '@types';
 
-const HIERARCHICAL_FILTER_FIELDS = new Set([DOMAINS_FILTER_NAME, CONTAINER_FILTER_NAME]);
+const HIERARCHICAL_FILTER_FIELDS = new Set([DOMAINS_FILTER_NAME, CONTAINER_FILTER_NAME, PARENT_DOCUMENT_FILTER_NAME]);
 
 /**
  * This is a flat version of the supported search filtering operations that can be applied

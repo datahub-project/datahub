@@ -103,6 +103,17 @@ describe('filter utils - getNewFilters', () => {
             },
         ]);
     });
+
+    it('should default parentDocument filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('parentDocument', [], ['urn:li:document:parent']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'parentDocument',
+                values: ['urn:li:document:parent'],
+                condition: 'DESCENDANTS_INCL',
+            },
+        ]);
+    });
 });
 
 describe('filter utils - isFilterOptionSelected', () => {

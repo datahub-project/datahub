@@ -50,6 +50,7 @@
     "fieldLabel.environment": "Miljö",
     "fieldLabel.glossaryTerm": "Term",
     "fieldLabel.owner": "Owner",
+    "fieldLabel.parentDocument": "Överordnat dokument",
     "fieldLabel.path": "Sökväg",
     "fieldLabel.platform": "Plattform",
     "fieldLabel.platformInstance": "Plattformsinstans",
