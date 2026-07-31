@@ -60,6 +60,26 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
+_BIGQUERY_PLATFORM_NAME = (
+    SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name
+)
+
+
+def _data_platform_pair_for(platform: str) -> DataPlatformPair:
+    """Resolve a DataPlatformPair for a DataHub platform name.
+
+    Config validation restricts external-query platforms to known
+    SupportedDataPlatform values, so the enum lookup normally succeeds and carries the
+    correct PowerBI name (needed by the dataset_type_mapping filter in the mapper). The
+    passthrough pair is only a defensive fallback.
+    """
+    for item in SupportedDataPlatform:
+        if item.value.datahub_data_platform_name == platform:
+            return item.value
+    return DataPlatformPair(
+        datahub_data_platform_name=platform, powerbi_data_platform_name=platform
+    )
+
 
 def _unwrap_csv(elem: dict) -> dict:
     """Unwrap a Csv wrapper node, returning the inner node."""
@@ -393,6 +413,105 @@ class AbstractLineage(ABC):
             logger.debug(f"Failed to parse query as SQL: {query}")
             return False
 
+    def _resolve_external_query_upstreams(
+        self, query: str
+    ) -> Tuple[List[DataPlatformTable], str]:
+        """Resolve upstreams for BigQuery EXTERNAL_QUERY federations in a native query.
+
+        Each EXTERNAL_QUERY exposes a connection id and the SQL run on the external engine.
+        The connection is mapped to its external platform via
+        ``bigquery_external_query_connection_to_platform``, and the inner SQL is parsed in
+        that platform's dialect — parsing in the correct dialect is what lets
+        engine-specific syntax resolve to the real upstream table rather than failing.
+
+        Returns the resolved external upstreams and the outer query rewritten with the
+        federated sources stripped (so the caller can parse it for native tables).
+        """
+        extraction = native_sql_parser.extract_external_queries(
+            query, _BIGQUERY_PLATFORM_NAME
+        )
+
+        upstreams: List[DataPlatformTable] = []
+
+        # The caller only invokes this when EXTERNAL_QUERY is present, so a parse failure
+        # here means we are dropping known federated lineage - surface it instead of
+        # silently returning nothing.
+        if extraction.parse_failed:
+            self.reporter.m_query_external_query_parse_errors += 1
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Fail to parse PowerBI M-Query containing EXTERNAL_QUERY; "
+                "federated lineage will be skipped.",
+                context=f"table-name={self.table.full_name}, sql={query}",
+            )
+            return upstreams, extraction.rewritten_query
+
+        mapping = self.config.bigquery_external_query_connection_to_platform
+        for reference in extraction.references:
+            connection_detail = mapping.get(reference.connection)
+            if connection_detail is None:
+                self.reporter.m_query_external_query_unmapped += 1
+                self.reporter.info(
+                    title=Constant.EXTERNAL_QUERY_NOT_MAPPED,
+                    message="BigQuery EXTERNAL_QUERY connection is not mapped to a "
+                    "platform; skipping federated lineage. Add the connection to "
+                    "bigquery_external_query_connection_to_platform to resolve it.",
+                    context=f"table-name={self.table.full_name}, connection={reference.connection}",
+                )
+                continue
+
+            parsed_result = native_sql_parser.parse_custom_sql(
+                ctx=self.ctx,
+                query=reference.inner_sql,
+                platform=connection_detail.platform,
+                platform_instance=connection_detail.platform_instance,
+                env=connection_detail.env,
+                database=connection_detail.default_database,
+                schema=connection_detail.default_schema,
+            )
+
+            table_error = (
+                parsed_result.debug_info.table_error
+                if parsed_result is not None and parsed_result.debug_info is not None
+                else None
+            )
+            if parsed_result is None or table_error is not None:
+                self.reporter.m_query_external_query_parse_errors += 1
+                self.reporter.warning(
+                    title=Constant.SQL_PARSING_FAILURE,
+                    message="Fail to parse federated EXTERNAL_QUERY SQL in PowerBI M-Query",
+                    context=(
+                        f"table-name={self.table.full_name}, connection={reference.connection}, "
+                        f"platform={connection_detail.platform}, error={table_error}, "
+                        f"sql={reference.inner_sql}"
+                    ),
+                )
+                continue
+
+            # A clean parse that resolves no upstream table (unknown schema, unresolvable
+            # reference) still drops the federated lineage, so do not count it as resolved.
+            if not parsed_result.in_tables:
+                self.reporter.m_query_external_query_parse_errors += 1
+                self.reporter.warning(
+                    title=Constant.SQL_PARSING_FAILURE,
+                    message="EXTERNAL_QUERY inner SQL parsed but resolved no upstream "
+                    "table; federated lineage will be skipped.",
+                    context=(
+                        f"table-name={self.table.full_name}, connection={reference.connection}, "
+                        f"platform={connection_detail.platform}, sql={reference.inner_sql}"
+                    ),
+                )
+                continue
+
+            platform_pair = _data_platform_pair_for(connection_detail.platform)
+            for urn in parsed_result.in_tables:
+                upstreams.append(
+                    DataPlatformTable(data_platform_pair=platform_pair, urn=urn)
+                )
+            self.reporter.m_query_external_query_resolved += 1
+
+        return upstreams, extraction.rewritten_query
+
     def parse_custom_sql(
         self,
         query: str,
@@ -419,6 +538,17 @@ class AbstractLineage(ABC):
         query = native_sql_parser.remove_special_characters(query)
         query = native_sql_parser.remove_drop_statement(query)
 
+        # BigQuery EXTERNAL_QUERY federation cannot be resolved by the generic parser
+        # (its args are string literals, not table identifiers). Resolve those upstreams
+        # against the configured external platform and strip them from the outer query so
+        # the remaining native tables still parse cleanly.
+        external_upstreams: List[DataPlatformTable] = []
+        if (
+            platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
+            and native_sql_parser.EXTERNAL_QUERY_FUNCTION_NAME in query.upper()
+        ):
+            external_upstreams, query = self._resolve_external_query_upstreams(query)
+
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
                 ctx=self.ctx,
@@ -431,12 +561,17 @@ class AbstractLineage(ABC):
             )
         )
 
+        # A parse failure of the outer (native) query must still be reported even when
+        # federated upstreams were resolved: any remaining native tables are lost, so the
+        # lineage is only partial. Report first, then return whatever we did resolve.
         if parsed_result is None:
             self.reporter.info(
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, sql={query}",
             )
+            if external_upstreams:
+                return Lineage(upstreams=external_upstreams, column_lineage=[])
             return Lineage.empty()
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
@@ -445,7 +580,11 @@ class AbstractLineage(ABC):
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
             )
+            if external_upstreams:
+                return Lineage(upstreams=external_upstreams, column_lineage=[])
             return Lineage.empty()
+
+        dataplatform_tables.extend(external_upstreams)
 
         for urn in parsed_result.in_tables:
             dataplatform_tables.append(

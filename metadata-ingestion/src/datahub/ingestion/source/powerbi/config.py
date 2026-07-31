@@ -139,6 +139,7 @@ class Constant:
     STATE = "state"
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
     USERS = "users"
@@ -265,6 +266,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # BigQuery EXTERNAL_QUERY federation resolution.
+    m_query_external_query_resolved: int = 0
+    m_query_external_query_unmapped: int = 0
+    m_query_external_query_parse_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -416,6 +421,60 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+class BigQueryExternalQueryPlatformDetail(PlatformDetail):
+    """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
+
+    BigQuery federation (``EXTERNAL_QUERY(connection, sql)``) runs the inner SQL on an
+    external engine (Cloud SQL, AlloyDB, Spanner). The connection id
+    (``project.region.connection``) does not reveal the external platform, so this mapping
+    supplies it, letting PowerBI lineage point at the real upstream table on that platform
+    instead of failing to resolve a URN.
+    """
+
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="Target DataHub platform of the external source the EXTERNAL_QUERY "
+        "federates to (e.g. 'postgres', 'mysql', 'snowflake').",
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Database prepended to unqualified or 2-part table names in the "
+        "federated (inner) SQL. The EXTERNAL_QUERY connection id does not carry the "
+        "external database name, so set this when your external source's ingestion emits "
+        "3-part database.schema.table URNs so the lineage URNs match.",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Schema applied to unqualified table references in the federated "
+        "(inner) SQL.",
+    )
+
+    @field_validator("platform")
+    @classmethod
+    def _validate_known_platform(cls, value: str) -> str:
+        # Restrict to platforms whose PowerBI name is present in dataset_type_mapping;
+        # otherwise the resolved upstream is silently dropped in Mapper.extract_lineage.
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+        if value not in known_platforms:
+            raise ValueError(
+                f"platform '{value}' is not a recognized DataHub platform. "
+                f"Known platforms: {sorted(known_platforms)}."
+            )
+        return value
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("must not be empty or whitespace")
+        return stripped
+
+
 # Workspace ``type`` values returned by the PowerBI admin API for personal
 # workspaces. These are not addressable by id in the PowerBI UI - they are
 # reachable only via the ``/groups/me`` alias and only by their owner, so
@@ -545,6 +604,19 @@ class PowerBiDashboardSourceConfig(
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
+    )
+    # BigQuery EXTERNAL_QUERY federation connection to external platform mapping
+    bigquery_external_query_connection_to_platform: Dict[
+        str, BigQueryExternalQueryPlatformDetail
+    ] = pydantic.Field(
+        default={},
+        description="Mapping from a BigQuery ``EXTERNAL_QUERY`` connection id "
+        "(``project.region.connection``, the first argument of EXTERNAL_QUERY) to the "
+        "external source it federates to. BigQuery federation runs the inner SQL on an "
+        "external engine (Cloud SQL, AlloyDB, Spanner); configure this so PowerBI lineage "
+        "resolves to the real upstream table on that platform instead of failing. The "
+        "value sets the target `platform` (required) plus optional `platform_instance`, "
+        "`env`, `default_database`, and `default_schema`.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

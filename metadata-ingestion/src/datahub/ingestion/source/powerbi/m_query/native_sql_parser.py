@@ -1,9 +1,11 @@
 import logging
 import re
+from dataclasses import dataclass
 from typing import List, Optional
 
 import sqlglot
 import sqlparse
+from sqlglot import expressions as exp
 from sqlglot.errors import SqlglotError
 
 from datahub.ingestion.api.common import PipelineContext
@@ -23,7 +25,42 @@ SPECIAL_CHARACTERS = {
 
 ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 
+# BigQuery federation function: EXTERNAL_QUERY(connection_id, external_sql). Its
+# arguments are string literals (a connection resource id and a SQL string executed
+# on the external engine), not table identifiers, so the generic parser cannot resolve
+# an upstream URN from it. It is handled explicitly instead. See extract_external_queries.
+EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
+
+# Inert derived table used to replace each EXTERNAL_QUERY source in the outer query so
+# the remaining (native) query still parses without the federation yielding a bogus URN.
+# The alias deliberately avoids the substring "EXTERNAL_QUERY" so a rewritten query never
+# re-triggers federation handling.
+EXTERNAL_QUERY_PLACEHOLDER_SQL = (
+    "(SELECT 1 AS pbi_federation_placeholder) AS pbi_federation_source"
+)
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ExternalQueryReference:
+    # connection resource id, i.e. the first EXTERNAL_QUERY argument
+    # (``project.region.connection``)
+    connection: str
+    # SQL executed on the external engine, i.e. the second EXTERNAL_QUERY argument
+    inner_sql: str
+
+
+@dataclass(frozen=True)
+class ExternalQueryExtraction:
+    # EXTERNAL_QUERY federations found in the outer query.
+    references: List[ExternalQueryReference]
+    # Outer query with each EXTERNAL_QUERY table source replaced by an inert placeholder.
+    rewritten_query: str
+    # True when the outer query could not be parsed. Distinguishes "no federation found"
+    # (references empty, parse_failed False) from "federation present but parse failed"
+    # (references empty, parse_failed True) so the caller can report the dropped lineage.
+    parse_failed: bool = False
 
 
 def remove_special_characters(native_query: str) -> str:
@@ -152,6 +189,97 @@ def _is_single_statement(query: str, platform: str) -> bool:
         # Not valid single SQL (e.g. separator-less juxtaposed statements).
         return False
     return len(statements) <= 1
+
+
+def extract_external_queries(query: str, platform: str) -> ExternalQueryExtraction:
+    """Extract BigQuery ``EXTERNAL_QUERY`` federations from a query.
+
+    Returns the list of ``(connection id, inner SQL)`` references found and a rewritten
+    copy of the outer query with each ``EXTERNAL_QUERY`` table source replaced by an inert
+    placeholder subquery. The rewrite lets the outer query be parsed for any remaining
+    native tables without the unresolvable federation resolving to an empty/garbage URN.
+
+    If the query contains no ``EXTERNAL_QUERY``, the original query is returned unchanged
+    with an empty reference list. If the query fails to parse, ``parse_failed`` is set so
+    the caller can report the federated lineage it could not extract.
+    """
+    try:
+        dialect = get_dialect(platform)
+    except (ValueError, AttributeError):
+        dialect = None
+
+    try:
+        expression = sqlglot.parse_one(query, dialect=dialect)
+    except SqlglotError:
+        logger.debug("Failed to parse query for EXTERNAL_QUERY extraction: %s", query)
+        return ExternalQueryExtraction(
+            references=[], rewritten_query=query, parse_failed=True
+        )
+
+    references: List[ExternalQueryReference] = []
+    # Materialize before mutating the tree, since replacing nodes during a lazy
+    # find_all traversal is unsafe.
+    for func in list(expression.find_all(exp.Anonymous)):
+        if func.name.upper() != EXTERNAL_QUERY_FUNCTION_NAME:
+            continue
+
+        args = func.expressions
+        if len(args) != 2:
+            # A genuine EXTERNAL_QUERY always takes (connection, sql). An unexpected arg
+            # count means we can't extract the federation; trace it so the skip is
+            # diagnosable rather than silent.
+            logger.debug(
+                "Skipping EXTERNAL_QUERY with unexpected argument count %s: %s",
+                len(args),
+                func.sql(dialect=dialect),
+            )
+            continue
+
+        connection_arg, inner_arg = args
+        if not (
+            isinstance(connection_arg, exp.Literal)
+            and connection_arg.is_string
+            and isinstance(inner_arg, exp.Literal)
+            and inner_arg.is_string
+        ):
+            # Both arguments must be string literals to extract the connection id and
+            # inner SQL. Non-literal args (e.g. parameters) can't be resolved; trace it.
+            logger.debug(
+                "Skipping EXTERNAL_QUERY with non-string-literal arguments: %s",
+                func.sql(dialect=dialect),
+            )
+            continue
+
+        references.append(
+            ExternalQueryReference(
+                connection=connection_arg.this,
+                inner_sql=inner_arg.this,
+            )
+        )
+
+        # EXTERNAL_QUERY appears as a table-valued function wrapped in a Table node.
+        # Swap the whole wrapper for an inert subquery so the outer parse ignores the
+        # federated source rather than resolving it to a bogus URN.
+        table_source = func.parent
+        if isinstance(table_source, exp.Table):
+            table_source.replace(
+                sqlglot.parse_one(EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect)
+            )
+        else:
+            # Federation used outside a FROM position: the reference is captured but the
+            # EXTERNAL_QUERY call is left in the rewritten query, so the generic parser
+            # may still see it. Trace it so the leftover is diagnosable.
+            logger.debug(
+                "EXTERNAL_QUERY not wrapped in a Table node; left in rewritten query: %s",
+                func.sql(dialect=dialect),
+            )
+
+    if not references:
+        return ExternalQueryExtraction(references=[], rewritten_query=query)
+
+    return ExternalQueryExtraction(
+        references=references, rewritten_query=expression.sql(dialect=dialect)
+    )
 
 
 def parse_custom_sql(

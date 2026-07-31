@@ -215,6 +215,46 @@ class TestPowerBiConfig:
         with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
+    def test_bigquery_external_query_unknown_platform_invalid(self):
+        """Unknown external platform must be rejected so upstreams aren't silently dropped."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "not_a_platform"}
+            },
+        }
+        with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_blank_default_schema_invalid(self):
+        """Blank default_schema must be rejected (would produce a malformed URN)."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres", "default_schema": "  "}
+            },
+        }
+        with pytest.raises(ValueError, match="must not be empty or whitespace"):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_bigquery_external_query_valid_mapping(self):
+        """A known platform with default_database is accepted and stripped."""
+        config_dict = {
+            **self.base_config,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {
+                    "platform": "postgres",
+                    "default_database": " ext_db ",
+                }
+            },
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        detail = config.bigquery_external_query_connection_to_platform[
+            "proj.us-east1.conn"
+        ]
+        assert detail.platform == "postgres"
+        assert detail.default_database == "ext_db"
+
     def test_get_from_dataset_type_mapping_exact_match(self):
         """Test get_from_dataset_type_mapping with exact match."""
         config = PowerBiDashboardSourceConfig(
