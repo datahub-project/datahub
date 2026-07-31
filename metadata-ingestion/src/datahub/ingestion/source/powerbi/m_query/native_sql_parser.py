@@ -72,6 +72,15 @@ class ExternalQueryExtraction:
     # via report.warning so the skip is visible in the run summary rather than debug-only.
     unresolvable: List[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        # A parse failure means the tree could not be walked at all, so no federations can
+        # have been extracted. Enforce the invariant instead of relying on the convention
+        # documented above, so a contradictory instance can never be constructed.
+        if self.parse_failed and (self.references or self.unresolvable):
+            raise ValueError(
+                "parse_failed extraction cannot carry references or unresolvable federations"
+            )
+
 
 def remove_special_characters(native_query: str) -> str:
     for char in SPECIAL_CHARACTERS:

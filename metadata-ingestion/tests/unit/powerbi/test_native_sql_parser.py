@@ -412,6 +412,47 @@ def test_extract_external_queries_with_options_arg():
     assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
 
 
+def test_external_query_extraction_rejects_contradictory_parse_failed():
+    # A parse failure means the tree could not be walked, so it must carry no federations;
+    # constructing a contradictory instance is an error, not a silently-accepted state.
+    with pytest.raises(ValueError):
+        native_sql_parser.ExternalQueryExtraction(
+            references=[
+                native_sql_parser.ExternalQueryReference(
+                    connection="proj.r.conn", inner_sql="SELECT 1"
+                )
+            ],
+            rewritten_query="SELECT 1",
+            parse_failed=True,
+        )
+
+
+def test_extract_external_queries_outside_table_position_is_unresolvable():
+    # EXTERNAL_QUERY in a scalar/SELECT position (not FROM/JOIN) can't be cleanly stripped,
+    # so it must be recorded unresolvable AND left in place (unlike the stripped cases), so
+    # the query is returned unchanged.
+    query = 'SELECT EXTERNAL_QUERY("proj.r.conn", "SELECT a FROM s.t") AS c FROM dbo.T'
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    # Not in a table position: cannot rewrite, so the query is returned untouched.
+    assert extraction.rewritten_query == query
+
+
+def test_extract_external_queries_too_few_args_is_unresolvable_but_stripped():
+    # A malformed EXTERNAL_QUERY with fewer than two args can't be resolved, but since it
+    # sits in a FROM position it is still stripped so the outer parse emits no bogus URN.
+    query = 'SELECT * FROM EXTERNAL_QUERY("proj.r.conn")'
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+
+
 def test_extract_external_queries_non_literal_args_are_unresolvable():
     # Non-string-literal arguments (e.g. numbers/params) can't yield a connection id or
     # inner SQL, so no reference is produced and the call is recorded as unresolvable so

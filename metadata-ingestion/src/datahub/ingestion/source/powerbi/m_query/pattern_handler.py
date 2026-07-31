@@ -415,7 +415,7 @@ class AbstractLineage(ABC):
 
     def _resolve_external_query_upstreams(
         self, query: str
-    ) -> Tuple[List[DataPlatformTable], str]:
+    ) -> Tuple[List[DataPlatformTable], str, bool]:
         """Resolve upstreams for BigQuery EXTERNAL_QUERY federations in a native query.
 
         Each EXTERNAL_QUERY exposes a connection id and the SQL run on the external engine.
@@ -424,8 +424,10 @@ class AbstractLineage(ABC):
         that platform's dialect — parsing in the correct dialect is what lets
         engine-specific syntax resolve to the real upstream table rather than failing.
 
-        Returns the resolved external upstreams and the outer query rewritten with the
-        federated sources stripped (so the caller can parse it for native tables).
+        Returns the resolved external upstreams, the outer query rewritten with the
+        federated sources stripped (so the caller can parse it for native tables), and a
+        flag indicating the outer query itself failed to parse (already reported here, so
+        the caller should not re-parse it and duplicate the failure signal).
         """
         extraction = native_sql_parser.extract_external_queries(
             query, _BIGQUERY_PLATFORM_NAME
@@ -444,7 +446,7 @@ class AbstractLineage(ABC):
                 "federated lineage will be skipped.",
                 context=f"table-name={self.table.full_name}, sql={query}",
             )
-            return upstreams, extraction.rewritten_query
+            return upstreams, extraction.rewritten_query, True
 
         # EXTERNAL_QUERY calls detected but not extractable (non-literal args or placement
         # outside a FROM/JOIN table position) drop federated lineage. Surface them so the
@@ -522,7 +524,7 @@ class AbstractLineage(ABC):
                 )
             self.reporter.m_query_external_query_resolved += 1
 
-        return upstreams, extraction.rewritten_query
+        return upstreams, extraction.rewritten_query, False
 
     def parse_custom_sql(
         self,
@@ -555,11 +557,21 @@ class AbstractLineage(ABC):
         # against the configured external platform and strip them from the outer query so
         # the remaining native tables still parse cleanly.
         external_upstreams: List[DataPlatformTable] = []
+        external_parse_failed = False
         if (
             platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
             and native_sql_parser.EXTERNAL_QUERY_FUNCTION_NAME in query.upper()
         ):
-            external_upstreams, query = self._resolve_external_query_upstreams(query)
+            external_upstreams, query, external_parse_failed = (
+                self._resolve_external_query_upstreams(query)
+            )
+
+        # The outer query already failed to parse during EXTERNAL_QUERY extraction and was
+        # reported there; re-parsing it below would only duplicate the failure signal. No
+        # external upstreams can exist in this case (parse_failed => no references), so
+        # there is nothing partial to return.
+        if external_parse_failed:
+            return Lineage.empty()
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
