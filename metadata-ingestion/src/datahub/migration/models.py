@@ -70,6 +70,7 @@ class MigrationOptions:
     keep: bool = False
     on_conflict: Optional[ConflictStrategy] = None
     skip_on_error: bool = False
+    checkpoint_file: Optional[str] = None
 
 
 class MigrationReport:
@@ -83,6 +84,7 @@ class MigrationReport:
         self.entities_affected: Dict[Tuple[str, str], int] = {}
         self.conflicts_skipped: int = 0
         self.aspects_merged: int = 0
+        self.pairs_checkpoint_skipped: int = 0
         self.entities_errored: List[Tuple[str, str]] = []
 
     def on_entity_migrated(self, urn: str, aspect: str) -> None:
@@ -117,6 +119,10 @@ class MigrationReport:
         ]
         if self.aspects_merged > 0:
             lines.append(f"{p}Aspects merged = {self.aspects_merged}")
+        if self.pairs_checkpoint_skipped > 0:
+            lines.append(
+                f"{p}Pairs checkpoint-skipped = {self.pairs_checkpoint_skipped}"
+            )
         if self.conflicts_skipped > 0:
             lines.append(f"{p}Conflicts skipped = {self.conflicts_skipped}")
         if self.entities_errored:

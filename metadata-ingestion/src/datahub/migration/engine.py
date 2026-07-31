@@ -9,7 +9,7 @@ source.
 """
 
 import logging
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.cli import delete_cli, migration_utils
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,6 +25,21 @@ from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import transform_urns
 
 log = logging.getLogger(__name__)
+
+
+def _load_checkpoint(path: str) -> Set[str]:
+    """Read already-migrated source URNs from *path* (one per line)."""
+    try:
+        with open(path) as f:
+            return {line.strip() for line in f if line.strip()}
+    except FileNotFoundError:
+        return set()
+
+
+def _append_checkpoint(path: str, source_urn: str) -> None:
+    """Append a single source URN to the checkpoint file (created on first call)."""
+    with open(path, "a") as f:
+        f.write(source_urn + "\n")
 
 
 def migrate_pairs(
@@ -52,8 +67,19 @@ def migrate_pairs(
     urn_map: Dict[str, str] = {p.source_urn: p.target_urn for p in pairs_list}
     batch_rewrite_urn = migration_utils.make_batch_urn_rewriter(urn_map)
 
+    checkpoint_done: Set[str] = set()
+    if options.checkpoint_file:
+        checkpoint_done = _load_checkpoint(options.checkpoint_file)
+
     report = MigrationReport(options.run_id, options.dry_run, options.keep)
     for pair in pairs_list:
+        if pair.source_urn in checkpoint_done:
+            log.debug(f"Checkpoint skip: {pair.source_urn}")
+            report.pairs_checkpoint_skipped += 1
+            if on_pair_done is not None:
+                on_pair_done(pair)
+            continue
+
         try:
             migrate_pair(graph, pair, options, report, batch_rewrite_urn)
         except Exception as e:
@@ -62,6 +88,9 @@ def migrate_pairs(
                 report.entities_errored.append((pair.source_urn, str(e)))
             else:
                 raise
+        else:
+            if options.checkpoint_file and not options.dry_run:
+                _append_checkpoint(options.checkpoint_file, pair.source_urn)
         if on_pair_done is not None:
             on_pair_done(pair)
     return report

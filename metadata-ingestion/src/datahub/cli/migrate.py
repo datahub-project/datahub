@@ -396,6 +396,16 @@ def _process_container_relationships(
         "Default: all types."
     ),
 )
+@click.option(
+    "--checkpoint-file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Resumable migrations: already-migrated source URNs are read from "
+        "this file and skipped; newly migrated URNs are appended on success. "
+        "Created automatically on first write."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def dataplatform2instance(
@@ -409,6 +419,7 @@ def dataplatform2instance(
     on_conflict: str,
     skip_on_error: bool,
     entity_types: Optional[str],
+    checkpoint_file: Optional[str],
 ) -> None:
     """Migrate entities from one dataplatform to a dataplatform instance.
 
@@ -458,6 +469,7 @@ def dataplatform2instance(
             keep=keep,
             on_conflict=conflict,
             skip_on_error=skip_on_error,
+            checkpoint_file=checkpoint_file,
         )
         report = _run_entity_migration(
             graph,
@@ -534,6 +546,16 @@ def dataplatform2instance(
         "Default: all types."
     ),
 )
+@click.option(
+    "--checkpoint-file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Resumable migrations: already-migrated source URNs are read from "
+        "this file and skipped; newly migrated URNs are appended on success. "
+        "Created automatically on first write."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def instance2instance(
@@ -548,6 +570,7 @@ def instance2instance(
     on_conflict: str,
     skip_on_error: bool,
     entity_types: Optional[str],
+    checkpoint_file: Optional[str],
 ) -> None:
     """Migrate entities from one platform instance to another.
 
@@ -601,6 +624,7 @@ def instance2instance(
             keep=keep,
             on_conflict=conflict,
             skip_on_error=skip_on_error,
+            checkpoint_file=checkpoint_file,
         )
         report = _run_entity_migration(
             graph,
@@ -759,6 +783,16 @@ def _load_mapping_pairs(mapping_file: str) -> List[MigrationPair]:
     default=False,
     help="Skip entities that cause errors instead of aborting.",
 )
+@click.option(
+    "--checkpoint-file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Resumable migrations: already-migrated source URNs are read from "
+        "this file and skipped; newly migrated URNs are appended on success. "
+        "Created automatically on first write."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def urns_mapping(
@@ -769,6 +803,7 @@ def urns_mapping(
     keep: bool,
     on_conflict: str,
     skip_on_error: bool,
+    checkpoint_file: Optional[str],
 ) -> None:
     """Migrate entities using an explicit source → target URN mapping.
 
@@ -855,6 +890,7 @@ def urns_mapping(
         keep=keep,
         on_conflict=conflict,
         skip_on_error=skip_on_error,
+        checkpoint_file=checkpoint_file,
     )
     report = _run_migration(graph, pairs, options)
     click.echo(f"{report}")

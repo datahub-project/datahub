@@ -798,3 +798,120 @@ class TestMigrateContainers:
             rest_emitter=emitter,
         )
         emitter.emit_mcp.assert_not_called()
+
+
+# --- checkpoint / resume ---
+
+
+class TestCheckpointResume:
+    """Tests for the checkpoint/resume feature in migrate_pairs."""
+
+    PAIRS = [
+        MigrationPair(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,a.t1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,b.t1,PROD)",
+        ),
+        MigrationPair(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,a.t2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,b.t2,PROD)",
+        ),
+        MigrationPair(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,a.t3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,b.t3,PROD)",
+        ),
+    ]
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_skips_already_migrated(
+        self, mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """Pairs whose source URN appears in the checkpoint file are skipped."""
+        ckpt = tmp_path / "ckpt.txt"
+        ckpt.write_text(self.PAIRS[0].source_urn + "\n")
+
+        report = engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:2],
+            _options(checkpoint_file=str(ckpt)),
+        )
+        # Only the second pair should have been migrated
+        assert mock_single.call_count == 1
+        assert (
+            mock_single.call_args_list[0].args[1].source_urn == self.PAIRS[1].source_urn
+        )
+        assert report.pairs_checkpoint_skipped == 1
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_appends_on_success(
+        self, _mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """Successfully migrated pairs are appended to the checkpoint file."""
+        ckpt = tmp_path / "ckpt.txt"
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:2],
+            _options(dry_run=False, checkpoint_file=str(ckpt)),
+        )
+        lines = ckpt.read_text().strip().splitlines()
+        assert lines == [self.PAIRS[0].source_urn, self.PAIRS[1].source_urn]
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_not_written_on_dry_run(
+        self, _mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """Dry-run does not write to the checkpoint file."""
+        ckpt = tmp_path / "ckpt.txt"
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:1],
+            _options(dry_run=True, checkpoint_file=str(ckpt)),
+        )
+        assert not ckpt.exists()
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_not_written_on_error(
+        self, mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """Errored pairs (under skip_on_error) are not written to the checkpoint."""
+        mock_single.side_effect = [RuntimeError("boom"), None]
+        ckpt = tmp_path / "ckpt.txt"
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:2],
+            _options(dry_run=False, skip_on_error=True, checkpoint_file=str(ckpt)),
+        )
+        lines = ckpt.read_text().strip().splitlines()
+        # Only the second (successful) pair should be checkpointed
+        assert lines == [self.PAIRS[1].source_urn]
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_file_created_on_first_write(
+        self, _mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """The checkpoint file is created automatically on the first successful pair."""
+        ckpt = tmp_path / "subdir" / "ckpt.txt"
+        ckpt.parent.mkdir(parents=True)
+        assert not ckpt.exists()
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:1],
+            _options(dry_run=False, checkpoint_file=str(ckpt)),
+        )
+        assert ckpt.exists()
+        assert ckpt.read_text().strip() == self.PAIRS[0].source_urn
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_checkpoint_on_pair_done_fires_for_skipped(
+        self, _mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """on_pair_done is called for checkpoint-skipped pairs too."""
+        ckpt = tmp_path / "ckpt.txt"
+        ckpt.write_text(self.PAIRS[0].source_urn + "\n")
+        completed: list = []
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS[:2],
+            _options(checkpoint_file=str(ckpt)),
+            on_pair_done=lambda p: completed.append(p),
+        )
+        assert completed == self.PAIRS[:2]
