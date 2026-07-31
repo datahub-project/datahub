@@ -50,6 +50,7 @@
     "fieldLabel.environment": "Miljø",
     "fieldLabel.glossaryTerm": "Begrep",
     "fieldLabel.owner": "Eier",
+    "fieldLabel.parentDocument": "Overordnet dokument",
     "fieldLabel.path": "Sti",
     "fieldLabel.platform": "Plattform",
     "fieldLabel.platformInstance": "Plattforminstans",

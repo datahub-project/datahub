@@ -50,6 +50,7 @@
     "fieldLabel.environment": "Entorno",
     "fieldLabel.glossaryTerm": "Término del glosario",
     "fieldLabel.owner": "Owner",
+    "fieldLabel.parentDocument": "Documento principal",
     "fieldLabel.path": "Ruta",
     "fieldLabel.platform": "Plataforma",
     "fieldLabel.platformInstance": "Instancia de plataforma",

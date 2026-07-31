@@ -35,6 +35,7 @@ import {
     LAST_MODIFIED_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
@@ -99,7 +100,11 @@ function getDefaultFilterCondition(filterField: string): FilterOperator | undefi
     if (filterField === LAST_MODIFIED_FILTER_NAME) {
         return FilterOperator.GreaterThan;
     }
-    if (filterField === DOMAINS_FILTER_NAME || filterField === CONTAINER_FILTER_NAME) {
+    if (
+        filterField === DOMAINS_FILTER_NAME ||
+        filterField === CONTAINER_FILTER_NAME ||
+        filterField === PARENT_DOCUMENT_FILTER_NAME
+    ) {
         return FilterOperator.DescendantsIncl;
     }
     return undefined;

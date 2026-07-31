@@ -14,6 +14,7 @@ import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
 } from '@src/app/search/utils/constants';
 import { EntityType, FilterOperator } from '@src/types.generated';
 
@@ -78,6 +79,18 @@ describe('operator', () => {
         defaultValueOptions: [],
     } as FilterPredicate;
 
+    const parentDocumentPredicate = {
+        field: {
+            field: PARENT_DOCUMENT_FILTER_NAME,
+            displayName: 'Parent Document',
+            entityTypes: [EntityType.Document],
+            type: FieldType.ENTITY,
+        },
+        operator: FilterOperatorType.EQUALS,
+        values: [{ value: 'urn:li:document:parent', entity: null }],
+        defaultValueOptions: [],
+    } as FilterPredicate;
+
     const expectedEnumOptions = [EQUALS_OPERATOR, NOT_EQUALS_OPERATOR, EXISTS_OPERATOR, NOT_EXISTS_OPERATOR];
 
     const pluralExpectedEnumOptions = [
@@ -122,6 +135,11 @@ describe('operator', () => {
 
     it('should put Within first for container filters', () => {
         const options = getOperatorOptionsForPredicate(containerPredicate, false);
+        expect(options[0]).toMatchObject(WITHIN_OPERATOR);
+    });
+
+    it('should put Within first for parentDocument filters', () => {
+        const options = getOperatorOptionsForPredicate(parentDocumentPredicate, false);
         expect(options[0]).toMatchObject(WITHIN_OPERATOR);
     });
 
