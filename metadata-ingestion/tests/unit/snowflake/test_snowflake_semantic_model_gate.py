@@ -78,6 +78,20 @@ def test_saas_old_version_vetoes_recipe_true():
     assert not decision.entity_types_capable
 
 
+def test_saas_unparseable_version_fails_closed_without_crashing():
+    # A non-semver version string (git-sha tag, etc.) makes is_version_at_least
+    # raise ValueError. The resolver must not propagate it (that would abort the
+    # whole Snowflake source); it fails closed to legacy and flags it.
+    graph = _make_graph(
+        is_cloud=True, version="nightly-abc123", metrics_flags={"metricsEnabled": True}
+    )
+    decision = resolve_emit_semantic_model_entities(graph, None)
+    assert not decision.enabled
+    assert not decision.entity_types_capable
+    assert decision.version_unparseable
+    assert "could not be parsed" in decision.reason
+
+
 def test_saas_recipe_false_forces_off_but_stays_capable():
     # Recipe force-off -> legacy emit, but a version-capable server keeps entityTypes
     # at 5 (no flap vs an emit-on recipe).

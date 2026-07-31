@@ -1575,6 +1575,72 @@ def test_relationships_populated_with_aliases_matching_logical_dataset_aliases()
     assert relationship.cardinality == ERModelRelationshipCardinalityClass.N_ONE
 
 
+def test_relationship_join_columns_normalized_to_match_field_paths():
+    # Snowflake reports join columns in their own casing; the emitted join keys
+    # must go through the same normalization as schemaField paths
+    # (snowflake_identifier(name.upper())) or they never resolve against the
+    # lowercased field paths under convert_urns_to_lowercase=True.
+    mapper = _make_mapper(convert_urns_to_lowercase=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "CUSTOMER_ID": [
+                _col(
+                    "customer_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CUSTOMERS",
+                )
+            ],
+            "ORDER_ID": [
+                _col(
+                    "order_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="orders_to_customers",
+                from_table="orders",
+                # Uppercase as Snowflake returns them.
+                from_columns=["ORDER_ID"],
+                to_table="customers",
+                to_columns=["CUSTOMER_ID"],
+            ),
+        ],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    relationship = info.relationships[0]
+
+    # Lowercased to match the lowercased field paths, not left uppercase.
+    assert relationship.fromColumns == ["order_id"]
+    assert relationship.toColumns == ["customer_id"]
+
+    # Each join key must actually exist as a field path on its logical dataset.
+    alias_to_urn = {
+        _aspects_for(workunits, urn, SemanticModelPropertiesClass)[0].alias: urn
+        for urn in info.datasets
+    }
+    from_fields = _schema_fields_by_path(workunits, alias_to_urn[relationship.from_])
+    to_fields = _schema_fields_by_path(workunits, alias_to_urn[relationship.to])
+    assert all(col in from_fields for col in relationship.fromColumns)
+    assert all(col in to_fields for col in relationship.toColumns)
+
+
 def test_relationships_omitted_when_none_defined():
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(column_occurrences={})

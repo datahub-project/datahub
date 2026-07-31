@@ -552,6 +552,21 @@ class SnowflakeV2Source(
             decision.reason,
         )
 
+        # An unparseable Cloud version fails the capability check closed rather than
+        # crashing the source. Surface it regardless of recipe_value, since the
+        # default Cloud path (recipe_value=None) would otherwise silently drop to
+        # legacy mode without the recipe-request warning below firing.
+        if decision.version_unparseable:
+            self.report.warning(
+                title="Could not parse DataHub Cloud version",
+                message=(
+                    "The DataHub Cloud version string could not be parsed, so "
+                    "semanticModel/metric emission stayed off and ingestion "
+                    "proceeded in legacy dataset mode."
+                ),
+                context=decision.reason,
+            )
+
         # Warn instead of failing when the recipe requested emission but a server
         # veto forces it off, so ingestion still proceeds in legacy dataset mode.
         if recipe_value is True and not decision.enabled:

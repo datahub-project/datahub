@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import sqlglot
+import sqlglot.errors
 import sqlglot.expressions
 
 from datahub.emitter.mce_builder import (
@@ -260,9 +261,20 @@ class SnowflakeSemanticModelMapper:
                 # Uppercased to match each logical dataset's
                 # semanticModelProperties.alias, so join references resolve.
                 from_=relationship.from_table.upper(),
-                fromColumns=relationship.from_columns,
+                # Join columns must match the logical-dataset schemaField paths,
+                # which are built as snowflake_identifier(name.upper()) and so get
+                # lowercased under convert_urns_to_lowercase=True. Apply the same
+                # normalization here or the join keys stay uppercase and never
+                # resolve against the lowercased field paths.
+                fromColumns=[
+                    self.identifiers.snowflake_identifier(col.upper())
+                    for col in relationship.from_columns
+                ],
                 to=relationship.to_table.upper(),
-                toColumns=relationship.to_columns,
+                toColumns=[
+                    self.identifiers.snowflake_identifier(col.upper())
+                    for col in relationship.to_columns
+                ],
                 # FK joins are many-to-one; Snowflake exposes no cardinality column.
                 cardinality=ERModelRelationshipCardinalityClass.N_ONE,
             )
@@ -633,10 +645,17 @@ class SnowflakeSemanticModelMapper:
             return []
         try:
             parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
-        except Exception as e:
-            logger.debug(
-                f"Failed to parse metric expression for {semantic_view.name}."
-                f"{occurrence.name} ({occurrence.expression!r}): {e}"
+        except sqlglot.errors.ParseError as e:
+            # A metric whose expression won't parse loses its derivedFrom lineage.
+            # Surface it (not just a debug log + counter) so operators can see which
+            # metric was affected; the metric itself is still emitted without edges.
+            self.report.warning(
+                title="Could not parse semantic view metric expression",
+                message=(
+                    "A metric expression failed to parse, so its metric-to-metric "
+                    "derivedFrom lineage was skipped. The metric is still emitted."
+                ),
+                context=f"{semantic_view.name}.{occurrence.name}: {e}",
             )
             self.report.num_semantic_view_metric_expr_parse_failures += 1
             return []

@@ -41,6 +41,11 @@ class ResolvedEmitDecision:
     # value), so the shared definition is identical across recipes and feature
     # flips against the same server and never flaps. Consumed by the tag extractor.
     entity_types_capable: bool
+    # True when the SaaS server reported a version string we could not parse, so
+    # the capability check failed closed (feature off) rather than crashing the
+    # whole Snowflake source. Lets the caller surface it via report.warning even
+    # on the auto-enable path, where recipe_value is None.
+    version_unparseable: bool = False
 
 
 def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
@@ -111,11 +116,26 @@ def resolve_emit_semantic_model_entities(
     # Capability for the structuredPropertyDefinition entityTypes permission list.
     # Computed before every early return so it is identical across recipe values
     # against the same server (no definition flap). SaaS: version only; OSS: recipe.
-    entity_types_capable = (
-        server_config.is_version_at_least(*_MIN_SAAS_VERSION)
-        if is_saas
-        else bool(recipe_value)
-    )
+    version_unparseable = False
+    if is_saas:
+        try:
+            entity_types_capable = server_config.is_version_at_least(*_MIN_SAAS_VERSION)
+        except ValueError:
+            # is_version_at_least raises on a non-semver service_version (git-sha
+            # tag, two-part version, unexpected suffix). This resolver runs by
+            # default on Cloud, so an unparseable version must not abort the entire
+            # Snowflake source - fail closed to legacy (feature off) instead.
+            logger.warning(
+                "Could not parse DataHub Cloud version %r for the semanticModel/"
+                "metric capability check; treating the server as below the minimum "
+                "and keeping the feature off.",
+                version,
+                exc_info=True,
+            )
+            entity_types_capable = False
+            version_unparseable = True
+    else:
+        entity_types_capable = bool(recipe_value)
 
     # OSS / self-hosted: recipe-driven only, no server probing.
     if not is_saas:
@@ -143,20 +163,26 @@ def resolve_emit_semantic_model_entities(
             entity_types_capable=entity_types_capable,
         )
 
-    # Hard veto: server too old, even if the recipe requested emission. On the SaaS
-    # path entity_types_capable is exactly the version check.
+    # Hard veto: server too old (or an unparseable version), even if the recipe
+    # requested emission. On the SaaS path entity_types_capable is exactly the
+    # version check.
     if not entity_types_capable:
+        min_version = ".".join(str(v) for v in _MIN_SAAS_VERSION)
         return ResolvedEmitDecision(
             enabled=False,
             reason=(
-                f"DataHub Cloud version {version} is below the minimum "
-                f"{'.'.join(str(v) for v in _MIN_SAAS_VERSION)} required for "
-                "semanticModel/metric entities"
+                f"DataHub Cloud version {version!r} could not be parsed; treating "
+                f"as below the minimum {min_version} required for semanticModel/"
+                "metric entities"
+                if version_unparseable
+                else f"DataHub Cloud version {version} is below the minimum "
+                f"{min_version} required for semanticModel/metric entities"
             ),
             is_saas=True,
             version=version,
             metrics_enabled=None,
             entity_types_capable=entity_types_capable,
+            version_unparseable=version_unparseable,
         )
 
     # Fail open: only an explicit metricsEnabled=false is the kill-switch. A probe

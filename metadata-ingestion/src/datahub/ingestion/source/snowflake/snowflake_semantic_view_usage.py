@@ -105,6 +105,11 @@ class SemanticViewUsageExtractor:
             f"Extracting usage statistics for {len(discovered_semantic_views)} semantic views"
         )
 
+        # Materialized inside the try and consumed by the emit loop below, which
+        # runs outside the try so a downstream consumer error raised back into
+        # `yield` is not swallowed and mislabeled as a usage-extraction failure.
+        records: List[SemanticViewUsageRecord] = []
+        identifier_lookup: Dict[str, str] = {}
         try:
             start_time_millis = int(self.config.start_time.timestamp() * 1000)
             end_time_millis = int(self.config.end_time.timestamp() * 1000)
@@ -118,32 +123,33 @@ class SemanticViewUsageExtractor:
             )
 
             identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
-
-            for record in self._parse_usage_results(results):
-                # Match case-insensitively, but resolve back to the canonical
-                # (correctly-cased) identifier discovered during schema generation -
-                # see _build_identifier_lookup for why.
-                normalized_name = self._normalize_semantic_view_name(
-                    record.semantic_view_name
-                )
-                canonical_identifier = identifier_lookup.get(normalized_name)
-                if canonical_identifier is None:
-                    logger.debug(
-                        f"Skipping usage for {record.semantic_view_name} - not in discovered semantic views"
-                    )
-                    continue
-
-                wu = self._build_usage_statistics_workunit(record, canonical_identifier)
-                if wu:
-                    yield wu
+            records = list(self._parse_usage_results(results))
 
         except Exception as e:
-            logger.warning(f"Failed to extract semantic view usage: {e}", exc_info=True)
             self.report.warning(
                 message="Failed to extract semantic view usage statistics",
                 context="semantic-view-usage",
                 exc=e,
             )
+            return
+
+        for record in records:
+            # Match case-insensitively, but resolve back to the canonical
+            # (correctly-cased) identifier discovered during schema generation -
+            # see _build_identifier_lookup for why.
+            normalized_name = self._normalize_semantic_view_name(
+                record.semantic_view_name
+            )
+            canonical_identifier = identifier_lookup.get(normalized_name)
+            if canonical_identifier is None:
+                logger.debug(
+                    f"Skipping usage for {record.semantic_view_name} - not in discovered semantic views"
+                )
+                continue
+
+            wu = self._build_usage_statistics_workunit(record, canonical_identifier)
+            if wu:
+                yield wu
 
     def _parse_usage_results(
         self, results: Iterable[Dict[str, Any]]
@@ -321,6 +327,10 @@ class SemanticViewUsageExtractor:
 
         logger.info("Extracting queries for semantic views")
 
+        # Declared before the try so they remain bound for the emit loop, which
+        # runs outside the try (see below).
+        queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
+        identifier_lookup: Dict[str, str] = {}
         try:
             start_time_millis = int(self.config.start_time.timestamp() * 1000)
             end_time_millis = int(self.config.end_time.timestamp() * 1000)
@@ -335,7 +345,6 @@ class SemanticViewUsageExtractor:
             )
 
             # Group queries by semantic view, limiting during collection to avoid memory issues
-            queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
             max_per_view = self.config.semantic_views.max_queries_per_view
             identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
 
@@ -373,22 +382,28 @@ class SemanticViewUsageExtractor:
                     queries_by_view[normalized_name] = []
                 queries_by_view[normalized_name].append(query)
 
-            # Emit query entities, using the canonical (schema-gen) identifier for
-            # URN construction rather than the lowercased grouping key - see
-            # _build_identifier_lookup.
-            for normalized_name, queries in queries_by_view.items():
-                canonical_identifier = identifier_lookup[normalized_name]
-                logger.debug(
-                    f"Emitting {len(queries)} query entities for {canonical_identifier}"
-                )
-
-                for query in queries:
-                    yield from self._build_query_workunits(query, canonical_identifier)
-
         except Exception as e:
-            logger.warning(
-                f"Failed to extract semantic view queries: {e}", exc_info=True
+            # Narrowed to fetch + grouping: the emit loop below stays outside this
+            # try so a downstream consumer error raised back into `yield from` is
+            # not swallowed and mislabeled as a query-extraction failure.
+            self.report.warning(
+                message="Failed to extract semantic view queries",
+                context="semantic-view-queries",
+                exc=e,
             )
+            return
+
+        # Emit query entities, using the canonical (schema-gen) identifier for
+        # URN construction rather than the lowercased grouping key - see
+        # _build_identifier_lookup.
+        for normalized_name, queries in queries_by_view.items():
+            canonical_identifier = identifier_lookup[normalized_name]
+            logger.debug(
+                f"Emitting {len(queries)} query entities for {canonical_identifier}"
+            )
+
+            for query in queries:
+                yield from self._build_query_workunits(query, canonical_identifier)
 
     def _build_query_workunits(
         self, query: SemanticViewQuery, dataset_identifier: str
