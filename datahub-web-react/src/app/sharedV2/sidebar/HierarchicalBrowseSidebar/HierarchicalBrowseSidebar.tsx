@@ -13,6 +13,7 @@ import {
     SearchIconButton,
     SearchSlot,
     SidebarContainer,
+    SidebarShell,
     SidebarTitle,
     ThinDivider,
     TreeContainer,
@@ -251,30 +252,32 @@ export default function HierarchicalBrowseSidebar({
     }
 
     return (
-        <SidebarContainer
-            $isCollapsed={isCollapsed}
-            $width={width}
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            $isResizing={isResizing}
-            data-testid={dataTestId}
-            id={id}
-            className={className}
-        >
-            <HeaderControls $isCollapsed={isCollapsed}>
-                {!isCollapsed && title != null ? <SidebarTitle>{title}</SidebarTitle> : null}
-                <HeaderButtons>
-                    {!isCollapsed && headerActions}
-                    {collapseTooltipTitle ? (
-                        <Tooltip title={collapseTooltipTitle} placement="right" showArrow={false}>
-                            {collapseButton}
-                        </Tooltip>
-                    ) : (
-                        collapseButton
-                    )}
-                </HeaderButtons>
-            </HeaderControls>
-            <ThinDivider />
-            {body}
+        <SidebarShell>
+            <SidebarContainer
+                $isCollapsed={isCollapsed}
+                $width={width}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                $isResizing={isResizing}
+                data-testid={dataTestId}
+                id={id}
+                className={className}
+            >
+                <HeaderControls $isCollapsed={isCollapsed}>
+                    {!isCollapsed && title != null ? <SidebarTitle>{title}</SidebarTitle> : null}
+                    <HeaderButtons>
+                        {!isCollapsed && headerActions}
+                        {collapseTooltipTitle ? (
+                            <Tooltip title={collapseTooltipTitle} placement="right" showArrow={false}>
+                                {collapseButton}
+                            </Tooltip>
+                        ) : (
+                            collapseButton
+                        )}
+                    </HeaderButtons>
+                </HeaderControls>
+                <ThinDivider />
+                {body}
+            </SidebarContainer>
             {canResize && !isCollapsed && (
                 <SidebarResizer
                     width={width}
@@ -283,6 +286,6 @@ export default function HierarchicalBrowseSidebar({
                     onResizeEnd={() => setIsResizing(false)}
                 />
             )}
-        </SidebarContainer>
+        </SidebarShell>
     );
 }

@@ -72,6 +72,14 @@ export const CollapsedScrollColumn = styled.div`
     ${scrollbar}
 `;
 
+export const SidebarShell = styled.div`
+    position: relative;
+    flex-shrink: 0;
+    align-self: stretch;
+    height: 100%;
+    max-height: 100%;
+`;
+
 export const SidebarContainer = styled.div<{
     $isCollapsed: boolean;
     $width: number;

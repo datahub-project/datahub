@@ -9,15 +9,16 @@ type Props = {
 };
 
 /**
- * Absolute hit target on the sidebar’s right edge — no layout width.
- * Sits on the border (inside) so the page gap is unchanged.
+ * Hit target centered on the sidebar’s right border, extending into the layout
+ * gap — not over row actions / carets inside the sidebar.
  */
 const ResizerBar = styled.div`
     position: absolute;
     top: 0;
-    right: 0;
     bottom: 0;
+    right: 0;
     width: 8px;
+    transform: translateX(50%);
     cursor: col-resize;
     z-index: 2;
 `;
