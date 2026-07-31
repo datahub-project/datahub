@@ -160,23 +160,22 @@ The upsert API will return the unique identifier (URN) for the assertion if you 
 ```
 
 </TabItem>
-
 <TabItem value="python" label="Python">
 
-To upsert an assertion in Python, use `DataHubGraph.upsert_custom_assertion` or the V2 SDK helper
-`client.assertions.sync_custom_assertion` (recommended for partners). Report run results with
-`report_assertion_result` / `client.assertions.report_assertion_result`.
-
-```python
-{{ inline /metadata-ingestion/examples/library/upsert_custom_assertion.py show_path_as_comment }}
-```
+To create or update a custom assertion in Python, use `client.assertions.sync_custom_assertion`.
+This wraps the same `upsertCustomAssertion` GraphQL mutation.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/sync_custom_assertion.py show_path_as_comment }}
 ```
 
-</TabItem>
+Lower-level `DataHubGraph.upsert_custom_assertion` is also available if you are not using the V2 SDK:
 
+```python
+{{ inline /metadata-ingestion/examples/library/upsert_custom_assertion.py show_path_as_comment }}
+```
+
+</TabItem>
 </Tabs>
 
 ## Report Results For Custom Assertions
@@ -190,8 +189,7 @@ displayed as passing or failing in the DataHub UI.
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
-To report results for a custom, use the `reportAssertionResult` GraphQL Mutation. This mutation both allows you to
-create and update a given assertion.
+To report results for a custom assertion, use the `reportAssertionResult` GraphQL Mutation.
 
 ```graphql
 mutation reportAssertionResult {
@@ -241,17 +239,16 @@ The full list of supported error types include:
 If the result is `true`, the result was successfully reported.
 
 </TabItem>
-
 <TabItem value="python" label="Python">
 
-To report an assertion result in Python, simply use the `report_assertion_result` method on the DataHub Client object.
+To report an assertion result in Python, use `client.assertions.report_assertion_result`
+(or `DataHubGraph.report_assertion_result`).
 
 ```python
 {{ inline /metadata-ingestion/examples/library/report_assertion_result.py show_path_as_comment }}
 ```
 
 </TabItem>
-
 </Tabs>
 
 ## Retrieve Results For Custom Assertions
@@ -296,16 +293,45 @@ query dataset {
         }
         info {
           type # Will be CUSTOM
-          customType # Will be your custom type.
           description
+          externalUrl
           lastUpdated {
             time
             actor
           }
           customAssertion {
+            type # Your custom category (e.g. "dbt", "greatExpectations")
             entityUrn
-            fieldPath
-            externalUrl
+            field {
+              urn
+              path
+            }
+            fields {
+              urn
+              path
+            }
+            scope
+            aggregation
+            operator
+            parameters {
+              value {
+                value
+                type
+              }
+              minValue {
+                value
+                type
+              }
+              maxValue {
+                value
+                type
+              }
+            }
+            nativeType
+            nativeParameters {
+              key
+              value
+            }
             logic
           }
           source {
@@ -349,16 +375,45 @@ query getAssertion {
     }
     info {
       type # Will be CUSTOM
-      customType # Will be your custom type.
       description
+      externalUrl
       lastUpdated {
         time
         actor
       }
       customAssertion {
+        type # Your custom category (e.g. "dbt", "greatExpectations")
         entityUrn
-        fieldPath
-        externalUrl
+        field {
+          urn
+          path
+        }
+        fields {
+          urn
+          path
+        }
+        scope
+        aggregation
+        operator
+        parameters {
+          value {
+            value
+            type
+          }
+          minValue {
+            value
+            type
+          }
+          maxValue {
+            value
+            type
+          }
+        }
+        nativeType
+        nativeParameters {
+          key
+          value
+        }
         logic
       }
       source {
