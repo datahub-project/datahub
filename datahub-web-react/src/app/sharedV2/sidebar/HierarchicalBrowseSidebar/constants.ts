@@ -23,5 +23,5 @@ export const TREE_ROW_ENTITY_ICON_SIZE = 20;
 /** Inner glyph size for colored badge icons (DomainColoredIcon / GlossaryColoredIcon). */
 export const TREE_ROW_ENTITY_ICON_GLYPH_SIZE = 12;
 
-/** Phosphor expand/collapse caret on tree rows (far right). */
+/** Phosphor expand/collapse caret (Notion-style: swaps over the entity icon). */
 export const TREE_ROW_CARET_SIZE = 14;
