@@ -183,6 +183,8 @@ dependencies {
   testImplementation externalDependency.testContainersOpenSearch
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.testContainersNeo4j
+  testImplementation externalDependency.testContainersPostgresql
+  testImplementation externalDependency.postgresql
   testImplementation externalDependency.lombok
   testFixturesApi externalDependency.springBootTest
   testImplementation spec.product.pegasus.restliServer
@@ -302,6 +304,25 @@ task testOther(type: Test) {
 
   group = 'verification'
   description = 'Runs only other test suite to debug the failing tests'
+}
+
+task testPostgresql(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-postgresql.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+
+  group = 'verification'
+  description = 'Runs PostgreSQL Testcontainers suite (testng-postgresql.xml)'
 }
 
 ebean {

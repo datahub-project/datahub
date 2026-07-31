@@ -32,5 +32,12 @@ public class EbeanConfiguration {
   @Builder.Default
   private TransactionRetryConfiguration transactionRetry = new TransactionRetryConfiguration();
 
+  // Postgres-only, opt-in: serialize concurrent writes/deletes per entity via a transaction-scoped
+  // pg_advisory_xact_lock before acquiring row locks, to prevent lock-order deadlocks between a
+  // multi-row FOR UPDATE write and a hard-delete. No-op on non-Postgres engines and when disabled
+  // (the default).
+  private boolean entityWriteAdvisoryLockEnabled;
+
+  /** Test-only config with defaults; note {@code entityWriteAdvisoryLockEnabled} is off. */
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }
