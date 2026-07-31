@@ -110,7 +110,7 @@ Each expectation becomes a DataHub assertion (plus an `assertionRunEvent` per ch
 
 | GX input                                             | DataHub field                                                                                                  |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Expectation type + kwargs                            | Assertion URN identity (`nativeType` / `nativeParameters`) and mapped `datasetAssertion` when known            |
+| Expectation type + kwargs                            | Assertion URN identity (`nativeType` / `nativeParameters`) and mapped `customAssertion` structured fields when known |
 | Expectation `description`                            | `AssertionInfo.description`                                                                                    |
 | Expectation suite name                               | `AssertionInfo.customProperties.expectation_suite_name`                                                        |
 | Expectation `id` (when present)                      | `AssertionInfo.customProperties.expectation_id` (not used in the URN — IDs can change if a suite is recreated) |
