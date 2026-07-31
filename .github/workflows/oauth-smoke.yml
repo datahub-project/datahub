@@ -26,6 +26,7 @@ on:
       - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
       - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
       - "metadata-ingestion/src/datahub/cli/config_utils.py"
+      - "metadata-ingestion/src/datahub/upgrade/upgrade.py"
   pull_request:
     paths:
       - "smoke-test/tests/oauth/**"
@@ -35,6 +36,7 @@ on:
       - "metadata-ingestion/src/datahub/emitter/rest_emitter.py"
       - "metadata-ingestion/src/datahub/ingestion/sink/datahub_rest.py"
       - "metadata-ingestion/src/datahub/cli/config_utils.py"
+      - "metadata-ingestion/src/datahub/upgrade/upgrade.py"
 
 permissions:
   contents: read
