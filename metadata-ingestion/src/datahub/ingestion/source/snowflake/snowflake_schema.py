@@ -276,8 +276,13 @@ class SnowflakeSemanticView(BaseView):
     column_table_mappings: Dict[str, List[str]] = field(default_factory=dict)
     # Column synonyms: column_name -> [list of alternative names]
     column_synonyms: Dict[str, List[str]] = field(default_factory=dict)
-    # Primary key columns: Set of column names that are part of the primary key
+    # Primary key columns: Set of column names that are part of the primary key.
+    # Flat union across logical tables, consumed by the legacy dataset-mode path.
     primary_key_columns: set = field(default_factory=set)
+    # Primary keys keyed by logical table (uppercase) -> set of PK column names.
+    # The semanticModel mapper needs per-table PKs so isPartOfKey and relationship
+    # cardinality don't leak across same-named columns on different logical tables.
+    primary_key_columns_by_table: Dict[str, Set[str]] = field(default_factory=dict)
     # Table-level synonyms: logical_table_name -> [list of alternative names]
     # These are alternative names for logical tables within the semantic view
     table_synonyms: Dict[str, List[str]] = field(default_factory=dict)
@@ -1343,8 +1348,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     primary_keys_raw, "PRIMARY_KEYS", f"{schema_name}.{view_name}"
                 )
                 if primary_keys:
+                    pk_by_table = (
+                        semantic_view_obj.primary_key_columns_by_table.setdefault(
+                            logical_table_upper, set()
+                        )
+                    )
                     for pk_col in primary_keys:
-                        semantic_view_obj.primary_key_columns.add(pk_col.upper())
+                        pk_col_upper = pk_col.upper()
+                        semantic_view_obj.primary_key_columns.add(pk_col_upper)
+                        pk_by_table.add(pk_col_upper)
 
                 synonyms_raw = row.get("SYNONYMS")
                 synonyms = self._parse_json_array(

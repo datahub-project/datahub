@@ -73,12 +73,18 @@ def _make_semantic_view(
     logical_to_physical_table: Optional[Dict[str, tuple]] = None,
     resolved_upstream_urns: Optional[List[str]] = None,
     primary_key_columns: Optional[set] = None,
+    primary_key_columns_by_table: Optional[Dict[str, set]] = None,
     tags: Optional[list] = None,
     column_tags: Optional[dict] = None,
     relationships: Optional[List[SnowflakeSemanticViewRelationship]] = None,
     column_synonyms: Optional[Dict[str, List[str]]] = None,
     table_synonyms: Optional[Dict[str, List[str]]] = None,
 ) -> SnowflakeSemanticView:
+    pk_by_table = primary_key_columns_by_table or {}
+    # Mirror real ingestion: the flat set is the union across logical tables.
+    flat_pk = set(primary_key_columns or set())
+    for cols in pk_by_table.values():
+        flat_pk |= cols
     return SnowflakeSemanticView(
         name="Sales_Analytics",
         created=datetime.datetime(2024, 1, 1),
@@ -92,7 +98,8 @@ def _make_semantic_view(
             "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
         },
         resolved_upstream_urns=resolved_upstream_urns or [],
-        primary_key_columns=primary_key_columns or set(),
+        primary_key_columns=flat_pk,
+        primary_key_columns_by_table=pk_by_table,
         tags=tags,
         column_tags=column_tags or {},
         relationships=relationships or [],
@@ -267,7 +274,7 @@ def test_semantic_model_info_datasets_and_field_grouping():
                 )
             ],
         },
-        primary_key_columns={"CUSTOMER_ID"},
+        primary_key_columns_by_table={"CUSTOMERS": {"CUSTOMER_ID"}},
     )
 
     workunits = list(
@@ -1302,7 +1309,10 @@ def test_shadowed_metric_name_fine_grained_lineage_lands_on_logical_dataset():
     assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
 
 
-def test_metric_conflicting_expressions_across_logical_tables_warns():
+def test_same_named_metrics_on_different_tables_emit_distinct_entities():
+    # Snowflake allows the same metric name on different logical tables; they are
+    # distinct, table-qualified metrics and must NOT collapse into one entity or
+    # be treated as a conflict.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1333,24 +1343,32 @@ def test_metric_conflicting_expressions_across_logical_tables_warns():
             fine_grained_lineages=[],
         )
     )
-    metric_urn = mapper.identifiers.gen_metric_urn(
-        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    orders_metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    returns_metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB, logical_table="RETURNS"
     )
 
-    # Deterministic selection: the occurrence with the lexicographically smallest
-    # table_name ("ORDERS" < "RETURNS") wins, regardless of declaration order.
-    info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
-    assert info.expression is not None
-    assert info.expression.dialects[0].expression == "SUM(orders.amount)"
+    assert orders_metric_urn != returns_metric_urn
+    orders_info = _aspects_for(workunits, orders_metric_urn, MetricInfoClass)
+    returns_info = _aspects_for(workunits, returns_metric_urn, MetricInfoClass)
+    assert len(orders_info) == 1
+    assert len(returns_info) == 1
+    # Each metric keeps its own expression, not a sibling table's.
+    assert orders_info[0].expression is not None
+    assert returns_info[0].expression is not None
+    assert orders_info[0].expression.dialects[0].expression == "SUM(orders.amount)"
+    assert returns_info[0].expression.dialects[0].expression == "SUM(returns.amount)"
 
+    # Distinct metrics on different tables are not a conflict.
     messages = [w.title for w in mapper.report.warnings]
-    assert any("conflicting expressions" in (m or "") for m in messages)
+    assert not any("conflicting expressions" in (m or "") for m in messages)
 
 
-def test_metric_conflicting_expressions_selection_is_order_independent():
-    # Same conflict as above but with occurrences declared in the opposite order -
-    # the canonical selection must depend only on table_name, not on which
-    # occurrence Snowflake happened to return first.
+def test_duplicate_metric_on_same_table_with_conflicting_expressions_warns():
+    # A genuine anomaly: the same metric declared twice on the SAME logical table
+    # with different expressions. One is kept deterministically; a warning fires.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1359,8 +1377,8 @@ def test_metric_conflicting_expressions_selection_is_order_independent():
                     "total_revenue",
                     "NUMBER",
                     SemanticViewColumnSubtype.METRIC,
-                    table_name="RETURNS",
-                    expression="SUM(returns.amount)",
+                    table_name="ORDERS",
+                    expression="SUM(orders.net)",
                 ),
                 _col(
                     "total_revenue",
@@ -1382,15 +1400,191 @@ def test_metric_conflicting_expressions_selection_is_order_independent():
         )
     )
     metric_urn = mapper.identifiers.gen_metric_urn(
-        "total_revenue", semantic_view.name, _SCHEMA, _DB
+        "total_revenue", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
     )
-
-    info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
-    assert info.expression is not None
-    assert info.expression.dialects[0].expression == "SUM(orders.amount)"
+    infos = _aspects_for(workunits, metric_urn, MetricInfoClass)
+    assert len(infos) == 1
+    # Lexicographically smallest expression wins deterministically.
+    assert infos[0].expression is not None
+    assert infos[0].expression.dialects[0].expression == "SUM(orders.amount)"
 
     messages = [w.title for w in mapper.report.warnings]
     assert any("conflicting expressions" in (m or "") for m in messages)
+
+
+def test_derived_metric_resolves_table_qualified_references():
+    # Real Snowflake derived metrics reference table-bound metrics by their logical
+    # table (ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT). Those qualified refs
+    # must resolve to the table-scoped metric URNs, not be dropped as columns.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "GROSS_REVENUE": [
+                _col(
+                    "gross_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(orders.amount)",
+                )
+            ],
+            "NET_PAYMENT": [
+                _col(
+                    "net_payment",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="TRANSACTIONS",
+                    expression="SUM(transactions.paid)",
+                )
+            ],
+            "TOTAL_ORDER_REVENUE": [
+                _col(
+                    "total_order_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    # View-scoped derived metric: no logical table.
+                    expression="ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT",
+                )
+            ],
+        },
+        logical_to_physical_table={
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "TRANSACTIONS": (_DB, _SCHEMA, "TRANSACTIONS"),
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    total_urn = mapper.identifiers.gen_metric_urn(
+        "total_order_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+    gross_urn = mapper.identifiers.gen_metric_urn(
+        "gross_revenue", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    net_urn = mapper.identifiers.gen_metric_urn(
+        "net_payment", semantic_view.name, _SCHEMA, _DB, logical_table="TRANSACTIONS"
+    )
+
+    relationships = _aspects_for(workunits, total_urn, MetricRelationshipsClass)
+    assert len(relationships) == 1
+    derived_urns = sorted(d.destinationUrn for d in relationships[0].derivedFrom)
+    assert derived_urns == sorted([gross_urn, net_urn])
+
+
+def test_primary_key_does_not_leak_across_same_named_columns():
+    # A PK on ORDERS.ID must not mark CUSTOMERS.ID as part of the key.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ID": [
+                _col("id", "NUMBER", SemanticViewColumnSubtype.DIMENSION, "ORDERS"),
+                _col("id", "NUMBER", SemanticViewColumnSubtype.DIMENSION, "CUSTOMERS"),
+            ],
+        },
+        logical_to_physical_table={
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
+        },
+        primary_key_columns_by_table={"ORDERS": {"ID"}},
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
+    assert _schema_fields_by_path(workunits, orders_urn)["id"].isPartOfKey is True
+    assert _schema_fields_by_path(workunits, customers_urn)["id"].isPartOfKey is False
+
+
+def test_relationship_cardinality_inferred_from_primary_key():
+    # Snowflake infers 1:1 when the from-side join columns are that table's primary
+    # key, else many-to-one.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "CUSTOMER_ID": [
+                _col(
+                    "customer_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "PROFILES",
+                ),
+                _col(
+                    "customer_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "ORDERS",
+                ),
+                _col(
+                    "customer_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "CUSTOMERS",
+                ),
+            ],
+        },
+        logical_to_physical_table={
+            "PROFILES": (_DB, _SCHEMA, "PROFILES"),
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
+        },
+        # PROFILES.customer_id is a PK (1:1 to CUSTOMERS); ORDERS.customer_id is not.
+        primary_key_columns_by_table={
+            "PROFILES": {"CUSTOMER_ID"},
+            "CUSTOMERS": {"CUSTOMER_ID"},
+        },
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="profile_to_customer",
+                from_table="profiles",
+                from_columns=["CUSTOMER_ID"],
+                to_table="customers",
+                to_columns=["CUSTOMER_ID"],
+            ),
+            SnowflakeSemanticViewRelationship(
+                name="order_to_customer",
+                from_table="orders",
+                from_columns=["CUSTOMER_ID"],
+                to_table="customers",
+                to_columns=["CUSTOMER_ID"],
+            ),
+        ],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is not None
+    by_name = {r.name: r for r in info.relationships}
+    assert (
+        by_name["profile_to_customer"].cardinality
+        == ERModelRelationshipCardinalityClass.ONE_ONE
+    )
+    assert (
+        by_name["order_to_customer"].cardinality
+        == ERModelRelationshipCardinalityClass.N_ONE
+    )
 
 
 def test_column_defined_on_multiple_logical_tables_emits_per_dataset_field():
@@ -1761,11 +1955,11 @@ def test_column_synonyms_emitted_as_ai_context_on_schema_field():
                     "DATE",
                     SemanticViewColumnSubtype.DIMENSION,
                     table_name="ORDERS",
+                    synonyms=["date of order", "order day"],
                 )
             ],
         },
         logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
-        column_synonyms={"ORDER_DATE": ["date of order", "order day"]},
     )
     orders_urn = _logical_dataset_urn(mapper, "ORDERS")
     field_urn = make_schema_field_urn(orders_urn, "order_date")
@@ -1794,10 +1988,10 @@ def test_metric_synonyms_emitted_as_ai_context_on_metric_entity():
                     "NUMBER",
                     SemanticViewColumnSubtype.METRIC,
                     expression="SUM(orders.order_total)",
+                    synonyms=["revenue", "sales total"],
                 )
             ],
         },
-        column_synonyms={"TOTAL_REVENUE": ["revenue", "sales total"]},
     )
     metric_urn = mapper.identifiers.gen_metric_urn(
         "total_revenue", semantic_view.name, _SCHEMA, _DB

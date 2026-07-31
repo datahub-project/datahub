@@ -1,11 +1,24 @@
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Tuple
 
 from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+
+
+class _MetricsProbe(Enum):
+    """Outcome of probing the DataHub Cloud metricsEnabled kill-switch."""
+
+    ENABLED = "enabled"  # metricsEnabled=true
+    DISABLED = "disabled"  # metricsEnabled=false -> kill-switch veto
+    # Field positively absent (older server without the flag) -> fail open.
+    FIELD_ABSENT = "field_absent"
+    # Operational failure (auth/transport/unexpected) -> fail closed to legacy.
+    PROBE_FAILED = "probe_failed"
+
 
 # Minimum DataHub Cloud version supporting semanticModel/metric entities.
 _MIN_SAAS_VERSION: Tuple[int, int, int] = (2, 1, 0)
@@ -46,14 +59,21 @@ class ResolvedEmitDecision:
     # whole Snowflake source. Lets the caller surface it via report.warning even
     # on the auto-enable path, where recipe_value is None.
     version_unparseable: bool = False
+    # True when the metricsEnabled kill-switch probe failed operationally
+    # (auth/transport/unexpected). We fail closed to legacy rather than enable on
+    # an unverified kill-switch; the caller surfaces it via report.warning.
+    metrics_probe_failed: bool = False
 
 
-def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
-    """Read the server's metricsEnabled flag.
+def _probe_metrics_enabled(graph: DataHubGraph) -> _MetricsProbe:
+    """Probe the server's metricsEnabled kill-switch.
 
-    Returns None when the flag is absent/null (older server or unset), which
-    callers treat as "not the kill-switch". Re-raises non-FieldUndefined errors;
-    the resolver treats such a failure as not-disabled (fail-open), not a veto.
+    Distinguishes a positively-absent field (older server, FIELD_ABSENT -> fail
+    open) from an operational failure (auth/transport/unexpected, PROBE_FAILED ->
+    fail closed). Only an explicit true/false yields ENABLED/DISABLED. This split
+    matters because the resolver auto-enables on Cloud: an operational probe
+    failure must not be mistaken for "kill-switch not set" and silently enable the
+    feature on an unverified server.
     """
     try:
         response = graph.execute_graphql(
@@ -62,20 +82,34 @@ def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Fallback for when the graphql-core field stripper is unavailable: older
-        # servers reject the query with FieldUndefined; treat as "flag absent"
-        # (allow). Propagate everything else. The primary path is
-        # strip_unsupported_fields=True above, which removes the unknown field and
-        # returns an empty featureFlags rather than raising.
+        # Older servers reject the query with FieldUndefined for metricsEnabled;
+        # that is a positive "flag absent" signal (fail open). Any other GraphError
+        # (auth, permission, malformed query) is an operational failure.
         message = str(e)
         if _FIELD_UNDEFINED_MARKER in message and _METRICS_ENABLED_FIELD in message:
-            return None
-        raise
+            return _MetricsProbe.FIELD_ABSENT
+        logger.warning(
+            "metricsEnabled probe failed with a GraphQL error; failing closed to "
+            "legacy dataset mode.",
+            exc_info=True,
+        )
+        return _MetricsProbe.PROBE_FAILED
+    except Exception:
+        # Transport/auth/unexpected failure - cannot verify the kill-switch.
+        logger.warning(
+            "metricsEnabled probe failed; failing closed to legacy dataset mode.",
+            exc_info=True,
+        )
+        return _MetricsProbe.PROBE_FAILED
 
     feature_flags = (response.get("appConfig") or {}).get("featureFlags")
     if not feature_flags:
-        return None
-    return feature_flags.get(_METRICS_ENABLED_FIELD)
+        # Successful response with the field stripped/absent: older server (allow).
+        return _MetricsProbe.FIELD_ABSENT
+    value = feature_flags.get(_METRICS_ENABLED_FIELD)
+    if value is None:
+        return _MetricsProbe.FIELD_ABSENT
+    return _MetricsProbe.ENABLED if value else _MetricsProbe.DISABLED
 
 
 def resolve_emit_semantic_model_entities(
@@ -185,21 +219,10 @@ def resolve_emit_semantic_model_entities(
             version_unparseable=version_unparseable,
         )
 
-    # Fail open: only an explicit metricsEnabled=false is the kill-switch. A probe
-    # failure (network/auth/etc.) is not an explicit false, so treat it as
-    # "not disabled" (None) and continue.
-    try:
-        metrics_enabled = _fetch_metrics_enabled(graph)
-    except Exception:
-        logger.warning(
-            "Failed to fetch the DataHub Cloud metricsEnabled feature flag; "
-            "treating as not-disabled and continuing.",
-            exc_info=True,
-        )
-        metrics_enabled = None
+    probe = _probe_metrics_enabled(graph)
 
-    # Only explicit false is the kill-switch; absent/None means "not disabled".
-    if metrics_enabled is False:
+    # Kill-switch: an explicit metricsEnabled=false vetoes.
+    if probe is _MetricsProbe.DISABLED:
         return ResolvedEmitDecision(
             enabled=False,
             reason="DataHub Cloud Metrics feature is disabled (metricsEnabled=false)",
@@ -209,6 +232,25 @@ def resolve_emit_semantic_model_entities(
             entity_types_capable=entity_types_capable,
         )
 
+    # Operational probe failure: we cannot confirm the kill-switch is off, so fail
+    # closed to legacy rather than auto-enable on an unverified server. Only a
+    # positively-absent field (older server) is treated as "not disabled".
+    if probe is _MetricsProbe.PROBE_FAILED:
+        return ResolvedEmitDecision(
+            enabled=False,
+            reason=(
+                "Could not verify the DataHub Cloud metricsEnabled kill-switch "
+                "(probe failed); staying in legacy dataset mode"
+            ),
+            is_saas=True,
+            version=version,
+            metrics_enabled=None,
+            entity_types_capable=entity_types_capable,
+            metrics_probe_failed=True,
+        )
+
+    # ENABLED or FIELD_ABSENT: not disabled -> enable.
+    metrics_enabled = True if probe is _MetricsProbe.ENABLED else None
     return ResolvedEmitDecision(
         enabled=True,
         reason=(

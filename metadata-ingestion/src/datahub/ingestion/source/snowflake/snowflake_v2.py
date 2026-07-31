@@ -567,6 +567,21 @@ class SnowflakeV2Source(
                 context=decision.reason,
             )
 
+        # The metricsEnabled kill-switch probe failed operationally, so emission
+        # failed closed to legacy. Surface it regardless of recipe_value, since the
+        # default Cloud path (recipe_value=None) would otherwise silently drop to
+        # legacy mode without the recipe-request warning below firing.
+        if decision.metrics_probe_failed:
+            self.report.warning(
+                title="Could not verify DataHub Cloud Metrics kill-switch",
+                message=(
+                    "The metricsEnabled feature-flag probe failed, so "
+                    "semanticModel/metric emission stayed off and ingestion "
+                    "proceeded in legacy dataset mode."
+                ),
+                context=decision.reason,
+            )
+
         # Warn instead of failing when the recipe requested emission but a server
         # veto forces it off, so ingestion still proceeds in legacy dataset mode.
         if recipe_value is True and not decision.enabled:
@@ -793,16 +808,31 @@ class SnowflakeV2Source(
                 )
 
         if self.semantic_view_usage_extractor and discovered_semantic_views:
-            discovered_semantic_views_set = set(discovered_semantic_views)
-            # Usage statistics are legacy-dataset-mode only - semanticModel entities
-            # have no usage aspect. Query entities (Queries tab) are emitted in both modes.
-            if not self.config.semantic_views.emit_semantic_model_entities:
-                yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+            if not self.config.include_technical_schema:
+                # Query/usage subjects reference the semanticModel (or, in legacy
+                # mode, the semantic-view dataset) entities, which are only emitted
+                # when include_technical_schema is True. Skip emission rather than
+                # produce querySubjects that dangle to never-emitted entities.
+                self.report.warning(
+                    title="Semantic view queries/usage skipped without technical schema",
+                    message=(
+                        "include_technical_schema is False, so semantic view "
+                        "entities are not emitted; skipping their query and usage "
+                        "workunits to avoid dangling query subjects."
+                    ),
+                )
+            else:
+                discovered_semantic_views_set = set(discovered_semantic_views)
+                # Usage statistics are legacy-dataset-mode only - semanticModel
+                # entities have no usage aspect. Query entities (Queries tab) are
+                # emitted in both modes.
+                if not self.config.semantic_views.emit_semantic_model_entities:
+                    yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                        discovered_semantic_views_set
+                    )
+                yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
                     discovered_semantic_views_set
                 )
-            yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
-                discovered_semantic_views_set
-            )
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(

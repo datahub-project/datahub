@@ -438,11 +438,21 @@ class SnowflakeIdentifierBuilder:
         )
 
     def gen_metric_urn(
-        self, metric_name: str, view_name: str, schema_name: str, db_name: str
+        self,
+        metric_name: str,
+        view_name: str,
+        schema_name: str,
+        db_name: str,
+        logical_table: Optional[str] = None,
     ) -> str:
         # Metrics are scoped by their enclosing semantic view, so the view name is
-        # part of the path and the metric name only needs per-view uniqueness.
+        # part of the path. Snowflake allows the same metric name on different
+        # logical tables (they are distinct, table-qualified metrics), so a
+        # table-bound metric also carries its logical table in the path to stay
+        # unique; view-scoped (derived) metrics omit it.
         path = f"{self._semantic_path(schema_name, db_name)}.{self.snowflake_identifier(view_name)}"
+        if logical_table is not None:
+            path = f"{path}.{self.snowflake_identifier(logical_table)}"
         return str(
             MetricUrn(
                 platform=make_data_platform_urn(self.platform),

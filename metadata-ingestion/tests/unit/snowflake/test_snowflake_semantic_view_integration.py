@@ -25,6 +25,8 @@ import pytest
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SemanticViewColumnMetadata,
+    SemanticViewColumnSubtype,
     SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeSemanticView,
@@ -33,13 +35,22 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
+    SnowflakeSemanticModelMapper,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    SemanticModelInfoClass,
+    UpstreamLineageClass,
+)
 
 
 class MockQueryResults:
@@ -723,17 +734,35 @@ class TestSemanticViewOrchestrationFlow:
         aspects = [wu.metadata.aspect for wu in workunits]
         assert not any(isinstance(a, UpstreamLineageClass) for a in aspects)
 
-    def test_process_semantic_view_emits_no_dataset_aspects(self, mock_schema_gen):
-        """Flag on: semantic views must not emit any dataset-entity aspects -
-        only semanticModel/metric entities."""
+    def test_process_semantic_view_new_mode_emits_logical_datasets_not_legacy_view(
+        self, mock_schema_gen
+    ):
+        """Flag on: the semantic view is not emitted as a legacy "Semantic View"
+        dataset (no DatasetProperties/ViewProperties). Each logical table becomes a
+        logical dataset carrying SchemaMetadata, plus a semanticModel entity. The
+        fixture is complete (logical_to_physical_table + column_occurrences) so the
+        logical-dataset path is actually exercised, not skipped."""
         gen = mock_schema_gen
+
+        # A real identifier builder so the mapper generates real URNs and the
+        # logical-dataset path runs; a MagicMock would short-circuit URN generation
+        # and let the path be silently skipped.
+        gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=gen.config, structured_reporter=gen.report
+        )
+        gen.semantic_model_mapper = SnowflakeSemanticModelMapper(
+            config=gen.config,
+            report=gen.report,
+            identifiers=gen.identifiers,
+            domain_registry=None,
+        )
 
         semantic_view = SnowflakeSemanticView(
             name="TEST_VIEW",
-            created=datetime.datetime.now(),
+            created=datetime.datetime(2024, 1, 1),
             comment="Test",
             view_definition="CREATE SEMANTIC VIEW ...",
-            last_altered=datetime.datetime.now(),
+            last_altered=datetime.datetime(2024, 1, 1),
             columns=[
                 SnowflakeColumn(
                     name="COL1",
@@ -747,20 +776,39 @@ class TestSemanticViewOrchestrationFlow:
                 ),
             ],
         )
+        # Complete the fixture so the logical-dataset path actually runs.
+        semantic_view.logical_to_physical_table = {
+            "T1": ("TEST_DB", "PUBLIC", "BASE_T1")
+        }
+        semantic_view.column_occurrences = {
+            "COL1": [
+                SemanticViewColumnMetadata(
+                    name="COL1",
+                    data_type="VARCHAR",
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name="T1",
+                    comment=None,
+                    synonyms=[],
+                    expression=None,
+                )
+            ]
+        }
         semantic_view.resolved_upstream_urns = []
 
         schema = MagicMock()
         schema.name = "PUBLIC"
 
         workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
-
-        # SubTypes is intentionally excluded here: the semanticModel entity has its
-        # own SubTypes aspect, and SubTypesClass/SubTypes are the same underlying
-        # class, so it can't be used to distinguish dataset vs. semanticModel MCPs.
         aspects = [wu.metadata.aspect for wu in workunits]
+
+        # The logical-dataset path is genuinely exercised: a semanticModel entity
+        # and a logical dataset (SchemaMetadata) are emitted.
+        assert any(isinstance(a, SemanticModelInfoClass) for a in aspects)
+        assert any(isinstance(a, SchemaMetadata) for a in aspects)
+        # The semantic view is not double-emitted as a legacy "Semantic View"
+        # dataset: no legacy DatasetProperties/ViewProperties aspects.
         assert not any(
-            isinstance(a, (DatasetProperties, SchemaMetadata, ViewProperties))
-            for a in aspects
+            isinstance(a, (DatasetProperties, ViewProperties)) for a in aspects
         )
 
 

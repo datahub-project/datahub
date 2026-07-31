@@ -2268,6 +2268,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
                 )
 
+    @staticmethod
+    def _semantic_column_expression(
+        semantic_view: SnowflakeSemanticView,
+        col_name_upper: str,
+        logical_table_upper: Optional[str],
+    ) -> Optional[str]:
+        # Prefer the occurrence for this logical table: the merged columns list
+        # only carries occurrences[0].expression, which would give a sibling
+        # logical table's expression when the same column name is defined
+        # differently on multiple tables. Fall back to the merged list (legacy
+        # single-dataset mode, where column_occurrences is not populated).
+        for occ in semantic_view.column_occurrences.get(col_name_upper, []):
+            if occ.table_name and occ.table_name.upper() == logical_table_upper:
+                return occ.expression
+        for col in semantic_view.columns:
+            if col.name and col.name.upper() == col_name_upper:
+                return col.expression
+        return None
+
     def _generate_column_lineage_for_semantic_view(
         self,
         semantic_view: SnowflakeSemanticView,
@@ -2385,13 +2404,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         f"Checking if it's a derived column with an expression..."
                     )
 
-                    # Look up the column's expression from semantic view metadata
-                    column_expression = None
-                    for col in semantic_view.columns:
-                        if col.name and col.name.upper() == col_name_upper:
-                            # Expression was stored during _populate_semantic_view_columns
-                            column_expression = col.expression
-                            break
+                    # Prefer the occurrence for THIS logical table so a sibling
+                    # table's expression doesn't leak in (see helper).
+                    column_expression = self._semantic_column_expression(
+                        semantic_view, col_name_upper, logical_table_upper
+                    )
 
                     if column_expression:
                         # Extract source columns from the expression using sqlglot

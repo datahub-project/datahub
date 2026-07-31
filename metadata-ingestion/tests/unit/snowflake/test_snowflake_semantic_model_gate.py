@@ -144,14 +144,27 @@ def test_saas_metrics_field_stripped_resolves_on():
     assert decision.metrics_enabled is None
 
 
-def test_saas_metrics_hard_failure_fails_open():
-    # A non-FieldUndefined error (auth/network) is not an explicit false, so the
-    # probe fails open: metricsEnabled treated as None (not disabled) → ON.
+def test_saas_metrics_operational_failure_fails_closed():
+    # A non-FieldUndefined error (auth/network) means we cannot verify the
+    # kill-switch, so the probe fails CLOSED to legacy rather than auto-enabling on
+    # an unverified server. metrics_probe_failed flags it for a report.warning.
     error = GraphError("Unauthorized: token expired")
     graph = _make_graph(is_cloud=True, version="2.1.0", metrics_error=error)
     decision = resolve_emit_semantic_model_entities(graph, None)
-    assert decision.enabled
-    assert decision.metrics_enabled is None
+    assert not decision.enabled
+    assert decision.metrics_probe_failed
+    assert "probe failed" in decision.reason
+    # Version-capable server still keeps entityTypes at 5 (no definition flap).
+    assert decision.entity_types_capable
+
+
+def test_saas_metrics_operational_failure_fails_closed_even_when_recipe_true():
+    # Even an explicit recipe request must not enable on an unverified kill-switch.
+    error = GraphError("Unauthorized: token expired")
+    graph = _make_graph(is_cloud=True, version="2.1.0", metrics_error=error)
+    decision = resolve_emit_semantic_model_entities(graph, True)
+    assert not decision.enabled
+    assert decision.metrics_probe_failed
 
 
 def test_no_graph_recipe_true_enables_and_none_disabled():
