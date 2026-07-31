@@ -401,6 +401,24 @@ export class SearchPage extends BasePage {
     expect(url).not.toContain(urlPart);
   }
 
+  /**
+   * Change the operator on an active filter chip (e.g. Domain equals → within).
+   * @param fieldName URL/field name such as "domains" or "platform"
+   * @param operatorLabel Visible operator text such as "within" or "equals"
+   */
+  async selectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await chip.waitFor({ state: 'visible', timeout: 10000 });
+    await chip.getByTestId('active-filter-operator').click();
+    await this.page.getByRole('menuitem', { name: new RegExp(operatorLabel, 'i') }).click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await expect(chip.getByTestId('active-filter-operator')).toHaveText(new RegExp(operatorLabel, 'i'));
+  }
+
   async expectTextVisible(text: string): Promise<void> {
     await expect(this.page.getByText(text).first()).toBeVisible({ timeout: 10000 });
   }
