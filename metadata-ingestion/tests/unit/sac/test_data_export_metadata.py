@@ -1,11 +1,10 @@
+from datahub.ingestion.source.sac.data_export_metadata import (
+    parse_data_export_metadata,
+)
 from datahub.metadata.schema_classes import (
     NullTypeClass,
     NumberTypeClass,
     StringTypeClass,
-)
-
-from datahub.ingestion.source.sac.data_export_metadata import (
-    parse_data_export_metadata,
 )
 
 # Minimal Data Export Service $metadata document. The MasterData entity is listed
