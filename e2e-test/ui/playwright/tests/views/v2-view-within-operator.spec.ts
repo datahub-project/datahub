@@ -28,14 +28,14 @@ test.describe('View Within Operator', () => {
     await manageViewsPage.expectOperatorOptionVisible('within');
     await manageViewsPage.expectOperatorDescriptionVisible(WITHIN_DESCRIPTION);
     // Select Within to close the dropdown without Escape (Escape closes the modal)
-    await manageViewsPage.page.getByTestId('option-within').click();
+    await page.getByTestId('option-within').click();
 
     // Container and Parent Document also expose Within
     for (const field of ['container', 'parentDocument'] as const) {
       await manageViewsPage.selectProperty(field);
       await manageViewsPage.openOperatorDropdown();
       await manageViewsPage.expectOperatorOptionVisible('within');
-      await manageViewsPage.page.getByTestId('option-within').click();
+      await page.getByTestId('option-within').click();
     }
 
     // Non-hierarchical URN field does not expose Within
@@ -43,7 +43,7 @@ test.describe('View Within Operator', () => {
     await manageViewsPage.openOperatorDropdown();
     await manageViewsPage.expectOperatorOptionNotVisible('within');
     // Close by selecting Equals
-    await manageViewsPage.page.getByTestId('option-equals').click();
+    await page.getByTestId('option-equals').click();
 
     // Build Domain + Within filter, then save and assert createView payload
     await manageViewsPage.addFilterWithSearch('domains', 'within', SEEDED_DOMAIN_NAME);
