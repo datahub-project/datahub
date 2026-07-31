@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class _MetricsProbe(Enum):
-    """Outcome of probing the DataHub Cloud metricsEnabled kill-switch."""
+    """Outcome of probing the server's metricsEnabled kill-switch."""
 
     ENABLED = "enabled"  # metricsEnabled=true
     DISABLED = "disabled"  # metricsEnabled=false -> kill-switch veto
@@ -20,7 +20,7 @@ class _MetricsProbe(Enum):
     PROBE_FAILED = "probe_failed"
 
 
-# Minimum DataHub Cloud version supporting semanticModel/metric entities.
+# Minimum DataHub server version supporting semanticModel/metric entities.
 _MIN_SAAS_VERSION: Tuple[int, int, int] = (2, 1, 0)
 
 _METRICS_ENABLED_OPERATION = "getMetricsEnabled"
@@ -50,11 +50,12 @@ class ResolvedEmitDecision:
     metrics_enabled: Optional[bool]
     # Whether the server can accept semanticModel/metric in a
     # structuredPropertyDefinition's entityTypes permission list. Deliberately
-    # recipe- and metricsEnabled-independent (SaaS: version only; OSS: recipe
-    # value), so the shared definition is identical across recipes and feature
-    # flips against the same server and never flaps. Consumed by the tag extractor.
+    # recipe- and metricsEnabled-independent (managed server: version only; OSS:
+    # recipe value), so the shared definition is identical across recipes and
+    # feature flips against the same server and never flaps. Consumed by the tag
+    # extractor.
     entity_types_capable: bool
-    # True when the SaaS server reported a version string we could not parse, so
+    # True when a managed server reported a version string we could not parse, so
     # the capability check failed closed (feature off) rather than crashing the
     # whole Snowflake source. Lets the caller surface it via report.warning even
     # on the auto-enable path, where recipe_value is None.
@@ -71,7 +72,7 @@ def _probe_metrics_enabled(graph: DataHubGraph) -> _MetricsProbe:
     Distinguishes a positively-absent field (older server, FIELD_ABSENT -> fail
     open) from an operational failure (auth/transport/unexpected, PROBE_FAILED ->
     fail closed). Only an explicit true/false yields ENABLED/DISABLED. This split
-    matters because the resolver auto-enables on Cloud: an operational probe
+    matters because the resolver auto-enables on a managed server: an operational probe
     failure must not be mistaken for "kill-switch not set" and silently enable the
     feature on an unverified server.
     """
@@ -131,7 +132,7 @@ def resolve_emit_semantic_model_entities(
             )
         logger.warning(
             "semantic_views.emit_semantic_model_entities auto-enable requires a "
-            "DataHub graph client (SaaS server detection). Without one, it stays "
+            "DataHub graph client (managed-server detection). Without one, it stays "
             "off unless the recipe explicitly sets it to true."
         )
         return ResolvedEmitDecision(
@@ -149,7 +150,8 @@ def resolve_emit_semantic_model_entities(
 
     # Capability for the structuredPropertyDefinition entityTypes permission list.
     # Computed before every early return so it is identical across recipe values
-    # against the same server (no definition flap). SaaS: version only; OSS: recipe.
+    # against the same server (no definition flap). Managed server: version only;
+    # OSS: recipe.
     version_unparseable = False
     if is_saas:
         try:
@@ -157,10 +159,10 @@ def resolve_emit_semantic_model_entities(
         except ValueError:
             # is_version_at_least raises on a non-semver service_version (git-sha
             # tag, two-part version, unexpected suffix). This resolver runs by
-            # default on Cloud, so an unparseable version must not abort the entire
+            # default on a managed server, so an unparseable version must not abort the entire
             # Snowflake source - fail closed to legacy (feature off) instead.
             logger.warning(
-                "Could not parse DataHub Cloud version %r for the semanticModel/"
+                "Could not parse DataHub server version %r for the semanticModel/"
                 "metric capability check; treating the server as below the minimum "
                 "and keeping the feature off.",
                 version,
@@ -186,7 +188,7 @@ def resolve_emit_semantic_model_entities(
             entity_types_capable=entity_types_capable,
         )
 
-    # SaaS below: recipe force-off wins over any server auto-enable.
+    # Managed server below: recipe force-off wins over any server auto-enable.
     if recipe_value is False:
         return ResolvedEmitDecision(
             enabled=False,
@@ -198,18 +200,18 @@ def resolve_emit_semantic_model_entities(
         )
 
     # Hard veto: server too old (or an unparseable version), even if the recipe
-    # requested emission. On the SaaS path entity_types_capable is exactly the
+    # requested emission. On the managed-server path entity_types_capable is exactly the
     # version check.
     if not entity_types_capable:
         min_version = ".".join(str(v) for v in _MIN_SAAS_VERSION)
         return ResolvedEmitDecision(
             enabled=False,
             reason=(
-                f"DataHub Cloud version {version!r} could not be parsed; treating "
+                f"DataHub server version {version!r} could not be parsed; treating "
                 f"as below the minimum {min_version} required for semanticModel/"
                 "metric entities"
                 if version_unparseable
-                else f"DataHub Cloud version {version} is below the minimum "
+                else f"DataHub server version {version} is below the minimum "
                 f"{min_version} required for semanticModel/metric entities"
             ),
             is_saas=True,
@@ -225,7 +227,7 @@ def resolve_emit_semantic_model_entities(
     if probe is _MetricsProbe.DISABLED:
         return ResolvedEmitDecision(
             enabled=False,
-            reason="DataHub Cloud Metrics feature is disabled (metricsEnabled=false)",
+            reason="Metrics feature is disabled on the server (metricsEnabled=false)",
             is_saas=True,
             version=version,
             metrics_enabled=False,
@@ -239,7 +241,7 @@ def resolve_emit_semantic_model_entities(
         return ResolvedEmitDecision(
             enabled=False,
             reason=(
-                "Could not verify the DataHub Cloud metricsEnabled kill-switch "
+                "Could not verify the server's metricsEnabled kill-switch "
                 "(probe failed); staying in legacy dataset mode"
             ),
             is_saas=True,
@@ -254,9 +256,9 @@ def resolve_emit_semantic_model_entities(
     return ResolvedEmitDecision(
         enabled=True,
         reason=(
-            "DataHub Cloud auto-enabled (version satisfied, Metrics not disabled)"
+            "server auto-enabled (version satisfied, Metrics not disabled)"
             if recipe_value is None
-            else "DataHub Cloud enabled by recipe request (version satisfied)"
+            else "enabled by recipe request (version satisfied)"
         ),
         is_saas=True,
         version=version,

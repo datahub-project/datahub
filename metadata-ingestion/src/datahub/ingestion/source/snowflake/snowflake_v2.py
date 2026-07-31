@@ -543,7 +543,7 @@ class SnowflakeV2Source(
 
         logger.info(
             "Resolved semantic_views.emit_semantic_model_entities: effective=%s "
-            "(recipe=%s, is_saas=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            "(recipe=%s, managed_server=%s, version=%s, metricsEnabled=%s, reason=%s)",
             decision.enabled,
             recipe_value,
             decision.is_saas,
@@ -552,15 +552,15 @@ class SnowflakeV2Source(
             decision.reason,
         )
 
-        # An unparseable Cloud version fails the capability check closed rather than
+        # An unparseable server version fails the capability check closed rather than
         # crashing the source. Surface it regardless of recipe_value, since the
-        # default Cloud path (recipe_value=None) would otherwise silently drop to
-        # legacy mode without the recipe-request warning below firing.
+        # default managed-server path (recipe_value=None) would otherwise silently
+        # drop to legacy mode without the recipe-request warning below firing.
         if decision.version_unparseable:
             self.report.warning(
-                title="Could not parse DataHub Cloud version",
+                title="Could not parse DataHub server version",
                 message=(
-                    "The DataHub Cloud version string could not be parsed, so "
+                    "The DataHub server version string could not be parsed, so "
                     "semanticModel/metric emission stayed off and ingestion "
                     "proceeded in legacy dataset mode."
                 ),
@@ -569,11 +569,11 @@ class SnowflakeV2Source(
 
         # The metricsEnabled kill-switch probe failed operationally, so emission
         # failed closed to legacy. Surface it regardless of recipe_value, since the
-        # default Cloud path (recipe_value=None) would otherwise silently drop to
-        # legacy mode without the recipe-request warning below firing.
+        # default managed-server path (recipe_value=None) would otherwise silently
+        # drop to legacy mode without the recipe-request warning below firing.
         if decision.metrics_probe_failed:
             self.report.warning(
-                title="Could not verify DataHub Cloud Metrics kill-switch",
+                title="Could not verify Metrics kill-switch",
                 message=(
                     "The metricsEnabled feature-flag probe failed, so "
                     "semanticModel/metric emission stayed off and ingestion "
@@ -601,7 +601,7 @@ class SnowflakeV2Source(
                 context=decision.reason,
             )
 
-        # The config-time validator does not fire on the Cloud auto-enable path
+        # The config-time validator does not fire on the managed-server auto-enable path
         # (the flag is resolved to True here, after config validation), so warn at
         # runtime too: semantic-view processing is gated on include_technical_schema.
         if decision.enabled and not self.config.include_technical_schema:

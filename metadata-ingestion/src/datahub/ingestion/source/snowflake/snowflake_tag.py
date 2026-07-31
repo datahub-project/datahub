@@ -150,8 +150,8 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
         ]
         if self.report.semantic_model_entity_types_capable:
-            # Declared whenever the server can accept these entity types (SaaS:
-            # version >= min; OSS: recipe requested emission) - deliberately NOT
+            # Declared whenever the server can accept these entity types (managed
+            # server: version >= min; OSS: recipe requested emission) - deliberately NOT
             # gated on the emit decision or metricsEnabled. entityTypes is a
             # permission list, so declaring types nothing currently uses is
             # harmless; keying it on capability (stable for a given server) keeps

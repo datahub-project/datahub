@@ -166,7 +166,7 @@ class SnowflakeV2Report(
     semantic_model_emission_is_saas: Optional[bool] = None
     semantic_model_emission_metrics_enabled: Optional[bool] = None
     # Whether the server can accept semanticModel/metric in structured-property
-    # entityTypes (SaaS: version only; OSS: recipe). Gates the tag extractor's
+    # entityTypes (managed server: version only; OSS: recipe). Gates the tag extractor's
     # entityTypes list independently of the emit decision, so it never flaps.
     semantic_model_entity_types_capable: Optional[bool] = None
 
