@@ -469,8 +469,6 @@ class TestOracleSource:
 
         # Mock inspector and connection
         mock_inspector = Mock()
-        # denormalize_name returns a real str in production; give the mock a
-        # concrete value so BaseProcedure's schema field validates.
         mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
 
@@ -560,6 +558,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -705,6 +704,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -801,6 +801,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -971,6 +972,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -1032,6 +1034,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
