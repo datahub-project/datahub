@@ -9,8 +9,10 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.MoveDocumentInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -103,5 +105,20 @@ public class MoveDocumentResolverTest {
         .moveDocument(any(OperationContext.class), any(), any(), any());
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testMoveDocumentServiceAuthorizationFailureIsPreserved() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    doThrow(new ServiceAuthorizationException("denied"))
+        .when(mockService)
+        .moveDocument(any(OperationContext.class), any(), any(), any());
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof AuthorizationException);
   }
 }

@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.VersionTag;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -18,6 +19,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -29,6 +31,8 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.testng.annotations.Test;
 
 public class GetTimelineResolverTest {
@@ -185,6 +189,69 @@ public class GetTimelineResolverTest {
     assertEquals((int) result.getSkippedVersionCount(), 0);
     verify(mockTimelineService, times(1))
         .getTimelineForUrns(any(OperationContext.class), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testIncludeVersionSet_unauthorizedSiblingIsSkipped() throws Exception {
+    TimelineService mockTimelineService = mock(TimelineService.class);
+
+    String versionSetUrn = "urn:li:versionSet:(urn:li:dataPlatform:kafka,test-vs,PROD)";
+    String siblingUrn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-sibling,PROD)";
+    Urn rootUrn = UrnUtils.getUrn(TEST_DATASET_URN);
+    Urn sibling = UrnUtils.getUrn(siblingUrn);
+
+    VersionProperties vp = buildVersionProperties(versionSetUrn, "v1.0");
+    EntityResponse entityResponse = buildEntityResponse(TEST_DATASET_URN, vp);
+
+    SearchResult searchResult =
+        new SearchResult()
+            .setEntities(
+                new SearchEntityArray(
+                    new SearchEntity().setEntity(rootUrn), new SearchEntity().setEntity(sibling)))
+            .setNumEntities(2)
+            .setFrom(0)
+            .setPageSize(50)
+            .setMetadata(new SearchResultMetadata());
+
+    EntityClient mockEntityClient = mock(EntityClient.class);
+    when(mockEntityClient.getV2(any(), anyString(), any(), any())).thenReturn(entityResponse);
+    when(mockEntityClient.search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+
+    when(mockTimelineService.getTimelineForUrns(any(), any(), any(), anyBoolean()))
+        .thenReturn(
+            TimelineFetchResult.builder().transactions(List.of()).skippedUrnCount(0).build());
+
+    GetTimelineResolver resolver = new GetTimelineResolver(mockTimelineService, mockEntityClient);
+
+    QueryContext allowContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getContext()).thenReturn(allowContext);
+
+    GetTimelineInput input = new GetTimelineInput();
+    input.setUrn(TEST_DATASET_URN);
+    input.setIncludeVersionSet(true);
+    when(mockEnv.getArgument("input")).thenReturn(input);
+
+    try (MockedStatic<EntityAuthorizationUtils> entityAuth =
+        mockStatic(EntityAuthorizationUtils.class, CALLS_REAL_METHODS)) {
+      entityAuth
+          .when(() -> EntityAuthorizationUtils.canViewEntity(any(), eq(rootUrn)))
+          .thenReturn(true);
+      entityAuth
+          .when(() -> EntityAuthorizationUtils.canViewEntity(any(), eq(sibling)))
+          .thenReturn(false);
+
+      GetTimelineResult result = resolver.get(mockEnv).get();
+      assertNotNull(result);
+      assertEquals((int) result.getSkippedVersionCount(), 1);
+
+      ArgumentCaptor<List> urnsCaptor = ArgumentCaptor.forClass(List.class);
+      verify(mockTimelineService, times(1))
+          .getTimelineForUrns(
+              any(OperationContext.class), urnsCaptor.capture(), any(), anyBoolean());
+      assertEquals(urnsCaptor.getValue(), List.of(rootUrn));
+    }
   }
 
   @Test

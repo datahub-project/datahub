@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentSubTypeInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +52,8 @@ public class UpdateDocumentSubTypeResolver implements DataFetcher<CompletableFut
                 UrnUtils.getUrn(context.getActorUrn()));
 
             return true;
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
           } catch (Exception e) {
             log.error(
                 "Failed to update sub-type for document {}. Error: {}",

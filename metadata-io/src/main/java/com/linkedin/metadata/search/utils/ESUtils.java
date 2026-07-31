@@ -151,6 +151,9 @@ public class ESUtils {
    */
   public static final int KEYWORD_MAXLENGTH = 32766;
 
+  /** Mapping parameter name for the keyword length guard described above. */
+  public static final String IGNORE_ABOVE = "ignore_above";
+
   /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
   public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
     int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
