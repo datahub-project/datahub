@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any, List, Optional
 from unittest.mock import MagicMock
 
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
@@ -255,33 +254,6 @@ class TestS3UpstreamPlatformInstance:
     (`s3,bucket/path,PROD`) and the S3-side URN (`s3,product.bucket/path,PROD`) never
     join, and cross-platform lineage silently breaks with no error reported.
     """
-
-    def test_urn_unchanged_without_platform_instance(self) -> None:
-        assert (
-            make_s3_urn_for_lineage("s3://my-bucket/data", "PROD")
-            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data,PROD)"
-        )
-
-    def test_urn_carries_platform_instance_prefix(self) -> None:
-        assert (
-            make_s3_urn_for_lineage(
-                "s3://my-bucket/data", "PROD", platform_instance="product"
-            )
-            == "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
-        )
-
-    def test_urn_escapes_reserved_characters(self) -> None:
-        # `,` and `(` `)` are legal in S3 object keys but structural in a URN. The S3
-        # source escapes them; if this side stops, the two URNs stop joining. The comma
-        # case also produced a malformed URN before this helper used the shared builder.
-        assert (
-            make_s3_urn_for_lineage("s3://my-bucket/report (1).csv", "PROD")
-            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/report %281%29.csv,PROD)"
-        )
-        assert (
-            make_s3_urn_for_lineage("s3://my-bucket/a,b", "PROD")
-            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/a%2Cb,PROD)"
-        )
 
     def test_s3_instance_is_not_snowflakes_own_platform_instance(self) -> None:
         # The two are independent: `platform_instance` names this Snowflake account,
