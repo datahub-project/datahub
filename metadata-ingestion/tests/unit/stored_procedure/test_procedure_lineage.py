@@ -75,9 +75,7 @@ def _call_lineage_datajobs(
     ``generate_procedure_workunits`` and return the resolved ``inputDatajobs``.
 
     The container keys always carry real ``realdb``/``realschema`` names, so the
-    only thing that changes the outcome is the procedure's own
-    ``default_db``/``default_schema`` and the three-value logic in
-    ``generate_procedure_workunits`` that interprets them.
+    procedure's own ``default_db``/``default_schema`` is the only variable.
     """
     procedure = BaseProcedure(
         name="caller",
@@ -125,6 +123,5 @@ def test_empty_string_default_db_schema_suppresses_container_keys() -> None:
     """Empty-string ``default_db``/``default_schema`` means "explicitly no
     database/schema segment", NOT "fall back to the container keys". With no
     db/schema to compose and no qualifier on the call, the call is unresolvable
-    and dropped — proving ``""`` overrides the ``realdb``/``realschema`` fallback
-    that ``None`` would have used above."""
+    and dropped."""
     assert _call_lineage_datajobs(default_db="", default_schema="") == []
