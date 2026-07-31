@@ -199,11 +199,13 @@ def require_metrics_support(client_or_graph: object) -> None:
     Accepts either a :class:`~datahub.sdk.main_client.DataHubClient` or a raw
     ``DataHubGraph``; the client's underlying graph is unwrapped automatically.
 
-    Delegates the version/deployment logic to
-    :meth:`RestServiceConfig.supports_feature` (``ServiceFeature.SEMANTIC_MODELS``).
-    Raises :class:`SdkUsageError` when the server reports a version that does not
-    support these entities, and fails open (no-op) when there is no version
-    signal to check — the operator is then responsible for running a build that
+    Delegates version detection to
+    :meth:`RestServiceConfig.supports_feature`
+    (``ServiceFeature.SEMANTIC_MODEL_ENTITIES``). Raises :class:`SdkUsageError`
+    only when a managed (Cloud) server reports a version below the minimum.
+    OSS/self-hosted deployments are not version-gated by the SDK (matching the
+    Snowflake connector gate in #18395), and an absent/unreadable version signal
+    fails open — the operator is then responsible for running a build that
     includes the semanticModel/metric model.
 
     Call this before emitting entities when you want a clear, actionable error
@@ -229,15 +231,23 @@ def require_metrics_support(client_or_graph: object) -> None:
         # No server config available (e.g. offline/emitter-only); fail open.
         return
     try:
-        supported = server_config.supports_feature(ServiceFeature.SEMANTIC_MODELS)
+        supported = server_config.supports_feature(
+            ServiceFeature.SEMANTIC_MODEL_ENTITIES
+        )
     except ValueError:
         # Non-semver build (dev/snapshot/sha tag) — no reliable version signal
         # to gate on; fail open rather than leaking a raw parse error.
         return
-    if not supported:
-        version = getattr(server_config, "service_version", None)
-        raise SdkUsageError(
-            f"This DataHub server (v{version}) does not support "
-            "semanticModel/metric entities. Upgrade to a server build that "
-            "includes the semanticModel/metric model."
-        )
+    if supported:
+        return
+    if not getattr(server_config, "is_datahub_cloud", False):
+        # OSS/self-hosted: not version-gated by the SDK (SEMANTIC_MODEL_ENTITIES
+        # defines no "core" requirement); the operator is responsible for the
+        # server build. Fail open rather than block every OSS emit.
+        return
+    version = getattr(server_config, "service_version", None)
+    raise SdkUsageError(
+        f"This DataHub server (v{version}) does not support "
+        "semanticModel/metric entities. Upgrade to a server build that "
+        "includes the semanticModel/metric model."
+    )

@@ -778,7 +778,7 @@ def test_governance_kwargs_land_in_aspects(builder: Callable[[], Entity]) -> Non
         assert name in aspects, f"{name} missing from {type(entity).__name__}"
 
 
-def test_require_metrics_support_unsupported_raises() -> None:
+def test_require_metrics_support_cloud_below_min_raises() -> None:
     from unittest.mock import MagicMock
 
     from datahub.errors import SdkUsageError
@@ -786,9 +786,23 @@ def test_require_metrics_support_unsupported_raises() -> None:
 
     graph = MagicMock()
     graph.server_config.supports_feature.return_value = False
+    graph.server_config.is_datahub_cloud = True
     graph.server_config.service_version = "2.0.0"
     with pytest.raises(SdkUsageError):
         require_metrics_support(graph)
+
+
+def test_require_metrics_support_oss_fails_open() -> None:
+    # OSS reports SEMANTIC_MODEL_ENTITIES unsupported (no core requirement); the
+    # SDK must not block OSS emits — it's operator/recipe-driven there.
+    from unittest.mock import MagicMock
+
+    from datahub.sdk import require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.supports_feature.return_value = False
+    graph.server_config.is_datahub_cloud = False
+    require_metrics_support(graph)  # should not raise
 
 
 def test_require_metrics_support_supported_is_noop() -> None:
@@ -1084,6 +1098,7 @@ def test_require_metrics_support_accepts_client() -> None:
 
     graph = MagicMock()
     graph.server_config.supports_feature.return_value = False
+    graph.server_config.is_datahub_cloud = True
     graph.server_config.service_version = "1.0.0"
     client = DataHubClient(graph=graph)
     with pytest.raises(SdkUsageError):
