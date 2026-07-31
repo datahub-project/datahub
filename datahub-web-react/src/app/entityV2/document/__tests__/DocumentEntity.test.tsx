@@ -129,7 +129,8 @@ vi.mock('@app/document/hooks/useDocumentPermissions', async (importOriginal) => 
     };
 });
 
-// Mock IntersectionObserver for tests
+// Mock IntersectionObserver and localStorage for tests
+// LocalStorage mock is needed because CustomThemeProvider calls loadIsDarkMode() on initialization.
 beforeEach(() => {
     const mockIntersectionObserver = vi.fn();
     mockIntersectionObserver.mockReturnValue({
@@ -138,6 +139,20 @@ beforeEach(() => {
         disconnect: () => null,
     });
     window.IntersectionObserver = mockIntersectionObserver;
+
+    const store: Record<string, string> = {};
+    Storage.prototype.getItem = vi.fn((key: string) => store[key] || null);
+    Storage.prototype.setItem = vi.fn((key: string, value: string) => {
+        store[key] = String(value);
+    });
+    Storage.prototype.removeItem = vi.fn((key: string) => {
+        delete store[key];
+    });
+    Storage.prototype.clear = vi.fn(() => {
+        Object.keys(store).forEach((key) => {
+            delete store[key];
+        });
+    });
 });
 
 /**
