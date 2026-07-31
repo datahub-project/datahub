@@ -35,8 +35,7 @@ def replace_instance_prefix(name: str, old_instance: str, new_instance: str) -> 
         return f"{new_instance}.{name[len(prefix) :]}"
     raise ValueError(
         f"Entity name '{name}' does not start with expected instance prefix "
-        f"'{old_instance}.'. This entity may not belong to the source instance. "
-        f"Use --skip-on-error to skip such entities."
+        f"'{old_instance}.'. This entity may not belong to the source instance."
     )
 
 

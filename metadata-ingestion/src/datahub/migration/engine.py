@@ -62,6 +62,16 @@ def migrate_pairs(
     Errors on an individual pair abort the batch unless
     ``options.skip_on_error`` is set, in which case the pair is recorded in the
     report and the batch continues.
+
+    **Known limitation (skip-on-error + cross-pair references):** the batch URN
+    rewriter is built from *all* pairs before the loop starts. If pair A fails
+    under ``skip_on_error`` and a later pair B's aspects reference A's source
+    URN, that reference is still rewritten to A's (never-created) target URN.
+    This is an intentional optimistic strategy: when the user retries the failed
+    pairs (e.g. via ``--checkpoint-file``), A's target will be created and B's
+    rewritten reference becomes correct. Removing failed pairs from the map
+    would leave B pointing at A's source (which may be deleted), making retry
+    harder to recover from.
     """
     pairs_list: List[MigrationPair] = list(pairs)
     urn_map: Dict[str, str] = {p.source_urn: p.target_urn for p in pairs_list}
