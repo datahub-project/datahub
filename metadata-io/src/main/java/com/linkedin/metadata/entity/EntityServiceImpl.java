@@ -1108,10 +1108,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           final Map<String, Set<String>> urnAspects =
                               batchWithDefaults.getUrnAspectsMap();
 
-                          // Opt-in Postgres entity-write serialization (advisory lock), taken
-                          // before
-                          // any row locks so this write serializes against a concurrent hard-delete
-                          // on the same entity. No-op unless enabled on a Postgres store.
+                          // Opt-in Postgres per-entity write serialization (advisory lock), taken
+                          // before any row locks so this write serializes against a concurrent
+                          // hard-delete on the same entity. No-op unless enabled on a Postgres
+                          // store.
                           aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
 
                           // read #1

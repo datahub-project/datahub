@@ -37,5 +37,6 @@ public class EbeanConfiguration {
 
   private ReadPoolConfiguration readPool;
 
+  /** Test-only config with defaults; note {@code entityWriteAdvisoryLockEnabled} is off. */
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }

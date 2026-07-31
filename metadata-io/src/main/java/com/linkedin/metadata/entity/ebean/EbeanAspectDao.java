@@ -118,10 +118,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable AspectSizeValidationConfiguration validationConfig) {
     this.primaryStorageResolver = primaryStorageResolver;
     this.server = primaryStorageResolver.resolveEbeanPrimary();
-    this.batchGetMethod =
+    // Resolve the engine from Ebean's own detection (live connection metadata), not the JDBC
+    // url/driver string — correct even for Aurora Postgres or the AWS JDBC wrapper. Advisory locks
+    // and the ORDER BY lock-ordering below are Postgres-specific.
+    this.isPostgres = resolvePlatform(server) == Platform.POSTGRES;
+    String resolvedBatchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
+    if (isPostgres && "UNION".equalsIgnoreCase(resolvedBatchGetMethod)) {
+      // PostgreSQL rejects "... UNION ALL ... FOR UPDATE" ("FOR UPDATE is not allowed with
+      // UNION/INTERSECT/EXCEPT"), so the UNION batch-get cannot take row locks there. Fall back to
+      // the IN form, which supports FOR UPDATE (and ORDER BY) on PostgreSQL.
+      log.warn(
+          "EBEAN_BATCH_GET_METHOD=UNION is not supported with FOR UPDATE on PostgreSQL; using IN.");
+      resolvedBatchGetMethod = "IN";
+    }
+    this.batchGetMethod = resolvedBatchGetMethod;
     Integer configuredKeysCount = ebeanConfiguration.getQueryKeysCountForBatch();
     if (configuredKeysCount != null) {
       this.queryKeysCount = configuredKeysCount;
@@ -130,9 +143,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
 
-    // Resolve the engine from Ebean's own detection (live connection metadata), not the JDBC
-    // url/driver string — correct even for Aurora Postgres or the AWS JDBC wrapper.
-    this.isPostgres = resolvePlatform(server) == Platform.POSTGRES;
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
   }
 
@@ -165,6 +175,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
    * advisory lock is released automatically on commit/rollback. No-op unless the store is Postgres
    * and the feature is enabled.
+   *
+   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn))}. {@code hashtext} is a
+   * 32-bit hash, so distinct urns can collide on the same lock key and serialize against each
+   * other. That is a false serialization: it costs throughput but never affects correctness. It is
+   * acceptable here because the feature is opt-in and collisions are rare relative to the set of
+   * entities being written concurrently.
    */
   @Override
   public void lockUrnsForWrite(
@@ -375,8 +391,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // overlapping rows in opposite orders and deadlock. The explicit ORDER BY (not the query's
     // natural order) is what makes PostgreSQL place a Sort below its LockRows node so locks are
     // actually taken in key order. On MySQL/InnoDB the bulk DELETEs already lock the primary-key
-    // rows in index order, so no up-front lock is needed and this block is skipped. (canWrite is
-    // guaranteed true by the early return above.)
+    // rows in index order, so no up-front lock is needed and this block is skipped. The lock query
+    // hydrates only this one urn's rows (bounded by its aspect/version count) purely to take the
+    // locks. (canWrite is guaranteed true by the early return above.)
     if (isPostgres) {
       server
           .find(EbeanAspectV2.class)

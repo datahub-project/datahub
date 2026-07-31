@@ -299,6 +299,12 @@ public interface AspectDao {
           "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
+  /**
+   * Hard-delete all aspects for a urn. Must be called within an enclosing transaction: the ordered
+   * {@code FOR UPDATE} lock (and any advisory lock) rely on the thread's active transaction, so
+   * invoking this outside one would run them in short-lived auto-commit transactions and defeat the
+   * lock ordering. All current call sites route through {@code runInTransactionWithRetry}.
+   */
   int deleteUrn(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
