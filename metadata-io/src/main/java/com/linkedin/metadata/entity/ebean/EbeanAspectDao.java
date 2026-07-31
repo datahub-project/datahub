@@ -45,6 +45,7 @@ import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
+import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Table;
@@ -96,6 +97,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
+  // Whether the primary store is PostgreSQL. The deterministic-lock-order work below (ORDER BY on
+  // FOR UPDATE reads, the up-front lock in deleteUrn) targets PostgreSQL, whose default plan can
+  // acquire row locks in physical scan order; and pg_advisory_xact_lock is Postgres-only SQL. On
+  // MySQL/InnoDB the FOR UPDATE reads and bulk deletes already lock the primary-key IN-list in
+  // index
+  // order, so none of this is needed and nothing changes there.
+  private final boolean isPostgres;
+  // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres only).
+  private final boolean entityWriteAdvisoryLockEnabled;
+  // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
+  // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
+  private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
+
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
       EbeanConfiguration ebeanConfiguration,
@@ -104,10 +118,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable AspectSizeValidationConfiguration validationConfig) {
     this.primaryStorageResolver = primaryStorageResolver;
     this.server = primaryStorageResolver.resolveEbeanPrimary();
-    this.batchGetMethod =
+    // Resolve the engine from Ebean's own detection (live connection metadata), not the JDBC
+    // url/driver string — correct even for Aurora Postgres or the AWS JDBC wrapper. Advisory locks
+    // and the ORDER BY lock-ordering below are Postgres-specific.
+    this.isPostgres = resolvePlatform(server) == Platform.POSTGRES;
+    String resolvedBatchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
+    if (isPostgres && "UNION".equalsIgnoreCase(resolvedBatchGetMethod)) {
+      // PostgreSQL rejects "... UNION ALL ... FOR UPDATE" ("FOR UPDATE is not allowed with
+      // UNION/INTERSECT/EXCEPT"), so the UNION batch-get cannot take row locks there. Fall back to
+      // the IN form, which supports FOR UPDATE (and ORDER BY) on PostgreSQL.
+      log.warn(
+          "EBEAN_BATCH_GET_METHOD=UNION is not supported with FOR UPDATE on PostgreSQL; using IN.");
+      resolvedBatchGetMethod = "IN";
+    }
+    this.batchGetMethod = resolvedBatchGetMethod;
     Integer configuredKeysCount = ebeanConfiguration.getQueryKeysCountForBatch();
     if (configuredKeysCount != null) {
       this.queryKeysCount = configuredKeysCount;
@@ -115,6 +142,98 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     this.metricUtils = metricUtils;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
+
+    this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
+  }
+
+  /**
+   * Resolve the primary store's database platform via Ebean's own detection (from live connection
+   * metadata, so it is correct even for Aurora Postgres or the AWS JDBC wrapper, where the JDBC
+   * url/driver string may not literally contain "postgres"). {@link Platform#base()} normalizes
+   * variants (e.g. {@code POSTGRES9}) to their base. On any failure this logs and defaults to
+   * {@link Platform#MYSQL}, which safely disables the Postgres-only paths below.
+   */
+  private static Platform resolvePlatform(@Nonnull final Database server) {
+    try {
+      final Platform platform = server.platform();
+      if (platform != null) {
+        return platform.base();
+      }
+      log.error("Ebean returned no database platform; defaulting to MYSQL for advisory locking");
+    } catch (RuntimeException e) {
+      log.error(
+          "Could not determine DB platform for entity-write advisory locking; defaulting to MYSQL",
+          e);
+    }
+    return Platform.MYSQL;
+  }
+
+  /**
+   * Postgres-only, opt-in per-entity write serialization. When enabled, both the ingest write path
+   * and {@link #deleteUrn} take a transaction-scoped advisory lock per urn <em>before</em>
+   * acquiring any row locks, so a multi-row {@code FOR UPDATE} writer (e.g. logical-model linking)
+   * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
+   * advisory lock is released automatically on commit/rollback. No-op unless the store is Postgres
+   * and the feature is enabled.
+   *
+   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn))}. {@code hashtext} is a
+   * 32-bit hash, so distinct urns can collide on the same lock key and serialize against each
+   * other. That is a false serialization: it costs throughput but never affects correctness. It is
+   * acceptable here because the feature is opt-in and collisions are rare relative to the set of
+   * entities being written concurrently.
+   */
+  @Override
+  public void lockUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
+      return;
+    }
+    // Transaction-scoped: without an active transaction the advisory lock would auto-commit and
+    // release immediately. All real callsites run inside runInTransactionWithRetry; if that ever
+    // isn't the case, skip the lock with a warning rather than abort the caller's write.
+    if (!hasActiveTransaction("lockUrnsForWrite")) {
+      return;
+    }
+    // Acquire all the advisory locks in ONE round trip. Sort first so every transaction presents
+    // the keys in the same order (advisory locks can self-deadlock across transactions otherwise),
+    // then lock them in a single statement over a VALUES list — a logical-model link can carry
+    // hundreds/thousands of urns, and a round trip per urn would swamp the DB. The VALUES scan
+    // evaluates the (void-returning) function once per row, in list order. Result discarded.
+    final List<String> sortedUrns = urns.stream().distinct().sorted().collect(Collectors.toList());
+    final StringBuilder sql =
+        new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
+    for (int i = 0; i < sortedUrns.size(); i++) {
+      if (i > 0) {
+        sql.append(", ");
+      }
+      sql.append("(:u").append(i).append(")");
+    }
+    sql.append(") as v(urn)");
+    final SqlQuery lockQuery =
+        server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
+    for (int i = 0; i < sortedUrns.size(); i++) {
+      lockQuery.setParameter("u" + i, sortedUrns.get(i));
+    }
+    lockQuery.findList();
+  }
+
+  /**
+   * Transaction-scoped locks (advisory locks and {@code FOR UPDATE} reads) only hold if the thread
+   * has an active Ebean transaction; without one they would run under auto-commit and release
+   * immediately, so they must be skipped rather than issued. All real callsites run inside {@code
+   * runInTransactionWithRetry}, so this normally returns true. If it is ever false we log and skip
+   * the lock — the write still succeeds, only the (opt-in) serialization / lock ordering is
+   * forgone. Never aborts the caller.
+   */
+  private boolean hasActiveTransaction(String operation) {
+    if (server.currentTransaction() == null) {
+      log.warn(
+          "{} invoked without an active transaction; skipping the transaction-scoped lock. The "
+              + "write proceeds, but lock ordering / serialization is not applied.",
+          operation);
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -295,6 +414,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     Urn urnObj = UrnUtils.getUrn(urn);
     String keyAspectName = opContext.getKeyAspectName(urnObj);
+
+    // Opt-in Postgres entity-write serialization (advisory lock), taken before any row locks. No-op
+    // unless enabled on a Postgres store; when on, it serializes this delete against a concurrent
+    // multi-row write (e.g. logical-model linking) on the same entity.
+    lockUrnsForWrite(opContext, List.of(urn));
+
+    // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version) order —
+    // the same order the upsert write path uses for its FOR UPDATE reads. The bulk DELETEs below
+    // otherwise lock rows in the engine's scan order (physical/CTID order on PostgreSQL), unrelated
+    // to key order, so a concurrent multi-row FOR UPDATE write and this hard-delete could acquire
+    // overlapping rows in opposite orders and deadlock. The explicit ORDER BY (not the query's
+    // natural order) is what makes PostgreSQL place a Sort below its LockRows node so locks are
+    // actually taken in key order. On MySQL/InnoDB the bulk DELETEs already lock the primary-key
+    // rows in index order, so no up-front lock is needed and this block is skipped. The lock query
+    // hydrates only this one urn's rows (bounded by its aspect/version count) purely to take the
+    // locks. (canWrite is guaranteed true by the early return above.)
+    if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
+      // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the matched
+      // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the locks.
+      server
+          .find(EbeanAspectV2.class)
+          .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+          .where()
+          .eq(EbeanAspectV2.URN_COLUMN, urn)
+          .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
+          .forUpdate()
+          .findList();
+    }
 
     // First, delete all non-key aspects
     int nonKeyCount =
@@ -500,6 +647,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Add FOR UPDATE clause only once at the end of the entire statement
     if (forUpdate && canWrite) {
+      // Defense-in-depth: PostgreSQL rejects FOR UPDATE with UNION, and the constructor already
+      // coerces PostgreSQL to the IN batch-get. This guards against a future regression routing a
+      // locking read through the UNION path on PostgreSQL.
+      if (isPostgres) {
+        throw new IllegalStateException(
+            "UNION batch-get cannot take FOR UPDATE on PostgreSQL; use the IN batch-get method.");
+      }
       sb.append(" FOR UPDATE");
     }
 
@@ -559,6 +713,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     sb.append(")");
 
     if (forUpdate && canWrite) {
+      // On PostgreSQL, ORDER BY forces a Sort/ordered-scan below the LockRows executor node, so row
+      // locks are acquired in (urn, aspect, version) order instead of physical/CTID scan order,
+      // preventing lock-order deadlocks between concurrent writers. MySQL/InnoDB already locks the
+      // primary-key IN-list in index order, so the clause is only added for Postgres. Keys are
+      // globally pre-sorted in batchGet before chunking, so per-chunk ORDER BY plus sequential
+      // (same-transaction) chunk execution preserves one global lock order across chunk boundaries.
+      if (isPostgres) {
+        sb.append(" ORDER BY ").append(EbeanAspectV2.KEY_ORDER_BY_SQL);
+      }
       sb.append(" FOR UPDATE");
     }
 
@@ -1071,9 +1234,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
     // max(version) was invalidated
     if (canWrite && lockLatestForWrite) {
-      // Sorting is required to ensure consistent lock ordering and avoid deadlocks
+      // Acquire the version-0 row locks in canonical key order so concurrent writers never lock
+      // overlapping rows in opposite orders. The Java-side sort covers MySQL/InnoDB (which locks
+      // the
+      // primary-key IN-list in index order); on PostgreSQL a bare idIn(...).forUpdate() would lock
+      // in
+      // physical scan order, so the explicit ORDER BY is added to place a Sort below the LockRows
+      // node and force key-order lock acquisition.
       Collections.sort(forUpdateKeys);
-      server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
+      final Query<EbeanAspectV2> lockQuery =
+          server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
+      if (isPostgres) {
+        lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+      }
+      lockQuery.forUpdate().findList();
     }
 
     // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.
