@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetricExpressionClass,
     SchemaFieldClass,
+    SchemaMetadataClass,
     SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
@@ -361,11 +362,19 @@ class SemanticModel(
     def _attached_dataset_aliases(self) -> Set[str]:
         return {ds.alias for ds in self._attached_logical_datasets}
 
-    def _validate_relationship_aliases(self) -> None:
-        """Best-effort warn when a relationship alias has no matching attached
-        dataset. Datasets are often attached after relationships, so this only
-        flags aliases that are still unmatched at the time it runs; it never
-        raises.
+    def _validate_relationship_aliases(self, *, strict: bool = False) -> None:
+        """Warn — or, when ``strict``, raise — when a relationship alias has no
+        matching attached dataset.
+
+        Datasets are commonly attached *after* relationships, so at construction
+        time the set of known aliases may still be empty/incomplete and this can
+        only flag what it can see. Re-run with ``strict=True`` at emit time
+        (:meth:`as_mcps`), when all datasets and relationships are known.
+
+        ``strict`` only raises when we have *full* alias coverage: every dataset
+        listed on the model is an attached :class:`SemanticModelDataset` (so its
+        alias is known). Datasets attached as raw URN strings carry no alias, so
+        a definitive mismatch cannot be proven and we fall back to a warning.
         """
         rels = self._ensure_model_props().relationships
         if not rels:
@@ -373,17 +382,21 @@ class SemanticModel(
         known = self._attached_dataset_aliases()
         if not known:
             return
+        props = self._ensure_model_props()
+        full_coverage = len(self._attached_logical_datasets) == len(
+            props.datasets or []
+        )
         for rel in rels:
             for alias in (rel.from_, rel.to):
                 if alias and alias not in known:
-                    logger.warning(
-                        "SemanticModel %s: relationship alias %r does not match "
-                        "any attached dataset alias (known: %s). Join path may "
-                        "be broken.",
-                        str(self.urn),
-                        alias,
-                        sorted(known),
+                    msg = (
+                        f"SemanticModel {str(self.urn)}: relationship alias "
+                        f"{alias!r} does not match any attached dataset alias "
+                        f"(known: {sorted(known)}). Join path may be broken."
                     )
+                    if strict and full_coverage:
+                        raise SdkUsageError(msg)
+                    logger.warning(msg)
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:
@@ -396,6 +409,16 @@ class SemanticModel(
             self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
             return
         self._set_aspect(built)
+
+    def as_mcps(
+        self,
+        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
+    ) -> List[MetadataChangeProposalWrapper]:
+        # By emit time all datasets and relationships are attached, so validate
+        # join-path aliases against the full picture (a construction-time check
+        # sees an incomplete set when datasets are attached after relationships).
+        self._validate_relationship_aliases(strict=True)
+        return super().as_mcps(change_type=change_type)
 
 
 class SemanticModelDataset(Dataset):
@@ -586,26 +609,52 @@ class SemanticModelDataset(Dataset):
         entity = cls.__new__(cls)
         Entity.__init__(entity, urn)  # type: ignore[arg-type]
         entity._semantic_field_annotations = {}
-        return entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
+        entity = entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
+        # Field annotations are create-only: a graph read never repopulates
+        # them. When the read-back carries schema fields, a subsequent
+        # read-modify-upsert cycle silently drops every semanticFieldAnnotation
+        # and aiContext. Warn so the loss is at least traceable.
+        schema_meta = entity._get_aspect(SchemaMetadataClass)
+        if (
+            schema_meta is not None
+            and schema_meta.fields
+            and not entity._semantic_field_annotations
+        ):
+            logger.warning(
+                "SemanticModelDataset %s was read from the graph with %d schema "
+                "field(s) but no field annotations (semanticFieldAnnotation and "
+                "field-level aiContext are create-only). Re-emitting this "
+                "instance will NOT preserve them; re-attach fields via the "
+                "`schema` constructor kwarg to retain them.",
+                str(urn),
+                len(schema_meta.fields),
+            )
+        return entity
 
     def as_mcps(
         self,
         change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
     ) -> List[MetadataChangeProposalWrapper]:  # type: ignore[override]
         mcps = super().as_mcps(change_type=change_type)
-        # Emit schemaField-anchored semanticFieldAnnotation + aiContext MCPs.
+        # Emit schemaField-anchored semanticFieldAnnotation + aiContext MCPs,
+        # propagating change_type so field aspects stay consistent with the
+        # dataset-anchored ones (e.g. EntityClient.create requests CREATE).
         ds_urn = str(self.urn)
         for field_path, field_ann in self._semantic_field_annotations.items():
             field_urn = SchemaFieldUrn(ds_urn, field_path).urn()
             mcps.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=field_urn, aspect=field_ann.annotation
+                    entityUrn=field_urn,
+                    aspect=field_ann.annotation,
+                    changeType=change_type,
                 )
             )
             if field_ann.ai_context is not None:
                 mcps.append(
                     MetadataChangeProposalWrapper(
-                        entityUrn=field_urn, aspect=field_ann.ai_context
+                        entityUrn=field_urn,
+                        aspect=field_ann.ai_context,
+                        changeType=change_type,
                     )
                 )
         return mcps

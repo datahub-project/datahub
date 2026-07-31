@@ -77,6 +77,18 @@ def build_ai_context(ai: Optional[AiContextInput]) -> Optional[AiContextClass]:
     )
 
 
+def _require_nonempty_expression(expression: str) -> str:
+    # An empty or whitespace-only expression produces a structurally valid but
+    # semantically empty annotation/metric (no SQL to evaluate). Reject it here
+    # rather than silently emitting it.
+    if not expression or not expression.strip():
+        raise SdkUsageError(
+            "Metric/field expression must be a non-empty string; got an empty "
+            "or whitespace-only value."
+        )
+    return expression
+
+
 def build_metric_expression(
     expression: MetricExpressionInputType,
     *,
@@ -87,16 +99,23 @@ def build_metric_expression(
     if isinstance(expression, DialectExpressionInput):
         dialects = [
             DialectExpressionClass(
-                dialect=expression.dialect, expression=expression.expression
+                dialect=expression.dialect,
+                expression=_require_nonempty_expression(expression.expression),
             )
         ]
     elif isinstance(expression, str):
         dialects = [
-            DialectExpressionClass(dialect=default_dialect, expression=expression)
+            DialectExpressionClass(
+                dialect=default_dialect,
+                expression=_require_nonempty_expression(expression),
+            )
         ]
     elif isinstance(expression, list):
         dialects = [
-            DialectExpressionClass(dialect=item.dialect, expression=item.expression)
+            DialectExpressionClass(
+                dialect=item.dialect,
+                expression=_require_nonempty_expression(item.expression),
+            )
             for item in expression
         ]
     else:  # pragma: no cover - defensive
@@ -139,7 +158,14 @@ def require_metrics_support(graph: object) -> None:
     if not server_config.is_datahub_cloud:
         # OSS / self-hosted: no version gate, operator's responsibility.
         return
-    if not server_config.is_version_at_least(*METRICS_MIN_SAAS_VERSION):
+    try:
+        supported = server_config.is_version_at_least(*METRICS_MIN_SAAS_VERSION)
+    except ValueError:
+        # Non-semver Cloud build (dev/snapshot/sha tag) — no reliable version
+        # signal to gate on. Fail open rather than surfacing a raw parse error
+        # from a helper whose whole purpose is a clear, actionable message.
+        return
+    if not supported:
         version = server_config.service_version
         raise SdkUsageError(
             f"This DataHub Cloud server (v{version}) does not support "

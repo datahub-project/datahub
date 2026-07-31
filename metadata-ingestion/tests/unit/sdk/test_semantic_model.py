@@ -11,8 +11,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 import pytest
-
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DialectClass,
@@ -30,6 +28,8 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     SemanticModelUrn,
 )
+
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk.entity import Entity
 from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
@@ -644,7 +644,7 @@ def test_logical_dataset_tag_validation_runs() -> None:
     """
     from datahub.utilities.urns.error import InvalidUrnError
 
-    try:
+    with pytest.raises(InvalidUrnError):
         SemanticModelDataset(
             platform="snowflake",
             name="analytics.orders_model.orders_ds",
@@ -659,10 +659,6 @@ def test_logical_dataset_tag_validation_runs() -> None:
                 )
             ],
         )
-    except (InvalidUrnError, AssertionError):
-        pass
-    else:
-        raise AssertionError("expected error for bare tag name 'PII'")
 
 
 def test_relationship_alias_mismatch_warns(caplog: Any) -> None:
@@ -827,3 +823,158 @@ def test_require_metrics_support_no_server_config_fail_open() -> None:
         pass
 
     require_metrics_support(_BareGraph())  # should not raise
+
+
+def test_require_metrics_support_non_semver_fails_open() -> None:
+    # Non-semver Cloud builds (dev/snapshot/sha) make is_version_at_least raise
+    # ValueError; the preflight helper must fail open, not leak a parse error.
+    from unittest.mock import MagicMock
+
+    from datahub.sdk import require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.is_version_at_least.side_effect = ValueError(
+        "Invalid version format: dev-snapshot"
+    )
+    require_metrics_support(graph)  # should not raise
+
+
+def test_entity_classes_dataset_not_overwritten() -> None:
+    # Regression: SemanticModelDataset is a Dataset subtype sharing the
+    # "dataset" entity type. It must NOT be registered in ENTITY_CLASSES, or it
+    # would overwrite Dataset and every dataset URN would hydrate as a
+    # SemanticModelDataset on read-back.
+    from datahub.sdk._all_entities import ENTITY_CLASSES
+    from datahub.sdk.dataset import Dataset
+
+    assert ENTITY_CLASSES["dataset"] is Dataset
+    assert ENTITY_CLASSES[SemanticModel.get_urn_type().ENTITY_TYPE] is SemanticModel
+    assert ENTITY_CLASSES[Metric.get_urn_type().ENTITY_TYPE] is Metric
+
+
+def test_metric_requires_semantic_model() -> None:
+    # The whole feature hinges on metrics being semantic-model-backed;
+    # constructing one without a semantic_model must be rejected.
+    with pytest.raises(TypeError):
+        Metric(platform="snowflake", path="analytics", id="revenue")  # type: ignore[call-arg]
+
+
+def test_field_expression_empty_rejected() -> None:
+    from datahub.errors import SdkUsageError
+
+    with pytest.raises(SdkUsageError):
+        SemanticModelDataset(
+            platform="snowflake",
+            name="analytics.orders_model.orders_ds",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            alias="ORDERS",
+            schema=[
+                SemanticFieldInput(
+                    field_path="amount",
+                    type="double",
+                    semantic_type=SemanticFieldTypeClass.DIMENSION,
+                    expression="   ",
+                )
+            ],
+        )
+
+
+def test_metric_expression_empty_rejected() -> None:
+    from datahub.errors import SdkUsageError
+
+    with pytest.raises(SdkUsageError):
+        Metric(
+            platform="snowflake",
+            path="analytics",
+            id="revenue",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            expression="",
+        )
+
+
+def test_relationship_alias_mismatch_raises_at_emit() -> None:
+    # With full alias coverage (every dataset attached as a SemanticModelDataset),
+    # a mistyped relationship alias must be caught at emit time, not silently
+    # shipped to the server.
+    from datahub.errors import SdkUsageError
+
+    orders_ds = SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.orders_ds",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias="ORDERS",
+        schema=[
+            SemanticFieldInput(
+                field_path="order_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ],
+    )
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[orders_ds],
+        relationships=[
+            SemanticModelRelationshipInput(
+                from_alias="ORDERS",
+                from_columns=["customer_id"],
+                to_alias="TYPO_CUSTOMERS",
+                to_columns=["customer_id"],
+            )
+        ],
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_graph_read_drops_field_annotations_warns(caplog: Any) -> None:
+    # Field annotations are create-only. A graph read-back that carries schema
+    # fields but no annotations must warn, so a later re-emit dropping them is
+    # traceable.
+    import logging
+
+    ds = SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.orders_ds",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias="ORDERS",
+        schema=[
+            SemanticFieldInput(
+                field_path="order_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ],
+    )
+    with caplog.at_level(logging.WARNING, logger="datahub.sdk.semantic_model"):
+        read_back = SemanticModelDataset._new_from_graph(ds.urn, dict(ds._aspects))
+    assert not read_back._semantic_field_annotations
+    assert any("create-only" in r.message for r in caplog.records)
+
+
+def test_field_annotation_mcps_inherit_change_type() -> None:
+    # schemaField-anchored aspects must follow the requested change_type, not
+    # silently default to UPSERT (e.g. EntityClient.create requests CREATE).
+    from datahub.metadata.schema_classes import ChangeTypeClass
+
+    ds = SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.orders_ds",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias="ORDERS",
+        schema=[
+            SemanticFieldInput(
+                field_path="order_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+                ai_context=AiContextInput(synonyms=["oid"]),
+            )
+        ],
+    )
+    mcps = ds.as_mcps(change_type=ChangeTypeClass.CREATE)
+    field_mcps = [m for m in mcps if m.entityUrn and "schemaField" in m.entityUrn]
+    assert field_mcps  # both semanticFieldAnnotation and aiContext are anchored here
+    assert all(m.changeType == ChangeTypeClass.CREATE for m in field_mcps)
