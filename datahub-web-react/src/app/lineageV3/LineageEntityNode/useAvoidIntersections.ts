@@ -1,5 +1,5 @@
 import { ReactFlowInstance } from '@reactflow/core/dist/esm/types';
-import {MutableRefObject, useContext, useEffect, useRef } from 'react';
+import { MutableRefObject, useContext, useEffect, useRef } from 'react';
 import { Node, XYPosition, useReactFlow } from 'reactflow';
 
 import {
@@ -98,7 +98,7 @@ export function useAvoidIntersectionsOften(id: string, expandHeight: number, roo
         displayVersionNumber,
         skip,
         selectedColumn,
-        pinnedUrn
+        pinnedUrn,
     ]);
 }
 

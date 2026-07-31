@@ -52,7 +52,7 @@ function run(nodes: Node[], pinnedUrn?: string): Map<string, number> {
         id: MEMBER,
         expandHeight: EXPAND_HEIGHT,
         rootType: EntityType.DataProduct,
-        pinnedUrn,
+        pinnedUrn: { current: pinnedUrn },
         getNode: (id: string) => nodes.find((node) => node.id === id),
         getNodes: () => nodes,
         setNodes: (update: any) => {
