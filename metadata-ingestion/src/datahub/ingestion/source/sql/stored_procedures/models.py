@@ -28,10 +28,6 @@ class BaseProcedure(BaseModel):
     to ensure procedure lineage URNs match table/view URN formats.
     """
 
-    # Reject unknown fields so a mistyped kwarg fails loudly instead of being dropped.
-    # Frozen because a procedure's metadata is fixed once read from the catalogue —
-    # nothing in ingestion mutates it after construction, and making that explicit
-    # lets the value be safely shared/hashed.
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
