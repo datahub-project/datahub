@@ -55,7 +55,9 @@ export class DocumentPage extends BasePage {
     this.typeSelect = page.getByTestId('document-type-select');
     this.searchInput = page.getByPlaceholder('Search documents');
     this.searchResults = page.getByTestId('context-sidebar-search-results');
-    this.actionsMenuButton = page.getByTestId('document-actions-menu-button');
+    this.actionsMenuButton = page
+      .getByTestId('document-actions-menu-button')
+      .filter({ visible: true });
     this.movePopover = page.getByTestId('move-document-popover');
     this.moveConfirmButton = page.getByTestId('move-document-confirm-button');
 
@@ -254,13 +256,15 @@ export class DocumentPage extends BasePage {
     const treeItem = this.getTreeItem(urn);
     await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
     await treeItem.scrollIntoViewIfNeeded();
+    // Reveal CSS-hover actions, then move onto ⋮ so the title Tooltip doesn't cover it.
     await treeItem.hover();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     const menuButton = this.getTreeItemMenuButton(urn);
     await expect(menuButton).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await menuButton.click();
-    // eslint-disable-next-line playwright/no-raw-locators
-    await expect(this.page.locator('[role="menu"]:visible')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await menuButton.hover();
+    await menuButton.click({ force: true });
+    await expect(this.getDropdownMenu().filter({ visible: true }).first()).toBeVisible({
+      timeout: TIMEOUTS.MEDIUM,
+    });
   }
 
   async clickMoveOption(): Promise<void> {
@@ -362,12 +366,13 @@ export class DocumentPage extends BasePage {
     const parentRow = this.getTreeItem(parentUrn);
     await expect(parentRow).toBeVisible({ timeout: TIMEOUTS.LONG });
     await parentRow.scrollIntoViewIfNeeded();
-    await parentRow.hover();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
+    // Reveal CSS-hover actions, then move onto + so the title Tooltip doesn't cover it.
+    await parentRow.hover();
     const createChildButton = parentRow.getByTestId('document-tree-create-child-button');
     await expect(createChildButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await createChildButton.click();
+    await createChildButton.hover();
+    await createChildButton.click({ force: true });
 
     await expect
       .poll(() => this.extractDocumentUrnFromUrl(this.page.url()), { timeout: TIMEOUTS.LONG })
@@ -385,23 +390,26 @@ export class DocumentPage extends BasePage {
     const treeItem = this.getTreeItem(urn);
     await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
     await treeItem.scrollIntoViewIfNeeded();
-    await treeItem.hover();
     const expandButton = this.getTreeItemExpandButton(urn);
+    // Expand control is on the left; hover it directly (not the title) before clicking.
+    await expandButton.hover({ force: true });
     await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await expandButton.click();
+    await expandButton.click({ force: true });
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   async expectTreeItemExpanded(urn: string): Promise<void> {
-    await this.getTreeItem(urn).hover();
-    await expect(this.getTreeItemExpandButton(urn)).toHaveAttribute('aria-expanded', 'true', {
+    const expandButton = this.getTreeItemExpandButton(urn);
+    await expandButton.hover({ force: true });
+    await expect(expandButton).toHaveAttribute('aria-expanded', 'true', {
       timeout: TIMEOUTS.LONG,
     });
   }
 
   async expectTreeItemCollapsed(urn: string): Promise<void> {
-    await this.getTreeItem(urn).hover();
-    await expect(this.getTreeItemExpandButton(urn)).toHaveAttribute('aria-expanded', 'false', {
+    const expandButton = this.getTreeItemExpandButton(urn);
+    await expandButton.hover({ force: true });
+    await expect(expandButton).toHaveAttribute('aria-expanded', 'false', {
       timeout: TIMEOUTS.LONG,
     });
   }

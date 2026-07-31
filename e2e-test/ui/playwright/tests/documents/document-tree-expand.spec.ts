@@ -41,7 +41,7 @@ test.describe('Document tree expand / collapse', () => {
     await documentPage.expectTreeItemVisibleInSidebar(parentUrn);
 
     const expandButton = documentPage.getTreeItemExpandButton(parentUrn);
-    await documentPage.getTreeItem(parentUrn).hover();
+    await expandButton.hover({ force: true });
     if ((await expandButton.getAttribute('aria-expanded')) === 'true') {
       await documentPage.toggleTreeItemExpand(parentUrn);
     }
