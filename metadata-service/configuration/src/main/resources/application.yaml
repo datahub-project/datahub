@@ -823,6 +823,12 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # Bounded same-processor requeue of failed bulk items (version_conflict, 429/503, etc.).
+    itemRequeueEnabled: ${ES_BULK_ITEM_REQUEUE_ENABLED:true}
+    itemRequeueMaxAttempts: ${ES_BULK_ITEM_REQUEUE_MAX_ATTEMPTS:3}
+    # When true, MAE UpdateIndices awaits bulk transfer before Kafka/pgQueue ack.
+    ackAfterTransfer: ${ES_BULK_ACK_AFTER_TRANSFER:false}
+    ackAfterTransferTimeoutSeconds: ${ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS:60}
     # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}

@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -296,6 +297,31 @@ public class UpdateIndicesService implements SearchIndicesService {
     } catch (Exception e) {
       log.error("Failed to flush bulk processor", e);
       throw new RuntimeException("Failed to flush bulk processor", e);
+    }
+  }
+
+  /**
+   * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
+   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false.
+   */
+  public void flushAndWaitIfConfigured() {
+    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+    ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
+    if (!bulkProcessor.isAckAfterTransfer()) {
+      return;
+    }
+    try {
+      java.time.Duration timeout =
+          java.time.Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds());
+      bulkProcessor.flushAndWait(timeout);
+      log.debug("Bulk transfer acknowledged after flush-and-wait");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+    } catch (java.util.concurrent.TimeoutException e) {
+      throw new RuntimeException("Timed out waiting for bulk transfer", e);
+    } catch (BulkTransferException e) {
+      throw new RuntimeException("Bulk transfer failed before offset ack", e);
     }
   }
 }
