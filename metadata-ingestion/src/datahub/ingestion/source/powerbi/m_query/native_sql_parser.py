@@ -292,6 +292,9 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
         # federation outside a table position can't be cleanly stripped; it is left in
         # place and surfaced as unresolvable.
         if in_table_position:
+            # ``in_table_position`` already guarantees this, but assert so mypy narrows
+            # ``table_source`` from Optional[Expression] to a concrete Table node.
+            assert isinstance(table_source, exp.Table)
             placeholder = sqlglot.parse_one(
                 EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect
             )
