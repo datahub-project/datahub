@@ -56,8 +56,8 @@ Where supported Incident Types include
 - `CUSTOM`
 
 When using `CUSTOM`, you must also provide `customType`. It is a free-text label naming
-your incident category, and it is required: omitting it fails with
-`customType is required: Failed to create incident.`
+your incident category, and it is required: omitting it (or passing a blank string) fails with
+`Failed to raise incident: customType is required when type is CUSTOM`.
 
 ```graphql
 mutation raiseCustomIncident {
