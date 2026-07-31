@@ -102,7 +102,8 @@ authorization:
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
     # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
     # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField. Re-add document via
+    # VIEW_UNRESTRICTED_ENTITY_TYPES_ADD=document if needed.
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -113,7 +114,7 @@ authorization:
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
@@ -403,6 +404,10 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+    documentExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_LIMIT:100}
   limit:
     results:
       max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -539,6 +544,15 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  transactionRetry:
+    # SQLStates / vendor codes that get exponential backoff between retries (all PersistenceExceptions still retry).
+    backoffSqlStates: ${EBEAN_RETRY_BACKOFF_SQL_STATES:40001,40P01}
+    backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
+    initialBackoffMs: ${EBEAN_RETRY_INITIAL_BACKOFF_MS:50}
+    maxBackoffMs: ${EBEAN_RETRY_MAX_BACKOFF_MS:1000}
+    # Retry-After hint (seconds) returned on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li).
+    retryAfterSeconds: ${EBEAN_RETRY_AFTER_SECONDS:1}
+  entityWriteAdvisoryLockEnabled: ${EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED:false} # Postgres-only, opt-in: serialize concurrent writes/deletes per entity via pg_advisory_xact_lock to prevent lock-order deadlocks. No-op on non-Postgres.
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}

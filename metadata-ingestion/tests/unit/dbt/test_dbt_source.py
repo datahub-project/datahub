@@ -116,6 +116,71 @@ def create_base_dbt_config() -> Dict:
     )
 
 
+def _make_sql_model_node(
+    *,
+    compiled_code: Optional[str] = "select 1 as id",
+) -> DBTNode:
+    return DBTNode(
+        database="test_db",
+        schema="test_schema",
+        name="my_model",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code="select 1 as id",
+        dbt_adapter="postgres",
+        dbt_name="model.package.my_model",
+        dbt_file_path="models/my_model.sql",
+        dbt_package_name="package",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=compiled_code,
+    )
+
+
+def test_create_view_properties_includes_compiled_code() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is not None
+    assert "select" in aspect.formattedViewLogic.lower()
+    assert aspect.materialized is True
+
+
+def test_create_view_properties_skips_compiled_code_when_missing() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(
+        _make_sql_model_node(compiled_code=None)
+    )
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
+
+
+def test_create_view_properties_respects_include_compiled_code_false() -> None:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **{
+            **create_base_dbt_config(),
+            "include_compiled_code": False,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
+
+
 def test_dbt_source_patching_no_new():
     source = create_mocked_dbt_source()
 
