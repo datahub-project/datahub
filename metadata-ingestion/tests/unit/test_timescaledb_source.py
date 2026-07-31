@@ -7,7 +7,7 @@ from sqlalchemy.exc import DatabaseError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source.sql.timescaledb import (
     ContinuousAggregate,
     Hypertable,
