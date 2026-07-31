@@ -645,7 +645,10 @@ class SnowflakeSemanticModelMapper:
             return []
         try:
             parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
-        except sqlglot.errors.ParseError as e:
+        except sqlglot.errors.SqlglotError as e:
+            # Catch the SqlglotError base, not just ParseError: parse_one tokenizes
+            # first and can raise TokenError (e.g. an unclosed quote), which would
+            # otherwise escape and abort the remaining metrics for this view.
             # A metric whose expression won't parse loses its derivedFrom lineage.
             # Surface it (not just a debug log + counter) so operators can see which
             # metric was affected; the metric itself is still emitted without edges.

@@ -933,6 +933,50 @@ def test_derived_from_unparseable_expression_yields_no_edges():
     assert mapper.report.num_semantic_view_metric_expr_parse_failures == 1
 
 
+def test_derived_from_tokenizer_failure_yields_no_edges():
+    # An unterminated string literal makes sqlglot raise TokenError during
+    # tokenization (a SqlglotError that is NOT a ParseError). It must be caught
+    # too, so one bad metric can't abort emission of the rest of the view.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_COUNT": [
+                _col(
+                    "order_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT(orders.order_id)",
+                )
+            ],
+            "UNCLOSED_QUOTE_METRIC": [
+                _col(
+                    "unclosed_quote_metric",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT('unclosed",
+                )
+            ],
+        },
+    )
+
+    # Must not raise despite the tokenizer failure.
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    broken_metric_urn = mapper.identifiers.gen_metric_urn(
+        "unclosed_quote_metric", semantic_view.name, _SCHEMA, _DB
+    )
+    relationships = _aspects_for(workunits, broken_metric_urn, MetricRelationshipsClass)
+    assert len(relationships) == 1
+    assert relationships[0].derivedFrom == []
+    assert mapper.report.num_semantic_view_metric_expr_parse_failures == 1
+
+
 def test_metric_column_tags_emitted_as_global_tags():
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
