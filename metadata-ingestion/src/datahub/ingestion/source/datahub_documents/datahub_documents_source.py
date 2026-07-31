@@ -914,6 +914,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     # URNs hydrated per GraphQL request. Kept modest so a single response stays
     # within GMS's GraphQL limits even for large documents.
+    #
+    # Deliberately fixed and independent of the configurable `scroll_batch_size`:
+    # that one sizes an Elasticsearch page of URNs (cheap, tuned for scroll
+    # pressure on ES), this one sizes a payload of full document bodies (tuned
+    # for GMS response size). Tying them together would make raising the scroll
+    # page size silently inflate hydration responses.
     _HYDRATE_BATCH_SIZE = 100
 
     def _fetch_documents_graphql(self) -> Iterable[dict[str, Any]]:
