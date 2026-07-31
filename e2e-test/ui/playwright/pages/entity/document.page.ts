@@ -39,6 +39,8 @@ export class DocumentPage extends BasePage {
   readonly getDeleteConfirmDialog: () => Locator;
   readonly getParentBreadcrumb: (title: string) => Locator;
   readonly getMoveSearchResultByText: (text: string) => Locator;
+  readonly getDataHubSectionExpandAll: () => Locator;
+  readonly getTreeItemExpandButton: (urn: string) => Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -53,7 +55,7 @@ export class DocumentPage extends BasePage {
     this.typeSelect = page.getByTestId('document-type-select');
     this.searchInput = page.getByPlaceholder('Search documents');
     this.searchResults = page.getByTestId('context-sidebar-search-results');
-    this.actionsMenuButton = page.getByTestId('document-actions-menu-button');
+    this.actionsMenuButton = page.getByTestId('document-actions-menu-button').filter({ visible: true });
     this.movePopover = page.getByTestId('move-document-popover');
     this.moveConfirmButton = page.getByTestId('move-document-confirm-button');
 
@@ -80,6 +82,9 @@ export class DocumentPage extends BasePage {
     this.getDeleteConfirmDialog = () => page.getByText('Delete Document');
     this.getParentBreadcrumb = (title: string) => page.getByTestId('parent-breadcrumb-link').filter({ hasText: title });
     this.getMoveSearchResultByText = (text: string) => this.movePopover.getByText(text, { exact: false });
+    this.getDataHubSectionExpandAll = () => page.getByTestId('document-tree-datahub-section-expand-all');
+    this.getTreeItemExpandButton = (urn: string) =>
+      this.getTreeItem(urn).getByRole('button', { name: /^(expand|collapse)$/i });
   }
 
   // ── Navigation and Setup ──────────────────────────────────────────────────
@@ -249,13 +254,15 @@ export class DocumentPage extends BasePage {
     const treeItem = this.getTreeItem(urn);
     await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
     await treeItem.scrollIntoViewIfNeeded();
+    // Reveal CSS-hover actions, then move onto ⋮ so the title Tooltip doesn't cover it.
     await treeItem.hover();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     const menuButton = this.getTreeItemMenuButton(urn);
     await expect(menuButton).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await menuButton.click();
-    // eslint-disable-next-line playwright/no-raw-locators
-    await expect(this.page.locator('[role="menu"]:visible')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await menuButton.hover();
+    await menuButton.click({ force: true });
+    await expect(this.getDropdownMenu().filter({ visible: true }).first()).toBeVisible({
+      timeout: TIMEOUTS.MEDIUM,
+    });
   }
 
   async clickMoveOption(): Promise<void> {
@@ -345,5 +352,94 @@ export class DocumentPage extends BasePage {
     await this.expectMoveSuccessMessage();
 
     return { parentUrn, childUrn };
+  }
+
+  /**
+   * Create a child under `parentUrn` via the row (+) control — avoids move-popover
+   * search / ES lag when we only need a nested pair for expand tests.
+   */
+  async createChildUnderParentViaPlus(parentUrn: string, childTitle: string): Promise<string> {
+    await this.navigateToDocument(parentUrn);
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const parentRow = this.getTreeItem(parentUrn);
+    await expect(parentRow).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await parentRow.scrollIntoViewIfNeeded();
+
+    // Reveal CSS-hover actions, then move onto + so the title Tooltip doesn't cover it.
+    await parentRow.hover();
+    const createChildButton = parentRow.getByTestId('document-tree-create-child-button');
+    await expect(createChildButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await createChildButton.hover();
+    await createChildButton.click({ force: true });
+
+    await expect
+      .poll(() => this.extractDocumentUrnFromUrl(this.page.url()), { timeout: TIMEOUTS.LONG })
+      .not.toBe(parentUrn);
+
+    const childUrn = this.extractDocumentUrnFromUrl(this.page.url());
+    expect(childUrn).toBeTruthy();
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.setDocumentTitle(childTitle);
+    return childUrn;
+  }
+
+  /** Hover the row so the Notion-style caret is clickable, then toggle expand. */
+  async toggleTreeItemExpand(urn: string): Promise<void> {
+    const treeItem = this.getTreeItem(urn);
+    await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await treeItem.scrollIntoViewIfNeeded();
+    const expandButton = this.getTreeItemExpandButton(urn);
+    // Expand control is on the left; hover it directly (not the title) before clicking.
+    await expandButton.hover({ force: true });
+    await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expandButton.click({ force: true });
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+  }
+
+  async expectTreeItemExpanded(urn: string): Promise<void> {
+    const expandButton = this.getTreeItemExpandButton(urn);
+    await expandButton.hover({ force: true });
+    await expect(expandButton).toHaveAttribute('aria-expanded', 'true', {
+      timeout: TIMEOUTS.LONG,
+    });
+  }
+
+  async expectTreeItemCollapsed(urn: string): Promise<void> {
+    const expandButton = this.getTreeItemExpandButton(urn);
+    await expandButton.hover({ force: true });
+    await expect(expandButton).toHaveAttribute('aria-expanded', 'false', {
+      timeout: TIMEOUTS.LONG,
+    });
+  }
+
+  async clickDataHubSectionExpandAll(): Promise<void> {
+    const button = this.getDataHubSectionExpandAll();
+    await expect(button).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+    await button.click();
+    // Expand-all can take a while on large libraries; wait for the control to unlock.
+    await expect(button).toBeEnabled({ timeout: 60_000 });
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+  }
+
+  /** If the section is already expanded, collapse-all first so expand-all has work to do. */
+  async ensureDataHubSectionCollapsed(): Promise<void> {
+    const button = this.getDataHubSectionExpandAll();
+    await expect(button).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+    const label = (await button.getAttribute('aria-label')) || '';
+    if (/collapse/i.test(label)) {
+      await button.click();
+      await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+      await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    }
+  }
+
+  async expectTreeItemVisibleInSidebar(urn: string): Promise<void> {
+    await expect(this.getTreeItem(urn)).toBeVisible({ timeout: TIMEOUTS.LONG });
+  }
+
+  async expectTreeItemHiddenInSidebar(urn: string): Promise<void> {
+    await expect(this.getTreeItem(urn)).toBeHidden({ timeout: TIMEOUTS.LONG });
   }
 }
