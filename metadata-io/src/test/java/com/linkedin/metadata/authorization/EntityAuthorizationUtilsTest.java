@@ -77,6 +77,12 @@ public class EntityAuthorizationUtilsTest {
     documentAuthMock
         .when(() -> DocumentAuthorizationUtils.isDocumentEntity(DATASET_URN))
         .thenReturn(false);
+    documentAuthMock
+        .when(() -> DocumentAuthorizationUtils.isDocumentEntity(SCHEMA_FIELD_URN))
+        .thenReturn(false);
+    documentAuthMock
+        .when(() -> DocumentAuthorizationUtils.isDocumentEntity(QUERY_URN))
+        .thenReturn(false);
   }
 
   @AfterMethod
@@ -117,6 +123,140 @@ public class EntityAuthorizationUtilsTest {
 
     assertTrue(
         EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(DATASET_URN)));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_schemaFieldReadAllowedViaParentInheritance() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(SCHEMA_FIELD_URN))
+          .thenReturn(true);
+      schemaFieldAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+                      opContext, SCHEMA_FIELD_URN))
+          .thenReturn(true);
+
+      assertTrue(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, READ, List.of(SCHEMA_FIELD_URN)));
+      authUtilMock.verify(
+          () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(SCHEMA_FIELD_URN)),
+          Mockito.never());
+    }
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_schemaFieldReadDeniedWithoutGrant() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(SCHEMA_FIELD_URN))
+          .thenReturn(true);
+      schemaFieldAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+                      opContext, SCHEMA_FIELD_URN))
+          .thenReturn(false);
+
+      assertFalse(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, READ, List.of(SCHEMA_FIELD_URN)));
+    }
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_schemaFieldReadAllowsWhenRestApiAuthDisabled() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(false);
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(SCHEMA_FIELD_URN))
+          .thenReturn(true);
+
+      assertTrue(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, READ, List.of(SCHEMA_FIELD_URN)));
+      schemaFieldAuth.verify(
+          () ->
+              EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(opContext, SCHEMA_FIELD_URN),
+          Mockito.never());
+    }
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_schemaFieldNonReadUsesAuthUtil() {
+    authUtilMock
+        .when(
+            () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(SCHEMA_FIELD_URN)))
+        .thenReturn(true);
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(SCHEMA_FIELD_URN))
+          .thenReturn(true);
+
+      assertTrue(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, UPDATE, List.of(SCHEMA_FIELD_URN)));
+      schemaFieldAuth.verify(
+          () ->
+              EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(opContext, SCHEMA_FIELD_URN),
+          Mockito.never());
+      authUtilMock.verify(
+          () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(SCHEMA_FIELD_URN)));
+    }
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_mixedBatchRoutesSchemaFieldsDocumentsAndOthers() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(DATASET_URN)))
+        .thenReturn(true);
+    documentAuthMock
+        .when(
+            () ->
+                DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+                    opContext, READ, List.of(DOCUMENT_URN)))
+        .thenReturn(true);
+    try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(SCHEMA_FIELD_URN))
+          .thenReturn(true);
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(DATASET_URN))
+          .thenReturn(false);
+      schemaFieldAuth
+          .when(() -> EntityAspectAuthorizationUtils.isSchemaFieldEntity(DOCUMENT_URN))
+          .thenReturn(false);
+      schemaFieldAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+                      opContext, SCHEMA_FIELD_URN))
+          .thenReturn(true);
+
+      assertTrue(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, READ, List.of(DATASET_URN, SCHEMA_FIELD_URN, DOCUMENT_URN)));
+
+      schemaFieldAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+                      opContext, SCHEMA_FIELD_URN))
+          .thenReturn(false);
+      assertFalse(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+              opContext, READ, List.of(DATASET_URN, SCHEMA_FIELD_URN, DOCUMENT_URN)));
+    }
   }
 
   @Test
