@@ -1,4 +1,4 @@
-import { Pill } from '@components';
+import { Pill, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
@@ -119,18 +119,30 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             icon
         );
 
+        const titleEl = <TreeRowTitle $isSelected={isSelected}>{label}</TreeRowTitle>;
+        const titledLabel =
+            labelTitle != null && labelTitle !== '' ? (
+                <Tooltip
+                    title={labelTitle}
+                    placement="right"
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0}
+                    showArrow={false}
+                >
+                    {titleEl}
+                </Tooltip>
+            ) : (
+                titleEl
+            );
+
         const titleBlock =
             afterLabel != null ? (
                 <TitleContent>
-                    <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
-                        {label}
-                    </TreeRowTitle>
+                    {titledLabel}
                     {afterLabel}
                 </TitleContent>
             ) : (
-                <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
-                    {label}
-                </TreeRowTitle>
+                titledLabel
             );
 
         return (
