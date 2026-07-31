@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 
 import anthropic
@@ -417,6 +418,10 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     tokens_used: int
+    # Timestamp of when the message was stored (serialized to ISO-8601 by FastAPI).
+    # Used by the frontend to detect an idle session (>10 min since last message)
+    # and start a fresh chat.
+    created_at: Optional[datetime] = None
 
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -483,7 +488,7 @@ def get_session_messages(session_id: str):
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(
-            "SELECT id, session_id, role, content, tokens_used FROM messages WHERE session_id = %s ORDER BY created_at ASC",
+            "SELECT id, session_id, role, content, tokens_used, created_at FROM messages WHERE session_id = %s ORDER BY created_at ASC",
             (session_id,)
         )
         return cursor.fetchall()
