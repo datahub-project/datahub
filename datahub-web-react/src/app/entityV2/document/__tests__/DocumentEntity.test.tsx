@@ -15,6 +15,15 @@ import { mocks } from '@src/Mocks';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
+// Mock loadIsDarkMode to prevent localStorage race conditions with CustomThemeProvider
+vi.mock('@app/theme/useIsDarkMode', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@app/theme/useIsDarkMode')>();
+    return {
+        ...actual,
+        loadIsDarkMode: () => false,
+    };
+});
+
 // Mock entity registry with all required methods
 const mockEntityRegistry = {
     getEntityUrl: (_entityType: EntityType, urn: string) => `/document/${urn}`,
@@ -129,8 +138,7 @@ vi.mock('@app/document/hooks/useDocumentPermissions', async (importOriginal) => 
     };
 });
 
-// Mock IntersectionObserver and localStorage for tests
-// LocalStorage mock is needed because CustomThemeProvider calls loadIsDarkMode() on initialization.
+// Mock IntersectionObserver for tests
 beforeEach(() => {
     const mockIntersectionObserver = vi.fn();
     mockIntersectionObserver.mockReturnValue({
@@ -139,20 +147,6 @@ beforeEach(() => {
         disconnect: () => null,
     });
     window.IntersectionObserver = mockIntersectionObserver;
-
-    const store: Record<string, string> = {};
-    Storage.prototype.getItem = vi.fn((key: string) => store[key] || null);
-    Storage.prototype.setItem = vi.fn((key: string, value: string) => {
-        store[key] = String(value);
-    });
-    Storage.prototype.removeItem = vi.fn((key: string) => {
-        delete store[key];
-    });
-    Storage.prototype.clear = vi.fn(() => {
-        Object.keys(store).forEach((key) => {
-            delete store[key];
-        });
-    });
 });
 
 /**
