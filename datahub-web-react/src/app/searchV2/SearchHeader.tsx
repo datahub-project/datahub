@@ -174,7 +174,7 @@ export const SearchHeader = ({
 
     return (
         <>
-            <HeaderBackground />
+            <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
