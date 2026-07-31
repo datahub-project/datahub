@@ -915,3 +915,117 @@ class TestCheckpointResume:
             on_pair_done=lambda p: completed.append(p),
         )
         assert completed == self.PAIRS[:2]
+
+
+# --- MigrationReport lightweight counters ---
+
+
+class TestMigrationReportCounters:
+    """Tests for the lightweight counter-based MigrationReport."""
+
+    def test_unique_entity_counting_via_last_urn(self) -> None:
+        """on_entity_create deduplicates by tracking _last_created_urn —
+        consecutive calls with the same URN increment aspects but not entities."""
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.on_entity_create("urn:li:dataset:a", "ownership")
+        report.on_entity_create("urn:li:dataset:a", "tags")
+        report.on_entity_create("urn:li:dataset:a", "schema")
+        report.on_entity_create("urn:li:dataset:b", "ownership")
+        report.on_entity_create("urn:li:dataset:b", "tags")
+
+        assert report.num_entities_created == 2
+        assert report.num_aspects_created == 5
+
+    def test_unique_entity_affected_counting(self) -> None:
+        """on_entity_affected deduplicates by tracking _last_affected_urn."""
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.on_entity_affected("urn:li:dataset:x", "ownership")
+        report.on_entity_affected("urn:li:dataset:x", "lineage")
+        report.on_entity_affected("urn:li:dataset:y", "ownership")
+
+        assert report.num_entities_affected == 2
+        assert report.num_aspects_affected == 3
+
+    def test_migrated_counts_each_call(self) -> None:
+        """on_entity_migrated increments the counter on every call (one per pair)."""
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.on_entity_migrated("urn:li:dataset:a", "status")
+        report.on_entity_migrated("urn:li:dataset:b", "status")
+
+        assert report.num_entities_migrated == 2
+
+    def test_repr_uses_int_counters(self) -> None:
+        """repr surfaces the integer counters without URN details."""
+        report = MigrationReport("test", dry_run=False, keep=False)
+        report.on_entity_create("urn:li:dataset:a", "ownership")
+        report.on_entity_create("urn:li:dataset:b", "ownership")
+        report.on_entity_affected("urn:li:dataset:c", "lineage")
+        report.on_entity_migrated("urn:li:dataset:a", "status")
+
+        text = repr(report)
+        assert "Num entities created = 2" in text
+        assert "Num entities affected = 1" in text
+        assert "Num entities migrated = 1" in text
+        # The old "Details:" section with URN sets is gone
+        assert "Details:" not in text
+
+
+# --- Report file output ---
+
+
+class TestMigrationReportFile:
+    """Tests for the --migration-report file output."""
+
+    def test_report_file_captures_actions(self, tmp_path: Path) -> None:
+        """The report file captures 4-column TSV lines with pair context."""
+        report_path = tmp_path / "report.tsv"
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.open_report_file(str(report_path))
+        report.set_current_pair("urn:li:dataset:src", "urn:li:dataset:tgt")
+        report.on_entity_create("urn:li:dataset:tgt", "ownership")
+        report.on_entity_affected("urn:li:dataset:ref", "lineage")
+        report.on_entity_migrated("urn:li:dataset:src", "status")
+        report.close_report_file()
+
+        lines = report_path.read_text().strip().splitlines()
+        assert len(lines) == 3
+        # create/migrated: action, source_urn, target_urn, aspect
+        assert lines[0] == "create\turn:li:dataset:src\turn:li:dataset:tgt\townership"
+        # affected: action, referrer_urn, target_urn, aspect
+        assert lines[1] == "affected\turn:li:dataset:ref\turn:li:dataset:tgt\tlineage"
+        assert lines[2] == "migrated\turn:li:dataset:src\turn:li:dataset:tgt\tstatus"
+
+    def test_no_report_file_when_not_configured(self) -> None:
+        """When no report file is opened, _write_report is a no-op."""
+        report = MigrationReport("test", dry_run=False, keep=True)
+        # Should not raise
+        report.on_entity_create("urn:li:dataset:a", "ownership")
+        assert report._report_fh is None
+
+    def test_close_is_idempotent(self) -> None:
+        """Closing a report file twice does not raise."""
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.close_report_file()
+        report.close_report_file()
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_engine_opens_report_file(
+        self, _mock_single: MagicMock, tmp_path: Path
+    ) -> None:
+        """migrate_pairs opens and closes the report file when report_file is set."""
+        report_path = tmp_path / "engine_report.tsv"
+        pairs = [
+            MigrationPair(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,a.t1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,b.t1,PROD)",
+            ),
+        ]
+        report = engine.migrate_pairs(
+            MagicMock(),
+            pairs,
+            _options(report_file=str(report_path)),
+        )
+        # The report file should have been closed
+        assert report._report_fh is None
+        # The file exists (even if empty — migrate_pair is mocked)
+        assert report_path.exists()

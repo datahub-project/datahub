@@ -5,7 +5,7 @@ engine can be driven programmatically as well as from the ``datahub migrate`` CL
 """
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import IO, Callable, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
@@ -71,6 +71,7 @@ class MigrationOptions:
     on_conflict: Optional[ConflictStrategy] = None
     skip_on_error: bool = False
     checkpoint_file: Optional[str] = None
+    report_file: Optional[str] = None
 
 
 class MigrationReport:
@@ -79,30 +80,61 @@ class MigrationReport:
         self.dry_run = dry_run
         self.keep = keep
         self.num_events = 0
-        self.entities_migrated: Dict[Tuple[str, str], int] = {}
-        self.entities_created: Dict[Tuple[str, str], int] = {}
-        self.entities_affected: Dict[Tuple[str, str], int] = {}
+        self.num_entities_migrated: int = 0
+        self.num_entities_created: int = 0
+        self.num_aspects_created: int = 0
+        self.num_entities_affected: int = 0
+        self.num_aspects_affected: int = 0
+        self._last_created_urn: Optional[str] = None
+        self._last_affected_urn: Optional[str] = None
+        self._report_fh: Optional[IO[str]] = None
+        self._current_source: str = ""
+        self._current_target: str = ""
         self.conflicts_skipped: int = 0
         self.aspects_merged: int = 0
         self.pairs_checkpoint_skipped: int = 0
         self.entities_errored: List[Tuple[str, str]] = []
 
+    def set_current_pair(self, source_urn: str, target_urn: str) -> None:
+        self._current_source = source_urn
+        self._current_target = target_urn
+
     def on_entity_migrated(self, urn: str, aspect: str) -> None:
         self.num_events += 1
-        if (urn, aspect) not in self.entities_migrated:
-            self.entities_migrated[(urn, aspect)] = 1
+        self.num_entities_migrated += 1
+        self._write_report(
+            "migrated", self._current_source, self._current_target, aspect
+        )
 
     def on_entity_create(self, urn: str, aspect: str) -> None:
         self.num_events += 1
-        if (urn, aspect) not in self.entities_created:
-            self.entities_created[(urn, aspect)] = 1
+        self.num_aspects_created += 1
+        if urn != self._last_created_urn:
+            self.num_entities_created += 1
+            self._last_created_urn = urn
+        self._write_report("create", self._current_source, self._current_target, aspect)
 
     def on_entity_affected(self, urn: str, aspect: str) -> None:
         self.num_events += 1
-        if (urn, aspect) not in self.entities_affected:
-            self.entities_affected[(urn, aspect)] = 1
-        else:
-            self.entities_affected[(urn, aspect)] += 1
+        self.num_aspects_affected += 1
+        if urn != self._last_affected_urn:
+            self.num_entities_affected += 1
+            self._last_affected_urn = urn
+        # For affected lines the referrer URN (the entity being repointed) is
+        # the interesting subject; the pair's target is what it was repointed to.
+        self._write_report("affected", urn, self._current_target, aspect)
+
+    def _write_report(self, action: str, col1: str, col2: str, aspect: str) -> None:
+        if self._report_fh is not None:
+            self._report_fh.write(f"{action}\t{col1}\t{col2}\t{aspect}\n")
+
+    def open_report_file(self, path: str) -> None:
+        self._report_fh = open(path, "a")
+
+    def close_report_file(self) -> None:
+        if self._report_fh is not None:
+            self._report_fh.close()
+            self._report_fh = None
 
     def _get_prefix(self) -> str:
         return "[Dry Run] " if self.dry_run else ""
@@ -113,9 +145,9 @@ class MigrationReport:
             f"{p}Migration Report:",
             "--------------",
             f"{p}Migration Run Id: {self.run_id}",
-            f"{p}Num entities created = {len(set(x[0] for x in self.entities_created))}",
-            f"{p}Num entities affected = {len(set(x[0] for x in self.entities_affected))}",
-            f"{p}Num entities {'kept' if self.keep else 'migrated'} = {len(set(x[0] for x in self.entities_migrated))}",
+            f"{p}Num entities created = {self.num_entities_created}",
+            f"{p}Num entities affected = {self.num_entities_affected}",
+            f"{p}Num entities {'kept' if self.keep else 'migrated'} = {self.num_entities_migrated}",
         ]
         if self.aspects_merged > 0:
             lines.append(f"{p}Aspects merged = {self.aspects_merged}")
@@ -129,14 +161,4 @@ class MigrationReport:
             lines.append(f"{p}Entities errored = {len(self.entities_errored)}")
             for urn, err in self.entities_errored:
                 lines.append(f"{p}  {urn}: {err}")
-        lines.append(f"{p}Details:")
-        lines.append(
-            f"{p}New Entities Created: {set(x[0] for x in self.entities_created) or 'None'}"
-        )
-        lines.append(
-            f"{p}External Entities Affected: {set(x[0] for x in self.entities_affected) or 'None'}"
-        )
-        lines.append(
-            f"{p}Old Entities {'Kept' if self.keep else 'Migrated'} = {set(x[0] for x in self.entities_migrated) or 'None'}"
-        )
         return "\n".join(lines)

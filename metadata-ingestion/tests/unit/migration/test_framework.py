@@ -266,6 +266,45 @@ class TestUrnsMappingLoader:
         assert pairs[0].target_urn == DS_B
         assert pairs[0].data_platform_instance is None
 
+    def test_loads_single_source_target_object(self, tmp_path: Path) -> None:
+        """A single {"source": ..., "target": ...} object (not wrapped in a list)
+        is treated as one pair, not as a flat source→target mapping."""
+        path = tmp_path / "m.json"
+        path.write_text(json.dumps({"source": DS_A, "target": DS_B}))
+        pairs = _load_mapping_pairs(str(path))
+        assert len(pairs) == 1
+        assert (pairs[0].source_urn, pairs[0].target_urn) == (DS_A, DS_B)
+
+    def test_loads_single_source_urn_target_urn_object(self, tmp_path: Path) -> None:
+        """Accepts source_urn/target_urn as aliases for source/target."""
+        path = tmp_path / "m.json"
+        path.write_text(json.dumps({"source_urn": DS_A, "target_urn": DS_B}))
+        pairs = _load_mapping_pairs(str(path))
+        assert len(pairs) == 1
+        assert (pairs[0].source_urn, pairs[0].target_urn) == (DS_A, DS_B)
+
+    def test_loads_jsonl_form(self, tmp_path: Path) -> None:
+        """JSONL: one {"source": ..., "target": ...} per line, no wrapping array."""
+        path = tmp_path / "m.jsonl"
+        path.write_text(
+            json.dumps({"source": DS_A, "target": DS_B})
+            + "\n"
+            + json.dumps({"source": DS_B, "target": DS_A})
+            + "\n"
+        )
+        pairs = _load_mapping_pairs(str(path))
+        assert len(pairs) == 2
+        assert (pairs[0].source_urn, pairs[0].target_urn) == (DS_A, DS_B)
+        assert (pairs[1].source_urn, pairs[1].target_urn) == (DS_B, DS_A)
+
+    def test_loads_jsonl_with_source_urn_keys(self, tmp_path: Path) -> None:
+        """JSONL accepts source_urn/target_urn as aliases."""
+        path = tmp_path / "m.jsonl"
+        path.write_text(json.dumps({"source_urn": DS_A, "target_urn": DS_B}) + "\n")
+        pairs = _load_mapping_pairs(str(path))
+        assert len(pairs) == 1
+        assert (pairs[0].source_urn, pairs[0].target_urn) == (DS_A, DS_B)
+
     def test_loads_object_form(self, tmp_path: Path) -> None:
         """A flat {source: target} object loads into the same pairs."""
         path = tmp_path / "m.json"

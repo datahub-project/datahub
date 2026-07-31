@@ -181,100 +181,113 @@ def _migrate_containers(
     hard: bool,
     keep: bool,
     rest_emitter: DataHubGraph,
+    report_file: Optional[str] = None,
 ) -> None:
     """Migrate containers matching a filter to a new platform instance."""
     run_id: str = f"container-migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
+    if report_file:
+        migration_report.open_report_file(report_file)
 
     container_id_map: Dict[str, str] = {}
     containers = _get_containers_for_migration(env)
     skipped_count = 0
-    for container in progressbar.progressbar(containers, redirect_stdout=True):
-        subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
-        customProperties = container["aspects"]["containerProperties"]["value"][
-            "customProperties"
-        ]
-        if not should_migrate(customProperties):
-            log.debug(
-                f"{container['urn']} does not match filter criteria, skipping.. "
-                f"{customProperties}"
-            )
-            skipped_count += 1
-            continue
-
-        try:
-            newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
-            if subType == "Schema":
-                newKey = SchemaKey.model_validate(customProperties)
-            elif subType == "Database":
-                newKey = DatabaseKey.model_validate(customProperties)
-            elif subType == "Project":
-                newKey = ProjectIdKey.model_validate(customProperties)
-            elif subType == "Dataset":
-                newKey = BigQueryDatasetKey.model_validate(customProperties)
-            else:
-                log.warning(f"Invalid subtype {subType}. Skipping")
+    try:
+        for container in progressbar.progressbar(containers, redirect_stdout=True):
+            subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
+            customProperties = container["aspects"]["containerProperties"]["value"][
+                "customProperties"
+            ]
+            if not should_migrate(customProperties):
+                log.debug(
+                    f"{container['urn']} does not match filter criteria, skipping.. "
+                    f"{customProperties}"
+                )
+                skipped_count += 1
                 continue
-        except Exception as e:
-            log.warning(f"Unable to map {customProperties} to key due to exception {e}")
-            continue
 
-        newKey.instance = target_instance
-
-        src_urn = container["urn"]
-        dst_urn = f"urn:li:container:{newKey.guid()}"
-        container_id_map[src_urn] = dst_urn
-
-        for mcp in migration_utils.clone_aspect(
-            src_urn,
-            aspect_names=migration_utils.get_migratable_aspect_names("container"),
-            dst_urn=dst_urn,
-            run_id=run_id,
-        ):
-            migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
-            assert mcp.aspect
-            # The key aspect (containerKey) is not cloned — GMS derives it from
-            # the new URN's guid. We only need to reseat customProperties on the
-            # cloned containerProperties.
-            if mcp.aspectName == "containerProperties":
-                assert isinstance(mcp.aspect, ContainerPropertiesClass)
-                mcp.aspect.customProperties = newKey.model_dump(
-                    by_alias=True, exclude_none=True
+            try:
+                newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]
+                if subType == "Schema":
+                    newKey = SchemaKey.model_validate(customProperties)
+                elif subType == "Database":
+                    newKey = DatabaseKey.model_validate(customProperties)
+                elif subType == "Project":
+                    newKey = ProjectIdKey.model_validate(customProperties)
+                elif subType == "Dataset":
+                    newKey = BigQueryDatasetKey.model_validate(customProperties)
+                else:
+                    log.warning(f"Invalid subtype {subType}. Skipping")
+                    continue
+            except Exception as e:
+                log.warning(
+                    f"Unable to map {customProperties} to key due to exception {e}"
                 )
+                continue
+
+            newKey.instance = target_instance
+
+            src_urn = container["urn"]
+            dst_urn = f"urn:li:container:{newKey.guid()}"
+            container_id_map[src_urn] = dst_urn
+            migration_report.set_current_pair(src_urn, dst_urn)
+
+            for mcp in migration_utils.clone_aspect(
+                src_urn,
+                aspect_names=migration_utils.get_migratable_aspect_names("container"),
+                dst_urn=dst_urn,
+                run_id=run_id,
+            ):
+                migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
+                assert mcp.aspect
+                # The key aspect (containerKey) is not cloned — GMS derives it from
+                # the new URN's guid. We only need to reseat customProperties on the
+                # cloned containerProperties.
+                if mcp.aspectName == "containerProperties":
+                    assert isinstance(mcp.aspect, ContainerPropertiesClass)
+                    mcp.aspect.customProperties = newKey.model_dump(
+                        by_alias=True, exclude_none=True
+                    )
+                if not dry_run:
+                    rest_emitter.emit_mcp(mcp)
+                    migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
+
+            # dataPlatformInstance is excluded from the clone (it is instance-bound
+            # and would otherwise carry the *old* instance) and GMS does not derive
+            # it, so re-emit a fresh one for the new instance — mirroring the entity
+            # engine's _emit_target_instance. Without it the migrated container has
+            # no instance aspect and drops out of instance-scoped search and filters.
             if not dry_run:
-                rest_emitter.emit_mcp(mcp)
-                migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
-
-        # dataPlatformInstance is excluded from the clone (it is instance-bound and
-        # would otherwise carry the *old* instance) and GMS does not derive it, so
-        # re-emit a fresh one for the new instance — mirroring the entity engine's
-        # _emit_target_instance. Without it the migrated container has no instance
-        # aspect and drops out of instance-scoped search and filters.
-        if not dry_run:
-            rest_emitter.emit_mcp(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dst_urn,
-                    aspect=DataPlatformInstanceClass(
-                        platform=make_data_platform_urn(platform),
-                        instance=make_dataplatform_instance_urn(
-                            platform, target_instance
+                rest_emitter.emit_mcp(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=dst_urn,
+                        aspect=DataPlatformInstanceClass(
+                            platform=make_data_platform_urn(platform),
+                            instance=make_dataplatform_instance_urn(
+                                platform, target_instance
+                            ),
                         ),
-                    ),
+                    )
                 )
+            migration_report.on_entity_create(dst_urn, "dataPlatformInstance")
+
+            _process_container_relationships(
+                container_id_map,
+                dry_run,
+                src_urn,
+                dst_urn,
+                migration_report,
+                rest_emitter,
             )
-        migration_report.on_entity_create(dst_urn, "dataPlatformInstance")
 
-        _process_container_relationships(
-            container_id_map, dry_run, src_urn, dst_urn, migration_report, rest_emitter
-        )
-
-        if not dry_run and not keep:
-            log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
-            delete_cli._delete_one_urn(
-                rest_emitter, src_urn, soft=not hard, run_id=run_id
-            )
-        migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
-
+            if not dry_run and not keep:
+                log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
+                delete_cli._delete_one_urn(
+                    rest_emitter, src_urn, soft=not hard, run_id=run_id
+                )
+            migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
+    finally:
+        migration_report.close_report_file()
     if skipped_count > 0:
         click.echo(
             f"Skipped {skipped_count} containers that didn't match filter criteria. "
@@ -406,6 +419,16 @@ def _process_container_relationships(
         "Created automatically on first write."
     ),
 )
+@click.option(
+    "--migration-report",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Write per-entity migration activity to a file (TSV). "
+        "Columns: action, source_urn, target_urn, aspect. "
+        "For 'affected' lines: action, referrer_urn, target_urn, aspect."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def dataplatform2instance(
@@ -420,6 +443,7 @@ def dataplatform2instance(
     skip_on_error: bool,
     entity_types: Optional[str],
     checkpoint_file: Optional[str],
+    migration_report: Optional[str],
 ) -> None:
     """Migrate entities from one dataplatform to a dataplatform instance.
 
@@ -470,6 +494,7 @@ def dataplatform2instance(
             on_conflict=conflict,
             skip_on_error=skip_on_error,
             checkpoint_file=checkpoint_file,
+            report_file=migration_report,
         )
         report = _run_entity_migration(
             graph,
@@ -494,6 +519,7 @@ def dataplatform2instance(
         hard=hard,
         keep=keep,
         rest_emitter=graph,
+        report_file=migration_report,
     )
 
 
@@ -556,6 +582,16 @@ def dataplatform2instance(
         "Created automatically on first write."
     ),
 )
+@click.option(
+    "--migration-report",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Write per-entity migration activity to a file (TSV). "
+        "Columns: action, source_urn, target_urn, aspect. "
+        "For 'affected' lines: action, referrer_urn, target_urn, aspect."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def instance2instance(
@@ -571,6 +607,7 @@ def instance2instance(
     skip_on_error: bool,
     entity_types: Optional[str],
     checkpoint_file: Optional[str],
+    migration_report: Optional[str],
 ) -> None:
     """Migrate entities from one platform instance to another.
 
@@ -625,6 +662,7 @@ def instance2instance(
             on_conflict=conflict,
             skip_on_error=skip_on_error,
             checkpoint_file=checkpoint_file,
+            report_file=migration_report,
         )
         report = _run_entity_migration(
             graph,
@@ -652,6 +690,7 @@ def instance2instance(
         hard=hard,
         keep=keep,
         rest_emitter=graph,
+        report_file=migration_report,
     )
 
 
@@ -678,33 +717,89 @@ def _validate_mapping_pair(source: str, target: str) -> None:
         )
 
 
+def _extract_pair(item: Dict[str, str], label: str) -> Tuple[str, str]:
+    """Extract (source, target) from a dict, accepting both key variants."""
+    source = item.get("source") or item.get("source_urn")
+    target = item.get("target") or item.get("target_urn")
+    if not source or not target:
+        raise click.BadParameter(
+            f"{label} must have 'source'/'source_urn' and 'target'/'target_urn' keys.",
+            param_hint="--mapping-file",
+        )
+    return (source, target)
+
+
+def _is_source_target_object(data: Dict[str, str]) -> bool:
+    """Check if a dict uses source/target or source_urn/target_urn keys."""
+    return bool(
+        ("source" in data or "source_urn" in data)
+        and ("target" in data or "target_urn" in data)
+    )
+
+
 def _load_mapping_pairs(mapping_file: str) -> List[MigrationPair]:
-    """Parse a JSON mapping file into validated :class:`MigrationPair` objects.
+    """Parse a JSON or JSONL mapping file into validated :class:`MigrationPair` objects.
 
-    Accepts either a list of ``{"source": ..., "target": ...}`` objects or a flat
-    ``{source: target}`` object.
+    Supported formats:
+
+    1. **JSONL** — one ``{"source": ..., "target": ...}`` per line.
+    2. **JSON array** — ``[{"source": ..., "target": ...}, ...]``.
+    3. **Single JSON object** — ``{"source": ..., "target": ...}``.
+    4. **Flat JSON object** — ``{"<source_urn>": "<target_urn>", ...}``.
+
+    Keys ``source_urn`` / ``target_urn`` are accepted as aliases for
+    ``source`` / ``target``.
     """
-    with open(mapping_file) as f:
-        data = json.load(f)
-
     raw_pairs: List[Tuple[str, str]] = []
-    if isinstance(data, dict):
-        raw_pairs = list(data.items())
+
+    with open(mapping_file) as f:
+        content = f.read().strip()
+
+    # Try parsing as a single JSON document first.
+    lines = content.splitlines()
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        # Not valid as a single JSON document — try JSONL.
+        if len(lines) < 2:
+            raise
+        data = None
+
+    if data is None:
+        # JSONL: parse each non-empty line independently.
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as e:
+                raise click.BadParameter(
+                    f"Line {i + 1} is not valid JSON: {e}",
+                    param_hint="--mapping-file",
+                ) from e
+            if not isinstance(item, dict):
+                raise click.BadParameter(
+                    f"Line {i + 1} must be a JSON object with 'source' and 'target' keys.",
+                    param_hint="--mapping-file",
+                )
+            raw_pairs.append(_extract_pair(item, f"Line {i + 1}"))
+    elif isinstance(data, dict):
+        if _is_source_target_object(data):
+            raw_pairs = [_extract_pair(data, "Root object")]
+        else:
+            raw_pairs = list(data.items())
     elif isinstance(data, list):
         for i, item in enumerate(data):
-            if (
-                not isinstance(item, dict)
-                or "source" not in item
-                or "target" not in item
-            ):
+            if not isinstance(item, dict):
                 raise click.BadParameter(
                     f"Entry {i} must be an object with 'source' and 'target' keys.",
                     param_hint="--mapping-file",
                 )
-            raw_pairs.append((item["source"], item["target"]))
+            raw_pairs.append(_extract_pair(item, f"Entry {i}"))
     else:
         raise click.BadParameter(
-            "Mapping file must be a JSON object or a list of {source, target} objects.",
+            "Mapping file must be a JSON object, array, or JSONL.",
             param_hint="--mapping-file",
         )
 
@@ -793,6 +888,16 @@ def _load_mapping_pairs(mapping_file: str) -> List[MigrationPair]:
         "Created automatically on first write."
     ),
 )
+@click.option(
+    "--migration-report",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Write per-entity migration activity to a file (TSV). "
+        "Columns: action, source_urn, target_urn, aspect. "
+        "For 'affected' lines: action, referrer_urn, target_urn, aspect."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def urns_mapping(
@@ -804,6 +909,7 @@ def urns_mapping(
     on_conflict: str,
     skip_on_error: bool,
     checkpoint_file: Optional[str],
+    migration_report: Optional[str],
 ) -> None:
     """Migrate entities using an explicit source → target URN mapping.
 
@@ -845,7 +951,7 @@ def urns_mapping(
     --------
     Conservative (safest): keep source entities and preserve existing targets:
 
-      datahub migrate urns-mapping --mapping-file map.json --keep --on-conflict preserve
+      datahub migrate urns-mapping --mapping-file map.json --keep --on-conflict preserve --migration-report report.tsv
 
     This clones aspects to targets that don't exist yet, leaves existing targets
     untouched, repoints incoming references, and does NOT delete the sources.
@@ -891,6 +997,7 @@ def urns_mapping(
         on_conflict=conflict,
         skip_on_error=skip_on_error,
         checkpoint_file=checkpoint_file,
+        report_file=migration_report,
     )
     report = _run_migration(graph, pairs, options)
     click.echo(f"{report}")

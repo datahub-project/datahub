@@ -82,6 +82,32 @@ def migrate_pairs(
         checkpoint_done = _load_checkpoint(options.checkpoint_file)
 
     report = MigrationReport(options.run_id, options.dry_run, options.keep)
+    if options.report_file:
+        report.open_report_file(options.report_file)
+    try:
+        _migrate_pairs_loop(
+            pairs_list,
+            graph,
+            options,
+            report,
+            checkpoint_done,
+            batch_rewrite_urn,
+            on_pair_done,
+        )
+    finally:
+        report.close_report_file()
+    return report
+
+
+def _migrate_pairs_loop(
+    pairs_list: List[MigrationPair],
+    graph: DataHubGraph,
+    options: MigrationOptions,
+    report: MigrationReport,
+    checkpoint_done: Set[str],
+    batch_rewrite_urn: Callable[[str], str],
+    on_pair_done: Optional[Callable[[MigrationPair], None]],
+) -> None:
     for pair in pairs_list:
         if pair.source_urn in checkpoint_done:
             log.debug(f"Checkpoint skip: {pair.source_urn}")
@@ -103,7 +129,6 @@ def migrate_pairs(
                 _append_checkpoint(options.checkpoint_file, pair.source_urn)
         if on_pair_done is not None:
             on_pair_done(pair)
-    return report
 
 
 def migrate_pair(
@@ -138,6 +163,7 @@ def migrate_pair(
             f"{tgt} ({tgt_type}). Source and target must be the same entity type."
         )
 
+    report.set_current_pair(src, tgt)
     log.debug(f"Will migrate {src} to {tgt}")
     # The batch rewriter (from migrate_pairs) rewrites cross-pair references
     # inside the cloned entity's own aspects. For incoming-ref repointing we
