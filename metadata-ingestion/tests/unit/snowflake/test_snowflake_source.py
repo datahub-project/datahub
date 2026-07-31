@@ -1353,10 +1353,8 @@ def test_get_procedures_for_database_maps_rows_to_base_procedure():
     """``get_procedures_for_database`` groups SHOW PROCEDURES rows by schema and
     maps each into a ``BaseProcedure``.
 
-    Also pins two behaviours the Pydantic model now enforces at construction:
-    real driver ``datetime`` values for ``created``/``last_altered`` round-trip
-    unchanged, and an ``argument_signature`` (Snowflake overloads procedures by
-    signature) produces a hash-suffixed identifier so overloads get distinct
+    Snowflake overloads procedures by signature, so an ``argument_signature``
+    must produce a hash-suffixed identifier to keep overloads on distinct
     DataJob URNs.
     """
     created = datetime.datetime(2024, 1, 2, 3, 4, 5)
@@ -1391,9 +1389,7 @@ def test_get_procedures_for_database_maps_rows_to_base_procedure():
     assert proc.return_type == "VARCHAR"
     assert proc.procedure_definition == "BEGIN CALL child(); END"
     assert proc.comment == "loads the fact tables"
-    # Driver datetimes round-trip unchanged (Pydantic does not reformat them).
     assert proc.created == created
     assert proc.last_altered == altered
-    # An argument signature disambiguates overloaded procedures via a hash suffix.
     assert proc.get_procedure_identifier() != "load_facts"
     assert proc.get_procedure_identifier().startswith("load_facts_")
