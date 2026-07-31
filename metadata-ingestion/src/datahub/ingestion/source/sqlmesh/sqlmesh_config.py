@@ -2,12 +2,16 @@ import threading
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 import cachetools
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -42,7 +46,16 @@ _tobiko_token_file_cache_lock = threading.Lock()
 
 @cachetools.cached(_tobiko_token_file_cache, lock=_tobiko_token_file_cache_lock)
 def _read_tobiko_cloud_token_file(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8").strip()
+    # Surface a config-actionable error naming the key, rather than letting a
+    # raw FileNotFoundError/PermissionError abort ingestion with an opaque trace.
+    # (cachetools does not cache exceptions, so a transient failure isn't stuck.)
+    try:
+        return Path(path).read_text(encoding="utf-8").strip()
+    except OSError as e:
+        raise ValueError(
+            f"Could not read tobiko_cloud_token_file at {path!r}: {e}. "
+            "Verify the path and file permissions."
+        ) from e
 
 
 @dataclass
@@ -53,11 +66,17 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
     num_models_with_column_lineage: int = 0
     num_columns_with_lineage: int = 0
     num_column_lineage_parse_failures: int = 0
+    # Sample of "<model>.<column>" whose column lineage could not be parsed,
+    # so the failures are inspectable in the ingestion summary (not just counted).
+    column_lineage_failures: LossyList[str] = field(default_factory=LossyList)
     num_embedded_models: int = 0
     num_external_models: int = 0
     num_undeclared_upstream_refs: int = 0  # category-3 deps routed to warehouse URN
     num_containers_emitted: int = 0
     num_snapshots_without_physical_name: int = 0
+    num_assertions_failed: int = 0
+    num_profiles_failed: int = 0
+    num_operations_skipped: int = 0
 
     # Config flags surfaced in report (matches Snowflake/BigQuery pattern)
     include_column_lineage: bool = False
@@ -85,7 +104,7 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
         )
 
 
-class GatewayOverride(BaseModel):
+class GatewayOverride(ConfigModel):
     """Per-gateway overrides for warehouse-URN construction.
 
     SQLMesh projects can declare multiple gateways (e.g. Snowflake for some
@@ -305,7 +324,8 @@ class SqlmeshSourceConfig(
         description=(
             "When enabled, detect SQLMesh fingerprint tables that haven't been regenerated "
             "recently (no plan/apply runs). Use this to monitor if SQLMesh transformations "
-            "are running on their expected schedules. Requires DataHub graph access. "
+            "are running on their expected schedules. Reads snapshot timestamps from the "
+            "SQLMesh state store; silently skipped when state is unreachable. "
             "When a fingerprint is stale, a custom property 'sqlmesh.fingerprint_stale' "
             "is added to the dataset."
         ),
@@ -326,16 +346,6 @@ class SqlmeshSourceConfig(
             "warehouse tables referenced in lineage). When enabled, the plugin adds "
             "lineage edges without overwriting edges the warehouse connector previously "
             "discovered. Must match the warehouse connector's incremental_lineage setting."
-        ),
-    )
-    incremental_mode: Literal["full", "changed"] = Field(
-        default="full",
-        description=(
-            "Controls which models are processed on each run. "
-            "'full' (default): process all models every run. "
-            "'changed': compare snapshot fingerprints against the previous DataHub "
-            "checkpoint and only process models whose fingerprint changed or are new. "
-            "Significantly reduces column-level lineage computation time for large projects."
         ),
     )
     audit_results_path: Optional[str] = Field(
@@ -411,26 +421,19 @@ class SqlmeshSourceConfig(
             "When not set, the owner field value is used as-is."
         ),
     )
-    write_semantics: str = Field(
-        default="PATCH",
-        description=(
-            "Controls how tags and ownership emitted by this connector interact with "
-            "existing metadata. "
-            "PATCH (default): adds alongside existing metadata from other sources. "
-            "OVERRIDE: replaces all tags/ownership managed by this connector."
-        ),
-    )
     # ------------------------------------------------------------------
     # Per-feature toggles for extras (default ON, opt out individually)
     # ------------------------------------------------------------------
     emit_metadata_tests: bool = Field(
         default=True,
         description=(
-            "Emit DataHub Metadata Test entities (``urn:li:test:…``) derived from "
-            "the SQLMesh project's linter rules and ``model_defaults.audits``. "
-            "DataHub accepts the MCPs; the runner is only present on Cloud. "
-            "Until the Test JSON DSL is documented this flag is reserved and "
-            "inert. Set to false to keep the UI clean."
+            "Emit DataHub Metadata Test entities (``urn:li:test:…``) enforcing "
+            "governance standards on this project's models: models must have "
+            "documentation, and models must have owners. Scoped to this "
+            "project's sqlmesh platform (and ``sqlmesh_platform_instance`` when "
+            "set). Any DataHub instance stores the test definitions; evaluating "
+            "them requires a deployment with a Metadata Tests runner "
+            "(DataHub Cloud). Set to false to skip emitting them."
         ),
     )
     emit_freshness_assertions: bool = Field(
@@ -481,13 +484,6 @@ class SqlmeshSourceConfig(
             "is derived from a hash of (assertion_urn, run_id)."
         ),
     )
-
-    @field_validator("write_semantics", mode="after")
-    @classmethod
-    def validate_write_semantics(cls, v: str) -> str:
-        if v.upper() not in ("PATCH", "OVERRIDE"):
-            raise ValueError("write_semantics must be 'PATCH' or 'OVERRIDE'")
-        return v.upper()
 
     @field_validator("target_platform", mode="after")
     @classmethod

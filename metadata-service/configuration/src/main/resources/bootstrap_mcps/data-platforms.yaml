@@ -488,6 +488,16 @@
     displayName: Snowflake
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/snowflakelogo.png"
+- entityUrn: urn:li:dataPlatform:sqlmesh
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sqlmesh
+    displayName: SQLMesh
+    type: OTHERS
+    logoUrl: "assets/platforms/sqlmeshlogo.png"
 - entityUrn: urn:li:dataPlatform:spanner
   entityType: dataPlatform
   aspectName: dataPlatformInfo

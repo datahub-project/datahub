@@ -75,8 +75,6 @@ and soft-deletes entities that have been removed from the SQLMesh project.
 - **Metadata Tests**: `emit_metadata_tests` is reserved on the config but
   the Test JSON DSL is undocumented in DataHub, so the flag is currently
   a no-op. Will wire up once the DSL is exposed.
-- **incremental_mode: changed**: Changed-only incremental processing is defined in
-  the config but not yet implemented; it falls back to full mode with a warning.
 - **Sibling merging**: Sibling stitching requires the warehouse connector to be running
   and producing URNs that match this connector's output. Verify URN alignment using
   `preview_urns: true` before full ingestion.

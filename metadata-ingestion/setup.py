@@ -791,7 +791,7 @@ plugins: Dict[str, Set[str]] = {
     # sqlglot[c]==30.8.0 (see sqlglot_lib comment). Earlier sqlmesh versions
     # need sqlglot 30.0.x-30.4.x and cannot coexist with our pin. Cap at <0.236
     # until the next sqlmesh sqlglot bump is vetted against our monkey-patches.
-    "sqlmesh": {"sqlmesh>=0.235.2,<0.236"},
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.236", *cachetools_lib},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
