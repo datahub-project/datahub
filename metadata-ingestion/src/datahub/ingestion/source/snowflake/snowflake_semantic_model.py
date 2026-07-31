@@ -128,7 +128,6 @@ class SnowflakeSemanticModelMapper:
             semantic_view.name, schema_name, db_name
         )
         distinct_metrics = self._distinct_metrics(semantic_view)
-        metric_names_upper = {key.name_upper for key in distinct_metrics}
         # Indices for resolving derivedFrom references in derived-metric
         # expressions: a qualified `table.metric` resolves to a table-bound metric,
         # an unqualified `metric` to a view-scoped (derived) metric.
@@ -148,8 +147,7 @@ class SnowflakeSemanticModelMapper:
         )
         lineages_by_dataset = self._route_lineages(
             fine_grained_lineages,
-            metric_names_upper,
-            shadowed_metric_names,
+            logical_dataset_urns,
             model_urn=model_urn,
             semantic_view=semantic_view,
         )
@@ -288,17 +286,18 @@ class SnowflakeSemanticModelMapper:
         for relationship in semantic_view.relationships:
             from_table_upper = relationship.from_table.upper()
             # Snowflake does not store cardinality; it infers one-to-one when the
-            # join columns are part of the primary key on both sides. The referenced
-            # (to) side is always a primary key, so the join is one-to-one exactly
-            # when the from-side join columns are also that table's primary key;
-            # otherwise multiple rows can share the FK value -> many-to-one.
+            # join columns are the primary key on both sides. The referenced (to)
+            # side is always a primary key, so the join is one-to-one exactly when
+            # the from-side join columns are that table's COMPLETE primary key -
+            # a subset of a composite key does not uniquely identify a row, so many
+            # rows can share the value -> many-to-one.
             from_columns_upper = {col.upper() for col in relationship.from_columns}
             from_pk = semantic_view.primary_key_columns_by_table.get(
                 from_table_upper, set()
             )
             cardinality = (
                 ERModelRelationshipCardinalityClass.ONE_ONE
-                if from_columns_upper and from_columns_upper <= from_pk
+                if from_columns_upper and from_columns_upper == from_pk
                 else ERModelRelationshipCardinalityClass.N_ONE
             )
             relationships.append(
@@ -329,8 +328,7 @@ class SnowflakeSemanticModelMapper:
     def _route_lineages(
         self,
         fine_grained_lineages: List[FineGrainedLineageClass],
-        metric_names_upper: Set[str],
-        shadowed_metric_names: Set[str],
+        logical_dataset_urns: "Dict[str, str]",
         model_urn: str,
         semantic_view: SnowflakeSemanticView,
     ) -> Dict[str, List[FineGrainedLineageClass]]:
@@ -338,20 +336,50 @@ class SnowflakeSemanticModelMapper:
         # (the logical dataset that owns the column). Metric FGLs are dropped:
         # metric lineage flows Metric -> SemanticModel -> Logical Dataset, with
         # no metricUpstreams for semantic-model-backed metrics.
+        #
+        # A column that is a METRIC on a given logical table is emitted as a metric
+        # entity, not a schemaField on that logical dataset, so an FGL onto it would
+        # dangle. Keyed by (logical dataset, column) so a name that is a fact on one
+        # table and a metric on another is handled correctly on each - dropping by
+        # bare name would keep the dangling metric-side edge (or drop a valid fact
+        # edge) whenever the name is shared across tables.
+        metric_cols_by_urn: Dict[str, Set[str]] = {}
+        # View-scoped (derived) metrics have no logical table, so the producer
+        # anchors their FGL on the model URN. Their lineage flows via the metric
+        # entity's derivedFrom, so drop those FGLs silently rather than warn.
+        view_scoped_metric_names: Set[str] = set()
+        for occurrences in semantic_view.column_occurrences.values():
+            for occ in occurrences:
+                if occ.subtype is not SemanticViewColumnSubtype.METRIC:
+                    continue
+                if occ.table_name:
+                    dataset_urn = logical_dataset_urns.get(occ.table_name.upper())
+                    if dataset_urn:
+                        metric_cols_by_urn.setdefault(dataset_urn, set()).add(
+                            occ.name.upper()
+                        )
+                else:
+                    view_scoped_metric_names.add(occ.name.upper())
+
         by_dataset: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
-            downstream_field = self._downstream_field_name(lineage)
-            downstream_upper = downstream_field.upper() if downstream_field else None
-            if (
-                downstream_upper
-                and downstream_upper in metric_names_upper
-                and downstream_upper not in shadowed_metric_names
-            ):
-                continue
             if not lineage.downstreams:
                 continue
+            downstream_field = self._downstream_field_name(lineage)
+            downstream_upper = downstream_field.upper() if downstream_field else None
             parent_urn = SchemaFieldUrn.from_string(lineage.downstreams[0]).parent
+            if (
+                downstream_upper
+                and downstream_upper in metric_cols_by_urn.get(parent_urn, set())
+            ):
+                # Metric column on this logical table: lineage flows via the metric
+                # entity, and the logical dataset has no schemaField for it.
+                continue
             if parent_urn == model_urn:
+                if downstream_upper and downstream_upper in view_scoped_metric_names:
+                    # View-scoped (derived) metric: lineage flows via the metric
+                    # entity's derivedFrom, not a schemaField FGL. Drop silently.
+                    continue
                 # The resolver only anchors a non-metric column on the model
                 # URN when it has no logical-table association. A
                 # dimension/fact without a logical table can't be re-homed onto

@@ -502,6 +502,62 @@ class TestSemanticViewLineageGeneration:
         assert ("ORDERS", "ORDER_TOTAL") in columns
 
 
+def test_semantic_column_expression_resolves_per_logical_table():
+    # The (recursive) derived-column lineage lookup resolves an intermediate
+    # column's expression from the occurrence on the CURRENT logical table, not
+    # the merged columns list (occurrences[0]) - so a same-named intermediate
+    # defined differently on two tables does not cross-contaminate.
+    sv = SnowflakeSemanticView(
+        name="V",
+        created=datetime.datetime(2024, 1, 1),
+        comment=None,
+        view_definition="",
+        last_altered=datetime.datetime(2024, 1, 1),
+    )
+    sv.column_occurrences = {
+        "FOO": [
+            SemanticViewColumnMetadata(
+                name="FOO",
+                data_type="NUMBER",
+                subtype=SemanticViewColumnSubtype.FACT,
+                table_name="TABLE_A",
+                comment=None,
+                synonyms=[],
+                expression="a.x + 1",
+            ),
+            SemanticViewColumnMetadata(
+                name="FOO",
+                data_type="NUMBER",
+                subtype=SemanticViewColumnSubtype.FACT,
+                table_name="TABLE_B",
+                comment=None,
+                synonyms=[],
+                expression="b.y + 2",
+            ),
+        ],
+    }
+    # Merged columns list carries only occurrences[0]'s expression (the bug source).
+    sv.columns = [
+        SnowflakeColumn(
+            name="FOO",
+            ordinal_position=1,
+            is_nullable=True,
+            data_type="NUMBER",
+            comment=None,
+            character_maximum_length=None,
+            numeric_precision=None,
+            numeric_scale=None,
+            expression="a.x + 1",
+        )
+    ]
+
+    resolve = SnowflakeSchemaGenerator._semantic_column_expression
+    assert resolve(sv, "FOO", "TABLE_A") == "a.x + 1"
+    assert resolve(sv, "FOO", "TABLE_B") == "b.y + 2"
+    # Unscoped (legacy / no logical table) falls back to the merged list.
+    assert resolve(sv, "FOO", None) == "a.x + 1"
+
+
 class TestSemanticViewOrchestrationFlow:
     """Test orchestration methods (_process_semantic_views, _process_semantic_view, etc.)
     with emit_semantic_model_entities=True (semanticModel/metric entity mode)."""

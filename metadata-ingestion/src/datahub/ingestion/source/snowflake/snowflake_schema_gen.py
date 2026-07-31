@@ -2062,12 +2062,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         context_table: Optional[str] = None,
     ) -> None:
         """Handle chained derivation when source column is itself derived."""
-        # Check if source_col is itself a derived column
-        derived_col_expression = None
-        for sv_col in semantic_view.columns:
-            if sv_col.name and sv_col.name.upper() == source_col and sv_col.expression:
-                derived_col_expression = sv_col.expression
-                break
+        # Check if source_col is itself a derived column. Scope to context_table so
+        # a same-named intermediate column defined differently on another logical
+        # table cannot cross-contaminate; the merged columns list only carries
+        # occurrences[0]'s expression (helper falls back to it when unscoped).
+        derived_col_expression = self._semantic_column_expression(
+            semantic_view,
+            source_col.upper(),
+            context_table.upper() if context_table else None,
+        )
 
         if derived_col_expression:
             logger.debug(
@@ -2170,26 +2173,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     (source_db, source_schema, source_table, source_col)
                 )
             else:
-                # Check if it's another derived column (chained derivation)
-                found_derived = False
-                for sv_col in semantic_view.columns:
-                    if (
-                        sv_col.name
-                        and sv_col.name.upper() == source_col
-                        and sv_col.expression
-                    ):
-                        # Recursively resolve, passing effective_table as context
-                        nested_sources = self._resolve_derived_column_sources(
-                            sv_col.expression,
-                            semantic_view,
-                            depth + 1,
-                            visited.copy(),
-                            context_table=effective_table,
-                        )
-                        resolved_sources.extend(nested_sources)
-                        found_derived = True
-                        break
-                if not found_derived:
+                # Check if it's another derived column (chained derivation).
+                # Resolve its expression scoped to effective_table so a same-named
+                # intermediate column defined differently on another logical table
+                # cannot cross-contaminate; the merged columns list only carries
+                # occurrences[0]'s expression (helper falls back to it when
+                # unscoped, e.g. legacy single-dataset mode).
+                nested_expression = self._semantic_column_expression(
+                    semantic_view,
+                    source_col.upper(),
+                    effective_table.upper() if effective_table else None,
+                )
+                if nested_expression:
+                    # Recursively resolve, passing effective_table as context.
+                    nested_sources = self._resolve_derived_column_sources(
+                        nested_expression,
+                        semantic_view,
+                        depth + 1,
+                        visited.copy(),
+                        context_table=effective_table,
+                    )
+                    resolved_sources.extend(nested_sources)
+                else:
                     logger.debug(
                         f"Column {source_col} not in physical table and not derived"
                     )

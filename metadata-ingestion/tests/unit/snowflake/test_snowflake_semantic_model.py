@@ -576,6 +576,7 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
                     "total_revenue",
                     "NUMBER",
                     SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
                     expression="SUM(orders.order_total)",
                 )
             ],
@@ -635,6 +636,81 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
     # And the metric carries no metricUpstreams.
     assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+
+
+def test_lineage_routing_scoped_by_table_for_shared_metric_fact_name():
+    # REVENUE is a FACT on ORDERS (emitted as a schemaField) and a METRIC on
+    # RETURNS (emitted as a metric entity, NOT a field). Routing must keep the
+    # ORDERS fact FGL and drop the RETURNS metric FGL - dropping by bare name would
+    # either keep the RETURNS edge (dangling to a field RETURNS never emits) or
+    # drop the valid ORDERS edge, since the name is shared across tables.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "REVENUE": [
+                _col("revenue", "NUMBER", SemanticViewColumnSubtype.FACT, "ORDERS"),
+                _col(
+                    "revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="RETURNS",
+                    expression="SUM(returns.amount)",
+                ),
+            ],
+            "RETURN_ID": [
+                _col(
+                    "return_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "RETURNS",
+                ),
+            ],
+        },
+        logical_to_physical_table={
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "RETURNS": (_DB, _SCHEMA, "RETURNS"),
+        },
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    returns_urn = _logical_dataset_urn(mapper, "RETURNS")
+    src = (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "test_db.public.base,PROD),amount)"
+    )
+    orders_fact_fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[src],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[make_schema_field_urn(orders_urn, "revenue")],
+    )
+    returns_metric_fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[src],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[make_schema_field_urn(returns_urn, "revenue")],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[orders_fact_fgl, returns_metric_fgl],
+        )
+    )
+
+    # ORDERS keeps its fact FGL, and the field exists on ORDERS.
+    orders_lineage = _aspects_for(workunits, orders_urn, UpstreamLineageClass)
+    assert len(orders_lineage) == 1
+    assert orders_lineage[0].fineGrainedLineages == [orders_fact_fgl]
+    assert "revenue" in _schema_fields_by_path(workunits, orders_urn)
+
+    # RETURNS: revenue is a metric, so it is not a schemaField and its FGL is
+    # dropped (no dangling reference).
+    assert "revenue" not in _schema_fields_by_path(workunits, returns_urn)
+    returns_lineage = _aspects_for(workunits, returns_urn, UpstreamLineageClass)
+    returns_fgls = returns_lineage[0].fineGrainedLineages if returns_lineage else []
+    assert not returns_fgls
 
 
 def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
@@ -1584,6 +1660,89 @@ def test_relationship_cardinality_inferred_from_primary_key():
     assert (
         by_name["order_to_customer"].cardinality
         == ERModelRelationshipCardinalityClass.N_ONE
+    )
+
+
+def test_relationship_cardinality_requires_full_composite_primary_key():
+    # Joining on only part of a composite primary key does not uniquely identify a
+    # row, so the relationship is many-to-one. Only a join on the complete key is
+    # one-to-one.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "PART_KEY": [
+                _col(
+                    "part_key",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "LINEITEMS",
+                ),
+                _col(
+                    "part_key",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "PARTSUPP",
+                ),
+            ],
+            "SUPP_KEY": [
+                _col(
+                    "supp_key",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "LINEITEMS",
+                ),
+                _col(
+                    "supp_key",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "PARTSUPP",
+                ),
+            ],
+        },
+        logical_to_physical_table={
+            "LINEITEMS": (_DB, _SCHEMA, "LINEITEMS"),
+            "PARTSUPP": (_DB, _SCHEMA, "PARTSUPP"),
+        },
+        primary_key_columns_by_table={"LINEITEMS": {"PART_KEY", "SUPP_KEY"}},
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="partial_key_join",
+                from_table="lineitems",
+                from_columns=["PART_KEY"],  # subset of the composite PK
+                to_table="partsupp",
+                to_columns=["PART_KEY"],
+            ),
+            SnowflakeSemanticViewRelationship(
+                name="full_key_join",
+                from_table="lineitems",
+                from_columns=["PART_KEY", "SUPP_KEY"],  # complete composite PK
+                to_table="partsupp",
+                to_columns=["PART_KEY", "SUPP_KEY"],
+            ),
+        ],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is not None
+    by_name = {r.name: r for r in info.relationships}
+    assert (
+        by_name["partial_key_join"].cardinality
+        == ERModelRelationshipCardinalityClass.N_ONE
+    )
+    assert (
+        by_name["full_key_join"].cardinality
+        == ERModelRelationshipCardinalityClass.ONE_ONE
     )
 
 
