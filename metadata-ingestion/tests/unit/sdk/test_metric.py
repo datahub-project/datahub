@@ -10,6 +10,8 @@ rule for semantic-model-backed metrics.
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
+
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
@@ -275,3 +277,71 @@ def test_derived_from_mutators_preserve_sibling_relationship_fields() -> None:
     assert rels.parentMetric == parent
     assert [e.destinationUrn for e in rels.relatedMetrics] == [related]
     assert [d.destinationUrn for d in rels.derivedFrom] == [new]
+
+
+_SM = "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)"
+
+
+def test_derived_from_scalar_string_is_single_edge() -> None:
+    # A bare URN string must be one edge, not one edge per character.
+    from datahub.sdk import require_metrics_support  # noqa: F401  (import sanity)
+
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="revenue",
+        semantic_model=_SM,
+        derived_from="urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,base)",
+    )
+    edges = metric.derived_from
+    assert len(edges) == 1
+    assert (
+        edges[0].destinationUrn
+        == "urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,base)"
+    )
+
+
+def test_semantic_model_reference_rejects_blank_and_malformed() -> None:
+    from datahub.errors import SdkUsageError
+
+    for bad in ("", "   ", "urn:li:placeholder"):
+        with pytest.raises(SdkUsageError):
+            Metric(
+                platform="snowflake",
+                path="analytics",
+                id="revenue",
+                semantic_model=bad,
+            )
+
+
+def test_set_semantic_model_rejects_blank() -> None:
+    from datahub.errors import SdkUsageError
+
+    metric = Metric(
+        platform="snowflake", path="analytics", id="revenue", semantic_model=_SM
+    )
+    with pytest.raises(SdkUsageError):
+        metric.set_semantic_model("")
+
+
+def test_clear_hydrated_ai_context_emits_empty_overwrite() -> None:
+    # Clearing an aiContext that was read from the graph must emit an empty
+    # aspect to overwrite the server value, not silently drop it.
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="revenue",
+        semantic_model=_SM,
+        ai_context=AiContextInput(synonyms=["rev"]),
+    )
+    hydrated = Metric._new_from_graph(metric.urn, dict(metric._aspects))
+    assert hydrated.ai_context is not None
+
+    hydrated.set_ai_context(AiContextInput())  # clear
+    emitted = {mcp.aspectName: mcp.aspect for mcp in hydrated.as_mcps()}
+    assert "aiContext" in emitted  # overwrite emitted, not dropped
+    cleared = emitted["aiContext"]
+    assert cleared.synonyms is None
+    assert cleared.instructions is None
+    assert cleared.examples is None
+    assert cleared.customInstructions is None

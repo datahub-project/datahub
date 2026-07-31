@@ -35,9 +35,11 @@ from datahub.sdk._semantic_shared import (
     AiContextInput,
     DialectExpressionInput,
     MetricExpressionInputType,
+    as_input_list,
     build_ai_context,
     build_metric_expression,
     make_audit_stamp,
+    validate_semantic_model_urn,
 )
 from datahub.sdk._shared import (
     DomainInputType,
@@ -224,8 +226,7 @@ class SemanticModel(
         # datasets last so add_dataset can reconcile back-refs against the
         # already-populated alias on each SemanticModelDataset.
         if datasets is not None:
-            for dataset in datasets:
-                self.add_dataset(dataset)
+            self.set_datasets(datasets)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
@@ -321,7 +322,8 @@ class SemanticModel(
     def set_datasets(self, datasets: Sequence[SemanticModelDatasetInputType]) -> None:
         self._ensure_model_props().datasets = []
         self._attached_logical_datasets = []
-        for dataset in datasets:
+        # Normalize so a bare dataset URN string isn't iterated character-by-char.
+        for dataset in as_input_list(datasets):
             self.add_dataset(dataset)
 
     @property
@@ -385,6 +387,48 @@ class SemanticModel(
         if not rels:
             return
         attached_by_urn = self._attached_datasets_by_urn()
+
+        def flag(message: str, *, definitive: bool) -> None:
+            if strict and definitive:
+                raise SdkUsageError(message)
+            logger.warning(message)
+
+        # Structural checks on the relationship inputs themselves — always
+        # definitive (independent of which datasets are attached).
+        for rel in rels:
+            if not (rel.from_ or "").strip() or not (rel.to or "").strip():
+                flag(
+                    f"SemanticModel {str(self.urn)}: relationship has a blank "
+                    f"from/to alias (from={rel.from_!r}, to={rel.to!r}).",
+                    definitive=True,
+                )
+            if not rel.fromColumns or not rel.toColumns:
+                flag(
+                    f"SemanticModel {str(self.urn)}: relationship "
+                    f"{rel.from_!r}->{rel.to!r} has an empty join column list.",
+                    definitive=True,
+                )
+            elif len(rel.fromColumns) != len(rel.toColumns):
+                flag(
+                    f"SemanticModel {str(self.urn)}: relationship "
+                    f"{rel.from_!r}->{rel.to!r} joins {len(rel.fromColumns)} "
+                    f"column(s) to {len(rel.toColumns)}; counts must match.",
+                    definitive=True,
+                )
+
+        # Distinct datasets must not share an alias — the by-alias resolution
+        # below would otherwise silently collapse them.
+        alias_to_urn: Dict[str, str] = {}
+        for ds_urn, ds in attached_by_urn.items():
+            prior = alias_to_urn.get(ds.alias)
+            if prior is not None and prior != ds_urn:
+                flag(
+                    f"SemanticModel {str(self.urn)}: alias {ds.alias!r} is "
+                    f"assigned to multiple datasets ({prior}, {ds_urn}).",
+                    definitive=True,
+                )
+            alias_to_urn[ds.alias] = ds_urn
+
         by_alias = {ds.alias: ds for ds in attached_by_urn.values()}
         known_aliases = set(by_alias)
         # Non-strict callers are construction-time setters that commonly run
@@ -400,18 +444,13 @@ class SemanticModel(
         declared_urns = set(props.datasets or [])
         full_coverage = declared_urns <= set(attached_by_urn)
 
-        def flag(message: str, *, definitive: bool) -> None:
-            if strict and definitive:
-                raise SdkUsageError(message)
-            logger.warning(message)
-
         for rel in rels:
             for alias, columns in (
                 (rel.from_, rel.fromColumns),
                 (rel.to, rel.toColumns),
             ):
-                if not alias:
-                    continue
+                if not alias or not alias.strip():
+                    continue  # blank aliases are handled structurally above
                 if alias not in known_aliases:
                     flag(
                         f"SemanticModel {str(self.urn)}: relationship alias "
@@ -439,11 +478,17 @@ class SemanticModel(
 
     def set_ai_context(self, ai_context: AiContextInput) -> None:
         built = build_ai_context(ai_context)
-        if built is None:
-            # Don't emit an empty aiContext; drop any previously set one.
-            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
+        if built is not None:
+            self._set_aspect(built)
             return
-        self._set_aspect(built)
+        # Empty input clears it. On a graph-hydrated model that previously had
+        # an aiContext, emit an empty aspect to overwrite the server value —
+        # as_mcps only emits present aspects, so a plain pop would leave the
+        # server copy intact.
+        if AiContextClass.ASPECT_NAME in (self._prev_aspects or {}):
+            self._set_aspect(AiContextClass())
+        else:
+            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
 
     def as_mcps(
         self,
@@ -535,16 +580,17 @@ class SemanticModelDataset(Dataset):
         semantic_model: Union[str, SemanticModelUrn],
         alias: str,
     ) -> None:
+        semantic_model_urn = validate_semantic_model_urn(semantic_model)
         existing = self._get_aspect(SemanticModelPropertiesClass)
         if existing is None:
             self._set_aspect(
                 SemanticModelPropertiesClass(
-                    alias=alias, semanticModel=str(semantic_model)
+                    alias=alias, semanticModel=semantic_model_urn
                 )
             )
         else:
             existing.alias = alias
-            existing.semanticModel = str(semantic_model)
+            existing.semanticModel = semantic_model_urn
 
     def _set_semantic_model_back_ref(
         self, semantic_model: Union[str, SemanticModelUrn]

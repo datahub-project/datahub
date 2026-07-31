@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence as AbcSequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Any, List, Optional, TypeVar, Union, overload
 
 from typing_extensions import TypeAlias
 
@@ -15,18 +16,69 @@ from datahub.metadata.schema_classes import (
     DialectExpressionClass,
     MetricExpressionClass,
 )
+from datahub.metadata.urns import SemanticModelUrn
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.utilities.server_config_util import ServiceFeature
+from datahub.utilities.urns.error import InvalidUrnError
 
 __all__ = [
     "AiContextInput",
     "DialectExpressionInput",
     "MetricExpressionInputType",
+    "as_input_list",
     "build_ai_context",
     "build_metric_expression",
     "make_audit_stamp",
     "require_metrics_support",
+    "validate_semantic_model_urn",
 ]
+
+_T = TypeVar("_T")
+
+
+@overload
+def as_input_list(value: "AbcSequence[_T]") -> List[_T]: ...
+
+
+@overload
+def as_input_list(value: _T) -> List[_T]: ...
+
+
+def as_input_list(value: Any) -> List[Any]:
+    # Implementation for the typed overloads above.
+    """Normalize a scalar or sequence into a list.
+
+    A bare ``str`` is a ``Sequence[str]`` and a single URN object is not a
+    sequence at all; iterating either where a list is expected misbehaves (a
+    URN string gets split character-by-character). Wrap scalars into one-element
+    lists so that can't happen.
+    """
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, AbcSequence):
+        return list(value)
+    return [value]
+
+
+def validate_semantic_model_urn(value: object) -> str:
+    """Reject a blank or malformed semantic-model back-reference.
+
+    The reference is required and must parse as a ``SemanticModelUrn``; an empty
+    string is typed-valid but would emit a metric/dataset with no ``ModeledBy``
+    edge.
+    """
+    text = str(value).strip()
+    if not text:
+        raise SdkUsageError(
+            "semantic_model is required and must be a non-empty SemanticModelUrn."
+        )
+    try:
+        SemanticModelUrn.from_string(text)
+    except InvalidUrnError as e:
+        raise SdkUsageError(
+            f"semantic_model must be a valid SemanticModelUrn; got {text!r}."
+        ) from e
+    return text
 
 
 @dataclass

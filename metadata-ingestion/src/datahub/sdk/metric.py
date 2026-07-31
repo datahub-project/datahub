@@ -20,9 +20,11 @@ from datahub.sdk._semantic_shared import (
     AiContextInput,
     DialectExpressionInput,
     MetricExpressionInputType,
+    as_input_list,
     build_ai_context,
     build_metric_expression,
     make_audit_stamp,
+    validate_semantic_model_urn,
 )
 from datahub.sdk._shared import (
     DomainInputType,
@@ -119,7 +121,9 @@ class Metric(
         self._set_platform_instance(urn.platform, platform_instance)
         # Status is part of the producer contract for this entity.
         self._set_aspect(StatusClass(removed=False))
-        self._ensure_metric_props(semantic_model=str(semantic_model))
+        self._ensure_metric_props(
+            semantic_model=validate_semantic_model_urn(semantic_model)
+        )
 
         if name is not None:
             self.set_name(name)
@@ -219,7 +223,9 @@ class Metric(
         return self._ensure_metric_props().semanticModel
 
     def set_semantic_model(self, semantic_model: SemanticModelInputType) -> None:
-        self._ensure_metric_props().semanticModel = str(semantic_model)
+        self._ensure_metric_props().semanticModel = validate_semantic_model_urn(
+            semantic_model
+        )
 
     @property
     def expression(self) -> Optional[MetricExpressionClass]:
@@ -254,8 +260,10 @@ class Metric(
 
     def set_derived_from(self, derived_from: Sequence[DerivedFromInputType]) -> None:
         # Mutate only derivedFrom; leave parentMetric/relatedMetrics untouched.
+        # Normalize so a bare URN string isn't iterated character-by-character.
         self._ensure_metric_relationships().derivedFrom = [
-            DerivedMetricInputClass(destinationUrn=str(d)) for d in derived_from
+            DerivedMetricInputClass(destinationUrn=str(d))
+            for d in as_input_list(derived_from)
         ]
 
     def add_derived_from(self, metric: DerivedFromInputType) -> None:
@@ -270,8 +278,14 @@ class Metric(
 
     def set_ai_context(self, ai_context: AiContextInput) -> None:
         built = build_ai_context(ai_context)
-        if built is None:
-            # Don't emit an empty aiContext; drop any previously set one.
-            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
+        if built is not None:
+            self._set_aspect(built)
             return
-        self._set_aspect(built)
+        # Empty input clears it. On a graph-hydrated metric that previously had
+        # an aiContext, emit an empty aspect to overwrite the server value —
+        # as_mcps only emits present aspects, so a plain pop would leave the
+        # server copy intact.
+        if AiContextClass.ASPECT_NAME in (self._prev_aspects or {}):
+            self._set_aspect(AiContextClass())
+        else:
+            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore

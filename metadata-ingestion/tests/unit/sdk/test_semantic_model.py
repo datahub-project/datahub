@@ -116,7 +116,7 @@ def test_semantic_model_add_dataset_records_urn_and_back_ref() -> None:
     ds = SemanticModelDataset(
         platform="snowflake",
         name="analytics.orders_model.orders_ds",
-        semantic_model="urn:li:placeholder",
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,placeholder)",
         alias="ORDERS",
         schema=[
             SemanticFieldInput(
@@ -1088,3 +1088,147 @@ def test_require_metrics_support_accepts_client() -> None:
     client = DataHubClient(graph=graph)
     with pytest.raises(SdkUsageError):
         require_metrics_support(client)
+
+
+def _ds(alias: str, name: str, cols: list) -> SemanticModelDataset:
+    return SemanticModelDataset(
+        platform="snowflake",
+        name=name,
+        semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+        alias=alias,
+        schema=[
+            SemanticFieldInput(
+                field_path=c, type="int", semantic_type=SemanticFieldTypeClass.DIMENSION
+            )
+            for c in cols
+        ],
+    )
+
+
+def _model_with(
+    datasets: list, relationship: SemanticModelRelationshipInput
+) -> SemanticModel:
+    return SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=datasets,
+        relationships=[relationship],
+    )
+
+
+def test_datasets_scalar_string_is_single_dataset() -> None:
+    # A bare dataset URN string must be one dataset, not one per character.
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+    model = SemanticModel(
+        platform="snowflake", path="analytics", id="orders_model", datasets=urn
+    )
+    assert model.datasets == [urn]
+
+
+def test_semantic_model_dataset_rejects_blank_semantic_model() -> None:
+    from datahub.errors import SdkUsageError
+
+    with pytest.raises(SdkUsageError):
+        SemanticModelDataset(
+            platform="snowflake",
+            name="analytics.orders_model.orders_ds",
+            semantic_model="",
+            alias="ORDERS",
+            schema=[
+                SemanticFieldInput(
+                    field_path="order_id",
+                    type="int",
+                    semantic_type=SemanticFieldTypeClass.DIMENSION,
+                )
+            ],
+        )
+
+
+def test_relationship_blank_alias_raises_at_emit() -> None:
+    from datahub.errors import SdkUsageError
+
+    orders = _ds("ORDERS", "analytics.orders_model.orders_ds", ["customer_id"])
+    model = _model_with(
+        [orders],
+        SemanticModelRelationshipInput(
+            from_alias="",
+            from_columns=["customer_id"],
+            to_alias="ORDERS",
+            to_columns=["customer_id"],
+        ),
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_relationship_unequal_column_counts_raises_at_emit() -> None:
+    from datahub.errors import SdkUsageError
+
+    orders = _ds(
+        "ORDERS", "analytics.orders_model.orders_ds", ["customer_id", "region_id"]
+    )
+    customers = _ds("CUSTOMERS", "analytics.orders_model.customers_ds", ["customer_id"])
+    model = _model_with(
+        [orders, customers],
+        SemanticModelRelationshipInput(
+            from_alias="ORDERS",
+            from_columns=["customer_id", "region_id"],
+            to_alias="CUSTOMERS",
+            to_columns=["customer_id"],
+        ),
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_relationship_empty_columns_raises_at_emit() -> None:
+    from datahub.errors import SdkUsageError
+
+    orders = _ds("ORDERS", "analytics.orders_model.orders_ds", ["customer_id"])
+    customers = _ds("CUSTOMERS", "analytics.orders_model.customers_ds", ["customer_id"])
+    model = _model_with(
+        [orders, customers],
+        SemanticModelRelationshipInput(
+            from_alias="ORDERS",
+            from_columns=[],
+            to_alias="CUSTOMERS",
+            to_columns=[],
+        ),
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_relationship_duplicate_alias_distinct_datasets_raises_at_emit() -> None:
+    from datahub.errors import SdkUsageError
+
+    ds1 = _ds("DUP", "analytics.orders_model.a_ds", ["customer_id"])
+    ds2 = _ds("DUP", "analytics.orders_model.b_ds", ["customer_id"])
+    model = _model_with(
+        [ds1, ds2],
+        SemanticModelRelationshipInput(
+            from_alias="DUP",
+            from_columns=["customer_id"],
+            to_alias="DUP",
+            to_columns=["customer_id"],
+        ),
+    )
+    with pytest.raises(SdkUsageError):
+        model.as_mcps()
+
+
+def test_semantic_model_clear_hydrated_ai_context_emits_empty_overwrite() -> None:
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        ai_context=AiContextInput(synonyms=["orders"]),
+    )
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    assert hydrated.ai_context is not None
+
+    hydrated.set_ai_context(AiContextInput())  # clear
+    emitted = {mcp.aspectName: mcp.aspect for mcp in hydrated.as_mcps()}
+    assert "aiContext" in emitted
+    assert emitted["aiContext"].synonyms is None

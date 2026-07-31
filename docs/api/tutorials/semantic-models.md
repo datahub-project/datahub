@@ -55,8 +55,8 @@ wires the lineage chain automatically:
   non-empty**.
 - **Logical `dataset`s**: each gets `SubTypes([SEMANTIC_MODEL_DATASET])`, a
   `SemanticModelProperties(alias, semanticModel=<model urn>)` back-ref, a
-  `SchemaMetadata` with the declared fields, and an `UpstreamLineage` to the physical
-  datasets. For every field, the SDK emits a `schemaField`-anchored
+  `SchemaMetadata` with the declared fields, and — when `upstreams` is provided —
+  an `UpstreamLineage` to the physical datasets. For every field, the SDK emits a `schemaField`-anchored
   `semanticFieldAnnotation` (with `expression` auto-synthesized as `f"{alias}.{field_path}"`
   when not provided) and, when non-empty, a field-anchored `aiContext`.
 - **`metric`s**: each gets `Status`, `MetricInfo` (with `semanticModel=<model urn>` back-ref
