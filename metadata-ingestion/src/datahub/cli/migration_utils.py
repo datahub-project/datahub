@@ -311,6 +311,16 @@ def merge_additive_aspects(
     """Merge additive aspects from source into existing target via Patch API.
 
     Returns the number of patch MCPs emitted.
+
+    **Known limitation (multi-downstream FGL):** the Patch API keys
+    fine-grained lineage entries on ``(transformOp, downstream, query)`` and
+    requires exactly one downstream per entry. FGL entries with 0 or 2+
+    downstreams will raise ``TypeError`` from the patch builder. This is a
+    pre-existing constraint of :pymethod:`DatasetPatchBuilder.add_fine_grained_lineage`,
+    not specific to migration. In practice field-level lineage is almost always
+    N upstreams → 1 downstream, so this is unlikely to trigger. Use
+    ``--on-conflict overwrite`` instead of ``patch`` if your data contains
+    multi-downstream FGL entries.
     """
     patch_builder = DatasetPatchBuilder(dst_urn)
 

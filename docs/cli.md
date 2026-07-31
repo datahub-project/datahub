@@ -1073,9 +1073,6 @@ All migration commands share the same engine, so they behave consistently:
 - **All incoming references are repointed.** Every entity that references a migrated URN via a
   modeled relationship — lineage, dashboard/chart references, **assertions**, etc. — is updated to
   point at the new URN, table- and column-level.
-- **Limitation:** references held in non-relationship fields are not repointed. The concrete case
-  is a URN _value_ of a structured property on another entity (stored as a primitive rather than a
-  modeled URN reference); those are not rewritten.
 
 #### dataplatform2instance
 
@@ -1095,6 +1092,7 @@ Options:
 - `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations. Already-migrated source URNs are read from this file and skipped; newly migrated URNs are appended on success. The file is created automatically on first write. Not written during `--dry-run`; errored pairs (under `--skip-on-error`) are not checkpointed, so they retry on resume.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
@@ -1172,6 +1170,7 @@ Options:
 - `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations (see `dataplatform2instance` above).
 
 **⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
 
@@ -1251,7 +1250,7 @@ Options:
 - `--mapping-file` (required): Path to a JSON file of source → target pairs. Either a list of
   objects, `[{"source": "urn:...", "target": "urn:..."}, ...]`, or a flat object,
   `{"urn:src": "urn:tgt", ...}`.
-- `--dry-run` / `-n`, `--force` / `-F`, `--keep`, `--hard`, `--skip-on-error`: as for the other commands.
+- `--dry-run` / `-n`, `--force` / `-F`, `--keep`, `--hard`, `--skip-on-error`, `--checkpoint-file`: as for the other commands.
 - `--on-conflict`: `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 
 Each pair's source and target must be the **same entity type**. Unlike the instance-migration
@@ -1314,6 +1313,28 @@ The equivalent flat-object form maps each source URN directly to its target:
 ```console
 datahub migrate urns-mapping --mapping-file ./mapping.json --dry-run
 ```
+
+#### Known limitations
+
+These apply to all `migrate` commands.
+
+- **Non-relationship references are not repointed.** URN values stored in non-relationship fields
+  (e.g. a URN _value_ of a structured property on another entity) are not graph-indexed and
+  therefore not discovered or rewritten by the migration engine.
+
+- **Optimistic cross-pair rewriting under `--skip-on-error`.** The batch URN rewriter is built from
+  _all_ pairs before the migration loop starts. If pair A fails and a later pair B's aspects
+  reference A's source URN, that reference is still rewritten to A's (never-created) target URN.
+  This is intentional: when the user retries failed pairs via `--checkpoint-file`, A's target is
+  created and B's reference becomes correct. Removing failed pairs from the map would leave B
+  pointing at A's source (which may be deleted), making retry harder.
+
+- **`--on-conflict patch` and multi-downstream fine-grained lineage.** The Patch API keys
+  fine-grained lineage entries on `(transformOperation, downstream, query)` and requires exactly one
+  downstream per entry. FGL entries with 0 or 2+ downstreams will raise an error during merge. This
+  is a pre-existing constraint of the Patch API, not specific to migration. In practice, field-level
+  lineage is almost always N upstreams → 1 downstream, so this is unlikely to trigger. Use
+  `--on-conflict overwrite` instead of `patch` if your data contains multi-downstream FGL entries.
 
 ## Alternate Installation Options
 
