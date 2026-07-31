@@ -17,6 +17,7 @@ import re
 import time
 from dataclasses import field
 from datetime import datetime
+from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
 
@@ -62,6 +63,15 @@ logger = logging.getLogger(__name__)
 # carries the curated override. Passed to DocumentEventConsumer AND checked in
 # _process_single_event — keep the two filters in lockstep via this constant.
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
+
+class DocumentEnumerationError(Exception):
+    """Raised when document enumeration or hydration breaks systemically.
+
+    Distinct from ``GraphError``, which hydration treats as a per-document data
+    problem worth retrying URN by URN. This one means the document set can no
+    longer be trusted, so the run must abort rather than embed a silent subset.
+    """
 
 
 class DataHubDocumentsReport(StatefulIngestionReport):
@@ -906,20 +916,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
     # within GMS's GraphQL limits even for large documents.
     _HYDRATE_BATCH_SIZE = 100
 
-    def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
-        """Fetch Document entities from DataHub with their text content.
+    def _fetch_documents_graphql(self) -> Iterable[dict[str, Any]]:
+        """Stream Document entities from DataHub with their text content.
 
-        URNs are enumerated first (``_scroll_document_urns``) and then hydrated
-        in batches (``_hydrate_documents``), so a single orphaned index entry can
-        no longer abort the whole run.
+        URNs are enumerated (``_scroll_document_urns``) and hydrated
+        (``_hydrate_documents``) lazily, so a single orphaned index entry can no
+        longer abort the whole run and the catalog is never materialized in
+        memory: at most one hydration batch is held at a time.
         """
         try:
-            documents: list[dict[str, Any]] = []
+            num_documents = 0
 
-            urns = list(self._scroll_document_urns())
-            logger.info(f"Enumerated {len(urns)} document URN(s) from DataHub")
-
-            for entity in self._hydrate_documents(urns):
+            for entity in self._hydrate_documents(self._scroll_document_urns()):
                 urn = entity.get("urn")
                 if not urn:
                     continue
@@ -952,13 +960,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     )
                     continue
 
-                documents.append({"urn": urn, "text": text, "source_type": source_type})
+                num_documents += 1
                 self.report.report_document_fetched()
+                yield {"urn": urn, "text": text, "source_type": source_type}
 
             logger.info(
-                f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
+                f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
             )
-            return documents
 
         except Exception as e:
             logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
@@ -1047,27 +1055,37 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             response = self.graph.execute_graphql(query, variables)
             scroll_data = response.get("scrollAcrossEntities")
             if scroll_data is None:
-                # A response missing the scroll payload (vs. one with an empty
-                # page) means enumeration broke; surface it rather than silently
-                # reporting success with too few documents embedded.
-                self.report.warning(
+                # scrollAcrossEntities is nullable and execute_graphql only
+                # raises when the response carries GraphQL `errors`, so a null
+                # payload arrives here as an ordinary response. It means
+                # enumeration itself broke (vs. an empty page, which is a valid
+                # `searchResults: []`), so abort: a warning would leave the run
+                # free to finish SUCCESS having embedded a silent subset.
+                self.report.failure(
                     title="Document enumeration returned no scroll payload",
                     message="scrollAcrossEntities was missing from the GraphQL "
-                    "response; document enumeration may be incomplete.",
+                    "response, so the document set is incomplete; aborting the "
+                    "run rather than embedding an unknown subset.",
                 )
-                break
+                raise DocumentEnumerationError(
+                    "scrollAcrossEntities missing from the GraphQL response"
+                )
             scroll_id = scroll_data.get("nextScrollId")
             search_results = scroll_data.get("searchResults") or []
             logger.debug(
                 f"Scrolled page of {len(search_results)} document URN(s) (scrollId={scroll_id})"
             )
             # A full page with no continuation cursor is suspicious: the scroll
-            # likely truncated, so some documents may never be enumerated.
+            # likely truncated, so some documents may never be enumerated. The
+            # page itself is usable, so keep embedding what was enumerated, but
+            # fail the run — a warning would let a large silent gap pass as a
+            # successful run.
             if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
-                self.report.warning(
+                self.report.failure(
                     title="Document enumeration ended without a scroll cursor",
                     message="A full page returned no nextScrollId; enumeration "
-                    "may have stopped early and some documents may be missing.",
+                    "stopped early and some documents are likely missing from "
+                    "this run.",
                 )
             for result in search_results:
                 entity = result.get("entity") or {}
@@ -1075,8 +1093,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if urn:
                     yield urn
 
-    def _hydrate_documents(self, urns: list[str]) -> Iterable[dict[str, Any]]:
+    def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
+
+        Consumes ``urns`` lazily in ``_HYDRATE_BATCH_SIZE`` windows so the full
+        catalog is never materialized: enumeration and hydration interleave, one
+        batch at a time.
 
         Uses the nullable ``entities(urns:)`` query: an orphaned URN comes back
         as null and is counted and skipped, instead of aborting the run as the
@@ -1110,8 +1132,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
           }
         }
         """
-        for start in range(0, len(urns), self._HYDRATE_BATCH_SIZE):
-            batch = urns[start : start + self._HYDRATE_BATCH_SIZE]
+        urn_iter = iter(urns)
+        while True:
+            # islice pulls one window from the enumerator, so scrolling and
+            # hydration interleave instead of enumerating everything up front.
+            batch = list(islice(urn_iter, self._HYDRATE_BATCH_SIZE))
+            if not batch:
+                break
             if self.lock is not None:
                 self.lock.heartbeat()
 
@@ -1121,7 +1148,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 # Transport/outage error — abort rather than silently skipping
                 # every document (which would report success with 0 embeddings).
                 raise
-            except GraphError:
+            except GraphError as batch_error:
                 # One document with an unexpected null in a non-null field (e.g.
                 # DocumentContent.text) makes GMS fail the whole batch. Retry the
                 # batch one URN at a time so a single bad document can't drop the
@@ -1136,8 +1163,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
                     # error (typically a GraphQL schema mismatch, e.g. the GMS is
-                    # missing a queried field), not per-document data. Fail loudly
-                    # rather than reporting a successful run that embedded nothing.
+                    # missing a queried field), not per-document data. Abort:
+                    # continuing would repeat batch-fail plus a per-URN retry
+                    # storm for every remaining batch, hammering GMS with O(N)
+                    # doomed requests before the run finally ends.
                     self.report.failure(
                         title="Document hydration failed for an entire batch",
                         message="Every URN in a hydration batch failed to resolve; "
@@ -1145,23 +1174,39 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "missing a queried field) rather than per-document issues.",
                         context=batch[0],
                     )
+                    raise batch_error
                 continue
 
             entities = response.get("entities") or []
-            if len(entities) != len(batch):
-                # GMS returns one (possibly null) entity per requested URN, in
-                # order. A different count means entities can't be lined up with
-                # URNs — surface it instead of silently dropping the tail.
-                self.report.warning(
-                    title="Hydration returned an unexpected entity count",
-                    message="GMS returned a different number of entities than URNs "
-                    "requested; some documents may be missing from this run.",
+            if not entities:
+                # GMS returns one (possibly null) entity per requested URN, so an
+                # empty list for a non-empty batch is systemic rather than
+                # per-document. Abort instead of booking every URN as orphaned.
+                self.report.failure(
+                    title="Document hydration returned no entities",
+                    message="GMS returned an empty entity list for a non-empty "
+                    "hydration batch; the document content could not be resolved.",
+                    context=batch[0],
                 )
-            for urn, entity in zip(batch, entities, strict=False):
-                if entity is None:
+                raise DocumentEnumerationError(
+                    "entities(urns:) returned no entities for a non-empty batch"
+                )
+
+            # Match on each entity's own URN rather than zipping positionally: a
+            # short or reordered response would otherwise attribute one
+            # document's content to another URN. Requested URNs with no entity
+            # in the response are counted as orphans, never silently dropped.
+            entities_by_urn = {
+                entity["urn"]: entity
+                for entity in entities
+                if entity and entity.get("urn")
+            }
+            for urn in batch:
+                hydrated = entities_by_urn.get(urn)
+                if hydrated is None:
                     self._skip_orphaned(urn)
                     continue
-                yield entity
+                yield hydrated
 
     def _hydrate_individually(
         self, query: str, urns: list[str]

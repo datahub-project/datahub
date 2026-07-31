@@ -25,6 +25,7 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
     EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
+    DocumentEnumerationError,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
     DocumentChunkingCheckpointState,
@@ -1940,7 +1941,7 @@ class TestConfigFingerprintInHash:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             # Both NATIVE and EXTERNAL documents are returned by default
             assert len(documents) == 2
@@ -1999,7 +2000,7 @@ class TestConfigFingerprintInHash:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             # Should only return notion document (confluence filtered out)
             assert len(documents) == 1
@@ -2063,7 +2064,7 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 1
             assert documents[0]["urn"] == "urn:li:document:complete1"
@@ -2088,7 +2089,7 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 0
 
@@ -2099,7 +2100,7 @@ class TestPartialEntityHandling:
 
             _mock_fetch(source, [None], urns=["urn:li:document:orphan"])
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 0
             assert source.report.num_documents_skipped_orphaned == 1
@@ -2280,7 +2281,7 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 1
             assert documents[0]["urn"] == "urn:li:document:valid"
@@ -2770,19 +2771,20 @@ class TestFetchDocumentsPagination:
             assert second_scroll_id == "cursor-1"
 
     def test_stops_when_no_next_scroll_id(self, ctx, config, mock_graph):
-        """A single page with no nextScrollId issues only one call."""
+        """A partial page with no nextScrollId issues only one call and is clean."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            response = self._make_scroll_page(0, 1000, next_scroll_id=None)
+            response = self._make_scroll_page(0, 500, next_scroll_id=None)
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
                 urns = list(source._scroll_document_urns())
 
-            assert len(urns) == 1000
+            assert len(urns) == 500
             assert mock_execute.call_count == 1
+            assert not source.report.failures
 
     def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
         """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
@@ -2882,7 +2884,7 @@ class TestScrollPaginationConfig:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             assert mock_execute.call_args[0][1]["batchSize"] == 250
 
     def test_scroll_delay_sleeps_between_pages(self, ctx, mock_graph):
@@ -2909,7 +2911,7 @@ class TestScrollPaginationConfig:
                     "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
                 ) as mock_sleep,
             ):
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             # Sleep happens before the second page only (not before the first).
             mock_sleep.assert_called_once_with(0.5)
 
@@ -2937,7 +2939,7 @@ class TestScrollPaginationConfig:
                     "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
                 ) as mock_sleep,
             ):
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             mock_sleep.assert_not_called()
 
 
@@ -3869,7 +3871,7 @@ class TestOrphanedDocumentResilience:
 
         source.graph.execute_graphql.side_effect = _graphql
 
-        documents = source._fetch_documents_graphql()
+        documents = list(source._fetch_documents_graphql())
 
         assert [d["urn"] for d in documents] == [
             "urn:li:document:real-1",
@@ -3895,7 +3897,7 @@ class TestOrphanedDocumentResilience:
 
         source.graph.execute_graphql.side_effect = _graphql
 
-        source._fetch_documents_graphql()
+        list(source._fetch_documents_graphql())
 
         scroll_query = captured["scroll"]
         assert "info" not in scroll_query
@@ -3967,28 +3969,125 @@ class TestOrphanedDocumentResilience:
             "Cannot query field 'semanticText'"
         )
 
-        hydrated = list(
-            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
-        )
+        with pytest.raises(GraphError):
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
 
-        assert hydrated == []
         assert any(
             "entire batch" in (f.title or "").lower() for f in source.report.failures
         )
 
-    def test_hydration_entity_count_mismatch_warns(self, ctx, config):
-        # GMS returning fewer entities than requested URNs must be surfaced, not
-        # silently dropped by the zip.
+    def test_systemic_hydration_failure_stops_after_first_batch(self, ctx, config):
+        # A systemic failure must abort instead of thrashing GMS: every later
+        # batch would repeat the batch call plus a doomed per-URN retry for each
+        # of its URNs, i.e. O(total URNs) failing requests on a large catalog.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = GraphError(
+            "Cannot query field 'semanticText'"
+        )
+        urns = [f"urn:li:document:doc-{i}" for i in range(250)]
+
+        with pytest.raises(GraphError):
+            list(source._hydrate_documents(urns))
+
+        # One batch call + one retry per URN in that batch — nothing beyond it.
+        assert source.graph.execute_graphql.call_count == 1 + 100
+
+    def test_hydration_matches_entities_by_urn_not_position(self, ctx, config):
+        # GMS returning fewer entities than requested URNs must not shift content
+        # onto the wrong URN, and the unresolved URNs must be counted as orphans
+        # rather than silently dropped off the end of a positional zip.
         source = self._make_source(ctx, config)
         source.graph.execute_graphql.return_value = {
-            "entities": [self._native_notion_doc("urn:li:document:a")]
+            "entities": [self._native_notion_doc("urn:li:document:b")]
         }
 
         hydrated = list(
             source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
         )
 
-        assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:b"]
+        assert source.report.num_documents_skipped_orphaned == 1
+
+    def test_empty_entity_response_is_fatal(self, ctx, config):
+        # An empty entity list for a non-empty batch is a serving problem, not
+        # 100 orphans: fail rather than book the whole batch as orphaned.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {"entities": []}
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._hydrate_documents(["urn:li:document:a"]))
+
+        assert source.report.num_documents_skipped_orphaned == 0
         assert any(
-            "entity count" in (w.title or "").lower() for w in source.report.warnings
+            "no entities" in (f.title or "").lower() for f in source.report.failures
         )
+
+    def test_missing_scroll_payload_is_fatal(self, ctx, config):
+        # scrollAcrossEntities is nullable and a null payload carries no GraphQL
+        # `errors`, so it arrives as an ordinary response. Enumeration is broken:
+        # the run must fail, not quietly embed whatever it managed to enumerate.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {"scrollAcrossEntities": None}
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._fetch_documents_graphql())
+
+        assert any(
+            "no scroll payload" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_truncated_scroll_page_fails_the_run(self, ctx, config):
+        # A full page with no continuation cursor means enumeration stopped
+        # early. The page is still usable, so keep its documents, but the run
+        # must not report success over a silent gap.
+        source = self._make_source(ctx, config)
+        page_size = source.config.scroll_batch_size
+        urns = [f"urn:li:document:doc-{i}" for i in range(page_size)]
+        source.graph.execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": u}} for u in urns],
+            }
+        }
+
+        enumerated = list(source._scroll_document_urns())
+
+        assert len(enumerated) == page_size
+        assert any(
+            "without a scroll cursor" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_enumeration_and_hydration_interleave(self, ctx, config):
+        # Regression guard for streaming: URNs must not be materialized up front.
+        # Hydration of the first window has to happen before the last scroll page
+        # is requested, so memory stays bounded by the hydrate batch size.
+        source = self._make_source(ctx, config)
+        pages = [
+            [f"urn:li:document:p{page}-{i}" for i in range(150)] for page in range(2)
+        ]
+        calls: list[str] = []
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                page = len([c for c in calls if c == "scroll"])
+                calls.append("scroll")
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1" if page == 0 else None,
+                        "searchResults": [{"entity": {"urn": u}} for u in pages[page]],
+                    }
+                }
+            calls.append("hydrate")
+            return {"entities": [self._native_notion_doc(u) for u in variables["urns"]]}
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        hydrated = list(source._hydrate_documents(source._scroll_document_urns()))
+
+        assert len(hydrated) == 300
+        # First page (150 URNs) fills a 100-URN window, which is hydrated before
+        # the second scroll page is fetched.
+        assert calls[:2] == ["scroll", "hydrate"]
+        assert "scroll" in calls[2:]
