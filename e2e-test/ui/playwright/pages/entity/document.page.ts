@@ -39,6 +39,8 @@ export class DocumentPage extends BasePage {
   readonly getDeleteConfirmDialog: () => Locator;
   readonly getParentBreadcrumb: (title: string) => Locator;
   readonly getMoveSearchResultByText: (text: string) => Locator;
+  readonly getDataHubSectionExpandAll: () => Locator;
+  readonly getTreeItemExpandButton: (urn: string) => Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -76,6 +78,9 @@ export class DocumentPage extends BasePage {
     this.getDeleteConfirmDialog = () => page.getByText('Delete Document');
     this.getParentBreadcrumb = (title: string) => page.getByTestId('parent-breadcrumb-link').filter({ hasText: title });
     this.getMoveSearchResultByText = (text: string) => this.movePopover.getByText(text, { exact: false });
+    this.getDataHubSectionExpandAll = () => page.getByTestId('document-tree-datahub-section-expand-all');
+    this.getTreeItemExpandButton = (urn: string) =>
+      this.getTreeItem(urn).getByRole('button', { name: /^(expand|collapse)$/i });
   }
 
   // ── Navigation and Setup ──────────────────────────────────────────────────
@@ -335,5 +340,90 @@ export class DocumentPage extends BasePage {
     await this.expectMoveSuccessMessage();
 
     return { parentUrn, childUrn };
+  }
+
+  /**
+   * Create a child under `parentUrn` via the row (+) control — avoids move-popover
+   * search / ES lag when we only need a nested pair for expand tests.
+   */
+  async createChildUnderParentViaPlus(parentUrn: string, childTitle: string): Promise<string> {
+    await this.navigateToDocument(parentUrn);
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const parentRow = this.getTreeItem(parentUrn);
+    await expect(parentRow).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await parentRow.scrollIntoViewIfNeeded();
+    await parentRow.hover();
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+
+    const createChildButton = parentRow.getByTestId('document-tree-create-child-button');
+    await expect(createChildButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await createChildButton.click();
+
+    await expect
+      .poll(() => this.extractDocumentUrnFromUrl(this.page.url()), { timeout: TIMEOUTS.LONG })
+      .not.toBe(parentUrn);
+
+    const childUrn = this.extractDocumentUrnFromUrl(this.page.url());
+    expect(childUrn).toBeTruthy();
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.setDocumentTitle(childTitle);
+    return childUrn;
+  }
+
+  /** Hover the row so the Notion-style caret is clickable, then toggle expand. */
+  async toggleTreeItemExpand(urn: string): Promise<void> {
+    const treeItem = this.getTreeItem(urn);
+    await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await treeItem.scrollIntoViewIfNeeded();
+    await treeItem.hover();
+    const expandButton = this.getTreeItemExpandButton(urn);
+    await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await expandButton.click();
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+  }
+
+  async expectTreeItemExpanded(urn: string): Promise<void> {
+    await this.getTreeItem(urn).hover();
+    await expect(this.getTreeItemExpandButton(urn)).toHaveAttribute('aria-expanded', 'true', {
+      timeout: TIMEOUTS.LONG,
+    });
+  }
+
+  async expectTreeItemCollapsed(urn: string): Promise<void> {
+    await this.getTreeItem(urn).hover();
+    await expect(this.getTreeItemExpandButton(urn)).toHaveAttribute('aria-expanded', 'false', {
+      timeout: TIMEOUTS.LONG,
+    });
+  }
+
+  async clickDataHubSectionExpandAll(): Promise<void> {
+    const button = this.getDataHubSectionExpandAll();
+    await expect(button).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+    await button.click();
+    // Expand-all can take a while on large libraries; wait for the control to unlock.
+    await expect(button).toBeEnabled({ timeout: 60_000 });
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+  }
+
+  /** If the section is already expanded, collapse-all first so expand-all has work to do. */
+  async ensureDataHubSectionCollapsed(): Promise<void> {
+    const button = this.getDataHubSectionExpandAll();
+    await expect(button).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+    const label = (await button.getAttribute('aria-label')) || '';
+    if (/collapse/i.test(label)) {
+      await button.click();
+      await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+      await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    }
+  }
+
+  async expectTreeItemVisibleInSidebar(urn: string): Promise<void> {
+    await expect(this.getTreeItem(urn)).toBeVisible({ timeout: TIMEOUTS.LONG });
+  }
+
+  async expectTreeItemHiddenInSidebar(urn: string): Promise<void> {
+    await expect(this.getTreeItem(urn)).toBeHidden({ timeout: TIMEOUTS.LONG });
   }
 }

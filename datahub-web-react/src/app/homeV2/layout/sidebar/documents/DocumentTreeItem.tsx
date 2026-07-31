@@ -195,6 +195,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 {!hideCreate && (
                     <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                         <ActionButton
+                            data-testid="document-tree-create-child-button"
                             icon={{ icon: Plus, color: 'icon', size: 'md' }}
                             variant="text"
                             size="sm"
