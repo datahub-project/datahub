@@ -29,6 +29,12 @@ public class EbeanConfiguration {
   private String batchGetMethod;
   private Integer queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
 
+  // Postgres-only, opt-in: serialize concurrent writes/deletes per entity via a transaction-scoped
+  // pg_advisory_xact_lock before acquiring row locks, to prevent lock-order deadlocks between a
+  // multi-row FOR UPDATE write and a hard-delete. No-op on non-Postgres engines and when disabled
+  // (the default).
+  private boolean entityWriteAdvisoryLockEnabled;
+
   private ReadPoolConfiguration readPool;
 
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();

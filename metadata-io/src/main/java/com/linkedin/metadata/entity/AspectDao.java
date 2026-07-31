@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -302,6 +303,17 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
+   * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
+   * lock per urn when enabled. Used to prevent lock-order deadlocks between multi-row writes (e.g.
+   * logical-model linking) and concurrent hard-deletes touching the same rows.
+   */
+  default void lockUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    // no-op by default
+  }
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
