@@ -51,8 +51,6 @@ export type HierarchicalBrowseTreeRowProps = {
     isLoadingChildren?: boolean;
     'data-testid'?: string;
     className?: string;
-    onMouseEnter?: () => void;
-    onMouseLeave?: () => void;
 };
 
 const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalBrowseTreeRowProps>(
@@ -75,8 +73,6 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             isLoadingChildren = false,
             'data-testid': dataTestId,
             className,
-            onMouseEnter,
-            onMouseLeave,
         },
         ref,
     ) => {
@@ -145,8 +141,6 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 $isSelected={isSelected}
                 $isCollapsed={isCollapsed}
                 onClick={onSelect}
-                onMouseEnter={onMouseEnter}
-                onMouseLeave={onMouseLeave}
             >
                 <TreeRowLeftContent $isCollapsed={isCollapsed}>
                     {isCollapsed ? (

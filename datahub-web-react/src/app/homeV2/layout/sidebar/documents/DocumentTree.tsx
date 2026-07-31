@@ -190,7 +190,6 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         title={node.title}
                         level={level}
                         hasChildren={node.hasChildren}
-                        childCount={node.children?.length ?? node.childCount}
                         isExpanded={isExpanded}
                         isSelected={isSelected}
                         isLoading={isLoading && isExpanded}

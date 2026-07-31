@@ -107,9 +107,18 @@ export const TreeRowCount = styled.div`
     flex-shrink: 0;
 `;
 
-/** Row hover: reveal leading caret and child count. */
+/**
+ * Row actions (Documents ⋮ / +) — always mounted, CSS-revealed on hover so large
+ * trees don’t pay React setState per row. Pin with --pinned while a menu or dialog
+ * is open (mouse may leave the row into a portal).
+ */
+export const TREE_ROW_HOVER_ACTIONS_CLASS = 'tree-row-hover-actions';
+export const TREE_ROW_HOVER_ACTIONS_PINNED_CLASS = 'tree-row-hover-actions--pinned';
+
+/** Row hover: reveal leading caret, child count, and optional actions. */
 export const treeRowHoverChrome = css`
-    &:hover ${TreeRowLeadingExpand}:not([aria-expanded='true']) {
+    &:hover ${TreeRowLeadingExpand}:not([aria-expanded='true']),
+    &:focus-within ${TreeRowLeadingExpand}:not([aria-expanded='true']) {
         .tree-row-entity-icon {
             display: none;
         }
@@ -119,12 +128,32 @@ export const treeRowHoverChrome = css`
         }
     }
 
-    &:hover ${TreeRowCount} {
+    &:hover
+        ${TreeRowCount},
+        &:focus-within
+        ${TreeRowCount},
+        &:has(.${TREE_ROW_HOVER_ACTIONS_PINNED_CLASS})
+        ${TreeRowCount} {
         display: flex;
     }
 
-    /* Count-only right column: don't leave an empty margin at rest. */
-    &:not(:hover) ${TreeRowRightContent}:has(> ${TreeRowCount}:only-child) {
+    .${TREE_ROW_HOVER_ACTIONS_CLASS} {
+        display: none;
+        align-items: center;
+        gap: 4px;
+    }
+
+    &:hover
+        .${TREE_ROW_HOVER_ACTIONS_CLASS},
+        &:focus-within
+        .${TREE_ROW_HOVER_ACTIONS_CLASS},
+        .${TREE_ROW_HOVER_ACTIONS_PINNED_CLASS} {
+        display: flex;
+    }
+
+    /* Collapse right column when it only holds hover-revealed chrome. */
+    &:not(:hover):not(:focus-within):not(:has(.${TREE_ROW_HOVER_ACTIONS_PINNED_CLASS}))
+        ${TreeRowRightContent}:not(:has(> :not(${TreeRowCount}):not(.${TREE_ROW_HOVER_ACTIONS_CLASS}))) {
         display: none;
     }
 `;

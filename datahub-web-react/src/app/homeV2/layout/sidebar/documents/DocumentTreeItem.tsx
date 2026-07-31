@@ -9,6 +9,10 @@ import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/Docume
 import Loading from '@app/shared/Loading';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import {
+    TREE_ROW_HOVER_ACTIONS_CLASS,
+    TREE_ROW_HOVER_ACTIONS_PINNED_CLASS,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { DataPlatform } from '@types';
@@ -34,6 +38,9 @@ const IconWrapper = styled.div<{ $isSelected: boolean; $useGradientFill: boolean
 `;
 
 const ActionButton = styled(Button)`
+    padding: 2px !important;
+    min-width: 0;
+
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
@@ -47,9 +54,15 @@ const CheckboxSlot = styled.div`
 `;
 
 const ActionsWrap = styled.div`
-    display: flex;
+    /* Visibility is owned by treeRowHoverChrome (.tree-row-hover-actions). */
     align-items: center;
     gap: 4px;
+
+    /* Tighten ⋮ / + hit padding so the pair reads as one control cluster. */
+    && button {
+        padding: 2px;
+        min-width: 0;
+    }
 `;
 
 interface DocumentTreeItemProps {
@@ -59,7 +72,6 @@ interface DocumentTreeItemProps {
     hasChildren: boolean;
     isExpanded: boolean;
     isSelected: boolean;
-    childCount?: number;
     isLoading?: boolean;
     isUnpublished?: boolean;
     isExternal?: boolean;
@@ -81,7 +93,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hasChildren,
     isExpanded,
     isSelected,
-    childCount,
     isLoading,
     isUnpublished = false,
     isExternal = false,
@@ -96,7 +107,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     multiSelect = false,
 }) => {
     const { t } = useTranslation('home.v2');
-    const [isHovered, setIsHovered] = useState(false);
+    // Pin ⋮/+ visible while a portaled menu/dialog is open (mouse leaves the row).
     const [forceShowActions, setForceShowActions] = useState(false);
     const rowRef = useRef<HTMLDivElement>(null);
     const didScrollForSelectionRef = useRef(false);
@@ -124,9 +135,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         onClick();
     };
 
-    const showActions = !multiSelect && !hideActions && (isHovered || forceShowActions);
-    // Keep the count mounted while actions show so the right edge doesn't jump on hover.
-    const showCount = !multiSelect && hasChildren && !isExpanded && childCount != null && childCount > 0;
+    const mountActions = !multiSelect && !hideActions && (!hideActionsMenu || !hideCreate);
 
     const restingIcon = (() => {
         if (isLoading) {
@@ -164,9 +173,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 />
             </CheckboxSlot>
         );
-    } else if (showActions) {
+    } else if (mountActions) {
         trailing = (
-            <ActionsWrap className="tree-item-actions">
+            <ActionsWrap
+                className={[
+                    'tree-item-actions',
+                    TREE_ROW_HOVER_ACTIONS_CLASS,
+                    forceShowActions ? TREE_ROW_HOVER_ACTIONS_PINNED_CLASS : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
                 {!hideActionsMenu && (
                     <DocumentActionsMenu
                         documentUrn={urn}
@@ -178,8 +195,9 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 {!hideCreate && (
                     <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                         <ActionButton
-                            icon={{ icon: Plus, color: 'icon' }}
+                            icon={{ icon: Plus, color: 'icon', size: 'md' }}
                             variant="text"
+                            size="sm"
                             onClick={handleAddChildClick}
                         />
                     </Tooltip>
@@ -197,8 +215,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             isSelected={isSelected}
             hasChildren={hasChildren}
             isExpanded={isExpanded}
-            count={showCount ? childCount : undefined}
-            countReveal="hover"
             icon={restingIcon}
             label={title}
             labelTitle={title}
@@ -206,8 +222,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             onSelect={() => handleItemClick()}
             onToggleExpand={onToggleExpand}
             isLoadingChildren={!!isLoading}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
         />
     );
 };
