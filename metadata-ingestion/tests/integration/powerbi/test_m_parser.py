@@ -1250,6 +1250,9 @@ def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
         "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     }
     assert reporter.m_query_external_query_resolved == 1
+    # Native tables are lost while federated lineage survives, so the partial loss must
+    # surface as a warning rather than the benign pure-native info level.
+    assert len(reporter.warnings) >= 1
 
 
 @pytest.mark.integration
