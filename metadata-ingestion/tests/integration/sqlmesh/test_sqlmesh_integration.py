@@ -20,13 +20,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 import time_machine
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import SqlmeshSource
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    SiblingsClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
-
-# Register source in case pyproject.toml entry points haven't been regenerated yet
-source_registry.register("sqlmesh", SqlmeshSource, override=True)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -42,7 +45,7 @@ GOLDEN_FILE = INTEGRATION_DIR / "sqlmesh_mces_golden.json"
 
 def _make_col_type(name: str) -> MagicMock:
     t = MagicMock()
-    t.__str__ = lambda self: name
+    t.__str__ = lambda self: name  # type: ignore[method-assign, misc, assignment]
     return t
 
 
@@ -65,12 +68,13 @@ def _make_model(
     model.owner = None
     model.audits = []
     model.cron = None
+    model.interval_unit = None
     model.start = None
     model.time_column = None
     model.partitioned_by = []
     model.grains = []
     k = MagicMock()
-    k.__str__ = lambda self: kind
+    k.__str__ = lambda self: kind  # type: ignore[method-assign, misc, assignment]
     k.model_kind_name = kind
     k.is_embedded = False
     model.kind = k
@@ -81,7 +85,7 @@ def _make_snapshot(model_name: str, physical_name: str) -> MagicMock:
     snapshot = MagicMock()
     snapshot.name = model_name
     phys = MagicMock()
-    phys.__str__ = lambda self: physical_name
+    phys.__str__ = lambda self: physical_name  # type: ignore[method-assign, misc, assignment]
     snapshot.table_name = MagicMock(return_value=phys)
     return snapshot
 
@@ -206,15 +210,6 @@ def test_sqlmesh_ingestion_golden_file(
 @time_machine.travel(FROZEN_TIME)
 def test_sqlmesh_event_count_and_coverage() -> None:
     """All three entity types and key aspects must appear in the output."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
-    from datahub.ingestion.source.sqlmesh.sqlmesh_source import SqlmeshSource
-    from datahub.metadata.schema_classes import (
-        DataPlatformInstanceClass,
-        SiblingsClass,
-        UpstreamLineageClass,
-    )
-
     config = SqlmeshSourceConfig.model_validate(
         {
             "project_path": "/fake/proj",
@@ -232,7 +227,7 @@ def test_sqlmesh_event_count_and_coverage() -> None:
         workunits = list(source.get_workunits_internal())
 
     aspect_types = {
-        type(wu.metadata.aspect).__name__
+        type(getattr(wu.metadata, "aspect", None)).__name__
         for wu in workunits
         if getattr(wu.metadata, "aspect", None) is not None
     }

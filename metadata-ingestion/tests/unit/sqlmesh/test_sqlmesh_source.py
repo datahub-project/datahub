@@ -1,18 +1,49 @@
+import json as _json
 import os
+import pathlib
 import sys
+import time
 import types
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
+from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
+    SqlmeshSourceConfig,
+    _read_tobiko_cloud_token_file,
+    _tobiko_token_file_cache,
+)
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+    _TOBIKO_CONVERT_PATCH_SENTINEL,
+    _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
     SQLMESH_PLATFORM,
     SqlmeshSource,
+    _build_count_query,
+    _EffectiveProjectConfig,
+    _install_enterprise_config_compat_patches,
+    _install_tobiko_local_state_fallback_shim,
+    _scoped_tobiko_cloud_env,
 )
-from datahub.metadata.schema_classes import SiblingsClass, UpstreamLineageClass
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionStdOperatorClass,
+    AssertionTypeClass,
+    CalendarIntervalClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    FreshnessAssertionScheduleTypeClass,
+    IncidentInfoClass,
+    SiblingsClass,
+    UpstreamLineageClass,
+    VolumeAssertionTypeClass,
+)
 from datahub.metadata.urns import TagUrn
 
 WAREHOUSE_PLATFORM = "snowflake"
@@ -49,7 +80,7 @@ def _make_mock_model(
     model.tags = tags or []
     model.owner = owner
     kind = MagicMock()
-    kind.__str__ = lambda s: kind_name
+    kind.__str__ = lambda s: kind_name  # type: ignore[method-assign, misc, assignment]
     kind.model_kind_name = kind_name
     kind.is_embedded = is_embedded
     model.kind = kind
@@ -76,7 +107,7 @@ def _make_mock_snapshot(
     snapshot = MagicMock()
     snapshot.name = model_name
     physical_table = MagicMock()
-    physical_table.__str__ = lambda s: physical_name
+    physical_table.__str__ = lambda s: physical_name  # type: ignore[method-assign, misc, assignment]
     snapshot.table_name = MagicMock(return_value=physical_table)
     return snapshot
 
@@ -182,8 +213,6 @@ class TestMultiGateway:
         model = _make_mock_model()
         workunits = _run_project(source, {"star.dim_developer": model}, {})
 
-        from datahub.metadata.schema_classes import SiblingsClass
-
         siblings = next(
             wu.metadata.aspect
             for wu in workunits
@@ -196,7 +225,6 @@ class TestMultiGateway:
         """Two models on different gateways get sibling URNs on different
         warehouse platforms. The default-gateway model uses the auto-detected
         Snowflake platform; the bigquery-gateway model uses bigquery."""
-        from datahub.metadata.schema_classes import SiblingsClass
 
         source = _make_source({"target_platform": "snowflake"})
         model_snow = _make_mock_model("star.dim_developer")
@@ -232,7 +260,6 @@ class TestMultiGateway:
     def test_gateway_overrides_apply_platform_instance(self):
         """User-supplied target_platform_instance on a non-default gateway
         flows through to the warehouse URN."""
-        from datahub.metadata.schema_classes import SiblingsClass
 
         source = _make_source(
             {
@@ -268,7 +295,6 @@ class TestMultiGateway:
     def test_default_catalog_per_gateway_used_when_no_override(self):
         """When the user doesn't override default_catalog for a non-default
         gateway, we fall back to ctx.default_catalog_per_gateway."""
-        from datahub.metadata.schema_classes import SiblingsClass
 
         source = _make_source({"target_platform": "snowflake"})
         # Bare two-part name — needs catalog prepending to be 3-part.
@@ -386,7 +412,6 @@ class TestSiblingEmission:
 
     def test_physical_table_in_custom_properties(self):
         """Physical table name stored as custom property, not as an entity."""
-        from datahub.metadata.schema_classes import DatasetPropertiesClass
 
         source = _make_source()
         model = _make_mock_model()
@@ -415,7 +440,7 @@ class TestAssertionTarget:
     dbt's model→table mapping. Siblings bridge logical → physical in the UI.
     """
 
-    def _assertion_target_urn(self, info) -> str:
+    def _assertion_target_urn(self, info: AssertionInfoClass) -> str:
         """Return whichever sub-aspect's URN this assertion attaches to.
 
         After the SQL-typed unknown-audit change, AssertionInfo carries
@@ -433,7 +458,6 @@ class TestAssertionTarget:
         raise AssertionError(f"Assertion has no targeted sub-aspect: {info}")
 
     def test_assertion_dataset_matches_sqlmesh_urn(self):
-        from datahub.metadata.schema_classes import AssertionInfoClass
 
         source = _make_source()
         model = _make_mock_model()
@@ -459,7 +483,6 @@ class TestAssertionTarget:
     def test_embedded_model_assertion_targets_sqlmesh_urn(self):
         """Embedded sqlmesh models don't materialize to the warehouse, but the
         assertion placement rule is the same as for non-embedded: SQLMesh URN."""
-        from datahub.metadata.schema_classes import AssertionInfoClass
 
         source = _make_source()
         model = _make_mock_model(kind_name="EMBEDDED", is_embedded=True)
@@ -480,10 +503,6 @@ class TestAssertionTarget:
         """Custom audits land as AssertionTypeClass.SQL with SqlAssertionInfo,
         not as DATASET + _NATIVE_. The statement carries the audit name as a
         comment so the Validation tab links back to the source definition."""
-        from datahub.metadata.schema_classes import (
-            AssertionInfoClass,
-            AssertionTypeClass,
-        )
 
         source = _make_source()
         model = _make_mock_model()
@@ -518,10 +537,6 @@ class TestFreshnessAssertions:
     """
 
     def _freshness_infos(self, workunits):
-        from datahub.metadata.schema_classes import (
-            AssertionInfoClass,
-            AssertionTypeClass,
-        )
 
         return [
             wu.metadata.aspect
@@ -544,10 +559,6 @@ class TestFreshnessAssertions:
 
     def test_sla_derived_from_interval_unit_hour(self):
         """Hour-cadence models get a 3-hour SLA window."""
-        from datahub.metadata.schema_classes import (
-            CalendarIntervalClass,
-            FreshnessAssertionScheduleTypeClass,
-        )
 
         source = _make_source()
         model = _make_mock_model()
@@ -564,7 +575,6 @@ class TestFreshnessAssertions:
 
     def test_sla_derived_from_interval_unit_day(self):
         """Daily-cadence models get a 36-hour SLA window (1.5 days)."""
-        from datahub.metadata.schema_classes import CalendarIntervalClass
 
         source = _make_source()
         model = _make_mock_model()
@@ -622,10 +632,6 @@ class TestVolumeAssertions:
     """
 
     def _volume_infos(self, workunits):
-        from datahub.metadata.schema_classes import (
-            AssertionInfoClass,
-            AssertionTypeClass,
-        )
 
         return [
             wu.metadata.aspect
@@ -635,10 +641,6 @@ class TestVolumeAssertions:
         ]
 
     def test_volume_assertion_emitted_per_model(self):
-        from datahub.metadata.schema_classes import (
-            AssertionStdOperatorClass,
-            VolumeAssertionTypeClass,
-        )
 
         source = _make_source()
         model = _make_mock_model()
@@ -696,7 +698,6 @@ class TestSmartAnomalyDetection:
     """
 
     def _all_assertion_infos(self, workunits):
-        from datahub.metadata.schema_classes import AssertionInfoClass
 
         return [
             wu.metadata.aspect
@@ -740,9 +741,7 @@ class TestIncidentOnFailure:
     the failing dataset, sourced from the corresponding assertion URN.
     """
 
-    def _write_results(self, tmp_path, results: list) -> str:
-        import json as _json
-        from pathlib import Path
+    def _write_results(self, tmp_path: Path, results: list) -> str:
 
         f = Path(tmp_path) / "audit_results.json"
         f.write_text(
@@ -758,10 +757,10 @@ class TestIncidentOnFailure:
 
     def _run_project_then_audit(
         self,
-        source,
-        model_dict,
-        results,
-        tmp_path,
+        source: SqlmeshSource,
+        model_dict: dict,
+        results: list,
+        tmp_path: Path,
     ) -> list:
         # _emit_audit_run_events requires _resolved_effective populated, which
         # _ingest_project does as a side effect. Consume the workunits but
@@ -771,7 +770,6 @@ class TestIncidentOnFailure:
         return list(source._emit_audit_run_events(path))
 
     def test_incident_emitted_for_failing_audit(self, tmp_path):
-        from datahub.metadata.schema_classes import IncidentInfoClass
 
         source = _make_source()
         model = _make_mock_model("star.dim_developer")
@@ -809,7 +807,6 @@ class TestIncidentOnFailure:
         assert "7" in info.title
 
     def test_no_incident_for_passing_audit(self, tmp_path):
-        from datahub.metadata.schema_classes import IncidentInfoClass
 
         source = _make_source()
         model = _make_mock_model("star.dim_developer")
@@ -837,7 +834,6 @@ class TestIncidentOnFailure:
         assert incidents == []
 
     def test_disable_via_config(self, tmp_path):
-        from datahub.metadata.schema_classes import IncidentInfoClass
 
         source = _make_source({"emit_incidents_on_failure": False})
         model = _make_mock_model("star.dim_developer")
@@ -963,11 +959,6 @@ class TestColumnLineage:
 
     def test_column_lineage_emitted_when_enabled(self):
         """FineGrainedLineage from _build_column_lineage appears in output."""
-        from datahub.metadata.schema_classes import (
-            FineGrainedLineageClass,
-            FineGrainedLineageDownstreamTypeClass,
-            FineGrainedLineageUpstreamTypeClass,
-        )
 
         source = _make_source()
         upstream = _make_mock_model("star.base_developer")
@@ -1188,9 +1179,8 @@ class TestPlatformDetection:
         assert not any("databricks" in u for u in sibling_urns)
 
 
-def _effective(source: SqlmeshSource) -> object:
+def _effective(source: SqlmeshSource) -> _EffectiveProjectConfig:
     """Return the resolved effective config."""
-    from datahub.ingestion.source.sqlmesh.sqlmesh_source import _EffectiveProjectConfig
 
     return _EffectiveProjectConfig(
         project_path=source.config.project_path,
@@ -1223,7 +1213,7 @@ class TestNormalization:
 
         snapshot = MagicMock()
         physical = MagicMock()
-        physical.__str__ = lambda s: "db.sqlmesh__star.star__model__123"
+        physical.__str__ = lambda s: "db.sqlmesh__star.star__model__123"  # type: ignore[method-assign, misc, assignment]
 
         def table_name_side_effect(**kwargs):
             if "ignore_mapping" in kwargs:
@@ -1308,9 +1298,6 @@ class TestBuildCountQuery:
     """
 
     def test_three_part_name_hyphenated_catalog_duckdb(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         # 'sushi-example' is the canonical pathological case — bare splice
         # gives DuckDB `sushi - example` (a subtraction).
@@ -1324,9 +1311,6 @@ class TestBuildCountQuery:
         assert sql.startswith("SELECT COUNT(*)")
 
     def test_three_part_name_snowflake_uppercase(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         sql = _build_count_query(
             "ANALYTICS.SQLMESH__STAR.STAR__DIM_DEVELOPER__123",
@@ -1338,9 +1322,6 @@ class TestBuildCountQuery:
         assert '"STAR__DIM_DEVELOPER__123"' in sql
 
     def test_three_part_name_bigquery_uses_backticks(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         sql = _build_count_query(
             "my-gcp-project.sqlmesh__schema.dim_user__abc",
@@ -1352,9 +1333,6 @@ class TestBuildCountQuery:
         assert "`dim_user__abc`" in sql
 
     def test_two_part_name(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         sql = _build_count_query("schema.table", dialect="duckdb")
         assert '"schema"' in sql
@@ -1362,18 +1340,12 @@ class TestBuildCountQuery:
         assert "FROM " in sql
 
     def test_one_part_name(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         sql = _build_count_query("standalone_table", dialect="duckdb")
         assert '"standalone_table"' in sql
 
     def test_reserved_word_table_name_quoted(self):
         """SQL reserved words in identifiers must be quoted to be usable."""
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _build_count_query,
-        )
 
         sql = _build_count_query("catalog.schema.order", dialect="duckdb")
         # "order" is a SQL reserved word; quoting prevents parser confusion
@@ -1385,7 +1357,6 @@ class TestSchemaEmission:
         source = _make_source({"include_schema": False})
         model = _make_mock_model()
         workunits = _run_project(source, {"star.dim_developer": model}, {})
-        from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 
         schema_aspects = [
             wu
@@ -1398,7 +1369,6 @@ class TestSchemaEmission:
         source = _make_source()
         model = _make_mock_model(columns={})
         workunits = _run_project(source, {"star.dim_developer": model}, {})
-        from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 
         schema_aspects = [
             wu
@@ -1451,10 +1421,7 @@ class TestEnvironmentSuffix:
 
     def _make_effective(
         self, env: str, suffix_target: str, catalog_mapping: dict | None = None
-    ):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _EffectiveProjectConfig,
-        )
+    ) -> _EffectiveProjectConfig:
 
         return _EffectiveProjectConfig(
             project_path="/proj",
@@ -1529,7 +1496,7 @@ class TestEnvironmentSuffix:
             workunits = list(source2._ingest_project())
 
         sibling_urns = [
-            wu.metadata.entityUrn
+            str(getattr(wu.metadata, "entityUrn", ""))
             for wu in workunits
             if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
         ]
@@ -1585,19 +1552,100 @@ class TestTagAndOwnerExtraction:
         ) == make_user_urn("jane")
 
 
-class TestConfigValidation:
-    def test_write_semantics_normalized_to_uppercase(self):
-        cfg = SqlmeshSourceConfig.model_validate(
-            {"project_path": "/p", "write_semantics": "override"}
+class TestStaleFingerprintDetection:
+    def _custom_props(self, source: SqlmeshSource, snapshot: MagicMock) -> dict:
+        model = _make_mock_model()
+        workunits = _run_project(
+            source, {"star.dim_developer": model}, {"star.dim_developer": snapshot}
         )
-        assert cfg.write_semantics == "OVERRIDE"
+        props_aspects = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+        ]
+        assert len(props_aspects) == 1
+        return dict(props_aspects[0].customProperties or {})
 
-    def test_write_semantics_invalid_rejected(self):
-        with pytest.raises(ValueError, match="PATCH.*OVERRIDE"):
-            SqlmeshSourceConfig.model_validate(
-                {"project_path": "/p", "write_semantics": "MERGE"}
+    def test_stale_fingerprint_flagged_when_snapshot_old(self):
+        snapshot = _make_mock_snapshot()
+        snapshot.updated_ts = 1_000  # epoch millis: 1970 — ancient
+        source = _make_source({"detect_stale_fingerprints": True})
+        props = self._custom_props(source, snapshot)
+        assert props.get("sqlmesh.fingerprint_stale") == "true"
+
+    def test_fresh_fingerprint_not_flagged(self):
+        snapshot = _make_mock_snapshot()
+        snapshot.updated_ts = int(time.time() * 1000)
+        source = _make_source({"detect_stale_fingerprints": True})
+        props = self._custom_props(source, snapshot)
+        assert "sqlmesh.fingerprint_stale" not in props
+
+    def test_stale_fingerprint_not_flagged_when_disabled(self):
+        snapshot = _make_mock_snapshot()
+        snapshot.updated_ts = 1_000
+        source = _make_source({})  # detect_stale_fingerprints defaults to False
+        props = self._custom_props(source, snapshot)
+        assert "sqlmesh.fingerprint_stale" not in props
+
+    def test_missing_snapshot_timestamp_treated_as_unknown_not_stale(self):
+        snapshot = _make_mock_snapshot()
+        snapshot.updated_ts = 0
+        source = _make_source({"detect_stale_fingerprints": True})
+        props = self._custom_props(source, snapshot)
+        assert "sqlmesh.fingerprint_stale" not in props
+
+
+class TestMetadataTestEmission:
+    def _test_infos(self, source: SqlmeshSource) -> dict:
+        with patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+            return_value=_make_mock_context(
+                {"star.dim_developer": _make_mock_model()}, {}
+            ),
+        ):
+            workunits = list(source.get_workunits_internal())
+        return {
+            str(getattr(wu.metadata, "entityUrn", "")): getattr(
+                wu.metadata, "aspect", None
             )
+            for wu in workunits
+            if str(getattr(wu.metadata, "entityUrn", "")).startswith("urn:li:test:")
+        }
 
+    def test_emits_documentation_and_ownership_tests_with_valid_dsl(self):
+        source = _make_source({"sqlmesh_platform_instance": "proj1"})
+        infos = self._test_infos(source)
+        assert len(infos) == 2
+        by_name = {info.name: info for info in infos.values()}
+        assert any("documentation" in n for n in by_name)
+        assert any("owners" in n for n in by_name)
+        for info in infos.values():
+            definition = _json.loads(info.definition.json)
+            # Scope: platform + instance conditions, dataset type
+            assert definition["on"]["types"] == ["dataset"]
+            props = [c["property"] for c in definition["on"]["conditions"]["and"]]
+            assert "dataPlatformInstance.platform" in props
+            assert "dataPlatformInstance.instance" in props
+            assert "rules" in definition
+            assert "proj1" in info.name or "SQLMesh" in info.name
+
+    def test_urns_stable_across_runs_and_distinct_per_instance(self):
+        urns_a1 = set(
+            self._test_infos(_make_source({"sqlmesh_platform_instance": "a"}))
+        )
+        urns_a2 = set(
+            self._test_infos(_make_source({"sqlmesh_platform_instance": "a"}))
+        )
+        urns_b = set(self._test_infos(_make_source({"sqlmesh_platform_instance": "b"})))
+        assert urns_a1 == urns_a2
+        assert urns_a1.isdisjoint(urns_b)
+
+    def test_no_tests_emitted_when_disabled(self):
+        source = _make_source({"emit_metadata_tests": False})
+        assert self._test_infos(source) == {}
+
+
+class TestConfigValidation:
     def test_target_platform_sqlmesh_rejected(self):
         # Guards the common misconfiguration of pointing the warehouse platform
         # back at sqlmesh itself, which would break sibling URN stitching.
@@ -1618,7 +1666,9 @@ class TestConfigValidation:
 # ---------------------------------------------------------------------------
 
 
-def _install_fake_tobikodata(monkeypatch, error_message: str):
+def _install_fake_tobikodata(
+    monkeypatch: pytest.MonkeyPatch, error_message: str
+) -> Any:
     """Insert a tobikodata.sqlmesh_enterprise.config.scheduler stand-in into
     sys.modules whose RemoteCloudSchedulerConfig raises ConfigError on every
     state-sync call. The shim's contract is independent of tobikodata's real
@@ -1637,7 +1687,7 @@ def _install_fake_tobikodata(monkeypatch, error_message: str):
             raise ConfigError(error_message)
 
     scheduler_mod = types.ModuleType("tobikodata.sqlmesh_enterprise.config.scheduler")
-    scheduler_mod.RemoteCloudSchedulerConfig = RemoteCloudSchedulerConfig
+    scheduler_mod.RemoteCloudSchedulerConfig = RemoteCloudSchedulerConfig  # type: ignore[attr-defined]
     for name, mod in [
         ("tobikodata", types.ModuleType("tobikodata")),
         (
@@ -1687,10 +1737,6 @@ class TestTobikoCloudConfig:
     def test_resolve_file_token_caches_then_picks_up_rotation(self, tmp_path):
         """Mirrors the k8s projected secret rotation pattern: the file is
         re-read only after the TTL cache is invalidated."""
-        from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
-            _read_tobiko_cloud_token_file,
-            _tobiko_token_file_cache,
-        )
 
         _tobiko_token_file_cache.clear()
         token_file = tmp_path / "tok"
@@ -1729,16 +1775,11 @@ class TestTobikoCloudStateFallback:
         project folder, an EnterpriseConfig project that would normally fail
         on RemoteCloudSchedulerConfig.create_state_sync can still init.
         """
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_tobiko_local_state_fallback_shim,
-        )
 
         scheduler_cls = _install_fake_tobikodata(
             monkeypatch, "Cloud scheduler requires a cloud state connection"
         )
         _install_tobiko_local_state_fallback_shim()
-
-        import pathlib
 
         context = MagicMock()
         context.gateway = "gw"
@@ -1752,9 +1793,6 @@ class TestTobikoCloudStateFallback:
     def test_unrelated_config_errors_propagate(self, monkeypatch):
         """If a token IS configured (or some other failure occurs), we want
         the real error — never silently swallow."""
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_tobiko_local_state_fallback_shim,
-        )
 
         scheduler_cls = _install_fake_tobikodata(
             monkeypatch, "Some entirely different problem"
@@ -1769,9 +1807,6 @@ class TestTobikoCloudStateFallback:
             scheduler_cls().create_state_sync(MagicMock())
 
     def test_fingerprint_also_falls_back(self, monkeypatch):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_tobiko_local_state_fallback_shim,
-        )
 
         scheduler_cls = _install_fake_tobikodata(
             monkeypatch, "Cloud scheduler requires a cloud state connection"
@@ -1784,9 +1819,6 @@ class TestTobikoCloudStateFallback:
         assert fingerprint
 
     def test_shim_is_idempotent(self, monkeypatch):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_tobiko_local_state_fallback_shim,
-        )
 
         scheduler_cls = _install_fake_tobikodata(
             monkeypatch, "Cloud scheduler requires a cloud state connection"
@@ -1800,9 +1832,6 @@ class TestTobikoCloudStateFallback:
         for key in list(sys.modules):
             if key.startswith("tobikodata"):
                 monkeypatch.delitem(sys.modules, key, raising=False)
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_tobiko_local_state_fallback_shim,
-        )
 
         _install_tobiko_local_state_fallback_shim()  # must not raise
 
@@ -1814,11 +1843,6 @@ def _enterprise_compat_patches_isolated(monkeypatch):
     pytest.importorskip("sqlmesh.core.config.loader")
     import sqlmesh.core.config.loader as loader_mod
     from sqlmesh.core.config.connection import SnowflakeConnectionConfig
-
-    from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-        _TOBIKO_CONVERT_PATCH_SENTINEL,
-        _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
-    )
 
     # Save current state
     saved_convert = loader_mod.convert_config_type
@@ -1871,10 +1895,6 @@ class TestEnterpriseConfigCompatPatches:
 
         self._stub_tobikodata(_enterprise_compat_patches_isolated)
 
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_enterprise_config_compat_patches,
-        )
-
         _install_enterprise_config_compat_patches()
 
         # After the patch, the application field is no longer a strict Literal —
@@ -1891,10 +1911,6 @@ class TestEnterpriseConfigCompatPatches:
         from sqlmesh.core.config import Config
 
         self._stub_tobikodata(_enterprise_compat_patches_isolated)
-
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_enterprise_config_compat_patches,
-        )
 
         _install_enterprise_config_compat_patches()
 
@@ -1914,20 +1930,12 @@ class TestEnterpriseConfigCompatPatches:
             if key.startswith("tobikodata"):
                 monkeypatch.delitem(sys.modules, key, raising=False)
 
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_enterprise_config_compat_patches,
-        )
-
         _install_enterprise_config_compat_patches()  # must not raise
 
     def test_patches_are_idempotent(self, _enterprise_compat_patches_isolated):
         import sqlmesh.core.config.loader as loader_mod
 
         self._stub_tobikodata(_enterprise_compat_patches_isolated)
-
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _install_enterprise_config_compat_patches,
-        )
 
         _install_enterprise_config_compat_patches()
         wrapped_once = loader_mod.convert_config_type
@@ -1945,18 +1953,12 @@ class TestScopedTobikoCloudEnv:
     """
 
     def test_noop_when_neither_url_nor_token(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _scoped_tobiko_cloud_env,
-        )
 
         before = dict(os.environ)
         with _scoped_tobiko_cloud_env(token=None, gateway="gw", url=None):
             assert dict(os.environ) == before
 
     def test_noop_when_gateway_missing(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _scoped_tobiko_cloud_env,
-        )
 
         # Without a gateway there is no gateway-scoped env-var prefix to set,
         # so even a configured url/token must be a no-op.
@@ -1967,9 +1969,6 @@ class TestScopedTobikoCloudEnv:
             assert dict(os.environ) == before
 
     def test_sso_path_injects_url_without_token(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _scoped_tobiko_cloud_env,
-        )
 
         # SSO users configure a url but no static token. TYPE + URL must be
         # set (so tobikodata targets the cloud state store), while TOKEN must
@@ -1990,9 +1989,6 @@ class TestScopedTobikoCloudEnv:
         assert dict(os.environ) == snapshot
 
     def test_sets_and_restores_env_vars(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _scoped_tobiko_cloud_env,
-        )
 
         snapshot = dict(os.environ)
         with _scoped_tobiko_cloud_env(
@@ -2012,9 +2008,6 @@ class TestScopedTobikoCloudEnv:
         assert dict(os.environ) == snapshot
 
     def test_restores_env_on_exception(self):
-        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-            _scoped_tobiko_cloud_env,
-        )
 
         snapshot = dict(os.environ)
         with (

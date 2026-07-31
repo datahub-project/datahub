@@ -6,7 +6,7 @@ import os
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -71,16 +71,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SQLMESH_TO_DATAHUB_PLATFORM,
     SqlmeshSourceConfig,
     SqlmeshSourceReport,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -135,9 +131,13 @@ from datahub.metadata.schema_classes import (
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
     StatusClass,
+    TestDefinitionClass,
+    TestDefinitionTypeClass,
+    TestInfoClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Dataset
 from datahub.utilities.urns.tag_urn import TagUrn
 
@@ -557,11 +557,7 @@ class _EffectiveProjectConfig:
     # One of "schema" (default), "table", or "catalog".
     env_suffix_target: str = "schema"
     # Maps env name regex → catalog override (mutually exclusive with catalog suffix mode).
-    env_catalog_mapping: Dict[str, str] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.env_catalog_mapping is None:
-            self.env_catalog_mapping = {}
+    env_catalog_mapping: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -667,8 +663,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             env: PROD
     """
 
+    config: SqlmeshSourceConfig
+    report: SqlmeshSourceReport
+
     def __init__(self, config: SqlmeshSourceConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx)
+        super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
         self.report = SqlmeshSourceReport()
         self._platform_registered = False
@@ -708,20 +707,93 @@ class SqlmeshSource(StatefulIngestionSourceBase):
     def get_report(self) -> SqlmeshSourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        processors = super().get_workunit_processors()
-        processors.append(
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor
-        )
-        return processors
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_platform_registration()
         yield from self._ingest_project()
+        if self.config.emit_metadata_tests:
+            yield from self._emit_metadata_tests()
         if self.config.audit_results_path:
             yield from self._emit_audit_run_events(self.config.audit_results_path)
+
+    def _emit_metadata_tests(self) -> Iterable[MetadataWorkUnit]:
+        """Emit governance Metadata Test entities scoped to this project's models.
+
+        The Test entity is part of the core metadata model, so any DataHub
+        instance accepts and stores these definitions; evaluating them requires
+        a deployment with a Metadata Tests runner (DataHub Cloud). The test URN
+        is derived from the platform/instance scope so re-ingestion is
+        idempotent and two projects with distinct ``sqlmesh_platform_instance``
+        values get distinct tests.
+        """
+        platform_urn = mce_builder.make_data_platform_urn(SQLMESH_PLATFORM)
+        conditions: List[Dict[str, Any]] = [
+            {
+                "property": "dataPlatformInstance.platform",
+                "operator": "equals",
+                "value": platform_urn,
+            }
+        ]
+        scope_key = platform_urn
+        scope_label = "SQLMesh"
+        if self.config.sqlmesh_platform_instance:
+            instance_urn = mce_builder.make_dataplatform_instance_urn(
+                SQLMESH_PLATFORM, self.config.sqlmesh_platform_instance
+            )
+            conditions.append(
+                {
+                    "property": "dataPlatformInstance.instance",
+                    "operator": "equals",
+                    "value": instance_urn,
+                }
+            )
+            scope_key = instance_urn
+            scope_label = f"SQLMesh ({self.config.sqlmesh_platform_instance})"
+
+        tests = [
+            (
+                "documentation",
+                f"{scope_label}: models have documentation",
+                "Every SQLMesh model in this project should carry a description, "
+                "either from the model definition or added in DataHub.",
+                {
+                    "or": [
+                        {
+                            "property": "datasetProperties.description",
+                            "operator": "exists",
+                        },
+                        {
+                            "property": "editableDatasetProperties.description",
+                            "operator": "exists",
+                        },
+                    ]
+                },
+            ),
+            (
+                "ownership",
+                f"{scope_label}: models have owners",
+                "Every SQLMesh model in this project should have an owner, "
+                "either from the model's owner field or assigned in DataHub.",
+                {"and": [{"property": "ownership.owners.owner", "operator": "exists"}]},
+            ),
+        ]
+        scope_hash = hashlib.md5(scope_key.encode("utf-8")).hexdigest()[:12]
+        for suffix, name, description, rules in tests:
+            definition = {
+                "on": {"types": ["dataset"], "conditions": {"and": conditions}},
+                "rules": rules,
+            }
+            yield MetadataChangeProposalWrapper(
+                entityUrn=f"urn:li:test:sqlmesh-{scope_hash}-{suffix}",
+                aspect=TestInfoClass(
+                    name=name,
+                    category="SQLMesh",
+                    description=description,
+                    definition=TestDefinitionClass(
+                        type=TestDefinitionTypeClass.JSON,
+                        json=json.dumps(definition, indent=2),
+                    ),
+                ),
+            ).as_workunit()
 
     # -------------------------------------------------------------------------
     # Platform registration (REQ-14)
@@ -737,6 +809,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 displayName="SQLMesh",
                 type=PlatformTypeClass.OTHERS,
                 datasetNameDelimiter=".",
+                # Must match the bootstrap entry in data-platforms.yaml so this
+                # UPSERT doesn't wipe the logo on every ingestion run.
+                logoUrl="assets/platforms/sqlmeshlogo.png",
             ),
         ).as_workunit()
 
@@ -760,10 +835,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             )
             return platform
         except Exception as e:
-            logger.warning(
-                "Could not auto-detect target_platform from gateway connection: %s. "
-                "Set target_platform explicitly in your recipe config.",
-                e,
+            # Falling back to "unknown" yields structurally-valid-but-wrong
+            # warehouse URNs (urn:li:dataPlatform:unknown,...), so record it on
+            # the report — not just a logger.warning that never reaches the summary.
+            self.report.warning(
+                title="Could not auto-detect target_platform",
+                message="Falling back to 'unknown'; warehouse sibling URNs will be wrong. Set target_platform explicitly in your recipe config.",
+                exc=e,
             )
             return "unknown"
 
@@ -986,131 +1064,142 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 )
                 return
 
-            # Probe capabilities once. The result drives fallback decisions for
-            # freshness and volume assertions later in the pipeline.
-            self._capabilities = _probe_capabilities(sqlmesh_ctx, self.ctx.graph)
-            self.report.has_state_store_access = self._capabilities.has_state
-            self.report.has_warehouse_query_access = (
-                self._capabilities.has_warehouse_query
-            )
-            self.report.has_graph_access = self._capabilities.has_graph
-            logger.info(
-                "SQLMesh capability probes: state=%s warehouse=%s graph=%s",
-                self._capabilities.has_state,
-                self._capabilities.has_warehouse_query,
-                self._capabilities.has_graph,
-            )
-
-            # Resolve target_platform (auto-detect if not configured) — for the
-            # default gateway. Multi-gateway projects get one effective per
-            # gateway built immediately below.
-            target_platform = self._detect_target_platform(sqlmesh_ctx, effective)
-
-            # Read environment suffix config directly from the loaded Context — no user config needed.
-            env_suffix_target = "schema"
-            env_catalog_mapping: Dict[str, str] = {}
             try:
-                env_suffix_target = (
-                    str(sqlmesh_ctx.config.environment_suffix_target)
-                    .split(".")[-1]
-                    .lower()
-                )  # e.g. "EnvironmentSuffixTarget.SCHEMA" → "schema"
-                env_catalog_mapping = dict(
-                    getattr(sqlmesh_ctx.config, "environment_catalog_mapping", {}) or {}
+                # Probe capabilities once. The result drives fallback decisions for
+                # freshness and volume assertions later in the pipeline.
+                self._capabilities = _probe_capabilities(sqlmesh_ctx, self.ctx.graph)
+                self.report.has_state_store_access = self._capabilities.has_state
+                self.report.has_warehouse_query_access = (
+                    self._capabilities.has_warehouse_query
                 )
-            except Exception as e:
-                logger.debug(
-                    "Could not read environment suffix config from context: %s", e
-                )
-
-            effective = _EffectiveProjectConfig(
-                project_path=effective.project_path,
-                gateway=effective.gateway,
-                environment=effective.environment,
-                target_platform=target_platform,
-                target_platform_instance=effective.target_platform_instance,
-                sqlmesh_platform_instance=effective.sqlmesh_platform_instance,
-                default_catalog=effective.default_catalog,
-                convert_urns_to_lowercase=effective.convert_urns_to_lowercase
-                or target_platform == "snowflake",
-                env_suffix_target=env_suffix_target,
-                env_catalog_mapping=env_catalog_mapping,
-            )
-            # Cache for _emit_audit_run_events so it can build warehouse URNs
-            # the same way _emit_assertions does (consistent assertion hash).
-            self._resolved_effective = effective
-
-            # Build per-gateway effectives. For single-gateway projects this
-            # produces a one-entry dict equivalent to `effective`; multi-gateway
-            # projects get one entry per gateway with platform / instance /
-            # catalog auto-detected per gateway and user overrides applied.
-            self._selected_gateway = self._read_selected_gateway(sqlmesh_ctx, effective)
-            self._effective_by_gateway = self._build_per_gateway_effectives(
-                sqlmesh_ctx, effective
-            )
-            if len(self._effective_by_gateway) > 1:
+                self.report.has_graph_access = self._capabilities.has_graph
                 logger.info(
-                    "Multi-gateway project: %d gateways (%s)",
-                    len(self._effective_by_gateway),
-                    ", ".join(sorted(self._effective_by_gateway)),
+                    "SQLMesh capability probes: state=%s warehouse=%s graph=%s",
+                    self._capabilities.has_state,
+                    self._capabilities.has_warehouse_query,
+                    self._capabilities.has_graph,
                 )
 
-            logger.info(
-                "Ingesting SQLMesh project %r (gateway=%r, env=%r, warehouse=%r)",
-                effective.project_path,
-                effective.gateway,
-                effective.environment,
-                target_platform,
-            )
+                # Resolve target_platform (auto-detect if not configured) — for the
+                # default gateway. Multi-gateway projects get one effective per
+                # gateway built immediately below.
+                target_platform = self._detect_target_platform(sqlmesh_ctx, effective)
 
-            physical_name_by_model: Dict[str, str] = self._build_physical_name_map(
-                sqlmesh_ctx, effective
-            )
-
-            # Build the full FQN list first (needed for containers, preview, and changed-mode).
-            # For multi-gateway projects each model uses its own gateway's
-            # default_catalog when qualifying its name; single-gateway projects
-            # see no difference because every lookup returns the same effective.
-            all_fqns: Dict[str, Any] = {}  # fqn → model
-            for model_name_key, model in sqlmesh_ctx.models.items():
-                model_effective = self._effective_for_model(model)
-                fqn = self._build_logical_fqn(str(model_name_key), model_effective)
-                if not self.config.model_name_pattern.allowed(fqn):
-                    continue
-                if self.config.model_kind_filter:
-                    kind_name = self._get_kind_name(model)
-                    if kind_name and kind_name not in self.config.model_kind_filter:
-                        continue
-                all_fqns[fqn] = model
-
-            # URN preview (REQ-16 / Phase 8) — print before emitting anything.
-            if self.config.preview_urns:
-                self._log_urn_preview(all_fqns, effective)
-
-            # Containers (Phase 6) — emit before models so browsing works on first run.
-            with self.report.container_emission_sec:
-                yield from self._emit_containers(set(all_fqns.keys()), effective)
-
-            # Changed-only mode (Phase 7) — filter to models with changed fingerprints.
-            if self.config.incremental_mode == "changed":
-                all_fqns = self._filter_changed_models(all_fqns, sqlmesh_ctx, effective)
-
-            for fqn, model in all_fqns.items():
-                self.report.models_scanned += 1
+                # Read environment suffix config directly from the loaded Context — no user config needed.
+                env_suffix_target = "schema"
+                env_catalog_mapping: Dict[str, str] = {}
                 try:
-                    yield from self._emit_model(
-                        model, fqn, physical_name_by_model, effective, sqlmesh_ctx
+                    env_suffix_target = (
+                        str(sqlmesh_ctx.config.environment_suffix_target)
+                        .split(".")[-1]
+                        .lower()
+                    )  # e.g. "EnvironmentSuffixTarget.SCHEMA" → "schema"
+                    env_catalog_mapping = dict(
+                        getattr(sqlmesh_ctx.config, "environment_catalog_mapping", {})
+                        or {}
                     )
                 except Exception as e:
-                    logger.warning(
-                        "Failed to process model %s: %s", fqn, e, exc_info=True
+                    logger.debug(
+                        "Could not read environment suffix config from context: %s", e
                     )
-                    self.report.report_model_failed(fqn, str(e))
 
-            # Release state-sync and evaluator resources so that repeated Context()
-            # calls in the same process (e.g. multi-project recipes) don't accumulate
-            # open connections or file handles.
-            sqlmesh_ctx.close()
+                effective = _EffectiveProjectConfig(
+                    project_path=effective.project_path,
+                    gateway=effective.gateway,
+                    environment=effective.environment,
+                    target_platform=target_platform,
+                    target_platform_instance=effective.target_platform_instance,
+                    sqlmesh_platform_instance=effective.sqlmesh_platform_instance,
+                    default_catalog=effective.default_catalog,
+                    convert_urns_to_lowercase=effective.convert_urns_to_lowercase
+                    or target_platform == "snowflake",
+                    env_suffix_target=env_suffix_target,
+                    env_catalog_mapping=env_catalog_mapping,
+                )
+                # Cache for _emit_audit_run_events so it can build warehouse URNs
+                # the same way _emit_assertions does (consistent assertion hash).
+                self._resolved_effective = effective
+
+                # Build per-gateway effectives. For single-gateway projects this
+                # produces a one-entry dict equivalent to `effective`; multi-gateway
+                # projects get one entry per gateway with platform / instance /
+                # catalog auto-detected per gateway and user overrides applied.
+                self._selected_gateway = self._read_selected_gateway(
+                    sqlmesh_ctx, effective
+                )
+                self._effective_by_gateway = self._build_per_gateway_effectives(
+                    sqlmesh_ctx, effective
+                )
+                if len(self._effective_by_gateway) > 1:
+                    logger.info(
+                        "Multi-gateway project: %d gateways (%s)",
+                        len(self._effective_by_gateway),
+                        ", ".join(sorted(self._effective_by_gateway)),
+                    )
+
+                logger.info(
+                    "Ingesting SQLMesh project %r (gateway=%r, env=%r, warehouse=%r)",
+                    effective.project_path,
+                    effective.gateway,
+                    effective.environment,
+                    target_platform,
+                )
+
+                physical_name_by_model: Dict[str, str] = self._build_physical_name_map(
+                    sqlmesh_ctx, effective
+                )
+
+                # Build the full FQN list first (needed for containers, preview, and changed-mode).
+                # For multi-gateway projects each model uses its own gateway's
+                # default_catalog when qualifying its name; single-gateway projects
+                # see no difference because every lookup returns the same effective.
+                all_fqns: Dict[str, "SqlmeshModel"] = {}  # fqn → model
+                for model_name_key, model in sqlmesh_ctx.models.items():
+                    model_effective = self._effective_for_model(model)
+                    fqn = self._build_logical_fqn(str(model_name_key), model_effective)
+                    if not self.config.model_name_pattern.allowed(fqn):
+                        continue
+                    if self.config.model_kind_filter:
+                        kind_name = self._get_kind_name(model)
+                        if kind_name and kind_name not in self.config.model_kind_filter:
+                            continue
+                    all_fqns[fqn] = model
+
+                # URN preview (REQ-16 / Phase 8) — print before emitting anything.
+                if self.config.preview_urns:
+                    self._log_urn_preview(all_fqns, effective)
+
+                # Containers (Phase 6) — emit before models so browsing works on first run.
+                with self.report.container_emission_sec:
+                    yield from self._emit_containers(set(all_fqns.keys()), effective)
+
+                for fqn, model in all_fqns.items():
+                    self.report.models_scanned += 1
+                    try:
+                        yield from self._emit_model(
+                            model, fqn, physical_name_by_model, effective, sqlmesh_ctx
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to process model %s: %s", fqn, e, exc_info=True
+                        )
+                        self.report.report_model_failed(fqn, str(e))
+
+                # Release state-sync and evaluator resources so that repeated Context()
+                # calls in the same process (e.g. multi-project recipes) don't accumulate
+                # open connections or file handles.
+                sqlmesh_ctx.close()
+            except Exception as e:
+                # Any failure in post-load setup (capability probe, per-gateway
+                # effectives, physical-name map, container emission) should surface
+                # as a report failure, not crash ingestion with a raw traceback.
+                self.report.failure(
+                    title="Failed during SQLMesh ingestion setup",
+                    message="Error after loading the SQLMesh context; ingestion aborted.",
+                    context=effective.project_path,
+                    exc=e,
+                )
+                return
 
     # -------------------------------------------------------------------------
     # Phase 6: Container emission
@@ -1189,36 +1278,12 @@ class SqlmeshSource(StatefulIngestionSourceBase):
     # Phase 7: Incremental changed-only mode
     # -------------------------------------------------------------------------
 
-    def _filter_changed_models(
-        self,
-        all_fqns: Dict[str, Any],
-        sqlmesh_ctx: "SqlmeshContextType",
-        effective: _EffectiveProjectConfig,
-    ) -> Dict[str, Any]:
-        """
-        [NOT YET FULLY IMPLEMENTED] Planned to return only models whose snapshot
-        fingerprint changed since the last run. Requires a custom CheckpointState
-        subclass to persist fingerprints between runs — that infrastructure does not
-        yet exist. Always falls back to full mode until implemented.
-
-        TODO: implement SqlmeshCheckpointState(CheckpointStateBase) with a
-        sqlmesh_fingerprints: Dict[str, str] field, register it with the stateful
-        ingestion framework, then compare current vs stored fingerprints here.
-        """
-        logger.warning(
-            "incremental_mode='changed' is not yet fully implemented — "
-            "requires a custom CheckpointState subclass to persist fingerprints "
-            "between runs. Processing all %d models (full mode).",
-            len(all_fqns),
-        )
-        return all_fqns
-
     # -------------------------------------------------------------------------
     # Phase 8: URN preview / dry-run
     # -------------------------------------------------------------------------
 
     def _log_urn_preview(
-        self, all_fqns: Dict[str, Any], effective: _EffectiveProjectConfig
+        self, all_fqns: Dict[str, "SqlmeshModel"], effective: _EffectiveProjectConfig
     ) -> None:
         """
         Log a sample of sqlmesh ↔ warehouse URN pairs before emitting.
@@ -1317,10 +1382,10 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 break
 
         try:
-            result = snapshot.table_name
-            if callable(result):
-                result = result()
-            return self._normalize_name(str(result), effective) if result else None
+            fallback: Any = snapshot.table_name
+            if callable(fallback):
+                fallback = fallback()
+            return self._normalize_name(str(fallback), effective) if fallback else None
         except Exception as e:
             logger.debug("Fallback physical name access failed: %s", e)
             return None
@@ -1509,6 +1574,10 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             custom_props = self._build_custom_properties(
                 fqn, physical_name, effective, model
             )
+            if self.config.detect_stale_fingerprints and self._is_fingerprint_stale(
+                model, sqlmesh_ctx
+            ):
+                custom_props["sqlmesh.fingerprint_stale"] = "true"
 
         with self.report.schema_extraction_sec:
             schema_fields = (
@@ -1572,7 +1641,7 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             upstreams=combined_upstreams,
             subtype=self._get_subtype(model),
             tags=tags if tags else None,
-            owners=[owner_urn] if owner_urn else None,
+            owners=[CorpUserUrn.from_string(owner_urn)] if owner_urn else None,
         )
         yield from dataset.as_workunits()
 
@@ -1619,6 +1688,40 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         yield from self._emit_volume_assertions(
             model, sqlmesh_urn, physical_name, sqlmesh_ctx
         )
+
+    def _is_fingerprint_stale(
+        self,
+        model: "SqlmeshModel",
+        sqlmesh_ctx: Optional["SqlmeshContextType"],
+    ) -> bool:
+        """Whether the model's fingerprint table is older than the staleness threshold.
+
+        Uses the same SQLMesh state lookup as ``_emit_pipeline_operation``
+        (``ctx.snapshots[...].updated_ts``, epoch millis). Returns False when
+        state is unreachable or the snapshot carries no timestamp — unknown is
+        deliberately not reported as stale.
+        """
+        if not self._capabilities.has_state or sqlmesh_ctx is None:
+            return False
+        try:
+            snapshots = sqlmesh_ctx.snapshots
+            snapshot = snapshots.get(
+                str(getattr(model, "fqn", "") or "")
+            ) or snapshots.get(str(getattr(model, "name", "")))
+            updated_ts = (
+                int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
+            )
+        except Exception:
+            logger.debug(
+                "Could not read snapshot.updated_ts for staleness check on %s",
+                getattr(model, "name", "?"),
+                exc_info=True,
+            )
+            return False
+        if updated_ts <= 0:
+            return False
+        threshold_ms = self.config.fingerprint_staleness_threshold_hours * 3_600_000
+        return (int(time.time() * 1000) - updated_ts) > threshold_ms
 
     def _build_custom_properties(
         self,
@@ -1842,13 +1945,16 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                     sqlmesh_ctx, model_name, col_name
                 )
             except Exception as e:
+                # Column lineage is a headline feature (include_column_lineage
+                # defaults on), so a parse failure must be visible in the
+                # summary — not just counted and logged at debug.
                 self.report.num_column_lineage_parse_failures += 1
-                logger.debug(
-                    "column_dependencies failed for %s.%s: %s — "
-                    "skipping column lineage for this column (Python model or unsupported SQL)",
-                    model_name,
-                    col_name,
-                    e,
+                self.report.column_lineage_failures.append(f"{model_name}.{col_name}")
+                self.report.warning(
+                    title="Column lineage extraction failed",
+                    message="Could not resolve column dependencies; column lineage skipped for this column (Python model or unsupported SQL).",
+                    context=f"{model_name}.{col_name}",
+                    exc=e,
                 )
                 continue
 
@@ -2145,11 +2251,12 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             try:
                 yield from self._emit_single_audit(audit_name, kw, params, sqlmesh_urn)
             except Exception as e:
-                logger.debug(
-                    "Failed to emit assertion for audit %r on %s: %s",
-                    audit_name,
-                    sqlmesh_urn,
-                    e,
+                self.report.num_assertions_failed += 1
+                self.report.warning(
+                    title="Failed to emit assertion",
+                    message="An audit could not be converted into a DataHub assertion; data-quality metadata for it is missing.",
+                    context=f"{audit_name} on {sqlmesh_urn}",
+                    exc=e,
                 )
 
     def _emit_freshness_assertions(
@@ -2276,17 +2383,19 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
         try:
             snapshots = sqlmesh_ctx.snapshots
-            snapshot = snapshots.get(getattr(model, "fqn", None)) or snapshots.get(
-                str(getattr(model, "name", ""))
-            )
+            snapshot = snapshots.get(
+                str(getattr(model, "fqn", "") or "")
+            ) or snapshots.get(str(getattr(model, "name", "")))
             updated_ts = (
                 int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
             )
         except Exception as e:
-            logger.debug(
-                "Could not read snapshot.updated_ts for %s; skipping operation aspect (%s)",
-                getattr(model, "name", "?"),
-                e,
+            self.report.num_operations_skipped += 1
+            self.report.warning(
+                title="Could not read snapshot timestamp; skipping operation",
+                message="Failed to read snapshot.updated_ts; the pipeline operation aspect (last-rebuild time) is missing for this model.",
+                context=str(getattr(model, "name", "?")),
+                exc=e,
             )
             return
 
@@ -2406,9 +2515,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         try:
             if self._capabilities.has_state:
                 snapshots = sqlmesh_ctx.snapshots
-                snapshot = snapshots.get(getattr(model, "fqn", None)) or snapshots.get(
-                    str(getattr(model, "name", ""))
-                )
+                snapshot = snapshots.get(
+                    str(getattr(model, "fqn", "") or "")
+                ) or snapshots.get(str(getattr(model, "name", "")))
                 if snapshot is not None:
                     tn = snapshot.table_name()
                     if tn:
@@ -2436,10 +2545,14 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             row = sqlmesh_ctx.engine_adapter.fetchone(query)
             row_count = int(row[0]) if row and row[0] is not None else 0
         except Exception as e:
-            logger.debug(
-                "Volume row-count query failed for %s (%s); skipping profile emission",
-                live_physical_name,
-                e,
+            # Profiling was requested; a query failure (permissions, table not
+            # materialized, dialect quoting) must surface, not vanish silently.
+            self.report.num_profiles_failed += 1
+            self.report.warning(
+                title="Row-count query failed; skipping profile",
+                message="Could not query the physical table row count; volume profile skipped for this model.",
+                context=live_physical_name,
+                exc=e,
             )
             return
 
