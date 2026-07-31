@@ -74,6 +74,7 @@ def _make_semantic_view(
     resolved_upstream_urns: Optional[List[str]] = None,
     primary_key_columns: Optional[set] = None,
     primary_key_columns_by_table: Optional[Dict[str, set]] = None,
+    unique_key_column_sets_by_table: Optional[Dict[str, list]] = None,
     tags: Optional[list] = None,
     column_tags: Optional[dict] = None,
     relationships: Optional[List[SnowflakeSemanticViewRelationship]] = None,
@@ -85,6 +86,14 @@ def _make_semantic_view(
     flat_pk = set(primary_key_columns or set())
     for cols in pk_by_table.values():
         flat_pk |= cols
+    # Distinguish an explicit empty {} (no logical tables) from None (use default);
+    # `x or default` would silently swap {} for the default and never exercise the
+    # no-logical-tables path.
+    if logical_to_physical_table is None:
+        logical_to_physical_table = {
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
+        }
     return SnowflakeSemanticView(
         name="Sales_Analytics",
         created=datetime.datetime(2024, 1, 1),
@@ -92,14 +101,11 @@ def _make_semantic_view(
         view_definition="CREATE SEMANTIC VIEW Sales_Analytics AS ...",
         last_altered=datetime.datetime(2024, 2, 1),
         column_occurrences=column_occurrences,
-        logical_to_physical_table=logical_to_physical_table
-        or {
-            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
-            "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
-        },
+        logical_to_physical_table=logical_to_physical_table,
         resolved_upstream_urns=resolved_upstream_urns or [],
         primary_key_columns=flat_pk,
         primary_key_columns_by_table=pk_by_table,
+        unique_key_column_sets_by_table=unique_key_column_sets_by_table or {},
         tags=tags,
         column_tags=column_tags or {},
         relationships=relationships or [],
@@ -1203,7 +1209,9 @@ def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
         logical_to_physical_table={},
     )
 
-    list(
+    # With no logical tables, the view exposes only a view-scoped metric.
+    assert semantic_view.logical_to_physical_table == {}
+    workunits = list(
         mapper.gen_workunits(
             semantic_view=semantic_view,
             schema_name=_SCHEMA,
@@ -1212,6 +1220,13 @@ def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
         )
     )
 
+    # The metric is still emitted (path actually exercised)...
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+    assert len(_aspects_for(workunits, metric_urn, MetricInfoClass)) == 1
+    # ...and it is NOT reported as an unplaced column (metrics are emitted as
+    # metric entities, not logical-dataset fields).
     messages = [w.title for w in mapper.report.warnings]
     assert not any("without a logical table" in (m or "") for m in messages)
 
@@ -1746,6 +1761,89 @@ def test_relationship_cardinality_requires_full_composite_primary_key():
     )
 
 
+def test_relationship_cardinality_from_declared_unique_key():
+    # Snowflake infers one-to-one when the join columns are a declared UNIQUE key,
+    # not only the primary key. A subset of that unique key is still many-to-one.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_ID": [
+                _col(
+                    "order_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "TRANSACTIONS",
+                ),
+                _col(
+                    "order_id", "NUMBER", SemanticViewColumnSubtype.DIMENSION, "ORDERS"
+                ),
+            ],
+            "TRANSACTION_ID": [
+                _col(
+                    "transaction_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "TRANSACTIONS",
+                ),
+                _col(
+                    "transaction_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    "ORDERS",
+                ),
+            ],
+        },
+        logical_to_physical_table={
+            "TRANSACTIONS": (_DB, _SCHEMA, "TRANSACTIONS"),
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+        },
+        # PK is TRANSACTION_ID; the unique key is the composite (ORDER_ID, TRANSACTION_ID).
+        primary_key_columns_by_table={"TRANSACTIONS": {"TRANSACTION_ID"}},
+        unique_key_column_sets_by_table={
+            "TRANSACTIONS": [{"ORDER_ID", "TRANSACTION_ID"}]
+        },
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="unique_key_join",
+                from_table="transactions",
+                from_columns=["ORDER_ID", "TRANSACTION_ID"],  # the full unique key
+                to_table="orders",
+                to_columns=["ORDER_ID", "TRANSACTION_ID"],
+            ),
+            SnowflakeSemanticViewRelationship(
+                name="partial_unique_key_join",
+                from_table="transactions",
+                from_columns=["ORDER_ID"],  # subset of the unique key
+                to_table="orders",
+                to_columns=["ORDER_ID"],
+            ),
+        ],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is not None
+    by_name = {r.name: r for r in info.relationships}
+    assert (
+        by_name["unique_key_join"].cardinality
+        == ERModelRelationshipCardinalityClass.ONE_ONE
+    )
+    assert (
+        by_name["partial_unique_key_join"].cardinality
+        == ERModelRelationshipCardinalityClass.N_ONE
+    )
+
+
 def test_column_defined_on_multiple_logical_tables_emits_per_dataset_field():
     # In the new model each logical table has its own schemaField URN, so a
     # column on multiple logical tables no longer collides - it appears on each
@@ -1821,10 +1919,12 @@ def test_repeated_information_schema_row_does_not_duplicate_field():
             fine_grained_lineages=[],
         )
     )
-    fields = _schema_fields_by_path(workunits, orders_urn)
-    assert len(fields["order_date"].fieldPath) == len("order_date")
-    # Exactly one schemaField for order_date on the ORDERS logical dataset.
-    assert sum(1 for p in fields if p == "order_date") == 1
+    # Count against the RAW fields list, not a fieldPath-keyed dict (which would
+    # collapse duplicates before counting and hide the regression this guards).
+    schemas = _aspects_for(workunits, orders_urn, SchemaMetadataClass)
+    assert len(schemas) == 1
+    order_date_fields = [f for f in schemas[0].fields if f.fieldPath == "order_date"]
+    assert len(order_date_fields) == 1
     # And exactly one semanticFieldAnnotation for it.
     assert (
         len(

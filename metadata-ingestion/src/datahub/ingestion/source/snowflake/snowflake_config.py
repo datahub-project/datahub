@@ -113,7 +113,9 @@ class SemanticViewsConfig(ConfigModel):
             'subtyped "Semantic View". '
             "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
             "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
-            "older Cloud, and connectionless runs (e.g. file sink) stay off. "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. It also "
+            "falls back to legacy datasets if the server version cannot be parsed or the "
+            "Metrics probe cannot be read (operational error). "
             "`true`: request emission - on Cloud it is honored unless the server is "
             "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
             "datasets); on OSS it enables emission (the operator must run a server that "

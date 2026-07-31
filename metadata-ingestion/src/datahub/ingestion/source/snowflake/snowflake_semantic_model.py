@@ -286,18 +286,24 @@ class SnowflakeSemanticModelMapper:
         for relationship in semantic_view.relationships:
             from_table_upper = relationship.from_table.upper()
             # Snowflake does not store cardinality; it infers one-to-one when the
-            # join columns are the primary key on both sides. The referenced (to)
-            # side is always a primary key, so the join is one-to-one exactly when
-            # the from-side join columns are that table's COMPLETE primary key -
-            # a subset of a composite key does not uniquely identify a row, so many
+            # from-side join columns uniquely identify a row - i.e. they are that
+            # table's COMPLETE primary key or a COMPLETE declared unique key. A
+            # subset of a composite key does not uniquely identify a row, so many
             # rows can share the value -> many-to-one.
             from_columns_upper = {col.upper() for col in relationship.from_columns}
             from_pk = semantic_view.primary_key_columns_by_table.get(
                 from_table_upper, set()
             )
+            from_unique_keys = semantic_view.unique_key_column_sets_by_table.get(
+                from_table_upper, []
+            )
+            is_one_to_one = bool(from_columns_upper) and (
+                from_columns_upper == from_pk
+                or any(from_columns_upper == uk for uk in from_unique_keys)
+            )
             cardinality = (
                 ERModelRelationshipCardinalityClass.ONE_ONE
-                if from_columns_upper and from_columns_upper == from_pk
+                if is_one_to_one
                 else ERModelRelationshipCardinalityClass.N_ONE
             )
             relationships.append(

@@ -181,6 +181,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 isinstance(config, SnowflakeV2Config)
                 and config.semantic_views.emit_semantic_model_entities
             ),
+            include_technical_schema=(
+                not isinstance(config, SnowflakeV2Config)
+                or config.include_technical_schema
+            ),
         )
         self.report.data_dictionary_cache = self.data_dictionary
 

@@ -55,6 +55,17 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
+# JSON structure characters that never appear in a Snowflake column identifier,
+# even a quoted one. Their presence means a parsed "key" is actually a serialized
+# JSON object (e.g. a range/ASOF relationship key), not a column name.
+_JSON_STRUCTURE_CHARS = frozenset('{}"')
+
+
+def _is_plain_identifier(value: str) -> bool:
+    """True when value is a non-empty column name, not a serialized JSON object."""
+    return bool(value) and not any(ch in _JSON_STRUCTURE_CHARS for ch in value)
+
+
 # CREATE SEMANTIC VIEW is not part of sqlglot's grammar (parse_one raises, and
 # lenient mode returns an opaque Command with no tables), so the DDL fallback parser
 # below tokenizes the statement and walks the TABLES ( ... ) clause structurally. We
@@ -283,6 +294,12 @@ class SnowflakeSemanticView(BaseView):
     # The semanticModel mapper needs per-table PKs so isPartOfKey and relationship
     # cardinality don't leak across same-named columns on different logical tables.
     primary_key_columns_by_table: Dict[str, Set[str]] = field(default_factory=dict)
+    # Declared unique keys keyed by logical table (uppercase) -> list of column-sets
+    # (each set is one complete unique key). Snowflake infers a one-to-one
+    # relationship when the join columns are a unique key, not only the primary key.
+    unique_key_column_sets_by_table: Dict[str, List[Set[str]]] = field(
+        default_factory=dict
+    )
     # Table-level synonyms: logical_table_name -> [list of alternative names]
     # These are alternative names for logical tables within the semantic view
     table_synonyms: Dict[str, List[str]] = field(default_factory=dict)
@@ -704,6 +721,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         report: SnowflakeV2Report,
         fetch_views_from_information_schema: bool = False,
         emit_semantic_model_entities: bool = False,
+        include_technical_schema: bool = True,
     ) -> None:
         self.connection = connection
         self.report = report
@@ -711,6 +729,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Gate the extra SEMANTIC_RELATIONSHIPS query behind the flag; only the
         # new-mode mapper consumes relationships, so the legacy path's cost is unchanged.
         self._emit_semantic_model_entities = emit_semantic_model_entities
+        # Semantic-view columns/relationships feed only the emitted schema (legacy
+        # dataset schema or new-mode logical datasets), which requires technical
+        # schema. Skip those extra per-database queries when it is disabled.
+        self._include_technical_schema = include_technical_schema
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -1202,11 +1224,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
             f"Finished fetching semantic views in {db_name}; counts by schema {semantic_view_counts}"
         )
 
-        self._populate_semantic_view_definitions(db_name, semantic_views)
-        self._populate_semantic_view_base_tables(db_name, semantic_views)
-        self._populate_semantic_view_columns(db_name, semantic_views)
-        if self._emit_semantic_model_entities:
-            self._populate_semantic_view_relationships(db_name, semantic_views)
+        # These populate the emitted schema (legacy dataset schema, or new-mode
+        # logical datasets / relationships), which is only emitted when technical
+        # schema is enabled. Query/usage extraction needs just the discovered view
+        # names (already collected above), so skip these extra per-database queries
+        # when technical schema is off - their output would be discarded.
+        if self._include_technical_schema:
+            self._populate_semantic_view_definitions(db_name, semantic_views)
+            self._populate_semantic_view_base_tables(db_name, semantic_views)
+            self._populate_semantic_view_columns(db_name, semantic_views)
+            if self._emit_semantic_model_entities:
+                self._populate_semantic_view_relationships(db_name, semantic_views)
 
         return semantic_views
 
@@ -1289,6 +1317,36 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
             return []
 
+    def _parse_unique_key_sets(self, value: Optional[str], context: str) -> List[set]:
+        """Parse UNIQUE_KEYS into a list of column-name sets.
+
+        Snowflake serializes a table's declared unique keys in
+        INFORMATION_SCHEMA.SEMANTIC_TABLES as a JSON array of arrays - each inner
+        array is one complete unique key (e.g. ``[["ORDER_ID","TRANSACTION_ID"]]``).
+        """
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value) if isinstance(value, str) else value
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(f"Failed to parse UNIQUE_KEYS as JSON in {context}: {e}")
+            return []
+        if not isinstance(parsed, list):
+            return []
+        key_sets: List[set] = []
+        for key in parsed:
+            # Each element is one unique key (a list of columns); tolerate a flat
+            # scalar defensively.
+            columns = key if isinstance(key, list) else [key]
+            col_set = {
+                str(c).upper()
+                for c in columns
+                if isinstance(c, (str, int, float, bool))
+            }
+            if col_set:
+                key_sets.append(col_set)
+        return key_sets
+
     def _get_data_type_with_default(
         self, row: Dict, subtype: str, col_name: str, default: str
     ) -> str:
@@ -1357,6 +1415,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         pk_col_upper = pk_col.upper()
                         semantic_view_obj.primary_key_columns.add(pk_col_upper)
                         pk_by_table.add(pk_col_upper)
+
+                unique_key_sets = self._parse_unique_key_sets(
+                    row.get("UNIQUE_KEYS"),
+                    f"{logical_table_name} in {schema_name}.{view_name}",
+                )
+                if unique_key_sets:
+                    semantic_view_obj.unique_key_column_sets_by_table.setdefault(
+                        logical_table_upper, []
+                    ).extend(unique_key_sets)
 
                 synonyms_raw = row.get("SYNONYMS")
                 synonyms = self._parse_json_array(
@@ -1856,11 +1923,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 to_columns = self._parse_json_array(
                     row.get("REF_KEYS"), "REF_KEYS", context
                 )
-                if not from_columns or not to_columns:
-                    # Range/ASOF joins report ref_keys as JSON objects rather than a
-                    # simple column list, which _parse_json_array can't represent as
-                    # a flat fromColumns/toColumns pair - skip rather than emit a
-                    # relationship with misleading (empty) join keys.
+                # Range/ASOF joins report ref_keys as objects rather than a simple
+                # column list. A native JSON object is dropped by _parse_json_array
+                # (leaving the list empty), but a string-encoded object (e.g.
+                # '{"column":"x","operator":">="}') survives as a bogus key. Reject
+                # the relationship unless every key is a plain identifier, otherwise
+                # we would emit lineage to a field that cannot exist.
+                if (
+                    not from_columns
+                    or not to_columns
+                    or not all(
+                        _is_plain_identifier(k) for k in (*from_columns, *to_columns)
+                    )
+                ):
                     self.report.warning(
                         title="Semantic view relationship has non-standard or missing join keys",
                         message="A relationship's join keys could not be parsed as a "

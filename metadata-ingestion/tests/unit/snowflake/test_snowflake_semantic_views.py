@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import Any, Dict, List, Tuple
 from unittest.mock import MagicMock, patch
 
@@ -827,6 +828,51 @@ def test_populate_semantic_view_relationships_malformed_entry_skipped(
                 "FOREIGN_KEYS": '["event_time"]',
                 "REF_TABLE_NAME": "sessions",
                 "REF_KEYS": '[{"column": "session_start", "operator": ">="}]',
+            },
+        ]
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    relationships = semantic_views["PUBLIC"][0].relationships
+    assert len(relationships) == 1
+    assert relationships[0].name == "orders_to_customers"
+
+    messages = [w.title for w in report.warnings]
+    assert any("non-standard or missing join keys" in (m or "") for m in messages)
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_relationships_string_encoded_object_key_skipped(
+    mock_connection,
+):
+    """Snowflake may serialize a range/ASOF ref_key as a STRING containing JSON
+    (not a native object). Such a key survives JSON-array parsing as a non-empty
+    string, so an emptiness-only guard would let it through and emit a bogus
+    column. It must be rejected as a non-plain identifier."""
+    data_dict, report, _ = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["customer_id"]',
+                "REF_TABLE_NAME": "customers",
+                "REF_KEYS": '["customer_id"]',
+            },
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "events_to_sessions_range",
+                "TABLE_NAME": "events",
+                "FOREIGN_KEYS": '["event_time"]',
+                "REF_TABLE_NAME": "sessions",
+                # An array whose single element is a STRING of serialized JSON.
+                "REF_KEYS": json.dumps(
+                    ['{"column": "session_start", "operator": ">="}']
+                ),
             },
         ]
     )
