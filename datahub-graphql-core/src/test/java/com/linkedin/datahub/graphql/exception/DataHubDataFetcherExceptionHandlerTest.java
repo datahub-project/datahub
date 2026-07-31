@@ -522,7 +522,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
     assertFalse(error.getMessage().contains("Deadlock"));
-    assertEquals(error.getErrorCode(), 409);
+    assertEquals(error.getErrorCode(), 503);
   }
 
   @Test
@@ -542,7 +542,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
     assertFalse(error.getMessage().contains("Deadlock"));
-    assertEquals(error.getErrorCode(), 409);
+    assertEquals(error.getErrorCode(), 503);
   }
 
   @Test

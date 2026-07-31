@@ -105,8 +105,11 @@ public class EbeanAspectDaoTransactionRetryTest {
         com.codahale.metrics.MetricRegistry.name(
             TestableEbeanAspectDao.class, "txFailedAfterRetries");
 
-    verify(metricUtils, times(3)).incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0));
-    verify(metricUtils, times(1)).incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0));
+    // null batch → path=delete (EntityServiceImpl delete call site)
+    verify(metricUtils, times(3))
+        .incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0), eq("path"), eq("delete"));
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0), eq("path"), eq("delete"));
     verify(metricUtils, times(4)).increment(eq(txFailed), eq(1.0));
     verify(metricUtils, times(1)).increment(eq(txFailedAfterRetries), eq(1.0));
   }
@@ -151,8 +154,10 @@ public class EbeanAspectDaoTransactionRetryTest {
 
     verify(metricUtils, times(4)).increment(eq(txFailed), eq(1.0));
     verify(metricUtils, times(1)).increment(eq(txFailedAfterRetries), eq(1.0));
-    verify(metricUtils, times(0)).incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0));
-    verify(metricUtils, times(0)).incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0));
+    verify(metricUtils, times(0))
+        .incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0), eq("path"), eq("delete"));
+    verify(metricUtils, times(0))
+        .incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0), eq("path"), eq("delete"));
   }
 
   private static PersistenceException deadlockPersistenceException(

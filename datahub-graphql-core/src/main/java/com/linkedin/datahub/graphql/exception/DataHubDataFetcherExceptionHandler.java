@@ -64,7 +64,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       log.warn("Failed to execute", conflictException);
       String top = conflictException.getMessage();
       String message = (top != null && !top.isEmpty()) ? top : DEFAULT_ERROR_MESSAGE;
-      return completedResult(message, DataHubGraphQLErrorCode.CONFLICT, path, sourceLocation);
+      return completedResult(
+          message, DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE, path, sourceLocation);
     }
 
     IllegalStateException illegalStateException =

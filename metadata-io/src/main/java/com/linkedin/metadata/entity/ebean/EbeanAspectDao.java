@@ -988,9 +988,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(exception);
         transactionContext.addException(exception);
         // Sleep only when another attempt will run — skip delay before exhaustion throw.
+        // try-with-resources closes/rolls back the Transaction before this catch runs, so the
+        // DB connection is returned to the pool during backoff sleep.
         if (backoff && transactionContext.shouldAttemptRetry()) {
           if (metricUtils != null) {
-            metricUtils.incrementMicrometer("ebean.tx.transient_backoff", 1.0);
+            metricUtils.incrementMicrometer(
+                "ebean.tx.transient_backoff", 1.0, transientMetricTags(batch));
           }
           log.warn(
               "Retryable PersistenceException with backoff: sqlState={}, vendorCode={}, message={}",
@@ -1001,7 +1004,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               transactionRetryPolicy.backoffMillis(transactionContext.exceptions().size() - 1));
         } else if (backoff) {
           if (metricUtils != null) {
-            metricUtils.incrementMicrometer("ebean.tx.transient_exhausted", 1.0);
+            metricUtils.incrementMicrometer(
+                "ebean.tx.transient_exhausted", 1.0, transientMetricTags(batch));
           }
           log.warn(
               "Retryable PersistenceException with backoff (retries exhausted): sqlState={}, vendorCode={}, message={}",
@@ -1030,6 +1034,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     return result;
+  }
+
+  /**
+   * Metric path for the two EntityServiceImpl call sites: ingest (batch present) and delete (no
+   * batch). Other writers (link/restore/migrate) go through ingestAspectsToLocalDB → {@code
+   * ingest}.
+   */
+  @VisibleForTesting
+  static String[] transientMetricTags(@Nullable AspectsBatch batch) {
+    return new String[] {"path", batch != null ? "ingest" : "delete"};
   }
 
   @VisibleForTesting
