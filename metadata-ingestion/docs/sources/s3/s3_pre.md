@@ -123,3 +123,26 @@ source:
 ```
 
 The connector uses [boto3's assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role), so additional parameters like `RoleSessionName`, `DurationSeconds`, and `Policy` are also supported.
+
+#### S3-Compatible Object Stores
+
+The source plugin talks to Amazon S3 through boto3, so it also works against other object stores that implement the S3 API (for example Backblaze B2, Cloudflare R2, and MinIO). Set `aws_config.aws_endpoint_url` to the provider's S3 endpoint, and keep `aws_config.aws_region` set to the region that endpoint belongs to, since the region is still used to sign requests. Continue to use `s3://` in `path_specs`: the endpoint override decides which host is contacted.
+
+```yaml
+source:
+  type: s3
+  config:
+    aws_config:
+      aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+      aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+      aws_region: example-region
+      aws_endpoint_url: "https://s3.example-region.example.com"
+      # Only needed if the provider requires path-style addressing.
+      aws_advanced_config:
+        s3:
+          addressing_style: path
+    path_specs:
+      - include: "s3://my-bucket/{table}/*.parquet"
+```
+
+The IAM policy steps above are AWS-specific. On other providers, grant the equivalent read and list access with that provider's own credential mechanism.
