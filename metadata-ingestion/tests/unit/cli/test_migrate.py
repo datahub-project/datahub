@@ -127,7 +127,12 @@ class TestMigratePair:
     @patch("datahub.cli.migration_utils.get_incoming_relationships", return_value=[])
     @patch(
         "datahub.cli.migration_utils.merge_entity",
-        return_value=MergeResult(merged=3, skipped=1),
+        return_value=MergeResult(
+            merged=3,
+            skipped=1,
+            merged_aspects=["ownership", "globalTags", "schema"],
+            skipped_aspects=["viewProperties"],
+        ),
     )
     def test_merge_path_when_target_exists(
         self, mock_merge: MagicMock, _mock_rels: MagicMock
@@ -949,8 +954,8 @@ class TestMigrationReportCounters:
     def test_migrated_counts_each_call(self) -> None:
         """on_entity_migrated increments the counter on every call (one per pair)."""
         report = MigrationReport("test", dry_run=False, keep=True)
-        report.on_entity_migrated("urn:li:dataset:a", "status")
-        report.on_entity_migrated("urn:li:dataset:b", "status")
+        report.on_entity_migrated("urn:li:dataset:a", "COMPLETED")
+        report.on_entity_migrated("urn:li:dataset:b", "COMPLETED")
 
         assert report.num_entities_migrated == 2
 
@@ -960,7 +965,7 @@ class TestMigrationReportCounters:
         report.on_entity_create("urn:li:dataset:a", "ownership")
         report.on_entity_create("urn:li:dataset:b", "ownership")
         report.on_entity_affected("urn:li:dataset:c", "lineage")
-        report.on_entity_migrated("urn:li:dataset:a", "status")
+        report.on_entity_migrated("urn:li:dataset:a", "COMPLETED")
 
         text = repr(report)
         assert "Num entities created = 2" in text
@@ -984,7 +989,7 @@ class TestMigrationReportFile:
         report.set_current_pair("urn:li:dataset:src", "urn:li:dataset:tgt")
         report.on_entity_create("urn:li:dataset:tgt", "ownership")
         report.on_entity_affected("urn:li:dataset:ref", "lineage")
-        report.on_entity_migrated("urn:li:dataset:src", "status")
+        report.on_entity_migrated("urn:li:dataset:src", "COMPLETED")
         report.close_report_file()
 
         lines = report_path.read_text().strip().splitlines()
@@ -993,7 +998,7 @@ class TestMigrationReportFile:
         assert lines[0] == "create\turn:li:dataset:src\turn:li:dataset:tgt\townership"
         # affected: action, referrer_urn, target_urn, aspect
         assert lines[1] == "affected\turn:li:dataset:ref\turn:li:dataset:tgt\tlineage"
-        assert lines[2] == "migrated\turn:li:dataset:src\turn:li:dataset:tgt\tstatus"
+        assert lines[2] == "migrated\turn:li:dataset:src\turn:li:dataset:tgt\tCOMPLETED"
 
     def test_no_report_file_when_not_configured(self) -> None:
         """When no report file is opened, _write_report is a no-op."""
@@ -1007,6 +1012,59 @@ class TestMigrationReportFile:
         report = MigrationReport("test", dry_run=False, keep=True)
         report.close_report_file()
         report.close_report_file()
+
+    def test_merge_and_skip_lines_in_report(self, tmp_path: Path) -> None:
+        """on_aspect_merged and on_aspect_skipped write merge/skip lines to the file."""
+        report_path = tmp_path / "report.tsv"
+        report = MigrationReport("test", dry_run=False, keep=True)
+        report.open_report_file(str(report_path))
+        report.set_current_pair("urn:li:dataset:src", "urn:li:dataset:tgt")
+        report.on_aspect_merged("globalTags")
+        report.on_aspect_merged("ownership")
+        report.on_aspect_skipped("viewProperties")
+        report.on_aspect_skipped("*")
+        report.close_report_file()
+
+        lines = report_path.read_text().strip().splitlines()
+        assert len(lines) == 4
+        assert lines[0] == "merge\turn:li:dataset:src\turn:li:dataset:tgt\tglobalTags"
+        assert lines[1] == "merge\turn:li:dataset:src\turn:li:dataset:tgt\townership"
+        assert (
+            lines[2] == "skip\turn:li:dataset:src\turn:li:dataset:tgt\tviewProperties"
+        )
+        assert lines[3] == "skip\turn:li:dataset:src\turn:li:dataset:tgt\t*"
+
+    @patch("datahub.cli.migration_utils.get_incoming_relationships", return_value=[])
+    @patch(
+        "datahub.cli.migration_utils.merge_entity",
+        return_value=MergeResult(
+            merged=2,
+            skipped=1,
+            merged_aspects=["ownership", "globalTags"],
+            skipped_aspects=["viewProperties"],
+        ),
+    )
+    def test_engine_merge_path_writes_to_report(
+        self, _mock_merge: MagicMock, _mock_rels: MagicMock, tmp_path: Path
+    ) -> None:
+        """The engine merge path writes merge/skip lines to the report file."""
+        report_path = tmp_path / "report.tsv"
+        report = MigrationReport("test", dry_run=True, keep=True)
+        report.open_report_file(str(report_path))
+        engine.migrate_pair(
+            MagicMock(exists=MagicMock(return_value=True)),
+            MigrationPair(SRC_URN, DST_URN),
+            _options(dry_run=True, on_conflict=ConflictStrategy.PATCH),
+            report,
+        )
+        report.close_report_file()
+
+        content = report_path.read_text()
+        lines = content.strip().splitlines()
+        actions = [line.split("\t")[0] for line in lines]
+        assert "merge" in actions
+        assert "skip" in actions
+        assert "migrated" in actions
 
     @patch("datahub.migration.engine.migrate_pair")
     def test_engine_opens_report_file(

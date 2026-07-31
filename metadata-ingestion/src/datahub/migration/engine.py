@@ -193,6 +193,7 @@ def migrate_pair(
             # still repoint referrers and delete the source below.
             log.info(f"Target {tgt} exists — preserving existing aspects")
             report.conflicts_skipped += 1
+            report.on_aspect_skipped("*")
         else:
             log.info(f"Target {tgt} exists — merging aspects")
             result = migration_utils.merge_entity(
@@ -205,6 +206,10 @@ def migrate_pair(
             )
             report.aspects_merged += result.merged
             report.conflicts_skipped += result.skipped
+            for aspect_name in result.merged_aspects:
+                report.on_aspect_merged(aspect_name)
+            for aspect_name in result.skipped_aspects:
+                report.on_aspect_skipped(aspect_name)
             # Only OVERWRITE may replace an existing target's platform instance;
             # PATCH leaves whatever the target already has.
             if options.on_conflict == ConflictStrategy.OVERWRITE:
@@ -257,7 +262,7 @@ def migrate_pair(
         delete_cli._delete_one_urn(
             graph, src, soft=not options.hard, run_id=options.run_id
         )
-    report.on_entity_migrated(src, "status")
+    report.on_entity_migrated(src, "COMPLETED")
 
 
 def _emit_target_instance(

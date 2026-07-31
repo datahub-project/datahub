@@ -7,6 +7,7 @@ import pytest
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli.migration_utils import (
+    get_migratable_aspect_names,
     merge_additive_aspects,
     merge_mixed_aspects,
     should_overwrite_non_additive,
@@ -581,3 +582,96 @@ class TestMergeEntityNonDataset:
 
         mock_clone.assert_called_once()
         assert result.skipped == 0
+
+    @patch("datahub.cli.migration_utils.clone_aspect")
+    def test_overwrite_excludes_status_aspect(
+        self,
+        mock_clone: MagicMock,
+    ) -> None:
+        """The overwrite fallback (non-dataset merge) does not clone the status
+        aspect — the target's own soft-delete state is authoritative."""
+        from datahub.cli.migration_utils import merge_entity
+
+        mock_clone.return_value = iter([])
+        graph = MagicMock()
+
+        merge_entity(
+            self.CHART_SRC,
+            self.CHART_DST,
+            ConflictStrategy.OVERWRITE,
+            graph,
+            dry_run=True,
+        )
+
+        cloned_aspects = mock_clone.call_args.kwargs["aspect_names"]
+        assert "status" not in cloned_aspects
+
+
+class TestMergeExcludesStatus:
+    """The merge path must never overwrite the target's status aspect."""
+
+    MERGE_SRC = "urn:li:dataset:(urn:li:dataPlatform:snowflake,a1.db.t,PROD)"
+    MERGE_DST = "urn:li:dataset:(urn:li:dataPlatform:snowflake,shared.db.t,PROD)"
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_dataset_merge_does_not_include_status(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """merge_entity for a dataset never writes the source's status aspect to
+        the target — a soft-deleted source must not soft-delete a live target."""
+        from datahub.cli.migration_utils import merge_entity
+        from datahub.metadata.schema_classes import StatusClass
+
+        mock_get_aspects.return_value = {
+            "status": StatusClass(removed=True),
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+        }
+
+        result = merge_entity(
+            self.MERGE_SRC,
+            self.MERGE_DST,
+            ConflictStrategy.OVERWRITE,
+            MagicMock(),
+            dry_run=True,
+        )
+
+        assert "status" not in result.merged_aspects
+        assert "globalTags" in result.merged_aspects
+
+    @patch("datahub.cli.migration_utils.cli_utils.get_aspects_for_entity")
+    def test_dataset_merge_does_not_include_container(
+        self,
+        mock_get_aspects: MagicMock,
+    ) -> None:
+        """merge_entity for a dataset never writes the source's container aspect
+        to the target — the target's parent container is authoritative."""
+        from datahub.cli.migration_utils import merge_entity
+        from datahub.metadata.schema_classes import ContainerClass
+
+        mock_get_aspects.return_value = {
+            "container": ContainerClass(container="urn:li:container:old"),
+            "globalTags": GlobalTagsClass(
+                tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+            ),
+        }
+
+        result = merge_entity(
+            self.MERGE_SRC,
+            self.MERGE_DST,
+            ConflictStrategy.OVERWRITE,
+            MagicMock(),
+            dry_run=True,
+        )
+
+        assert "container" not in result.merged_aspects
+        assert "globalTags" in result.merged_aspects
+
+    def test_clone_path_still_includes_status_and_container(self) -> None:
+        """get_migratable_aspect_names includes status and container — the clone
+        path (target does not exist) should carry both to the new entity."""
+        assert "status" in get_migratable_aspect_names("dataset")
+        assert "container" in get_migratable_aspect_names("dataset")
+        assert "status" in get_migratable_aspect_names("chart")

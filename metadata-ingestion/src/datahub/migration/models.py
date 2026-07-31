@@ -4,6 +4,7 @@ These are deliberately free of any CLI/``click`` dependency so the migration
 engine can be driven programmatically as well as from the ``datahub migrate`` CLI.
 """
 
+import dataclasses
 from dataclasses import dataclass
 from typing import IO, Callable, List, Optional, Tuple
 
@@ -37,6 +38,8 @@ class MergeResult:
 
     merged: int
     skipped: int
+    merged_aspects: List[str] = dataclasses.field(default_factory=list)
+    skipped_aspects: List[str] = dataclasses.field(default_factory=list)
 
 
 @dataclass
@@ -113,6 +116,12 @@ class MigrationReport:
             self.num_entities_created += 1
             self._last_created_urn = urn
         self._write_report("create", self._current_source, self._current_target, aspect)
+
+    def on_aspect_merged(self, aspect: str) -> None:
+        self._write_report("merge", self._current_source, self._current_target, aspect)
+
+    def on_aspect_skipped(self, aspect: str) -> None:
+        self._write_report("skip", self._current_source, self._current_target, aspect)
 
     def on_entity_affected(self, urn: str, aspect: str) -> None:
         self.num_events += 1

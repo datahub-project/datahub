@@ -285,7 +285,7 @@ def _migrate_containers(
                 delete_cli._delete_one_urn(
                     rest_emitter, src_urn, soft=not hard, run_id=run_id
                 )
-            migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
+            migration_report.on_entity_migrated(src_urn, "COMPLETED")  # type: ignore
     finally:
         migration_report.close_report_file()
     if skipped_count > 0:
@@ -941,7 +941,11 @@ def urns_mapping(
       Mixed:                      datasetProperties, editableDatasetProperties.
                                   customProperties keys are always merged;
                                   description follows the chosen strategy.
-      Always overwritten:         container, status, containerProperties.
+      Always overwritten:         containerProperties.
+      Never overwritten:          status (the target's soft-delete state is
+                                  authoritative), container (the target's
+                                  parent container is preserved; for p2i/i2i
+                                  the container migration repoints it).
       Preserve:                   skips all merge work — the target is left
                                   untouched, but incoming references are still
                                   repointed and the source is deleted.

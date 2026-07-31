@@ -1159,6 +1159,13 @@ When the target entity already exists, the command uses a strategy controlled by
 
 Defaults differ by command: `overwrite` for `dataplatform2instance`, `patch` for `instance2instance`, `overwrite` for `urns-mapping`.
 
+Regardless of the chosen strategy, the following aspects are **never overwritten** during a merge (i.e. when the target already exists):
+
+- **`status`**: The target's soft-delete state is authoritative. A soft-deleted source must not remove a live target.
+- **`container`**: The target's parent container is preserved. For `urns-mapping`, containers are not migrated, so the source's container reference may point at an entity that is about to be deleted. For `dataplatform2instance` / `instance2instance`, the separate container migration step repoints container references via incoming-relationship rewriting.
+
+These aspects are still cloned normally when the target does not exist (the clone path).
+
 Options:
 
 - `--platform` (required): The data platform (e.g. `snowflake`, `powerbi`).
