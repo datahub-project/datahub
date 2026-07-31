@@ -14,10 +14,13 @@ Run:
 from __future__ import annotations
 
 import json
+import logging
 import os
+from pathlib import Path
 
 import anthropic
 import httpx
+from dotenv import load_dotenv
 
 from contextlib import asynccontextmanager
 
@@ -26,8 +29,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
-from agent import DEFAULT_MODEL, run_agent
-from mcp_tools import get_mcp, shutdown_mcp
+
+# Must run before the local imports below: mcp_tools reads DATAHUB_MCP_URL at module
+# scope, and without it the orchestrator silently spawns its own unauthenticated
+# `uvx mcp-server-datahub` over stdio instead of using the HTTP server on :8001.
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+# uvicorn configures only its own loggers, so without this every logger.info in
+# mcp_tools/pii_* is swallowed and the tool calls are invisible while debugging.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d %(levelname)-7s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("orchestrator")
+
+from agent import DEFAULT_MODEL, run_agent  # noqa: E402
+from mcp_tools import get_mcp, shutdown_mcp  # noqa: E402
 import mysql.connector
 import uuid
 
@@ -77,9 +95,22 @@ def _gms_headers() -> dict[str, str]:
     return headers
 
 
+def _env_fallback(selected_model: str) -> dict[str, Any] | None:
+    """The local .env key, when GMS cannot supply one."""
+    env_api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not env_api_key or not selected_model.startswith("claude-"):
+        return None
+    return {
+        "model": selected_model,
+        "provider": "claude",
+        "apiKey": env_api_key,
+        "hasKey": True,
+        "source": "env-fallback",
+    }
+
+
 async def _get_runtime_ai_config(model: str | None = None) -> dict[str, Any]:
     selected_model = (model or _CONFIG["model"]).strip().lower()
-    env_api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -89,17 +120,18 @@ async def _get_runtime_ai_config(model: str | None = None) -> dict[str, Any]:
                 params={"model": selected_model},
             )
     except Exception as exc:
-        if env_api_key and selected_model.startswith("claude-"):
-            return {
-                "model": selected_model,
-                "provider": "claude",
-                "apiKey": env_api_key,
-                "hasKey": True,
-                "source": "env-fallback",
-            }
+        fallback = _env_fallback(selected_model)
+        if fallback:
+            return fallback
         raise HTTPException(status_code=503, detail=f"Failed to reach GMS AI config endpoint: {exc}") from exc
 
+    # A 404 means GMS holds no key for this model, which is not different in practice
+    # from GMS being unreachable — both leave us without one, so both fall back.
     if response.status_code == 404:
+        fallback = _env_fallback(selected_model)
+        if fallback:
+            logger.info("GMS has no key for %s; using ANTHROPIC_API_KEY.", selected_model)
+            return fallback
         return {"model": selected_model, "provider": None, "apiKey": None, "hasKey": False}
     if response.status_code >= 400:
         detail = response.text
