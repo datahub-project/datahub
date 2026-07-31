@@ -95,17 +95,10 @@ For the full surface area of each builder, see the
 
 ## Server compatibility
 
-The `semanticModel`, `metric`, and logical-`dataset` entities require a GMS
-build that understands the semantic-model metadata model.
-
-- **DataHub Cloud (SaaS):** requires server version **>= v2.1.0** with the
-  Metrics feature enabled (the `metricsEnabled` kill-switch flag must not be
-  `false`). Emitting to an older SaaS server fails loudly — the server rejects
-  the unregistered aspect and `emit_mcps` raises.
-- **Self-hosted / OSS:** there is no automatic version probe. The operator is
-  responsible for running a GMS build that includes the
-  `semanticModel`/`metric` model. The SDK does **not** gate emission on an OSS
-  version check.
+The `semanticModel`, `metric`, and logical-`dataset` entities require a server
+build that registers the semantic-model metadata model. Emitting to a server
+that does not register these aspects fails loudly — the server rejects the
+unregistered aspect and `emit_mcps` raises.
 
 For a clear, actionable error instead of a server-side rejection, call the
 opt-in preflight helper before emitting:
@@ -114,13 +107,15 @@ opt-in preflight helper before emitting:
 from datahub.sdk import DataHubClient, require_metrics_support
 
 client = DataHubClient(server="...", token="...")
-require_metrics_support(client)  # raises on old SaaS; no-op on OSS
+require_metrics_support(client)  # raises if the server version is too old
 ```
 
-The helper mirrors the Snowflake connector gate's asymmetry: it version-checks
-DataHub Cloud and fails open on OSS (no version signal exists to probe). It is
-**not** wired into `DataHubClient.upsert` automatically — call it explicitly
-when you want the preflight.
+The helper delegates to `RestServiceConfig.supports_feature`: it raises when the
+server reports a version that does not support these entities, and fails open
+when there is no version signal to check (the operator is then responsible for
+running a build that includes the model). It is **not** wired into
+`DataHubClient.upsert` automatically — call it explicitly when you want the
+preflight.
 
 ### Read-modify-write caveat for logical datasets
 

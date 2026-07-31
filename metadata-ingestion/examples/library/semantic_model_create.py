@@ -166,11 +166,11 @@ def main() -> None:
     print(f"Wrote {len(all_mcps)} MCPs to semantic_model_create.json")
 
     # When emitting to a live server instead of a file, call the opt-in
-    # preflight helper first to get a clear error on an unsupported GMS:
+    # preflight helper first to get a clear error on an unsupported server:
     #
     #   from datahub.sdk import DataHubClient, require_metrics_support
     #   client = DataHubClient(server=..., token=...)
-    #   require_metrics_support(client)  # raises on old SaaS; no-op on OSS
+    #   require_metrics_support(client)  # raises if the server version is too old
     #   for entity in [model, *entities]:
     #       client.entities.upsert(entity)
 

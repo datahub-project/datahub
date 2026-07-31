@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from typing_extensions import TypeAlias
 
@@ -16,22 +16,17 @@ from datahub.metadata.schema_classes import (
     MetricExpressionClass,
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
+from datahub.utilities.server_config_util import ServiceFeature
 
 __all__ = [
     "AiContextInput",
     "DialectExpressionInput",
-    "METRICS_MIN_SAAS_VERSION",
     "MetricExpressionInputType",
     "build_ai_context",
     "build_metric_expression",
     "make_audit_stamp",
     "require_metrics_support",
 ]
-
-# Minimum DataHub Cloud (SaaS) version supporting semanticModel/metric entities.
-# Mirrors the connector gate (snowflake_semantic_model_gate._MIN_SAAS_VERSION);
-# do not import from the connector — keep this in the shared SDK location.
-METRICS_MIN_SAAS_VERSION: Tuple[int, int, int] = (2, 1, 0)
 
 
 @dataclass
@@ -146,21 +141,18 @@ def make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
 
 
 def require_metrics_support(client_or_graph: object) -> None:
-    """Opt-in preflight check that the connected GMS supports the
+    """Opt-in preflight check that the connected server supports the
     ``semanticModel``/``metric``/logical-``dataset`` entities.
 
     Accepts either a :class:`~datahub.sdk.main_client.DataHubClient` or a raw
     ``DataHubGraph``; the client's underlying graph is unwrapped automatically.
 
-    Mirrors the Snowflake connector gate's asymmetry:
-
-    - **DataHub Cloud (SaaS):** raises :class:`SdkUsageError` when the server
-      version is below :data:`METRICS_MIN_SAAS_VERSION`. Does not probe the
-      ``metricsEnabled`` kill-switch (an explicit false there surfaces as a
-      server-side rejection at emit time, which is loud, not silent).
-    - **OSS / self-hosted:** no version signal exists, so this is a no-op (fail
-      open). The operator is responsible for running a GMS build that includes
-      the semanticModel/metric model.
+    Delegates the version/deployment logic to
+    :meth:`RestServiceConfig.supports_feature` (``ServiceFeature.SEMANTIC_MODELS``).
+    Raises :class:`SdkUsageError` when the server reports a version that does not
+    support these entities, and fails open (no-op) when there is no version
+    signal to check — the operator is then responsible for running a build that
+    includes the semanticModel/metric model.
 
     Call this before emitting entities when you want a clear, actionable error
     instead of a server-side rejection::
@@ -184,20 +176,16 @@ def require_metrics_support(client_or_graph: object) -> None:
     if server_config is None:
         # No server config available (e.g. offline/emitter-only); fail open.
         return
-    if not server_config.is_datahub_cloud:
-        # OSS / self-hosted: no version gate, operator's responsibility.
-        return
     try:
-        supported = server_config.is_version_at_least(*METRICS_MIN_SAAS_VERSION)
+        supported = server_config.supports_feature(ServiceFeature.SEMANTIC_MODELS)
     except ValueError:
-        # Non-semver Cloud build (dev/snapshot/sha tag) — no reliable version
-        # signal to gate on. Fail open rather than surfacing a raw parse error
-        # from a helper whose whole purpose is a clear, actionable message.
+        # Non-semver build (dev/snapshot/sha tag) — no reliable version signal
+        # to gate on; fail open rather than leaking a raw parse error.
         return
     if not supported:
-        version = server_config.service_version
+        version = getattr(server_config, "service_version", None)
         raise SdkUsageError(
-            f"This DataHub Cloud server (v{version}) does not support "
-            f"semanticModel/metric entities; requires >= v"
-            f"{'.'.join(str(v) for v in METRICS_MIN_SAAS_VERSION)}."
+            f"This DataHub server (v{version}) does not support "
+            "semanticModel/metric entities. Upgrade to a server build that "
+            "includes the semanticModel/metric model."
         )

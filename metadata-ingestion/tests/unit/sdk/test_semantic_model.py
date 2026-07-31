@@ -778,47 +778,27 @@ def test_governance_kwargs_land_in_aspects(builder: Callable[[], Entity]) -> Non
         assert name in aspects, f"{name} missing from {type(entity).__name__}"
 
 
-def test_require_metrics_support_saas_below_min_raises() -> None:
+def test_require_metrics_support_unsupported_raises() -> None:
     from unittest.mock import MagicMock
-
-    from datahub.sdk import require_metrics_support
-
-    graph = MagicMock()
-    graph.server_config.is_datahub_cloud = True
-    graph.server_config.is_version_at_least.return_value = False
-    graph.server_config.service_version = "2.0.0"
 
     from datahub.errors import SdkUsageError
+    from datahub.sdk import require_metrics_support
 
-    try:
+    graph = MagicMock()
+    graph.server_config.supports_feature.return_value = False
+    graph.server_config.service_version = "2.0.0"
+    with pytest.raises(SdkUsageError):
         require_metrics_support(graph)
-    except SdkUsageError as e:
-        assert "v2.0.0" in str(e)
-        assert "2.1.0" in str(e)
-    else:
-        raise AssertionError("expected SdkUsageError for old SaaS server")
 
 
-def test_require_metrics_support_saas_at_or_above_min_ok() -> None:
+def test_require_metrics_support_supported_is_noop() -> None:
     from unittest.mock import MagicMock
 
     from datahub.sdk import require_metrics_support
 
     graph = MagicMock()
-    graph.server_config.is_datahub_cloud = True
-    graph.server_config.is_version_at_least.return_value = True
-    graph.server_config.service_version = "2.1.0"
+    graph.server_config.supports_feature.return_value = True
     require_metrics_support(graph)  # should not raise
-
-
-def test_require_metrics_support_oss_is_noop() -> None:
-    from unittest.mock import MagicMock
-
-    from datahub.sdk import require_metrics_support
-
-    graph = MagicMock()
-    graph.server_config.is_datahub_cloud = False
-    require_metrics_support(graph)  # should not raise, no version probe
 
 
 def test_require_metrics_support_no_server_config_fail_open() -> None:
@@ -831,15 +811,14 @@ def test_require_metrics_support_no_server_config_fail_open() -> None:
 
 
 def test_require_metrics_support_non_semver_fails_open() -> None:
-    # Non-semver Cloud builds (dev/snapshot/sha) make is_version_at_least raise
-    # ValueError; the preflight helper must fail open, not leak a parse error.
+    # A non-semver build makes supports_feature raise ValueError; the preflight
+    # helper must fail open, not leak a parse error.
     from unittest.mock import MagicMock
 
     from datahub.sdk import require_metrics_support
 
     graph = MagicMock()
-    graph.server_config.is_datahub_cloud = True
-    graph.server_config.is_version_at_least.side_effect = ValueError(
+    graph.server_config.supports_feature.side_effect = ValueError(
         "Invalid version format: dev-snapshot"
     )
     require_metrics_support(graph)  # should not raise
@@ -1104,8 +1083,7 @@ def test_require_metrics_support_accepts_client() -> None:
     from datahub.sdk import DataHubClient, require_metrics_support
 
     graph = MagicMock()
-    graph.server_config.is_datahub_cloud = True
-    graph.server_config.is_version_at_least.return_value = False
+    graph.server_config.supports_feature.return_value = False
     graph.server_config.service_version = "1.0.0"
     client = DataHubClient(graph=graph)
     with pytest.raises(SdkUsageError):

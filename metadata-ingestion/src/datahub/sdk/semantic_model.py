@@ -150,8 +150,7 @@ class SemanticModel(
     ``upstreamLineage``. Do not populate ``metricUpstreams`` for
     semantic-model-backed metrics.
 
-    Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
-    Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
+    Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
     check). See :func:`datahub.sdk.require_metrics_support` for an opt-in
     preflight helper.
@@ -478,8 +477,7 @@ class SemanticModelDataset(Dataset):
     fresh ``SemanticModelDataset`` and re-attach its fields via the ``schema``
     constructor kwarg rather than read-modify-writing the fetched ``Dataset``.
 
-    Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
-    Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
+    Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
     check). See :func:`datahub.sdk.require_metrics_support` for an opt-in
     preflight helper.
