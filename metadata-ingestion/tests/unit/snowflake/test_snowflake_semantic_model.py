@@ -1668,6 +1668,7 @@ def test_relationship_join_columns_normalized_to_match_field_paths():
         semantic_view.name, _SCHEMA, _DB
     )
     info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is not None
     relationship = info.relationships[0]
 
     # Lowercased to match the lowercased field paths, not left uppercase.
