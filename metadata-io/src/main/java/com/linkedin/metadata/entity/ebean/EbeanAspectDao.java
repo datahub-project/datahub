@@ -106,8 +106,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private final boolean isPostgres;
   // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres only).
   private final boolean entityWriteAdvisoryLockEnabled;
-  // Namespace for entity-write advisory locks, to avoid key collisions with other advisory-lock
-  // users. hashtext(urn) supplies the second (per-entity) key.
+  // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
+  // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
 
   public EbeanAspectDao(
@@ -188,16 +188,52 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
       return;
     }
-    // Sort so every transaction acquires the advisory locks in the same order; advisory locks can
-    // themselves deadlock if taken in inconsistent order across concurrent transactions.
-    final List<String> sortedUrns = urns.stream().distinct().sorted().collect(Collectors.toList());
-    for (String urnValue : sortedUrns) {
-      server
-          .sqlQuery("select pg_advisory_xact_lock(:ns, hashtext(:urn))")
-          .setParameter("ns", ADVISORY_LOCK_NAMESPACE)
-          .setParameter("urn", urnValue)
-          .findOne();
+    // Transaction-scoped: without an active transaction the advisory lock would auto-commit and
+    // release immediately. All real callsites run inside runInTransactionWithRetry; if that ever
+    // isn't the case, skip the lock with a warning rather than abort the caller's write.
+    if (!hasActiveTransaction("lockUrnsForWrite")) {
+      return;
     }
+    // Acquire all the advisory locks in ONE round trip. Sort first so every transaction presents
+    // the keys in the same order (advisory locks can self-deadlock across transactions otherwise),
+    // then lock them in a single statement over a VALUES list — a logical-model link can carry
+    // hundreds/thousands of urns, and a round trip per urn would swamp the DB. The VALUES scan
+    // evaluates the (void-returning) function once per row, in list order. Result discarded.
+    final List<String> sortedUrns = urns.stream().distinct().sorted().collect(Collectors.toList());
+    final StringBuilder sql =
+        new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
+    for (int i = 0; i < sortedUrns.size(); i++) {
+      if (i > 0) {
+        sql.append(", ");
+      }
+      sql.append("(:u").append(i).append(")");
+    }
+    sql.append(") as v(urn)");
+    final SqlQuery lockQuery =
+        server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
+    for (int i = 0; i < sortedUrns.size(); i++) {
+      lockQuery.setParameter("u" + i, sortedUrns.get(i));
+    }
+    lockQuery.findList();
+  }
+
+  /**
+   * Transaction-scoped locks (advisory locks and {@code FOR UPDATE} reads) only hold if the thread
+   * has an active Ebean transaction; without one they would run under auto-commit and release
+   * immediately, so they must be skipped rather than issued. All real callsites run inside {@code
+   * runInTransactionWithRetry}, so this normally returns true. If it is ever false we log and skip
+   * the lock — the write still succeeds, only the (opt-in) serialization / lock ordering is
+   * forgone. Never aborts the caller.
+   */
+  private boolean hasActiveTransaction(String operation) {
+    if (server.currentTransaction() == null) {
+      log.warn(
+          "{} invoked without an active transaction; skipping the transaction-scoped lock. The "
+              + "write proceeds, but lock ordering / serialization is not applied.",
+          operation);
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -394,9 +430,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // rows in index order, so no up-front lock is needed and this block is skipped. The lock query
     // hydrates only this one urn's rows (bounded by its aspect/version count) purely to take the
     // locks. (canWrite is guaranteed true by the early return above.)
-    if (isPostgres) {
+    if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
+      // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the matched
+      // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the locks.
       server
           .find(EbeanAspectV2.class)
+          .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
           .where()
           .eq(EbeanAspectV2.URN_COLUMN, urn)
           .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
@@ -608,6 +647,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Add FOR UPDATE clause only once at the end of the entire statement
     if (forUpdate && canWrite) {
+      // Defense-in-depth: PostgreSQL rejects FOR UPDATE with UNION, and the constructor already
+      // coerces PostgreSQL to the IN batch-get. This guards against a future regression routing a
+      // locking read through the UNION path on PostgreSQL.
+      if (isPostgres) {
+        throw new IllegalStateException(
+            "UNION batch-get cannot take FOR UPDATE on PostgreSQL; use the IN batch-get method.");
+      }
       sb.append(" FOR UPDATE");
     }
 
@@ -670,7 +716,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       // On PostgreSQL, ORDER BY forces a Sort/ordered-scan below the LockRows executor node, so row
       // locks are acquired in (urn, aspect, version) order instead of physical/CTID scan order,
       // preventing lock-order deadlocks between concurrent writers. MySQL/InnoDB already locks the
-      // primary-key IN-list in index order, so the clause is only added for Postgres.
+      // primary-key IN-list in index order, so the clause is only added for Postgres. Keys are
+      // globally pre-sorted in batchGet before chunking, so per-chunk ORDER BY plus sequential
+      // (same-transaction) chunk execution preserves one global lock order across chunk boundaries.
       if (isPostgres) {
         sb.append(" ORDER BY ").append(EbeanAspectV2.KEY_ORDER_BY_SQL);
       }

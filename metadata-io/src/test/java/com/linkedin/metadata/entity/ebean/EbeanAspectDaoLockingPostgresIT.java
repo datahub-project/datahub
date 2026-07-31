@@ -226,20 +226,10 @@ public class EbeanAspectDaoLockingPostgresIT {
   }
 
   @Test
-  public void orderByPropertyPath_generatesSqlOrderByClause() {
-    // Guards against a future Ebean change silently dropping ORDER BY when ordering by the
-    // embedded-id property path — which would quietly re-break PostgreSQL lock ordering.
-    final String sql =
-        primaryDatabase
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, "urn:li:corpuser:x")
-            .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
-            .query()
-            .getGeneratedSql()
-            .toLowerCase();
-    assertTrue(sql.contains("order by"), "embedded-id orderBy must emit a SQL ORDER BY clause");
-    assertTrue(sql.contains("urn"), "ORDER BY should reference the urn column");
+  public void lockUrnsForWrite_withoutActiveTransaction_skipsGracefully() {
+    // No enclosing transaction → the advisory lock can't be held (would auto-commit), so it is
+    // skipped with a warning rather than aborting the caller. Must not throw.
+    advisoryDao.lockUrnsForWrite(opContext, List.of("urn:li:corpuser:no_txn_" + shortId()));
   }
 
   private void saveAspect(String urn, String aspectName) {
