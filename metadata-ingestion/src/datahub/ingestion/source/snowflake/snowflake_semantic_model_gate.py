@@ -1,10 +1,11 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 
 from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.server_config_util import ServiceFeature
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,8 @@ class _MetricsProbe(Enum):
     DISABLED = "disabled"  # metricsEnabled=false -> kill-switch veto
     # Field positively absent (older server without the flag) -> fail open.
     FIELD_ABSENT = "field_absent"
-    # Operational failure (auth/transport/unexpected) -> fail closed to legacy.
+    # Operational failure (auth/transport/unexpected) -> fail closed.
     PROBE_FAILED = "probe_failed"
-
-
-# Minimum DataHub server version supporting semanticModel/metric entities.
-_MIN_SAAS_VERSION: Tuple[int, int, int] = (2, 1, 0)
 
 _METRICS_ENABLED_OPERATION = "getMetricsEnabled"
 _METRICS_ENABLED_QUERY = """
@@ -34,9 +31,9 @@ _METRICS_ENABLED_QUERY = """
     }
 """
 
-# A GraphQL error carrying both markers means the server predates metricsEnabled;
-# any other error is re-raised for the resolver, which treats a fetch failure as
-# not-disabled (fail-open), never as a veto.
+# A GraphQL error carrying both markers means the server predates the
+# metricsEnabled feature flag - a positive "flag absent" signal (fail open). Any
+# other error is an operational probe failure (fail closed to legacy), not a veto.
 _FIELD_UNDEFINED_MARKER = "FieldUndefined"
 _METRICS_ENABLED_FIELD = "metricsEnabled"
 
@@ -155,16 +152,18 @@ def resolve_emit_semantic_model_entities(
     version_unparseable = False
     if is_saas:
         try:
-            entity_types_capable = server_config.is_version_at_least(*_MIN_SAAS_VERSION)
+            entity_types_capable = server_config.supports_feature(
+                ServiceFeature.SEMANTIC_MODEL_ENTITIES
+            )
         except ValueError:
-            # is_version_at_least raises on a non-semver service_version (git-sha
-            # tag, two-part version, unexpected suffix). This resolver runs by
-            # default on a managed server, so an unparseable version must not abort the entire
-            # Snowflake source - fail closed to legacy (feature off) instead.
+            # supports_feature parses service_version, which raises on a non-semver
+            # value (git-sha tag, two-part version, unexpected suffix). This resolver
+            # runs by default on a managed server, so an unparseable version must not
+            # abort the entire Snowflake source - fail closed (feature off) instead.
             logger.warning(
                 "Could not parse DataHub server version %r for the semanticModel/"
-                "metric capability check; treating the server as below the minimum "
-                "and keeping the feature off.",
+                "metric capability check; treating the server as unsupported and "
+                "keeping the feature off.",
                 version,
                 exc_info=True,
             )
@@ -203,16 +202,14 @@ def resolve_emit_semantic_model_entities(
     # requested emission. On the managed-server path entity_types_capable is exactly the
     # version check.
     if not entity_types_capable:
-        min_version = ".".join(str(v) for v in _MIN_SAAS_VERSION)
         return ResolvedEmitDecision(
             enabled=False,
             reason=(
                 f"DataHub server version {version!r} could not be parsed; treating "
-                f"as below the minimum {min_version} required for semanticModel/"
-                "metric entities"
+                "the server as not supporting semanticModel/metric entities"
                 if version_unparseable
-                else f"DataHub server version {version} is below the minimum "
-                f"{min_version} required for semanticModel/metric entities"
+                else f"DataHub server version {version} does not support "
+                "semanticModel/metric entities"
             ),
             is_saas=True,
             version=version,

@@ -522,6 +522,12 @@ class SnowflakeV2Source(
         )
 
     def _resolve_semantic_model_emission(self) -> None:
+        # Nothing to resolve if semantic views are not being ingested - avoid the
+        # server probe (unnecessary GraphQL traffic and misleading warnings) when
+        # the feature is off entirely.
+        if not self.config.semantic_views.enabled:
+            return
+
         # Resolve the tri-state flag against server signals before any
         # semantic-view processing reads it. A None graph (file sink / no
         # connection) is handled by the resolver as the OSS path.

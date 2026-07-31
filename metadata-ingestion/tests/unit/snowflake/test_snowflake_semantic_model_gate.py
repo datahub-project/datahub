@@ -73,7 +73,7 @@ def test_saas_old_version_vetoes_recipe_true():
     )
     decision = resolve_emit_semantic_model_entities(graph, True)
     assert not decision.enabled
-    assert "below the minimum" in decision.reason
+    assert "does not support" in decision.reason
     # Below the minimum -> not capable -> entityTypes stays at 3.
     assert not decision.entity_types_capable
 
