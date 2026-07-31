@@ -58,8 +58,7 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
             getNodes,
             setNodes,
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedUrn is read from a ref on purpose
-    }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip, selectedColumn]);
+    }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip, selectedColumn, pinnedUrn]);
 }
 
 // Required because NodeBuilder cannot properly place Lineage Filter nodes
@@ -99,6 +98,7 @@ export function useAvoidIntersectionsOften(id: string, expandHeight: number, roo
         displayVersionNumber,
         skip,
         selectedColumn,
+        pinnedUrn
     ]);
 }
 
