@@ -384,8 +384,8 @@ A semantic view is ingested in one of two representations, selected by the `sema
 
 The flag is tri-state and server-aware:
 
-- **Unset (default):** auto-resolved from the server. On DataHub Cloud ≥ `2.1.0` it is enabled unless the Metrics feature is explicitly disabled; it stays off on older Cloud, on OSS/self-hosted (which is recipe-driven — see below), and with no DataHub connection (e.g. a file sink).
-- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0` or with Metrics off, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
+- **Unset (default):** auto-resolved from the server. On DataHub Cloud ≥ `2.1.0` it is enabled unless the Metrics feature is explicitly disabled; it stays off on older Cloud, on OSS/self-hosted (which is recipe-driven — see below), and with no DataHub connection (e.g. a file sink). If the Metrics feature-flag probe cannot be read (a transient auth/network/GraphQL error), the connector fails closed to legacy datasets rather than emitting the new entities.
+- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0`, with Metrics off, or when the Metrics probe cannot be read, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
 - **`false`:** always force legacy dataset behavior, overriding any server-side auto-enable.
 
 ##### Configuration

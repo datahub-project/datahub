@@ -368,9 +368,8 @@ class SnowflakeSemanticModelMapper:
             downstream_field = self._downstream_field_name(lineage)
             downstream_upper = downstream_field.upper() if downstream_field else None
             parent_urn = SchemaFieldUrn.from_string(lineage.downstreams[0]).parent
-            if (
-                downstream_upper
-                and downstream_upper in metric_cols_by_urn.get(parent_urn, set())
+            if downstream_upper and downstream_upper in metric_cols_by_urn.get(
+                parent_urn, set()
             ):
                 # Metric column on this logical table: lineage flows via the metric
                 # entity, and the logical dataset has no schemaField for it.

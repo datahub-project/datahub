@@ -20,6 +20,7 @@ class _MetricsProbe(Enum):
     # Operational failure (auth/transport/unexpected) -> fail closed.
     PROBE_FAILED = "probe_failed"
 
+
 _METRICS_ENABLED_OPERATION = "getMetricsEnabled"
 _METRICS_ENABLED_QUERY = """
     query getMetricsEnabled {
