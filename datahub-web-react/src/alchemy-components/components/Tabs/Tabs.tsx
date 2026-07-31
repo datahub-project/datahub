@@ -9,7 +9,6 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { colors } from '@src/alchemy-components/theme';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -45,7 +44,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
@@ -138,7 +137,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -210,7 +209,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${colors.gray[200]};
+                background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
             }
         `}
 
@@ -236,7 +235,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWi
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${(props) => props.$disabled && `color: ${props.theme.colors.textDisabled};`}
     ${({ $width }) => $width && `width: ${$width};`}
     ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
     ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}

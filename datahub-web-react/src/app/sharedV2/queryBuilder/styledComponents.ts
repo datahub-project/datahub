@@ -1,7 +1,7 @@
 import { Collapse } from 'antd';
 import styled from 'styled-components/macro';
 
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const ConditionContainer = styled.div<{ depth: number }>`
@@ -33,12 +33,12 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? props.theme.colors.textBrand : colors.gray[600])};
-    background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textBrand : props.theme.colors.textSecondary)};
+    background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurface : 'transparent')};
     padding: 10px 12px;
 
     &:focus {
-        background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurface : 'transparent')};
         box-shadow: none;
     }
 `;
@@ -54,7 +54,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         padding: 0 0 0 ${(props) => props.depth * 20 + (props.hasChildren ? 20 : 48)}px !important;
         align-items: center !important;
         margin: 8px 0;
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
     }
 
     .ant-collapse-item {
@@ -68,7 +68,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: 52px;
         width: 2px;
         height: calc(100% - 78px);
-        background-color: ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
         z-index: 1;
     }
 
@@ -79,7 +79,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: calc(100% - 28px);
         width: 5px;
         height: 2px;
-        background-color: ${colors.gray[1400]};
+        background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
         z-index: 1;
     }
 

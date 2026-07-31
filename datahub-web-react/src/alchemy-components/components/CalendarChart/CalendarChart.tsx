@@ -1,5 +1,6 @@
 import { ParentSize } from '@visx/responsive';
 import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
 import { ChartWrapper } from '@components/components/CalendarChart/components';
 import { AxisBottomMonths } from '@components/components/CalendarChart/private/components/AxisBottomMonths';
@@ -10,45 +11,30 @@ import { CalendarProvider } from '@components/components/CalendarChart/private/c
 import { CalendarChartProps } from '@components/components/CalendarChart/types';
 import { prepareCalendarData } from '@components/components/CalendarChart/utils';
 
-import { colors } from '@src/alchemy-components/theme';
-
-const commonLabelProps = {
-    fill: colors.gray[1700],
+const getCommonLabelProps = (fill: string) => ({
+    fill,
     fontFamily: 'Mulish',
     fontSize: 10,
-};
-
-export const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor' | 'startDate' | 'endDate'> = {
-    data: [],
-    leftAxisLabelProps: {
-        ...commonLabelProps,
-        textAnchor: 'end',
-    },
-    showLeftAxisLine: false,
-    bottomAxisLabelProps: {
-        ...commonLabelProps,
-        textAnchor: 'start',
-    },
-    maxHeight: 350,
-    showPopover: true,
-};
+});
 
 export function CalendarChart<ValueType = any>({
-    data = calendarChartDefault.data,
+    data = [],
     startDate,
     endDate,
     colorAccessor,
-    showPopover = calendarChartDefault.showPopover,
+    showPopover = true,
     popoverRenderer,
-    leftAxisLabelProps = calendarChartDefault.leftAxisLabelProps,
-    showLeftAxisLine = calendarChartDefault.showLeftAxisLine,
-    bottomAxisLabelProps = calendarChartDefault.bottomAxisLabelProps,
+    leftAxisLabelProps,
+    showLeftAxisLine = false,
+    bottomAxisLabelProps,
     margin,
-    maxHeight = calendarChartDefault.maxHeight,
+    maxHeight = 350,
     selectedDay,
     onDayClick,
     dataTestId,
 }: CalendarChartProps<ValueType>) {
+    const theme = useTheme();
+    const commonLabelProps = getCommonLabelProps(theme.colors.text);
     const preparedData = useMemo(
         () => prepareCalendarData<ValueType>(data, startDate, endDate),
         [data, startDate, endDate],
@@ -72,10 +58,12 @@ export function CalendarChart<ValueType = any>({
                         >
                             <CalendarContainer>
                                 <AxisLeftWeekdays<ValueType>
-                                    labelProps={leftAxisLabelProps}
+                                    labelProps={leftAxisLabelProps ?? { ...commonLabelProps, textAnchor: 'end' }}
                                     showLeftAxisLine={showLeftAxisLine}
                                 />
-                                <AxisBottomMonths<ValueType> labelProps={bottomAxisLabelProps} />
+                                <AxisBottomMonths<ValueType>
+                                    labelProps={bottomAxisLabelProps ?? { ...commonLabelProps, textAnchor: 'start' }}
+                                />
 
                                 <Calendar<ValueType> data={preparedData} />
                             </CalendarContainer>
