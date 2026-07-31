@@ -21,6 +21,7 @@ import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profi
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
@@ -120,6 +121,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
         {
             component: SidebarApplicationSection,
+        },
+        {
+            component: SidebarTagsSection,
         },
         {
             component: SidebarStructuredProperties,
@@ -253,6 +257,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
+            EntityCapabilityType.TAGS,
         ]);
     };
 

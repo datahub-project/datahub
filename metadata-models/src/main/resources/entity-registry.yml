@@ -333,6 +333,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey

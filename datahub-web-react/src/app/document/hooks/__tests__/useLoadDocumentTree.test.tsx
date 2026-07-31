@@ -233,8 +233,8 @@ describe('useLoadDocumentTree', () => {
         const childrenMap = await result.current.checkForChildren(urns);
 
         expect(childrenMap).toEqual({
-            'urn:li:document:1': true,
-            'urn:li:document:2': false,
+            'urn:li:document:1': 1,
+            'urn:li:document:2': 0,
         });
     });
 
