@@ -341,6 +341,7 @@ def test_clear_hydrated_ai_context_emits_empty_overwrite() -> None:
     emitted = {mcp.aspectName: mcp.aspect for mcp in hydrated.as_mcps()}
     assert "aiContext" in emitted  # overwrite emitted, not dropped
     cleared = emitted["aiContext"]
+    assert isinstance(cleared, AiContextClass)
     assert cleared.synonyms is None
     assert cleared.instructions is None
     assert cleared.examples is None

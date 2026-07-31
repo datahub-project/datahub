@@ -1231,4 +1231,6 @@ def test_semantic_model_clear_hydrated_ai_context_emits_empty_overwrite() -> Non
     hydrated.set_ai_context(AiContextInput())  # clear
     emitted = {mcp.aspectName: mcp.aspect for mcp in hydrated.as_mcps()}
     assert "aiContext" in emitted
-    assert emitted["aiContext"].synonyms is None
+    cleared = emitted["aiContext"]
+    assert isinstance(cleared, AiContextClass)
+    assert cleared.synonyms is None
