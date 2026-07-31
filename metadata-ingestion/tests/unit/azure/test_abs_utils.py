@@ -29,16 +29,25 @@ class TestMakeAbsUrn:
             "https://myacct.blob.core.windows.net/my-container/report (1).csv",
             "PROD",
         ) == (
-            "urn:li:dataset:(urn:li:dataPlatform:abs,my-container/report %281%29_csv,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:abs,my-container/report %281%29.csv,PROD)"
         )
 
-    def test_extension_mangling_preserved(self) -> None:
-        # Pre-existing behavior of this helper (unlike make_s3_urn_for_lineage, which
-        # never mangles extensions) -- the platform-instance change did not touch this.
+    def test_file_extension_is_not_mangled(self) -> None:
+        # The ABS source (abs/source.py) names file-like datasets with the raw
+        # `.strip("/")` path -- `data.parquet` stays `data.parquet`, it is never
+        # rewritten to `data_parquet`. If this helper mangled it instead, every
+        # file-like ABS stage lineage upstream would silently fail to join.
         assert (
             make_abs_urn(
                 "https://myacct.blob.core.windows.net/my-container/data.parquet",
                 "PROD",
             )
-            == "urn:li:dataset:(urn:li:dataPlatform:abs,my-container/data_parquet,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:abs,my-container/data.parquet,PROD)"
+        )
+
+    def test_strips_leading_and_trailing_slashes(self) -> None:
+        assert make_abs_urn(
+            "https://myacct.blob.core.windows.net/my-container/data/", "PROD"
+        ) == make_abs_urn(
+            "https://myacct.blob.core.windows.net/my-container/data", "PROD"
         )

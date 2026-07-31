@@ -1,4 +1,3 @@
-import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -124,23 +123,14 @@ def strip_abs_prefix(abs_uri: str) -> str:
 def make_abs_urn(
     abs_uri: str, env: str, *, platform_instance: Optional[str] = None
 ) -> str:
-    abs_name = strip_abs_prefix(abs_uri)
-
-    if abs_name.endswith("/"):
-        abs_name = abs_name[:-1]
-
-    name, extension = os.path.splitext(abs_name)
-
-    if extension != "":
-        extension = extension[1:]  # remove the dot
-        abs_name = f"{name}_{extension}"
-
-    # Built via the shared URN builder so the platform instance prefix matches what the
-    # ABS source emits for the same container; a warehouse source naming an ABS dataset
-    # is the reader side of a lineage join, and any drift silently dangles the upstream.
+    # No extension mangling: the ABS source (abs/source.py) names datasets with the raw
+    # `strip_abs_prefix(...).strip("/")` path, so `data.parquet` stays `data.parquet` on
+    # both sides. This is the only caller of make_abs_urn; there is no sibling helper
+    # whose behavior needs preserving the way make_s3_urn is kept separate from
+    # make_s3_urn_for_lineage for Glue/Athena/SageMaker.
     return make_dataset_urn_with_platform_instance(
         platform="abs",
-        name=abs_name,
+        name=strip_abs_prefix(abs_uri).strip("/"),
         platform_instance=platform_instance,
         env=env,
     )
