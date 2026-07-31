@@ -7,8 +7,8 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -21,7 +21,9 @@ import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +54,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   private final EntityService<?> entityService;
   private final String upgradeVersion;
   private final Urn upgradeIdUrn;
+  private final BuildIndicesConfiguration buildIndicesConfig;
 
   /**
    * @param upgradeVersion version string (e.g. "{gitVersion}-{revision}") used to scope upgrade
@@ -62,13 +65,15 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       List<ElasticSearchIndexed> indexedServices,
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       EntityService<?> entityService,
-      String upgradeVersion) {
+      String upgradeVersion,
+      BuildIndicesConfiguration buildIndicesConfig) {
     this.opContext = opContext;
     this.indexedServices = indexedServices;
     this.structuredProperties = structuredProperties;
     this.entityService = entityService;
     this.upgradeVersion = upgradeVersion;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    this.buildIndicesConfig = buildIndicesConfig;
   }
 
   @Override
@@ -85,12 +90,36 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
+        List<ReindexConfig> allConfigs =
+            getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties);
         List<ReindexConfig> configsNeedingReindex =
-            IndexUtils.getIndicesNeedingReindexOrBuild(
-                context.opContext(), indexedServices, structuredProperties);
+            allConfigs.stream()
+                .filter(config -> !config.exists() || config.requiresReindex())
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        if (buildIndicesConfig.isReconcileInPlaceMappingUpdates()) {
+          Set<String> selectedNames =
+              configsNeedingReindex.stream()
+                  .map(ReindexConfig::name)
+                  .collect(Collectors.toCollection(HashSet::new));
+          List<ReindexConfig> reconciliationConfigs =
+              allConfigs.stream()
+                  .filter(ReindexConfig::requiresMappingReconciliation)
+                  .filter(config -> selectedNames.add(config.name()))
+                  .collect(Collectors.toList());
+          configsNeedingReindex.addAll(reconciliationConfigs);
+          if (!reconciliationConfigs.isEmpty()) {
+            log.info(
+                "Reconciling {} in-place mapping update(s) through incremental reindex: {}",
+                reconciliationConfigs.size(),
+                reconciliationConfigs.stream()
+                    .map(ReindexConfig::name)
+                    .collect(Collectors.toList()));
+          }
+        }
+
         if (configsNeedingReindex.isEmpty()) {
           log.info("No indices require incremental reindex");
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
 
         // Load any previously persisted state for resumption
@@ -315,10 +344,14 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         // Also handle indices that don't need reindex but need mapping/settings updates, note that
         // while we call the
         // get again it avoids reprocessing so has minimal cost.
+        Set<String> incrementallyBuiltIndices =
+            configsNeedingReindex.stream()
+                .map(ReindexConfig::name)
+                .collect(Collectors.toCollection(HashSet::new));
         List<ReindexConfig> configsNoReindex =
-            getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
-                .stream()
+            allConfigs.stream()
                 .filter(c -> !c.requiresReindex())
+                .filter(c -> !incrementallyBuiltIndices.contains(c.name()))
                 .filter(c -> c.requiresApplyMappings() || c.requiresApplySettings())
                 .collect(Collectors.toList());
 

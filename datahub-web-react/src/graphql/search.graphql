@@ -955,6 +955,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         domain {
             ...entityDomain
         }
+        tags {
+            ...globalTagsFields
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
