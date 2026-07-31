@@ -63,14 +63,18 @@ export class DocumentPage extends BasePage {
     this.getDropdownOption = (option: string) => page.getByTestId(`option-${option}`);
     this.getEditorTextbox = () => this.editorSection.getByRole('textbox');
     this.getMoveSearchInput = () => this.movePopover.getByPlaceholder('Search context...');
-    this.getMoveOptionInDropdown = () => this.getDropdownMenu().getByText('Move');
+    this.getMoveOptionInDropdown = () =>
+      // Prefer the visible open menu — Ant may leave hidden menus in the DOM.
+      // eslint-disable-next-line playwright/no-raw-locators
+      this.page.locator('[role="menu"]:visible').getByText(/move/i);
     // Ant Design's SimpleSelect uses .ant-dropdown-trigger for the dropdown trigger element.
     // This is the standard way to identify the clickable element that opens the dropdown.
     // eslint-disable-next-line playwright/no-raw-locators
     this.getStatusSelectTrigger = () => page.getByTestId('document-status-select').locator('.ant-dropdown-trigger');
     // eslint-disable-next-line playwright/no-raw-locators
     this.getTypeSelectTrigger = () => page.getByTestId('document-type-select').locator('.ant-dropdown-trigger');
-    this.getDropdownMenu = () => page.getByRole('menu');
+    // eslint-disable-next-line playwright/no-raw-locators
+    this.getDropdownMenu = () => page.locator('[role="menu"]:visible');
     this.getDeleteMenuOption = () => this.getDropdownMenu().getByText(/delete/i, { exact: false });
     this.getDeleteButton = () => page.getByRole('button', { name: 'Delete' });
     this.getDeleteConfirmDialog = () => page.getByText('Delete Document');
@@ -243,20 +247,21 @@ export class DocumentPage extends BasePage {
 
   async clickTreeItemMenu(urn: string): Promise<void> {
     const treeItem = this.getTreeItem(urn);
-    await expect(treeItem).toBeVisible();
+    await expect(treeItem).toBeVisible({ timeout: TIMEOUTS.LONG });
     await treeItem.scrollIntoViewIfNeeded();
     await treeItem.hover();
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     const menuButton = this.getTreeItemMenuButton(urn);
-    await expect(menuButton).toBeVisible();
+    await expect(menuButton).toBeVisible({ timeout: TIMEOUTS.LONG });
     await menuButton.click();
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // eslint-disable-next-line playwright/no-raw-locators
+    await expect(this.page.locator('[role="menu"]:visible')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async clickMoveOption(): Promise<void> {
     const moveOption = this.getMoveOptionInDropdown();
-    await expect(moveOption).toBeVisible();
-    await moveOption.click({ force: true });
+    await expect(moveOption).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await moveOption.click();
   }
 
   async expectMovePopoverVisible(): Promise<void> {
@@ -322,6 +327,11 @@ export class DocumentPage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     const childUrn = await this.createDocumentWithTitle(childTitle);
+
+    // Return to the documents list so both tree rows are mounted before Move.
+    await this.navigateToDocuments();
+    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+
     await expect(this.getTreeItem(parentUrn)).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(this.getTreeItem(childUrn)).toBeVisible({ timeout: TIMEOUTS.LONG });
 
