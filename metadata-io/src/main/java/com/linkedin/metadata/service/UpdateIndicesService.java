@@ -302,12 +302,16 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   /**
    * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
-   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false.
+   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false or when the write
+   * path is unavailable (e.g. unit tests with a mocked search service).
    */
   public void flushAndWaitIfConfigured() {
     ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+    if (writeDAO == null) {
+      return;
+    }
     ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
-    if (!bulkProcessor.isAckAfterTransfer()) {
+    if (bulkProcessor == null || !bulkProcessor.isAckAfterTransfer()) {
       return;
     }
     try {

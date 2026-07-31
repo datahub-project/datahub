@@ -23,6 +23,44 @@ import org.testng.annotations.Test;
 public class UpdateIndicesServiceAckAfterTransferTest {
 
   @Test
+  public void testFlushAndWaitSkippedWhenWriteDaoNull() {
+    ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(null);
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            mock(UpdateGraphIndicesService.class),
+            elasticSearchService,
+            mock(SystemMetadataService.class),
+            Collections.emptyList(),
+            null,
+            false,
+            false,
+            false);
+    service.flushAndWaitIfConfigured();
+  }
+
+  @Test
+  public void testFlushAndWaitSkippedWhenBulkProcessorNull() {
+    ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    when(writeDAO.getBulkProcessor()).thenReturn(null);
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            mock(UpdateGraphIndicesService.class),
+            elasticSearchService,
+            mock(SystemMetadataService.class),
+            Collections.emptyList(),
+            null,
+            false,
+            false,
+            false);
+    service.flushAndWaitIfConfigured();
+  }
+
+  @Test
   public void testFlushAndWaitSkippedWhenDisabled() throws Exception {
     ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
     when(bulkProcessor.isAckAfterTransfer()).thenReturn(false);
