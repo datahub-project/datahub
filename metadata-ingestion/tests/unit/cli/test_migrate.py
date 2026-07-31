@@ -11,7 +11,13 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.metadata.schema_classes import DataPlatformInstanceClass
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
+    GlobalTagsClass,
+    TagAssociationClass,
+)
 from datahub.migration import engine
 from datahub.migration.models import (
     ConflictStrategy,
@@ -247,6 +253,55 @@ class TestMigratePair:
                 MigrationReport("test-run", dry_run=False, keep=False),
             )
         mock_delete.assert_not_called()
+
+    @patch("datahub.cli.migration_utils.get_incoming_relationships", return_value=[])
+    @patch("datahub.cli.migration_utils.clone_aspect")
+    def test_editable_schema_metadata_with_tags_is_migrated(
+        self, mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """editableSchemaMetadata carrying column-level tags is cloned to the target
+        and the aspect body is emitted as-is (tags preserved)."""
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
+        editable = EditableSchemaMetadataClass(
+            editableSchemaFieldInfo=[
+                EditableSchemaFieldInfoClass(
+                    fieldPath="customer_id",
+                    globalTags=GlobalTagsClass(
+                        tags=[TagAssociationClass(tag="urn:li:tag:pii")]
+                    ),
+                ),
+            ]
+        )
+        mock_clone.return_value = [
+            MetadataChangeProposalWrapper(
+                entityUrn=DST_URN,
+                aspect=editable,
+            )
+        ]
+
+        graph = MagicMock()
+        graph.exists.return_value = False
+        report = MigrationReport("test-run", dry_run=False, keep=True)
+        engine.migrate_pair(
+            graph,
+            MigrationPair(SRC_URN, DST_URN),
+            _options(dry_run=False),
+            report,
+        )
+
+        # The aspect was emitted to the graph
+        emitted = [
+            c.args[0]
+            for c in graph.emit_mcp.call_args_list
+            if isinstance(c.args[0].aspect, EditableSchemaMetadataClass)
+        ]
+        assert len(emitted) == 1
+        emitted_aspect = emitted[0].aspect
+        assert emitted[0].entityUrn == DST_URN
+        field = emitted_aspect.editableSchemaFieldInfo[0]
+        assert field.fieldPath == "customer_id"
+        assert field.globalTags.tags[0].tag == "urn:li:tag:pii"
 
 
 # --- engine.migrate_pairs (skip-on-error behavior) ---

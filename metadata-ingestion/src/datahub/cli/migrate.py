@@ -418,9 +418,11 @@ def dataplatform2instance(
     metadata (ownership, tags, terms, documentation, structured properties, ...)
     is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
     and system-managed aspects (browse paths, incidents summary) are not migrated.
+    schemaField entities are not migrated; column-level metadata on the dataset's
+    editableSchemaMetadata aspect is carried over.
 
-    See ``datahub migrate urns-mapping --help`` for details on how --on-conflict
-    is applied per aspect category (additive vs scalar vs always-overwritten).
+    See ``datahub migrate urns-mapping --help`` for details on --on-conflict
+    and nested-URN limitations (dataFlow/dataJob, schemaField).
     """
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, "
@@ -555,9 +557,11 @@ def instance2instance(
     metadata (ownership, tags, terms, documentation, structured properties, ...)
     is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
     and system-managed aspects (browse paths, incidents summary) are not migrated.
+    schemaField entities are not migrated; column-level metadata on the dataset's
+    editableSchemaMetadata aspect is carried over.
 
-    See ``datahub migrate urns-mapping --help`` for details on how --on-conflict
-    is applied per aspect category (additive vs scalar vs always-overwritten).
+    See ``datahub migrate urns-mapping --help`` for details on --on-conflict
+    and nested-URN limitations (dataFlow/dataJob, schemaField).
     """
     conflict = ConflictStrategy(on_conflict)
     entity_types_to_migrate = _parse_entity_types(
@@ -812,6 +816,24 @@ def urns_mapping(
     untouched, repoints incoming references, and does NOT delete the sources.
     Useful for a dry-run-like trial where you can inspect results before
     re-running without --keep.
+
+    \b
+    Limitations — nested URNs
+    -------------------------
+    Some entity URNs embed another entity's URN (e.g. a dataJob URN embeds
+    its parent dataFlow URN). The migration engine does NOT automatically
+    derive child URN mappings from parent URN mappings:
+
+    \b
+      dataFlow / dataJob:  When migrating a dataFlow, you must also provide
+                           mappings for its child dataJob URNs. Otherwise the
+                           dataJob key aspects may become inconsistent.
+      schemaField:         Column-level metadata stored on the dataset's
+                           editableSchemaMetadata aspect IS migrated. However,
+                           schemaField entities (which carry their own tags,
+                           terms, and documentation) are NOT migrated by any
+                           migration command. These are typically re-created
+                           by the next ingestion run.
     """
     pairs = _load_mapping_pairs(mapping_file)
     conflict = ConflictStrategy(on_conflict)

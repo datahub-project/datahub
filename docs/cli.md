@@ -1275,6 +1275,19 @@ stage see the entities migrated earlier. Note this only helps references _across
 between two entities migrated in the **same** stage still rely on the ordering above, so keep
 mutually-referencing entities dependency-ordered within a stage.
 
+**Nested URNs — user responsibility**: some entity URNs embed another entity's URN as part of their
+identity. The migration engine does **not** automatically derive child mappings from parent mappings:
+
+- **dataFlow / dataJob**: a `dataJob` URN embeds its parent `dataFlow` URN
+  (`urn:li:dataJob:(urn:li:dataFlow:(...), jobId)`). When migrating a dataFlow, you **must** also
+  include mappings for its child dataJob URNs; otherwise the dataJob key aspects become inconsistent
+  with the entity URN. Automatic derivation of child URN mappings may be added in a future release.
+- **schemaField**: column-level metadata stored on the dataset's `editableSchemaMetadata` aspect
+  (tags, terms, descriptions applied via the UI) **is** migrated along with the dataset. However,
+  `schemaField` entities — which carry their own `globalTags`, `glossaryTerms`, and `documentation`
+  aspects — are **not** migrated by any migration command. These are typically re-created by the next
+  ingestion run against the new dataset name.
+
 Example `mapping.json` (list form):
 
 ```json
