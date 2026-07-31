@@ -34,6 +34,9 @@ export interface DocumentTreeNode {
     title: string;
     parentUrn: string | null; // null = root
     hasChildren: boolean;
+    /** Best-effort child count for the collapsed-row Pill. May undercount if the
+     * discovery query is capped; prefer `children.length` once children are loaded. */
+    childCount?: number;
     children?: DocumentTreeNode[]; // Loaded children (undefined = not loaded yet, or merged with server)
     isUnpublished?: boolean; // Any non-PUBLISHED lifecycle stage (or legacy state=UNPUBLISHED) — renders as a dashed icon
     isExternal?: boolean; // info.source.sourceType === EXTERNAL — renders the platform logo instead of folder/file

@@ -1,9 +1,5 @@
-import { Avatar, Button, Loader, SearchBar, Tooltip } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Avatar, Loader, SearchBar, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Divider } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
@@ -31,129 +27,25 @@ import { decodeUrn } from '@app/entityV2/shared/utils';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import ClickOutside from '@app/shared/ClickOutside';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import {
+    SearchResultsDropdown,
+    SidebarCreateButton,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 import { DocumentSourceType, DocumentState, EntityType } from '@types';
-
-const SIDEBAR_TRANSITION_MS = 300;
-export const SIDEBAR_COLLAPSED_WIDTH = 63;
 
 // URN prefix used to identify AI-agent actors. Documents authored by an agent
 // are filtered out of the Author multi-select in OSS — agents aren't a first-
 // class concept here, so they would render as orphan "human" rows.
 const AI_AGENT_URN_PREFIX = 'urn:li:aiAgent:';
 
-const SidebarContainer = styled.div<{
-    $width: number;
-    $isCollapsed: boolean;
-    $isShowNavBarRedesign?: boolean;
-    $isEntityProfile?: boolean;
-}>`
-    flex-shrink: 0;
-    max-height: 100%;
-    width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
-    transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
- margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '5px 0px 5px 5px'};
- box-shadow: ${props.theme.colors.shadowSm};
- `}
-`;
-
-const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'space-between')};
-    padding: 12px;
-    height: 50px;
-    overflow: hidden;
-`;
-
-const SidebarTitle = styled.div`
-    font-size: 16px;
-    font-weight: bold;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const HeaderButtons = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-`;
-
-const StyledButton = styled(Button)`
-    padding: 2px;
-    svg {
-        width: 20px;
-        height: 20px;
-    }
-`;
-
-const ThinDivider = styled(Divider)`
-    margin: 0px;
-    padding: 0px;
-`;
-
 const SearchWrapper = styled.div`
-    flex-shrink: 0;
     position: relative;
 `;
 
-const SearchInputWrapper = styled.div`
-    padding: 12px;
-`;
-
-// Two SimpleSelects packed to the start of the row directly under the search bar.
-// Padding matches SearchInputWrapper so the row aligns with the search field above.
-// Each select uses `width="fit-content"` so labels/values size to content rather than
-// stretching to fill the row.
-const FiltersRow = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 0 12px 12px 12px;
-`;
-
-const SearchIconButton = styled.button`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 16px 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: ${(props) => props.theme.colors.icon};
-
-    &:hover {
-        color: ${(props) => props.theme.colors.iconHover};
-    }
-`;
-
-const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.colors.shadowLg};
-    padding: 8px;
-    position: absolute;
-    max-height: 300px;
-    overflow: auto;
-    width: calc(100% - 8px);
-    left: 4px;
-    top: 55px;
-    z-index: 1;
-`;
-
-const LoadingWrapper = styled(ResultsWrapper)`
+const LoadingWrapper = styled(SearchResultsDropdown)`
     display: flex;
     justify-content: center;
     padding: 16px 0;
@@ -175,38 +67,6 @@ const SourceOptionRow = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
-`;
-
-const TreeContainer = styled.div`
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* Trimmed right padding: scrollbar-gutter already reserves space on the right,
-       so the rows/labels can sit closer to the edge without shifting. */
-    padding: 8px 2px 8px 8px;
-    /* Reserve the scrollbar's space so rows don't shift left when it appears. */
-    scrollbar-gutter: stable;
-
-    /* Custom scrollbar styling */
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-        background: ${(props) => props.theme.colors.scrollbarTrack};
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.scrollbarThumb};
-        border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.scrollbarThumbHover};
-    }
-
-    scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} ${(props) => props.theme.colors.scrollbarTrack};
 `;
 
 type Props = {
@@ -257,9 +117,6 @@ export default function ContextSidebar({
     }, [entityRegistry, isEntityProfile, location.pathname]);
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
-
-    const width = useSidebarWidth(0.2);
-    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // Debounce search query
     useEffect(() => {
@@ -383,93 +240,68 @@ export default function ContextSidebar({
 
     const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
 
-    return (
-        <SidebarContainer
-            $width={width}
-            $isCollapsed={isCollapsed}
-            data-testid="context-documents-sidebar"
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            $isEntityProfile={isEntityProfile}
-        >
-            <HeaderControls $isCollapsed={isCollapsed}>
-                {!isCollapsed && <SidebarTitle>{t('context.documentsSidebarTitle')}</SidebarTitle>}
-                <HeaderButtons>
-                    {!isCollapsed && canCreateDocuments && (
-                        <ImportDocumentsButton
-                            onSuccess={handleImportSuccess}
-                            parentDocumentUrn={importParentDocumentUrn}
-                        />
-                    )}
-                    {!isCollapsed && (
-                        <Tooltip
-                            title={
-                                canCreateDocuments
-                                    ? t('context.createDocumentTooltip')
-                                    : t('context.noCreateDocumentPermissionTooltip')
-                            }
-                            placement="bottom"
-                            showArrow={false}
-                        >
-                            <span style={{ display: 'inline-block' }}>
-                                <StyledButton
-                                    variant="filled"
-                                    color="primary"
-                                    isCircle
-                                    icon={{ icon: Plus }}
-                                    onClick={() => handleCreateDocument()}
-                                    disabled={!canCreateDocuments || creating}
-                                    data-testid="create-document-button"
-                                />
-                            </span>
-                        </Tooltip>
-                    )}
-                    <Button
-                        variant="text"
-                        color="gray"
-                        size="lg"
+    const headerActions = (
+        <>
+            {canCreateDocuments && (
+                <ImportDocumentsButton onSuccess={handleImportSuccess} parentDocumentUrn={importParentDocumentUrn} />
+            )}
+            <Tooltip
+                title={
+                    canCreateDocuments
+                        ? t('context.createDocumentTooltip')
+                        : t('context.noCreateDocumentPermissionTooltip')
+                }
+                placement="bottom"
+                showArrow={false}
+            >
+                <span style={{ display: 'inline-block' }}>
+                    <SidebarCreateButton
+                        variant="filled"
+                        color="primary"
                         isCircle
-                        icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft }}
-                        isActive={!isCollapsed}
-                        onClick={onToggleCollapsed}
-                        data-testid="context-sidebar-collapse-button"
+                        icon={{ icon: Plus }}
+                        onClick={() => handleCreateDocument()}
+                        disabled={!canCreateDocuments || creating}
+                        data-testid="create-document-button"
                     />
-                </HeaderButtons>
-            </HeaderControls>
-            <ThinDivider />
+                </span>
+            </Tooltip>
+        </>
+    );
 
-            {/* Search Section */}
-            <SearchWrapper>
-                {isCollapsed ? (
-                    <SearchIconButton
-                        onClick={onExpandSidebar}
-                        data-testid="context-sidebar-search-icon"
-                        aria-label={t('context.searchDocumentsAriaLabel')}
-                    >
-                        <MagnifyingGlass size={20} weight="regular" />
-                    </SearchIconButton>
-                ) : (
+    return (
+        <HierarchicalBrowseSidebar
+            title={t('context.documentsSidebarTitle')}
+            isCollapsed={isCollapsed}
+            onToggleCollapsed={onToggleCollapsed}
+            onExpandSidebar={onExpandSidebar}
+            headerActions={headerActions}
+            dataTestId="context-documents-sidebar"
+            collapseButtonTestId="context-sidebar-collapse-button"
+            collapsedSearchAriaLabel={t('context.searchDocumentsAriaLabel')}
+            collapsedSearchTestId="context-sidebar-search-icon"
+            search={
+                <SearchWrapper>
                     <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                        <SearchInputWrapper>
-                            <SearchBar
-                                placeholder={t('context.searchDocumentsPlaceholder')}
-                                value={searchInput}
-                                onChange={setSearchInput}
-                                onFocus={() => setIsSearchBarFocused(true)}
-                                data-testid="context-sidebar-search-input"
-                            />
-                        </SearchInputWrapper>
+                        <SearchBar
+                            placeholder={t('context.searchDocumentsPlaceholder')}
+                            value={searchInput}
+                            onChange={setSearchInput}
+                            onFocus={() => setIsSearchBarFocused(true)}
+                            data-testid="context-sidebar-search-input"
+                        />
                         {searchLoading && isSearchBarFocused && isSearching && (
                             <LoadingWrapper>
                                 <Loader size="md" />
                             </LoadingWrapper>
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length === 0 && (
-                            <ResultsWrapper>
+                            <SearchResultsDropdown>
                                 <EmptyState>{tc('noResults')}</EmptyState>
-                            </ResultsWrapper>
+                            </SearchResultsDropdown>
                         )}
                         {!searchLoading && isSearchBarFocused && isSearching && searchResults.length > 0 && (
-                            <ResultsWrapper data-testid="context-sidebar-search-results">
+                            <SearchResultsDropdown data-testid="context-sidebar-search-results">
                                 {searchResults.map((doc) => {
                                     // Build breadcrumb from parentDocuments array
                                     let breadcrumb: string | null = null;
@@ -497,14 +329,13 @@ export default function ContextSidebar({
                                         />
                                     );
                                 })}
-                            </ResultsWrapper>
+                            </SearchResultsDropdown>
                         )}
                     </ClickOutside>
-                )}
-            </SearchWrapper>
-
-            {!isCollapsed && (
-                <FiltersRow>
+                </SearchWrapper>
+            }
+            filters={
+                <>
                     <SimpleSelect
                         size="sm"
                         width="fit-content"
@@ -565,20 +396,13 @@ export default function ContextSidebar({
                         )}
                         dataTestId="context-sidebar-source-filter"
                     />
-                </FiltersRow>
-            )}
-
-            {!isCollapsed && (
-                <>
-                    <ThinDivider />
-                    <TreeContainer>
-                        <DocumentTree
-                            onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
-                            filterSelection={filterSelection}
-                        />
-                    </TreeContainer>
                 </>
-            )}
-        </SidebarContainer>
+            }
+        >
+            <DocumentTree
+                onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
+                filterSelection={filterSelection}
+            />
+        </HierarchicalBrowseSidebar>
     );
 }

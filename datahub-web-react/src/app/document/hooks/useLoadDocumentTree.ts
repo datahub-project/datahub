@@ -48,9 +48,10 @@ export function useLoadDocumentTree() {
         [childPaginationVersion],
     );
 
-    // Check if multiple documents have children (batch query)
+    // Check if multiple documents have children (batch query). Returns a map of
+    // parent urn → discovered child count (best-effort; capped by the query page).
     const checkForChildren = useCallback(
-        async (urns: string[]): Promise<Record<string, boolean>> => {
+        async (urns: string[]): Promise<Record<string, number>> => {
             if (urns.length === 0) return {};
 
             try {
@@ -67,9 +68,9 @@ export function useLoadDocumentTree() {
                     fetchPolicy: 'network-only',
                 });
 
-                const childrenMap: Record<string, boolean> = {};
+                const childrenMap: Record<string, number> = {};
                 urns.forEach((urn) => {
-                    childrenMap[urn] = false;
+                    childrenMap[urn] = 0;
                 });
 
                 const children = result.data?.searchDocuments?.documents || [];
@@ -77,7 +78,7 @@ export function useLoadDocumentTree() {
                 children.forEach((child) => {
                     const parentUrn = child.info?.parentDocument?.document?.urn;
                     if (parentUrn && Object.prototype.hasOwnProperty.call(childrenMap, parentUrn)) {
-                        childrenMap[parentUrn] = true;
+                        childrenMap[parentUrn] += 1;
                     }
                 });
 
@@ -113,8 +114,11 @@ export function useLoadDocumentTree() {
 
                 const sorted = sortDocumentsByCreationTime(documents);
                 const childUrns = sorted.map((d) => d.urn);
-                const hasChildrenMap = await checkForChildren(childUrns);
-                const nodes = sorted.map((d) => documentToTreeNode(d, hasChildrenMap[d.urn] || false));
+                const childCountMap = await checkForChildren(childUrns);
+                const nodes = sorted.map((d) => {
+                    const childCount = childCountMap[d.urn] || 0;
+                    return documentToTreeNode(d, childCount > 0, childCount);
+                });
 
                 if (start === 0) {
                     const currentRoots = getRootNodes();
@@ -170,11 +174,12 @@ export function useLoadDocumentTree() {
 
                 const sortedDocuments = sortDocumentsByCreationTime(documents);
                 const childUrns = sortedDocuments.map((doc) => doc.urn);
-                const hasChildrenMap = await checkForChildren(childUrns);
+                const childCountMap = await checkForChildren(childUrns);
 
-                const treeNodes: DocumentTreeNode[] = sortedDocuments.map((doc) =>
-                    documentToTreeNode(doc, hasChildrenMap[doc.urn] || false),
-                );
+                const treeNodes: DocumentTreeNode[] = sortedDocuments.map((doc) => {
+                    const childCount = childCountMap[doc.urn] || 0;
+                    return documentToTreeNode(doc, childCount > 0, childCount);
+                });
 
                 setNodeChildren(parentUrn, treeNodes);
 
@@ -197,9 +202,9 @@ export function useLoadDocumentTree() {
 
     // Load more children for a parent (subsequent pages)
     const loadMoreChildren = useCallback(
-        async (parentUrn: string) => {
+        async (parentUrn: string): Promise<DocumentTreeNode[]> => {
             const state = childPaginationRef.current.get(parentUrn);
-            if (!state || state.offset >= state.total) return;
+            if (!state || state.offset >= state.total) return [];
 
             try {
                 const result = await searchDocumentsQuery({
@@ -218,8 +223,11 @@ export function useLoadDocumentTree() {
                 const documents = (result.data?.searchDocuments?.documents || []) as Document[];
                 const sorted = sortDocumentsByCreationTime(documents);
                 const childUrns = sorted.map((d) => d.urn);
-                const hasChildrenMap = await checkForChildren(childUrns);
-                const nodes = sorted.map((d) => documentToTreeNode(d, hasChildrenMap[d.urn] || false));
+                const childCountMap = await checkForChildren(childUrns);
+                const nodes = sorted.map((d) => {
+                    const childCount = childCountMap[d.urn] || 0;
+                    return documentToTreeNode(d, childCount > 0, childCount);
+                });
 
                 appendNodeChildren(parentUrn, nodes);
 
@@ -228,8 +236,10 @@ export function useLoadDocumentTree() {
                     total: state.total,
                 });
                 setChildPaginationVersion((v) => v + 1);
+                return nodes;
             } catch (error) {
                 console.error('Failed to load more children:', error);
+                return [];
             }
         },
         [searchDocumentsQuery, checkForChildren, appendNodeChildren, viewUrn],

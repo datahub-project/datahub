@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -114,6 +116,8 @@ public class ESAccessControlUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn RESTRICTED_RESULT_URN =
       UrnUtils.getUrn("urn:li:restricted:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+  private static final Urn SCHEMA_FIELD_RESULT_URN =
+      UrnUtils.getUrn("urn:li:schemaField:(" + UNRESTRICTED_RESULT_URN + ",field_foo)");
 
   private static final String PREFIX_MATCH =
       "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.human";
@@ -549,6 +553,17 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().size(), 2);
     assertEquals(result.getEntities().get(0).getEntity(), PREFIX_MATCH_URN);
     assertEquals(result.getEntities().get(1).getEntity(), PREFIX_NO_MATCH_URN);
+  }
+
+  @Test
+  public void testSchemaFieldRestrictUrnInheritsParentDataset()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext allowedContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allUsers")));
+    assertFalse(ESAccessControlUtil.restrictUrn(allowedContext, SCHEMA_FIELD_RESULT_URN));
+
+    OperationContext deniedContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("domainA")));
+    assertTrue(ESAccessControlUtil.restrictUrn(deniedContext, SCHEMA_FIELD_RESULT_URN));
   }
 
   private static RestrictedService mockRestrictedService() {

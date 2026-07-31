@@ -2586,6 +2586,11 @@ type GlossaryTerm implements Entity {
   deprecation: Deprecation
 
   """
+  Tags associated with the glossary term
+  """
+  tags: GlobalTags
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult

@@ -154,12 +154,13 @@ export function extractDocumentCreator(
  * @param hasChildren - Whether this document has children
  * @returns A DocumentTreeNode representation of the document
  */
-export function documentToTreeNode(doc: Document, hasChildren: boolean): DocumentTreeNode {
+export function documentToTreeNode(doc: Document, hasChildren: boolean, childCount?: number): DocumentTreeNode {
     return {
         urn: doc.urn,
         title: doc.info?.title || i18next.t('entity.types:document.untitledFallback'),
         parentUrn: doc.info?.parentDocument?.document?.urn || null,
         hasChildren,
+        childCount,
         children: undefined, // Not loaded yet
         isUnpublished: isDocumentUnpublished(doc),
         isExternal: isExternalDocument(doc),
