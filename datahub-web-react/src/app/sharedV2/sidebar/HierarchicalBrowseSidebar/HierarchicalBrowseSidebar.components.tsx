@@ -68,7 +68,7 @@ export const CollapsedScrollColumn = styled.div`
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 2px;
+    padding: 8px;
     ${scrollbar}
 `;
 
@@ -163,7 +163,8 @@ export const TreeContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 2px 8px 8px;
+    /* Equal L/R inset — asymmetric 8/2 looked lopsided inside the white shell. */
+    padding: 8px;
     ${scrollbar}
 `;
 
@@ -179,7 +180,7 @@ export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
     ${treeRowHitTarget}
     display: flex;
     align-items: center;
-    padding: 4px 2px 4px 8px;
+    padding: 4px 8px;
     text-decoration: none;
     cursor: pointer;
     ${treeRowInteractionBg}

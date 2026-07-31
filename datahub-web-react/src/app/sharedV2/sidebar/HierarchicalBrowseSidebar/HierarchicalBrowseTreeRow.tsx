@@ -7,10 +7,11 @@ import styled, { useTheme } from 'styled-components';
 
 import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import {
-    TreeRowCaretSlot,
     TreeRowContainer,
-    TreeRowExpandButton,
+    TreeRowCount,
+    TreeRowExpandZone,
     TreeRowIconSlot,
+    TreeRowLeadingExpand,
     TreeRowLeftContent,
     TreeRowRightContent,
     TreeRowTitle,
@@ -43,6 +44,8 @@ export type HierarchicalBrowseTreeRowProps = {
     labelTitle?: string;
     afterLabel?: React.ReactNode;
     trailing?: React.ReactNode;
+    /** Documents use `hover`; Glossary / Domains keep `always`. */
+    countReveal?: 'always' | 'hover';
     onSelect: () => void;
     onToggleExpand?: () => void;
     isLoadingChildren?: boolean;
@@ -66,6 +69,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             labelTitle,
             afterLabel,
             trailing,
+            countReveal = 'always',
             onSelect,
             onToggleExpand,
             isLoadingChildren = false,
@@ -79,45 +83,45 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
         const { t: tc } = useTranslation('common.actions');
         const theme = useTheme();
 
-        const { canExpand, showCount, showRightChrome, reserveCaretSlot } = getTreeRowChromeFlags({
+        const { canExpand, showCount } = getTreeRowChromeFlags({
             isCollapsed,
             hasChildren,
             isExpanded,
             count,
             hasToggle: onToggleExpand != null,
         });
+        const showRightChrome = !isCollapsed && (showCount || trailing != null);
 
-        const handleExpandClick = (e: React.MouseEvent) => {
+        // Single expand path for indent zone + caret button (stopPropagation so row select doesn't fire).
+        const handleExpand = (e: React.MouseEvent) => {
+            if (!canExpand) return;
             e.stopPropagation();
             onToggleExpand?.();
         };
 
-        const caretSlot = reserveCaretSlot ? (
-            <TreeRowCaretSlot>
-                {canExpand ? (
-                    <TreeRowExpandButton
-                        type="button"
-                        onClick={handleExpandClick}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? tc('collapse') : tc('expand')}
-                    >
-                        {isExpanded ? (
-                            <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                        ) : (
-                            <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                        )}
-                    </TreeRowExpandButton>
-                ) : null}
-            </TreeRowCaretSlot>
-        ) : null;
-
-        const entityIcon = isLoadingChildren ? (
-            <TreeRowExpandButton type="button" onClick={handleExpandClick} aria-label={tc('expand')}>
-                {icon}
-            </TreeRowExpandButton>
+        const caret = isExpanded ? (
+            <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
         ) : (
-            icon
+            <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
         );
+
+        // Loading: keep both CSS slots on the same glyph so hover swap doesn't thrash mid-fetch.
+        let leading: React.ReactNode = icon;
+        if (canExpand) {
+            const caretGlyph = isLoadingChildren ? icon : caret;
+            leading = (
+                <TreeRowLeadingExpand
+                    type="button"
+                    $isExpanded={isExpanded}
+                    onClick={handleExpand}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? tc('collapse') : tc('expand')}
+                >
+                    <span className="tree-row-entity-icon">{icon}</span>
+                    <span className="tree-row-caret-icon">{caretGlyph}</span>
+                </TreeRowLeadingExpand>
+            );
+        }
 
         const titleBlock =
             afterLabel != null ? (
@@ -138,7 +142,6 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 ref={ref}
                 className={className}
                 data-testid={dataTestId}
-                $level={level}
                 $isSelected={isSelected}
                 $isCollapsed={isCollapsed}
                 onClick={onSelect}
@@ -146,14 +149,26 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 onMouseLeave={onMouseLeave}
             >
                 <TreeRowLeftContent $isCollapsed={isCollapsed}>
-                    <TreeRowIconSlot $isCollapsed={isCollapsed}>{entityIcon}</TreeRowIconSlot>
+                    {isCollapsed ? (
+                        <TreeRowIconSlot $isCollapsed>{leading}</TreeRowIconSlot>
+                    ) : (
+                        <TreeRowExpandZone $level={level} $expandable={canExpand} onClick={handleExpand}>
+                            <TreeRowIconSlot>{leading}</TreeRowIconSlot>
+                        </TreeRowExpandZone>
+                    )}
                     {!isCollapsed && titleBlock}
                 </TreeRowLeftContent>
                 {showRightChrome && (
                     <TreeRowRightContent>
-                        {showCount && <Pill label={`${count}`} size="sm" />}
+                        {showCount &&
+                            (countReveal === 'hover' ? (
+                                <TreeRowCount>
+                                    <Pill label={`${count}`} size="sm" />
+                                </TreeRowCount>
+                            ) : (
+                                <Pill label={`${count}`} size="sm" />
+                            ))}
                         {trailing}
-                        {caretSlot}
                     </TreeRowRightContent>
                 )}
             </TreeRowContainer>

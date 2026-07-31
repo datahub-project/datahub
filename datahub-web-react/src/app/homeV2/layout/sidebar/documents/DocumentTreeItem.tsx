@@ -99,12 +99,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
     const rowRef = useRef<HTMLDivElement>(null);
+    const didScrollForSelectionRef = useRef(false);
 
-    // Deep links / URL navigation mount the selected row after ancestors expand —
-    // bring it into the sidebar scrollport once it becomes selected.
+    // Deep links mount the selected row after ancestors expand — scroll once (auto).
     useEffect(() => {
-        if (!isSelected || multiSelect) return;
-        rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (!isSelected || multiSelect) {
+            didScrollForSelectionRef.current = false;
+            return;
+        }
+        if (didScrollForSelectionRef.current) return;
+        didScrollForSelectionRef.current = true;
+        rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }, [isSelected, multiSelect, urn]);
 
     const handleAddChildClick = (e: React.MouseEvent) => {
@@ -120,7 +125,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     };
 
     const showActions = !multiSelect && !hideActions && (isHovered || forceShowActions);
-    const showCount = !multiSelect && !showActions;
+    // Keep the count mounted while actions show so the right edge doesn't jump on hover.
+    const showCount = !multiSelect && hasChildren && !isExpanded && childCount != null && childCount > 0;
 
     const restingIcon = (() => {
         if (isLoading) {
@@ -192,6 +198,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             hasChildren={hasChildren}
             isExpanded={isExpanded}
             count={showCount ? childCount : undefined}
+            countReveal="hover"
             icon={restingIcon}
             label={title}
             labelTitle={title}
