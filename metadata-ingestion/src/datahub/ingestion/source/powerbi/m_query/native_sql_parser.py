@@ -230,10 +230,10 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
             continue
 
         args = func.expressions
-        if len(args) != 2:
-            # A genuine EXTERNAL_QUERY always takes (connection, sql). An unexpected arg
-            # count means we can't extract the federation; trace it so the skip is
-            # diagnosable rather than silent.
+        # EXTERNAL_QUERY is (connection, sql) with an optional third JSON options arg, so
+        # accept two-or-more and read the first two. Fewer than two means we can't extract
+        # the federation; trace it so the skip is diagnosable rather than silent.
+        if len(args) < 2:
             logger.debug(
                 "Skipping EXTERNAL_QUERY with unexpected argument count %s: %s",
                 len(args),
@@ -241,7 +241,7 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
             )
             continue
 
-        connection_arg, inner_arg = args
+        connection_arg, inner_arg = args[0], args[1]
         if not (
             isinstance(connection_arg, exp.Literal)
             and connection_arg.is_string

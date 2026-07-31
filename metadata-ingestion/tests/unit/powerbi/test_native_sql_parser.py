@@ -396,6 +396,22 @@ def test_extract_external_queries_unaliased_get_unique_aliases():
     assert len(placeholder_aliases) == len(set(placeholder_aliases)) == 2
 
 
+def test_extract_external_queries_with_options_arg():
+    # BigQuery EXTERNAL_QUERY accepts an optional third JSON options argument; the
+    # federation must still be extracted from the first two (connection, sql) args.
+    query = (
+        'SELECT * FROM EXTERNAL_QUERY("proj.us-east1.conn", '
+        '"SELECT a FROM s.t", \'{"query_timeout_ms": 60000}\')'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert extraction.references[0].connection == "proj.us-east1.conn"
+    assert extraction.references[0].inner_sql == "SELECT a FROM s.t"
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+
+
 def test_extract_external_queries_unparseable_flags_parse_failed():
     # An unparseable outer query is a no-op (no raise), returns the original query, and
     # flags parse_failed so the caller can report the federated lineage it lost.
