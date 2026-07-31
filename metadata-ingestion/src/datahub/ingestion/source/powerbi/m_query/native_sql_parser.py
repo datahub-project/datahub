@@ -33,11 +33,16 @@ EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
 
 # Inert derived table used to replace each EXTERNAL_QUERY source in the outer query so
 # the remaining (native) query still parses without the federation yielding a bogus URN.
-# The alias deliberately avoids the substring "EXTERNAL_QUERY" so a rewritten query never
-# re-triggers federation handling.
-EXTERNAL_QUERY_PLACEHOLDER_SQL = (
-    "(SELECT 1 AS pbi_federation_placeholder) AS pbi_federation_source"
-)
+# It is left unaliased here; the original EXTERNAL_QUERY source's alias is reused (so
+# column references like ``a.col`` and join conditions stay valid), falling back to a
+# synthesized unique alias when the source had none.
+EXTERNAL_QUERY_PLACEHOLDER_SQL = "(SELECT 1 AS pbi_federation_placeholder)"
+
+# Alias prefix for placeholder subqueries whose original EXTERNAL_QUERY source had no
+# alias. It deliberately avoids the substring "EXTERNAL_QUERY" so a rewritten query never
+# re-triggers federation handling, and is suffixed with an index to stay unique when a
+# query contains multiple unaliased federations.
+EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX = "pbi_federation_source"
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +222,7 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
         )
 
     references: List[ExternalQueryReference] = []
+    placeholder_index = 0
     # Materialize before mutating the tree, since replacing nodes during a lazy
     # find_all traversal is unsafe.
     for func in list(expression.find_all(exp.Anonymous)):
@@ -259,12 +265,28 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
 
         # EXTERNAL_QUERY appears as a table-valued function wrapped in a Table node.
         # Swap the whole wrapper for an inert subquery so the outer parse ignores the
-        # federated source rather than resolving it to a bogus URN.
+        # federated source rather than resolving it to a bogus URN. Preserve the original
+        # source's alias (or synthesize a unique one) so column references and join
+        # conditions in the outer query stay valid and multiple federations don't collide.
         table_source = func.parent
         if isinstance(table_source, exp.Table):
-            table_source.replace(
-                sqlglot.parse_one(EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect)
+            placeholder = sqlglot.parse_one(
+                EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect
             )
+            original_alias = table_source.args.get("alias")
+            if original_alias is not None:
+                placeholder.set("alias", original_alias.copy())
+            else:
+                placeholder.set(
+                    "alias",
+                    exp.TableAlias(
+                        this=exp.to_identifier(
+                            f"{EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX}_{placeholder_index}"
+                        )
+                    ),
+                )
+            placeholder_index += 1
+            table_source.replace(placeholder)
         else:
             # Federation used outside a FROM position: the reference is captured but the
             # EXTERNAL_QUERY call is left in the rewritten query, so the generic parser

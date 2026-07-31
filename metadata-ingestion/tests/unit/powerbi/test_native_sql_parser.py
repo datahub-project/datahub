@@ -1,6 +1,7 @@
 from typing import List, Set
 
 import pytest
+import sqlglot
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser
@@ -357,7 +358,8 @@ def test_extract_external_queries_none_present():
 
 
 def test_extract_external_queries_multiple():
-    # Multiple federations in one query are all extracted.
+    # Multiple aliased federations joined on their aliases: all are extracted, and the
+    # rewrite must preserve each source's alias so the join condition stays valid.
     query = (
         'SELECT * FROM EXTERNAL_QUERY("proj.r1.conn_a", "SELECT a FROM s.t_a") a '
         'JOIN EXTERNAL_QUERY("proj.r2.conn_b", "SELECT b FROM s.t_b") b ON a.id = b.id'
@@ -369,6 +371,29 @@ def test_extract_external_queries_multiple():
         "proj.r2.conn_b",
     }
     assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    # Original aliases must survive so the ON a.id = b.id join is not left dangling.
+    reparsed = sqlglot.parse_one(extraction.rewritten_query, dialect="bigquery")
+    aliases = {alias.name for alias in reparsed.find_all(sqlglot.exp.TableAlias)}
+    assert {"a", "b"}.issubset(aliases)
+
+
+def test_extract_external_queries_unaliased_get_unique_aliases():
+    # Two unaliased federations must not collapse onto the same placeholder alias.
+    query = (
+        'SELECT * FROM EXTERNAL_QUERY("proj.r1.conn_a", "SELECT a FROM s.t_a") '
+        'CROSS JOIN EXTERNAL_QUERY("proj.r2.conn_b", "SELECT b FROM s.t_b")'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert len(extraction.references) == 2
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    reparsed = sqlglot.parse_one(extraction.rewritten_query, dialect="bigquery")
+    placeholder_aliases = [
+        alias.name
+        for alias in reparsed.find_all(sqlglot.exp.TableAlias)
+        if alias.name.startswith("pbi_federation_source")
+    ]
+    assert len(placeholder_aliases) == len(set(placeholder_aliases)) == 2
 
 
 def test_extract_external_queries_unparseable_flags_parse_failed():
