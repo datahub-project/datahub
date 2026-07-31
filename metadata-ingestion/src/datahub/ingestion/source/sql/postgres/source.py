@@ -46,7 +46,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
-from datahub.ingestion.source.sql.stored_procedures.base import (
+from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
