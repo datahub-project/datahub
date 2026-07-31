@@ -55,9 +55,7 @@ export class DocumentPage extends BasePage {
     this.typeSelect = page.getByTestId('document-type-select');
     this.searchInput = page.getByPlaceholder('Search documents');
     this.searchResults = page.getByTestId('context-sidebar-search-results');
-    this.actionsMenuButton = page
-      .getByTestId('document-actions-menu-button')
-      .filter({ visible: true });
+    this.actionsMenuButton = page.getByTestId('document-actions-menu-button').filter({ visible: true });
     this.movePopover = page.getByTestId('move-document-popover');
     this.moveConfirmButton = page.getByTestId('move-document-confirm-button');
 
