@@ -350,6 +350,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey

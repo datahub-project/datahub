@@ -983,6 +983,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        tags {
+            ...globalTagsFields
+        }
     }
     ... on Domain {
         properties {
