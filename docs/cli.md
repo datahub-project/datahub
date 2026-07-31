@@ -1145,6 +1145,8 @@ When the target entity already exists, the command uses a strategy controlled by
 
 **Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
 
+**Container limitation**: Containers are migrated via a separate legacy code path that always overwrites the target. `--on-conflict`, `--skip-on-error`, and `--checkpoint-file` apply only to the entity migration (datasets, charts, dashboards, dataflows, datajobs) — not to containers. In practice this is rarely an issue: containers are a small bounded set per migration and are typically re-created by ingestion.
+
 ##### Conflict strategies
 
 `--on-conflict` controls what happens when the target URN already exists. It is available on all
