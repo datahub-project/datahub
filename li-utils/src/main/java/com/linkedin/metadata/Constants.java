@@ -490,6 +490,7 @@ public class Constants {
 
   // Relationships
   public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
+  public static final String IS_CHILD_OF_RELATIONSHIP_NAME = "IsChildOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
