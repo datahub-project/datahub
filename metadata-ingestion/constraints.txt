@@ -63,8 +63,6 @@ asn1crypto==1.5.1
     #   snowflake-connector-python
 ast-serialize==0.6.0
     # via mypy
-astor==0.8.1
-    # via sqlmesh
 asttokens==3.0.1
     # via stack-data
 async-lru==2.2.0
@@ -1610,7 +1608,7 @@ sqlglot==30.8.0
     #   sqlmesh
 sqlglotc==30.8.0
     # via sqlglot
-sqlmesh==0.235.3
+sqlmesh==0.236.1
     # via acryl-datahub
 sqlparse==0.5.5
     # via

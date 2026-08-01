@@ -2828,8 +2828,8 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.8.0" },
-    { name = "sqlmesh", marker = "extra == 'all'", specifier = ">=0.235.2,<0.236" },
-    { name = "sqlmesh", marker = "extra == 'sqlmesh'", specifier = ">=0.235.2,<0.236" },
+    { name = "sqlmesh", marker = "extra == 'all'", specifier = ">=0.235.2,<0.237" },
+    { name = "sqlmesh", marker = "extra == 'sqlmesh'", specifier = ">=0.235.2,<0.237" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = "<0.6.0" },
@@ -3587,15 +3587,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/09/c7/7d5ad8b49e1278e1c2a1e0274bd7850560b3f09313aa00c13bc8d5544792/ast_serialize-0.6.0-cp39-abi3-win32.whl", hash = "sha256:82c312a7844d2fdeb4d5c48bd3d215bf940dafd4704e1a9bcf252a99010a99b1", size = 1063165, upload-time = "2026-06-30T20:02:50.98Z" },
     { url = "https://files.pythonhosted.org/packages/47/ae/6710c14ecb276031cf10249f6adf5a59e2d3fdb3b5183bd59f70524067ee/ast_serialize-0.6.0-cp39-abi3-win_amd64.whl", hash = "sha256:113b58346f9ceb664352032770caca817d4a3c86f611c6088e6ef65ddaa70f0e", size = 1101444, upload-time = "2026-06-30T20:02:52.554Z" },
     { url = "https://files.pythonhosted.org/packages/66/40/c53deb2cd0c9b0fb636d24d9f40924cf2e65028e6b20b10cd5c1eeb2c730/ast_serialize-0.6.0-cp39-abi3-win_arm64.whl", hash = "sha256:ccd132fe8db56f61fe743b1f644d01b8d65b83248a8da506f3132bda86d6ed5e", size = 1072965, upload-time = "2026-06-30T20:02:54.097Z" },
-]
-
-[[package]]
-name = "astor"
-version = "0.8.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/21/75b771132fee241dfe601d39ade629548a9626d1d39f333fde31bc46febe/astor-0.8.1.tar.gz", hash = "sha256:6a6effda93f4e1ce9f618779b2dd1d9d84f1e32812c23a29b3fff6fd7f63fa5e", size = 35090, upload-time = "2019-12-10T01:50:35.51Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/88/97eef84f48fa04fbd6750e62dcceafba6c63c81b7ac1420856c8dcc0a3f9/astor-0.8.1-py2.py3-none-any.whl", hash = "sha256:070a54e890cefb5b3739d19f30f5a5ec840ffc9c50ffa7d23cc9fc1a38ebbfc5", size = 27488, upload-time = "2019-12-10T01:50:33.628Z" },
 ]
 
 [[package]]
@@ -5366,7 +5357,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -11326,7 +11317,7 @@ resolution-markers = [
     "python_full_version < '3.11' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/37/6964b830433e654ec7485e45a00fc9a27cf868d622838f6b6d9c5ec0d532/scipy-1.15.3.tar.gz", hash = "sha256:eae3cf522bc7df64b42cad3925c876e1b0b6c35c1337c93e12c0f366f55b0eaf", size = 59419214, upload-time = "2025-05-08T16:13:05.955Z" }
 wheels = [
@@ -11398,7 +11389,7 @@ resolution-markers = [
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "python_full_version >= '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/97/5a3609c4f8d58b039179648e62dd220f89864f56f7357f5d4f45c29eb2cc/scipy-1.17.1.tar.gz", hash = "sha256:95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0", size = 30573822, upload-time = "2026-02-23T00:26:24.851Z" }
 wheels = [
@@ -11481,8 +11472,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "jeepney", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -11832,8 +11823,8 @@ name = "sqlalchemy-hana"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "hdbcli" },
-    { name = "sqlalchemy" },
+    { name = "hdbcli", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "sqlalchemy", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/df/02733e868ea8908c921aabd0004c4483cec6985e73e9fa8f6d12434dfe6d/sqlalchemy_hana-3.0.3.tar.gz", hash = "sha256:37ea5033628e1682037dd13dc5b9e4c585dfa28bc2bdbc02f816059147262bae", size = 44273, upload-time = "2025-06-02T10:34:23.183Z" }
 wheels = [
@@ -11921,10 +11912,9 @@ wheels = [
 
 [[package]]
 name = "sqlmesh"
-version = "0.235.3"
+version = "0.236.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "astor" },
     { name = "click" },
     { name = "croniter" },
     { name = "dateparser" },
@@ -11946,9 +11936,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "time-machine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/25/4b7db167de7931b9e7ee8fc514051ed97e964693aae7ba17275427979d05/sqlmesh-0.235.3.tar.gz", hash = "sha256:370d16e0acbcf7a02fc07bacc9f637318271bf30074b1c0735cd4fe400b3cb10", size = 13478546, upload-time = "2026-05-21T23:00:49.524Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/95/9e2cd6ff74fc5b98da4ef1327317c22a0f8d07a4e074c606bd8eabd38590/sqlmesh-0.236.1.tar.gz", hash = "sha256:997f969a64295252028a5c25a0d6112a970dc98bca2359d51f417ff63435e44e", size = 13605207, upload-time = "2026-07-24T14:23:38.95Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/ea/33566774a2ed9482c4fd2db992a60b000702072f7a394a81da33b54c73d8/sqlmesh-0.235.3-py3-none-any.whl", hash = "sha256:37dc34e9e79e5fb9f617ab05c7645c30bf31050715d52be19cc358c9392690d7", size = 5601705, upload-time = "2026-05-21T23:00:46.065Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/38/a5bc0d4296d61c559e7dc83cea804449eb3c6663c7be23e3f19e994e1cc8/sqlmesh-0.236.1-py3-none-any.whl", hash = "sha256:1bed329486d03db2e6bc93ea516d5503edab569ce91d125d5f923c2eab03df64", size = 5654253, upload-time = "2026-07-24T14:23:36.783Z" },
 ]
 
 [[package]]
