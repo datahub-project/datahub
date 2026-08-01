@@ -872,7 +872,11 @@ class TestStateStorage:
                 patch.object(
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
-                patch.object(source, "_process_single_document", return_value=iter([])),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda doc: iter([Mock()]),
+                ),
             ):
                 # Process in batch mode
                 list(source._process_batch_mode())
@@ -913,7 +917,11 @@ class TestStateStorage:
                 patch.object(
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
-                patch.object(source, "_process_single_document", return_value=iter([])),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda doc: iter([Mock()]),
+                ),
             ):
                 # Process in event mode - should fallback
                 list(source._process_event_mode())
@@ -1188,7 +1196,11 @@ class TestStateStorage:
                 patch.object(
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
-                patch.object(source, "_process_single_document", return_value=iter([])),
+                patch.object(
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda doc: iter([Mock()]),
+                ),
             ):
                 mock_state_handler.update_document_state = Mock()
                 mock_state_handler.update_event_offset = Mock()
@@ -1279,7 +1291,9 @@ class TestStateStorage:
                     source, "_fetch_documents_graphql", return_value=mock_docs
                 ),
                 patch.object(
-                    source, "_process_single_document", return_value=iter([])
+                    source,
+                    "_process_single_document",
+                    side_effect=lambda doc: iter([Mock()]),
                 ) as mock_process,
             ):
                 mock_state_handler.update_document_state = Mock()
@@ -1296,6 +1310,36 @@ class TestStateStorage:
                 new_hash = source._calculate_text_hash(new_text)
                 assert call_args[1] == new_hash
                 assert call_args[1] != old_hash
+
+    def test_incremental_mode_does_not_record_state_when_processing_yields_nothing(
+        self, ctx, config, mock_graph
+    ):
+        """A document whose processing produces zero workunits (e.g. a caught chunking/
+        embedding exception, or empty/unpartitionable text) must NOT be recorded in
+        incremental state -- otherwise it would be permanently skipped as "unchanged" on
+        every future non-force run despite never having been embedded."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.incremental.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None  # New document
+            mock_state_handler.update_document_state = Mock()
+
+            mock_docs = [{"urn": "urn:li:document:1", "text": "Some content"}]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source, "_process_single_document", return_value=iter([])
+                ) as mock_process,
+            ):
+                list(source._process_batch_mode())
+
+            mock_process.assert_called_once()
+            mock_state_handler.update_document_state.assert_not_called()
 
 
 class TestSourceTypeFiltering:
@@ -3225,7 +3269,7 @@ class TestSkipIfSemanticContentExists:
                 patch.object(source, "_fetch_documents_graphql", return_value=[doc]),
                 patch.object(source.graph, "get_aspect", return_value=None),
                 patch.object(
-                    source, "_process_single_document", return_value=iter([])
+                    source, "_process_single_document", return_value=iter([Mock()])
                 ) as mock_proc,
             ):
                 list(source._process_batch_mode())
@@ -3992,3 +4036,57 @@ class TestOrphanedDocumentResilience:
         assert any(
             "entity count" in (w.title or "").lower() for w in source.report.warnings
         )
+
+
+class TestEmbeddingFailureReporting:
+    """A per-document embedding failure must flip the run to FAILURE, not silently
+    report SUCCESS with zero embeddings. pipeline.py's has_failures() -- which
+    decides the status surfaced to the executor and the Semantic Search
+    Monitoring UI -- only inspects report.failures, not report.warnings or the
+    embedding_failures counters that this source already tracks."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def _make_source(self, ctx, config):
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+        source.graph = Mock()
+        source.graph.config.server = "http://test-server:8080"
+        return source
+
+    def test_embedding_failure_reports_failure_not_warning(self, ctx, config):
+        source = self._make_source(ctx, config)
+        source.chunking_source.process_elements_inline = Mock(
+            side_effect=RuntimeError("Error when retrieving token from sso")
+        )
+
+        doc = {
+            "urn": "urn:li:document:a",
+            "text": "This is a sufficiently long document body for embedding.",
+        }
+        result = list(source._process_single_document(doc))
+
+        assert result == []
+        assert any(
+            "failed to process document" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+        assert not source.report.warnings

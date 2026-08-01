@@ -176,6 +176,53 @@ def test_document_processed_without_embeddings_on_failure(
         list(source.process_elements_inline(document_urn, elements))
 
 
+def test_partial_batch_embedding_failure_yields_no_workunits(
+    pipeline_context, chunking_config
+):
+    """A multi-batch embedding call that fails partway through (some chunks already
+    embedded successfully) must still yield ZERO workunits for the document -- there is
+    no code path where a document is partially embedded. Callers (e.g. datahub_documents_
+    source.py's incremental-state recording) rely on "at least one workunit produced"
+    as a proxy for "this document fully succeeded"; that proxy only holds because
+    embedding generation for a document's chunks is all-or-nothing, never partial.
+    """
+    chunking_config.embedding.batch_size = 1
+    # Force the two elements below into separate chunks (the default max_characters=500
+    # would combine them into a single chunk, defeating the multi-batch setup this test needs).
+    chunking_config.chunking.max_characters = 10
+
+    source = DocumentChunkingSource(
+        ctx=pipeline_context,
+        config=chunking_config,
+        standalone=False,
+        graph=None,
+    )
+
+    document_urn = "urn:li:document:(test,doc1,PROD)"
+    elements = [
+        {"type": "Title", "text": "Test Title"},
+        {"type": "NarrativeText", "text": "Test content"},
+    ]
+
+    provider = MagicMock()
+    provider.embed.side_effect = [
+        EmbeddingResult(embeddings=[[0.1, 0.2, 0.3]]),  # first batch succeeds
+        Exception("Second batch failed"),  # second batch fails
+    ]
+
+    workunits = []
+    with (
+        patch.object(source, "_get_provider", return_value=provider),
+        pytest.raises(Exception, match="Second batch failed"),
+    ):
+        for wu in source.process_elements_inline(document_urn, elements):
+            workunits.append(wu)
+
+    assert workunits == []
+    # The failure is reported, but nothing was ever emitted for this document.
+    assert source.report.num_embedding_failures == 1
+
+
 def test_multiple_embedding_failures(pipeline_context, chunking_config):
     """Test that embedding failures propagate in inline mode."""
     # Initialize source in inline mode

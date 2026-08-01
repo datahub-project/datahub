@@ -357,11 +357,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self.report.report_document_skipped_unchanged()
                     continue
 
-            # Process document and yield workunits
-            yield from self._process_document_with_throttle(doc)
+            # Process document and yield workunits. Only record incremental state if at
+            # least one workunit was actually produced -- otherwise a document whose
+            # processing silently produced nothing (empty text, partition failure, or a
+            # caught chunking/embedding exception) would be marked "processed" for its
+            # current content hash despite never being embedded, permanently hiding it
+            # from future non-force reindex runs even though Coverage still reports it
+            # as missing.
+            produced_output = False
+            for wu in self._process_document_with_throttle(doc):
+                produced_output = True
+                yield wu
 
-            # Update state after successful processing (we own this document now).
-            if self.config.incremental.enabled:
+            if self.config.incremental.enabled and produced_output:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
@@ -509,11 +517,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         doc = {"urn": entity_urn, "text": text, "source_type": source_type}
         self.report.report_document_fetched()
 
-        # Process document and yield work units
-        yield from self._process_document_with_throttle(doc)
+        # Process document and yield work units. Only record incremental state if at
+        # least one workunit was actually produced -- see the batch-mode counterpart in
+        # _process_batch_mode for why an unconditional update is wrong.
+        produced_output = False
+        for wu in self._process_document_with_throttle(doc):
+            produced_output = True
+            yield wu
 
-        # Update state (we own this document now).
-        if self.config.incremental.enabled:
+        if self.config.incremental.enabled and produced_output:
             self._update_document_state(entity_urn, text)
 
     def _process_event_mode(self) -> Iterable[MetadataWorkUnit]:
@@ -1425,8 +1437,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.warning(error_msg, exc_info=True)
+            # report.failure (not .warning/logger.warning) is required here: pipeline.py's
+            # has_failures() -- which decides the SUCCESS/FAILURE status surfaced to the
+            # executor and the Semantic Search Monitoring UI -- only inspects report.failures.
+            # A bare logger.warning() left runs with 100% embedding failure silently
+            # reporting SUCCESS.
+            self.report.failure(
+                title="Failed to process document",
+                message="An error occurred while chunking or embedding a document; "
+                "it was skipped rather than failing the entire run.",
+                context=doc.get("urn", "unknown"),
+                exc=e,
+            )
 
     def get_report(self) -> SourceReport:
         # Forward stats from the chunking sub-component into our report
