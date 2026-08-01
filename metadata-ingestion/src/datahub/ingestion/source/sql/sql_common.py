@@ -293,7 +293,13 @@ def _pool_accepts_sizing_options(url: str) -> bool:
     """
     try:
         parsed_url = make_url(url)
-        pool_class = parsed_url.get_dialect().get_pool_class(parsed_url)
+        # get_pool_class is declared on DefaultDialect rather than on the
+        # Dialect interface that get_dialect() is typed as returning, so
+        # resolve it defensively.
+        get_pool_class = getattr(parsed_url.get_dialect(), "get_pool_class", None)
+        if get_pool_class is None:
+            return True
+        pool_class = get_pool_class(parsed_url)
     except Exception:
         logger.debug(
             "Could not resolve the pool class for this connection; "
