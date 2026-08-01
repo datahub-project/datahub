@@ -20,9 +20,11 @@ from typing import (
 
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
+from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -278,6 +280,30 @@ config_options_to_report = [
 ]
 
 
+def _pool_accepts_sizing_options(url: str) -> bool:
+    """Whether this dialect's default pool accepts QueuePool sizing options.
+
+    `max_overflow` is a QueuePool-only parameter. Dialects whose default pool is
+    NullPool or SingletonThreadPool -- notably SQLite -- make `create_engine()`
+    raise `TypeError: Invalid argument(s) 'max_overflow'` when it is supplied.
+
+    If the dialect cannot be resolved, for example because its driver is not
+    installed in this environment, assume it pools. That preserves the previous
+    behaviour for every dialect this check cannot positively rule out.
+    """
+    try:
+        parsed_url = make_url(url)
+        pool_class = parsed_url.get_dialect().get_pool_class(parsed_url)
+    except Exception:
+        logger.debug(
+            "Could not resolve the pool class for this connection; "
+            "assuming QueuePool sizing options are supported.",
+            exc_info=True,
+        )
+        return True
+    return issubclass(pool_class, QueuePool)
+
+
 @dataclass
 class ProfileMetadata:
     """
@@ -374,7 +400,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
+        if sql_config.is_profiling_enabled() and _pool_accepts_sizing_options(
+            sql_config.get_sql_alchemy_url()
+        ):
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )

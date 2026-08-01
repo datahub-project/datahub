@@ -3,7 +3,11 @@ from unittest import mock
 
 import pytest
 
-from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import (
+    PipelineContext,
+    SQLAlchemySource,
+    _pool_accepts_sizing_options,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -264,3 +268,51 @@ def test_fine_grained_lineages(
 
     assert actual_downstream == expected_simplified_downstream
     assert actual_upstream == expected_simplified_upstream
+
+
+class _TestSQLiteConfig(SQLCommonConfig):
+    def get_sql_alchemy_url(self):
+        return "sqlite:///test.db"
+
+
+def test_pool_accepts_sizing_options_by_dialect() -> None:
+    # QueuePool dialects accept max_overflow.
+    assert _pool_accepts_sizing_options("mysql+pymysql://user:pass@localhost:5330")
+    assert _pool_accepts_sizing_options("postgresql://user:pass@localhost/db")
+
+    # SQLite defaults to NullPool (file) and SingletonThreadPool (memory).
+    # Neither accepts max_overflow.
+    assert not _pool_accepts_sizing_options("sqlite:///test.db")
+    assert not _pool_accepts_sizing_options("sqlite://")
+
+    # An unresolvable dialect must fall back to the previous behaviour.
+    assert _pool_accepts_sizing_options("not-a-real-dialect://host/db")
+
+
+def test_add_default_options_skips_max_overflow_for_sqlite() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # Passing max_overflow to a NullPool engine makes create_engine() raise
+    # TypeError, which previously aborted every SQLite profiling run.
+    assert "max_overflow" not in config.options
+
+
+def test_add_default_options_sets_max_overflow_when_pooled() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    assert config.options["max_overflow"] == config.profiling.max_workers
+
+
+def test_add_default_options_noop_without_profiling() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({})
+
+    source._add_default_options(config)
+
+    assert "max_overflow" not in config.options
