@@ -1,5 +1,5 @@
 - Start Date: 2026-08-01
-- RFC PR: (this PR)
+- RFC PR: https://github.com/datahub-project/datahub/pull/18804
 - Discussion Issue: none yet, opening the RFC directly to get concrete design feedback
 - Implementation PR(s): none, this RFC proposes no code yet
 
