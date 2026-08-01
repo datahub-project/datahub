@@ -26,8 +26,8 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
-  ext.springVersion = '7.0.7'
+  // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
+  ext.springVersion = '7.0.8'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
   ext.springBootVersion = '4.0.6'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch

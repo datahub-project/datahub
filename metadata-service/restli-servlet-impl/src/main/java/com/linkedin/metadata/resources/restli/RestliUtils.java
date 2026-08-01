@@ -1,7 +1,9 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
@@ -43,14 +45,43 @@ public class RestliUtils {
           finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException) {
         finalException = apiThrottled(throwable.getMessage());
-      } else if (throwable instanceof RestLiServiceException) {
-        finalException = (RestLiServiceException) throwable;
       } else {
-        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        DatabaseTransactionConflictException conflict =
+            findDatabaseTransactionConflict(throwable);
+        if (conflict != null) {
+          finalException = databaseTransactionConflict(conflict);
+        } else if (throwable instanceof RestLiServiceException) {
+          finalException = (RestLiServiceException) throwable;
+        } else {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        }
       }
 
       throw finalException;
     }
+  }
+
+
+  @Nonnull
+  private static RestLiServiceException databaseTransactionConflict(
+      @Nonnull DatabaseTransactionConflictException conflict) {
+    // RestLiServiceException has no setHeader(); Retry-After is exposed via
+    // DatabaseTransactionConflictRestLiServiceException.getResponseHeaders() and applied by
+    // RestliThrottleResponseFilter.
+    return new DatabaseTransactionConflictRestLiServiceException(conflict);
+  }
+
+  @Nullable
+  private static DatabaseTransactionConflictException findDatabaseTransactionConflict(
+      @Nonnull Throwable throwable) {
+    while (throwable != null) {
+      if (throwable instanceof DatabaseTransactionConflictException conflict) {
+        return conflict;
+      }
+      throwable = throwable.getCause();
+    }
+    return null;
   }
 
   @Nonnull

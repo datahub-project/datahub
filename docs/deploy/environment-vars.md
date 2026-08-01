@@ -230,25 +230,30 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 
 ### EBean Configuration (MySQL/PostgreSQL)
 
-| Environment Variable              | Default                               | Description                                     | Components                       |
-| --------------------------------- | ------------------------------------- | ----------------------------------------------- | -------------------------------- |
-| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                               | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                               | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                        | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                                     | GMS, MCE Consumer, System Update |
-| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections                    | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections                    | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds                | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                          | GMS, MCE Consumer, System Update |
-| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                            | GMS, MCE Consumer, System Update |
-| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds                    | GMS, MCE Consumer, System Update |
-| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                                 | GMS, MCE Consumer, System Update |
-| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL       | GMS, MCE Consumer, System Update |
-| `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
-| `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
-| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
-| `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
-| `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
+| Environment Variable               | Default                               | Description                                                                                | Components                       |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------- |
+| `EBEAN_DATASOURCE_USERNAME`        | `datahub`                             | Database username                                                                          | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_PASSWORD`        | `datahub`                             | Database password                                                                          | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_URL`             | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                                                                   | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_DRIVER`          | `com.mysql.jdbc.Driver`               | JDBC Driver                                                                                | GMS, MCE Consumer, System Update |
+| `EBEAN_MIN_CONNECTIONS`            | `2`                                   | Minimum database connections                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_CONNECTIONS`            | `50`                                  | Maximum database connections                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_INACTIVE_TIME_IN_SECS`  | `120`                                 | Maximum inactive time in seconds                                                           | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_AGE_MINUTES`            | `120`                                 | Maximum age in minutes                                                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_LEAK_TIME_MINUTES`          | `15`                                  | Leak time in minutes                                                                       | GMS, MCE Consumer, System Update |
+| `EBEAN_WAIT_TIMEOUT_MILLIS`        | `1000`                                | Wait timeout in milliseconds                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_AUTOCREATE`                 | `false`                               | Auto-create DDL                                                                            | GMS, MCE Consumer, System Update |
+| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH`  | `false`                               | Use AWS IAM authentication for PostgreSQL                                                  | GMS, MCE Consumer, System Update |
+| `EBEAN_USE_IAM_AUTH`               | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP)                                            | GMS, MCE Consumer, System Update |
+| `EBEAN_CLOUD_PROVIDER`             | `auto`                                | Cloud provider (auto/aws/gcp/traditional)                                                  | GMS, MCE Consumer, System Update |
+| `EBEAN_BATCH_GET_METHOD`           | `IN`                                  | Batch get method (IN or UNION)                                                             | GMS, MCE Consumer, System Update |
+| `EBEAN_URL`                        | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL                                                      | System Update                    |
+| `EBEAN_MAX_TRANSACTION_RETRY`      | `null` (= **3**)                      | Max transaction retries for Ebean (`null` → 3 retries / 4 attempts)                        | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_BACKOFF_SQL_STATES`   | `40001,40P01`                         | SQLStates that get exponential backoff between retries                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_BACKOFF_VENDOR_CODES` | `1213`                                | Vendor error codes that get exponential backoff between retries                            | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_INITIAL_BACKOFF_MS`   | `50`                                  | Initial backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_MAX_BACKOFF_MS`       | `1000`                                | Maximum backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_AFTER_SECONDS`        | `1`                                   | Retry-After hint (seconds) on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li) | GMS, MCE Consumer, System Update |
 
 #### Cross-Cloud IAM Authentication
 

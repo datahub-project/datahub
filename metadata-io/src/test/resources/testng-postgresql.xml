@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="metadata-io-postgresql" parallel="classes" thread-count="2">
+    <test name="postgresql-ebean-locking">
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT"/>
+        </classes>
+    </test>
+</suite>
