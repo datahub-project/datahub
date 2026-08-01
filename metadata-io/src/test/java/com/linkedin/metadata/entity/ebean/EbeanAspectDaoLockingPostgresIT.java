@@ -9,7 +9,9 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.PostgresTestUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
@@ -218,6 +220,33 @@ public class EbeanAspectDaoLockingPostgresIT {
       assertTrue(
           latest.getOrDefault(urn, Map.of()).containsKey(STATUS_ASPECT_NAME),
           "ordered FOR UPDATE read should return the row on PostgreSQL");
+      tx.commit();
+    }
+  }
+
+  @Test
+  public void batchGet_unionMethodFallsBackToInOnPostgres() {
+    // PostgreSQL rejects "... UNION ALL ... FOR UPDATE", so the constructor must remap
+    // EBEAN_BATCH_GET_METHOD=UNION to the IN form on Postgres. Without the remap this
+    // locking batchGet would fail outright.
+    final String urn = "urn:li:corpuser:union_" + shortId();
+    saveAspect(urn, STATUS_ASPECT_NAME);
+
+    final EbeanAspectDao unionDao =
+        new EbeanAspectDao(
+            primaryDatabase,
+            EbeanConfiguration.builder().batchGetMethod("UNION").build(),
+            null,
+            List.of(),
+            null);
+    unionDao.setConnectionValidated(true);
+
+    try (Transaction tx = primaryDatabase.beginTransaction()) {
+      final Map<EntityAspectIdentifier, EntityAspect> result =
+          unionDao.batchGet(
+              Set.of(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)),
+              true);
+      assertEquals(result.size(), 1, "locking batchGet should work with UNION remapped to IN");
       tx.commit();
     }
   }

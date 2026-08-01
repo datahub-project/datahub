@@ -49,6 +49,54 @@ public class TransactionRetryPolicyTest {
   }
 
   @Test
+  public void testBackoffMillis_JitterStaysWithinBounds() {
+    TransactionRetryPolicy policy =
+        new TransactionRetryPolicy(
+            TransactionRetryConfiguration.builder()
+                .backoffSqlStates("40001")
+                .backoffVendorCodes("1213")
+                .initialBackoffMs(100)
+                .maxBackoffMs(1000)
+                .build());
+    // base for attempt 1 is 200ms; jitter multiplies by U(0.5, 1.5)
+    for (int i = 0; i < 50; i++) {
+      long value = policy.backoffMillis(1);
+      assertTrue(value >= 100L && value <= 300L, "jittered backoff out of bounds: " + value);
+    }
+  }
+
+  @Test
+  public void testNonPositiveTimingConfigFallsBackToDefaults() {
+    TransactionRetryPolicy policy =
+        new TransactionRetryPolicy(
+            TransactionRetryConfiguration.builder()
+                .backoffSqlStates("40001")
+                .backoffVendorCodes("1213")
+                .initialBackoffMs(0)
+                .maxBackoffMs(-1)
+                .retryAfterSeconds(0)
+                .build(),
+            false);
+    assertEquals(policy.backoffMillis(0), TransactionRetryConfiguration.DEFAULT_INITIAL_BACKOFF_MS);
+    assertEquals(
+        policy.getRetryAfterSeconds(), TransactionRetryConfiguration.DEFAULT_RETRY_AFTER_SECONDS);
+  }
+
+  @Test
+  public void testBlankAllowlistsDisableBackoff() {
+    TransactionRetryPolicy policy =
+        new TransactionRetryPolicy(
+            TransactionRetryConfiguration.builder()
+                .backoffSqlStates(" ")
+                .backoffVendorCodes(null)
+                .build(),
+            false);
+    PersistenceException deadlock =
+        new PersistenceException(new SQLException("Deadlock found", "40001", 1213));
+    assertFalse(policy.shouldBackoff(deadlock));
+  }
+
+  @Test
   public void testParseVendorCodes_IgnoresInvalidTokens() {
     TransactionRetryPolicy policy =
         new TransactionRetryPolicy(

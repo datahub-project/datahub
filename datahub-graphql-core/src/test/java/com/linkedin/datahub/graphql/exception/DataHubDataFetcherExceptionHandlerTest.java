@@ -546,6 +546,23 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
+  public void testHandleDatabaseTransactionConflictExceptionWithoutMessage()
+      throws ExecutionException, InterruptedException {
+    DatabaseTransactionConflictException exception =
+        new DatabaseTransactionConflictException(null, "40001");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // No usable top-level message → generic default, never the nested SQL detail.
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getErrorCode(), 503);
+  }
+
+  @Test
   public void testValidationExceptionTakesPriorityOverDatabaseTransactionConflict()
       throws ExecutionException, InterruptedException {
     DatabaseTransactionConflictException conflict =

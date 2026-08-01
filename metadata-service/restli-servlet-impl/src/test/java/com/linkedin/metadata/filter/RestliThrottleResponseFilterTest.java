@@ -64,6 +64,24 @@ public class RestliThrottleResponseFilterTest {
     assertTrue(headers.isEmpty());
   }
 
+  @Test
+  public void testOnErrorTerminatesOnSelfReferentialCauseChain() throws Exception {
+    Map<String, String> headers = new HashMap<>();
+    FilterResponseContext responseContext = mockResponseContext(headers);
+    // A cause chain that loops back on itself must not hang the cause walk.
+    RuntimeException selfCaused =
+        new RuntimeException("loop") {
+          @Override
+          public synchronized Throwable getCause() {
+            return this;
+          }
+        };
+
+    filter.onError(selfCaused, Mockito.mock(FilterRequestContext.class), responseContext).get();
+
+    assertTrue(headers.isEmpty());
+  }
+
   @SuppressWarnings({"rawtypes", "unchecked"})
   private static FilterResponseContext mockResponseContext(Map<String, String> headers) {
     FilterResponseContext responseContext = Mockito.mock(FilterResponseContext.class);
