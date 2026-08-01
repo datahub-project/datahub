@@ -789,9 +789,12 @@ plugins: Dict[str, Set[str]] = {
     # Floor at 0.235.2: each sqlmesh release pins a narrow sqlglot range, and
     # 0.235.2 is the first to require sqlglot~=30.8.0, matching our pinned
     # sqlglot[c]==30.8.0 (see sqlglot_lib comment). Earlier sqlmesh versions
-    # need sqlglot 30.0.x-30.4.x and cannot coexist with our pin. Cap at <0.236
-    # until the next sqlmesh sqlglot bump is vetted against our monkey-patches.
-    "sqlmesh": {"sqlmesh>=0.235.2,<0.236", *cachetools_lib},
+    # need sqlglot 30.0.x-30.4.x and cannot coexist with our pin. Cap at <0.237:
+    # 0.236 was vetted (sqlglot pin unchanged; the sqlmesh-internal surfaces this
+    # connector patches are intact; full test suite passes). Each new sqlmesh
+    # minor must be re-vetted the same way before widening, since sqlmesh minors
+    # routinely bump their sqlglot pin and move internal APIs.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
