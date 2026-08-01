@@ -13,14 +13,14 @@ Add an optional, caller-supplied external identity to `raiseIncident` so automat
 
 ```graphql
 mutation {
-    raiseIncident(
-        input: {
-            type: OPERATIONAL
-            resourceUrns: ["urn:li:dataset:(...)"]
-            sourceId: "checkout-drift-2026-08-01-poll-status"
-            title: "Route divergence detected on checkout status endpoint"
-        }
-    )
+  raiseIncident(
+    input: {
+      type: OPERATIONAL
+      resourceUrns: ["urn:li:dataset:(...)"]
+      sourceId: "checkout-drift-2026-08-01-poll-status"
+      title: "Route divergence detected on checkout status endpoint"
+    }
+  )
 }
 ```
 
