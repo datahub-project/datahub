@@ -519,18 +519,26 @@ class AvroToMceSchemaConverter:
         self, schema: SchemaOrField
     ) -> Iterable[SchemaField]:
         """Handles generation of MCE SchemaFields for all standard AVRO nested types."""
-        # Handle recursive record definitions
-        recurse: bool = True
-        if isinstance(schema, avro.schema.RecordSchema):
-            # Only prevent recursion if we're currently processing this record type (true recursion)
-            # Allow reuse of the same record type in different contexts
-            if schema.fullname in self._record_types_seen:
-                recurse = False
-            else:
-                self._record_types_seen.append(schema.fullname)
-
         # Adjust actual schema if needed
         actual_schema = self._get_underlying_type_if_option_as_union(schema, schema)
+
+        # Handle recursive record definitions. The recursive reference may be a bare
+        # record type or wrapped in an optional union like ["null", "MyRecord"], so we
+        # check both the original schema and the unwrapped actual_schema.
+        recurse: bool = True
+        record_to_track: Optional[avro.schema.RecordSchema] = None
+        if isinstance(schema, avro.schema.RecordSchema):
+            record_to_track = schema
+        elif isinstance(actual_schema, avro.schema.RecordSchema):
+            record_to_track = actual_schema
+
+        tracked_fullname: Optional[str] = None
+        if record_to_track is not None:
+            if record_to_track.fullname in self._record_types_seen:
+                recurse = False
+            else:
+                self._record_types_seen.append(record_to_track.fullname)
+                tracked_fullname = record_to_track.fullname
 
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             schema,
@@ -561,12 +569,9 @@ class AvroToMceSchemaConverter:
                     for sub_schema in self._get_sub_schemas(actual_schema):
                         yield from self._to_mce_fields(sub_schema)
 
-        # Clean up the processing stack
-        if (
-            isinstance(schema, avro.schema.RecordSchema)
-            and schema.fullname in self._record_types_seen
-        ):
-            self._record_types_seen.remove(schema.fullname)
+        # Only remove what this call added.
+        if tracked_fullname is not None:
+            self._record_types_seen.remove(tracked_fullname)
 
     def _gen_non_nested_to_mce_fields(
         self, schema: SchemaOrField
