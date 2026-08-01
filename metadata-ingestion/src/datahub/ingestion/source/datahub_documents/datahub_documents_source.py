@@ -320,6 +320,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_event_mode()
             else:
                 yield from self._process_batch_mode()
+        except DocumentEnumerationError as e:
+            # Already surfaced by the enumeration/hydration path under a specific
+            # title. Adding the generic failure below would give operators two
+            # entries for one problem, the vaguer one last.
+            logger.error(f"Aborting run: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
@@ -601,6 +606,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
                 return
 
+        except DocumentEnumerationError:
+            # A batch fallback above aborted systemically and already reported a
+            # specific failure. Falling back again would replay a full
+            # enumeration + hydration storm against GMS for the same outcome.
+            raise
         except Exception as e:
             # Catch any errors during event processing and fall back to batch mode
             error_msg = str(e)
@@ -929,54 +939,52 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         (``_hydrate_documents``) lazily, so a single orphaned index entry can no
         longer abort the whole run and the catalog is never materialized in
         memory: at most one hydration batch is held at a time.
+
+        Enumeration and hydration own their own error reporting, so failures
+        propagate from here untouched rather than being re-wrapped around a
+        ``yield``.
         """
-        try:
-            num_documents = 0
+        num_documents = 0
 
-            for entity in self._hydrate_documents(self._scroll_document_urns()):
-                urn = entity.get("urn")
-                if not urn:
-                    continue
+        for entity in self._hydrate_documents(self._scroll_document_urns()):
+            urn = entity.get("urn")
+            if not urn:
+                continue
 
-                # Filter by specific URNs if provided
-                if self.config.document_urns and urn not in self.config.document_urns:
-                    continue
+            # Filter by specific URNs if provided
+            if self.config.document_urns and urn not in self.config.document_urns:
+                continue
 
-                # Extract text content (GraphQL returns null for missing aspects).
-                # semanticText overrides text as the embedding source; see _resolve_embed_text.
-                info = entity.get("info") or {}
-                contents = info.get("contents") or {}
-                text = self._resolve_embed_text(contents)
+            # Extract text content (GraphQL returns null for missing aspects).
+            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            info = entity.get("info") or {}
+            contents = info.get("contents") or {}
+            text = self._resolve_embed_text(contents)
 
-                # Default to NATIVE when sourceType is absent (older documents).
-                source = info.get("source") or {}
-                source_type = source.get("sourceType") or "NATIVE"
+            # Default to NATIVE when sourceType is absent (older documents).
+            source = info.get("source") or {}
+            source_type = source.get("sourceType") or "NATIVE"
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                if not self._should_process_by_source_type(entity, info):
-                    continue
+            # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+            if not self._should_process_by_source_type(entity, info):
+                continue
 
-                # Skip if no text or too short
-                if not text or (
-                    self.config.skip_empty_text
-                    and len(text) < self.config.min_text_length
-                ):
-                    logger.debug(
-                        f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                    )
-                    continue
+            # Skip if no text or too short
+            if not text or (
+                self.config.skip_empty_text and len(text) < self.config.min_text_length
+            ):
+                logger.debug(
+                    f"Skipping document {urn} (empty or too short: {len(text)} chars)"
+                )
+                continue
 
-                num_documents += 1
-                self.report.report_document_fetched()
-                yield {"urn": urn, "text": text, "source_type": source_type}
+            num_documents += 1
+            self.report.report_document_fetched()
+            yield {"urn": urn, "text": text, "source_type": source_type}
 
-            logger.info(
-                f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
-            raise
+        logger.info(
+            f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
+        )
 
     def _scroll_document_urns(self) -> Iterable[str]:
         """Enumerate Document URNs via scrollAcrossEntities.
@@ -1180,33 +1188,50 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "missing a queried field) rather than per-document issues.",
                         context=batch[0],
                     )
-                    raise batch_error
+                    raise DocumentEnumerationError(
+                        "every URN in a hydration batch failed to resolve"
+                    ) from batch_error
                 continue
 
             entities = response.get("entities") or []
-            if not entities:
-                # GMS returns one (possibly null) entity per requested URN, so an
-                # empty list for a non-empty batch is systemic rather than
-                # per-document. Abort instead of booking every URN as orphaned.
+            if len(entities) != len(batch):
+                # GMS returns exactly one (possibly null) slot per requested URN —
+                # BatchGetEntitiesResolver sizes its array from the input list. Any
+                # other length means the response cannot be aligned with the
+                # request, so nothing in it is trustworthy. That includes an empty
+                # list, which would otherwise read as a batch of orphans.
                 self.report.failure(
-                    title="Document hydration returned no entities",
-                    message="GMS returned an empty entity list for a non-empty "
-                    "hydration batch; the document content could not be resolved.",
-                    context=batch[0],
+                    title="Document hydration returned an unexpected entity count",
+                    message="GMS returned a different number of entities than URNs "
+                    "requested, so the hydrated document set is incomplete.",
+                    context=f"requested={len(batch)}, returned={len(entities)}",
                 )
                 raise DocumentEnumerationError(
-                    "entities(urns:) returned no entities for a non-empty batch"
+                    "entities(urns:) length did not match the hydration batch"
                 )
 
             # Match on each entity's own URN rather than zipping positionally: a
-            # short or reordered response would otherwise attribute one
-            # document's content to another URN. Requested URNs with no entity
-            # in the response are counted as orphans, never silently dropped.
+            # reordered response would otherwise attribute one document's content
+            # to another URN. Requested URNs with no entity in the response are
+            # counted as orphans, never silently dropped.
             entities_by_urn = {
                 entity["urn"]: entity
                 for entity in entities
                 if entity and entity.get("urn")
             }
+            if not entities_by_urn:
+                # Right length, but every slot came back null. Unlike a length
+                # mismatch this is interpretable — every requested URN was
+                # unresolvable — and the rest of the catalog may be healthy, so
+                # fail the run without aborting it. A page of index drift must not
+                # take down a run that can still embed everything else.
+                self.report.failure(
+                    title="Document hydration resolved nothing in a batch",
+                    message="Every URN in a hydration batch resolved to null, which "
+                    "is usually a serving problem rather than that many orphans; "
+                    "the batch was skipped and the run continues.",
+                    context=batch[0],
+                )
             for urn in batch:
                 hydrated = entities_by_urn.get(urn)
                 if hydrated is None:
@@ -1232,8 +1257,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     context=urn,
                 )
                 continue
+            # Match by URN for the same reason the batch path does, rather than
+            # trusting the first slot to be the document we asked for.
             entities = response.get("entities") or []
-            entity = entities[0] if entities else None
+            entity = next(
+                (e for e in entities if e and e.get("urn") == urn),
+                None,
+            )
             if entity is None:
                 self._skip_orphaned(urn)
                 continue

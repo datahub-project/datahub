@@ -3799,8 +3799,13 @@ class TestDocumentEventConsumerAspectFilter:
 
 
 class TestOrphanedDocumentResilience:
-    """A single orphaned index entry (a URN present in the index but with no
-    resolvable backing entity) must not abort the embedding run."""
+    """Where the line sits between orphan drift and a broken document set.
+
+    A single orphaned index entry (a URN present in the index with no resolvable
+    backing entity) must be skipped, not abort the run. A systemic failure —
+    enumeration breaking, or GMS returning a response that can't be aligned with
+    the request — must abort instead of finishing SUCCESS over a silent subset.
+    """
 
     @pytest.fixture
     def config(self):
@@ -3969,9 +3974,12 @@ class TestOrphanedDocumentResilience:
             "Cannot query field 'semanticText'"
         )
 
-        with pytest.raises(GraphError):
+        with pytest.raises(DocumentEnumerationError) as excinfo:
             list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
 
+        # The originating GraphError is kept as the cause so the GMS message
+        # (e.g. the missing field) survives in the traceback.
+        assert isinstance(excinfo.value.__cause__, GraphError)
         assert any(
             "entire batch" in (f.title or "").lower() for f in source.report.failures
         )
@@ -3986,31 +3994,70 @@ class TestOrphanedDocumentResilience:
         )
         urns = [f"urn:li:document:doc-{i}" for i in range(250)]
 
-        with pytest.raises(GraphError):
+        with pytest.raises(DocumentEnumerationError):
             list(source._hydrate_documents(urns))
 
         # One batch call + one retry per URN in that batch — nothing beyond it.
         assert source.graph.execute_graphql.call_count == 1 + 100
 
     def test_hydration_matches_entities_by_urn_not_position(self, ctx, config):
-        # GMS returning fewer entities than requested URNs must not shift content
-        # onto the wrong URN, and the unresolved URNs must be counted as orphans
-        # rather than silently dropped off the end of a positional zip.
+        # A reordered response must not shift one document's content onto
+        # another's URN, as a positional zip would.
         source = self._make_source(ctx, config)
         source.graph.execute_graphql.return_value = {
-            "entities": [self._native_notion_doc("urn:li:document:b")]
+            "entities": [
+                self._native_notion_doc("urn:li:document:b"),
+                self._native_notion_doc("urn:li:document:a"),
+            ]
         }
 
         hydrated = list(
             source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
         )
 
-        assert [e["urn"] for e in hydrated] == ["urn:li:document:b"]
+        assert sorted(e["urn"] for e in hydrated) == [
+            "urn:li:document:a",
+            "urn:li:document:b",
+        ]
+        assert source.report.num_documents_skipped_orphaned == 0
+
+    def test_full_length_response_with_null_slot_orphans(self, ctx, config):
+        # The contract-honouring shape: one slot per URN, null where the entity
+        # can't be resolved. That single null is orphan drift, not a failure.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a"), None]
+        }
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
         assert source.report.num_documents_skipped_orphaned == 1
+        assert not source.report.failures
+
+    def test_short_entity_response_is_fatal(self, ctx, config):
+        # GMS returns exactly one slot per requested URN, so a short list is a
+        # broken contract, not orphans. Booking the missing URNs as orphans would
+        # let the run finish SUCCESS having embedded only the returned subset.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a")]
+        }
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
+
+        assert source.report.num_documents_skipped_orphaned == 0
+        assert any(
+            "unexpected entity count" in (f.title or "").lower()
+            for f in source.report.failures
+        )
 
     def test_empty_entity_response_is_fatal(self, ctx, config):
-        # An empty entity list for a non-empty batch is a serving problem, not
-        # 100 orphans: fail rather than book the whole batch as orphaned.
+        # An empty entity list for a non-empty batch is the degenerate short
+        # response: a serving problem, not a batch of orphans.
         source = self._make_source(ctx, config)
         source.graph.execute_graphql.return_value = {"entities": []}
 
@@ -4019,7 +4066,28 @@ class TestOrphanedDocumentResilience:
 
         assert source.report.num_documents_skipped_orphaned == 0
         assert any(
-            "no entities" in (f.title or "").lower() for f in source.report.failures
+            "unexpected entity count" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
+        # Right length, every slot null. Unlike a length mismatch this is
+        # interpretable, and the rest of the catalog may be healthy — so the run
+        # goes red without one drifted page taking down the whole run.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        batch1 = {"entities": [None] * 100}
+        batch2 = {"entities": [self._native_notion_doc(u) for u in urns[100:]]}
+        source.graph.execute_graphql.side_effect = [batch1, batch2]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        # Second batch still hydrated: the failure did not abort the run.
+        assert len(hydrated) == 50
+        assert source.report.num_documents_skipped_orphaned == 100
+        assert any(
+            "resolved nothing" in (f.title or "").lower()
+            for f in source.report.failures
         )
 
     def test_missing_scroll_payload_is_fatal(self, ctx, config):
@@ -4091,3 +4159,66 @@ class TestOrphanedDocumentResilience:
         # the second scroll page is fetched.
         assert calls[:2] == ["scroll", "hydrate"]
         assert "scroll" in calls[2:]
+
+
+class TestSystemicAbortHandling:
+    """A systemic abort is already reported under a specific title, so it must
+    surface once and must not be retried."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def test_abort_is_not_double_reported(self, ctx, mock_graph):
+        # get_workunits_internal's catch-all would otherwise append a generic
+        # "Failed to run Unstructured pipeline" after the specific failure,
+        # leaving operators with the vaguer of two entries last.
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+
+            def _abort_like_enumeration():
+                source.report.failure(
+                    title="Document enumeration returned no scroll payload",
+                    message="scrollAcrossEntities was missing from the response.",
+                )
+                raise DocumentEnumerationError("enumeration broke")
+
+            with patch.object(
+                source, "_process_batch_mode", side_effect=_abort_like_enumeration
+            ):
+                list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 1
+        assert "no scroll payload" in (source.report.failures[0].title or "").lower()
+
+    def test_event_mode_does_not_retry_batch_after_abort(self, ctx, mock_graph):
+        # Event mode falls back to batch when a poll yields no events. That
+        # fallback sits inside an `except Exception` that falls back *again*, so
+        # a systemic abort would replay a full enumeration + hydration storm.
+        config = _make_config(event_mode={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source, "_should_fallback_to_batch_mode", return_value=False
+                ),
+                patch(
+                    "datahub.ingestion.source.unstructured.event_consumer.DocumentEventConsumer.consume_events",
+                    return_value=iter([]),
+                ),
+                patch.object(
+                    source,
+                    "_process_batch_mode",
+                    side_effect=DocumentEnumerationError("enumeration broke"),
+                ) as mock_batch,
+            ):
+                with pytest.raises(DocumentEnumerationError):
+                    list(source._process_event_mode())
+
+            assert mock_batch.call_count == 1
