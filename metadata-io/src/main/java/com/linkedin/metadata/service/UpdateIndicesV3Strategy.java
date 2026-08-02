@@ -136,14 +136,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       try {
         updateTimeseriesFieldsForEvent(opContext, event);
       } catch (RuntimeException e) {
-        log.error(
+        // Swallow so the rest of the URN batch can proceed (original V3 behavior).
+        log.warn(
             "V3 timeseries update failed for urn {} aspect {}: {}",
             event.getUrn(),
             event.getAspectName(),
-            e.getMessage(),
-            e);
-        // Soft dual-write does not throw; fail-loud dual-write and Postgres SoT do — rethrow those.
-        throw e;
+            e.getMessage());
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(this.getClass(), "timeseries_update_failed", 1));
       }
     }
 
@@ -158,13 +161,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
         }
       } catch (RuntimeException e) {
-        log.error(
+        log.warn(
             "V3 timeseries delete handling failed for urn {} aspect {}: {}",
             deleteEvent.getUrn(),
             deleteEvent.getAspectName(),
-            e.getMessage(),
-            e);
-        throw e;
+            e.getMessage());
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(this.getClass(), "timeseries_delete_failed", 1));
       }
     }
   }
