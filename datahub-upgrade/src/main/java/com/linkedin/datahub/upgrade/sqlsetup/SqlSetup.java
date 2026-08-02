@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgQueueSchemaStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgTimeseriesSchemaStep;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import io.ebean.Database;
@@ -58,6 +59,11 @@ public class SqlSetup implements Upgrade {
     steps.add(new CreateTablesStep(server, setupArgs));
 
     PostgresSqlSetupProperties postgresProperties = setupArgs.getPostgres();
+    if (setupArgs.getDbType() == DatabaseType.POSTGRES
+        && postgresProperties != null
+        && postgresProperties.getPgTimeseries().isEnabled()) {
+      steps.add(new PgTimeseriesSchemaStep(server, postgresProperties));
+    }
     if (setupArgs.getDbType() == DatabaseType.POSTGRES
         && postgresProperties != null
         && postgresProperties.getPgQueue().isEnabled()) {
