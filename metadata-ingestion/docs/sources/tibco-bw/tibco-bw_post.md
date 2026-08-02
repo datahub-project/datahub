@@ -62,13 +62,65 @@ real field path. This is a best-effort name-match heuristic: datasets without a
 schema in DataHub produce no column lineage, and fields that are renamed or derived
 by the application are not captured.
 
+##### Declared message schemas from application archives (opt-in)
+
+A BusinessWorks application's JMS activities declare the exact message each
+process publishes or consumes, but that declaration lives inside the deployed
+archive — the runtime APIs never return it. Point `application_archives.paths` at
+the `.ear` files and the connector reads the JMS activities out of each process,
+resolves their destination names against the archive's module properties, and
+emits the declared XSD as the **schema of the TIBCO EMS destination**:
+
+```yaml
+application_archives:
+  paths:
+    - "/mnt/bw-releases/*.ear"
+  ems_target:
+    platform_instance: null # match your tibco-ems recipe
+    env: PROD
+    server_group: default
+```
+
+The `ems_target` block must address destinations the same way your `tibco-ems`
+recipe does, since both connectors are describing the same queues and topics. A
+mismatch produces two entities for one destination rather than an error.
+
+What this adds:
+
+- **Schemas** on the EMS destinations a process publishes to, flattened from the
+  message XSD into dot-delimited field paths with the original XSD retained as the
+  raw schema. Only a publisher's declaration is used — what a consumer reads is
+  its own contract, not the destination's.
+- **Lineage** from each application to the destinations its own processes read
+  and write, merged with (not replacing) anything you declared in
+  `application_lineage`. An archive can only see its JMS endpoints, so database
+  and file endpoints still have to be configured by hand.
+- **Provenance**, via `schema_source: tibco-bw-ear` and the process that declared
+  it, so a declared schema is distinguishable from one the TIBCO EMS connector
+  estimated from downstream consumers. The EMS connector will not overwrite a
+  declared schema with a derived one.
+
+Archives are matched to applications by filename, with any trailing version
+stripped: `OrderPublisher_1.2.0.ear` and `OrderPublisher.ear` both map to the
+application `OrderPublisher`. Everything here is emitted non-primary, because
+the destinations belong to the `tibco-ems` source.
+
+Set `emit_destination_schemas: false` or `emit_destination_lineage: false` to take
+one half without the other.
+
 ### Limitations
 
-- **Lineage is manual.** Because the runtime APIs do not expose an application's
-  data flows, dataset-level lineage must be supplied through `application_lineage`
-  rather than discovered. Column-level lineage (`emit_column_lineage`) is a
-  best-effort name match between the declared datasets' schemas, not derived from
-  the application's actual transforms.
+- **Lineage is manual by default.** Because the runtime APIs do not expose an
+  application's data flows, dataset-level lineage must be supplied through
+  `application_lineage` — or, for JMS endpoints only, read from supplied archives.
+  Column-level lineage (`emit_column_lineage`) is a best-effort name match between
+  the declared datasets' schemas, not derived from the application's actual
+  transforms.
+- **Archives must be supplied out of band.** Neither bwagent nor the TCI API
+  serves the deployed archive, so `application_archives.paths` has to point at a
+  copy the ingestion host can read — typically the release artifact store.
+- **JMS endpoints only.** An archive's JDBC, file and HTTP endpoints are not
+  parsed; those remain the job of `application_lineage`.
 - **No process-level detail.** Individual BusinessWorks processes within an
   application are not enumerated by these APIs, so applications are the finest
   granularity captured.
@@ -81,3 +133,20 @@ Lineage is not auto-discovered; populate `application_lineage` with the upstream
 and downstream dataset urns for each application. For column-level lineage, also
 set `emit_column_lineage` and ensure the referenced datasets already have schemas
 in DataHub.
+
+#### An archive was read but no schemas appeared
+
+Check the report counters. `jms_activities_found: 0` means the processes use
+endpoint types this parser does not read (only JMS activities are parsed).
+`unresolved_destinations` means an activity's destination is a module property
+that no `.substvar` in the archive defines — usually because the value is
+supplied at deployment time rather than packaged, in which case declare that
+destination through `application_lineage` instead. `unresolved_elements` means
+the message's XSD was imported from a module that was not packaged in this
+archive.
+
+#### The destination has two entries in DataHub
+
+`ems_target` does not match the `tibco-ems` recipe. Both connectors build the
+destination urn from platform instance, environment and server group; align the
+three and re-run both.

@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from datahub.ingestion.source.tibco_bw.constants import (
     DEPLOYMENT_CLOUD,
     DEPLOYMENT_ON_PREM,
+    DESTINATION_TYPE_QUEUE,
+    DESTINATION_TYPE_TOPIC,
 )
 from datahub.utilities.str_enum import StrEnum
 
@@ -84,3 +86,39 @@ class TibcoScope(BaseModel):
     description: Optional[str] = None
     properties: Dict[str, str] = Field(default_factory=dict)
     applications: List[TibcoApplication] = Field(default_factory=list)
+
+
+# --- Application archive (EAR) models ---------------------------------------
+# What a BusinessWorks process declares about the messages it publishes and
+# consumes, read from the deployed archive.
+
+
+class JmsDestinationType(StrEnum):
+    QUEUE = DESTINATION_TYPE_QUEUE
+    TOPIC = DESTINATION_TYPE_TOPIC
+
+
+class JmsMessageField(BaseModel):
+    # `path` is dot-delimited for nested elements, matching how DataHub addresses
+    # a nested schema field.
+    path: str
+    xsd_type: str
+    nullable: bool = True
+
+
+class JmsMessageSchema(BaseModel):
+    """A message declared by one JMS activity, keyed by the destination it uses."""
+
+    destination_name: str
+    destination_type: JmsDestinationType
+    fields: List[JmsMessageField] = Field(default_factory=list)
+    # The XSD the element was declared in, kept verbatim so the contract can be
+    # read in DataHub rather than only its flattened shape.
+    raw_schema: str = ""
+    # Where the declaration came from, for provenance on the emitted dataset.
+    declared_by: str = ""
+    archive: str = ""
+    element_name: str = ""
+    # A publisher's message becomes the destination's schema; a consumer's tells
+    # us what it reads, which is lineage rather than a declaration.
+    publishes: bool = True

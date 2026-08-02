@@ -10,7 +10,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source.tibco_bw.constants import DEFAULT_CLOUD_BASE_URL
+from datahub.ingestion.source.tibco_bw.constants import (
+    DEFAULT_CLOUD_BASE_URL,
+    EMS_DEFAULT_SERVER_GROUP,
+)
 from datahub.ingestion.source.tibco_bw.models import TibcoDeployment
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -39,6 +42,58 @@ class TibcoAppLineage(ConfigModel):
             except InvalidUrnError as e:
                 raise ValueError(str(e)) from e
         return value
+
+
+class TibcoEmsTarget(ConfigModel):
+    # Where the EMS destinations a process publishes to live in DataHub. A
+    # destination's dataset name is built exactly as the TIBCO EMS source builds
+    # it, so both connectors describe the same entity rather than two near-copies.
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of the TIBCO EMS source that ingests these "
+        "destinations, if it is ingested with one.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment (fabric) of the EMS destinations. Defaults to the "
+        "source's `env` when unset.",
+    )
+    server_group: str = Field(
+        default=EMS_DEFAULT_SERVER_GROUP,
+        description="EMS server group the destinations belong to. This leads the "
+        "destination's dataset name, so it must match the group the EMS source "
+        "reported; on a proxy that predates server groups that is `default`.",
+    )
+
+
+class ApplicationArchivesConfig(ConfigModel):
+    # A BusinessWorks message schema is declared at design time in the publishing
+    # process, and the archive is the only artefact that carries it. bwagent has
+    # no archive download endpoint, so the operator supplies the file - the same
+    # arrangement as the dbt source and its manifest.
+    paths: List[str] = Field(
+        default_factory=list,
+        description="Paths or glob patterns of application archives (`.ear`) to "
+        "read message schemas from, e.g. `/mnt/bw-archives/*.ear`. Obtain them "
+        "with `bwadmin download` or from the Admin UI; the bwagent REST API "
+        "cannot serve them.",
+    )
+    emit_destination_schemas: bool = Field(
+        default=True,
+        description="Emit the declared message schema onto each EMS destination "
+        "dataset the archive publishes to.",
+    )
+    emit_destination_lineage: bool = Field(
+        default=True,
+        description="Emit lineage between the publishing application and the EMS "
+        "destinations it writes to, and the destinations it reads from, derived "
+        "from the archive's JMS activities rather than the `application_lineage` "
+        "map.",
+    )
+    ems_target: TibcoEmsTarget = Field(
+        default_factory=TibcoEmsTarget,
+        description="How to address the EMS destinations in DataHub.",
+    )
 
 
 class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -115,6 +170,13 @@ class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         "declared upstream and downstream have a schema and share field names, and it "
         "assumes the application passes fields through unchanged. Requires a DataHub "
         "graph to be available.",
+    )
+    application_archives: ApplicationArchivesConfig = Field(
+        default_factory=ApplicationArchivesConfig,
+        description="Read declared JMS message schemas and destination lineage from "
+        "supplied BusinessWorks application archives. EMS has no schema registry, so "
+        "the publishing process's archive is the only place a message's shape is "
+        "actually declared.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

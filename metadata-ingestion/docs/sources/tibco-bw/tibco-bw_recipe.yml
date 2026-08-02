@@ -15,6 +15,16 @@ source:
       allow:
         - ".*"
 
+    # Optional: read declared JMS message schemas and lineage out of the deployed
+    # archives. ems_target must address destinations the same way your tibco-ems
+    # recipe does.
+    # application_archives:
+    #   paths:
+    #     - "/mnt/bw-releases/*.ear"
+    #   ems_target:
+    #     env: PROD
+    #     server_group: default
+
     stateful_ingestion:
       enabled: true
 

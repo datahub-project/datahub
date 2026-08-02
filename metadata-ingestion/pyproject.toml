@@ -1110,6 +1110,7 @@ thoughtspot = [
 ]
 
 tibco-bw = [
+    "defusedxml>=0.7.1,<0.8.0",
     "requests<3.0.0",
 ]
 
