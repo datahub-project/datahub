@@ -56,6 +56,7 @@ import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -151,6 +152,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             searchDocumentTransformer,
             mockTimeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),
@@ -274,6 +276,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             searchDocumentTransformer,
             mockTimeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),
@@ -971,6 +974,7 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
+              TimeseriesAspectWriteSink.NOOP,
               "MD5",
               null, // No semantic search config for this test
               mock(IndexConvention.class),
@@ -987,6 +991,7 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
+              TimeseriesAspectWriteSink.NOOP,
               "MD5",
               v2Enabled, // v2Enabled parameter
               null);

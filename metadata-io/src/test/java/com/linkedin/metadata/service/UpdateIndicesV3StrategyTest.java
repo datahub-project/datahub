@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -110,6 +111,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false, // v2Enabled = false
             null);
@@ -258,6 +260,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             true, // v2Enabled = true
             null);
@@ -355,6 +358,7 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
                     "MD5",
                     false,
                     null));
@@ -380,6 +384,7 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
                     "MD5",
                     false,
                     null));
@@ -404,6 +409,7 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
                     "MD5",
                     false,
                     null));
@@ -427,6 +433,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             null);
@@ -447,6 +454,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             null);
@@ -467,6 +475,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             null);
@@ -721,6 +730,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             cache);
@@ -762,6 +772,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             cache);
@@ -801,6 +812,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             cache);
@@ -839,6 +851,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             false,
             cache);

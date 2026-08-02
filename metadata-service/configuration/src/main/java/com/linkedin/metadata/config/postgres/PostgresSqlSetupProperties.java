@@ -17,7 +17,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue).
+ * (pgQueue, pgTimeseries).
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -31,6 +31,13 @@ public class PostgresSqlSetupProperties {
    */
   public static final Set<String> PGQUEUE_PARTMAN_PARTITION_INTERVALS =
       Set.of("1 hour", "6 hours", "12 hours", "1 day", "1 week", "1 month");
+
+  /**
+   * Allowlisted {@code postgres.pgTimeseries.partitioning.partmanPartitionInterval} values
+   * (pg_partman).
+   */
+  public static final Set<String> PGTIMESERIES_PARTMAN_PARTITION_INTERVALS =
+      PGQUEUE_PARTMAN_PARTITION_INTERVALS;
 
   /** Default same-JVM pgQueue consumer threads per topic when unset or non-positive in config. */
   public static final int PGQUEUE_TOPIC_DEFAULT_CONSUMER_CONCURRENCY = 1;
@@ -58,6 +65,7 @@ public class PostgresSqlSetupProperties {
    */
   private String schema;
 
+  private PgTimeseries pgTimeseries = new PgTimeseries();
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
@@ -71,6 +79,7 @@ public class PostgresSqlSetupProperties {
   /** Disables all optional SqlSetup PostgreSQL extension steps (for tests or non-Spring use). */
   public static PostgresSqlSetupProperties disabled() {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
+    p.getPgTimeseries().setEnabled(false);
     p.getPgQueue().setEnabled(false);
     return p;
   }
@@ -84,6 +93,9 @@ public class PostgresSqlSetupProperties {
       return;
     }
     normalizedPostgresSchema();
+    if (pgTimeseries.isEnabled()) {
+      validatePgTimeseriesConfig();
+    }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
     }
@@ -94,7 +106,9 @@ public class PostgresSqlSetupProperties {
     if (dbType != DatabaseType.POSTGRES) {
       return;
     }
-    boolean cronNeeded = pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled();
+    boolean cronNeeded =
+        (pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled())
+            || (pgTimeseries.isEnabled() && pgTimeseries.getMaintenance().isCronEnabled());
     if (!cronNeeded) {
       return;
     }
@@ -497,6 +511,71 @@ public class PostgresSqlSetupProperties {
     return s.toLowerCase();
   }
 
+  /** Built timeseries options, or null when {@code postgres.pgTimeseries.enabled} is false. */
+  public PgTimeseriesSetupOptions buildPgTimeseriesOptions() {
+    if (!pgTimeseries.isEnabled()) {
+      return null;
+    }
+    PgTimeseries.Partitioning p = pgTimeseries.getPartitioning();
+    String rawInterval = p.getPartmanPartitionInterval();
+    String partmanIntervalNormalized =
+        rawInterval == null || rawInterval.isBlank() ? "" : rawInterval.trim().toLowerCase();
+    return new PgTimeseriesSetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgTimeseriesTablePrefix(),
+        partmanIntervalNormalized,
+        p.getPartmanPremake(),
+        p.isForceOverwritePartmanConfig(),
+        pgTimeseries.getRetention().getMaxAgeSeconds(),
+        pgTimeseries.getMaintenance().isCronEnabled(),
+        pgTimeseries.getMaintenance().getIntervalSeconds());
+  }
+
+  /** Normalized {@code postgres.pgTimeseries.tablePrefix}. */
+  public String normalizedPgTimeseriesTablePrefix() {
+    return normalizeTablePrefix(pgTimeseries.getTablePrefix(), "postgres.pgTimeseries.tablePrefix");
+  }
+
+  private void validatePgTimeseriesConfig() {
+    normalizedPgTimeseriesTablePrefix();
+    PgTimeseries.Partitioning p = pgTimeseries.getPartitioning();
+    if (p.getPartmanPartitionInterval() == null
+        || p.getPartmanPartitionInterval().trim().isEmpty()) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPartitionInterval must be non-empty.");
+    }
+    String pi = p.getPartmanPartitionInterval().trim().toLowerCase();
+    if (!PGTIMESERIES_PARTMAN_PARTITION_INTERVALS.contains(pi)) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPartitionInterval must be one of "
+              + PGTIMESERIES_PARTMAN_PARTITION_INTERVALS
+              + " (got: "
+              + p.getPartmanPartitionInterval()
+              + ").");
+    }
+    if (p.getPartmanPremake() < 1 || p.getPartmanPremake() > 128) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPremake must be between 1 and 128 inclusive.");
+    }
+    int maxAge = pgTimeseries.getRetention().getMaxAgeSeconds();
+    if (maxAge < 0) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.retention.maxAgeSeconds must be non-negative (0 clears"
+              + " part_config.retention / stops partman partition drops).");
+    }
+    if (maxAge > 0 && maxAge < 60) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.retention.maxAgeSeconds must be 0 or at least 60 when set.");
+    }
+    PgTimeseries.Maintenance m = pgTimeseries.getMaintenance();
+    if (m.isCronEnabled()) {
+      if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
+      }
+    }
+  }
+
   private void validatePgQueueConfig() {
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
@@ -625,6 +704,59 @@ public class PostgresSqlSetupProperties {
                   + ").");
         }
       }
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgTimeseries {
+    private boolean enabled;
+
+    /** Prefix for SqlSetup timeseries table, e.g. {@code metadata_timeseries_aspect}. */
+    private String tablePrefix;
+
+    /**
+     * When true, PostgreSQL dual-write upsert/delete failures throw instead of only logging. Use
+     * during migration to fail loud when ES and PG diverge; default false preserves best-effort
+     * dual-write.
+     */
+    private boolean dualWriteFailOnError;
+
+    private Partitioning partitioning = new Partitioning();
+    private Retention retention = new Retention();
+    private Maintenance maintenance = new Maintenance();
+
+    @Getter
+    @Setter
+    public static class Partitioning {
+      private String partmanPartitionInterval;
+      private int partmanPremake;
+
+      /**
+       * When false (default), interval/premake are applied only on first {@code create_parent};
+       * later SqlSetup runs leave them unchanged. When true, SqlSetup overwrites {@code
+       * part_config.partition_interval} and {@code premake} to match this config.
+       */
+      private boolean forceOverwritePartmanConfig;
+    }
+
+    @Getter
+    @Setter
+    public static class Retention {
+      /**
+       * Max age in seconds for partman {@code part_config.retention}. When {@code > 0}, SqlSetup
+       * sets retention (hard ceiling for all aspects via partition drop). When {@code 0}, SqlSetup
+       * clears {@code part_config.retention} so partman stops dropping partitions. Shorter
+       * per-aspect TTLs are configured via datahub-gc / {@code truncateTimeseriesAspect}, not here.
+       */
+      private int maxAgeSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Maintenance {
+      private boolean cronEnabled;
+      private int intervalSeconds;
     }
   }
 

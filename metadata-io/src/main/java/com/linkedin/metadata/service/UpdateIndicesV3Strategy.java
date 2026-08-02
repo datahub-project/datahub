@@ -1,6 +1,10 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
+import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.IS_EXPLODED_FIELD;
+
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -20,6 +24,8 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstan
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -47,6 +53,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
+  private final TimeseriesAspectWriteSink timeseriesAspectWriteSink;
   private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   private final boolean v2Enabled;
@@ -57,6 +64,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       @Nonnull String idHashAlgo,
       boolean v2Enabled,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
@@ -64,6 +72,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
+    this.timeseriesAspectWriteSink = timeseriesAspectWriteSink;
     this.idHashAlgo = idHashAlgo;
     this.v2Enabled = v2Enabled;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
@@ -100,6 +109,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
+      if (!v2Enabled) {
+        processTimeseriesAspectEventsForUrnGroup(opContext, urnEvents);
+      }
+
       // V3 optimization: single operation per URN regardless of aspect count
       processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
     }
@@ -107,6 +120,138 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
     }
+  }
+
+  /**
+   * When V2 is disabled, V3 must drive dedicated timeseries indices (and optional Postgres sink)
+   * the same way V2 does. When V2 is enabled, that strategy already handles these writes.
+   */
+  private void processTimeseriesAspectEventsForUrnGroup(
+      @Nonnull OperationContext opContext, @Nonnull List<MCLItem> urnEvents) {
+    List<MCLItem> updateEvents =
+        urnEvents.stream()
+            .filter(event -> UPDATE_CHANGE_TYPES.contains(event.getChangeType()))
+            .collect(Collectors.toList());
+    for (MCLItem event : updateEvents) {
+      try {
+        updateTimeseriesFieldsForEvent(opContext, event);
+      } catch (RuntimeException e) {
+        log.error(
+            "V3 timeseries update failed for urn {} aspect {}: {}",
+            event.getUrn(),
+            event.getAspectName(),
+            e.getMessage(),
+            e);
+        // Soft dual-write does not throw; fail-loud dual-write and Postgres SoT do — rethrow those.
+        throw e;
+      }
+    }
+
+    List<MCLItem> deleteEvents =
+        urnEvents.stream()
+            .filter(event -> event.getChangeType() == ChangeType.DELETE)
+            .collect(Collectors.toList());
+    for (MCLItem deleteEvent : deleteEvents) {
+      try {
+        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
+        if (specPair.getSecond().isTimeseries()) {
+          deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
+        }
+      } catch (RuntimeException e) {
+        log.error(
+            "V3 timeseries delete handling failed for urn {} aspect {}: {}",
+            deleteEvent.getUrn(),
+            deleteEvent.getAspectName(),
+            e.getMessage(),
+            e);
+        throw e;
+      }
+    }
+  }
+
+  private void deleteTimeseriesFieldsForDeleteEvent(
+      @Nonnull OperationContext opContext, @Nonnull MCLItem deleteEvent) {
+    AspectSpec aspectSpec = deleteEvent.getAspectSpec();
+    if (!aspectSpec.isTimeseries()) {
+      return;
+    }
+    RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
+    if (previous == null) {
+      log.debug(
+          "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
+          deleteEvent.getUrn(),
+          aspectSpec.getName());
+      return;
+    }
+    Urn urn = deleteEvent.getUrn();
+    String entityType = deleteEvent.getEntitySpec().getName();
+    String aspectName = aspectSpec.getName();
+    SystemMetadata prevSys =
+        deleteEvent.getPreviousSystemMetadata() != null
+            ? deleteEvent.getPreviousSystemMetadata()
+            : deleteEvent.getSystemMetadata();
+    Map<String, JsonNode> documents;
+    try {
+      documents =
+          TimeseriesAspectTransformer.transform(urn, previous, aspectSpec, prevSys, idHashAlgo);
+    } catch (JsonProcessingException e) {
+      log.error(
+          "Failed to resolve timeseries documents for delete event for urn {} aspect {}: {}",
+          urn,
+          aspectName,
+          e.toString());
+      return;
+    }
+    for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
+      JsonNode doc = entry.getValue();
+      boolean exploded = doc.has(IS_EXPLODED_FIELD) && doc.get(IS_EXPLODED_FIELD).asBoolean(false);
+      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
+        timeseriesAspectService.deleteDocument(
+            opContext, entityType, aspectName, entry.getKey(), doc, exploded);
+      }
+      timeseriesAspectWriteSink.deleteDocument(
+          opContext, entityType, aspectName, entry.getKey(), doc, exploded);
+    }
+  }
+
+  private void updateTimeseriesFieldsForEvent(
+      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+    log.debug(
+        "Updating V3 timeseries fields for entity: {} aspect: {}",
+        event.getUrn(),
+        event.getAspectName());
+
+    Urn urn = event.getUrn();
+    String entityType = event.getEntitySpec().getName();
+    String aspectName = event.getAspectName();
+    Object aspect = event.getRecordTemplate();
+    AspectSpec aspectSpec = event.getAspectSpec();
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+
+    if (!aspectSpec.isTimeseries()) {
+      log.debug("Aspect {} is not timeseries, skipping V3 timeseries update", aspectName);
+      return;
+    }
+
+    Map<String, JsonNode> documents;
+    try {
+      documents =
+          TimeseriesAspectTransformer.transform(
+              urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
+    } catch (JsonProcessingException e) {
+      log.error("Failed to generate V3 timeseries document from aspect: {}", e.toString());
+      return;
+    }
+
+    documents
+        .entrySet()
+        .forEach(
+            document -> {
+              timeseriesAspectService.upsertDocument(
+                  opContext, entityType, aspectName, document.getKey(), document.getValue());
+              timeseriesAspectWriteSink.upsertDocument(
+                  opContext, entityType, aspectName, document.getKey(), document.getValue());
+            });
   }
 
   public void updateIndexMappings(
