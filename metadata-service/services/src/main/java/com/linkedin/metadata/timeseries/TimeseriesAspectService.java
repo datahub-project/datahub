@@ -351,6 +351,14 @@ public interface TimeseriesAspectService {
       @Nonnull BatchWriteOperationsOptions options);
 
   /**
+   * Whether {@link #reindexAsync} can be used for {@code truncateTimeseriesAspect}. Elasticsearch
+   * supports reindex; PostgreSQL does not — truncate must use {@link #deleteAspectValuesAsync}.
+   */
+  default boolean supportsReindexForTruncate() {
+    return true;
+  }
+
+  /**
    * Rollback the Time-Series aspects associated with a particular runId. This is invoked as a part
    * of an ingestion rollback process.
    *
@@ -379,6 +387,46 @@ public interface TimeseriesAspectService {
       @Nonnull final String aspectName,
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
+
+  /**
+   * Whether MCL {@code DELETE} should call {@link #deleteDocument} on this service.
+   *
+   * <p>Elasticsearch defaults to {@code false} (historical UpdateIndices behavior: no per-document
+   * timeseries delete on MCL DELETE). PostgreSQL source-of-truth overrides to {@code true}.
+   * Dual-write to Postgres uses {@code TimeseriesAspectWriteSink} separately when enabled.
+   */
+  default boolean applyDocumentDeleteOnMclDelete() {
+    return false;
+  }
+
+  /**
+   * Deletes a single timeseries document identified by {@code docId} (same key as {@link
+   * #upsertDocument}). {@code isExploded} is retained for API compatibility with the Elasticsearch
+   * path; some implementations ignore it.
+   */
+  default void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final String docId,
+      boolean isExploded) {
+    deleteDocument(opContext, entityName, aspectName, docId, null, isExploded);
+  }
+
+  /**
+   * Deletes a single timeseries document. Pass {@code document} when available so PostgreSQL
+   * implementations resolve JDBC {@code message_id} the same way as {@link #upsertDocument}
+   * (logical {@code messageId} when present in JSON, else {@code docId}).
+   */
+  default void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final String docId,
+      @Nullable final JsonNode document,
+      boolean isExploded) {
+    // Implementations that only expose bulk-delete APIs can leave this as a no-op.
+  }
 
   List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext);
 

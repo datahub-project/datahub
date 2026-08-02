@@ -53,6 +53,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -132,6 +133,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false, // v2Enabled = false
             null);
   }
 
@@ -440,6 +444,34 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testUpdateIndexMappings_V2Enabled_SkipsProcessing() {
+    // Create strategy with V2 enabled
+    UpdateIndicesV3Strategy v2EnabledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            true, // v2Enabled = true
+            null);
+
+    // Setup for structured property
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+    // Execute
+    v2EnabledStrategy.updateIndexMappings(
+        operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
+
+    // Verify no processing occurred (V2 handles it)
+    verify(elasticSearchService, never())
+        .buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
+  }
+
+  @Test
   public void testUpdateIndexMappings_V2Disabled_ProcessesStructuredProperty() throws Exception {
     // Setup for structured property
     when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
@@ -527,6 +559,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -550,6 +585,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -572,6 +610,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    TimeseriesAspectWriteSink.NOOP,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -593,6 +634,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -611,6 +655,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -629,6 +676,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -879,6 +929,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -918,6 +971,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -955,6 +1011,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -991,6 +1050,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
