@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TimeseriesAspectServiceConfig {
+  private TimeseriesAspectServiceImplementation implementation;
   @Builder.Default private ExecutorServiceConfig query = ExecutorServiceConfig.builder().build();
   private LimitConfig limit;
 
