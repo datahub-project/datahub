@@ -20,6 +20,7 @@ x-datahub-frontend-service: &datahub-frontend-service
     PLAY_HTTP_CONTEXT: ${DATAHUB_BASE_PATH:-/}
     DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
     DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
+    LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 

@@ -1,0 +1,487 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "instance": "consumer_domain",
+                "env": "PROD",
+                "database": "mixed-database",
+                "CreateTime": "June 09, 2021 at 14:14:19"
+            },
+            "name": "mixed-database",
+            "qualifiedName": "arn:aws:glue:us-east-1:123412341234:database/mixed-database",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466680,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466680,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466680,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466680,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466680,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623248059000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1623248059000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466681,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "classification": "parquet",
+                            "Location": "s3://test-db-123412341234/normal-table",
+                            "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "0",
+                            "SerdeInfo": "{'Parameters': {'serialization.format': '1'}, 'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'}",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "normal-table",
+                        "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/normal-table",
+                        "created": {
+                            "time": 1623248059000
+                        },
+                        "lastModified": {
+                            "time": 1623248059000
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "mixed-database.normal-table",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=long].id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+                },
+                {
+                    "id": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+                    "urn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623248059000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1623248059000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466683,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "shared-transactions",
+                        "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/shared-transactions",
+                        "created": {
+                            "time": 1623248059000
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "mixed-database.shared-transactions",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=long].txn_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "bigint",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=double].amount",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "double",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].currency",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,owner_domain.test-database.transactions,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
+                },
+                {
+                    "id": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd",
+                    "urn": "urn:li:container:2fe0612d9b13f6e0c1bfa560374e2ecd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1623248059000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

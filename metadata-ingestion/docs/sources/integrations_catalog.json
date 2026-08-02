@@ -302,6 +302,13 @@
     "connection_type": "Pull",
     "description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications."
   },
+  "odcs": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "Open Data Contract Standard",
+    "description": "Open Data Contract Standard (ODCS), governed by the Linux Foundation's Bitol project, is a YAML specification for data contracts. Ingest ODCS files as logical datasets with schema, ownership, tags, and quality rules modeled as assertions.",
+    "img_path": "img/logos/platforms/odcs.png"
+  },
   "okta": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
@@ -600,6 +607,12 @@
     "connection_type": "Pull",
     "description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
     "title": "SAC"
+  },
+  "sap-datasphere": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "SAP Datasphere",
+    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service for integrating, modeling, and governing data across an organization."
   },
   "cassandra": {
     "platform_type": "Database",

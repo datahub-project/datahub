@@ -273,6 +273,46 @@ describe('utils', () => {
         it('should ignore logical predicate with unknown operator', () => {
             expect(convertLogicalPredicateToOrFilters(LOGICAL_PREDICATE_WITH_UNKNOWN_OPERATION)).toEqual(undefined);
         });
+
+        it('maps within operator to DescendantsIncl', () => {
+            const predicate: PropertyPredicate = {
+                type: 'property',
+                property: 'domains',
+                operator: 'within',
+                values: ['urn:li:domain:finance'],
+            };
+            expect(convertLogicalPredicateToOrFilters(predicate)).toEqual([
+                {
+                    and: [
+                        {
+                            field: 'domains',
+                            values: ['urn:li:domain:finance'],
+                            condition: FilterOperator.DescendantsIncl,
+                        },
+                    ],
+                },
+            ]);
+        });
+
+        it('maps within for parentDocument to DescendantsIncl', () => {
+            const predicate: PropertyPredicate = {
+                type: 'property',
+                property: 'parentDocument',
+                operator: 'within',
+                values: ['urn:li:document:parent'],
+            };
+            expect(convertLogicalPredicateToOrFilters(predicate)).toEqual([
+                {
+                    and: [
+                        {
+                            field: 'parentDocument',
+                            values: ['urn:li:document:parent'],
+                            condition: FilterOperator.DescendantsIncl,
+                        },
+                    ],
+                },
+            ]);
+        });
     });
 
     describe('isEmptyLogicalPredicate', () => {

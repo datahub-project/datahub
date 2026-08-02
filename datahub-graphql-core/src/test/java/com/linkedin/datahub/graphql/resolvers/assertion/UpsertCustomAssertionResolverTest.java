@@ -74,6 +74,16 @@ public class UpsertCustomAssertionResolverTest {
           customAssertionUrl,
           customAssertionLogic);
 
+  private static final UpsertCustomAssertionInput TEST_INPUT_BLANK_FIELD_PATH =
+      new UpsertCustomAssertionInput(
+          TEST_DATASET_URN.toString(),
+          customAssertionType,
+          customAssertionDescription,
+          "   ",
+          new PlatformInput(null, "DQplatform"),
+          customAssertionUrl,
+          customAssertionLogic);
+
   private static final UpsertCustomAssertionInput TEST_INPUT_INVALID_ENTITY_URN =
       new UpsertCustomAssertionInput(
           TEST_INVALID_DATASET_URN,
@@ -249,6 +259,32 @@ public class UpsertCustomAssertionResolverTest {
     assert e.getMessage()
         .contains(
             "Failed to upsert Custom Assertion. Platform Name or Platform Urn must be specified.");
+
+    Mockito.verify(mockedService, Mockito.times(0))
+        .upsertCustomAssertion(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  @Test
+  public void testGetUpsertAssertionBlankFieldPathFailure() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    UpsertCustomAssertionResolver resolver = new UpsertCustomAssertionResolver(mockedService);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_BLANK_FIELD_PATH);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assert e.getMessage().contains("fieldPath must not be blank when provided");
 
     Mockito.verify(mockedService, Mockito.times(0))
         .upsertCustomAssertion(

@@ -73,15 +73,15 @@ task installTest(type: Exec, dependsOn: [installDev]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check src/ tests/ && " +
-    "ruff format --check src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix src/ tests/ && " +
-    "ruff format src/ tests/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
 // HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).

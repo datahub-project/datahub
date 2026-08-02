@@ -39,7 +39,6 @@ class Constant:
     keys used in powerbi plugin
     """
 
-    PBIAccessToken = "PBIAccessToken"
     DASHBOARD_LIST = "DASHBOARD_LIST"
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"

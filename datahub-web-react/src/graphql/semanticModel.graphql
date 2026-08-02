@@ -1,0 +1,233 @@
+fragment semanticFieldAnnotationFields on SemanticFieldAnnotation {
+    type
+    expression {
+        dialects {
+            dialect
+            expression
+        }
+    }
+    aggregationFunction
+    dimension {
+        isTime
+    }
+}
+
+fragment modelDatasetFields on Dataset {
+    urn
+    type
+    name
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        description
+    }
+    properties {
+        name
+        description
+    }
+    tags {
+        ...globalTagsFields
+    }
+    semanticModelProperties {
+        alias
+    }
+    schema {
+        fields {
+            fieldPath
+            type
+            description
+            nativeDataType
+            tags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+            schemaFieldEntity {
+                aiContext {
+                    synonyms
+                    instructions
+                    examples
+                    customInstructions
+                }
+                semanticFieldAnnotation {
+                    ...semanticFieldAnnotationFields
+                }
+            }
+        }
+    }
+}
+
+fragment modelMetricFields on Metric {
+    id
+    path
+    platform {
+        ...platformFields
+    }
+    info {
+        name
+        description
+        expression {
+            dialects {
+                dialect
+            }
+        }
+        lastModified {
+            time
+        }
+    }
+    subTypes {
+        typeNames
+    }
+}
+
+fragment semanticModelRelationshipFields on SemanticModelRelationship {
+    name
+    from
+    fromColumns
+    to
+    toColumns
+    cardinality
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
+fragment semanticModelInfoFields on SemanticModelInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    nativeDefinition
+    datasets {
+        ...modelDatasetFields
+    }
+    relationships {
+        ...semanticModelRelationshipFields
+    }
+}
+
+fragment semanticModelProfileInfoFields on SemanticModelInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    nativeDefinition
+}
+
+fragment semanticModelFields on SemanticModel {
+    urn
+    type
+    id
+    path
+    lastIngested
+    platform {
+        ...platformFields
+    }
+    info {
+        ...semanticModelInfoFields
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+    metrics(input: { count: 20, query: "*" }) {
+        total
+        nextScrollId
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Metric {
+                    ...modelMetricFields
+                }
+            }
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    subTypes {
+        typeNames
+    }
+    exists
+    privileges {
+        ...entityPrivileges
+    }
+}
+
+query getSemanticModel($urn: String!) {
+    semanticModel(urn: $urn) {
+        ...semanticModelFields
+    }
+}
+
+# Pagination beyond the first page embedded in getSemanticModel's `metrics` selection.
+query getSemanticModelMetricsPage($urn: String!, $input: ScrollAcrossEntitiesInput!) {
+    semanticModel(urn: $urn) {
+        urn
+        metrics(input: $input) {
+            total
+            nextScrollId
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Metric {
+                        ...modelMetricFields
+                    }
+                }
+            }
+        }
+    }
+}

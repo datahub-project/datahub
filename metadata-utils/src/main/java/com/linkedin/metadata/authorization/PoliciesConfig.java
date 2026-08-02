@@ -142,6 +142,9 @@ public class PoliciesConfig {
   public static final Privilege CREATE_DOMAINS_PRIVILEGE =
       Privilege.of("CREATE_DOMAINS", "Create Domains", "Create new Domains.");
 
+  public static final Privilege CREATE_LOGICAL_MODELS_PRIVILEGE =
+      Privilege.of("CREATE_LOGICAL_MODELS", "Create Logical Models", "Create new Logical Models.");
+
   public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "CREATE_GLOBAL_ANNOUNCEMENTS",
@@ -272,6 +275,7 @@ public class PoliciesConfig {
           VIEW_MANAGE_TAGS_PRIVILEGE,
           CREATE_TAGS_PRIVILEGE,
           CREATE_DOMAINS_PRIVILEGE,
+          CREATE_LOGICAL_MODELS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
@@ -837,6 +841,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -856,6 +861,7 @@ public class PoliciesConfig {
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -1259,6 +1265,40 @@ public class PoliciesConfig {
                           ApiOperation.EXECUTE,
                           Disjunctive.disjoint(
                               EXECUTE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.DOCUMENT_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      // Standard ENTITY create (CREATE_ENTITY | EDIT_ENTITY) plus MANAGE_DOCUMENTS.
+                      .put(
+                          ApiOperation.CREATE,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.CREATE)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))

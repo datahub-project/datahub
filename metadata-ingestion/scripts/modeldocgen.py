@@ -185,14 +185,14 @@ def load_schema_file(schema_file: str) -> None:
         # probably an aspect schema
         record_schema: avro.schema.RecordSchema = avro_schema
         aspect_def = record_schema.get_prop("Aspect")
-        aspect_definition = AspectDefinition(**aspect_def)
+        aspect_definition = AspectDefinition(**aspect_def)  # type: ignore[arg-type]
 
         aspect_definition.schema = record_schema
         aspect_registry[aspect_definition.name] = aspect_definition
         logger.debug(f"Loaded aspect schema: {aspect_definition.name}")
-    elif avro_schema.name == "MetadataChangeEvent":
+    elif avro_schema.name == "MetadataChangeEvent":  # type: ignore[attr-defined]
         # probably an MCE schema
-        field: Field = avro_schema.fields[1]
+        field: Field = avro_schema.fields[1]  # type: ignore[attr-defined]
         assert isinstance(field.type, avro.schema.UnionSchema)
         for member_schema in field.type.schemas:
             if "Entity" in member_schema.props:
@@ -422,7 +422,7 @@ def generate_lineage_json(lineage_data: LineageData) -> str:
         }
 
     # Build the final JSON structure
-    json_data = {
+    json_data: Dict[str, Any] = {
         "entities": {
             entity_name: lineage_entity_to_dict(entity)
             for entity_name, entity in lineage_data.entities.items()
@@ -795,7 +795,7 @@ def identify_common_types(
             continue
 
         # Walk through fields and collect record types
-        for avro_field in aspect_def.schema.fields:
+        for avro_field in aspect_def.schema.fields:  # type: ignore[attr-defined]
             _collect_record_types(avro_field.type, type_usage)
 
     # Common types are those that appear more than once OR are well-known types
@@ -921,7 +921,7 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n\n"
 
             # Extract fields for table view
-            fields = extract_fields_from_schema(aspect_definition.schema)
+            fields = extract_fields_from_schema(aspect_definition.schema)  # type: ignore[arg-type]
 
             # Generate tabbed interface
             this_aspect_doc += "<Tabs>\n"
@@ -1375,7 +1375,7 @@ def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:
 
 def get_sorted_entity_names(
     entity_names: List[Tuple[str, EntityDefinition]],
-) -> List[Tuple[str, List[str]]]:
+) -> List[Tuple[EntityCategory, List[str]]]:
     """
     Sort entity names by category and priority for documentation generation.
 
@@ -1413,8 +1413,8 @@ def get_sorted_entity_names(
         (x, y) for (x, y) in entity_names if y.category == EntityCategory.CORE
     ]
     priority_bearing_core_entities = [(x, y) for (x, y) in core_entities if y.priority]
-    priority_bearing_core_entities.sort(key=lambda t: t[1].priority)
-    priority_bearing_core_entities = [x for (x, y) in priority_bearing_core_entities]
+    priority_bearing_core_entities.sort(key=lambda t: t[1].priority or 0)
+    priority_core_names = [x for (x, y) in priority_bearing_core_entities]
 
     non_priority_core_entities = [x for (x, y) in core_entities if not y.priority]
     non_priority_core_entities.sort()
@@ -1433,7 +1433,7 @@ def get_sorted_entity_names(
     sorted_entities = [
         (
             EntityCategory.CORE,
-            priority_bearing_core_entities + non_priority_core_entities,
+            priority_core_names + non_priority_core_entities,
         ),
         (
             EntityCategory.INTERNAL,
@@ -1601,9 +1601,9 @@ def generate(  # noqa: C901
             PipelineContext(run_id="generated-metaModel"),
             FileSinkConfig(filename=file),
         )
-        for e in mcps:
+        for mcp in mcps:
             fileSink.write_record_async(
-                RecordEnvelope(e, metadata={}), write_callback=NoopWriteCallback()
+                RecordEnvelope(mcp, metadata={}), write_callback=NoopWriteCallback()
             )
         fileSink.close()
         pipeline_config = {
@@ -1630,8 +1630,8 @@ def generate(  # noqa: C901
         assert server.startswith("http://"), "server address must start with http://"
         emitter = DatahubRestEmitter(gms_server=server)
         emitter.test_connection()
-        for e in mcps:
-            emitter.emit(e)
+        for mcp in mcps:
+            emitter.emit(mcp)
 
     if dot:
         logger.info(f"Will write dot file to {dot}")

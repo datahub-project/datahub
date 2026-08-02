@@ -4,7 +4,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,6 +12,7 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.aws.S3Util;
 import io.datahubproject.metadata.context.OperationContext;
@@ -172,7 +172,7 @@ public class FilesController {
     try {
       response =
           entityService.getEntityV2(
-              systemOperationContext,
+              opContext,
               Constants.DATAHUB_FILE_ENTITY_NAME,
               fileUrn,
               new HashSet<>(Collections.singleton(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)),
@@ -221,7 +221,8 @@ public class FilesController {
   private void validateAssetReadPermissions(
       DataHubFileInfo fileInfo, OperationContext opContext, Authentication authentication) {
     Urn relatedUrn = fileInfo.getReferencedByAsset();
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, Collections.singleton(relatedUrn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, READ, Collections.singleton(relatedUrn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "

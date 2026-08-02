@@ -1,6 +1,10 @@
+import { Brain } from '@phosphor-icons/react/dist/csr/Brain';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
@@ -20,6 +24,13 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.OwnedAssets, 'Assets the current user owns'],
     [DataHubPageModuleType.RichText, 'Pin docs for your DataHub users'],
     [DataHubPageModuleType.Columns, 'View the columns of this dataset'],
+    [DataHubPageModuleType.SemanticModelDatasets, 'Datasets referenced by this semantic model'],
+    [DataHubPageModuleType.SemanticModelMetrics, 'Metrics defined within this semantic model'],
+    [DataHubPageModuleType.SemanticModelRelationships, 'Relationships defined in this semantic model'],
+    [DataHubPageModuleType.SemanticModelDimensions, 'Dimensions defined in this semantic model'],
+    [DataHubPageModuleType.AiContext, 'AI context including synonyms, instructions, and examples'],
+    [DataHubPageModuleType.MetricSql, 'SQL expression for this metric'],
+    [DataHubPageModuleType.RelatedMetrics, 'Related metrics'],
 ]);
 
 export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
@@ -30,6 +41,13 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType
     [DataHubPageModuleType.OwnedAssets, Database],
     [DataHubPageModuleType.RichText, TextT],
     [DataHubPageModuleType.Columns, Table],
+    [DataHubPageModuleType.SemanticModelDatasets, Database],
+    [DataHubPageModuleType.SemanticModelMetrics, ChartBar],
+    [DataHubPageModuleType.SemanticModelRelationships, Graph],
+    [DataHubPageModuleType.SemanticModelDimensions, Rows],
+    [DataHubPageModuleType.AiContext, Brain],
+    [DataHubPageModuleType.MetricSql, TextT],
+    [DataHubPageModuleType.RelatedMetrics, ChartBar],
 ]);
 
 export const DEFAULT_MODULE_ICON = Database;
@@ -47,6 +65,13 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:platforms',
     'urn:li:dataHubPageModule:lineage',
     'urn:li:dataHubPageModule:columns',
+    'urn:li:dataHubPageModule:semantic_model_datasets',
+    'urn:li:dataHubPageModule:semantic_model_metrics',
+    'urn:li:dataHubPageModule:semantic_model_relationships',
+    'urn:li:dataHubPageModule:semantic_model_dimensions',
+    'urn:li:dataHubPageModule:ai_context',
+    'urn:li:dataHubPageModule:sql',
+    'urn:li:dataHubPageModule:related_metrics',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -70,6 +95,13 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.RelatedTerms,
     DataHubPageModuleType.DataProducts,
     DataHubPageModuleType.Columns,
+    DataHubPageModuleType.SemanticModelDatasets,
+    DataHubPageModuleType.SemanticModelMetrics,
+    DataHubPageModuleType.SemanticModelRelationships,
+    DataHubPageModuleType.SemanticModelDimensions,
+    DataHubPageModuleType.AiContext,
+    DataHubPageModuleType.MetricSql,
+    DataHubPageModuleType.RelatedMetrics,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];

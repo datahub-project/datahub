@@ -14,8 +14,8 @@ idna>=3.15,<4.0.0
 PyJWT>=2.13.0
 # pyOpenSSL: CVE-2026-27459
 pyopenssl>=26.0.0
-# pyasn1: CVE-2026-30922
-pyasn1>=0.6.3
+# pyasn1: CVE-2026-30922, CVE-2026-59885, CVE-2026-59886; fixed in 0.6.4
+pyasn1>=0.6.4
 # protobuf (6.x): CVE-2026-0994
 protobuf>=6.33.5,<7.0.0
 # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; keep current patch floor
@@ -50,6 +50,13 @@ google-cloud-aiplatform>=1.133.0
 langgraph>=1.0.10
 langgraph-checkpoint>=4.0.0
 langsmith>=0.6.3
+# gitpython: GHSA-rpm5-65cw-6hj4; fixed in 3.1.47.
+# gitpython: CVE-2026-42284 (crit; RCE via multi_options in _clone), CVE-2026-42215,
+# CVE-2026-44243 (path traversal), CVE-2026-44244 (config injection) fixed in 3.1.49;
+# GHSA-mv93-w799-cj2w fixed in 3.1.50.
+# GHSA-2f96-g7mh-g2hx, GHSA-956x-8gvw-wg5v, GHSA-v396-v7q4-x2qj fixed in 3.1.51;
+# GHSA-rwj8-pgh3-r573 fixed in 3.1.52. Cap major until reviewed.
+gitpython>=3.1.52,<4.0.0
 # CVE-2026-41066: lxml 6.0.x default entity resolution; fixed in 6.1.0. Major cap until reviewed.
 # (unstructured / HTML parsing; bundled venvs such as datahub-documents-bundled.)
 lxml>=6.1.0,<7.0.0
