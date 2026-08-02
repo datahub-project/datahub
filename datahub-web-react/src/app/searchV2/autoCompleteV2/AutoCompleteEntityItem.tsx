@@ -114,6 +114,7 @@ interface EntityAutocompleteItemProps {
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    customIconRenderer?: () => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
@@ -133,6 +134,7 @@ export default function AutoCompleteEntityItem({
     matchedFields,
     variant,
     customDetailsRenderer,
+    customIconRenderer,
     navigateOnlyOnNameClick,
     dragIconRenderer,
     hideSubtitle,
@@ -215,12 +217,16 @@ export default function AutoCompleteEntityItem({
                     <Icons>
                         {dragIconRenderer()}
                         <IconContainer $variant={variant}>
-                            <EntityIcon entity={entity} siblings={siblings} />
+                            {customIconRenderer ? (
+                                customIconRenderer()
+                            ) : (
+                                <EntityIcon entity={entity} siblings={siblings} />
+                            )}
                         </IconContainer>
                     </Icons>
                 ) : (
                     <IconContainer $variant={variant}>
-                        <EntityIcon entity={entity} siblings={siblings} />
+                        {customIconRenderer ? customIconRenderer() : <EntityIcon entity={entity} siblings={siblings} />}
                     </IconContainer>
                 )}
 

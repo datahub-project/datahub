@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.MetricInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -29,7 +30,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -88,11 +88,15 @@ public class MetricMapper {
     final EnvelopedAspect envelopedRelationships =
         aspects.get(Constants.METRIC_RELATIONSHIPS_ASPECT_NAME);
     if (envelopedRelationships != null) {
-      result.setMetricRelationships(
-          mapMetricRelationships(
-              context,
-              new com.linkedin.metric.MetricRelationships(
-                  envelopedRelationships.getValue().data())));
+      final com.linkedin.metric.MetricRelationships pdlRelationships =
+          new com.linkedin.metric.MetricRelationships(envelopedRelationships.getValue().data());
+      result.setMetricRelationships(mapMetricRelationships(context, pdlRelationships));
+      if (pdlRelationships.hasParentMetric() && pdlRelationships.getParentMetric() != null) {
+        final Metric parentMetricStub = new Metric();
+        parentMetricStub.setUrn(pdlRelationships.getParentMetric().toString());
+        parentMetricStub.setType(EntityType.METRIC);
+        result.setParentMetric(parentMetricStub);
+      }
     }
 
     final EnvelopedAspect envelopedUpstreams = aspects.get(Constants.METRIC_UPSTREAMS_ASPECT_NAME);
@@ -187,6 +191,13 @@ public class MetricMapper {
               context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedAiContext = aspects.get(Constants.AI_CONTEXT_ASPECT_NAME);
+    if (envelopedAiContext != null) {
+      result.setAiContext(
+          AiContextMapper.map(
+              new com.linkedin.common.AiContext(envelopedAiContext.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedBrowsePathsV2 =
         aspects.get(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     if (envelopedBrowsePathsV2 != null) {
@@ -217,9 +228,6 @@ public class MetricMapper {
     if (pdl.hasExpression() && pdl.getExpression() != null) {
       result.setExpression(MetricExpressionMapper.map(pdl.getExpression()));
     }
-    if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(AiContextMapper.map(pdl.getAiContext()));
-    }
     return result;
   }
 
@@ -227,10 +235,6 @@ public class MetricMapper {
       @Nullable QueryContext context, final com.linkedin.metric.MetricRelationships pdl) {
     final com.linkedin.datahub.graphql.generated.MetricRelationships result =
         new com.linkedin.datahub.graphql.generated.MetricRelationships();
-
-    if (pdl.hasParentMetric() && pdl.getParentMetric() != null) {
-      result.setParentMetric((Metric) UrnToEntityMapper.map(context, pdl.getParentMetric()));
-    }
 
     final List<EntityEdge> derivedFrom;
     if (pdl.hasDerivedFrom() && pdl.getDerivedFrom() != null) {

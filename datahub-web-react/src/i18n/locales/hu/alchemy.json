@@ -38,6 +38,8 @@
     "editor.table.insertRowBelow": "Sor beszúrása alá",
     "editor.upload.chooseFile": "Fájl kiválasztása",
     "editor.upload.failedTitle": "A feltöltés sikertelen",
+    "editor.upload.fileTooLarge": "A fájl mérete ({{sizeGb}} GB) meghaladta a maximális {{maxGb}} GB-ot",
+    "editor.upload.fileTypeNotSupported": "A fájltípus nem támogatott{{extensionSuffix}}",
     "editor.upload.notSupported": "A fájlok feltöltése ebben a környezetben jelenleg nem támogatott",
     "editor.upload.tabUrl": "URL",
     "editor.upload.uploadFile": "Fájl feltöltése",

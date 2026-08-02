@@ -2586,6 +2586,11 @@ type GlossaryTerm implements Entity {
   deprecation: Deprecation
 
   """
+  Tags associated with the glossary term
+  """
+  tags: GlobalTags
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -2757,6 +2762,11 @@ type GlossaryNode implements Entity {
   Additional properties associated with the Glossary Term
   """
   properties: GlossaryNodeProperties
+
+  """
+  Tags associated with the glossary node
+  """
+  tags: GlobalTags
 
   """
   Edges extending from this entity
@@ -3035,6 +3045,11 @@ type DataPlatformProperties {
   A logo URL associated with the platform
   """
   logoUrl: String
+
+  """
+  Whether datasets on this platform are logical models (hand-authored, no ingestion source)
+  """
+  logical: Boolean
 }
 
 """
@@ -3987,6 +4002,22 @@ enum SchemaFieldDataType {
   An complex struct type
   """
   STRUCT
+}
+
+"""
+A single editable schema field definition (name + type), for APIs that let a caller
+author or replace a dataset's schema fields directly (e.g. logical models).
+"""
+input EditableSchemaFieldInput {
+  """
+  The column name / field path.
+  """
+  fieldPath: String!
+
+  """
+  The DataHub data type of the column.
+  """
+  type: SchemaFieldDataType!
 }
 
 """
@@ -13544,6 +13575,11 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Whether the Data Product exists in DataHub
+  """
+  exists: Boolean
 }
 
 """

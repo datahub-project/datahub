@@ -30,6 +30,8 @@ Surface real SQL queries that reference a dataset — see join patterns, common 
 **Works Where You Work** <br />
 Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
 
+With **DataHub Cloud**, you can also create [scoped custom MCP servers](./scoped-mcp-servers.md) — named endpoints with their own tools, instructions, and views for domain-specific agents (Context Platform private beta).
+
 ## Tools
 
 The DataHub MCP Server provides the following tools, grouped by whether they read from or write to DataHub. All tools are annotated with MCP-standard hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so compatible clients (e.g. Claude) can surface which tools modify catalog state and prompt for confirmation accordingly.

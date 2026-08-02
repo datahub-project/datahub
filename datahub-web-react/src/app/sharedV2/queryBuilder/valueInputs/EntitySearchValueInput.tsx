@@ -119,18 +119,23 @@ export const EntitySearchValueInput = ({
         const searchedEntities: Entity[] = searchResults.map((result) => result.entity);
 
         const mergedEntities = mergeArraysOfObjects(searchedEntities, selectedEntities, (item) => item.urn);
+        const resolvedUrns = new Set(mergedEntities.map((entity) => entity.urn));
 
         const selectedSet = new Set(selectedUrns);
-        return mergedEntities
-            .map((entity) => ({
-                value: entity.urn,
-                label: entityRegistry.getDisplayName(entity.type, entity),
-            }))
-            .sort((a, b) => {
-                const aSelected = selectedSet.has(a.value) ? 0 : 1;
-                const bSelected = selectedSet.has(b.value) ? 0 : 1;
-                return aSelected - bSelected;
-            });
+        const resolvedOptions = mergedEntities.map((entity) => ({
+            value: entity.urn,
+            label: entityRegistry.getDisplayName(entity.type, entity),
+        }));
+        // Keep selected URNs visible while entity resolution is in flight.
+        const unresolvedOptions = selectedUrns
+            .filter((urn) => !resolvedUrns.has(urn))
+            .map((urn) => ({ value: urn, label: urn }));
+
+        return [...resolvedOptions, ...unresolvedOptions].sort((a, b) => {
+            const aSelected = selectedSet.has(a.value) ? 0 : 1;
+            const bSelected = selectedSet.has(b.value) ? 0 : 1;
+            return aSelected - bSelected;
+        });
     }, [searchResults, entityCache, selectedUrns, entityRegistry]);
 
     const customOptionRenderer = useCallback(

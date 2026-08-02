@@ -487,6 +487,26 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:dataplex",
+        "name": "dataplex",
+        "displayName": "Google Cloud Knowledge Catalog (Dataplex)",
+        "description": "Google Cloud's intelligent data fabric for unified data management, governance, and analytics across data lakes and warehouses.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dataplex",
+        "recipe": "source:\n    type: dataplex\n    config:\n        project_ids:\n            - my-gcp-project\n        include_schema: true\n        include_lineage: true\n        include_glossaries: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:odcs",
+        "name": "odcs",
+        "displayName": "Open Data Contract Standard",
+        "description": "Import Open Data Contract Standard (ODCS) v3.x YAML files as logical datasets, with schema, ownership, tags, and quality assertions.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/odcs",
+        "recipe": "source:\n    type: odcs\n    config:\n        # Path to an ODCS YAML file, a directory of them, or a glob pattern\n        path: /path/to/contracts\n        emit_assertions: true\n        emit_schema_assertion: true\n        emit_logical_parent: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:sac",
         "name": "sac",
         "displayName": "SAP Analytics Cloud",
@@ -504,6 +524,16 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-mdg/",
         "recipe": "source:\n    type: sap-mdg\n    config:\n        base_url: # Base URL of the SAP Gateway, e.g. https://sap-gw.example.com:44300\n        services:\n            - /sap/opu/odata/sap/ZMDG_BP_SRV\n\n        # Provide one authentication method:\n        username: # HTTP basic auth username\n        password: \"${SAP_MDG_PASSWORD}\"\n        # token: \"${SAP_MDG_TOKEN}\"\n\n        # sap_client: \"100\"",
         "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:sap-datasphere",
+        "name": "sap-datasphere",
+        "displayName": "SAP Datasphere",
+        "description": "Import Views, Analytical Models, Local Tables and federated Remote Tables from SAP Datasphere, with table-level and column-level lineage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-datasphere/",
+        "recipe": "source:\n    type: sap-datasphere\n    config:\n        # Your SAP Datasphere tenant base URL\n        base_url: # https://<tenant>.<region>.hcs.cloud.sap\n        # Authentication — choose ONE:\n        # 1) raw bearer token\n        token: \"${SAP_DATASPHERE_TOKEN}\"\n        # 2) OAuth client-credentials / refresh-token (uncomment + set):\n        # client_id: \"${SAP_DATASPHERE_CLIENT_ID}\"\n        # client_secret: \"${SAP_DATASPHERE_CLIENT_SECRET}\"\n        # xsuaa_url: # https://<tenant>.authentication.<region>.hana.ondemand.com\n        stateful_ingestion:\n            enabled: true",
+        "category": "BI & Analytics",
         "isPopular": false
     },
     {

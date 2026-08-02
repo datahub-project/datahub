@@ -260,10 +260,12 @@ class MatillionSource(StatefulIngestionSourceBase):
                 started_before=started_before,
             )
         except (Timeout, ConnectionError) as e:
-            self.report.report_warning(
-                "pipeline-executions-timeout",
-                f"Timed out discovering pipelines from executions ({e}); unpublished "
-                f"pipelines may be missing. {API_TIMEOUT_TUNING_GUIDANCE}",
+            self.report.warning(
+                message="Timed out discovering pipelines from executions; "
+                "unpublished pipelines may be missing",
+                context=API_TIMEOUT_TUNING_GUIDANCE,
+                exc=e,
+                log=False,
             )
             return []
 
@@ -1015,14 +1017,18 @@ class MatillionSource(StatefulIngestionSourceBase):
                 window_start = window_end
 
         except (Timeout, ConnectionError) as e:
-            self.report.report_warning(
-                "lineage-events-timeout",
-                f"Timed out fetching lineage events ({e}); returning {len(all_events)} "
-                f"events collected so far. {API_TIMEOUT_TUNING_GUIDANCE}",
+            self.report.warning(
+                message="Timed out fetching lineage events; returning events collected so far",
+                context=f"events_collected={len(all_events)}, {API_TIMEOUT_TUNING_GUIDANCE}",
+                exc=e,
+                log=False,
             )
         except (HTTPError, RequestException) as e:
-            self.report.report_warning(
-                "lineage_events", f"Failed to fetch lineage events: {e}"
+            self.report.warning(
+                message="Failed to fetch lineage events",
+                context="lineage_events",
+                exc=e,
+                log=False,
             )
 
         logger.info(f"Fetched total of {len(all_events)} OpenLineage events")
@@ -1063,9 +1069,8 @@ class MatillionSource(StatefulIngestionSourceBase):
             self.report.sql_parsing_failures += 1
             self.report.warning(
                 title="SQL parsing error",
-                message=f"Could not parse SQL for job '{job_label}'. "
-                f"This may be due to an unsupported SQL dialect or parsing error. "
-                f"Basic lineage from OpenLineage will still be emitted.",
+                message="Could not parse SQL for job; this may be due to an unsupported SQL dialect. "
+                "Basic lineage from OpenLineage will still be emitted.",
                 context=f"job: {job_label}, platform: {output.platform}, "
                 f"sql_preview: {sql_query[:100]}...",
                 exc=e,

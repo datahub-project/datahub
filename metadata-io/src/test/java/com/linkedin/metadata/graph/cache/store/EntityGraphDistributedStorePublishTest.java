@@ -205,7 +205,7 @@ public class EntityGraphDistributedStorePublishTest {
   }
 
   @Test
-  public void publishEmbedsMonotonicGenerationInSnapshot() {
+  public void publishEmbedsMonotonicGenerationInSnapshot() throws InterruptedException {
     String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
     EntityGraphSnapshot base = sampleSnapshot(cacheKey, 0);
 
@@ -218,7 +218,17 @@ public class EntityGraphDistributedStorePublishTest {
     store.publish(base, CacheStatus.ACTIVE);
     assertEquals(store.getGeneration(cacheKey), 2L);
     assertEquals(store.getSnapshot(cacheKey).getGeneration(), 2L);
-    assertEquals(listenerInvocations.get(), 2L);
+    // Local Hazelcast entry listeners are async; wait briefly under CI load.
+    assertTrue(awaitListenerInvocations(2L, 5, TimeUnit.SECONDS));
+  }
+
+  private boolean awaitListenerInvocations(long expected, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    long deadlineNs = System.nanoTime() + unit.toNanos(timeout);
+    while (listenerInvocations.get() < expected && System.nanoTime() < deadlineNs) {
+      Thread.sleep(10L);
+    }
+    return listenerInvocations.get() >= expected;
   }
 
   @Test

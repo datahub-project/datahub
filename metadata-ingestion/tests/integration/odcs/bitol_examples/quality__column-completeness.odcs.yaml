@@ -1,0 +1,34 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/quality/column-completeness.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+apiVersion: v3.0.2
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+schema:
+  - name: Air_Quality
+    description: Air quality of the city of New York
+    authoritativeDefinitions:
+      - url: https://catalog.data.gov/dataset/air-quality
+        type: Reference definition on Data.gov
+    dataGranularityDescription: Raw records
+    physicalType: table
+    tags: ['nyc', 'regional']
+    properties:
+    - name: UniqueID
+      primaryKey: true
+      businessName: Unique identifier
+      logicalType: number
+      physicalType: int
+      quality:
+      - description: This column should not contain null values
+        type: library
+        metric: nullValues
+        mustBe: 0
+        dimension: completeness
+        severity: error
+        businessImpact: operational
+        scheduler: cron
+        schedule: 0 20 * * *

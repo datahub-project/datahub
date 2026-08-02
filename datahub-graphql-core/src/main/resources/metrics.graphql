@@ -46,7 +46,7 @@ type GetSemanticModelsResult {
 """
 A Metric entity from a semantic layer or metric store.
 """
-type Metric implements Entity {
+type Metric implements EntityWithRelationships & Entity {
   """
   The primary key of the Metric.
   """
@@ -98,9 +98,16 @@ type Metric implements Entity {
   semanticModel: SemanticModel
 
   """
-  Parent metrics in the metric hierarchy.
+  The direct parent metric in the sidebar hierarchy. Null for root metrics.
+  For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetrics: [Metric!]!
+  parentMetric: Metric
+
+  """
+  All ancestor metrics from immediate parent up to the root, ordered nearest-first.
+  Used by the sidebar to auto-expand the tree to the currently-viewed metric.
+  """
+  parentMetrics: [Metric!]
 
   """
   Child metrics in the metric hierarchy.
@@ -168,6 +175,11 @@ type Metric implements Entity {
   documentation: Documentation
 
   """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
+
+  """
   Applications associated with this Metric.
   """
   applications: EntityRelationshipsResult
@@ -186,12 +198,17 @@ type Metric implements Entity {
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Edges extending from this entity grouped by direction in the lineage graph.
+  """
+  lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
 A Semantic Model entity that groups datasets and defines metrics context.
 """
-type SemanticModel implements Entity {
+type SemanticModel implements EntityWithRelationships & Entity {
   """
   The primary key of the SemanticModel.
   """
@@ -237,11 +254,6 @@ type SemanticModel implements Entity {
   Metrics defined within this SemanticModel (field-resolver in CAT-2566).
   """
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
-
-  """
-  Count of Metrics defined within this SemanticModel (field-resolver in CAT-2566).
-  """
-  metricsCount: SemanticModelMetricsCount
 
   """
   Ownership metadata of the SemanticModel.
@@ -304,6 +316,11 @@ type SemanticModel implements Entity {
   documentation: Documentation
 
   """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
+
+  """
   Applications associated with this SemanticModel.
   """
   applications: EntityRelationshipsResult
@@ -322,6 +339,11 @@ type SemanticModel implements Entity {
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Edges extending from this entity grouped by direction in the lineage graph.
+  """
+  lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -333,18 +355,16 @@ type MetricInfo {
   created: ResolvedAuditStamp
   lastModified: ResolvedAuditStamp
   expression: MetricExpression
-  aiContext: AiContext
+  """
+  URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
+  """
+  externalUrl: String
 }
 
 """
 Relationship edges from a Metric to other Metrics.
 """
 type MetricRelationships {
-  """
-  The immediate parent in the metric hierarchy.
-  """
-  parentMetric: Metric
-
   """
   Edges to metrics that this metric is derived from.
   """
@@ -383,40 +403,50 @@ type SemanticModelInfo {
   The native definition of the semantic model (e.g., YAML config, SQL DDL).
   """
   nativeDefinition: String
-  aiContext: AiContext
-  datasets: [ModelDataset!]!
+  """
+  The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
+  right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
+  than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
+  """
+  datasets: [Dataset!]!
   relationships: [SemanticModelRelationship!]
+  """
+  URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
+  """
+  externalUrl: String
 }
 
 """
-A logical dataset referenced by a SemanticModel. `source` may be a Dataset
-(the common case) or a Query (inline SQL with no backing table).
+Properties specific to a Dataset that represents a logical dataset exposed by a
+SemanticModel, i.e. a Dataset carrying the `Semantic Model Dataset` subtype.
 """
-type ModelDataset {
-  name: String!
+type SemanticModelProperties {
   """
-  The backing entity — a Dataset or a Query — resolved via UrnToEntityMapper.
+  Logical alias used to reference this dataset within its owning semantic model.
   """
-  source: Entity!
-  fields: [SemanticField!]
+  alias: String!
+
+  """
+  The SemanticModel that this Dataset is a logical dataset of.
+  """
+  semanticModel: SemanticModel
 }
 
 """
-A field (dimension, measure, filter, or other) exposed by a semantic model dataset.
+Semantic metadata for a SchemaFieldEntity that is exposed by a SemanticModel dataset.
 The `type` discriminator is required and determines whether `dimension` is populated.
 Identity and governance surface (fieldPath, description, tags, glossaryTerms, etc.)
-live on the inline `schemaField`.
+live on the SchemaFieldEntity itself.
 """
-type SemanticField {
-  schemaField: SchemaField!
+type SemanticFieldAnnotation {
   type: SemanticFieldType!
   expression: MetricExpression!
+  aggregationFunction: String
   dimension: Dimension
-  aiContext: AiContext
 }
 
 """
-Discriminator for a SemanticField indicating its role in the semantic model.
+Discriminator for a SemanticFieldAnnotation indicating its role in the semantic model.
 """
 enum SemanticFieldType {
   DIMENSION
@@ -426,7 +456,7 @@ enum SemanticFieldType {
 }
 
 """
-Additional metadata for a dimension-type SemanticField.
+Additional metadata for a dimension-type SemanticFieldAnnotation.
 """
 type Dimension {
   isTime: Boolean!
@@ -449,7 +479,7 @@ type SemanticModelRelationship {
 }
 
 """
-A SQL or dialect-specific expression backing a Metric or SemanticField.
+A SQL or dialect-specific expression backing a Metric or SemanticFieldAnnotation.
 """
 type MetricExpression {
   dialects: [DialectExpression!]!
@@ -477,8 +507,8 @@ enum Dialect {
 }
 
 """
-AI/LLM context attached to a Metric, SemanticField, or SemanticModelRelationship
-to improve natural-language understanding and query generation.
+AI/LLM context attached to a Metric, SemanticModel, SchemaFieldEntity, or
+SemanticModelRelationship to improve natural-language understanding and query generation.
 """
 type AiContext {
   synonyms: [String!]
@@ -487,9 +517,23 @@ type AiContext {
   customInstructions: String
 }
 
-"""
-Count of Metrics associated with a SemanticModel.
-"""
-type SemanticModelMetricsCount {
-  total: Int!
+extend type Dataset {
+  """
+  Present when this Dataset carries the `Semantic Model Dataset` subtype: identifies the owning
+  SemanticModel and the alias by which it is referenced within that model.
+  """
+  semanticModelProperties: SemanticModelProperties
+}
+
+extend type SchemaFieldEntity {
+  """
+  Present when this field belongs to a Dataset exposed by a SemanticModel: classifies the
+  field's role (dimension/measure/filter) and carries its computing expression.
+  """
+  semanticFieldAnnotation: SemanticFieldAnnotation
+
+  """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
 }

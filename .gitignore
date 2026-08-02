@@ -178,3 +178,7 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
+
+# Generated per-page markdown mirror for AI tools (emitted by
+# docs-website/generateDocsDir.ts, served at /docs/<slug>.md)
+docs-website/static/docs/

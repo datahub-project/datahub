@@ -41,3 +41,13 @@ You'll need to have an Airbyte instance running with configured sources and dest
      - List and read sources, destinations, and connections
      - Access connection schemas and sync catalogs
      - View job execution history (if extracting job statuses)
+
+#### Airbyte Version for Stream Namespaces
+
+Airbyte's Public API returns a connection's stream list without the schema (namespace) each
+stream is read from. DataHub recovers it from the `/streams` endpoint, which requires
+**Airbyte 1.8 or newer**. Two things depend on it:
+
+- **Dataset URNs.** Without a namespace, every stream falls back to the source connector's
+  configured default schema, so streams living in other schemas resolve to the wrong table.
+- **Column-level lineage**, which is built from the field list `/streams` returns.

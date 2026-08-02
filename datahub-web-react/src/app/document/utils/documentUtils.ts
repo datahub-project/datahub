@@ -2,6 +2,7 @@ import { FileDashed } from '@phosphor-icons/react/dist/csr/FileDashed';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
+import i18next from 'i18next';
 
 import { DocumentCreator, DocumentTreeNode } from '@app/document/DocumentTreeContext';
 
@@ -153,13 +154,13 @@ export function extractDocumentCreator(
  * @param hasChildren - Whether this document has children
  * @returns A DocumentTreeNode representation of the document
  */
-export function documentToTreeNode(doc: Document, hasChildren: boolean): DocumentTreeNode {
+export function documentToTreeNode(doc: Document, hasChildren: boolean, childCount?: number): DocumentTreeNode {
     return {
         urn: doc.urn,
-        /* untranslated-text -- persisted document-title data default, not UI chrome */
-        title: doc.info?.title || 'Untitled',
+        title: doc.info?.title || i18next.t('entity.types:document.untitledFallback'),
         parentUrn: doc.info?.parentDocument?.document?.urn || null,
         hasChildren,
+        childCount,
         children: undefined, // Not loaded yet
         isUnpublished: isDocumentUnpublished(doc),
         isExternal: isExternalDocument(doc),

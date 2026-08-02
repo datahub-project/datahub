@@ -416,6 +416,108 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
+    ... on Metric {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on SemanticModel {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
+            query
+            transformOperation
+        }
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -769,40 +871,15 @@ fragment entityLineageV2 on Entity {
         displayProperties {
             ...displayPropertiesFields
         }
-        dataProducts: entities(
-            input: { start: 0, count: 0, filters: [{ field: "_entityType", values: ["DATA_PRODUCT"] }] }
-        ) {
-            total
-            searchResults {
-                entity {
-                    ... on DataProduct {
-                        urn
-                        type
-                        properties {
-                            name
-                            description
-                        }
-                        domain {
-                            ...entityDomain
-                        }
-                        entities(input: { start: 0, count: 0, query: "*" }) {
-                            total
-                        }
-                    }
-                }
-            }
-        }
     }
     ... on DataProduct {
+        exists
         properties {
             name
             description
         }
         domain {
             ...entityDomain
-        }
-        entities(input: { start: 0, count: 0, query: "*" }) {
-            total
         }
     }
 }
@@ -819,22 +896,6 @@ query getEntityLineage(
 ) {
     entity(urn: $urn) {
         ...entityLineage
-    }
-}
-
-query getEntityLineageV2(
-    $urn: String!
-    $separateSiblings: Boolean
-    $showColumns: Boolean!
-    $startTimeMillis: Long
-    $endTimeMillis: Long
-    $excludeUpstream: Boolean = false
-    $excludeDownstream: Boolean = false
-    $includeGhostEntities: Boolean = false
-    $skipSiblingsSearch: Boolean = false
-) {
-    entity(urn: $urn) {
-        ...entityLineageV2
     }
 }
 
@@ -977,6 +1038,37 @@ query searchAcrossLineageNames($input: SearchAcrossLineageInput!) {
                 urn
                 type
                 ...entityDisplayNameFields
+            }
+        }
+    }
+}
+
+query getBulkEntityDataProducts($urns: [String!]!) {
+    bulkEntityDataProducts(input: { urns: $urns }) {
+        entities {
+            urn
+            dataProductAssociations {
+                isOutputPort
+                dataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                    }
+                    domain {
+                        domain {
+                            urn
+                            type
+                            properties {
+                                name
+                            }
+                            displayProperties {
+                                colorHex
+                            }
+                        }
+                    }
+                }
             }
         }
     }

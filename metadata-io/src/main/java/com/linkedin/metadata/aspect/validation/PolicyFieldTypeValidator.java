@@ -2,9 +2,13 @@ package com.linkedin.metadata.aspect.validation;
 
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -49,18 +53,51 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
 
     mcpItems.forEach(
         item -> {
-          DataHubPolicyInfo policyInfo = item.getAspect(DataHubPolicyInfo.class);
-          if (policyInfo != null && policyInfo.hasResources()) {
-            if (policyInfo.getResources().hasFilter()) {
-              validateFilter(item, policyInfo.getResources().getFilter(), exceptions);
-            }
-            if (policyInfo.getResources().hasPrivilegeConstraints()) {
-              validateFilter(item, policyInfo.getResources().getPrivilegeConstraints(), exceptions);
-            }
+          if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+            validatePatchItem((MCPItem) item, exceptions);
+            return;
           }
+          validatePolicyInfo(item, item.getAspect(DataHubPolicyInfo.class), exceptions);
         });
 
     return exceptions.streamAllExceptions();
+  }
+
+  /**
+   * A patch item carries only its delta; rebuild a partial policy from each add/replace operation
+   * (e.g. a value at {@code /resources/filter} becomes {@code {"resources":{"filter":<value>}}})
+   * and validate the field types it contains. Unparseable values are left to schema validation at
+   * merge time.
+   */
+  private void validatePatchItem(MCPItem item, ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op ->
+                PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                    .ifPresent(
+                        nested -> {
+                          try {
+                            validatePolicyInfo(
+                                item,
+                                RecordUtils.toRecordTemplate(
+                                    DataHubPolicyInfo.class, nested.toString()),
+                                exceptions);
+                          } catch (RuntimeException e) {
+                            // unparseable delta — schema validation rejects it at merge time
+                          }
+                        }));
+  }
+
+  private void validatePolicyInfo(
+      BatchItem item, DataHubPolicyInfo policyInfo, ValidationExceptionCollection exceptions) {
+    if (policyInfo != null && policyInfo.hasResources()) {
+      if (policyInfo.getResources().hasFilter()) {
+        validateFilter(item, policyInfo.getResources().getFilter(), exceptions);
+      }
+      if (policyInfo.getResources().hasPrivilegeConstraints()) {
+        validateFilter(item, policyInfo.getResources().getPrivilegeConstraints(), exceptions);
+      }
+    }
   }
 
   private void validateFilter(
