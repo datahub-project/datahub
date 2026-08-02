@@ -116,7 +116,7 @@ skills-lock.json
 
 # Claude ignores — ignore everything except committed config
 .claude/*
-!.claude/commands/
+!.claude/skills/
 !.claude/agents/
 !.claude/settings.json
 !.claude/hooks/
