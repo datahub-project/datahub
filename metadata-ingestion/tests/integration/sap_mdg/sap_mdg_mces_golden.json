@@ -74,7 +74,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -90,7 +90,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -176,7 +176,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -198,7 +198,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -213,15 +213,13 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3031854965e428a7d04db8d8c902c7e2",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Entity Set"
-            ]
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -232,7 +230,23 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-mdg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "sap-mdg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -253,12 +267,14 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:sap-mdg"
+            "typeNames": [
+                "Entity Set"
+            ]
         }
     },
     "systemMetadata": {
@@ -269,7 +285,46 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Entity Set"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "sap-mdg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3031854965e428a7d04db8d8c902c7e2",
+                    "urn": "urn:li:container:3031854965e428a7d04db8d8c902c7e2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "sap-mdg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -349,12 +404,12 @@
                 {
                     "name": "Partner",
                     "foreignFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD),BusinessPartnerId)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD),BusinessPartnerId)"
                     ],
                     "sourceFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD),BusinessPartnerId)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD),BusinessPartnerId)"
                     ],
-                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)"
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)"
                 }
             ]
         }
@@ -367,7 +422,23 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "sap-mdg-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -389,7 +460,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.Addresses,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -405,78 +476,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Entity Set"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "sap-mdg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3031854965e428a7d04db8d8c902c7e2",
-                    "urn": "urn:li:container:3031854965e428a7d04db8d8c902c7e2"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "sap-mdg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:3031854965e428a7d04db8d8c902c7e2",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "sap-mdg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.Addresses,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "sap-mdg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,com.example.mdg.BusinessPartners,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-mdg,ZMDG_DEMO_SRV.com.example.mdg.BusinessPartners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

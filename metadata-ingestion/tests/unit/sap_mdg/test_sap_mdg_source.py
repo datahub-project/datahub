@@ -146,7 +146,7 @@ def test_service_id_strips_slashes_and_takes_last_segment():
     assert source._service_id("/sap/opu/odata/sap/ZMDG_DEMO_SRV/") == "ZMDG_DEMO_SRV"
 
 
-def test_entity_set_dataset_name_is_namespace_qualified():
+def test_entity_set_dataset_name_is_service_and_namespace_qualified():
     from datahub.ingestion.source.sap_mdg.models import ODataEntitySet
 
     entity_set = ODataEntitySet(
@@ -154,7 +154,24 @@ def test_entity_set_dataset_name_is_namespace_qualified():
         entity_type_fqn="demo.Partner",
         container_namespace="demo",
     )
-    assert _source()._entity_set_dataset_name(entity_set) == "demo.Partners"
+    name = _source()._entity_set_dataset_name("ZMDG_BP_SRV", entity_set)
+    assert name == "ZMDG_BP_SRV.demo.Partners"
+
+
+def test_same_entity_set_in_two_services_has_distinct_urns():
+    from datahub.ingestion.source.sap_mdg.models import ODataEntitySet
+
+    # Two services can declare the same EDMX namespace and entity set; without the
+    # service id they would collapse onto one urn that flips between containers.
+    entity_set = ODataEntitySet(
+        name="Partners",
+        entity_type_fqn="demo.Partner",
+        container_namespace="demo",
+    )
+    source = _source()
+    assert source._entity_set_dataset_name(
+        "ZMDG_BP_SRV", entity_set
+    ) != source._entity_set_dataset_name("ZMDG_CUST_SRV", entity_set)
 
 
 def test_unknown_edm_type_falls_back_to_record():
@@ -273,6 +290,7 @@ def test_build_foreign_keys_unresolved_without_constraints():
     keys: List = source._build_foreign_keys(
         entity_type,
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:sap-mdg,demo.Contacts,PROD)",
+        service_id="ZMDG_BP_SRV",
         associations_by_fqn={},
         sets_by_type_fqn={},
     )

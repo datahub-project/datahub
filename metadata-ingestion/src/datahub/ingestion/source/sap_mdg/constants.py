@@ -96,6 +96,15 @@ ODATA_V4_ENVELOPE = "value"
 ODATA_JSON_FORMAT_PARAM = "$format"
 ODATA_JSON_FORMAT = "json"
 
+# Server-side paging links. SAP Gateway caps a collection response (commonly at
+# 1000 rows) and returns a link to the next page: V2 puts "__next" inside the "d"
+# wrapper, V4 puts "@odata.nextLink" at the root. Both may be relative.
+ODATA_V2_NEXT_LINK = "__next"
+ODATA_V4_NEXT_LINK = "@odata.nextLink"
+# Ceiling on pages followed for one collection, so a service that keeps handing
+# back a next link cannot spin forever.
+MAX_PAGES = 1000
+
 # OData collection wrapper, e.g. "Collection(Edm.String)" or "Collection(NS.Type)".
 COLLECTION_TYPE_PATTERN = re.compile(r"^Collection\((?P<inner>.+)\)$")
 # Namespace URIs that identify the OData CSDL version.
@@ -103,6 +112,10 @@ EDM_V2_NAMESPACE_PATTERN = re.compile(r"schemas\.microsoft\.com/ado/\d{4}/\d{2}/
 EDM_V4_NAMESPACE_PATTERN = re.compile(r"docs\.oasis-open\.org/odata/ns/edm")
 # Leading/trailing slashes stripped from a configured service path.
 SERVICE_PATH_STRIP_PATTERN = re.compile(r"^/+|/+$")
+
+# Joins the service id to the EDMX-local name in a dataset name, mirroring the
+# service container the dataset sits in.
+DATASET_NAME_DELIMITER = "."
 
 # OData EDM primitive type -> DataHub schema field type. Complex/entity types
 # (namespace-qualified, non-Edm) fall back to RecordTypeClass at resolution time.

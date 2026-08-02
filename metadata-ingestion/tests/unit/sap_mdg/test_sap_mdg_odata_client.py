@@ -100,3 +100,71 @@ def test_test_connection_uses_first_service():
         mock.get(url, content=b"<edmx/>")
         client.test_connection()
         assert mock.last_request.url.startswith(url)
+
+
+_TABLE_SERVICE = "/sap/opu/odata/sap/ZTABLE_READ_SRV"
+_ROWS_URL = f"{_BASE_URL}{_TABLE_SERVICE}/DRFC_APPL"
+
+
+def _drf_client(**overrides: object) -> SapMdgODataClient:
+    return _client(
+        drf={
+            "enabled": True,
+            "table_read_service": _TABLE_SERVICE,
+            **overrides,
+        }
+    )
+
+
+def test_fetch_rows_follows_the_v2_next_link():
+    # SAP Gateway caps a collection response and returns "__next" inside "d".
+    # Without following it the DRF customizing tables are read partially and every
+    # lineage edge that depends on a later row silently disappears.
+    client = _drf_client()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            _ROWS_URL,
+            json={
+                "d": {
+                    "results": [{"APPL": "M1"}],
+                    "__next": f"{_ROWS_URL}?$skiptoken=1",
+                }
+            },
+        )
+        mock.get(f"{_ROWS_URL}?$skiptoken=1", json={"d": {"results": [{"APPL": "M2"}]}})
+        rows = client._fetch_rows("DRFC_APPL")
+
+    assert [row["APPL"] for row in rows] == ["M1", "M2"]
+
+
+def test_fetch_rows_follows_a_relative_v4_next_link():
+    client = _drf_client()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            _ROWS_URL,
+            json={"value": [{"APPL": "M1"}], "@odata.nextLink": "DRFC_APPL?page=2"},
+        )
+        mock.get(f"{_ROWS_URL}?page=2", json={"value": [{"APPL": "M2"}]})
+        rows = client._fetch_rows("DRFC_APPL")
+
+    assert [row["APPL"] for row in rows] == ["M1", "M2"]
+
+
+def test_fetch_rows_stops_when_the_next_link_repeats():
+    client = _drf_client()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            _ROWS_URL, json={"d": {"results": [{"APPL": "M1"}], "__next": _ROWS_URL}}
+        )
+        rows = client._fetch_rows("DRFC_APPL")
+
+    assert [row["APPL"] for row in rows] == ["M1"]
+    assert len(client.report.warnings) == 1
+
+
+def test_fetch_rows_single_page_makes_one_request():
+    client = _drf_client()
+    with requests_mock.Mocker() as mock:
+        mock.get(_ROWS_URL, json={"d": {"results": [{"APPL": "M1"}]}})
+        assert client._fetch_rows("DRFC_APPL") == [{"APPL": "M1"}]
+        assert mock.call_count == 1

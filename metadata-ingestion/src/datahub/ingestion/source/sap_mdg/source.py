@@ -33,6 +33,7 @@ from datahub.ingestion.source.sap_mdg.config import (
     SapMdgSourceConfig,
 )
 from datahub.ingestion.source.sap_mdg.constants import (
+    DATASET_NAME_DELIMITER,
     EDM_TYPE_TO_SCHEMA_FIELD_TYPE,
     FALLBACK_SCHEMA_FIELD_TYPE,
     KNOWN_LOGICAL_SYSTEM_TO_PLATFORM,
@@ -105,6 +106,13 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
         self.report: SapMdgSourceReport = SapMdgSourceReport()
         self.client = SapMdgODataClient(config, self.report)
         self._drf_distribution: Optional[DrfDistribution] = None
+        if not config.verify_ssl:
+            self.report.warning(
+                title="TLS certificate verification is disabled",
+                message="Connections to the SAP Gateway are open to interception. "
+                "Prefer `ca_certificate_path` for a private CA.",
+                context=config.base_url,
+            )
         if config.drf.enabled:
             self._drf_distribution = self._load_drf_distribution()
 
@@ -168,9 +176,10 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        service_id = self._service_id(service)
         container = Container(
             self._service_key(service),
-            display_name=self._service_id(service),
+            display_name=service_id,
             subtype=DatasetContainerSubTypes.SAP_MDG_ODATA_SERVICE,
             extra_properties={PROPERTY_ODATA_VERSION: metadata.version.value},
         )
@@ -197,16 +206,17 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             emitted_type_fqns.add(entity_type.fqn)
             try:
                 yield from self._emit_dataset(
-                    name=self._entity_set_dataset_name(entity_set),
+                    name=self._entity_set_dataset_name(service_id, entity_set),
                     display_name=entity_set.label or entity_set.name,
                     subtype=DatasetSubTypes.SAP_MDG_ENTITY_SET,
                     entity_type=entity_type,
                     container=container,
                     metadata=metadata,
+                    service_id=service_id,
                     associations_by_fqn=associations_by_fqn,
                     sets_by_type_fqn=sets_by_type_fqn,
                 )
-                yield from self._emit_drf_lineage(service, entity_set, entity_type)
+                yield from self._emit_drf_lineage(service_id, entity_set, entity_type)
             except Exception as e:
                 self.report.warning(
                     title="Failed to emit entity set",
@@ -219,6 +229,7 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._emit_orphan_entity_types(
                 metadata,
                 container,
+                service_id,
                 associations_by_fqn,
                 sets_by_type_fqn,
                 emitted_type_fqns,
@@ -228,6 +239,7 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
         self,
         metadata: ODataMetadata,
         container: Container,
+        service_id: str,
         associations_by_fqn: Dict[str, ODataAssociation],
         sets_by_type_fqn: Dict[str, ODataEntitySet],
         emitted_type_fqns: Set[str],
@@ -238,12 +250,13 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             try:
                 yield from self._emit_dataset(
-                    name=entity_type.fqn,
+                    name=self._qualified_name(service_id, entity_type.fqn),
                     display_name=entity_type.label or entity_type.name,
                     subtype=DatasetSubTypes.SAP_MDG_ENTITY_TYPE,
                     entity_type=entity_type,
                     container=container,
                     metadata=metadata,
+                    service_id=service_id,
                     associations_by_fqn=associations_by_fqn,
                     sets_by_type_fqn=sets_by_type_fqn,
                 )
@@ -264,13 +277,18 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
         entity_type: ODataEntityType,
         container: Container,
         metadata: ODataMetadata,
+        service_id: str,
         associations_by_fqn: Dict[str, ODataAssociation],
         sets_by_type_fqn: Dict[str, ODataEntitySet],
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._dataset_urn(name)
         foreign_keys = (
             self._build_foreign_keys(
-                entity_type, dataset_urn, associations_by_fqn, sets_by_type_fqn
+                entity_type,
+                dataset_urn,
+                service_id,
+                associations_by_fqn,
+                sets_by_type_fqn,
             )
             if self.config.include_foreign_keys
             else []
@@ -329,6 +347,7 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
         self,
         entity_type: ODataEntityType,
         dataset_urn: str,
+        service_id: str,
         associations_by_fqn: Dict[str, ODataAssociation],
         sets_by_type_fqn: Dict[str, ODataEntitySet],
     ) -> List[ForeignKeyConstraintClass]:
@@ -346,7 +365,9 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.foreign_keys_unresolved += 1
                 continue
 
-            target_urn = self._dataset_urn(self._entity_set_dataset_name(target_set))
+            target_urn = self._dataset_urn(
+                self._entity_set_dataset_name(service_id, target_set)
+            )
             foreign_keys.append(
                 ForeignKeyConstraintClass(
                     name=navigation.name,
@@ -403,8 +424,19 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
             PROPERTY_ODATA_VERSION: metadata.version.value,
         }
 
-    def _entity_set_dataset_name(self, entity_set: ODataEntitySet) -> str:
-        return f"{entity_set.container_namespace}.{entity_set.name}"
+    def _entity_set_dataset_name(
+        self, service_id: str, entity_set: ODataEntitySet
+    ) -> str:
+        return self._qualified_name(
+            service_id, f"{entity_set.container_namespace}.{entity_set.name}"
+        )
+
+    def _qualified_name(self, service_id: str, local_name: str) -> str:
+        # The EDMX namespace is only unique within its own service, so two services
+        # can declare the same namespace and entity set. Without the service id in
+        # the name they collapse onto one urn that flips between the two services'
+        # containers on every run.
+        return f"{service_id}{DATASET_NAME_DELIMITER}{local_name}"
 
     def _dataset_urn(self, name: str) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -438,26 +470,28 @@ class SapMdgSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_drf_lineage(
         self,
-        service: str,
+        service_id: str,
         entity_set: ODataEntitySet,
         entity_type: ODataEntityType,
     ) -> Iterable[MetadataWorkUnit]:
         if self._drf_distribution is None:
             return
-        data_model = self.config.drf.service_to_data_model.get(
-            self._service_id(service)
-        )
+        data_model = self.config.drf.service_to_data_model.get(service_id)
         if data_model is None:
             return
 
-        source_name = self._entity_set_dataset_name(entity_set)
-        source_urn = self._dataset_urn(source_name)
+        source_urn = self._dataset_urn(
+            self._entity_set_dataset_name(service_id, entity_set)
+        )
+        # The downstream name is the replicated object's own name, so it must not
+        # carry the MDG service id or EDMX namespace that qualify the MDG-side urn.
+        target_name = f"{entity_set.container_namespace}.{entity_set.name}"
         field_names = [prop.name for prop in entity_type.properties]
         for business_system in self._drf_distribution.targets_for(data_model):
             # The replicated object keeps its name on the target, so its urn is
             # deterministic from the mapped platform/instance/env. Systems without a
             # platform mapping cannot be resolved and are reported rather than guessed.
-            downstream_urn = self._target_dataset_urn(business_system, source_name)
+            downstream_urn = self._target_dataset_urn(business_system, target_name)
             if downstream_urn is None:
                 self.report.report_target_system_unresolved(business_system)
                 continue

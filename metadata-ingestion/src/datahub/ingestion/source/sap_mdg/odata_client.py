@@ -1,4 +1,5 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
+from urllib.parse import urljoin
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -14,12 +15,15 @@ from datahub.ingestion.source.sap_mdg.constants import (
     HTTP_RETRY_STATUS_CODES,
     HTTP_SCHEME_HTTP,
     HTTP_SCHEME_HTTPS,
+    MAX_PAGES,
     METADATA_DOCUMENT_PATH,
     ODATA_JSON_FORMAT,
     ODATA_JSON_FORMAT_PARAM,
     ODATA_V2_ENVELOPE,
+    ODATA_V2_NEXT_LINK,
     ODATA_V2_RESULTS,
     ODATA_V4_ENVELOPE,
+    ODATA_V4_NEXT_LINK,
     SAP_CLIENT_PARAM,
     SERVICE_PATH_STRIP_PATTERN,
 )
@@ -134,9 +138,39 @@ class SapMdgODataClient:
         url = f"{self.config.base_url}/{service_path}/{entity_set}"
         params = dict(self._query_params())
         params[ODATA_JSON_FORMAT_PARAM] = ODATA_JSON_FORMAT
-        response = self.session.get(url, params=params, timeout=self.config.timeout)
-        response.raise_for_status()
-        return self._extract_rows(response.json())
+
+        # Follow the server's paging links. A DRF customizing table that spills onto
+        # a second page would otherwise be read partially, and a replication model
+        # missing from page one drops every lineage edge that depends on it.
+        rows: List[Dict[str, object]] = []
+        seen_urls = {url}
+        for _ in range(MAX_PAGES):
+            response = self.session.get(url, params=params, timeout=self.config.timeout)
+            response.raise_for_status()
+            payload = response.json()
+            rows.extend(self._extract_rows(payload))
+            next_link = self._next_link(payload)
+            if next_link is None:
+                return rows
+            # The next link carries its own $skiptoken and repeats the original query
+            # options, so params must not be reapplied on top of it.
+            url = urljoin(response.url, next_link)
+            params = {}
+            if url in seen_urls:
+                self.report.warning(
+                    title="OData paging link repeated",
+                    message="Stopped following pages; the collection may be partial.",
+                    context=entity_set,
+                )
+                return rows
+            seen_urls.add(url)
+
+        self.report.warning(
+            title="OData paging limit reached",
+            message=f"Stopped after {MAX_PAGES} pages; the collection may be partial.",
+            context=entity_set,
+        )
+        return rows
 
     @staticmethod
     def _extract_rows(payload: object) -> List[Dict[str, object]]:
@@ -151,6 +185,19 @@ class SapMdgODataClient:
         else:
             return []
         return [row for row in rows if isinstance(row, dict)]
+
+    @staticmethod
+    def _next_link(payload: object) -> Optional[str]:
+        if not isinstance(payload, dict):
+            return None
+        candidates = [payload.get(ODATA_V4_NEXT_LINK), payload.get(ODATA_V2_NEXT_LINK)]
+        inner = payload.get(ODATA_V2_ENVELOPE)
+        if isinstance(inner, dict):
+            candidates.append(inner.get(ODATA_V2_NEXT_LINK))
+        for candidate in candidates:
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate
+        return None
 
     def close(self) -> None:
         self.session.close()

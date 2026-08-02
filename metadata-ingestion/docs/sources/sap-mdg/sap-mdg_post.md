@@ -1,5 +1,15 @@
 ### Capabilities
 
+#### Naming
+
+Each OData service becomes a container, and datasets inside it are named
+`<service id>.<edmx namespace>.<entity set>` — for example
+`ZMDG_BP_SRV.com.example.mdg.BusinessPartners`. The service id is the last path
+segment of the configured service path. It is part of the name because an EDMX
+namespace is only unique within its own service: two ingested services that
+declare the same namespace and entity set would otherwise share one dataset urn
+and flip between the two containers on every run.
+
 #### Foreign keys
 
 Navigation properties are emitted as foreign keys only when a referential constraint is available to map the participating fields — inline on the property for OData V4, or via the referenced `Association` for OData V2. Navigation properties without a resolvable target entity set or referential constraint are counted in the report (`foreign_keys_unresolved`) and skipped rather than guessed.
@@ -10,7 +20,9 @@ When `drf.enabled` is set, the connector reads the SAP **Data Replication Framew
 
 The edge is emitted as a **PATCH** onto the downstream dataset (MDG is the upstream, since it governs and replicates the master data out), so it is added alongside — never overwriting — lineage the downstream's own connector sets. Target business systems without a platform mapping are reported (`unresolved_target_systems`) and skipped rather than guessed.
 
-These tables have no standard OData service, so they are read through a customer-exposed generic table-reader OData service (`drf.table_read_service`, e.g. an `RFC_READ_TABLE`-backed SEGW service) that returns each table as an entity set of JSON rows keyed by column.
+These tables have no standard OData service, so they are read through a customer-exposed generic table-reader OData service (`drf.table_read_service`, e.g. an `RFC_READ_TABLE`-backed SEGW service) that returns each table as an entity set of JSON rows keyed by column. SAP Gateway caps a collection response (commonly at 1000 rows) and returns a link to the next page, which the connector follows so the customizing tables are read in full.
+
+The downstream dataset name is the replicated object's own name (`<edmx namespace>.<entity set>`); unlike the MDG-side urn it is not prefixed with the MDG service id, which has no meaning on the target platform.
 
 #### Column-level lineage
 
