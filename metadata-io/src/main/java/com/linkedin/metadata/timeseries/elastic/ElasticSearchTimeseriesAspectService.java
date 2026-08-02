@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -334,6 +335,23 @@ public class ElasticSearchTimeseriesAspectService
     // docIds are per-messageId and rarely collide), but consistent with the rest of
     // the bulk-write paths.
     bulkProcessor.add(opContext, docId, updateRequest);
+  }
+
+  @Override
+  public void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String docId,
+      @SuppressWarnings("unused") @Nullable JsonNode document,
+      @SuppressWarnings("unused") boolean isExploded) {
+    String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
+    DeleteRequest deleteRequest = new DeleteRequest(indexName, docId);
+    bulkProcessor.add(opContext, docId, deleteRequest);
   }
 
   @Override

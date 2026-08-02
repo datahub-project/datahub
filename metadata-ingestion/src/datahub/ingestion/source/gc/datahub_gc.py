@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydantic import Field
 
@@ -44,6 +44,20 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
 logger = logging.getLogger(__name__)
 
 
+class TimeseriesAspectRetentionConfig(ConfigModel):
+    entity_type: str = Field(description="Entity type, e.g. dataset")
+    aspect: str = Field(
+        description="Timeseries aspect name, e.g. datasetusagestatistics"
+    )
+    older_than_days: Optional[int] = Field(
+        default=None,
+        description=(
+            "Override truncate_index_older_than_days for this aspect. "
+            "When unset, the global default is used."
+        ),
+    )
+
+
 class DataHubGcSourceConfig(ConfigModel):
     dry_run: bool = Field(
         default=False,
@@ -56,11 +70,27 @@ class DataHubGcSourceConfig(ConfigModel):
     )
     truncate_indices: bool = Field(
         default=True,
-        description="Whether to truncate elasticsearch indices or not which can be safely truncated",
+        description=(
+            "Whether to truncate timeseries aspects via truncateTimeseriesAspect. "
+            "Works for Elasticsearch/OpenSearch and for PostgreSQL when "
+            "TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres."
+        ),
     )
     truncate_index_older_than_days: int = Field(
         default=30,
-        description="Indices older than this number of days will be truncated",
+        description=(
+            "Default max age in days for timeseries truncation. Used for the built-in "
+            "aspect list when truncate_aspect_retentions is empty, and as the fallback "
+            "when an override omits older_than_days."
+        ),
+    )
+    truncate_aspect_retentions: List[TimeseriesAspectRetentionConfig] = Field(
+        default_factory=list,
+        description=(
+            "Optional per-(entity_type, aspect) truncation targets. When non-empty, only "
+            "these aspects are truncated (each may set older_than_days). When empty, the "
+            "built-in high-volume aspect list is used with truncate_index_older_than_days."
+        ),
     )
     truncation_watch_until: int = Field(
         default=10000,
@@ -193,30 +223,52 @@ class DataHubGcSource(Source):
         yield from []
 
     def truncate_indices(self) -> None:
-        self._truncate_timeseries_helper(aspect_name="operation", entity_type="dataset")
-        self._truncate_timeseries_helper(
-            aspect_name="datasetusagestatistics", entity_type="dataset"
-        )
-        self._truncate_timeseries_helper(
-            aspect_name="chartUsageStatistics", entity_type="chart"
-        )
-        self._truncate_timeseries_helper(
-            aspect_name="dashboardUsageStatistics", entity_type="dashboard"
-        )
-        self._truncate_timeseries_helper(
-            aspect_name="queryusagestatistics", entity_type="query"
-        )
+        for entity_type, aspect_name, days_ago in self._timeseries_truncate_targets():
+            self._truncate_timeseries_helper(
+                aspect_name=aspect_name, entity_type=entity_type, days_ago=days_ago
+            )
 
-    def _truncate_timeseries_helper(self, aspect_name: str, entity_type: str) -> None:
+    def _timeseries_truncate_targets(self) -> List[Tuple[str, str, int]]:
+        """Return (entity_type, aspect, older_than_days) for each truncate target."""
+        default_days = self.config.truncate_index_older_than_days
+        if self.config.truncate_aspect_retentions:
+            return [
+                (
+                    entry.entity_type,
+                    entry.aspect,
+                    entry.older_than_days
+                    if entry.older_than_days is not None
+                    else default_days,
+                )
+                for entry in self.config.truncate_aspect_retentions
+            ]
+        defaults = [
+            ("dataset", "operation"),
+            ("dataset", "datasetusagestatistics"),
+            ("chart", "chartUsageStatistics"),
+            ("dashboard", "dashboardUsageStatistics"),
+            ("query", "queryusagestatistics"),
+        ]
+        return [(entity, aspect, default_days) for entity, aspect in defaults]
+
+    def _truncate_timeseries_helper(
+        self, aspect_name: str, entity_type: str, days_ago: int
+    ) -> None:
         self._truncate_timeseries_with_watch_optional(
-            aspect_name=aspect_name, entity_type=entity_type, watch=False
+            aspect_name=aspect_name,
+            entity_type=entity_type,
+            days_ago=days_ago,
+            watch=False,
         )
         self._truncate_timeseries_with_watch_optional(
-            aspect_name=aspect_name, entity_type=entity_type, watch=True
+            aspect_name=aspect_name,
+            entity_type=entity_type,
+            days_ago=days_ago,
+            watch=True,
         )
 
     def _truncate_timeseries_with_watch_optional(
-        self, aspect_name: str, entity_type: str, watch: bool
+        self, aspect_name: str, entity_type: str, days_ago: int, watch: bool
     ) -> None:
         graph = self.graph
         assert graph is not None
@@ -226,7 +278,7 @@ class DataHubGcSource(Source):
                 response = self.truncate_timeseries_util(
                     aspect=aspect_name,
                     dry_run=watch,
-                    days_ago=self.config.truncate_index_older_than_days,
+                    days_ago=days_ago,
                     entity_type=entity_type,
                 )
                 val = response.get("value", "")
@@ -251,7 +303,7 @@ class DataHubGcSource(Source):
             self.truncate_timeseries_util(
                 aspect=aspect_name,
                 dry_run=watch,
-                days_ago=self.config.truncate_index_older_than_days,
+                days_ago=days_ago,
                 entity_type=entity_type,
             )
 

@@ -1473,6 +1473,7 @@ module.exports = {
       "Developing on DataHub": [
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
+        "docs/pgtimeseries-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
