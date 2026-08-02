@@ -213,6 +213,18 @@
       "UI Ingestion"
     ]
   },
+  "informix": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "Informix",
+    "description": "Informix is a relational database management system from IBM/HCL used for transactional and analytical workloads.",
+    "img_path": "img/logos/platforms/informix.png",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect",
+      "UI Ingestion"
+    ]
+  },
   "json-schema": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
