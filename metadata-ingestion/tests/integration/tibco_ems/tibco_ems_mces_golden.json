@@ -1,7 +1,29 @@
 [
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.new,PROD)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:171a7031face83ba85b402009131a9c8",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tibco-ems",
+                "env": "PROD",
+                "server_group": "group1"
+            },
+            "name": "group1",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:171a7031face83ba85b402009131a9c8",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -17,7 +39,77 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "destination_type": "queue"
+            },
+            "name": "orders.processed",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:171a7031face83ba85b402009131a9c8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "EMS Server Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tibco-ems"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:171a7031face83ba85b402009131a9c8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -40,7 +132,44 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:171a7031face83ba85b402009131a9c8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:171a7031face83ba85b402009131a9c8",
+                    "urn": "urn:li:container:171a7031face83ba85b402009131a9c8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -58,7 +187,57 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.processed,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:171a7031face83ba85b402009131a9c8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Queue"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -74,7 +253,116 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.processed,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.processed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:171a7031face83ba85b402009131a9c8",
+                    "urn": "urn:li:container:171a7031face83ba85b402009131a9c8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tibco-ems",
+                "env": "PROD",
+                "server_group": "group2"
+            },
+            "name": "group2",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "EMS Server Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tibco-ems"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -82,7 +370,7 @@
             "customProperties": {
                 "destination_type": "queue"
             },
-            "name": "orders.processed",
+            "name": "orders.new",
             "tags": []
         }
     },
@@ -94,7 +382,55 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.processed,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tibco-ems"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -112,23 +448,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.events.audit,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tibco-ems"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "tibco-ems-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.events.audit,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -149,7 +469,60 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.events.audit,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:171a7031face83ba85b402009131a9c8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:171a7031face83ba85b402009131a9c8",
+                    "urn": "urn:li:container:171a7031face83ba85b402009131a9c8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tibco-ems"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -167,23 +540,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.orders.new,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tibco-ems"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "tibco-ems-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -203,7 +560,44 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:171a7031face83ba85b402009131a9c8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:171a7031face83ba85b402009131a9c8",
+                    "urn": "urn:li:container:171a7031face83ba85b402009131a9c8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -221,7 +615,76 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.events.audit,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tibco-ems"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group2.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9",
+                    "urn": "urn:li:container:6def074bd46aa42b4c297ddbf4838da9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:171a7031face83ba85b402009131a9c8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-ems-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -232,7 +695,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.new,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.queue.orders.new,PROD)",
                     "type": "COPY"
                 }
             ]
@@ -246,7 +709,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.events.audit,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -262,39 +725,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,queue.orders.processed,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "tibco-ems-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.events.audit,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "tibco-ems-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,topic.orders.new,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tibco-ems,group1.topic.orders.new,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

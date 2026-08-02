@@ -1,8 +1,17 @@
 ### Capabilities
 
+#### Containers
+
+One EMS REST Proxy can administer several fault-tolerant server groups at once, and each group is an independent destination namespace. Every server group is emitted as a container holding its own destinations, which is also what gives destinations their browse path.
+
 #### Naming
 
-EMS queue and topic namespaces are independent — a queue and a topic can share the same name. To keep their dataset URNs distinct, the dataset name is prefixed with the destination type (`queue.<name>` or `topic.<name>`), while the display name remains the bare destination name.
+Two things share a namespace in EMS and so both lead the dataset name, giving `<server group>.<queue|topic>.<name>`:
+
+- **Server groups** are independent of one another, so `orders.new` in `group1` and `orders.new` in `group2` are two unrelated queues on two different servers.
+- **Queue and topic namespaces** are independent within a server, so a queue and a topic can share the same name.
+
+The display name remains the bare destination name. On a proxy that predates server groups, the single implicit group is named `default`.
 
 #### Lineage
 
@@ -14,7 +23,7 @@ EMS itself stores no message schema, but a bridge copies whole messages unchange
 
 ### Limitations
 
-- Message payloads carry no registered schema in EMS, so datasets are emitted without field-level schemas; column-level lineage relies on schemas contributed by other connectors and matches fields by name only.
+- **No destination schemas.** EMS is a Jakarta Messaging (JMS) provider and has no message schema registry: the `JMSType` header exists to reference a provider repository but EMS does not implement one, and the only schema-aware path in the product is the `schema_repository` setting on a Kafka *transport*, which is used to deserialize imported Kafka payloads at runtime rather than to describe a destination. Destinations are therefore emitted without field-level schemas, and column-level lineage relies on schemas contributed by other connectors, matched by name.
 - Point-to-point routing that is not modelled as an EMS bridge is not captured.
 
 ### Troubleshooting
@@ -22,3 +31,7 @@ EMS itself stores no message schema, but a bridge copies whole messages unchange
 #### No datasets are produced
 
 Confirm the configured user can reach the EMS admin/monitoring API and that the queue/topic allow/deny patterns are not filtering everything out. Wildcard subscription endpoints (`*` / `>`) are intentionally skipped.
+
+#### The run fails with "EMS REST Proxy returned a partial result"
+
+A list call that reaches some but not all server groups still returns HTTP 200 and names the unreachable ones in the response's `errors` array. The connector treats this as a run failure so that stateful ingestion does not commit its checkpoint — otherwise the missing group's destinations would look deleted and would be soft-deleted from DataHub. Restore connectivity to the reported server group, or scope the recipe to the groups you can reach, and re-run.

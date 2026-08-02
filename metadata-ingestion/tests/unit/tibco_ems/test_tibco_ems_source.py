@@ -3,14 +3,17 @@ from unittest.mock import MagicMock
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.tibco_ems.constants import DEFAULT_SERVER_GROUP
 from datahub.ingestion.source.tibco_ems.models import (
     BridgeTarget,
     DestinationType,
     TibcoBridge,
     TibcoDestination,
+    TibcoEmsListing,
 )
 from datahub.ingestion.source.tibco_ems.source import TibcoEmsSource
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -61,29 +64,72 @@ def _source(**config_overrides: object) -> TibcoEmsSource:
     return TibcoEmsSource.create(config, PipelineContext(run_id="test"))
 
 
-def _queue(name: str) -> TibcoDestination:
-    return TibcoDestination(name=name, destination_type=DestinationType.QUEUE)
+def _queue(name: str, server_group: str = DEFAULT_SERVER_GROUP) -> TibcoDestination:
+    return TibcoDestination(
+        name=name, destination_type=DestinationType.QUEUE, server_group=server_group
+    )
 
 
-def _topic(name: str) -> TibcoDestination:
-    return TibcoDestination(name=name, destination_type=DestinationType.TOPIC)
+def _topic(name: str, server_group: str = DEFAULT_SERVER_GROUP) -> TibcoDestination:
+    return TibcoDestination(
+        name=name, destination_type=DestinationType.TOPIC, server_group=server_group
+    )
 
 
-def test_dataset_name_prefixed_by_type() -> None:
+def test_dataset_name_prefixed_by_server_group_and_type() -> None:
     source = _source()
     assert (
-        source._dataset_name(DestinationType.QUEUE, "orders.new") == "queue.orders.new"
+        source._dataset_name("group1", DestinationType.QUEUE, "orders.new")
+        == "group1.queue.orders.new"
     )
     assert (
-        source._dataset_name(DestinationType.TOPIC, "orders.new") == "topic.orders.new"
+        source._dataset_name("group1", DestinationType.TOPIC, "orders.new")
+        == "group1.topic.orders.new"
     )
 
 
 def test_queue_and_topic_same_name_have_distinct_urns() -> None:
     source = _source()
-    queue_urn = source._dataset_urn(source._dataset_name(DestinationType.QUEUE, "x"))
-    topic_urn = source._dataset_urn(source._dataset_name(DestinationType.TOPIC, "x"))
+    queue_urn = source._dataset_urn(
+        source._dataset_name(DEFAULT_SERVER_GROUP, DestinationType.QUEUE, "x")
+    )
+    topic_urn = source._dataset_urn(
+        source._dataset_name(DEFAULT_SERVER_GROUP, DestinationType.TOPIC, "x")
+    )
     assert queue_urn != topic_urn
+
+
+def test_same_name_in_two_server_groups_has_distinct_urns() -> None:
+    # One REST Proxy can front several EMS server groups, and each is its own
+    # destination namespace, so the same queue name in two groups is two queues.
+    source = _source()
+    _mock_client(
+        source,
+        queues=[_queue("orders.new", "group1"), _queue("orders.new", "group2")],
+        topics=[],
+        bridges=[],
+    )
+
+    urns = {
+        wu.get_urn()
+        for wu in source.get_workunits_internal()
+        if wu.get_urn().startswith("urn:li:dataset:")
+    }
+    assert len(urns) == 2
+
+
+def test_destinations_are_placed_in_their_server_group_container() -> None:
+    source = _source()
+    _mock_client(source, queues=[_queue("orders.new", "group1")], topics=[], bridges=[])
+
+    workunits = list(source.get_workunits_internal())
+    containers = {
+        wu.metadata.aspect.container  # type: ignore[union-attr]
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), ContainerClass)
+    }
+    assert len(containers) == 1
+    assert source.report.server_groups_emitted == 1
 
 
 def test_custom_properties_formatting() -> None:
@@ -137,9 +183,9 @@ def _mock_client(
     bridges: List[TibcoBridge],
 ) -> MagicMock:
     client = MagicMock()
-    client.fetch_queues.return_value = queues
-    client.fetch_topics.return_value = topics
-    client.fetch_bridges.return_value = bridges
+    client.fetch_queues.return_value = TibcoEmsListing[TibcoDestination](records=queues)
+    client.fetch_topics.return_value = TibcoEmsListing[TibcoDestination](records=topics)
+    client.fetch_bridges.return_value = TibcoEmsListing[TibcoBridge](records=bridges)
     source.client = client
     return client
 
@@ -227,14 +273,29 @@ def test_bridges_skipped_when_disabled() -> None:
 
 def _orders_urn(source: TibcoEmsSource) -> str:
     return source._dataset_urn(
-        source._dataset_name(DestinationType.QUEUE, "orders.new")
+        source._dataset_name(DEFAULT_SERVER_GROUP, DestinationType.QUEUE, "orders.new")
     )
 
 
 def _audit_urn(source: TibcoEmsSource) -> str:
     return source._dataset_urn(
-        source._dataset_name(DestinationType.TOPIC, "events.audit")
+        source._dataset_name(
+            DEFAULT_SERVER_GROUP, DestinationType.TOPIC, "events.audit"
+        )
     )
+
+
+def test_partial_proxy_response_is_reported_as_a_failure() -> None:
+    # A partial response is HTTP 200, so without this the run would look clean and
+    # stale-entity removal would soft-delete the missing group's destinations.
+    source = _source()
+    client = _mock_client(source, queues=[], topics=[], bridges=[])
+    client.fetch_queues.return_value = TibcoEmsListing[TibcoDestination](
+        errors=["group2 unreachable"]
+    )
+
+    list(source.get_workunits_internal())
+    assert source.report.failures
 
 
 def test_bridge_column_lineage_matches_shared_fields() -> None:

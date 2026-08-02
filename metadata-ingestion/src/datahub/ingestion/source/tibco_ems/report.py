@@ -11,6 +11,7 @@ class TibcoEmsSourceReport(StaleEntityRemovalSourceReport):
     queues_scanned: int = 0
     topics_scanned: int = 0
     datasets_emitted: int = 0
+    server_groups_emitted: int = 0
     bridges_scanned: int = 0
     lineage_edges_emitted: int = 0
     lineage_edges_unresolved: int = 0

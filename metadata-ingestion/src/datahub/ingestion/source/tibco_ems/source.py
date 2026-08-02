@@ -23,12 +23,16 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.tibco_ems.config import TibcoEmsSourceConfig
 from datahub.ingestion.source.tibco_ems.constants import (
+    BRIDGES_PATH,
     NAME_DELIMITER,
     PROPERTY_CONSUMER_COUNT,
     PROPERTY_DESTINATION_TYPE,
@@ -39,14 +43,17 @@ from datahub.ingestion.source.tibco_ems.constants import (
     PROPERTY_PENDING_MESSAGES,
     PROPERTY_PREFETCH,
     PROPERTY_SECURE,
+    QUEUES_PATH,
     SYSTEM_DESTINATION_PATTERN,
     TIBCO_EMS_PLATFORM,
+    TOPICS_PATH,
     WILDCARD_DESTINATION_PATTERN,
 )
 from datahub.ingestion.source.tibco_ems.models import (
     DestinationType,
     TibcoBridge,
     TibcoDestination,
+    TibcoEmsServerGroupKey,
 )
 from datahub.ingestion.source.tibco_ems.report import TibcoEmsSourceReport
 from datahub.ingestion.source.tibco_ems.rest_client import TibcoEmsRestClient
@@ -58,6 +65,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
 _SUBTYPE_BY_DESTINATION_TYPE: Dict[DestinationType, str] = {
@@ -71,6 +79,10 @@ _SUBTYPE_BY_DESTINATION_TYPE: Dict[DestinationType, str] = {
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Each EMS server group is emitted as a container holding its destinations",
+)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -92,6 +104,14 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         self.client = TibcoEmsRestClient(config)
         # Field names per dataset urn, read from DataHub once and reused across bridges.
         self._schema_field_cache: Dict[str, Dict[str, str]] = {}
+        self._emitted_server_groups: Set[str] = set()
+        if not config.verify_ssl:
+            self.report.warning(
+                title="TLS certificate verification is disabled",
+                message="Connections to the EMS REST Proxy are open to interception. "
+                "Prefer `ca_certificate_path` for a private CA.",
+                context=config.base_url,
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TibcoEmsSource":
@@ -135,10 +155,25 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
 
     def _fetch_destinations(self) -> List[TibcoDestination]:
         queues = self.client.fetch_queues()
-        self.report.queues_scanned = len(queues)
+        self.report.queues_scanned = len(queues.records)
         topics = self.client.fetch_topics()
-        self.report.topics_scanned = len(topics)
-        return [*queues, *topics]
+        self.report.topics_scanned = len(topics.records)
+        self._report_proxy_errors(QUEUES_PATH, queues.errors)
+        self._report_proxy_errors(TOPICS_PATH, topics.errors)
+        return [*queues.records, *topics.records]
+
+    def _report_proxy_errors(self, path: str, errors: List[str]) -> None:
+        # Reported as a failure rather than a warning so the run is marked failed
+        # and stateful ingestion does not commit its checkpoint: an unreachable
+        # server group would otherwise look like a group whose destinations were
+        # all deleted, and stale-entity removal would soft-delete them.
+        for error in errors:
+            self.report.failure(
+                title="EMS REST Proxy returned a partial result",
+                message="One or more server groups could not be read, so their "
+                "destinations are missing from this run.",
+                context=f"{path}: {error}",
+            )
 
     def _allowed(self, destination: TibcoDestination) -> bool:
         if not self.config.include_system_destinations and (
@@ -155,7 +190,12 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_destination(
         self, destination: TibcoDestination
     ) -> Iterable[MetadataWorkUnit]:
-        name = self._dataset_name(destination.destination_type, destination.name)
+        yield from self._emit_server_group(destination.server_group)
+        name = self._dataset_name(
+            destination.server_group,
+            destination.destination_type,
+            destination.name,
+        )
         dataset = Dataset(
             platform=self.platform,
             name=name,
@@ -164,16 +204,38 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
             display_name=destination.name,
             subtype=_SUBTYPE_BY_DESTINATION_TYPE[destination.destination_type],
             custom_properties=self._custom_properties(destination),
+            parent_container=self._server_group_key(destination.server_group),
         )
         yield from dataset.as_workunits()
         self.report.datasets_emitted += 1
 
+    def _emit_server_group(self, server_group: str) -> Iterable[MetadataWorkUnit]:
+        if server_group in self._emitted_server_groups:
+            return
+        self._emitted_server_groups.add(server_group)
+        container = Container(
+            self._server_group_key(server_group),
+            display_name=server_group,
+            subtype=DatasetContainerSubTypes.TIBCO_EMS_SERVER_GROUP,
+        )
+        yield from container.as_workunits()
+        self.report.server_groups_emitted += 1
+
+    def _server_group_key(self, server_group: str) -> TibcoEmsServerGroupKey:
+        return TibcoEmsServerGroupKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+            server_group=server_group,
+        )
+
     def _emit_bridge_lineage(self) -> Iterable[MetadataWorkUnit]:
         bridges = self.client.fetch_bridges()
-        self.report.bridges_scanned = len(bridges)
+        self.report.bridges_scanned = len(bridges.records)
+        self._report_proxy_errors(BRIDGES_PATH, bridges.errors)
 
         upstreams_by_target: Dict[str, Set[str]] = {}
-        for bridge in bridges:
+        for bridge in bridges.records:
             self._collect_bridge_upstreams(bridge, upstreams_by_target)
 
         for target_urn, source_urns in upstreams_by_target.items():
@@ -254,11 +316,13 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         upstreams_by_target: Dict[str, Set[str]],
     ) -> None:
         source_urn = self._resolve_destination_urn(
-            bridge.source_type, bridge.source_name
+            bridge.server_group, bridge.source_type, bridge.source_name
         )
         for target in bridge.targets:
+            # A bridge is configured on one EMS server, so its targets are in the
+            # same server group as the bridge itself.
             target_urn = self._resolve_destination_urn(
-                target.destination_type, target.name
+                bridge.server_group, target.destination_type, target.name
             )
             if source_urn is None or target_urn is None:
                 self.report.lineage_edges_unresolved += 1
@@ -267,6 +331,7 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
 
     def _resolve_destination_urn(
         self,
+        server_group: str,
         destination_type: Optional[DestinationType],
         name: str,
     ) -> Optional[str]:
@@ -277,7 +342,9 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
         if destination_type is None or WILDCARD_DESTINATION_PATTERN.search(name):
             self.report.report_bridge_endpoint_unresolved(name)
             return None
-        return self._dataset_urn(self._dataset_name(destination_type, name))
+        return self._dataset_urn(
+            self._dataset_name(server_group, destination_type, name)
+        )
 
     def _custom_properties(self, destination: TibcoDestination) -> Dict[str, str]:
         properties: Dict[str, str] = {
@@ -300,8 +367,12 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
                 )
         return properties
 
-    def _dataset_name(self, destination_type: DestinationType, name: str) -> str:
-        return f"{destination_type.value}{NAME_DELIMITER}{name}"
+    def _dataset_name(
+        self, server_group: str, destination_type: DestinationType, name: str
+    ) -> str:
+        # Server groups are independent namespaces and queues and topics are
+        # independent of each other, so both lead the name to keep urns unique.
+        return NAME_DELIMITER.join((server_group, destination_type.value, name))
 
     def _dataset_urn(self, name: str) -> str:
         return make_dataset_urn_with_platform_instance(

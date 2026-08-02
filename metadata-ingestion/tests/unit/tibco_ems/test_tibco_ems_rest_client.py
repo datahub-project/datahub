@@ -7,7 +7,8 @@ from datahub.ingestion.source.tibco_ems.constants import HEADER_AUTHORIZATION
 from datahub.ingestion.source.tibco_ems.models import DestinationType
 from datahub.ingestion.source.tibco_ems.rest_client import (
     TibcoEmsRestClient,
-    _as_object_list,
+    _next_cursor,
+    _records,
 )
 
 _BASE_URL = "https://ems.example.com:8080"
@@ -38,10 +39,61 @@ def test_ca_certificate_overrides_verify() -> None:
     assert client.session.verify == "/tmp/ca.pem"
 
 
-def test_as_object_list_handles_bare_list_and_envelope() -> None:
-    assert _as_object_list([{"a": 1}, "skip", 2]) == [{"a": 1}]
-    assert _as_object_list({"queues": [{"a": 1}]}) == [{"a": 1}]
-    assert _as_object_list("unexpected") == []
+def test_records_handles_bare_list_and_envelope() -> None:
+    assert _records([{"a": 1}, "skip", 2], "queues") == [{"a": 1}]
+    assert _records({"queues": [{"a": 1}]}, "queues") == [{"a": 1}]
+    assert _records("unexpected", "queues") == []
+
+
+def test_records_ignores_the_errors_array() -> None:
+    # A real envelope serialises "errors" before the records, so reading the first
+    # array in the envelope would return nothing at all.
+    payload = {
+        "errors": [],
+        "first": "cursor-a",
+        "next": "",
+        "queues": [{"name": "q1"}],
+    }
+    assert _records(payload, "queues") == [{"name": "q1"}]
+
+
+def test_fetch_follows_the_next_cursor(requests_mock: Mocker) -> None:
+    requests_mock.post(f"{_BASE_URL}/connect", json={})
+    requests_mock.get(
+        f"{_BASE_URL}/system/ems/queues",
+        [
+            {"json": {"errors": [], "next": "page-2", "queues": [{"name": "q1"}]}},
+            {"json": {"errors": [], "next": "", "queues": [{"name": "q2"}]}},
+        ],
+    )
+    listing = _client().fetch_queues()
+
+    assert [q.name for q in listing.records] == ["q1", "q2"]
+    assert requests_mock.request_history[-1].qs["cursor"] == ["page-2"]
+
+
+def test_fetch_stops_when_the_cursor_repeats(requests_mock: Mocker) -> None:
+    requests_mock.post(f"{_BASE_URL}/connect", json={})
+    requests_mock.get(
+        f"{_BASE_URL}/system/ems/queues",
+        json={"errors": [], "next": "stuck", "queues": [{"name": "q1"}]},
+    )
+    assert len(_client().fetch_queues().records) == 2
+
+
+def test_fetch_surfaces_envelope_errors(requests_mock: Mocker) -> None:
+    requests_mock.post(f"{_BASE_URL}/connect", json={})
+    requests_mock.get(
+        f"{_BASE_URL}/system/ems/queues",
+        json={"errors": ["group2 unreachable"], "next": "", "queues": []},
+    )
+    assert _client().fetch_queues().errors == ["group2 unreachable"]
+
+
+def test_next_cursor_treats_empty_as_exhausted() -> None:
+    assert _next_cursor({"next": "abc"}) == "abc"
+    assert _next_cursor({"next": ""}) is None
+    assert _next_cursor({}) is None
 
 
 def test_connect_called_once(requests_mock: Mocker) -> None:
@@ -64,8 +116,8 @@ def test_fetch_queues_and_topics_set_destination_type(requests_mock: Mocker) -> 
 
     queues = client.fetch_queues()
     topics = client.fetch_topics()
-    assert queues[0].destination_type is DestinationType.QUEUE
-    assert topics[0].destination_type is DestinationType.TOPIC
+    assert queues.records[0].destination_type is DestinationType.QUEUE
+    assert topics.records[0].destination_type is DestinationType.TOPIC
 
 
 def test_fetch_raises_on_http_error(requests_mock: Mocker) -> None:

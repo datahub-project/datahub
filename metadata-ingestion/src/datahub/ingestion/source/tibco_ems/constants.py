@@ -11,6 +11,24 @@ QUEUES_PATH = "system/ems/queues"
 TOPICS_PATH = "system/ems/topics"
 BRIDGES_PATH = "system/ems/configuration/bridges"
 
+# Every list response is an envelope: the records live under a resource-specific
+# key, alongside an "errors" array and the pagination cursors. The record key must
+# be named explicitly - "errors" is itself an array and is emitted first, so
+# picking the envelope's first array value returns no records at all.
+RESPONSE_KEY_QUEUES = "queues"
+RESPONSE_KEY_TOPICS = "topics"
+RESPONSE_KEY_BRIDGES = "bridges"
+RESPONSE_KEY_ERRORS = "errors"
+RESPONSE_KEY_NEXT_CURSOR = "next"
+
+# Responses are capped at the proxy's `page_limit`; the remainder is reached by
+# replaying the request with the previous page's "next" cursor until it is empty.
+QUERY_PARAM_CURSOR = "cursor"
+# A proxy that keeps handing back a cursor would otherwise loop forever. EMS
+# estates are thousands of destinations at most, so this bound is never reached
+# in practice by a correctly behaving server.
+MAX_PAGES = 10_000
+
 HTTP_SCHEME_HTTP = "http://"
 HTTP_SCHEME_HTTPS = "https://"
 HEADER_AUTHORIZATION = "Authorization"
@@ -29,6 +47,12 @@ HTTP_RETRY_ALLOWED_METHODS: FrozenSet[str] = frozenset({"GET", "POST"})
 DEST_TYPE_QUEUE = "queue"
 DEST_TYPE_TOPIC = "topic"
 NAME_DELIMITER = "."
+
+# One REST Proxy can administer several fault-tolerant EMS server groups at once,
+# and each group is an independent destination namespace - the same queue name in
+# two groups is two unrelated queues. The group therefore leads the dataset name
+# and is the container the destination sits in.
+DEFAULT_SERVER_GROUP = "default"
 
 # Custom-property keys emitted on destination datasets.
 PROPERTY_DESTINATION_TYPE = "destination_type"
