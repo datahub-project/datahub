@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -6,21 +6,18 @@ import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
+import { useRevealDocumentInTree } from '@app/document/hooks/useRevealDocumentInTree';
 import { useSectionExpansion } from '@app/document/hooks/useSectionExpansion';
 import {
     DocumentTreeFilterSelection,
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
-import {
-    DocumentSourceGroup,
-    formatPlatformLabel,
-    partitionRootNodesByLayer,
-} from '@app/document/utils/documentTreeGrouping';
+import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
-import { TreeSectionHeader } from '@app/homeV2/layout/sidebar/documents/TreeSectionHeader';
 import Loading from '@app/shared/Loading';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
 // Section id for the built-in "DataHub" (native docs) group. Platform groups use
 // their platform urn as the id; this sentinel keeps the native group distinct.
@@ -95,6 +92,17 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     });
     const { getCurrentDocumentUrn, handleDocumentClick } = useDocumentNavigation(onSelectDocument);
 
+    // Deep-link / URL navigation: expand + load the ancestor path so the selected
+    // row mounts. Skip in picker/selection mode (move dialog, etc.).
+    const isNavigationMode = !onSelectDocument && !multiSelect;
+    useRevealDocumentInTree({
+        loadChildren,
+        loadMoreChildren,
+        hasMoreChildren,
+        rootsLoading: loading,
+        skip: !isNavigationMode,
+    });
+
     // Section-scoped expand-all / collapse-all (per DataHub + per-platform group).
     const { isSectionExpanded, isSectionExpanding, toggleSectionExpandAll } = useSectionExpansion(loadChildren);
     const expandAllLabel = t('context.tree.expandAll');
@@ -127,6 +135,37 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             return next;
         });
     }, []);
+
+    // Keep the section that owns the open document expanded (native vs platform).
+    useEffect(() => {
+        if (!isNavigationMode) return;
+        const currentUrn = getCurrentDocumentUrn();
+        if (!currentUrn) return;
+
+        let cursor: string | null = currentUrn;
+        let rootUrn = currentUrn;
+        while (cursor) {
+            const node = getNode(cursor);
+            if (!node) break;
+            rootUrn = node.urn;
+            cursor = node.parentUrn;
+        }
+
+        const rootNode = getNode(rootUrn);
+        if (!rootNode) return;
+
+        if (rootNode.isExternal && rootNode.platform?.urn) {
+            const platformUrn = rootNode.platform.urn;
+            setCollapsedPlatformUrns((prev) => {
+                if (!prev.has(platformUrn)) return prev;
+                const next = new Set(prev);
+                next.delete(platformUrn);
+                return next;
+            });
+        } else {
+            setIsNativeExpanded(true);
+        }
+    }, [isNavigationMode, getCurrentDocumentUrn, getNode, expandedUrns]);
 
     const renderTreeNode = useCallback(
         (urn: string, level: number): React.ReactNode => {
@@ -209,7 +248,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     // DataHub header.
     const renderPlatformGroup = useCallback(
         (group: DocumentSourceGroup) => {
-            const { platform } = group;
+            const { platform, label } = group;
             const isExpanded = !collapsedPlatformUrns.has(platform.urn);
             const allExpanded = isSectionExpanded(group.nodes);
 
@@ -217,7 +256,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                 <React.Fragment key={platform.urn}>
                     <TreeSectionHeader
                         level={0}
-                        label={formatPlatformLabel(platform)}
+                        label={label}
                         isExpanded={isExpanded}
                         onToggle={() => togglePlatformGroup(platform.urn)}
                         testId={`document-tree-platform-${platform.urn}`}

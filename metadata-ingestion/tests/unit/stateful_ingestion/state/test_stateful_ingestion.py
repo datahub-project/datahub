@@ -144,7 +144,7 @@ class DummySource(StatefulIngestionSourceBase):
             ).as_workunit()
 
         if self.source_config.report_failure:
-            self.reporter.report_failure("Dummy error", "Error")
+            self.reporter.failure("Dummy error", "Error")
 
     def get_report(self) -> SourceReport:
         return self.reporter

@@ -10,6 +10,7 @@ import styled from 'styled-components/macro';
 import SchemaSearchInput from '@app/entityV2/dataset/profile/schema/components/SchemaSearchInput';
 import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import AddLogicalModelColumnButton from '@app/entityV2/shared/logicalModels/AddLogicalModelColumnButton';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 
 import { SemanticVersionStruct } from '@types';
@@ -96,6 +97,7 @@ type Props = {
     highlightedMatchIndex: number | null;
     setHighlightedMatchIndex: (val: number | null) => void;
     matches: { path: string; index: number }[];
+    showAddLogicalModelColumnButton?: boolean;
 };
 
 export default function SchemaHeader({
@@ -117,6 +119,7 @@ export default function SchemaHeader({
     matches,
     highlightedMatchIndex,
     setHighlightedMatchIndex,
+    showAddLogicalModelColumnButton,
 }: Props) {
     const { t } = useTranslation('entity.types');
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
@@ -173,6 +176,7 @@ export default function SchemaHeader({
                             numRows={numRows}
                         />
                     )}
+                    {showAddLogicalModelColumnButton && <AddLogicalModelColumnButton />}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
                     {versionList.length > 1 && (

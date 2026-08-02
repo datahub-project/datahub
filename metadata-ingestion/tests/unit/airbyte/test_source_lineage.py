@@ -532,6 +532,27 @@ def test_resolve_destination_schema_customformat_underscore_variant(source):
     assert result == "namespace_public"
 
 
+def test_resolve_destination_schema_customformat_substitutes_literally(source):
+    # A schema name containing regex replacement syntax must be inserted
+    # verbatim, not interpreted as a backreference.
+    stream_config = _make_stream_config()
+    connection = _make_connection(
+        namespace_definition="customformat",
+        namespace_format="prefix_${SOURCE_NAMESPACE}",
+    )
+    destination = _make_destination()
+
+    result = source._resolve_destination_schema(
+        stream_config=stream_config,
+        connection=connection,
+        source_schema=r"my\schema",
+        destination=destination,
+        stream_name="customers",
+    )
+
+    assert result == r"prefix_my\schema"
+
+
 def test_resolve_destination_schema_falls_back_to_destination_default(source):
     stream_config = _make_stream_config()
     connection = _make_connection()

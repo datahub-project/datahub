@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -94,9 +95,10 @@ public class RelatedDocumentsResolver
             // Note: applyShowInGlobalContext=false because related documents should show
             // all context documents (those are meant to be discovered through their related
             // entities)
+            final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             Filter filter =
                 DocumentSearchFilterUtils.buildCombinedFilter(
-                    baseUserCriteria, userAndGroupUrns, false);
+                    baseUserCriteria, userAndGroupUrns, false, canManageDocuments);
 
             // Step 1: Search using service to get URNs
             // Sort by lastModifiedAt descending to show most recently updated documents first

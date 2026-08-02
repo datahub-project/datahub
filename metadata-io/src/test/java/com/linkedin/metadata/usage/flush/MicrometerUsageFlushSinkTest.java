@@ -11,6 +11,7 @@ import com.linkedin.metadata.usage.flush.MicrometerUsageFlushSink;
 import com.linkedin.metadata.usage.flush.UsageFlushBatch;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +39,8 @@ public class MicrometerUsageFlushSinkTest {
             "metadata_read",
             UsageDimensions.AGENT_CLASS,
             "browser",
+            UsageDimensions.AGENT_NAME,
+            "datahub/custom-agent",
             UsageDimensions.REQUEST_API,
             "openapi",
             UsageDimensions.AUTH_CHANNEL,
@@ -53,7 +56,7 @@ public class MicrometerUsageFlushSinkTest {
                 new AdditiveUsageRow("output_bytes", UsageActorClass.REGULAR, dimensions, 200)),
             List.of());
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(registry.get("datahub_request_count").counter().count(), 3.0);
     Assert.assertEquals(
@@ -61,6 +64,7 @@ public class MicrometerUsageFlushSinkTest {
             .get("datahub_request_count")
             .tag(UsageDimensions.AUTH_CHANNEL, "session")
             .tag(UsageDimensions.ACTOR_CLASS, "regular")
+            .tag(UsageDimensions.AGENT_NAME, "datahub/custom-agent")
             .counter()
             .count(),
         3.0);
@@ -88,7 +92,7 @@ public class MicrometerUsageFlushSinkTest {
             List.of(new AdditiveUsageRow("api_calls", null, dimensions, 2)),
             List.of());
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(
         registry
@@ -120,7 +124,7 @@ public class MicrometerUsageFlushSinkTest {
                             "urn:li:corpuser:datahub",
                             io.datahubproject.metadata.context.usage.AttributionType.HUMAN)))));
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(
         registry
@@ -152,7 +156,7 @@ public class MicrometerUsageFlushSinkTest {
                             "urn:li:corpuser:a",
                             io.datahubproject.metadata.context.usage.AttributionType.HUMAN)))));
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(
         registry
@@ -194,7 +198,7 @@ public class MicrometerUsageFlushSinkTest {
                             "urn:li:corpuser:b",
                             io.datahubproject.metadata.context.usage.AttributionType.HUMAN)))));
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(
         registry
@@ -219,7 +223,7 @@ public class MicrometerUsageFlushSinkTest {
             List.of(),
             List.of(new DistinctUsageSnapshot("active_users", "support", List.of())));
 
-    sink.publish(batch);
+    sink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(
         registry

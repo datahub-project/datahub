@@ -66,7 +66,11 @@ public final class UsageMetricIncrementResolver {
       return isKnownRequestPhasePair(metric) ? 0 : -1;
     }
 
-    int usageQuantity = Math.max(1, requestContext.getUsageQuantity());
+    if (!metric.matchesRequestApi(requestContext.getRequestAPI())) {
+      return 0L;
+    }
+
+    long usageQuantity = Math.max(1L, requestContext.getUsageQuantity());
     return switch (metric.emitWhen()) {
       case ALWAYS -> resolveAlwaysIncrement(
           metric.valueUnit(), operationEntry, requestContext, usageQuantity);
@@ -98,13 +102,14 @@ public final class UsageMetricIncrementResolver {
       return Optional.of(BILLED_BYTES_METRIC);
     }
     if (isReportDrivenMetric(metric)) {
-      // Do not share DATAHUB_REQUEST_COUNT with api_calls; export under the registry name.
+      // Do not share DATAHUB_REQUEST_COUNT with request-path counters.
       if (metric.valueUnit() == ValueUnit.COUNT) {
         return Optional.of("datahub.usage." + metric.metricName());
       }
       return Optional.empty();
     }
     return switch (metric.valueUnit()) {
+        // Combined request-path counter (api_calls).
       case COUNT -> Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT);
       case INPUT_BYTES -> Optional.of(INPUT_BYTES_METRIC);
       case OUTPUT_BYTES -> Optional.of(OUTPUT_BYTES_METRIC);
@@ -147,9 +152,9 @@ public final class UsageMetricIncrementResolver {
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
       @Nonnull RequestContext requestContext,
-      int usageQuantity) {
+      long usageQuantity) {
     return switch (valueUnit) {
-      case COUNT -> operationEntry.ingestionEndpoint() ? (long) usageQuantity : 1L;
+      case COUNT -> operationEntry.ingestionEndpoint() ? usageQuantity : 1L;
       case INPUT_BYTES -> requestContext.getInputBytes() != null
           ? requestContext.getInputBytes()
           : 0L;
@@ -171,7 +176,7 @@ public final class UsageMetricIncrementResolver {
   private static long resolveCostProfileIncrement(
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
-      int usageQuantity) {
+      long usageQuantity) {
     if (valueUnit != ValueUnit.COST_UNITS) {
       return -1;
     }

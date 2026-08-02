@@ -14,6 +14,9 @@
     "changeEventString.defaultRelationship": "relacionado",
     "changeEventString.fieldDocEmpty": "A documentação do campo {{fieldPath}} está vazia.",
     "changeEventString.modifiedColumn": "Coluna {{column}} modificada.",
+    "changeEventString.relationshipLabel.contained": "contido",
+    "changeEventString.relationshipLabel.inherited": "herdado",
+    "changeEventString.relationshipLabel.value": "valor",
     "changeEventString.removedAsset": "Ativo \"{{assetName}}\" removido.",
     "changeEventString.removedColumn": "Coluna {{column}} removida.",
     "changeEventString.removedFromApplication": "Removido da aplicação \"{{appName}}\".",
@@ -158,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Algumas tags foram originadas de {{platform}}. Elas serão ressincronizadas periodicamente durante a ingestion agendada.",
     "tagTermRenderer.tagsNotEditable": "Algumas tags não são editáveis.",
     "usageStatsRenderer.hasColumnStats": "Possui estatísticas de coluna",
-    "usageStatsRenderer.noColumnStats": "Sem estatísticas de coluna"
+    "usageStatsRenderer.noColumnStats": "Sem estatísticas de coluna",
+    "fieldLogical.andMore": "e mais {{count}}",
+    "fieldLogical.logicalParentInfo": "Coluna no Modelo Lógico que define os metadados desta coluna. Alterações nos metadados da coluna do Pai Lógico são propagadas automaticamente para esta coluna.",
+    "fieldLogical.logicalParentTitle": "Pai Lógico",
+    "fieldLogical.physicalChildrenInfo": "Implementações físicas desta coluna do Modelo Lógico. Alterações nos metadados desta coluna são propagadas automaticamente para essas colunas filhas.",
+    "fieldLogical.physicalChildrenTitle": "Filhos Físicos",
+    "fieldLogical.viewAllPhysicalChildren": "Ver Todos os Filhos Físicos"
 }

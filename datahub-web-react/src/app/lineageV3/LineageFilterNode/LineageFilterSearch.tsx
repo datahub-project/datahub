@@ -41,9 +41,12 @@ interface Props {
     data: LineageFilter;
     numMatches: number;
     setNumMatches: (numMatches: number) => void;
+    /** If false, keeps the current viewport in place when search results change,
+     * rather than zooming to the filter node. Defaults to true. */
+    zoomToNode?: boolean;
 }
 
-export default function LineageFilterSearch({ data, numMatches, setNumMatches }: Props) {
+export default function LineageFilterSearch({ data, numMatches, setNumMatches, zoomToNode = true }: Props) {
     const { t } = useTranslation('lineage');
     const { id, direction, parent, limit } = data;
 
@@ -61,9 +64,9 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
         if (filters && searchQuery.length < 3 && oldSearchQuery?.length >= 3) {
             filters.searchUrns = undefined;
             setNumMatches(0);
-            setDisplayVersion(([prev]) => [prev + 1, [id]]);
+            setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
         }
-    }, [searchQuery, oldSearchQuery, id, parent, direction, nodes, setNumMatches, setDisplayVersion]);
+    }, [searchQuery, oldSearchQuery, id, parent, direction, nodes, setNumMatches, setDisplayVersion, zoomToNode]);
 
     const orFilters = computeOrFilters([{ field: DEGREE_FILTER_NAME, values: ['1'] }]);
     const { loading } = useSearchAcrossLineageNamesQuery({
@@ -99,7 +102,8 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                 filters.searchUrns = new Set(
                     queryData.searchAcrossLineage?.searchResults?.map((result) => result.entity.urn),
                 );
-                setDisplayVersion(([prev]) => [prev + 1, [id]]);
+                // Keeping the previous zoom node list leaves the viewport in place
+                setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
             }
         },
     });

@@ -48,8 +48,14 @@ type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
     const { t } = useTranslation('lineage');
-    const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities, setDisplayVersion } =
-        useContext(LineageNodesContext);
+    const {
+        rootUrn,
+        hideTransformations,
+        showDataProcessInstances,
+        showGhostEntities,
+        outputPortsOnly,
+        setDisplayVersion,
+    } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
     const { fitView, setNodes } = useReactFlow();
@@ -77,7 +83,12 @@ export default function LineageControls() {
         return () => {};
     }, [isExpanded]);
 
-    const isFilterActive = isLineageFilterActive({ hideTransformations, showDataProcessInstances, showGhostEntities });
+    const isFilterActive =
+        isLineageFilterActive({
+            hideTransformations,
+            showDataProcessInstances,
+            showGhostEntities,
+        }) || outputPortsOnly;
 
     return (
         <StyledPanel position="top-left">

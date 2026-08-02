@@ -15,13 +15,13 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipCardinality;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.ModelDataset;
-import com.linkedin.datahub.graphql.generated.SemanticField;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.SemanticModelInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModelRelationship;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -31,7 +31,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -81,7 +80,7 @@ public class SemanticModelMapper {
     if (envelopedInfo != null) {
       final com.linkedin.semanticmodel.SemanticModelInfo pdlInfo =
           new com.linkedin.semanticmodel.SemanticModelInfo(envelopedInfo.getValue().data());
-      result.setInfo(mapSemanticModelInfo(context, pdlInfo, entityUrn));
+      result.setInfo(mapSemanticModelInfo(pdlInfo));
     }
 
     final EnvelopedAspect envelopedUpstreamLineage =
@@ -180,6 +179,13 @@ public class SemanticModelMapper {
               context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedAiContext = aspects.get(Constants.AI_CONTEXT_ASPECT_NAME);
+    if (envelopedAiContext != null) {
+      result.setAiContext(
+          AiContextMapper.map(
+              new com.linkedin.common.AiContext(envelopedAiContext.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedBrowsePathsV2 =
         aspects.get(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     if (envelopedBrowsePathsV2 != null) {
@@ -196,9 +202,7 @@ public class SemanticModelMapper {
   }
 
   private static SemanticModelInfo mapSemanticModelInfo(
-      @Nullable QueryContext context,
-      final com.linkedin.semanticmodel.SemanticModelInfo pdl,
-      final Urn semanticModelUrn) {
+      final com.linkedin.semanticmodel.SemanticModelInfo pdl) {
     final SemanticModelInfo result = new SemanticModelInfo();
     result.setName(pdl.getName());
 
@@ -214,17 +218,12 @@ public class SemanticModelMapper {
     if (pdl.hasNativeDefinition() && pdl.getNativeDefinition() != null) {
       result.setNativeDefinition(pdl.getNativeDefinition());
     }
-    if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(
-          com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper.map(
-              pdl.getAiContext()));
-    }
 
-    final List<ModelDataset> datasets;
+    final List<Dataset> datasets;
     if (pdl.hasDatasets() && pdl.getDatasets() != null) {
       datasets =
           pdl.getDatasets().stream()
-              .map(md -> mapModelDataset(context, md, semanticModelUrn))
+              .map(SemanticModelMapper::mapDatasetStub)
               .collect(Collectors.toList());
     } else {
       datasets = Collections.emptyList();
@@ -241,28 +240,10 @@ public class SemanticModelMapper {
     return result;
   }
 
-  private static ModelDataset mapModelDataset(
-      @Nullable QueryContext context,
-      final com.linkedin.semanticmodel.ModelDataset pdl,
-      final Urn semanticModelUrn) {
-    final ModelDataset result = new ModelDataset();
-    result.setName(pdl.getName());
-
-    if (pdl.hasSource() && pdl.getSource() != null) {
-      result.setSource(UrnToEntityMapper.map(context, pdl.getSource()));
-    }
-
-    if (pdl.hasFields() && pdl.getFields() != null) {
-      final List<SemanticField> fields = new ArrayList<>();
-      for (com.linkedin.semanticmodel.SemanticField field : pdl.getFields()) {
-        final SemanticField mapped = SemanticFieldMapper.map(context, field, semanticModelUrn);
-        if (mapped != null) {
-          fields.add(mapped);
-        }
-      }
-      result.setFields(fields);
-    }
-
+  private static Dataset mapDatasetStub(final Urn datasetUrn) {
+    final Dataset result = new Dataset();
+    result.setUrn(datasetUrn.toString());
+    result.setType(EntityType.DATASET);
     return result;
   }
 
@@ -284,9 +265,7 @@ public class SemanticModelMapper {
     }
 
     if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(
-          com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper.map(
-              pdl.getAiContext()));
+      result.setAiContext(AiContextMapper.map(pdl.getAiContext()));
     }
 
     return result;

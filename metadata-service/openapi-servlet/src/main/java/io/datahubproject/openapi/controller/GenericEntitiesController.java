@@ -10,7 +10,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,6 +24,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -244,7 +244,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entityName)) {
+    // Document access can be inherited from each bridge source, which cannot be evaluated at the
+    // entity-type level. The result-level check below authorizes every returned document.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -287,7 +290,7 @@ public abstract class GenericEntitiesController<
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -335,7 +338,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -377,7 +380,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
@@ -415,7 +418,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -476,7 +479,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
@@ -511,7 +514,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -551,7 +554,7 @@ public abstract class GenericEntitiesController<
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    int usageQuantity = RequestContext.resolveIngestUsageQuantity(jsonEntityList, objectMapper);
+    long usageQuantity = RequestContext.resolveIngestUsageQuantity(jsonEntityList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -565,12 +568,22 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+        opContext, CREATE, List.of(entityName))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+    // Existence-aware document CREATE/UPDATE: CREATE_ENTITY alone must not overwrite existing
+    // documents, and UPDATE alone must not create missing ones.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext,
+        CREATE,
+        batch.getItems().stream().map(item -> item.getUrn()).collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    }
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -604,7 +617,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -672,7 +685,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
@@ -749,7 +762,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
       throw new UnauthorizedException(
           actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }

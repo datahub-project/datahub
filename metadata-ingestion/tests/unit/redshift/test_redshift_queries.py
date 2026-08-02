@@ -193,3 +193,64 @@ class TestServerlessQueries:
             # Should not have bare LISTAGG without RTRIM wrapper
             assert 'LISTAGG(qt."text")' not in sql
             assert "LEN(RTRIM(querytxt)) = 0" not in sql
+
+
+def _assert_no_inner_join_on(sql: str, view: str) -> None:
+    # The user-info views (svl_user_info / SVV_USER_INFO) enrich a log row with a
+    # username; they must never gate it. Every join on them must be a LEFT join, so a
+    # user the view can't resolve (rdsdb, or a real user on editions that keep these
+    # views superuser/self-only) doesn't drop the row.
+    lowered = sql.lower()
+    view = view.lower()
+    assert f"join {view}" in lowered
+    assert lowered.count(f"join {view}") == lowered.count(f"left join {view}")
+
+
+class TestUserInfoJoinResilience:
+    """The username-resolution join to the user-info views must only enrich, never gate.
+    rdsdb (the internal system user, absent from these views) is excluded explicitly by
+    its system user id -- not as a side effect of an INNER join."""
+
+    def test_provisioned_usage_query_left_joins_and_excludes_rdsdb_by_id(self):
+        sql = RedshiftProvisionedQuery.usage_query(
+            start_time="2024-01-01 00:00:00",
+            end_time="2024-01-02 00:00:00",
+            database="dev",
+        )
+        _assert_no_inner_join_on(sql, "svl_user_info")
+        assert "sq.userid <> 1" in sql
+
+    def test_provisioned_operation_aspect_query_left_joins_and_excludes_rdsdb(self):
+        sql = RedshiftProvisionedQuery.operation_aspect_query(
+            start_time="2024-01-01 00:00:00", end_time="2024-01-02 00:00:00"
+        )
+        # Both the insert and delete branches must LEFT join and exclude rdsdb by id.
+        assert sql.lower().count("left join svl_user_info") == 2
+        assert sql.count("sq.userid <> 1") == 2
+        _assert_no_inner_join_on(sql, "svl_user_info")
+
+    def test_serverless_usage_query_left_joins_and_excludes_rdsdb_by_id(self):
+        sql = RedshiftServerlessQuery.usage_query(
+            start_time="2024-01-01 00:00:00",
+            end_time="2024-01-02 00:00:00",
+            database="dev",
+        )
+        _assert_no_inner_join_on(sql, "svv_user_info")
+        assert "qd.user_id <> 1" in sql
+
+    def test_serverless_operation_aspect_query_left_joins_and_excludes_rdsdb(self):
+        sql = RedshiftServerlessQuery.operation_aspect_query(
+            start_time="2024-01-01 00:00:00", end_time="2024-01-02 00:00:00"
+        )
+        _assert_no_inner_join_on(sql, "svv_user_info")
+        assert "qd.user_id <> 1" in sql
+
+    def test_serverless_insert_lineage_excludes_rdsdb_by_id_not_name(self):
+        # rdsdb has no row in SVV_USER_INFO, so a name-based `<> 'rdsdb'` relied on NULL
+        # propagation and also dropped any real user the view couldn't resolve. Excluding
+        # by user_id keeps unresolved real users (LEFT join) while still dropping rdsdb.
+        sql = RedshiftServerlessQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert "qd.user_id <> 1" in sql
+        assert "user_name <> 'rdsdb'" not in sql

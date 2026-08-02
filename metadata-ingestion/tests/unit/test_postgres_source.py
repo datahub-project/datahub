@@ -280,7 +280,7 @@ def test_query_lineage_prerequisites_failure(create_engine_mock):
             mock_extractor.extract_query_history.return_value = []
 
             def mock_populate_with_failure() -> None:
-                source.report.report_failure(
+                source.report.failure(
                     message="pg_stat_statements extension is not installed",
                     context="pg_stat_statements_not_ready",
                 )
@@ -306,7 +306,7 @@ def test_get_procedures_for_schema(create_engine_mock):
     - Language is normalized to uppercase (postgres returns lowercase "sql")
     - procedure_definition uses prosrc (body only, no CREATE PROCEDURE wrapper)
     """
-    from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+    from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 
     config = PostgresConfig.model_validate({**_base_config(), "database": "testdb"})
     source = PostgresSource(config, PipelineContext(run_id="test"))

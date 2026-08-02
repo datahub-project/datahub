@@ -280,26 +280,24 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
 
             try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
 
-                self.profiler = SparkProfiler(
+                self.profiler = FileProfiler(
                     aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
+                    verify_ssl=config.verify_ssl,
                     report=self.report,
                     profiling_times_taken=self.profiling_times_taken,
                     profiling_config=config.profiling,
                 )
             except (ImportError, ModuleNotFoundError) as e:
                 raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "Profiling dependencies are not installed but are required for "
+                    "S3/GCS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
 
     @classmethod
@@ -342,14 +340,17 @@ class S3Source(StatefulIngestionSourceBase):
                 fields = inferrer.infer_schema(file)
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                self.report.warning(
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
+                    log=False,
                 )
         else:
-            self.report.report_warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+            self.report.warning(
+                message="File has unsupported extension",
+                context=table_data.full_path,
+                log=False,
             )
         file.close()
 
@@ -373,7 +374,7 @@ class S3Source(StatefulIngestionSourceBase):
         elif content_type == "text/tab-separated-values":
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/avro":
             return avro.AvroInferrer()
         elif extension == ".parquet":
@@ -387,7 +388,7 @@ class S3Source(StatefulIngestionSourceBase):
                 max_rows=self.source_config.max_rows, format="jsonl"
             )
         elif extension == ".json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".avro":
             return avro.AvroInferrer()
         else:
@@ -541,11 +542,12 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
                     context=f"dataset={table_data.display_name}, file={table_data.full_path}",
                     exc=e,
+                    log=False,
                 )
         else:
             logger.info(
@@ -676,6 +678,21 @@ class S3Source(StatefulIngestionSourceBase):
 
             yield from self.resolve_templated_folders(
                 f"{folder.path}/{remaining_pattern}"
+            )
+
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders (CommonPrefixes) — never objects."""
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder_uri in self.resolve_templated_folders(path_spec.glob_include):
+            if not path_spec.folder_allowed(
+                self._normalize_uri_for_pattern_matching(folder_uri)
+            ):
+                logger.debug(f"Skipping folder excluded by path_spec: {folder_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                folder_uri.rstrip("/")
             )
 
     def get_dir_to_process(
@@ -1054,9 +1071,10 @@ class S3Source(StatefulIngestionSourceBase):
 
         except Exception as e:
             if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
-                self.get_report().report_warning(
+                self.get_report().warning(
                     "Missing bucket",
                     f"No bucket found {e.response['Error'].get('BucketName')}",
+                    log=False,
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
@@ -1156,6 +1174,10 @@ class S3Source(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.s3_browser(
                         path_spec, self.source_config.number_of_files_to_sample

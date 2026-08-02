@@ -263,7 +263,7 @@ def generate_connector_registry_cli(
             logger.error(f"Source '{source}' not found in registry")
             return
         original_mapping = source_registry.mapping.copy()
-        source_registry.mapping = {source: original_mapping[source]}
+        source_registry.mapping = {source: original_mapping[source]}  # type: ignore[misc]
 
     try:
         registry = generate_connector_registry()
@@ -283,7 +283,7 @@ def generate_connector_registry_cli(
 
     finally:
         if source:
-            source_registry.mapping = original_mapping
+            source_registry.mapping = original_mapping  # type: ignore[misc]
 
 
 if __name__ == "__main__":
