@@ -174,6 +174,35 @@ public class PostgresSqlSetupPropertiesTest {
     props.validateForUse(DatabaseType.POSTGRES);
   }
 
+  @Test
+  public void buildPgTimeseriesOptions_defaultsForceOverwriteFalse() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgTimeseriesSetupOptions o = props.buildPgTimeseriesOptions();
+    assertEquals(o.isForceOverwritePartmanConfig(), false);
+    assertEquals(o.getRetentionMaxAgeSeconds(), 7776000);
+  }
+
+  @Test
+  public void buildPgTimeseriesOptions_forceOverwritePartmanConfig() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPartitioning().setForceOverwritePartmanConfig(true);
+    props.validateForUse(DatabaseType.POSTGRES);
+    assertEquals(props.buildPgTimeseriesOptions().isForceOverwritePartmanConfig(), true);
+  }
+
+  private static PostgresSqlSetupProperties basePgTimeseriesProps() {
+    PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
+    props.setSchema("public");
+    props.getPgTimeseries().setEnabled(true);
+    props.getPgTimeseries().setTablePrefix("metadata_timeseries");
+    props.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
+    props.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    props.getPgTimeseries().getRetention().setMaxAgeSeconds(7776000);
+    props.getPgTimeseries().getMaintenance().setCronEnabled(false);
+    return props;
+  }
+
   private static PostgresSqlSetupProperties basePgQueueProps() {
     PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
     props.setSchema("public");

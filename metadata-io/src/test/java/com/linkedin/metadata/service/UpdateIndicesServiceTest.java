@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -63,6 +64,7 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null, // No semantic search config for this test
             mock(IndexConvention.class),
@@ -76,6 +78,7 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             true, // v2Enabled = true (both strategies active)
             null);
@@ -230,6 +233,7 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),

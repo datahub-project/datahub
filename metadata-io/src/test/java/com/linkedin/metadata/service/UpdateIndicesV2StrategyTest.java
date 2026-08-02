@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -120,6 +121,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null, // No semantic search config for basic tests
             mock(IndexConvention.class),
@@ -469,6 +471,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -495,6 +498,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -526,6 +530,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -556,6 +561,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -586,6 +592,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -622,6 +629,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -721,6 +729,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             semanticConfig,
             indexConvention,
@@ -954,6 +963,7 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),
@@ -1174,6 +1184,7 @@ public class UpdateIndicesV2StrategyTest {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
+        TimeseriesAspectWriteSink.NOOP,
         "MD5",
         null,
         mock(IndexConvention.class),
