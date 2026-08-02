@@ -205,17 +205,17 @@ flowchart TB
   truncate -->|"DELETE by entity+aspect+event_time"| parent
 ```
 
-| Layer                      | Mechanism                                                                                                | Scope                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Layer                      | Mechanism                                                                                                                                            | Scope                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | **Hard ceiling**           | `pg_partman` `part_config.retention` from `DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS` (default 90d). Set `0` to clear retention and stop drops. | All aspects — whole time partitions drop |
-| **Shorter per-aspect TTL** | `truncateTimeseriesAspect` / `datahub-gc` deletes on `(entity_name, aspect_name, event_time)`            | Selected `(entity, aspect)` pairs        |
+| **Shorter per-aspect TTL** | `truncateTimeseriesAspect` / `datahub-gc` deletes on `(entity_name, aspect_name, event_time)`                                                        | Selected `(entity, aspect)` pairs        |
 
 `partmanPartitionInterval` / `partmanPremake` apply on first `create_parent` and then stay sticky.
 To change them later, set `DATAHUB_PGTIMESERIES_PARTITIONING_FORCE_OVERWRITE=true` for a SqlSetup
 re-run (leaves existing child partitions alone; use with care).
 
 Schedule GC or call the truncate API for shorter per-aspect TTLs (see
-[datahub-gc](../metadata-ingestion/docs/sources/datahubgc/datahub-gc_post.md)):
+[datahub-gc](./generated/ingestion/sources/datahub-gc.md)):
 
 ```yaml
 source:
