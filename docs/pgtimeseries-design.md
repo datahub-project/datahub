@@ -59,7 +59,7 @@ flowchart LR
 
 Postgres quickstart/debug profiles (`quickstart-postgres`, `debug-postgres`, consumers variants,
 etc.) enable **exclusive** pgTimeseries by default via
-`x-primary-datastore-postgres-env` in [`docker/profiles/docker-compose.gms.yml`](../docker/profiles/docker-compose.gms.yml):
+`x-primary-datastore-postgres-env` in `docker/profiles/docker-compose.gms.yml`:
 
 ```bash
 DATAHUB_PGTIMESERIES_ENABLED=true
@@ -214,8 +214,8 @@ flowchart TB
 To change them later, set `DATAHUB_PGTIMESERIES_PARTITIONING_FORCE_OVERWRITE=true` for a SqlSetup
 re-run (leaves existing child partitions alone; use with care).
 
-Schedule GC or call the truncate API for shorter per-aspect TTLs (see
-[datahub-gc](./generated/ingestion/sources/datahub-gc.md)):
+Schedule GC or call the truncate API for shorter per-aspect TTLs (see the
+`datahub-gc` ingestion source):
 
 ```yaml
 source:
