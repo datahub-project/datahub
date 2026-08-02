@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional, Set
 
 from requests.exceptions import RequestException
 
@@ -29,8 +29,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.tibco_bw.client import TibcoClient, create_client
-from datahub.ingestion.source.tibco_bw.config import TibcoBwSourceConfig
+from datahub.ingestion.source.tibco_bw.config import (
+    TibcoAppLineage,
+    TibcoBwSourceConfig,
+)
 from datahub.ingestion.source.tibco_bw.constants import (
+    LINEAGE_KEY_DELIMITER,
     PROPERTY_DOMAIN,
     TIBCO_BW_PLATFORM,
 )
@@ -41,6 +45,8 @@ from datahub.ingestion.source.tibco_bw.models import (
 )
 from datahub.ingestion.source.tibco_bw.report import TibcoBwSourceReport
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -87,6 +93,17 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         # Case-folded field path -> real field path per dataset urn, read from
         # DataHub once and reused across applications.
         self._schema_field_cache: Dict[str, Dict[str, str]] = {}
+        # Scopes in which each unqualified application_lineage key was applied, so
+        # a key that matches the same application name in more than one scope can
+        # be flagged rather than silently duplicating lineage.
+        self._unqualified_lineage_scopes: Dict[str, Set[str]] = {}
+        if not config.verify_ssl:
+            self.report.warning(
+                title="TLS certificate verification is disabled",
+                message="Connections to the TIBCO API are open to interception. "
+                "Prefer `ca_certificate_path` for a private CA.",
+                context=config.base_url,
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "TibcoBwSource":
@@ -148,6 +165,12 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         yield self._subtype_workunit(
             str(flow.urn), _FLOW_SUBTYPE_BY_DEPLOYMENT[self.config.deployment]
         )
+        # DataFlow and DataJob cannot belong to a Container, so the deployment
+        # hierarchy is only navigable if the browse path spells it out. Without
+        # this the entities land unparented unless a platform_instance happens to
+        # be configured, which is what the automatic processor keys off.
+        scope_path = self._scope_browse_entries(scope)
+        yield self._browse_path_workunit(str(flow.urn), scope_path)
         self.report.flows_emitted += 1
 
         for application in scope.applications:
@@ -155,10 +178,23 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.application_pattern.allowed(application.name):
                 self.report.report_application_filtered(application.name)
                 continue
-            yield from self._emit_application(flow, application)
+            yield from self._emit_application(scope, flow, application)
+
+    def _scope_browse_entries(self, scope: TibcoScope) -> List[BrowsePathEntryClass]:
+        # On-prem an appspace lives inside a domain; in the cloud a subscription is
+        # already the top of the hierarchy.
+        domain = scope.properties.get(PROPERTY_DOMAIN)
+        return [BrowsePathEntryClass(id=domain)] if domain else []
+
+    def _browse_path_workunit(
+        self, entity_urn: str, path: List[BrowsePathEntryClass]
+    ) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn, aspect=BrowsePathsV2Class(path=path)
+        ).as_workunit()
 
     def _emit_application(
-        self, flow: DataFlow, application: TibcoApplication
+        self, scope: TibcoScope, flow: DataFlow, application: TibcoApplication
     ) -> Iterable[MetadataWorkUnit]:
         job = DataJob(
             id=application.name,
@@ -171,7 +207,7 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         # The runtime APIs expose deployment topology but not the datasets an
         # application reads or writes, so lineage is taken from the operator-supplied
         # application_lineage map rather than discovered.
-        lineage = self.config.application_lineage.get(application.name)
+        lineage = self._lineage_for(scope, application)
         if lineage is not None:
             job.inlets = [DatasetUrn.from_string(urn) for urn in lineage.upstreams]
             job.outlets = [DatasetUrn.from_string(urn) for urn in lineage.downstreams]
@@ -188,10 +224,44 @@ class TibcoBwSource(StatefulIngestionSourceBase, TestableSource):
         ):
             yield mcp.as_workunit()
         yield self._subtype_workunit(str(job.urn), DataJobSubTypes.TIBCO_APPLICATION)
+        flow_urn = str(flow.urn)
+        yield self._browse_path_workunit(
+            str(job.urn),
+            [
+                *self._scope_browse_entries(scope),
+                BrowsePathEntryClass(id=flow_urn, urn=flow_urn),
+            ],
+        )
         self.report.jobs_emitted += 1
         if has_lineage:
             self.report.jobs_with_lineage += 1
             self.report.lineage_iolets_emitted += len(job.inlets) + len(job.outlets)
+
+    def _lineage_for(
+        self, scope: TibcoScope, application: TibcoApplication
+    ) -> Optional[TibcoAppLineage]:
+        # Application names are only unique within their deployment scope, so the
+        # scope-qualified key wins. The bare name stays supported because a
+        # single-scope estate has nothing to disambiguate, but reusing it across
+        # scopes silently copies one application's lineage onto its namesakes.
+        qualified_key = f"{scope.id}{LINEAGE_KEY_DELIMITER}{application.name}"
+        lineage = self.config.application_lineage.get(qualified_key)
+        if lineage is not None:
+            return lineage
+        lineage = self.config.application_lineage.get(application.name)
+        if lineage is None:
+            return None
+        scopes = self._unqualified_lineage_scopes.setdefault(application.name, set())
+        scopes.add(scope.id)
+        if len(scopes) > 1:
+            self.report.warning(
+                title="Unqualified application_lineage key matches several scopes",
+                message="The same lineage is being applied to every application "
+                f"with this name. Qualify the key as `<scope>{LINEAGE_KEY_DELIMITER}"
+                "<application>` to target one of them.",
+                context=f"{application.name}: {sorted(scopes)}",
+            )
+        return lineage
 
     def _build_column_lineage(
         self, upstreams: List[str], downstreams: List[str]

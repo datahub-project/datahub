@@ -98,10 +98,14 @@ class TibcoBwSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     )
     application_lineage: Dict[str, TibcoAppLineage] = Field(
         default_factory=dict,
-        description="Manually declared lineage per application, keyed by application "
-        "name. Maps each application to the dataset urns it consumes and produces. "
-        "The TIBCO runtime APIs do not expose which datasets an application reads or "
-        "writes, so lineage is supplied here rather than discovered.",
+        description="Manually declared lineage per application, mapping it to the "
+        "dataset urns it consumes and produces. The TIBCO runtime APIs do not expose "
+        "which datasets an application reads or writes, so lineage is supplied here "
+        "rather than discovered. Key by `<scope>/<application>` - where scope is "
+        "`<domain>/<appspace>` on-prem or the subscription id in the cloud - to target "
+        "one deployment; a bare application name is also accepted and applies to every "
+        "application with that name, which is only safe when the name is unique across "
+        "the estate.",
     )
     emit_column_lineage: bool = Field(
         default=False,

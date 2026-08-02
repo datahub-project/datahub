@@ -93,6 +93,22 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-loe6qe",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
     "changeType": "UPSERT",
@@ -214,6 +230,27 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),sync)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+                    "urn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-loe6qe",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -280,6 +317,27 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "tibco-bw-2024_01_01-00_00_00-wu1gl8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,sub-1,PROD),report)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)",
+                    "urn": "urn:li:dataFlow:(tibco-bw,sub-1,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-loe6qe",
         "lastRunId": "no-run-id-provided"
     }
 }

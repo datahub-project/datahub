@@ -12,23 +12,38 @@ under its scope's Data Flow. Application version, run state, and application
 type are attached as custom properties, and (on-prem) appnode names and states
 are attached to the appspace.
 
+Data Flows and Data Jobs cannot belong to a container, so the deployment
+hierarchy is spelled out in each entity's browse path instead: on-prem an
+appspace browses under its domain and an application under
+`<domain>/<appspace>`; in the cloud a subscription is already the top level, so
+an application browses directly under its subscription.
+
 #### Lineage
 
 The bwagent and TIBCO Cloud APIs expose deployment topology (domains, appspaces,
 subscriptions, applications and their run state) but **not** the datasets each
 application reads or writes. Lineage therefore cannot be discovered automatically
 and is instead declared by the operator via `application_lineage`, which maps an
-application name to the dataset urns it consumes (`upstreams`) and produces
-(`downstreams`):
+application to the dataset urns it consumes (`upstreams`) and produces
+(`downstreams`).
+
+Application names are only unique within their deployment scope, so key each
+entry by `<scope>/<application>` — where scope is `<domain>/<appspace>` on-prem
+or the subscription id in the cloud:
 
 ```yaml
 application_lineage:
-  order-sync:
+  MyDomain/MyAppSpace/order-sync:
     upstreams:
       - "urn:li:dataset:(urn:li:dataPlatform:kafka,orders_in,PROD)"
     downstreams:
       - "urn:li:dataset:(urn:li:dataPlatform:hana,sales.orders,PROD)"
 ```
+
+A bare application name is also accepted and applies to every application with
+that name, which is only safe when the name is unique across the estate. When a
+bare key does match more than one scope the connector warns, because the same
+lineage is then copied onto each of them.
 
 The referenced datasets are linked as the application's inputs/outputs without
 being materialized, so lineage is added to datasets that other connectors own.

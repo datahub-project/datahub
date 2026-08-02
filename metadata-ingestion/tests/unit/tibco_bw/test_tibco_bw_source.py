@@ -199,6 +199,41 @@ def test_invalid_lineage_urn_is_rejected() -> None:
         _source(application_lineage={"orders": {"upstreams": ["not-a-urn"]}})
 
 
+def test_scope_qualified_lineage_key_targets_one_deployment() -> None:
+    # The same application name is deployed in two appspaces but only one of them
+    # reads the upstream, so the qualified key must not leak across scopes.
+    source = _source(
+        application_lineage={"D1/AS1/orders": {"upstreams": [_UPSTREAM_URN]}}
+    )
+    workunits = _run(source, [_scope("AS1", ["orders"]), _scope("AS2", ["orders"])])
+
+    io_aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    ]
+    assert len(io_aspects) == 1
+    assert io_aspects[0].inputDatasets == [_UPSTREAM_URN]
+    assert "AS1" in _io_urn(workunits)
+
+
+def test_unqualified_lineage_key_matching_several_scopes_warns() -> None:
+    source = _source(application_lineage={"orders": {"upstreams": [_UPSTREAM_URN]}})
+    _run(source, [_scope("AS1", ["orders"]), _scope("AS2", ["orders"])])
+
+    # Both deployments get the lineage, which is rarely what was meant.
+    assert source.report.jobs_with_lineage == 2
+    assert len(source.report.warnings) == 1
+
+
+def _io_urn(workunits: list) -> str:
+    return next(
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+    )
+
+
 def _lineage_source(**overrides: object) -> TibcoBwSource:
     return _source(
         emit_column_lineage=True,

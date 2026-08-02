@@ -96,6 +96,26 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "MyDomain"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-b8orxx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD),orders)",
     "changeType": "UPSERT",
@@ -218,6 +238,30 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD),orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "MyDomain"
+                },
+                {
+                    "id": "urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD)",
+                    "urn": "urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-b8orxx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD),billing)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -284,6 +328,30 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "tibco-bw-2024_01_01-00_00_00-k7jip8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD),billing)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "MyDomain"
+                },
+                {
+                    "id": "urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD)",
+                    "urn": "urn:li:dataFlow:(tibco-bw,MyDomain/MyAppSpace,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "tibco-bw-2024_01_01-00_00_00-b8orxx",
         "lastRunId": "no-run-id-provided"
     }
 }

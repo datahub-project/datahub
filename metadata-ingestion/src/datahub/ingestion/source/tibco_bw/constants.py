@@ -56,3 +56,7 @@ PROPERTY_APP_TYPE = "app_type"
 
 # Joins appnode "name (status)" entries into the single appnodes property value.
 APPNODE_ENTRY_DELIMITER = ", "
+
+# Separates the deployment scope from the application name in an
+# `application_lineage` key, matching the "domain/appspace" scope id itself.
+LINEAGE_KEY_DELIMITER = "/"
