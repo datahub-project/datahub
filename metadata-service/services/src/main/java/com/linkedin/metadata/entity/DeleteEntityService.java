@@ -97,7 +97,7 @@ public class DeleteEntityService {
     try (CascadeOperationContext cascade =
         CascadeOperationContext.begin(_metricUtils, "deleteReferencesTo", urn, -1)) {
 
-      // Phase 1: Delete file references (S3 objects + file entity soft-delete)
+      // Phase 1: Delete file references (object storage + file entity soft-delete)
       int totalFileCount = deleteFileReferences(opContext, urn, false, cascade);
 
       // Phase 2: Delete search-based references (forms, structured properties)
@@ -840,9 +840,9 @@ public class DeleteEntityService {
   }
 
   /**
-   * Find and delete files from S3 when their referenced entity is being deleted. This method finds
-   * all DataHub file entities that reference the deleted entity via the referencedByAsset field,
-   * deletes them from S3, and soft-deletes the file entities.
+   * Find and delete files from object storage when their referenced entity is being deleted. This
+   * method finds all DataHub file entities that reference the deleted entity via the
+   * referencedByAsset field, deletes them from object storage, and soft-deletes the file entities.
    *
    * @param opContext the operation context
    * @param deletedUrn the URN of the entity being deleted

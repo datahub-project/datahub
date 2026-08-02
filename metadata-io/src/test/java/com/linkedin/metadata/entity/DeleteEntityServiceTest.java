@@ -720,9 +720,9 @@ public class DeleteEntityServiceTest {
             eq(true));
   }
 
-  /** Test that file cleanup is skipped when S3Util is not configured */
+  /** Test that file cleanup is skipped when ObjectStorageClient is not configured */
   @Test
-  public void testDeleteFileReferencesWithoutS3Util() {
+  public void testDeleteFileReferencesWithoutObjectStorageClient() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null, null);
@@ -810,7 +810,7 @@ public class DeleteEntityServiceTest {
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
-    // Verify file entity was still soft-deleted even without S3Util
+    // Verify file entity was still soft-deleted even without ObjectStorageClient
     Mockito.verify(mockEntityService, Mockito.times(1))
         .ingestProposal(
             any(OperationContext.class),
@@ -820,11 +820,12 @@ public class DeleteEntityServiceTest {
   }
 
   /**
-   * Test that file cleanup continues even if S3 deletion fails. We soft-delete the entity to avoid
-   * leaving the parent entity in limbo. The tradeoff is accepting a potential orphaned S3 object.
+   * Test that file cleanup continues even if object storage deletion fails. We soft-delete the
+   * entity to avoid leaving the parent entity in limbo. The tradeoff is accepting a potential
+   * orphaned storage object.
    */
   @Test
-  public void testDeleteFileReferencesWithS3Failure() {
+  public void testDeleteFileReferencesWithObjectStorageFailure() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
     Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
@@ -894,7 +895,7 @@ public class DeleteEntityServiceTest {
                 eq(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)))
         .thenReturn(fileInfo);
 
-    // Make S3 deletion throw an exception
+    // Make object storage deletion throw an exception
     Mockito.doThrow(new RuntimeException("object storage error"))
         .when(mockObjectStorageClient)
         .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
