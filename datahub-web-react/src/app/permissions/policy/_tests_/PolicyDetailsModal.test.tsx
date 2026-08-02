@@ -45,6 +45,24 @@ vi.mock('@app/permissions/AvatarsGroup', () => ({
     default: () => <div data-testid="avatars-group">Avatar Group Mock</div>,
 }));
 
+// Mock the ownership types query so the modal can resolve excluded ownership type
+// names without an Apollo provider (the modal now calls useOwnershipTypes()).
+vi.mock('@graphql/ownership.generated', () => ({
+    useListOwnershipTypesQuery: () => ({
+        data: {
+            listOwnershipTypes: {
+                ownershipTypes: [
+                    { urn: 'urn:li:ownershipType:TECHNICAL_OWNER', info: { name: 'Technical Owner' } },
+                    { urn: 'urn:li:ownershipType:BUSINESS_OWNER', info: { name: 'Business Owner' } },
+                ],
+            },
+        },
+        loading: false,
+        refetch: vi.fn(),
+        error: undefined,
+    }),
+}));
+
 // Default mock policy
 const mockPolicy: Omit<Policy, 'urn'> = {
     type: PolicyType.Metadata,
@@ -129,6 +147,29 @@ const mockPolicyWithResourceOwners = {
     },
 };
 
+// Mock policy with excluded ownership types
+const mockPolicyWithExcludedOwnershipTypes = {
+    ...mockPolicy,
+    type: PolicyType.Metadata,
+    actors: {
+        ...mockPolicy.actors,
+        resourceOwners: true,
+        excludedResourceOwnersTypes: ['urn:li:ownershipType:BUSINESS_OWNER'],
+    },
+};
+
+// Mock policy with excluded users & groups
+const mockPolicyWithExcludedActors = {
+    ...mockPolicy,
+    actors: {
+        ...mockPolicy.actors,
+        excludedUsers: ['urn:li:corpuser:excluded-user'],
+        excludedGroups: ['urn:li:corpGroup:excluded-group'],
+        resolvedExcludedUsers: [],
+        resolvedExcludedGroups: [],
+    },
+};
+
 describe('PolicyDetailsModal', () => {
     // Suppress console warnings about missing keys
     beforeEach(() => {
@@ -194,5 +235,54 @@ describe('PolicyDetailsModal', () => {
         // Check the ownership types section
         expect(screen.getByText('Applies to Owners')).toBeInTheDocument();
         expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+    });
+
+    it('renders excluded ownership types with resolved names', () => {
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={mockPolicyWithExcludedOwnershipTypes}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        // The excluded ownership types section renders with the type name resolved
+        // from the ownership types query (BUSINESS_OWNER -> "Business Owner").
+        expect(screen.getByText('Excluded ownership types:')).toBeInTheDocument();
+        expect(screen.getByText('Business Owner')).toBeInTheDocument();
+    });
+
+    it('renders excluded users & groups section when present', () => {
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={mockPolicyWithExcludedActors}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.getByText('Excluded Users & Groups')).toBeInTheDocument();
+    });
+
+    it('does not render excluded sections when policy has no exclusions', () => {
+        render(
+            <BrowserRouter>
+                <PolicyDetailsModal
+                    policy={mockPolicy}
+                    open
+                    onClose={() => {}}
+                    privileges={[{ type: 'view', name: 'View' }]}
+                />
+            </BrowserRouter>,
+        );
+
+        expect(screen.queryByText('Excluded ownership types:')).not.toBeInTheDocument();
+        expect(screen.queryByText('Excluded Users & Groups')).not.toBeInTheDocument();
     });
 });

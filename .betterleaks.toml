@@ -11,6 +11,7 @@ title = "DataHub betterleaks config"
 #
 # matchesAny (regex) is used rather than containsAny: containsAny misses multi-line
 # matches (e.g. the multi-line RSA key block in archive.py).
+#   YOUR_ACCESS_TOKEN       -> action-workflows-reference docs curl example placeholder
 filter = '''
 filter.matchesAny(finding["match"], [
   "MIIyourkey",
