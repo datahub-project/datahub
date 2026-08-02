@@ -23,6 +23,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -33,6 +34,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.tibco_ems.config import TibcoEmsSourceConfig
 from datahub.ingestion.source.tibco_ems.constants import (
     BRIDGES_PATH,
+    CONSUMER_RELATIONSHIP,
     NAME_DELIMITER,
     PROPERTY_CONSUMER_COUNT,
     PROPERTY_DESTINATION_TYPE,
@@ -42,8 +44,10 @@ from datahub.ingestion.source.tibco_ems.constants import (
     PROPERTY_MAX_MSGS,
     PROPERTY_PENDING_MESSAGES,
     PROPERTY_PREFETCH,
+    PROPERTY_SCHEMA_SOURCE,
     PROPERTY_SECURE,
     QUEUES_PATH,
+    SCHEMA_SOURCE_DERIVED,
     SYSTEM_DESTINATION_PATTERN,
     TIBCO_EMS_PLATFORM,
     TOPICS_PATH,
@@ -59,9 +63,11 @@ from datahub.ingestion.source.tibco_ems.report import TibcoEmsSourceReport
 from datahub.ingestion.source.tibco_ems.rest_client import TibcoEmsRestClient
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    SchemaFieldClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -92,6 +98,12 @@ _SUBTYPE_BY_DESTINATION_TYPE: Dict[DestinationType, str] = {
     SourceCapability.LINEAGE_FINE,
     "Best-effort for bridges when both endpoints have a schema in DataHub, matched by "
     "name (a bridge copies whole messages); enable with `emit_column_lineage`",
+    supported=True,
+)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "EMS has no message schema registry. Schemas can be estimated from the schemas of "
+    "downstream consumers with `derive_schemas_from_lineage`",
     supported=True,
 )
 class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
@@ -196,6 +208,14 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
             destination.destination_type,
             destination.name,
         )
+        properties = self._custom_properties(destination)
+        schema = (
+            self._derive_schema(self._dataset_urn(name), destination.name)
+            if self.config.derive_schemas_from_lineage
+            else None
+        )
+        if schema:
+            properties[PROPERTY_SCHEMA_SOURCE] = SCHEMA_SOURCE_DERIVED
         dataset = Dataset(
             platform=self.platform,
             name=name,
@@ -203,11 +223,131 @@ class TibcoEmsSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             display_name=destination.name,
             subtype=_SUBTYPE_BY_DESTINATION_TYPE[destination.destination_type],
-            custom_properties=self._custom_properties(destination),
+            custom_properties=properties,
             parent_container=self._server_group_key(destination.server_group),
+            schema=schema,
         )
         yield from dataset.as_workunits()
         self.report.datasets_emitted += 1
+
+    def _derive_schema(
+        self, dataset_urn: str, display_name: str
+    ) -> Optional[List[SchemaFieldClass]]:
+        """Estimate a destination's message fields from what its consumers landed.
+
+        EMS has no schema registry, and unlike a Kafka log a JMS destination cannot
+        be sampled without consuming the customer's production messages - so the
+        only surviving evidence of a message's shape is what came out of it.
+
+        The union across consumers, not the intersection: consumers keep different
+        subsets of a message, and any field one of them landed must have been on the
+        wire. That makes the result downstream-shaped, which is why it is labelled
+        rather than presented as a contract.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.warning(
+                title="Cannot derive schemas without a DataHub graph",
+                message="`derive_schemas_from_lineage` reads consumer schemas from "
+                "DataHub. Configure a datahub-rest sink or a `datahub_api` block.",
+                context=display_name,
+            )
+            return None
+        if self._has_declared_schema(dataset_urn):
+            return None
+
+        consumers = self._consumers(dataset_urn)
+        if not consumers:
+            self.report.report_destination_without_consumers(display_name)
+            return None
+
+        fields: Dict[str, SchemaFieldClass] = {}
+        for consumer_urn in consumers:
+            consumer_schema = graph.get_schema_metadata(consumer_urn)
+            if consumer_schema is None:
+                continue
+            for field in consumer_schema.fields:
+                self._merge_derived_field(fields, field, display_name)
+        if not fields:
+            self.report.report_destination_without_consumers(display_name)
+            return None
+
+        self.report.derived_schemas_emitted += 1
+        self.report.derived_schema_fields_emitted += len(fields)
+        return [fields[key] for key in sorted(fields)]
+
+    def _merge_derived_field(
+        self,
+        fields: Dict[str, SchemaFieldClass],
+        field: SchemaFieldClass,
+        display_name: str,
+    ) -> None:
+        if not self.config.generated_field_pattern.allowed(field.fieldPath):
+            self.report.derived_fields_excluded += 1
+            return
+        # Keyed case-folded because the same field is routinely cased differently on
+        # each consuming platform; the first casing seen becomes the message's.
+        key = field.fieldPath.casefold()
+        existing = fields.get(key)
+        if existing is None:
+            # Only the shape is carried over. Copying the whole field would drag the
+            # consumer's descriptions, tags and terms onto the bus, presenting one
+            # consumer's documentation as the message's own.
+            fields[key] = SchemaFieldClass(
+                fieldPath=field.fieldPath,
+                type=field.type,
+                nativeDataType=field.nativeDataType,
+                # Nullability is a property of the message, and nothing downstream
+                # can prove a field was always present.
+                nullable=True,
+            )
+        elif existing.nativeDataType != field.nativeDataType:
+            self.report.report_derived_field_type_conflict(
+                display_name,
+                field.fieldPath,
+                existing.nativeDataType,
+                field.nativeDataType,
+            )
+
+    def _has_declared_schema(self, dataset_urn: str) -> bool:
+        # A schema the publisher declared outranks anything estimated here, so a
+        # destination already carrying one is left alone. A previously derived
+        # schema is refreshed, since its inputs may have changed.
+        graph = self.ctx.graph
+        if graph is None or graph.get_schema_metadata(dataset_urn) is None:
+            return False
+        properties = graph.get_aspect(dataset_urn, DatasetPropertiesClass)
+        # No properties at all means no provenance to read, and a schema of unknown
+        # origin is treated as declared - overwriting someone else's work silently is
+        # the worse failure.
+        if properties is None:
+            return True
+        return (properties.customProperties or {}).get(
+            PROPERTY_SCHEMA_SOURCE
+        ) != SCHEMA_SOURCE_DERIVED
+
+    def _consumers(self, dataset_urn: str) -> List[str]:
+        graph = self.ctx.graph
+        if graph is None:
+            return []
+        try:
+            related = graph.get_related_entities(
+                dataset_urn,
+                [CONSUMER_RELATIONSHIP],
+                RelationshipDirection.INCOMING,
+            )
+            return sorted(
+                {entity.urn for entity in related if entity.urn != dataset_urn}
+            )
+        except Exception as exc:
+            self.report.warning(
+                title="Could not read a destination's consumers",
+                message="Schema derivation needs the destination's downstream "
+                "lineage, which could not be read from DataHub.",
+                context=dataset_urn,
+                exc=exc,
+            )
+            return []
 
     def _emit_server_group(self, server_group: str) -> Iterable[MetadataWorkUnit]:
         if server_group in self._emitted_server_groups:

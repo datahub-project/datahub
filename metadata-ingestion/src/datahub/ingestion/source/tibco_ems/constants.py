@@ -65,6 +65,38 @@ PROPERTY_EXPIRATION = "expiration"
 PROPERTY_PENDING_MESSAGES = "pending_message_count"
 PROPERTY_CONSUMER_COUNT = "consumer_count"
 
+# Recorded on a schema this source estimated, so nobody reads it as a contract.
+# A schema declared by the publisher (from a BusinessWorks archive, say) carries a
+# different value and is never replaced by a derived one.
+PROPERTY_SCHEMA_SOURCE = "schema_source"
+SCHEMA_SOURCE_DERIVED = "derived-from-lineage"
+
+# UpstreamLineage on a consumer records it as DownstreamOf what it reads, so the
+# consumers of a destination are the incoming edges of that relationship.
+CONSUMER_RELATIONSHIP = "DownstreamOf"
+
+# Columns a consuming pipeline writes once the message has already landed. Reading
+# one back onto the destination would claim the bus published a value the pipeline
+# invented, so they are dropped from a derived schema. Matched case-insensitively.
+DEFAULT_GENERATED_FIELD_DENY = [
+    r"^_.*",
+    r"^ingested_at$",
+    r"^ingestion_.*",
+    r"^ingest_.*",
+    r"^loaded_at$",
+    r"^load_ts$",
+    r"^load_date$",
+    r"^refreshed_at$",
+    r"^processed_at$",
+    r"^source_file$",
+    r"^source_topic$",
+    r"^etl_.*",
+    r"^dw_.*",
+]
+
+# A derived schema has no serialised form to quote, unlike an XSD-declared one.
+DERIVED_RAW_SCHEMA = ""
+
 # EMS creates internal destinations (monitoring, undelivered messages, temporary
 # destinations) whose names start with "$sys." or "$TMP$". They are excluded by
 # default because they are not business data flows.

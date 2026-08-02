@@ -11,6 +11,10 @@ source:
     # Optional: derive lineage from EMS bridges (default: true)
     include_bridges: true
 
+    # Optional: estimate message schemas from the schemas of downstream consumers,
+    # since EMS has no schema registry (default: false). Needs a graph connection.
+    derive_schemas_from_lineage: false
+
     # Optional: filter destinations
     queue_pattern:
       allow:

@@ -10,6 +10,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.tibco_ems.constants import DEFAULT_GENERATED_FIELD_DENY
 
 
 class TibcoEmsSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -61,6 +62,27 @@ class TibcoEmsSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         "from DataHub (populated for the destinations by a schema-registry or other "
         "connector). Best-effort: emitted only where both endpoints have a schema and "
         "share field names. Requires a DataHub graph to be available.",
+    )
+    derive_schemas_from_lineage: bool = Field(
+        default=False,
+        description="Estimate each destination's message fields from the schemas of "
+        "its downstream consumers, read from DataHub. EMS has no message schema "
+        "registry and cannot be sampled without consuming production messages, so "
+        "this is the only schema available when the publisher's declared schema is "
+        "not supplied. The result is downstream-shaped - it reflects what consumers "
+        "kept, not what was published - and is marked "
+        "`schema_source: derived-from-lineage` so it is not mistaken for a contract. "
+        "A destination that already carries a declared schema is left alone. "
+        "Requires a DataHub graph to be available.",
+    )
+    generated_field_pattern: AllowDenyPattern = Field(
+        default_factory=lambda: AllowDenyPattern(
+            deny=list(DEFAULT_GENERATED_FIELD_DENY)
+        ),
+        description="Field names to exclude when deriving a schema from lineage. The "
+        "defaults drop the columns a consuming pipeline adds after the message lands "
+        "(`ingested_at`, `_source_topic`, and similar); keeping one would assert the "
+        "bus published a value the pipeline invented.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
