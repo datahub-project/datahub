@@ -4880,8 +4880,14 @@
           "supported": true
         },
         {
+          "capability": "SCHEMA_METADATA",
+          "description": "Declared JMS message schemas read from supplied application archives (`application_archives`) and emitted onto the EMS destination datasets",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
-          "description": "Emitted from the operator-supplied `application_lineage` map, since the TIBCO runtime APIs do not expose an application's datasets",
+          "description": "Emitted from the operator-supplied `application_lineage` map, since the TIBCO runtime APIs do not expose an application's datasets, and from the JMS activities in any archive supplied via `application_archives`",
           "subtype_modifier": null,
           "supported": true
         },
