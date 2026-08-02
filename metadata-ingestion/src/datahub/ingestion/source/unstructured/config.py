@@ -1,6 +1,8 @@
 """Shared configuration models for Unstructured.io-based sources."""
 
 import re
+import tempfile
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -325,7 +327,12 @@ class CacheConfig(ConfigModel):
 class AdvancedConfig(ConfigModel):
     """Advanced configuration options."""
 
-    work_dir: str = Field(default="/tmp/unstructured_datahub")
+    # default_factory with tempfile.gettempdir() rather than a literal "/tmp":
+    # on Windows that path resolves to C:\tmp, which does not exist by default,
+    # so the source fails unless every user overrides work_dir by hand.
+    work_dir: str = Field(
+        default_factory=lambda: str(Path(tempfile.gettempdir()) / "unstructured_datahub")
+    )
     preserve_outputs: bool = Field(default=False)
     output_format: Literal["json", "xml"] = Field(default="json")
     raise_on_error: bool = Field(default=False)
