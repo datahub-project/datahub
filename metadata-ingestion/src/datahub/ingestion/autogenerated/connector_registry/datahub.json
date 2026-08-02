@@ -4862,6 +4862,12 @@
     "tibco-ems": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Each EMS server group is emitted as a container holding its destinations",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Best-effort for bridges when both endpoints have a schema in DataHub, matched by name (a bridge copies whole messages); enable with `emit_column_lineage`",
           "subtype_modifier": null,
@@ -4876,6 +4882,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "EMS has no message schema registry. Schemas can be estimated from the schemas of downstream consumers with `derive_schemas_from_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
