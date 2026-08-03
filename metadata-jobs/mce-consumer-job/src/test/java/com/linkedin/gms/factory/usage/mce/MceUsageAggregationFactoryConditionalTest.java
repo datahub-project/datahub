@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.usage.mce;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.usage.identity.UsageActorClassResolver;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import com.linkedin.metadata.usage.registry.operations.UsageOperationsRegistry;
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -65,6 +67,10 @@ public class MceUsageAggregationFactoryConditionalTest {
         new ApplicationContextRunner()
             .withUserConfiguration(UsageYamlConfigFactory.class, MceUsageAggregationFactory.class)
             .withBean(ConfigurationProvider.class, () -> configurationProvider)
+            .withBean(
+                "systemOperationContext",
+                OperationContext.class,
+                () -> mock(OperationContext.class))
             .withBean(SimpleMeterRegistry.class, SimpleMeterRegistry::new);
   }
 

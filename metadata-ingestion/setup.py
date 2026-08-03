@@ -75,7 +75,9 @@ framework_common = {
     # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
-    "ijson<4.0.0",
+    # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
+    # schema inferrer relies on to keep numbers as native int/float.
+    "ijson>=3.2.0,<4.0.0",
     "click-spinner<0.2.0",
     "requests_file<4.0.0",
     "jsonref<2.0.0",
@@ -622,7 +624,7 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common,
+    "dataplex": dataplex_common | cachetools_lib,
     "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
@@ -781,6 +783,7 @@ plugins: Dict[str, Set[str]] = {
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
+    "sap-datasphere": rest_common | {"defusedxml>=0.7.1,<0.8.0"},
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
@@ -960,6 +963,7 @@ base_dev_requirements = {
     "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
@@ -1012,6 +1016,7 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "s3",
+            "sap-datasphere",
             "snowflake",
             "snowplow",
             "snaplogic",
@@ -1184,6 +1189,7 @@ entry_points = {
         "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",

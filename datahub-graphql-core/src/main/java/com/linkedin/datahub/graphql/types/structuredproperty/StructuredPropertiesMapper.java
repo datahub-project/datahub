@@ -88,7 +88,20 @@ public class StructuredPropertiesMapper {
       List<Entity> entities) {
     try {
       final Urn urnValue = Urn.createFromString(stringValue);
-      entities.add(UrnToEntityMapper.map(context, urnValue));
+      // UrnToEntityMapper returns null for entity types it does not know how to map. A string value
+      // that merely parses as a URN (e.g. free text on a non-urn property, or a URN of an unmapped
+      // entity type) must not contribute a null entity, otherwise downstream resolution of
+      // valueEntities NPEs on the null element.
+      final Entity mappedEntity = UrnToEntityMapper.map(context, urnValue);
+      if (mappedEntity != null) {
+        entities.add(mappedEntity);
+      } else {
+        log.warn(
+            "Skipping value entity for structured property value '{}': entity type '{}' is not"
+                + " mapped by UrnToEntityMapper",
+            stringValue,
+            urnValue.getEntityType());
+      }
     } catch (Exception e) {
       log.debug("String value is not an urn for this structured property entry");
     }

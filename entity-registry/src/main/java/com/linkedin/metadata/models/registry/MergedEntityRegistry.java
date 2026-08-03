@@ -214,28 +214,26 @@ public class MergedEntityRegistry implements EntityRegistry {
     // 3. If both define searchGroup and they're different, this is an error (should be caught in
     // validation)
     String mergedSearchGroup = determineSearchGroup(existingEntitySpec, newEntitySpec);
+    // viewUnrestricted: true if either side marks the entity unrestricted
+    boolean mergedViewUnrestricted =
+        existingEntitySpec.isViewUnrestricted() || newEntitySpec.isViewUnrestricted();
 
     // If the base is a config spec, always create another config spec.
     if (existingEntitySpec instanceof ConfigEntitySpec) {
-      // Create a new EntityAnnotation with the merged searchGroup
-      EntityAnnotation mergedAnnotation =
-          new EntityAnnotation(
-              existingEntitySpec.getEntityAnnotation().getName(),
-              existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-              mergedSearchGroup);
-
       return new ConfigEntitySpec(
-          mergedAnnotation.getName(),
-          mergedAnnotation.getKeyAspect(),
+          existingEntitySpec.getEntityAnnotation().getName(),
+          existingEntitySpec.getEntityAnnotation().getKeyAspect(),
           aspectSpecMap.values(),
-          mergedSearchGroup);
+          mergedSearchGroup,
+          mergedViewUnrestricted);
     }
     // For DefaultEntitySpec, create a new EntityAnnotation with the merged searchGroup
     EntityAnnotation mergedAnnotation =
         new EntityAnnotation(
             existingEntitySpec.getEntityAnnotation().getName(),
             existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-            mergedSearchGroup);
+            mergedSearchGroup,
+            mergedViewUnrestricted);
 
     return new DefaultEntitySpec(
         aspectSpecMap.values(),

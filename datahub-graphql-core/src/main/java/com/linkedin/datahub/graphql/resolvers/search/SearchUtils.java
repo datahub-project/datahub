@@ -1,21 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
-
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -52,7 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -66,99 +49,6 @@ public class SearchUtils {
   private static final int DEFAULT_SEARCH_COUNT = 10;
   private static final int DEFAULT_SCROLL_COUNT = 10;
   private static final String DEFAULT_SCROLL_KEEP_ALIVE = "5m";
-
-  /** Entities that are searched by default in Search Across Entities */
-  public static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
-      ImmutableList.of(
-          EntityType.DATASET,
-          EntityType.DASHBOARD,
-          EntityType.CHART,
-          EntityType.MLMODEL,
-          EntityType.MLMODEL_GROUP,
-          EntityType.MLFEATURE_TABLE,
-          EntityType.MLFEATURE,
-          EntityType.MLPRIMARY_KEY,
-          EntityType.DATA_FLOW,
-          EntityType.DATA_JOB,
-          EntityType.GLOSSARY_TERM,
-          EntityType.GLOSSARY_NODE,
-          EntityType.TAG,
-          EntityType.ROLE,
-          EntityType.CORP_USER,
-          EntityType.CORP_GROUP,
-          EntityType.CONTAINER,
-          EntityType.DOMAIN,
-          EntityType.DATA_PRODUCT,
-          EntityType.NOTEBOOK,
-          EntityType.BUSINESS_ATTRIBUTE,
-          EntityType.SCHEMA_FIELD,
-          EntityType.APPLICATION,
-          EntityType.DOCUMENT);
-
-  /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
-  public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
-      ImmutableList.of(
-          EntityType.DATASET,
-          EntityType.DASHBOARD,
-          EntityType.CHART,
-          EntityType.CONTAINER,
-          EntityType.MLMODEL,
-          EntityType.MLMODEL_GROUP,
-          EntityType.MLFEATURE_TABLE,
-          EntityType.DATA_FLOW,
-          EntityType.DATA_JOB,
-          EntityType.GLOSSARY_TERM,
-          EntityType.TAG,
-          EntityType.CORP_USER,
-          EntityType.CORP_GROUP,
-          EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT,
-          EntityType.DOMAIN,
-          EntityType.BUSINESS_ATTRIBUTE,
-          EntityType.APPLICATION,
-          EntityType.STRUCTURED_PROPERTY);
-
-  /** Entities that are part of browse by default */
-  public static final List<EntityType> BROWSE_ENTITY_TYPES =
-      ImmutableList.of(
-          EntityType.DATASET,
-          EntityType.DASHBOARD,
-          EntityType.CHART,
-          EntityType.CONTAINER,
-          EntityType.MLMODEL,
-          EntityType.MLMODEL_GROUP,
-          EntityType.MLFEATURE_TABLE,
-          EntityType.DATA_FLOW,
-          EntityType.DATA_JOB,
-          EntityType.NOTEBOOK,
-          EntityType.DOCUMENT);
-
-  /** A prioritized list of source filter types used to generate quick filters */
-  public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES =
-      Stream.of(
-              DATASET_ENTITY_NAME,
-              DASHBOARD_ENTITY_NAME,
-              DATA_FLOW_ENTITY_NAME,
-              DATA_JOB_ENTITY_NAME,
-              CHART_ENTITY_NAME,
-              CONTAINER_ENTITY_NAME,
-              ML_MODEL_ENTITY_NAME,
-              ML_MODEL_GROUP_ENTITY_NAME,
-              ML_FEATURE_ENTITY_NAME,
-              ML_FEATURE_TABLE_ENTITY_NAME,
-              ML_PRIMARY_KEY_ENTITY_NAME)
-          .map(String::toLowerCase)
-          .collect(Collectors.toList());
-
-  /** A prioritized list of DataHub filter types used to generate quick filters */
-  public static final List<String> PRIORITIZED_DATAHUB_ENTITY_TYPES =
-      Stream.of(
-              DOMAIN_ENTITY_NAME,
-              GLOSSARY_TERM_ENTITY_NAME,
-              CORP_GROUP_ENTITY_NAME,
-              CORP_USER_ENTITY_NAME)
-          .map(String::toLowerCase)
-          .collect(Collectors.toList());
 
   /**
    * Combines two {@link Filter} instances in a conjunction and returns a new instance of {@link
@@ -206,25 +96,7 @@ public class SearchUtils {
    *
    * @param filter1 the first filter in the pair
    * @param filter2 the second filter in the pair
-   *     <p>This method supports either Filter format, where the "or" field is used, instead of
-   *     criteria. If the criteria filter is used, then it will be converted into an "OR" before
-   *     returning the new filter.
    * @return the result of joining the 2 filters in a conjunction (AND)
-   *     <p>How does it work? It basically cross-products the conjunctions inside of each Filter
-   *     clause.
-   *     <p>Example Inputs: filter1 -> { or: [ { and: [ { field: tags, condition: EQUAL, values:
-   *     ["urn:li:tag:tag"] } ] }, { and: [ { field: glossaryTerms, condition: EQUAL, values:
-   *     ["urn:li:glossaryTerm:term"] } ] } ] } filter2 -> { or: [ { and: [ { field: domain,
-   *     condition: EQUAL, values: ["urn:li:domain:domain"] }, ] }, { and: [ { field: glossaryTerms,
-   *     condition: EQUAL, values: ["urn:li:glossaryTerm:term2"] } ] } ] } Example Output: { or: [ {
-   *     and: [ { field: tags, condition: EQUAL, values: ["urn:li:tag:tag"] }, { field: domain,
-   *     condition: EQUAL, values: ["urn:li:domain:domain"] } ] }, { and: [ { field: tags,
-   *     condition: EQUAL, values: ["urn:li:tag:tag"] }, { field: glossaryTerms, condition: EQUAL,
-   *     values: ["urn:li:glosaryTerm:term2"] } ] }, { and: [ { field: glossaryTerm, condition:
-   *     EQUAL, values: ["urn:li:glossaryTerm:term"] }, { field: domain, condition: EQUAL, values:
-   *     ["urn:li:domain:domain"] } ] }, { and: [ { field: glossaryTerm, condition: EQUAL, values:
-   *     ["urn:li:glossaryTerm:term"] }, { field: glossaryTerms, condition: EQUAL, values:
-   *     ["urn:li:glosaryTerm:term2"] } ] }, ] }
    */
   @Nonnull
   private static Filter combineFiltersInConjunction(
@@ -332,10 +204,103 @@ public class SearchUtils {
     return result;
   }
 
-  public static List<String> getEntityNames(List<EntityType> inputTypes) {
-    final List<EntityType> entityTypes =
-        (inputTypes == null || inputTypes.isEmpty()) ? SEARCHABLE_ENTITY_TYPES : inputTypes;
-    return entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+  /**
+   * Maps GraphQL entity types to registry names. When {@code inputTypes} is null/empty, returns the
+   * configured default search entity types from the operation context (resolved from {@code
+   * elasticsearch.search.defaultEntityTypes}). Explicit non-empty {@code inputTypes} always win.
+   *
+   * <p>An empty returned list means <em>search no entity types</em>. Callers must short-circuit to
+   * empty results and must not pass an empty list into SearchService APIs that treat empty as "all
+   * non-empty indices" (Rest.li omit-entities semantics).
+   */
+  public static List<String> getSearchEntityNames(@Nonnull OperationContext opContext) {
+    return getSearchEntityNames(opContext, null);
+  }
+
+  public static List<String> getSearchEntityNames(@Nullable List<EntityType> inputTypes) {
+    return getSearchEntityNames(null, inputTypes);
+  }
+
+  public static List<String> getSearchEntityNames(
+      @Nullable OperationContext opContext, @Nullable List<EntityType> inputTypes) {
+    if (inputTypes != null && !inputTypes.isEmpty()) {
+      return inputTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    }
+    return cachedEntityTypeList(opContext, resolvedCachedList(opContext, CachedList.SEARCH));
+  }
+
+  /**
+   * Default autocomplete entity registry names from {@code
+   * elasticsearch.search.autocompleteEntityTypes}.
+   */
+  @Nonnull
+  public static List<String> getAutocompleteEntityNames(@Nullable OperationContext opContext) {
+    return cachedEntityTypeList(opContext, resolvedCachedList(opContext, CachedList.AUTOCOMPLETE));
+  }
+
+  /** Default browse entity registry names from {@code elasticsearch.search.browseEntityTypes}. */
+  @Nonnull
+  public static List<String> getBrowseEntityNames(@Nullable OperationContext opContext) {
+    return cachedEntityTypeList(opContext, resolvedCachedList(opContext, CachedList.BROWSE));
+  }
+
+  /**
+   * Prioritized source-entity types for quick filters from {@code
+   * elasticsearch.search.prioritizedSourceEntityTypes}.
+   */
+  @Nonnull
+  public static List<String> getPrioritizedSourceEntityTypes(@Nullable OperationContext opContext) {
+    return cachedEntityTypeList(
+        opContext, resolvedCachedList(opContext, CachedList.PRIORITIZED_SOURCE));
+  }
+
+  /**
+   * Prioritized DataHub-entity types for quick filters from {@code
+   * elasticsearch.search.prioritizedDatahubEntityTypes}.
+   */
+  @Nonnull
+  public static List<String> getPrioritizedDatahubEntityTypes(
+      @Nullable OperationContext opContext) {
+    return cachedEntityTypeList(
+        opContext, resolvedCachedList(opContext, CachedList.PRIORITIZED_DATAHUB));
+  }
+
+  private enum CachedList {
+    SEARCH,
+    AUTOCOMPLETE,
+    BROWSE,
+    PRIORITIZED_SOURCE,
+    PRIORITIZED_DATAHUB
+  }
+
+  @Nullable
+  private static List<String> resolvedCachedList(
+      @Nullable OperationContext opContext, @Nonnull CachedList which) {
+    if (opContext == null || opContext.getSearchContext() == null) {
+      return null;
+    }
+    return switch (which) {
+      case SEARCH -> opContext.getSearchContext().getDefaultSearchEntityNames();
+      case AUTOCOMPLETE -> opContext.getSearchContext().getDefaultAutocompleteEntityNames();
+      case BROWSE -> opContext.getSearchContext().getDefaultBrowseEntityNames();
+      case PRIORITIZED_SOURCE -> opContext.getSearchContext().getPrioritizedSourceEntityTypes();
+      case PRIORITIZED_DATAHUB -> opContext.getSearchContext().getPrioritizedDatahubEntityTypes();
+    };
+  }
+
+  @Nonnull
+  private static List<String> cachedEntityTypeList(
+      @Nullable OperationContext opContext, @Nullable List<String> cached) {
+    if (cached != null) {
+      return cached;
+    }
+    if (opContext != null) {
+      log.warn(
+          "Search entity-type list was not resolved onto SearchContext; returning empty "
+              + "(search no entity types, not all indices). Ensure elasticsearch.search.*EntityTypes "
+              + "is configured.");
+    }
+    return List.of();
   }
 
   public static SearchResults createEmptySearchResults(final int start, final int count) {
@@ -345,6 +310,15 @@ public class SearchUtils {
     result.setTotal(0);
     result.setSearchResults(new ArrayList<>());
     result.setSuggestions(new ArrayList<>());
+    result.setFacets(new ArrayList<>());
+    return result;
+  }
+
+  public static ScrollResults createEmptyScrollResults(final int count) {
+    final ScrollResults result = new ScrollResults();
+    result.setCount(count);
+    result.setTotal(0);
+    result.setSearchResults(new ArrayList<>());
     result.setFacets(new ArrayList<>());
     return result;
   }
@@ -386,12 +360,8 @@ public class SearchUtils {
       List<String> facets,
       String className) {
 
-    final List<EntityType> entityTypes =
-        (inputEntityTypes == null || inputEntityTypes.isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : inputEntityTypes;
     final List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+        getSearchEntityNames(inputContext.getOperationContext(), inputEntityTypes);
 
     // escape forward slash since it is a reserved character in Elasticsearch, default to * if
     // blank/empty
@@ -420,6 +390,13 @@ public class SearchUtils {
                       (view) ->
                           intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
                   .orElse(entityNames);
+
+          if (finalEntityNames.isEmpty()) {
+            log.debug(
+                "scrollAcrossEntities: empty entity-type list; returning no results "
+                    + "(not searching all indices)");
+            return createEmptyScrollResults(count);
+          }
 
           final Filter finalFilters =
               maybeResolvedView
@@ -481,12 +458,8 @@ public class SearchUtils {
       Integer inputStart,
       String className) {
 
-    final List<EntityType> entityTypes =
-        (inputEntityTypes == null || inputEntityTypes.isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : inputEntityTypes;
     final List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+        getSearchEntityNames(inputContext.getOperationContext(), inputEntityTypes);
 
     // escape forward slash since it is a reserved character in Elasticsearch, default to * if
     // blank/empty
@@ -515,6 +488,13 @@ public class SearchUtils {
                       (view) ->
                           intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
                   .orElse(entityNames);
+
+          if (finalEntityNames.isEmpty()) {
+            log.debug(
+                "searchAcrossEntities: empty entity-type list; returning no results "
+                    + "(not searching all indices)");
+            return createEmptySearchResults(start, count);
+          }
 
           final Filter finalFilters =
               maybeResolvedView

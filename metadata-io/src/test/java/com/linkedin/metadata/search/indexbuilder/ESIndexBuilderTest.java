@@ -909,6 +909,33 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testApplyMappings_WithInPlaceMappingParameterUpdate() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(false);
+    when(indexState.isPureStructuredPropertyAddition()).thenReturn(false);
+    when(indexState.isInPlaceMappingParameterUpdate()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testBuildIndex_HandlesOpenSearchStatusException() throws IOException {
     // Setup
     ReindexConfig indexState = mock(ReindexConfig.class);

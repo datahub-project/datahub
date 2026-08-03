@@ -72,6 +72,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
     if (shouldProcessEvent(event)) {
       updateIndicesService.handleChangeEvent(operationContext, event);
+      updateIndicesService.flushAndWaitIfConfigured();
     }
   }
 
@@ -93,6 +94,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
             "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
       }
       updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
+      updateIndicesService.flushAndWaitIfConfigured();
     } else {
       log.debug("No MCL events to process in batch of {} events", events.size());
     }

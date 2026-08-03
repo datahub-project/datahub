@@ -5,14 +5,15 @@ import { type Locator, type Page, expect } from '@playwright/test';
  *
  * The app is mid-migration from antd's global `message.*` API (rendered in `.ant-message`)
  * to the alchemy `toast.*` API (rendered in a portal with `data-testid="toast-notification-container"`).
- * Match either container so this helper works regardless of which API a given surface uses.
+ * Some surfaces (e.g. subscriptions) still use antd's `notification.*` API, rendered in `.ant-notification`.
+ * Match any of these containers so this helper works regardless of which API a given surface uses.
  */
 export class ToastComponent {
   private readonly container: Locator;
 
   constructor(page: Page) {
-    // eslint-disable-next-line playwright/no-raw-locators -- antd's global message container has no data-testid or ARIA role; the union covers both toast systems during migration.
-    this.container = page.locator('.ant-message, [data-testid="toast-notification-container"]');
+    // eslint-disable-next-line playwright/no-raw-locators -- antd's global message/notification containers have no data-testid or ARIA role; the union covers all three toast systems during migration.
+    this.container = page.locator('.ant-message, .ant-notification, [data-testid="toast-notification-container"]');
   }
 
   getToast(text: string | RegExp): Locator {
