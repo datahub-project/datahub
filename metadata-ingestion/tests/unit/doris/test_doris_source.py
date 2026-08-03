@@ -81,6 +81,27 @@ class TestDorisConfig:
         assert config.catalog == "iceberg_catalog"
         assert config.database == "db_ods"
 
+    @pytest.mark.parametrize(
+        "catalog",
+        ["iceberg`; DROP TABLE t; --", "1_catalog", "cata log"],
+    )
+    def test_invalid_catalog_rejected(self, catalog):
+        with pytest.raises(ValueError, match="not a valid Doris identifier"):
+            DorisConfig(host_port="localhost:9030", catalog=catalog)
+
+    def test_invalid_catalog_rejected_from_qualified_database(self):
+        with pytest.raises(ValueError, match="not a valid Doris identifier"):
+            DorisConfig(host_port="localhost:9030", database="bad catalog.db_ods")
+
+    def test_database_that_is_not_a_catalog_pair_is_left_alone(self):
+        config = DorisConfig(host_port="localhost:9030", database="a.b.c")
+        assert config.catalog is None
+        assert config.database == "a.b.c"
+
+    def test_hyphenated_catalog_accepted(self):
+        config = DorisConfig(host_port="localhost:9030", catalog="iceberg-catalog")
+        assert config.catalog == "iceberg-catalog"
+
 
 class TestDorisSourceMethods:
     def test_create_classmethod_uses_doris_config(self):

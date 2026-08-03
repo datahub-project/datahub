@@ -44,6 +44,10 @@ DORIS_INTERNAL_CATALOG = "internal"
 # Strip `catalog`. prefix from view defs so lineage URNs match short database names.
 _DORIS_CATALOG_PREFIX_TEMPLATE = r"(?<=[\s(,])`{catalog}`\.|^`{catalog}`\."
 
+# Catalog names reach SQL (`SWITCH`) and the connection URL, so restrict them to
+# plain identifiers rather than escaping at each use site.
+_CATALOG_NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*")
+
 register_custom_type(HLL, BytesTypeClass)
 register_custom_type(BITMAP, BytesTypeClass)
 register_custom_type(QUANTILE_STATE, BytesTypeClass)
@@ -112,20 +116,21 @@ class DorisConfig(MySQLConfig):
     def _split_catalog_from_database(self) -> "DorisConfig":
         if self.database and "." in self.database:
             catalog_part, database_part = self.database.split(".", 1)
-            if not catalog_part or not database_part or "." in database_part:
-                return self
-            if self.catalog and self.catalog != catalog_part:
-                raise ValueError(
-                    f"database '{self.database}' does not match catalog '{self.catalog}'"
-                )
-            self.catalog = catalog_part
-            self.database = database_part
-        elif (
-            self.catalog
-            and self.database
-            and self.database.startswith(f"{self.catalog}.")
-        ):
-            self.database = self.database[len(self.catalog) + 1 :]
+            # Leave anything that isn't a plain catalog.database pair alone and let
+            # the server reject it.
+            if catalog_part and database_part and "." not in database_part:
+                if self.catalog and self.catalog != catalog_part:
+                    raise ValueError(
+                        f"database '{self.database}' does not match catalog '{self.catalog}'"
+                    )
+                self.catalog = catalog_part
+                self.database = database_part
+        if self.catalog and not _CATALOG_NAME_PATTERN.fullmatch(self.catalog):
+            raise ValueError(
+                f"catalog '{self.catalog}' is not a valid Doris identifier: "
+                "it must start with a letter or underscore and contain only "
+                "letters, digits, underscores and hyphens"
+            )
         return self
 
 
@@ -172,7 +177,7 @@ class DorisSource(MySQLSource):
         if not row or row[0] is None:
             return None
         catalog = str(row[0]).strip()
-        if not catalog or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", catalog):
+        if not _CATALOG_NAME_PATTERN.fullmatch(catalog):
             return None
         return catalog
 
