@@ -1,0 +1,32 @@
+source:
+  type: tibco-bw
+  config:
+    # On-prem (ActiveMatrix BusinessWorks) example
+    deployment: on_prem
+    base_url: "http://bw-host.example.com:8079"
+    username: "${TIBCO_BW_USERNAME}"
+    password: "${TIBCO_BW_PASSWORD}"
+
+    # Cloud (TIBCO Cloud Integration) example — replace the block above with:
+    # deployment: cloud
+    # token: "${TIBCO_CLOUD_TOKEN}"
+
+    application_pattern:
+      allow:
+        - ".*"
+
+    # Optional: read declared JMS message schemas and lineage out of the deployed
+    # archives. ems_target must address destinations the same way your tibco-ems
+    # recipe does.
+    # application_archives:
+    #   paths:
+    #     - "/mnt/bw-releases/*.ear"
+    #   ems_target:
+    #     env: PROD
+    #     server_group: default
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs
