@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -221,6 +223,33 @@ public class TestUtils {
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
+  }
+
+  /**
+   * Stubs batched existence resolution so that exactly the given urns are reported as existing.
+   * Batch mutations resolve existence for a whole group of urns in one call, so the stub answers
+   * with the requested urns intersected against {@code existing} rather than a fixed set.
+   */
+  public static void stubExistingUrns(EntityService<?> mockService, Urn... existing) {
+    final Set<Urn> existingUrns = Set.of(existing);
+    when(mockService.exists(any(), anyCollection(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              final Collection<Urn> requested = invocation.getArgument(1);
+              return requested.stream().filter(existingUrns::contains).collect(Collectors.toSet());
+            });
+  }
+
+  /**
+   * Asserts that existence was resolved in {@code expectedBatchCalls} batched calls and never one
+   * urn at a time.
+   */
+  public static void verifyExistenceResolvedInBatches(
+      EntityService<?> mockService, int expectedBatchCalls) {
+    Mockito.verify(mockService, Mockito.times(expectedBatchCalls))
+        .exists(any(), anyCollection(), eq(true));
+    Mockito.verify(mockService, Mockito.never())
+        .exists(any(), any(Urn.class), Mockito.anyBoolean());
   }
 
   public static void verifyIngestProposal(

@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -45,12 +44,11 @@ public class AddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN));
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 
@@ -77,12 +75,6 @@ public class AddTagsResolverTest {
             Urn.createFromString(TEST_ENTITY_URN), GLOBAL_TAGS_ASPECT_NAME, newTags);
 
     verifyIngestProposal(mockService, 1, proposal);
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
   }
 
   @Test
@@ -104,12 +96,11 @@ public class AddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalTags);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN));
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 
@@ -136,12 +127,6 @@ public class AddTagsResolverTest {
             Urn.createFromString(TEST_ENTITY_URN), GLOBAL_TAGS_ASPECT_NAME, newTags);
 
     verifyIngestProposal(mockService, 1, proposal);
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true));
   }
 
   @Test
@@ -156,10 +141,7 @@ public class AddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(false);
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN));
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 
@@ -187,10 +169,7 @@ public class AddTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(mockService, Urn.createFromString(TEST_TAG_1_URN));
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 

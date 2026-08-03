@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.owner;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -50,23 +49,14 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_OWNER_1_URN),
+        Urn.createFromString(TEST_OWNER_2_URN),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
@@ -94,11 +84,7 @@ public class AddOwnersResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -125,21 +111,13 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_OWNER_1_URN),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
@@ -164,8 +142,7 @@ public class AddOwnersResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -192,18 +169,13 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(any(), any(Urn.class), eq(true))).thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_OWNER_1_URN),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
@@ -228,8 +200,7 @@ public class AddOwnersResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -256,35 +227,18 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(
-                any(),
-                eq(
-                    Urn.createFromString(
-                        OwnerUtils.mapOwnershipTypeToEntity(
-                            com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER
-                                .name()))),
-                eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_OWNER_1_URN),
+        Urn.createFromString(TEST_OWNER_2_URN),
+        Urn.createFromString(TEST_OWNER_3_URN),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name())),
+        Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(
+                com.linkedin.datahub.graphql.generated.OwnershipType.BUSINESS_OWNER.name())));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
@@ -321,14 +275,7 @@ public class AddOwnersResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     verifyIngestProposal(mockService, 1);
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true));
+    verifyExistenceResolvedInBatches(mockService, 2);
   }
 
   @Test
@@ -344,10 +291,8 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
-        .thenReturn(false);
+    // The owner does not exist.
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
@@ -383,10 +328,8 @@ public class AddOwnersResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
-        .thenReturn(true);
+    // The resource does not exist.
+    stubExistingUrns(mockService, Urn.createFromString(TEST_OWNER_1_URN));
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService, mockClient);
 
