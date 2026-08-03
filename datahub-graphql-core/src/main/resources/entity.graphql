@@ -8826,7 +8826,7 @@ enum AssertionStdParameterType {
 }
 
 """
-The scope that a Dataset-level assertion applies to.
+The scope that an assertion applies to (column, rows, schema, storage, etc.).
 """
 enum DatasetAssertionScope {
   """
@@ -8838,6 +8838,11 @@ enum DatasetAssertionScope {
   Assertion applies to rows of a dataset.
   """
   DATASET_ROWS
+
+  """
+  Assertion applies to the storage size of a dataset.
+  """
+  DATASET_STORAGE_SIZE
 
   """
   Assertion applies to schema of a dataset.
