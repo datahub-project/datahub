@@ -95,15 +95,15 @@ plan should be explainable without replaying the agent conversation:
 
 ```json
 {
-    "target_urn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
-    "workflow_id": "checkout_paid_path",
-    "context_source": "official-datahub-mcp",
-    "reasons": [
-        "criticality=tier_1",
-        "workflow depends on the target asset",
-        "downstream closure includes the retry path"
-    ],
-    "context_snapshot": "sha256:<context-digest>"
+  "target_urn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
+  "workflow_id": "checkout_paid_path",
+  "context_source": "official-datahub-mcp",
+  "reasons": [
+    "criticality=tier_1",
+    "workflow depends on the target asset",
+    "downstream closure includes the retry path"
+  ],
+  "context_snapshot": "sha256:<context-digest>"
 }
 ```
 
@@ -130,17 +130,17 @@ the route evidence visible:
 
 ```json
 {
-    "workflow_id": "checkout_paid_path",
-    "step": "checkout",
-    "baseline": {
-        "status": 200,
-        "route": "poll_status"
-    },
-    "changed": {
-        "status": 200,
-        "route": "retry_queued",
-        "rejected_edge": "body.status (expected exists: true, got <missing>)"
-    }
+  "workflow_id": "checkout_paid_path",
+  "step": "checkout",
+  "baseline": {
+    "status": 200,
+    "route": "poll_status"
+  },
+  "changed": {
+    "status": 200,
+    "route": "retry_queued",
+    "rejected_edge": "body.status (expected exists: true, got <missing>)"
+  }
 }
 ```
 
@@ -163,14 +163,14 @@ used to compute it. A compact evidence contract can look like this:
 
 ```json
 {
-    "verdict": "DRIFT",
-    "kind": "routing_diverged",
-    "root_step": "checkout",
-    "baseline_route": "poll_status",
-    "changed_route": "retry_queued",
-    "baseline_status": 200,
-    "changed_status": 200,
-    "evidence_fingerprint": "sha256:<trace-digest>"
+  "verdict": "DRIFT",
+  "kind": "routing_diverged",
+  "root_step": "checkout",
+  "baseline_route": "poll_status",
+  "changed_route": "retry_queued",
+  "baseline_status": 200,
+  "changed_status": 200,
+  "evidence_fingerprint": "sha256:<trace-digest>"
 }
 ```
 
@@ -195,7 +195,7 @@ human or another agent to reproduce it:
 
 ```graphql
 mutation RaiseBehaviorFinding($input: RaiseIncidentInput!) {
-    raiseIncident(input: $input)
+  raiseIncident(input: $input)
 }
 ```
 
@@ -203,14 +203,14 @@ Example variables:
 
 ```json
 {
-    "input": {
-        "resourceUrn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
-        "type": "CUSTOM",
-        "customType": "runtime_behavior_drift",
-        "title": "Checkout route diverged after deployment",
-        "description": "{\"workflow_id\":\"checkout_paid_path\",\"verdict\":\"DRIFT\",\"root_step\":\"checkout\",\"baseline_route\":\"poll_status\",\"changed_route\":\"retry_queued\",\"evidence_fingerprint\":\"sha256:<trace-digest>\"}",
-        "priority": "HIGH"
-    }
+  "input": {
+    "resourceUrn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
+    "type": "CUSTOM",
+    "customType": "runtime_behavior_drift",
+    "title": "Checkout route diverged after deployment",
+    "description": "{\"workflow_id\":\"checkout_paid_path\",\"verdict\":\"DRIFT\",\"root_step\":\"checkout\",\"baseline_route\":\"poll_status\",\"changed_route\":\"retry_queued\",\"evidence_fingerprint\":\"sha256:<trace-digest>\"}",
+    "priority": "HIGH"
+  }
 }
 ```
 
@@ -228,27 +228,27 @@ shows the complete query; the essential check is:
 
 ```graphql
 query ReadBehaviorFinding($urn: String!, $start: Int!, $count: Int!) {
-    dataset(urn: $urn) {
-        incidents(start: $start, count: $count) {
-            total
-            incidents {
-                urn
-                title
-                description
-                incidentType
-                customType
-                priority
-                status {
-                    state
-                    stage
-                    message
-                }
-                entity {
-                    urn
-                }
-            }
+  dataset(urn: $urn) {
+    incidents(start: $start, count: $count) {
+      total
+      incidents {
+        urn
+        title
+        description
+        incidentType
+        customType
+        priority
+        status {
+          state
+          stage
+          message
         }
+        entity {
+          urn
+        }
+      }
     }
+  }
 }
 ```
 
