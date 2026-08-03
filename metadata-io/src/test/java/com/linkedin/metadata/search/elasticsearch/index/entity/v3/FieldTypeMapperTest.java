@@ -15,6 +15,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -22,6 +23,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT_PARTIAL);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -36,6 +38,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove();
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -44,6 +47,7 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("type"), "keyword");
     // Configured value is UTF-8 bytes; ignore_above is character-based and byte-safe (/ 4).
     assertEquals(mapping.get("ignore_above"), 256);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -53,6 +57,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING, 2048);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), 512);
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -84,6 +89,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertKeywordSubfieldPresent(mapping);
   }
 
   @Test
@@ -93,6 +99,16 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertKeywordSubfieldPresent(mapping);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertKeywordSubfieldPresent(Map<String, Object> mapping) {
+    assertTrue(mapping.containsKey("fields"), "STRING/RICH_TEXT/TEXT mappings need .keyword");
+    Map<String, Object> fields = (Map<String, Object>) mapping.get("fields");
+    assertTrue(fields.containsKey("keyword"), "Must expose .keyword multi-field for exact match");
+    Map<String, Object> keyword = (Map<String, Object>) fields.get("keyword");
+    assertEquals(keyword.get("type"), "keyword");
   }
 
   @Test

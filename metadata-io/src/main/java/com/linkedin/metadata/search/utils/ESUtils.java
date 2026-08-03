@@ -822,7 +822,8 @@ public class ESUtils {
 
     // Definition lookup failed. If the caller already passed a versioned ES path, infer type from
     // the trailing segment so STRING still gets .keyword and URN/DATE/NUMBER do not. Unversioned
-    // FQN misses prefer the parent (avoids empty results for typed parents).
+    // FQN misses prefer the parent (strip any caller-supplied .keyword / other subfields) so
+    // typed parents are not queried on a missing multi-field.
     if (filterField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
       Optional<LogicalValueType> inferredType =
           StructuredPropertyUtils.getLogicalValueTypeFromFieldName(filterField);
@@ -833,7 +834,7 @@ public class ESUtils {
         }
         return parent + ESUtils.KEYWORD_SUFFIX;
       }
-      return filterField;
+      return replaceSuffix(filterField);
     }
 
     return skipKeywordSuffix

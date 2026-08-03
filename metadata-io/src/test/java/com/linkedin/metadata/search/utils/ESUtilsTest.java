@@ -975,6 +975,28 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testToKeywordFieldStripsCallerKeywordSuffixWhenDefinitionMissing()
+      throws URISyntaxException {
+    // If the caller already appended .keyword and definition lookup fails, strip the subfield so
+    // typed parents (URN/DATE/NUMBER) are not queried on a missing multi-field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss.keyword",
+            false,
+            missingRetriever),
+        "structuredProperties.transientMiss");
+  }
+
+  @Test
   public void testToKeywordFieldVersionedPathWithoutDefinitionInfersStringKeyword() {
     // Callers sometimes pass an already-resolved versioned ES path. Definition lookup cannot use
     // that path as an FQN; infer STRING from the type segment and keep .keyword.
