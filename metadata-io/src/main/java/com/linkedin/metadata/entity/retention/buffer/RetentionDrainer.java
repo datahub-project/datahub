@@ -19,8 +19,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * Scheduled background drainer over a {@link CoalesceBuffer} of pending retention keys. Only one
- * GMS pod applies retention per tick (drain lock); the rest no-op. The whole drained batch is handed
- * to {@link RetentionService#applyRetentionBatchWithPolicyDefaults} in a single database
+ * GMS pod applies retention per tick (drain lock); the rest no-op. The whole drained batch is
+ * handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults} in a single database
  * transaction (one commit per tick); per-pair savepoint isolation inside that tx means a poison
  * (urn, aspect) pair rolls back only its own DELETE. Keys whose contexts are returned as committed
  * are cleared via {@code removeIfSame}; everything else stays for the next tick to retry (no

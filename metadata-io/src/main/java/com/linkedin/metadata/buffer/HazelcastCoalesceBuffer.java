@@ -27,8 +27,8 @@ import lombok.extern.slf4j.Slf4j;
  * wire. Only {@link CoalesceBuffers#KEEP_MAX_LONG} is supported today (checked by reference
  * identity, since it's a fixed static constant); any other merge function throws {@link
  * UnsupportedOperationException}. Supporting additional policies would need {@code
- * IdentifiedDataSerializable} merge policies registered with Hazelcast's serialization config —
- * not implemented in this change.
+ * IdentifiedDataSerializable} merge policies registered with Hazelcast's serialization config — not
+ * implemented in this change.
  *
  * <p><b>Sizing:</b> no per-merge {@code size()}/{@code containsKey()} soft-cap on the ingest path
  * (those are cluster round-trips). Capacity is enforced by the bounded {@code MapConfig} registered
@@ -94,8 +94,7 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
   @Override
   public void releaseDrainLock(@Nonnull String lockName) {
     if (!lockMap.remove(lockName, Boolean.TRUE)) {
-      log.warn(
-          "Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
+      log.warn("Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
     }
   }
 

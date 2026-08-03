@@ -28,8 +28,8 @@ import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.sql.Connection;
-import java.sql.Savepoint;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -160,8 +160,8 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
    * single database transaction (one commit / fsync per drain tick). Per-pair JDBC savepoints
    * isolate failures: a poison (urn, aspect) pair rolls back only its own DELETE, so one bad pair
    * no longer wedges the whole batch. Returns the contexts that were durably committed — the caller
-   * ({@link com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those
-   * keys from the buffer via {@code removeIfSame}.
+   * ({@link com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only
+   * those keys from the buffer via {@code removeIfSame}.
    *
    * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
    * cleared rather than retried forever.

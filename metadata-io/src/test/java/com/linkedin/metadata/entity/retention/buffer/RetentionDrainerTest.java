@@ -170,12 +170,7 @@ public class RetentionDrainerTest {
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
         new RetentionDrainer(
-            retentionBuffer.getCoalesceBuffer(),
-            retentionService,
-            SYSTEM_CONTEXT,
-            10,
-            true,
-            null);
+            retentionBuffer.getCoalesceBuffer(), retentionService, SYSTEM_CONTEXT, 10, true, null);
 
     drainer.tick();
 

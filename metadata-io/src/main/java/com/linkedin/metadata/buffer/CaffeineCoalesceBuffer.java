@@ -94,7 +94,9 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   @Override
   public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
     // Non-reentrant: CAS false→true fails if already held, including by this thread.
-    return locks.computeIfAbsent(lockName, k -> new AtomicBoolean(false)).compareAndSet(false, true);
+    return locks
+        .computeIfAbsent(lockName, k -> new AtomicBoolean(false))
+        .compareAndSet(false, true);
   }
 
   @Override
