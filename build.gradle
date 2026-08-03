@@ -343,7 +343,7 @@ project.ext.externalDependency = [
     'playServer': "org.playframework:play-server_$playScalaVersion",
     'playTest': "org.playframework:play-test_$playScalaVersion",
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
     'postgresql': 'org.postgresql:postgresql:42.7.12',
