@@ -34,7 +34,13 @@ public class MutationCoordinatorTest {
   private static CoordinatedIngestConfiguration config() {
     // (maxPlanExpansions, maxMutationCount, lockLeaseSeconds, lockAcquireTimeoutSeconds,
     // lockProvider)
-    return new CoordinatedIngestConfiguration(2, 1000, 30L, 2L, "hazelcast");
+    return CoordinatedIngestConfiguration.builder()
+        .maxPlanExpansions(2)
+        .maxMutationCount(1000)
+        .lockLeaseSeconds(30L)
+        .lockAcquireTimeoutSeconds(2L)
+        .lockProvider("hazelcast")
+        .build();
   }
 
   private static MutationPlan planWith(ConflictKey... keys) {

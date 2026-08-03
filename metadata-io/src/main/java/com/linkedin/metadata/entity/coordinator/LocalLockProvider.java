@@ -36,15 +36,31 @@ public class LocalLockProvider implements CoordinationLockProvider {
 
   @Nonnull private final Striped<Lock> stripes;
 
+  /** Reported {@link #name()}; distinguishes plain local from a degraded-distributed fallback. */
+  @Nonnull private final String name;
+
   public LocalLockProvider() {
-    this(DEFAULT_STRIPES);
+    this(DEFAULT_STRIPES, NAME);
   }
 
   /**
    * @param stripeCount number of lock stripes; higher reduces false sharing at a small memory cost
    */
   public LocalLockProvider(final int stripeCount) {
+    this(stripeCount, NAME);
+  }
+
+  /**
+   * @param name reported name — lets a degraded distributed provider surface itself in metrics/logs
+   *     (e.g. {@code hazelcast-degraded}) rather than masquerading as plain {@code local}
+   */
+  public LocalLockProvider(@Nonnull final String name) {
+    this(DEFAULT_STRIPES, name);
+  }
+
+  public LocalLockProvider(final int stripeCount, @Nonnull final String name) {
     this.stripes = Striped.lock(stripeCount);
+    this.name = name;
   }
 
   @Override
@@ -77,6 +93,6 @@ public class LocalLockProvider implements CoordinationLockProvider {
 
   @Override
   public String name() {
-    return NAME;
+    return name;
   }
 }

@@ -45,6 +45,11 @@ public class MutationCoordinator {
   // Distribution (histogram) of the per-plan conflict-key count -- NOT a cumulative counter, so
   // plan sizes are observable without accumulating across plans.
   static final String METRIC_PLAN_CONFLICT_KEYS = "coordinator.plan_conflict_keys";
+  // Counter: the commit-under-lock outran the IMap lease, so the lease silently expired and a
+  // second
+  // writer could have entered. Correctness still holds via the DB sorted commit; this only surfaces
+  // the otherwise-invisible window.
+  static final String METRIC_LEASE_EXCEEDED = "coordinator.lease_exceeded";
 
   @Nullable private final CoordinationLockProvider lockProvider;
   @Nonnull private final CoordinatedIngestConfiguration config;
@@ -91,7 +96,14 @@ public class MutationCoordinator {
     final List<String> heldLocks = new ArrayList<>();
     try {
       acquireLocks(plan.conflictKeys(), heldLocks);
-      return commit.commitUnderLock(plan);
+      // Lease clock effectively starts once locks are held; measure the commit against it to
+      // surface
+      // silent lease expiry (a long tx outrunning the lease lets a second writer in -- DB stays
+      // authoritative, but the window is otherwise invisible).
+      final long commitStartMs = System.currentTimeMillis();
+      final T result = commit.commitUnderLock(plan);
+      recordLeaseExceeded(commitStartMs, heldLocks.isEmpty());
+      return result;
     } finally {
       releaseLocks(heldLocks);
     }
@@ -108,13 +120,27 @@ public class MutationCoordinator {
     final CoordinationLockProvider provider = requireProvider();
     final long acquireWaitMs = config.getLockAcquireTimeoutSeconds() * 1000L;
     final long leaseMs = config.getLockLeaseSeconds() * 1000L;
+    // Single deadline for the whole loop so the total acquire wait is bounded regardless of the
+    // number of conflict keys -- a large plan can never stall the consumer for (#keys x
+    // acquireWaitMs). System.currentTimeMillis is fine here: this is production wall-clock
+    // budgeting,
+    // not a monotonic-duration measurement.
+    final long deadlineMs = System.currentTimeMillis() + acquireWaitMs;
 
+    // conflictKeys is a SortedSet of distinct ConflictKeys and lockKey is injective, so the
+    // composed
+    // keys are already unique -- no dedup scan needed (acquisition stays O(n)).
     for (final ConflictKey conflictKey : conflictKeys) {
       final String key = lockKey(conflictKey);
-      if (heldLocks.contains(key)) {
+      final long remainingMs = deadlineMs - System.currentTimeMillis();
+      if (remainingMs <= 0) {
+        // Shared deadline exhausted: skip the remaining keys without waiting. Safe — DB commit is
+        // authoritative.
+        recordLockTimeout();
+        log.debug("Lock-acquire deadline reached before {}; proceeding best-effort.", key);
         continue;
       }
-      if (provider.tryLock(key, acquireWaitMs, leaseMs)) {
+      if (provider.tryLock(key, remainingMs, leaseMs)) {
         heldLocks.add(key);
       } else {
         // Bounded wait elapsed (or interrupt): not fully coordinated for this key. Safe — DB commit
@@ -147,12 +173,39 @@ public class MutationCoordinator {
 
   @Nonnull
   private static String lockKey(@Nonnull final ConflictKey conflictKey) {
-    return conflictKey.domain() + "/" + conflictKey.id();
+    // NUL separator: ids are URNs and can contain '/', ':', ',', etc.; a control char that cannot
+    // appear in a URN or a domain keeps the composed key injective, so two distinct conflict keys
+    // can
+    // never collide onto a single lock (e.g. domain "a"/id "b/c" vs domain "a/b"/id "c").
+    return conflictKey.domain() + '\u0000' + conflictKey.id();
   }
 
   private void recordLockTimeout() {
     if (metricUtils != null) {
       metricUtils.incrementMicrometer(METRIC_LOCK_TIMEOUTS, 1.0d);
+    }
+  }
+
+  /**
+   * Emits {@link #METRIC_LEASE_EXCEEDED} and a warning when the commit outran the IMap lease. No-op
+   * when no lock was held (nothing to expire) -- the DB sorted commit is authoritative either way.
+   */
+  private void recordLeaseExceeded(final long commitStartMs, final boolean noLocksHeld) {
+    if (noLocksHeld) {
+      return;
+    }
+    final long elapsedMs = System.currentTimeMillis() - commitStartMs;
+    final long leaseMs = config.getLockLeaseSeconds() * 1000L;
+    if (elapsedMs > leaseMs) {
+      if (metricUtils != null) {
+        metricUtils.incrementMicrometer(METRIC_LEASE_EXCEEDED, 1.0d);
+      }
+      log.warn(
+          "Coordinated commit ran {}ms, exceeding the {}ms lock lease; the lease may have expired "
+              + "mid-commit and a second writer could have entered (DB sorted commit remains "
+              + "authoritative).",
+          elapsedMs,
+          leaseMs);
     }
   }
 

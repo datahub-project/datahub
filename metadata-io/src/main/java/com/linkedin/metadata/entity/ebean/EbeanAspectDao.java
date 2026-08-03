@@ -114,6 +114,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
 
+  /**
+   * Chunk size for {@code FOR UPDATE} / batch IN-clauses. Never unbounded: a misconfigured {@code
+   * queryKeysCount<=0} falls back to the safe default so we never emit one giant IN clause that can
+   * exhaust the DB optimizer.
+   */
+  private int lockChunkSize() {
+    return queryKeysCount > 0 ? queryKeysCount : EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT;
+  }
+
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
       EbeanConfiguration ebeanConfiguration,
@@ -388,7 +397,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // FOR UPDATE each chunk in sorted order. KEY_ID projects only the @EmbeddedId (urn, aspect,
     // version) -- the indexed composite key -- so the metadata/systemMetadata @Lob blobs are never
     // fetched; the lock only needs the row locks taken via the key/index.
-    final int chunkSize = queryKeysCount > 0 ? queryKeysCount : keys.size();
+    final int chunkSize = lockChunkSize();
     for (int position = 0; position < keys.size(); position += chunkSize) {
       final List<EbeanAspectV2.PrimaryKey> chunk =
           keys.subList(position, Math.min(position + chunkSize, keys.size()));
@@ -553,7 +562,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (queryKeysCount == 0) {
-      records = batchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpdate);
+      // Misconfigured (<=0) keysCount: fall back to the shared safe chunk size (floors at
+      // DEFAULT_QUERY_KEYS_COUNT) rather than one unbounded statement, matching the lock paths.
+      records = batchGet(opContext, ebeanKeys, lockChunkSize(), forUpdate);
     } else {
       records = batchGet(opContext, ebeanKeys, queryKeysCount, forUpdate);
     }
@@ -1385,7 +1396,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       // version) -- the indexed composite key -- so the metadata/systemMetadata @Lob blobs are
       // never
       // fetched; the lock result is discarded (max(version) below is a separate query).
-      final int chunkSize = queryKeysCount > 0 ? queryKeysCount : forUpdateKeys.size();
+      final int chunkSize = lockChunkSize();
       for (int position = 0; position < forUpdateKeys.size(); position += chunkSize) {
         final List<EbeanAspectV2.PrimaryKey> chunk =
             forUpdateKeys.subList(position, Math.min(position + chunkSize, forUpdateKeys.size()));
@@ -1407,30 +1418,51 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.
     Database versionDatabase = primaryStorageResolver.resolveEbean(opContext, lockLatestForWrite);
-    Junction<EbeanAspectV2> queryJunction =
-        versionDatabase
-            .find(EbeanAspectV2.class)
-            .select("urn, aspect, max(version)")
-            .where()
-            .in("urn", urnAspects.keySet())
-            .or();
 
-    ExpressionList<EbeanAspectV2> exp = null;
-    for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
-      if (exp == null) {
-        exp = queryJunction.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
-      } else {
-        exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+    // Chunk the max(version) OR-junction the same way the FOR UPDATE loop above chunks its keyset
+    // (same lockChunkSize()), so a large urnAspects can never build one unbounded IN /
+    // O(N)-predicate
+    // statement that exhausts the DB optimizer. Each chunk emits the identical predicate shape --
+    // in("urn", <chunk urns>) AND an OR of per-entry (eq urn AND in aspects) -- over a bounded
+    // subset,
+    // and every chunk's results are merged into the same result map, so the computed versions are
+    // identical to the single-statement form.
+    final int versionChunkSize = lockChunkSize();
+    final List<Map.Entry<String, Set<String>>> versionEntries =
+        new ArrayList<>(urnAspects.entrySet());
+    for (int position = 0; position < versionEntries.size(); position += versionChunkSize) {
+      final List<Map.Entry<String, Set<String>>> chunk =
+          versionEntries.subList(
+              position, Math.min(position + versionChunkSize, versionEntries.size()));
+      final Set<String> chunkUrns =
+          chunk.stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+
+      Junction<EbeanAspectV2> queryJunction =
+          versionDatabase
+              .find(EbeanAspectV2.class)
+              .select("urn, aspect, max(version)")
+              .where()
+              .in("urn", chunkUrns)
+              .or();
+
+      ExpressionList<EbeanAspectV2> exp = null;
+      for (Map.Entry<String, Set<String>> entry : chunk) {
+        if (exp == null) {
+          exp =
+              queryJunction.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+        } else {
+          exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+        }
       }
+
+      if (exp == null) {
+        continue;
+      }
+
+      List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+
+      mergeNextVersionsFromDb(result, dbResults);
     }
-
-    if (exp == null) {
-      return result;
-    }
-
-    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
-
-    mergeNextVersionsFromDb(result, dbResults);
 
     return result;
   }

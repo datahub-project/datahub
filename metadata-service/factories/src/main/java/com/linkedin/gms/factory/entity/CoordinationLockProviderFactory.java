@@ -50,7 +50,9 @@ public class CoordinationLockProviderFactory {
           "coordinatedIngest lockProvider=hazelcast but no HazelcastInstance is available; "
               + "using the in-JVM local provider (node-local coordination; DB commit authoritative). "
               + "Deploy Hazelcast for cross-node serialization.");
-      return new LocalLockProvider();
+      // Report a distinct name so metrics/logs show the degradation instead of a plain "local"
+      // that contradicts the configured lockProvider=hazelcast.
+      return new LocalLockProvider("hazelcast-degraded");
     }
     log.info("Coordinated ingest lock provider: hazelcast (distributed).");
     return new HazelcastLockProvider(hazelcastInstance);

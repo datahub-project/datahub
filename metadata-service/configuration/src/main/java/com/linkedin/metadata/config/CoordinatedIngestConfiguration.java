@@ -26,7 +26,12 @@ public class CoordinatedIngestConfiguration {
   /** Hazelcast IMap lock TTL / lease, in seconds. */
   private long lockLeaseSeconds;
 
-  /** Max wait to acquire the IMap lock before proceeding lock-free, in seconds. */
+  /**
+   * Max <b>total</b> wait to acquire the IMap locks before proceeding lock-free, in seconds. This
+   * budget is shared across all of a plan's conflict keys (a single deadline for the whole acquire
+   * loop), not applied per key, so a large plan can never block the caller proportionally to its
+   * key count.
+   */
   private long lockAcquireTimeoutSeconds;
 
   /**

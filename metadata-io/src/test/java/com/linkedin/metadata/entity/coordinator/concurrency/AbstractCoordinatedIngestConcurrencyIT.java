@@ -559,7 +559,16 @@ public abstract class AbstractCoordinatedIngestConcurrencyIT {
     // rather
     // than falling through to a lock-free best-effort commit; maxMutationCount comfortably exceeds
     // any scenario's closure.
-    return new CoordinatedIngestConfiguration(5, 10_000, 30L, 30L, "hazelcast");
+    return CoordinatedIngestConfiguration.builder()
+        .maxPlanExpansions(5)
+        .maxMutationCount(10_000)
+        // Large lease so a slow-CI herd (many writers serialized on one key) can't expire the lease
+        // mid-commit and let a second writer in — which would flake the strict version-count
+        // assert.
+        .lockLeaseSeconds(600L)
+        .lockAcquireTimeoutSeconds(30L)
+        .lockProvider("hazelcast")
+        .build();
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -627,13 +636,17 @@ public abstract class AbstractCoordinatedIngestConcurrencyIT {
   }
 
   private int latestVersion(EntityServiceImpl service, OperationContext op, Urn schemaFieldUrn) {
-    final EnvelopedAspect latest =
-        service.getLatestEnvelopedAspect(
-            op, SCHEMA_FIELD_ENTITY_NAME, schemaFieldUrn, GLOBAL_TAGS_ASPECT_NAME);
-    if (latest == null || latest.getSystemMetadata() == null) {
-      return 0;
+    try {
+      final EnvelopedAspect latest =
+          service.getLatestEnvelopedAspect(
+              op, SCHEMA_FIELD_ENTITY_NAME, schemaFieldUrn, GLOBAL_TAGS_ASPECT_NAME);
+      if (latest == null || latest.getSystemMetadata() == null) {
+        return 0;
+      }
+      return Integer.parseInt(latest.getSystemMetadata().getVersion());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to read latest version for " + schemaFieldUrn, e);
     }
-    return Integer.parseInt(latest.getSystemMetadata().getVersion());
   }
 
   private double txFailedAfterRetriesCount() {

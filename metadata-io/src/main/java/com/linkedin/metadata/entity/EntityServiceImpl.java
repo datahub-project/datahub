@@ -1265,10 +1265,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 .getMetricUtils()
                 .ifPresent(
                     metricUtils ->
-                        metricUtils.increment(
-                            EntityServiceImpl.class,
-                            coordinated ? "coordinated_ingest_path" : "legacy_ingest_path",
-                            1));
+                        metricUtils.incrementMicrometer(
+                            coordinated ? "coordinated_ingest_path" : "legacy_ingest_path", 1.0d));
 
             final Supplier<IngestAspectsResult> txCall =
                 () ->

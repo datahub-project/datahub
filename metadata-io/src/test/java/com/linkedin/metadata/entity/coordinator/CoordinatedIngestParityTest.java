@@ -220,14 +220,20 @@ public class CoordinatedIngestParityTest {
   private static CoordinatedIngestConfiguration testConfig() {
     // (maxPlanExpansions, maxMutationCount, lockLeaseSeconds, lockAcquireTimeoutSeconds,
     // lockProvider)
-    return new CoordinatedIngestConfiguration(2, 1000, 30L, 2L, "hazelcast");
+    return CoordinatedIngestConfiguration.builder()
+        .maxPlanExpansions(2)
+        .maxMutationCount(1000)
+        .lockLeaseSeconds(30L)
+        .lockAcquireTimeoutSeconds(2L)
+        .lockProvider("hazelcast")
+        .build();
   }
 
   // ---------------------------------------------------------------------------------------------
   // Batch construction and ingest
   // ---------------------------------------------------------------------------------------------
 
-  private void ingestBatch(Fixture fixture) {
+  private void ingestBatch(Fixture fixture) throws Exception {
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
             .retrieverContext(fixture.opContext.getRetrieverContext())
@@ -236,7 +242,7 @@ public class CoordinatedIngestParityTest {
     fixture.service.ingestAspects(fixture.opContext, batch, false, true);
   }
 
-  private static List<BatchItem> buildBatchItems(EntityRegistry registry) {
+  private static List<BatchItem> buildBatchItems(EntityRegistry registry) throws Exception {
     AspectRetriever aspectRetriever =
         TestOperationContexts.emptyActiveUsersAspectRetriever(() -> registry);
     AuditStamp auditStamp = AspectGenerationUtils.createAuditStamp();
