@@ -244,9 +244,9 @@ describe('DatasetAssertionDescription', () => {
     });
 
     it('renders an explicit description verbatim', () => {
-        expect(
-            renderText(<DatasetAssertionDescription description="My custom description" />),
-        ).toBe('My custom description');
+        expect(renderText(<DatasetAssertionDescription description="My custom description" />)).toBe(
+            'My custom description',
+        );
     });
 
     it('joins multiple columns for DatasetColumn scope', () => {
