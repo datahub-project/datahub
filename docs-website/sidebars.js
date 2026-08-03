@@ -134,6 +134,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "Runtime Behavior Validation",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/runtime-behavior-validation",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,

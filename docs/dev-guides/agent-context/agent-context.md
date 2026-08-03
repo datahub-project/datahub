@@ -23,6 +23,22 @@ An agent that provisions data quality checks and reports on the health of your d
 
 _"Set up freshness checks on all tables owned by the Finance team, and send me a weekly health summary."_
 
+### Runtime Behavior Validation Agent
+
+An agent that proves a deployed change altered a workflow's behavior, even when
+both environments return successful transport responses.
+
+1. **Scope the check with DataHub** — read the target schema, criticality,
+   ownership, and downstream lineage through Agent Context.
+2. **Compare executions** — run the same workflow against baseline and changed
+   environments and identify the first divergent step.
+3. **Record verified evidence** — raise a DataHub Incident only after the
+   structured `DRIFT` result passes validation and the exact Incident is read
+   back from the affected asset.
+
+See the [Runtime Behavior Validation guide](./runtime-behavior-validation.md)
+for the evidence contract and replay boundaries.
+
 ### Data Steward / Governance Agent
 
 An agent that applies descriptions and compliance-related glossary terms to tables and columns, then reports on coverage.
@@ -51,6 +67,9 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 | LangChain           | [Guide](./langchain.md)                       |
 | Google ADK          | [Guide](./google-adk.md)                      |
 | Custom / Direct MCP | See [Getting Started](#getting-started) below |
+
+For an execution-backed agent that validates runtime behavior rather than only
+inferring risk from metadata, see the [Runtime Behavior Validation guide](./runtime-behavior-validation.md).
 
 ### Managed Agent Platforms
 
