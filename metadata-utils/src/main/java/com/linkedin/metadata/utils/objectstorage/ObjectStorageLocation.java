@@ -108,19 +108,35 @@ public record ObjectStorageLocation(
   @Nonnull
   public static ObjectStorageLocation parse(@Nonnull String uri) {
     String trimmed = uri.trim();
-    if (trimmed.startsWith(S3_SCHEME + "://")) {
+    if (hasScheme(trimmed, S3_SCHEME, "://")) {
       return parseCloudUri(
           ObjectStorageProvider.S3, trimmed.substring((S3_SCHEME + "://").length()));
     }
-    if (trimmed.startsWith(GCS_SCHEME + "://")) {
+    if (hasScheme(trimmed, GCS_SCHEME, "://")) {
       return parseCloudUri(
           ObjectStorageProvider.GCS, trimmed.substring((GCS_SCHEME + "://").length()));
     }
-    if (trimmed.startsWith(FILE_SCHEME + "://") || trimmed.startsWith(FILE_SCHEME + ":")) {
+    if (hasScheme(trimmed, FILE_SCHEME, "://") || hasScheme(trimmed, FILE_SCHEME, ":")) {
       return parseFileUri(trimmed);
     }
     throw new IllegalArgumentException(
         "Unsupported object storage URI scheme (expected s3://, gs://, or file://): " + uri);
+  }
+
+  /**
+   * Whether {@code uri} opens with {@code scheme} followed by {@code separator}, comparing the
+   * scheme case-insensitively.
+   *
+   * <p>URI schemes are case-insensitive per RFC 3986 §3.1, so {@code S3://bucket/key} addresses the
+   * same object as {@code s3://bucket/key}. Nothing after the scheme may be folded, though — bucket
+   * names, S3 keys and GCS object names are all case-sensitive — so this compares only the prefix
+   * in place rather than lowercasing the URI.
+   */
+  private static boolean hasScheme(
+      @Nonnull String uri, @Nonnull String scheme, @Nonnull String separator) {
+    String prefix = scheme + separator;
+    return uri.length() >= prefix.length()
+        && uri.regionMatches(true, 0, prefix, 0, prefix.length());
   }
 
   @Nonnull
@@ -130,8 +146,8 @@ public record ObjectStorageLocation(
       @Nullable String legacyProvider) {
     if (legacyBucketName != null && !legacyBucketName.isBlank()) {
       String trimmedBucket = legacyBucketName.trim();
-      if (trimmedBucket.startsWith(S3_SCHEME + "://")
-          || trimmedBucket.startsWith(GCS_SCHEME + "://")) {
+      if (hasScheme(trimmedBucket, S3_SCHEME, "://")
+          || hasScheme(trimmedBucket, GCS_SCHEME, "://")) {
         return Optional.of(parse(joinCloudUri(trimmedBucket, legacyPath)));
       }
     }
@@ -211,7 +227,7 @@ public record ObjectStorageLocation(
   @Nonnull
   private static String toFileUri(@Nonnull String filesystemPath) {
     String trimmed = filesystemPath.trim();
-    if (trimmed.startsWith(FILE_SCHEME + "://") || trimmed.startsWith(FILE_SCHEME + ":")) {
+    if (hasScheme(trimmed, FILE_SCHEME, "://") || hasScheme(trimmed, FILE_SCHEME, ":")) {
       return trimmed;
     }
     if (!trimmed.startsWith("/")) {

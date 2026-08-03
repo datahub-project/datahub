@@ -82,10 +82,15 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   @Test
   public void testMatrixSource_whenUriIsHttpOrHttps_wiresHttpSource() {
     // Both schemes must route to the HTTP source: HttpClient supports plain http, and matching only
-    // https would silently fall through to object-storage parsing and disable the matrix.
+    // https would silently fall through to object-storage parsing and disable the matrix. Scheme
+    // case must not matter either — URI schemes are case-insensitive per RFC 3986 §3.1, and an
+    // uppercase one used to fall through to object-storage parsing and wire a no-op.
     for (String uri :
         new String[] {
-          "https://example.invalid/matrix.json", "http://example.invalid/matrix.json"
+          "https://example.invalid/matrix.json",
+          "http://example.invalid/matrix.json",
+          "HTTPS://example.invalid/matrix.json",
+          "HtTp://example.invalid/matrix.json"
         }) {
       ingestionConfig.getCliVersionMatrix().setUri(uri);
 

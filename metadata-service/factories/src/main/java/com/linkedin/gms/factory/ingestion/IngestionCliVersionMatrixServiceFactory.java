@@ -96,8 +96,8 @@ public class IngestionCliVersionMatrixServiceFactory {
       return new NoOpIngestionCliVersionMatrixSource();
     }
 
-    if (uri.startsWith(HTTPS_PREFIX) || uri.startsWith(HTTP_PREFIX)) {
-      if (uri.startsWith(HTTP_PREFIX) && !isEmpty(matrixConfig.getAuthToken())) {
+    if (hasPrefix(uri, HTTPS_PREFIX) || hasPrefix(uri, HTTP_PREFIX)) {
+      if (hasPrefix(uri, HTTP_PREFIX) && !isEmpty(matrixConfig.getAuthToken())) {
         log.warn(
             "ingestion.cliVersionMatrix.authToken is set on a plain-http URI, so the Authorization "
                 + "header will be sent in cleartext. Use https:// unless this endpoint is in-cluster.");
@@ -163,6 +163,17 @@ public class IngestionCliVersionMatrixServiceFactory {
 
   private static boolean isEmpty(String s) {
     return s == null || s.trim().isEmpty();
+  }
+
+  /**
+   * Scheme-prefix match, case-insensitive: URI schemes are case-insensitive per RFC 3986 §3.1, so
+   * {@code HTTPS://host/matrix.json} must route to the HTTP reader rather than falling through to
+   * object-storage parsing and disabling the matrix. Only the prefix is folded — the rest of an
+   * http(s) URL can be case-sensitive (path, query), as can an S3 key or GCS object name.
+   */
+  private static boolean hasPrefix(@Nonnull String uri, @Nonnull String prefix) {
+    return uri.length() >= prefix.length()
+        && uri.regionMatches(true, 0, prefix, 0, prefix.length());
   }
 
   @Bean(name = "ingestionCliVersionMatrixService")
