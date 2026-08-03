@@ -173,7 +173,8 @@ source:
 ```
 
 The map key is the connection id exactly as it appears as the first
-`EXTERNAL_QUERY` argument (`project.region.connection`). Unmapped connections are
+`EXTERNAL_QUERY` argument (`project.region.connection`). The mapping is a no-op for
+queries that do not contain `EXTERNAL_QUERY` calls. Unmapped connections are
 reported as info (`BigQuery EXTERNAL_QUERY connection not mapped`); parse failures
 and empty resolutions are reported as warnings under `SQL Parsing Failure`.
 

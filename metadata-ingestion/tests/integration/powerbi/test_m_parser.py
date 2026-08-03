@@ -81,6 +81,14 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
+# Shared BigQuery NativeQuery M expression with a single EXTERNAL_QUERY federation.
+_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION = """
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
+            in
+                Source
+        """
+
 
 def get_data_platform_tables_with_dummy_table(
     q: str,
@@ -1150,12 +1158,7 @@ def test_bigquery_external_query_inner_sql_parse_failure_warns():
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
-        expression="""
-            let
-                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
-            in
-                Source
-        """,
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -1202,12 +1205,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
-        expression="""
-            let
-                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
-            in
-                Source
-        """,
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -1264,12 +1262,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_table_error():
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
-        expression="""
-            let
-                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
-            in
-                Source
-        """,
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -1428,12 +1421,7 @@ def test_bigquery_external_query_inner_sql_table_error_warns():
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
-        expression="""
-            let
-                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
-            in
-                Source
-        """,
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -1543,12 +1531,7 @@ def test_bigquery_external_query_outer_extraction_parse_failure_warns():
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
-        expression="""
-            let
-                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
-            in
-                Source
-        """,
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
     )
 
     reporter = PowerBiDashboardSourceReport()

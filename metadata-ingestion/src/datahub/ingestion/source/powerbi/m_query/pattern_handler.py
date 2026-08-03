@@ -455,15 +455,17 @@ class AbstractLineage(ABC):
         that platform's dialect — parsing in the correct dialect is what lets
         engine-specific syntax resolve to the real upstream table rather than failing.
         """
+        assert native_sql_parser.EXTERNAL_QUERY_PATTERN.search(query), (
+            "_resolve_external_query_upstreams requires EXTERNAL_QUERY in the query"
+        )
         extraction = native_sql_parser.extract_external_queries(
             query, _BIGQUERY_PLATFORM_NAME
         )
 
         upstreams: List[DataPlatformTable] = []
 
-        # The caller only invokes this when EXTERNAL_QUERY is present, so a parse failure
-        # here means we are dropping known federated lineage - surface it instead of
-        # silently returning nothing.
+        # Parse failure here means we are dropping known federated lineage — surface it
+        # instead of silently returning nothing.
         if extraction.parse_failed:
             self._report_external_query_parse_error(
                 message="Fail to parse PowerBI M-Query containing EXTERNAL_QUERY; "
