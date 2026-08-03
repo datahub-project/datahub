@@ -11,6 +11,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
+import com.linkedin.metadata.config.UsageEventsConfiguration;
 import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -28,6 +31,18 @@ public class OpenAPIAnalyticsTestConfiguration {
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext() {
     return TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
+  @Bean
+  @Primary
+  public ConfigurationProvider configurationProvider() {
+    ConfigurationProvider cp = Mockito.mock(ConfigurationProvider.class);
+    PlatformAnalyticsConfiguration pa = Mockito.mock(PlatformAnalyticsConfiguration.class);
+    UsageEventsConfiguration ue = Mockito.mock(UsageEventsConfiguration.class);
+    when(cp.getPlatformAnalytics()).thenReturn(pa);
+    when(pa.getUsageEvents()).thenReturn(ue);
+    when(ue.usePostgresql()).thenReturn(false);
+    return cp;
   }
 
   @Bean

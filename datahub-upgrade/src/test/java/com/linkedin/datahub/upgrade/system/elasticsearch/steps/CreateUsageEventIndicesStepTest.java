@@ -5,6 +5,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.usageevents.ElasticsearchUsageEventsInfrastructureProvisioner;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
@@ -73,7 +74,11 @@ public class CreateUsageEventIndicesStepTest {
     // Mock client responses for utility methods
     setupMockClientResponses();
 
-    step = new CreateUsageEventIndicesStep(esComponents, configurationProvider);
+    step =
+        new CreateUsageEventIndicesStep(
+            configurationProvider,
+            new ElasticsearchUsageEventsInfrastructureProvisioner(
+                esComponents, configurationProvider));
   }
 
   @BeforeClass
@@ -571,7 +576,10 @@ public class CreateUsageEventIndicesStepTest {
   public void testConstructor() {
     // Act
     CreateUsageEventIndicesStep newStep =
-        new CreateUsageEventIndicesStep(esComponents, configurationProvider);
+        new CreateUsageEventIndicesStep(
+            configurationProvider,
+            new ElasticsearchUsageEventsInfrastructureProvisioner(
+                esComponents, configurationProvider));
 
     // Assert
     Assert.assertNotNull(newStep);

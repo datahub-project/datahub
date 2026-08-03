@@ -12,11 +12,21 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Slf4j
 @Configuration
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
+@ConditionalOnProperty(
+    prefix = "elasticsearch.entityIndex.semanticSearch",
+    name = "enabled",
+    havingValue = "true")
 public class SemanticEntitySearchServiceFactory {
 
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";

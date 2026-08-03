@@ -12,6 +12,7 @@ import com.linkedin.common.DataJobUrn
  */
 @Aspect = {
   "name": "dataProcessInstanceProperties",
+  "schemaVersion": 2
 }
 record DataProcessInstanceProperties includes CustomProperties, ExternalReference {
 

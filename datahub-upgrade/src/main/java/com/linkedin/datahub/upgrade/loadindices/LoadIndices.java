@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -41,7 +42,8 @@ public class LoadIndices implements Upgrade {
       @Nullable final TimeseriesAspectService timeseriesAspectService,
       @Nullable final EntitySearchService entitySearchService,
       @Nullable final GraphService graphService,
-      @Nullable final AspectDao aspectDao) {
+      @Nullable final AspectDao aspectDao,
+      @Nullable final ElasticSearchService elasticSearchService) {
     if (server != null && indexManager != null) {
       _steps =
           buildSteps(
@@ -52,7 +54,8 @@ public class LoadIndices implements Upgrade {
               timeseriesAspectService,
               entitySearchService,
               graphService,
-              aspectDao);
+              aspectDao,
+              elasticSearchService);
     } else {
       _steps = List.of();
     }
@@ -76,7 +79,8 @@ public class LoadIndices implements Upgrade {
       final TimeseriesAspectService timeseriesAspectService,
       final EntitySearchService entitySearchService,
       final GraphService graphService,
-      final AspectDao aspectDao) {
+      final AspectDao aspectDao,
+      final ElasticSearchService elasticSearchService) {
     final List<UpgradeStep> steps = new ArrayList<>();
 
     if (systemMetadataService != null
@@ -95,7 +99,8 @@ public class LoadIndices implements Upgrade {
       steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     }
 
-    steps.add(new LoadIndicesStep(server, updateIndicesService, indexManager));
+    steps.add(
+        new LoadIndicesStep(server, updateIndicesService, indexManager, elasticSearchService));
     return steps;
   }
 

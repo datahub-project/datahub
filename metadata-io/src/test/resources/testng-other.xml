@@ -11,6 +11,11 @@
                 <exclude name="com.linkedin.metadata.entity.cassandra.*" />
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
                 <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
+                <exclude name="com.linkedin.metadata.postgres"/>
+                <exclude name="com.linkedin.metadata.postgres.*"/>
+                <exclude name="com.linkedin.metadata.timeseries.postgres.*"/>
+                <exclude name="com.linkedin.metadata.graph.postgres.*"/>
+                <exclude name="com.linkedin.metadata.queue.postgres.*"/>
             </package>
             <package name="io.datahubproject.test.aspect.*"/>
         </packages>

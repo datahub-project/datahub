@@ -9,7 +9,8 @@ import com.linkedin.common.FabricType
  * Information about a Asset Container as received from a 3rd party source system
  */
 @Aspect = {
-  "name": "containerProperties"
+  "name": "containerProperties",
+  "schemaVersion": 2
 }
 record ContainerProperties includes CustomProperties, ExternalReference {
   /**

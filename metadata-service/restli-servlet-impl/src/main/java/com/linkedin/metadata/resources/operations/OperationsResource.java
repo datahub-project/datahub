@@ -72,8 +72,12 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
+  // Use the @Primary `systemMetadataService` bean (defined in SystemMetadataServiceFactory) which
+  // resolves to either the Elasticsearch or Postgres implementation based on
+  // elasticsearch.enabled. The previous hard-coded "elasticSearchSystemMetadataService" qualifier
+  // crashed GMS startup when running in Postgres-only profiles.
   @Inject
-  @Named("elasticSearchSystemMetadataService")
+  @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
 
   @Inject

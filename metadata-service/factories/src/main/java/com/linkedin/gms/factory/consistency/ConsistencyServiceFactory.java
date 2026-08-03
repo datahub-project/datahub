@@ -9,7 +9,7 @@ import com.linkedin.metadata.config.ConsistencyChecksConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 /**
  * Factory for creating the generic {@link ConsistencyService} and related beans.
@@ -29,6 +30,10 @@ import org.springframework.context.annotation.Configuration;
  *   <li>{@link ConsistencyService} - the main service for checking and fixing consistency issues
  * </ul>
  *
+ * <p>The service is backend-agnostic: it relies on a {@link SystemMetadataScrollClient} (either
+ * Elasticsearch- or PostgreSQL-backed, selected by {@link SystemMetadataScrollClientFactory})
+ * rather than on a specific store, so consistency checks work on either deployment profile.
+ *
  * <p>The service is used by:
  *
  * <ul>
@@ -37,6 +42,7 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  */
 @Configuration
+@Import(SystemMetadataScrollClientFactory.class)
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.aspect.consistency.check",
@@ -74,7 +80,7 @@ public class ConsistencyServiceFactory {
    * Create the generic consistency service.
    *
    * @param entityService entity service for fetching entity data from SQL
-   * @param esSystemMetadataDAO system metadata DAO for querying the system metadata index
+   * @param scrollClient backend-agnostic system metadata scroll client (ES or Postgres)
    * @param graphClient graph client
    * @param checkRegistry the check registry
    * @param fixRegistry the fix registry
@@ -85,12 +91,11 @@ public class ConsistencyServiceFactory {
   @Nonnull
   public ConsistencyService consistencyService(
       @Qualifier("entityService") final EntityService<?> entityService,
-      @Qualifier("esSystemMetadataDAO") final ESSystemMetadataDAO esSystemMetadataDAO,
+      @Qualifier("systemMetadataScrollClient") final SystemMetadataScrollClient scrollClient,
       @Qualifier("graphClient") final GraphClient graphClient,
       @Qualifier("genericConsistencyCheckRegistry") final ConsistencyCheckRegistry checkRegistry,
       @Qualifier("genericConsistencyFixRegistry") final ConsistencyFixRegistry fixRegistry,
       final DataHubAppConfiguration appConfig) {
-    // Extract check configurations from app config
     Map<String, Map<String, String>> checkConfigs = Map.of();
     if (appConfig != null && appConfig.getConsistencyChecks() != null) {
       ConsistencyChecksConfiguration checksConfig = appConfig.getConsistencyChecks();
@@ -98,6 +103,6 @@ public class ConsistencyServiceFactory {
     }
 
     return new ConsistencyService(
-        entityService, esSystemMetadataDAO, graphClient, checkRegistry, fixRegistry, checkConfigs);
+        entityService, scrollClient, graphClient, checkRegistry, fixRegistry, checkConfigs);
   }
 }

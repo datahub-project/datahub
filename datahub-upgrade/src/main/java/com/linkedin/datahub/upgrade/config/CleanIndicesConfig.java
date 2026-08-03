@@ -13,6 +13,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +21,11 @@ import org.springframework.core.annotation.Order;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class CleanIndicesConfig {
   @Bean
   @Order(100)

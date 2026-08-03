@@ -60,6 +60,11 @@ public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
   /** Unified entry point. Both Kafka and pgQueue paths funnel through this method. */
   void consumeEnvelope(@Nonnull InboundMetadataEnvelope<R> envelope);
 
+  /** Transport-neutral entry for Kafka, pgQueue, and other transports. */
+  default void acceptInbound(@Nonnull InboundMetadataEnvelope<R> envelope) {
+    consumeEnvelope(envelope);
+  }
+
   /**
    * Converts a raw record / payload to the specific event type.
    *

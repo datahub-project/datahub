@@ -618,7 +618,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
-    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
+    addExpectedDatabaseAspectVersionHeader(initialChangeLog);
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -686,7 +686,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
-    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
+    addExpectedDatabaseAspectVersionHeader(initialChangeLog);
 
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
@@ -711,7 +711,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
-    restateChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
+    addExpectedDatabaseAspectVersionHeader(restateChangeLog);
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -783,7 +783,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(genericAspect);
     initialChangeLog.setSystemMetadata(metadata1);
-    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
+    addExpectedDatabaseAspectVersionHeader(initialChangeLog);
 
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
@@ -805,7 +805,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setPreviousSystemMetadata(
         simulatePullFromDB(metadata1, SystemMetadata.class)
             .setLastRunId(null, SetMode.REMOVE_IF_NULL));
-    restateChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
+    addExpectedDatabaseAspectVersionHeader(restateChangeLog);
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -3474,6 +3474,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // Verify logger was called
     assertFalse(logMessages.isEmpty(), "Logger should have been called");
+  }
+
+  /**
+   * {@link com.linkedin.metadata.entity.UpdateAspectResult#toMCL()} stamps {@link
+   * MCL_HEADER_DATABASE_ASPECT_VERSION}; expected logs in Mockito verifications must include the
+   * same header when rows use {@link ASPECT_LATEST_VERSION}.
+   */
+  protected void addExpectedDatabaseAspectVersionHeader(MetadataChangeLog mcl) {
+    StringMap headers = new StringMap();
+    headers.put(MCL_HEADER_DATABASE_ASPECT_VERSION, Long.toString(ASPECT_LATEST_VERSION));
+    mcl.setHeaders(headers);
   }
 
   @Nonnull

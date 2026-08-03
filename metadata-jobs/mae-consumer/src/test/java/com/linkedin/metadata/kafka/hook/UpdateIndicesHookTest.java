@@ -56,6 +56,7 @@ import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -151,6 +152,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             searchDocumentTransformer,
             mockTimeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),
@@ -161,10 +163,8 @@ public class UpdateIndicesHookTest {
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
-            mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(v2Strategy),
-            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
@@ -274,6 +274,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             searchDocumentTransformer,
             mockTimeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
             "MD5",
             null,
             mock(IndexConvention.class),
@@ -284,10 +285,8 @@ public class UpdateIndicesHookTest {
     updateIndicesService =
         new UpdateIndicesService(
             new UpdateGraphIndicesService(mockGraphService, false, true, Collections.emptyList()),
-            mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(testV2Strategy),
-            null,
             true,
             true,
             true);
@@ -971,6 +970,7 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
+              TimeseriesAspectWriteSink.NOOP,
               "MD5",
               null, // No semantic search config for this test
               mock(IndexConvention.class),
@@ -987,9 +987,9 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
+              TimeseriesAspectWriteSink.NOOP,
               "MD5",
-              v2Enabled, // v2Enabled parameter
-              null);
+              v2Enabled); // v2Enabled parameter
       strategies.add(v3Strategy);
     }
 
@@ -997,10 +997,8 @@ public class UpdateIndicesHookTest {
     UpdateIndicesService testUpdateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
-            mockEntitySearchService,
             mockSystemMetadataService,
             strategies,
-            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled

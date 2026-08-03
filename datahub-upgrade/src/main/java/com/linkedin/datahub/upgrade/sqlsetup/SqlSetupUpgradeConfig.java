@@ -3,13 +3,11 @@ package com.linkedin.datahub.upgrade.sqlsetup;
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
 import com.linkedin.gms.factory.common.LocalEbeanConfigFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.system_telemetry.CacheInstrumentationFactory;
 import org.springframework.boot.micrometer.metrics.autoconfigure.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.export.simple.SimpleMetricsExportAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
 /**
@@ -51,9 +49,5 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.system_telemetry"
-    },
-    excludeFilters =
-        @ComponentScan.Filter(
-            type = FilterType.ASSIGNABLE_TYPE,
-            classes = CacheInstrumentationFactory.class))
+    })
 public class SqlSetupUpgradeConfig {}

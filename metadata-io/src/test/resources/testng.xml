@@ -12,6 +12,7 @@ parallel followed by everything else.
     <suite-file path="testng-opensearch.xml"/>
     <suite-file path="testng-es8.xml"/>
     <suite-file path="testng-sql-opt.xml"/>
+    <suite-file path="testng-postgresql.xml"/>
     <suite-file path="testng-es7-cassandra-neo4j.xml"/>
     <suite-file path="testng-postgresql.xml"/>
 </suite-files>

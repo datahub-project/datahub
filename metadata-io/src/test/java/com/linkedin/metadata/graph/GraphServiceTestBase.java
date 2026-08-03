@@ -68,7 +68,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       if (cmp != 0) {
         return cmp;
       }
-      return left.getUrn().compareTo(right.getUrn());
+      cmp = left.getUrn().compareTo(right.getUrn());
+      if (cmp != 0) {
+        return cmp;
+      }
+      String lv = left.getVia() != null ? left.getVia() : "";
+      String rv = right.getVia() != null ? right.getVia() : "";
+      return lv.compareTo(rv);
     }
   }
 

@@ -6,13 +6,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.ProductAnalytics;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NamedBar;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -29,25 +28,17 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 public class DailyReport {
   private final OperationContext systemOperationContext;
-  private final SearchClientShim<?> _elasticClient;
+  private final ProductAnalytics productAnalytics;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
-
-  /** SubType value used to identify service accounts in CorpUser entities. */
-  private static final String SERVICE_ACCOUNT_SUB_TYPE = "SERVICE_ACCOUNT";
 
   /** Entity types to report for metadata analytics */
   private static final List<EntityType> REPORTING_ENTITY_TYPES =
@@ -84,12 +75,12 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
+      @Nonnull ProductAnalytics productAnalytics,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
     this.systemOperationContext = systemOperationContext;
-    this._elasticClient = elasticClient;
+    this.productAnalytics = productAnalytics;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
@@ -122,9 +113,7 @@ public class DailyReport {
   // statistics to send daily
   @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
   public void dailyReport() {
-    AnalyticsService analyticsService =
-        new AnalyticsService(
-            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
+    AnalyticsService analyticsService = productAnalytics.analyticsService();
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);
@@ -178,16 +167,21 @@ public class DailyReport {
     report.put("server_version", _gitVersion.getVersion());
 
     // Add total user count (anonymized to nearest power of 2)
-    int totalUserCount = getTotalUserCount();
+    int totalUserCount = productAnalytics.countCorpUsersTotal();
     report.put("total_user_count", anonymizeCount(totalUserCount));
 
     // Add total service account count (anonymized to nearest power of 2)
-    int totalServiceAccountCount = getServiceAccountCount();
+    int totalServiceAccountCount = productAnalytics.countCorpUserServiceAccounts();
     report.put("total_service_account_count", anonymizeCount(totalServiceAccountCount));
 
     // Add metadata analytics
     try {
-      addMetadataAnalytics(analyticsService, report);
+      if (productAnalytics.isEntitySearchAvailable()) {
+        addMetadataAnalytics(analyticsService, report);
+      } else {
+        log.debug(
+            "Skipping metadata analytics fields in telemetry (no OpenSearch client; elasticsearch.enabled=false)");
+      }
     } catch (Exception e) {
       log.warn("Failed to collect metadata analytics: {}", e.getMessage());
       // Continue with report even if metadata collection fails
@@ -208,69 +202,6 @@ public class DailyReport {
   // Visible for testing
   int anonymizeCount(int count) {
     return count <= 0 ? 0 : (int) Math.pow(2, (int) (Math.log(count) / Math.log(2)));
-  }
-
-  /**
-   * Counts the total number of users (CorpUser entities) in the system.
-   *
-   * @return the count of users, or 0 if an error occurs
-   */
-  private int getTotalUserCount() {
-    try {
-      String corpUserIndex =
-          systemOperationContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
-
-      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
-      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-      searchSourceBuilder.size(0); // We only need the count
-      searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-      searchSourceBuilder.trackTotalHits(true);
-      searchRequest.source(searchSourceBuilder);
-
-      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
-      // per-event context available
-      SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
-      return (int) searchResponse.getHits().getTotalHits().value;
-    } catch (Exception e) {
-      log.warn("Failed to count users for telemetry: {}", e.getMessage());
-      return 0;
-    }
-  }
-
-  /**
-   * Counts the number of service accounts in the system. Service accounts are CorpUser entities
-   * with a SubTypes aspect containing "SERVICE_ACCOUNT" in typeNames.
-   *
-   * @return the count of service accounts, or 0 if an error occurs
-   */
-  private int getServiceAccountCount() {
-    try {
-      String corpUserIndex =
-          systemOperationContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
-
-      SearchRequest searchRequest = new SearchRequest(corpUserIndex);
-      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-      searchSourceBuilder.size(0); // We only need the count
-      searchSourceBuilder.query(QueryBuilders.termQuery("typeNames", SERVICE_ACCOUNT_SUB_TYPE));
-      searchSourceBuilder.trackTotalHits(true);
-      searchRequest.source(searchSourceBuilder);
-
-      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
-      // per-event context available
-      SearchResponse searchResponse =
-          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
-      return (int) searchResponse.getHits().getTotalHits().value;
-    } catch (Exception e) {
-      log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());
-      return 0;
-    }
   }
 
   public void ping(String eventName, JSONObject properties) {

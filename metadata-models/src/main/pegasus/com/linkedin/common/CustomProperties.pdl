@@ -10,7 +10,8 @@ record CustomProperties {
   @Searchable = {
     "/*": {
       "fieldType": "TEXT",
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchTier": 2
     }
   }
   customProperties: map[string, string] = { }

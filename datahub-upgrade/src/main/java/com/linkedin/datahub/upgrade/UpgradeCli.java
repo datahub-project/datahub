@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.cleanup.Cleanup;
+import com.linkedin.datahub.upgrade.conditions.LoadIndicesCondition;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
@@ -18,6 +19,7 @@ import jakarta.inject.Named;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
@@ -42,6 +44,8 @@ public class UpgradeCli implements CommandLineRunner {
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
+
+  @Autowired private ApplicationArguments applicationArguments;
 
   @Autowired(required = false)
   @Named("sqlSetup")
@@ -122,6 +126,12 @@ public class UpgradeCli implements CommandLineRunner {
       _upgradeManager.register(loadIndices);
     } else {
       log.info("LoadIndices upgrade not available - bean not found");
+      if (LoadIndicesCondition.isLoadIndicesRequested(applicationArguments.getNonOptionArgs())) {
+        log.warn(
+            "LoadIndices was requested on the command line but is not available. "
+                + "It requires elasticsearch.enabled=true (the default). "
+                + "With elasticsearch.enabled=false, search index loading is not supported.");
+      }
     }
 
     if (systemUpdate != null) {

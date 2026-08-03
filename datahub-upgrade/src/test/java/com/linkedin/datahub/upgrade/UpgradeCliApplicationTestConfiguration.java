@@ -114,20 +114,21 @@ public class UpgradeCliApplicationTestConfiguration {
   @Bean
   @Primary
   public Database ebeanServer() {
+    // Create a real H2 in-memory database for testing with a unique name to avoid conflicts
     String instanceId = "upgradecli_" + UUID.randomUUID().toString().replace("-", "");
     String serverName = "upgradecli_test_" + UUID.randomUUID().toString().replace("-", "");
     return EbeanTestUtils.createNamedTestServer(instanceId, serverName);
   }
 
   /**
-   * Override the pgQueue Ebean pool with an in-memory H2 database so pgQueue-transport tests don't
-   * need a real Postgres instance. Harmless in Kafka-transport tests since no bean references
-   * pgQueueEbeanServer when PgQueueEbeanConfigFactory is inactive.
+   * Stub the dedicated pgQueue Ebean server so {@code MetadataQueueStoreFactory} can wire up a
+   * {@link com.linkedin.metadata.queue.MetadataQueueStore} bean during pgQueue-mode tests without
+   * the new {@code PgQueueEbeanConfigFactory} attempting a real Postgres connection.
    */
   @Bean(name = "pgQueueEbeanServer")
   public Database pgQueueEbeanServer() {
-    String instanceId = "pgqueue_" + UUID.randomUUID().toString().replace("-", "");
-    String serverName = "pgqueue_test_" + UUID.randomUUID().toString().replace("-", "");
+    String instanceId = "pgqueue_upgradecli_" + UUID.randomUUID().toString().replace("-", "");
+    String serverName = "pgqueue_upgradecli_test_" + UUID.randomUUID().toString().replace("-", "");
     return EbeanTestUtils.createNamedTestServer(instanceId, serverName);
   }
 

@@ -565,6 +565,8 @@ Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` hist
 - Micrometer: `messaging.queue.time` timer with `messaging.system` and related tags
 - The deprecated Micrometer name `kafka.message.queue.time` is no longer emitted
 
+**pgQueue transport:** Queue-time instrumentation uses the same Micrometer timer names (`kafka.message.queue.time`) and legacy `kafkaLag` histograms as Kafka consumers; `topic` and `consumer.group` tags remain meaningful. Consumer lag is driven by SQL-backed offsets (`consumer_offset`). Message retention (age, row count, and payload caps) is enforced independently of consumer-group read progress, not by Kafka broker offsets.
+
 The new metrics provide:
 
 - Better percentile accuracy
@@ -751,6 +753,8 @@ rate(primary_storage_read_fallback_to_primary_total[5m])
 
 Micrometer provides automatic instrumentation for cache implementations, offering deep insights into cache performance
 and efficiency. This instrumentation is crucial for DataHub, where caching significantly impacts query performance and system load.
+
+**Where metrics come from:** Caches served by Spring’s `CacheManager` (search/lineage caches, and other Spring-managed caches) are bound by **Spring Boot Actuator**, which tags meters with `cache` and `cache.manager` (shown as `cache_manager` in Prometheus). Standalone **Caffeine** caches built outside `CacheManager` (for example entity and usage **ClientCache** instances) are registered via DataHub’s `MicrometerMetricsRegistry.registerCacheMetrics` and use the same core meter names without duplicating Spring’s registration. To turn off all `cache.*` meters globally, set Spring Boot’s `management.metrics.enable.cache` to `false` (see [environment variables](../deploy/environment-vars.md), **Management & Monitoring → Metrics Configuration**).
 
 ### Automatic Cache Metrics
 

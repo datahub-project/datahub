@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -19,12 +20,23 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
 
-  @Autowired private ElasticSearchService _searchService;
+  private static final String RAW_USAGE_PG_MESSAGE =
+      "{\"message\":\"Raw OpenSearch DSL usage-events queries are not supported when "
+          + "platformAnalytics.usageEvents.implementation is postgres\"}";
+
+  // Optional: ElasticSearchService is only registered when elasticsearch.enabled=true. The
+  // postgres usage-events path short-circuits to NOT_IMPLEMENTED before touching this field.
+  @Autowired(required = false)
+  private ElasticSearchService _searchService;
+
   @Autowired private AuthorizerChain _authorizationChain;
+  @Autowired private ConfigurationProvider configurationProvider;
 
   @Autowired
   @Qualifier("systemOperationContext")
@@ -47,6 +59,13 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
             authentication,
             true);
     checkAnalyticsAuthorized(opContext);
+
+    if (configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()
+        || _searchService == null) {
+      return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(RAW_USAGE_PG_MESSAGE);
+    }
 
     return ResponseEntity.of(
         _searchService.raw(opContext, DATAHUB_USAGE_INDEX, body).map(Objects::toString));

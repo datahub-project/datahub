@@ -1,11 +1,9 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
-import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -16,16 +14,15 @@ import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
-@Import(ElasticSearchServiceFactory.class)
 public class UpdateIndicesServiceFactory {
 
   @Value("${featureFlags.searchServiceDiffModeEnabled}")
@@ -47,7 +44,9 @@ public class UpdateIndicesServiceFactory {
   private Collection<UpdateIndicesStrategy> createStrategies(
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
       @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
-      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy,
+      @Qualifier("postgresEntitySearchStrategy") @Nullable
+          UpdateIndicesStrategy postgresEntitySearchStrategy) {
 
     Collection<UpdateIndicesStrategy> strategies = new ArrayList<>();
 
@@ -61,6 +60,10 @@ public class UpdateIndicesServiceFactory {
 
     if (upgradeStrategy != null) {
       strategies.add(upgradeStrategy);
+    }
+
+    if (postgresEntitySearchStrategy != null) {
+      strategies.add(postgresEntitySearchStrategy);
     }
 
     List<String> strategyNames =
@@ -81,20 +84,21 @@ public class UpdateIndicesServiceFactory {
   @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
   public UpdateIndicesService searchIndicesServiceNonGMS(
       GraphService graphService,
-      ElasticSearchService entitySearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
+      @Autowired(required = false) @Nullable ElasticSearchService elasticSearchService,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
       @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
-      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy,
+      @Autowired(required = false) @Qualifier("postgresEntitySearchStrategy") @Nullable
+          UpdateIndicesStrategy postgresEntitySearchStrategy) {
 
     Collection<UpdateIndicesStrategy> strategies =
-        createStrategies(v2Strategy, v3Strategy, upgradeStrategy);
+        createStrategies(v2Strategy, v3Strategy, upgradeStrategy, postgresEntitySearchStrategy);
 
     return new UpdateIndicesService(
         new UpdateGraphIndicesService(
@@ -102,10 +106,9 @@ public class UpdateIndicesServiceFactory {
             graphDiffMode,
             graphStatusEnabled,
             fineGrainedLineageNotAllowedForPlatforms),
-        entitySearchService,
         systemMetadataService,
         strategies,
-        timeseriesWriteThrottleCache,
+        elasticSearchService,
         searchDiffMode,
         structuredPropertiesHookEnabled,
         structuredPropertiesWriteEnabled);
@@ -115,21 +118,22 @@ public class UpdateIndicesServiceFactory {
   @ConditionalOnProperty(name = "entityClient.impl", havingValue = "java", matchIfMissing = true)
   public UpdateIndicesService searchIndicesServiceGMS(
       final GraphService graphService,
-      final ElasticSearchService entitySearchService,
       final TimeseriesAspectService timeseriesAspectService,
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
-      final TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
+      @Autowired(required = false) @Nullable ElasticSearchService elasticSearchService,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
       @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
-      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy,
+      @Autowired(required = false) @Qualifier("postgresEntitySearchStrategy") @Nullable
+          UpdateIndicesStrategy postgresEntitySearchStrategy) {
 
     Collection<UpdateIndicesStrategy> strategies =
-        createStrategies(v2Strategy, v3Strategy, upgradeStrategy);
+        createStrategies(v2Strategy, v3Strategy, upgradeStrategy, postgresEntitySearchStrategy);
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
@@ -138,10 +142,9 @@ public class UpdateIndicesServiceFactory {
                 graphDiffMode,
                 graphStatusEnabled,
                 fineGrainedLineageNotAllowedForPlatforms),
-            entitySearchService,
             systemMetadataService,
             strategies,
-            timeseriesWriteThrottleCache,
+            elasticSearchService,
             searchDiffMode,
             structuredPropertiesHookEnabled,
             structuredPropertiesWriteEnabled);

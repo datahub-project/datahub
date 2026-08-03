@@ -354,7 +354,7 @@ public class EntityRegistryControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.aspectAnnotation.name", is(TEST_ASPECT_NAME)))
-        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(1)));
+        .andExpect(jsonPath("$.aspectAnnotation.schemaVersion", is(2)));
   }
 
   @Test

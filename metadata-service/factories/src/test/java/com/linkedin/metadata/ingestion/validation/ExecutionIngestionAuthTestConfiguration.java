@@ -1,12 +1,14 @@
 package com.linkedin.metadata.ingestion.validation;
 
 import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -92,13 +94,9 @@ public class ExecutionIngestionAuthTestConfiguration {
   @Bean(name = "baseElasticSearchComponents")
   public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents(
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention mockIndexConvention) {
+    ElasticSearchConfiguration esConfig = mock(ElasticSearchConfiguration.class);
     return new BaseElasticSearchComponentsFactory.BaseElasticSearchComponents(
-        null, // config
-        null, // searchClient
-        mockIndexConvention,
-        null, // bulkProcessor
-        null // indexBuilder
-        );
+        esConfig, null, mockIndexConvention, null, null);
   }
 
   @Bean(name = "deleteEntityService")

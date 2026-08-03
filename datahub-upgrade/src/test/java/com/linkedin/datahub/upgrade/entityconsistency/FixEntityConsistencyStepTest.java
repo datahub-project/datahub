@@ -3,11 +3,9 @@ package com.linkedin.datahub.upgrade.entityconsistency;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -53,25 +51,24 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollRequest;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollResult;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.SearchHits;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -81,7 +78,7 @@ public class FixEntityConsistencyStepTest {
 
   @Mock private EntityService<?> mockEntityService;
 
-  @Mock private ESSystemMetadataDAO mockEsSystemMetadataDAO;
+  @Mock private SystemMetadataScrollClient mockScrollClient;
 
   @Mock private RetrieverContext mockRetrieverContext;
 
@@ -100,9 +97,13 @@ public class FixEntityConsistencyStepTest {
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(mockEntityRegistry);
 
-    // Setup entity registry mocks for annotation-based entity type validation
     setupEntityRegistryMocks();
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+
+    // Default scroll-client behavior: empty result, no continuation. Individual tests can override.
+    when(mockScrollClient.scrollUrns(
+            any(OperationContext.class), any(SystemMetadataScrollRequest.class)))
+        .thenReturn(SystemMetadataScrollResult.empty());
 
     // Create checks for registry - add mock checks for assertion entity type
     // All checks are non-on-demand to match test expectations
@@ -116,7 +117,6 @@ public class FixEntityConsistencyStepTest {
 
     ConsistencyCheckRegistry checkRegistry = new ConsistencyCheckRegistry(checks);
 
-    // Create fixes for registry
     List<ConsistencyFix> fixes =
         List.of(new BatchItemsFix(mockEntityService), new HardDeleteEntityFix(mockEntityService));
 
@@ -124,7 +124,7 @@ public class FixEntityConsistencyStepTest {
 
     consistencyService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, checkRegistry, fixRegistry);
   }
 
   /** Helper method to create a mock ConsistencyCheck for testing. */
@@ -169,7 +169,6 @@ public class FixEntityConsistencyStepTest {
       @Nonnull
       public List<ConsistencyIssue> check(
           @Nonnull CheckContext context, @Nonnull Map<Urn, EntityResponse> entities) {
-        // Return empty list - no issues detected by default
         return List.of();
       }
     };
@@ -183,7 +182,6 @@ public class FixEntityConsistencyStepTest {
    * types.
    */
   private void setupEntityRegistryMocks() {
-    // Setup assertion entity spec with assertionInfo aspect
     EntitySpec assertionEntitySpec = mock(EntitySpec.class);
     AspectSpec assertionInfoAspectSpec = mock(AspectSpec.class);
     UrnValidationAnnotation assertionUrnValidation = mock(UrnValidationAnnotation.class);
@@ -200,7 +198,6 @@ public class FixEntityConsistencyStepTest {
     when(mockEntityRegistry.getEntitySpecs())
         .thenReturn(Map.of(ASSERTION_ENTITY_NAME, assertionEntitySpec));
 
-    // Setup monitor entity spec with monitorKey aspect
     EntitySpec monitorEntitySpec = mock(EntitySpec.class);
     AspectSpec monitorKeyAspectSpec = mock(AspectSpec.class);
     UrnValidationAnnotation monitorUrnValidation = mock(UrnValidationAnnotation.class);
@@ -245,6 +242,13 @@ public class FixEntityConsistencyStepTest {
     return config;
   }
 
+  /** Helper that builds a single-page scroll result with the given URNs and no continuation. */
+  private SystemMetadataScrollResult scrollResultOf(String... urns) {
+    LinkedHashSet<Urn> urnSet = new LinkedHashSet<>();
+    Arrays.stream(urns).map(UrnUtils::getUrn).forEach(urnSet::add);
+    return SystemMetadataScrollResult.builder().urns(urnSet).nextScrollId(null).build();
+  }
+
   /** Test to verify the correct step ID is returned. */
   @Test
   public void testId() {
@@ -271,7 +275,6 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous succeeded run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
@@ -286,7 +289,6 @@ public class FixEntityConsistencyStepTest {
    */
   @Test
   public void testSkipRegularRunSucceeded() {
-    // Regular run - no timestamp filters, no limit (limit=0)
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -298,13 +300,11 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous succeeded run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(mockResult));
 
-    // Regular runs should NOT skip on SUCCEEDED - allow incremental
     assertFalse(
         step.skip(mockContext), "Regular run should not skip on SUCCEEDED (incremental mode)");
   }
@@ -312,7 +312,6 @@ public class FixEntityConsistencyStepTest {
   /** Test skip logic for targeted runs (with timestamp filters) - should skip on SUCCEEDED. */
   @Test
   public void testSkipTargetedRunSucceeded() {
-    // Targeted run - has timestamp filter
     EntityConsistencyConfiguration config = createTestConfig(false, 10, 100, 1000, false);
     EntityConsistencyConfiguration.SystemMetadataFilterConfig filterConfig =
         new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
@@ -326,20 +325,17 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous succeeded run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(mockResult));
 
-    // Targeted runs should skip on SUCCEEDED
     assertTrue(step.skip(mockContext), "Targeted run should skip on SUCCEEDED");
   }
 
   /** Test skip logic - should NOT skip on IN_PROGRESS (resume) for non-limited runs. */
   @Test
   public void testSkipInProgressAllowsResume() {
-    // Regular run (limit=0) - supports resume
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -351,13 +347,11 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous IN_PROGRESS run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(mockResult));
 
-    // Should NOT skip - allow resume
     assertFalse(step.skip(mockContext), "Should not skip IN_PROGRESS state (resume)");
   }
 
@@ -375,7 +369,6 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // No previous run
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
     assertFalse(step.skip(mockContext), "Should not skip when no previous run");
@@ -387,7 +380,6 @@ public class FixEntityConsistencyStepTest {
    */
   @Test
   public void testExecutableWithNoOrphans() throws Exception {
-    // dryRun=true so no actual writes expected
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -402,23 +394,9 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
-    // Mock empty search response from system metadata DAO
-    SearchResponse emptyResponse = createEmptySearchResponse();
-
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
-
-    // Mock entity existence check (both Set and single Urn versions)
+    // Default mockScrollClient behaviour: empty result with null continuation.
     when(mockEntityService.exists(any(OperationContext.class), any(Set.class), anyBoolean()))
         .thenReturn(Set.of());
     when(mockEntityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
@@ -427,33 +405,6 @@ public class FixEntityConsistencyStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-  }
-
-  /** Helper method to create an empty SearchResponse for mocking. */
-  private SearchResponse createEmptySearchResponse() {
-    SearchResponse response = mock(SearchResponse.class);
-    SearchHits hits = mock(SearchHits.class);
-    when(hits.getHits()).thenReturn(new SearchHit[0]);
-    when(hits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
-    when(response.getHits()).thenReturn(hits);
-    return response;
-  }
-
-  /** Helper method to create a SearchResponse with URNs for mocking. */
-  private SearchResponse createSearchResponseWithUrns(String... urns) {
-    SearchResponse response = mock(SearchResponse.class);
-    SearchHits hits = mock(SearchHits.class);
-    SearchHit[] searchHits = new SearchHit[urns.length];
-    for (int i = 0; i < urns.length; i++) {
-      SearchHit hit = mock(SearchHit.class);
-      when(hit.getSourceAsMap()).thenReturn(Map.of("urn", urns[i], "aspect", "someAspect"));
-      when(hit.getSortValues()).thenReturn(new Object[] {urns[i], "someAspect"});
-      searchHits[i] = hit;
-    }
-    when(hits.getHits()).thenReturn(searchHits);
-    when(hits.getTotalHits()).thenReturn(new TotalHits(urns.length, TotalHits.Relation.EQUAL_TO));
-    when(response.getHits()).thenReturn(hits);
-    return response;
   }
 
   /** Test to verify that the upgrade class creates empty steps when disabled. */
@@ -512,7 +463,6 @@ public class FixEntityConsistencyStepTest {
   /** Test to verify that filtering by check IDs to specific entity type works. */
   @Test
   public void testFilterByCheckIdsToEntityType() throws Exception {
-    // Only run assertion checks - pass checkIds, let step resolve entity types
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -539,42 +489,22 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-
-    // Mock empty search response from system metadata DAO
-    SearchResponse emptyResponse = createEmptySearchResponse();
-
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Should have called scroll for assertions only
-    verify(mockEsSystemMetadataDAO)
-        .scroll(
+    // Should have called scroll for the requested entity type.
+    verify(mockScrollClient, atLeastOnce())
+        .scrollUrns(
             any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt());
+            argThat(req -> req != null && ASSERTION_ENTITY_NAME.equals(req.getEntityType())));
   }
 
   /** Test to verify that filtering by specific check ID works. */
   @Test
   public void testFilterBySpecificCheckId() throws Exception {
-    // Only run one specific check
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -596,21 +526,7 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-
-    // Mock empty search response from system metadata DAO
-    SearchResponse emptyResponse = createEmptySearchResponse();
-
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
 
@@ -620,8 +536,6 @@ public class FixEntityConsistencyStepTest {
   /** Test to verify that invalid assertion entity type detection works. */
   @Test
   public void testAssertionWithInvalidEntityTypeIsDetected() throws Exception {
-    // Use dryRun=true so we don't try to actually soft-delete (which needs EntityRegistry)
-    // Specify entity type explicitly to avoid Set iteration order issues
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -636,29 +550,15 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
-    // Create assertion with invalid entity type (corpuser instead of dataset)
     Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-assertion");
-    Urn invalidEntityUrn = UrnUtils.getUrn("urn:li:corpuser:test"); // Invalid type
 
-    // Mock system metadata DAO responses
-    SearchResponse assertionSearchResponse = createSearchResponseWithUrns(assertionUrn.toString());
-    SearchResponse emptyResponse = createEmptySearchResponse();
+    when(mockScrollClient.scrollUrns(
+            any(OperationContext.class), any(SystemMetadataScrollRequest.class)))
+        .thenReturn(scrollResultOf(assertionUrn.toString()))
+        .thenReturn(SystemMetadataScrollResult.empty());
 
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(assertionSearchResponse) // Assertions phase
-        .thenReturn(emptyResponse); // Monitors phase
-
-    // Create AssertionInfo with invalid entity type
     AssertionInfo assertionInfo = new AssertionInfo();
 
     EnvelopedAspectMap aspects = new EnvelopedAspectMap();
@@ -671,7 +571,6 @@ public class FixEntityConsistencyStepTest {
     assertionResponse.setEntityName(ASSERTION_ENTITY_NAME);
     assertionResponse.setAspects(aspects);
 
-    // Return the assertion response for any assertion request
     when(mockEntityService.getEntitiesV2(
             any(OperationContext.class),
             eq(ASSERTION_ENTITY_NAME),
@@ -680,17 +579,14 @@ public class FixEntityConsistencyStepTest {
             anyBoolean()))
         .thenReturn(Map.of(assertionUrn, assertionResponse));
 
-    // Mock exists for both Set and single Urn versions
     when(mockEntityService.exists(any(OperationContext.class), any(Set.class), anyBoolean()))
         .thenReturn(Set.of());
     when(mockEntityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
         .thenReturn(false);
 
-    // With dryRun=true, the step should complete successfully without actually making changes
     UpgradeStepResult result = step.executable().apply(mockContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify the assertion was fetched and processed (detection happened)
     verify(mockEntityService, times(1))
         .getEntitiesV2(
             any(OperationContext.class),
@@ -699,7 +595,6 @@ public class FixEntityConsistencyStepTest {
             any(Set.class),
             anyBoolean());
 
-    // In dry-run mode, no actual soft-delete should happen
     verify(mockEntityService, never())
         .ingestProposal(any(OperationContext.class), any(), anyBoolean());
   }
@@ -710,18 +605,12 @@ public class FixEntityConsistencyStepTest {
    */
   @Test
   public void testOnDemandChecksExcludedByDefault() {
-    // The AssertionMonitorMissingCheck is NOT on-demand by default, so let's verify
-    // that all default checks are included and count is correct.
     ConsistencyCheckRegistry registry = consistencyService.getCheckRegistry();
 
-    // Verify getDefaultEntityTypes returns same as getEntityTypes (no on-demand checks in test
-    // setup)
     assertEquals(registry.getDefaultEntityTypes(), registry.getEntityTypes());
 
-    // Verify getDefaultChecks returns same as getAll (no on-demand checks in test setup)
     assertEquals(registry.getDefaultChecks().size(), registry.getAll().size());
 
-    // Verify getDefaultByEntityType returns same as getByEntityType
     assertEquals(
         registry.getDefaultByEntityType(ASSERTION_ENTITY_NAME).size(),
         registry.getByEntityType(ASSERTION_ENTITY_NAME).size());
@@ -732,8 +621,6 @@ public class FixEntityConsistencyStepTest {
   public void testExplicitCheckIdsIncludeOnDemand() {
     ConsistencyCheckRegistry registry = consistencyService.getCheckRegistry();
 
-    // When checkIds is specified, getDefaultByEntityTypeAndIds should return those checks
-    // even if they were on-demand (though in our test setup none are on-demand)
     List<String> explicitCheckIds = List.of("assertion-entity-urn-missing");
     List<ConsistencyCheck> checks =
         registry.getDefaultByEntityTypeAndIds(ASSERTION_ENTITY_NAME, explicitCheckIds);
@@ -747,7 +634,6 @@ public class FixEntityConsistencyStepTest {
   public void testDefaultByEntityTypeAndIdsWithEmptyCheckIds() {
     ConsistencyCheckRegistry registry = consistencyService.getCheckRegistry();
 
-    // When checkIds is empty/null, should return all default checks for entity type
     List<ConsistencyCheck> checksWithNull =
         registry.getDefaultByEntityTypeAndIds(ASSERTION_ENTITY_NAME, null);
     List<ConsistencyCheck> checksWithEmpty =
@@ -761,7 +647,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that config fingerprint produces different values for different configs. */
   @Test
   public void testConfigFingerprintDifferentConfigs() {
-    // Two configs with different checkIds should have different fingerprints
     EntityConsistencyConfiguration config1 = createTestConfig(false, 10, 0, 0, false);
     config1.setCheckIds(List.of("check-a", "check-b"));
 
@@ -773,22 +658,18 @@ public class FixEntityConsistencyStepTest {
     FixEntityConsistencyStep step2 =
         new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config2);
 
-    // Both should have same id() but different fingerprinted URNs (via skip behavior)
     assertEquals(step1.id(), step2.id());
-    // The fingerprints are computed internally, so we verify behavior via skip logic
   }
 
   /** Test that targeted runs (with timestamp filters) are detected correctly. */
   @Test
   public void testTargetedRunDetection() {
-    // Config with timestamp filter = targeted run
     EntityConsistencyConfiguration targetedConfig = createTestConfig(false, 10, 0, 0, false);
     EntityConsistencyConfiguration.SystemMetadataFilterConfig filterConfig =
         new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
     filterConfig.setGePitEpochMs(1000L);
     targetedConfig.setSystemMetadataFilterConfig(filterConfig);
 
-    // Config without timestamp filter = regular run
     EntityConsistencyConfiguration regularConfig = createTestConfig(false, 10, 0, 0, false);
 
     FixEntityConsistencyStep targetedStep =
@@ -798,7 +679,6 @@ public class FixEntityConsistencyStepTest {
         new FixEntityConsistencyStep(
             mockOpContext, mockEntityService, consistencyService, regularConfig);
 
-    // Both have same base ID
     assertEquals(targetedStep.id(), regularStep.id());
     assertEquals(targetedStep.id(), "entity-consistency-v1");
   }
@@ -806,9 +686,7 @@ public class FixEntityConsistencyStepTest {
   /** Test that limited runs (limit > 0) skip on SUCCEEDED like targeted runs. */
   @Test
   public void testSkipLimitedRunSucceeded() {
-    // Limited run - has limit > 0
-    EntityConsistencyConfiguration limitedConfig =
-        createTestConfig(false, 10, 100, 500, false); // limit=500
+    EntityConsistencyConfiguration limitedConfig = createTestConfig(false, 10, 100, 500, false);
 
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
@@ -818,13 +696,11 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous succeeded run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(mockResult));
 
-    // Limited runs should skip on SUCCEEDED (no incremental support)
     assertTrue(step.skip(mockContext), "Limited run should skip on SUCCEEDED");
   }
 
@@ -833,9 +709,7 @@ public class FixEntityConsistencyStepTest {
    */
   @Test
   public void testLimitedRunInProgressStartsFresh() {
-    // Limited run - has limit > 0
-    EntityConsistencyConfiguration limitedConfig =
-        createTestConfig(false, 10, 100, 500, false); // limit=500
+    EntityConsistencyConfiguration limitedConfig = createTestConfig(false, 10, 100, 500, false);
 
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
@@ -845,13 +719,11 @@ public class FixEntityConsistencyStepTest {
     Upgrade mockUpgrade = mock(Upgrade.class);
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
 
-    // Mock previous IN_PROGRESS run
     DataHubUpgradeResult mockResult = mock(DataHubUpgradeResult.class);
     when(mockResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(mockResult));
 
-    // Limited runs should NOT skip on IN_PROGRESS (but they will start fresh, not resume)
     assertFalse(
         step.skip(mockContext), "Limited run should not skip on IN_PROGRESS (starts fresh)");
   }
@@ -859,8 +731,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that progress is saved after each batch (non-dry-run mode). */
   @Test
   public void testProgressSavedAfterBatch() throws Exception {
-    // Use non-dry-run mode to verify state is saved
-    // Specify a single entity type to avoid Set iteration order issues
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -875,28 +745,16 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
-    // Create an assertion to process
     Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:test-assertion");
     Urn validEntityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
 
-    // Mock search response with an assertion
-    SearchResponse assertionSearchResponse = createSearchResponseWithUrns(assertionUrn.toString());
-    SearchResponse emptyResponse = createEmptySearchResponse();
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(assertionSearchResponse) // First batch
-        .thenReturn(emptyResponse); // No more results
+    when(mockScrollClient.scrollUrns(
+            any(OperationContext.class), any(SystemMetadataScrollRequest.class)))
+        .thenReturn(scrollResultOf(assertionUrn.toString()))
+        .thenReturn(SystemMetadataScrollResult.empty());
 
-    // Create valid AssertionInfo (no issues to fix)
     AssertionInfo assertionInfo = new AssertionInfo();
 
     EnvelopedAspectMap aspects = new EnvelopedAspectMap();
@@ -917,7 +775,6 @@ public class FixEntityConsistencyStepTest {
             anyBoolean()))
         .thenReturn(Map.of(assertionUrn, assertionResponse));
 
-    // Mock entity existence
     when(mockEntityService.exists(any(OperationContext.class), any(Set.class), anyBoolean()))
         .thenReturn(Set.of(validEntityUrn));
     when(mockEntityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
@@ -927,7 +784,6 @@ public class FixEntityConsistencyStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify progress was saved during processing (IN_PROGRESS state)
     verify(mockUpgrade, atLeastOnce())
         .setUpgradeResult(
             any(OperationContext.class),
@@ -944,7 +800,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that resuming from IN_PROGRESS state restores scrollId and counters. */
   @Test
   public void testResumeFromInProgressStateRestoresScrollIdAndCounters() throws Exception {
-    // Create step with regular config (not limited)
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -959,7 +814,6 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // Mock previous IN_PROGRESS state with saved progress
     DataHubUpgradeResult prevResult = mock(DataHubUpgradeResult.class);
     when(prevResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
     StringMap savedState = new StringMap();
@@ -971,44 +825,23 @@ public class FixEntityConsistencyStepTest {
     savedState.put("issuesFailed", "2");
     when(prevResult.getResult()).thenReturn(savedState);
 
-    // Return IN_PROGRESS for both overall and entity-type URNs
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(prevResult));
-
-    // Mock empty search response (no more entities to process)
-    SearchResponse emptyResponse = createEmptySearchResponse();
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify scroll was called with the restored scrollId
-    // (The mock returns empty, so it will complete immediately, but we verify it attempted to
-    // resume)
-    verify(mockEsSystemMetadataDAO, atLeastOnce())
-        .scroll(
+    // Verify the saved scrollId was passed back into the scroll client on resume.
+    verify(mockScrollClient, atLeastOnce())
+        .scrollUrns(
             any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            eq("test-scroll-id"),
-            any(),
-            anyString(),
-            anyInt());
+            argThat(req -> req != null && "test-scroll-id".equals(req.getScrollId())));
   }
 
   /** Test that limited runs do NOT restore scrollId (start fresh). */
   @Test
   public void testLimitedRunDoesNotRestoreScrollId() throws Exception {
-    // Create step with limit > 0
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -1023,7 +856,6 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // Mock previous IN_PROGRESS state with saved scrollId
     DataHubUpgradeResult prevResult = mock(DataHubUpgradeResult.class);
     when(prevResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
     StringMap savedState = new StringMap();
@@ -1032,30 +864,12 @@ public class FixEntityConsistencyStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(prevResult));
 
-    // Mock empty search response
-    SearchResponse emptyResponse = createEmptySearchResponse();
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
-
     step.executable().apply(mockContext);
 
-    // Verify scroll was called with null scrollId (not the saved one)
-    verify(mockEsSystemMetadataDAO, atLeastOnce())
-        .scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            isNull(),
-            any(),
-            anyString(),
-            anyInt());
+    // Saved scrollId is not reused for limited runs - first call must have null scrollId.
+    verify(mockScrollClient, atLeastOnce())
+        .scrollUrns(
+            any(OperationContext.class), argThat(req -> req != null && req.getScrollId() == null));
   }
 
   // ============================================================================
@@ -1065,7 +879,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that incremental filter is applied from SUCCEEDED state for regular runs. */
   @Test
   public void testIncrementalFilterAppliedFromSucceededState() throws Exception {
-    // Create step with regular config (not targeted)
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -1080,7 +893,6 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // Mock previous SUCCEEDED state with lastCompletedTime
     DataHubUpgradeResult prevResult = mock(DataHubUpgradeResult.class);
     when(prevResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     StringMap savedState = new StringMap();
@@ -1089,37 +901,15 @@ public class FixEntityConsistencyStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(prevResult));
 
-    // Mock empty search response
-    SearchResponse emptyResponse = createEmptySearchResponse();
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(emptyResponse);
-
     step.executable().apply(mockContext);
 
-    // The step should complete - we can't easily verify the filter was applied
-    // but we verify the step executes without error
-    verify(mockEsSystemMetadataDAO, atLeastOnce())
-        .scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt());
+    verify(mockScrollClient, atLeastOnce())
+        .scrollUrns(any(OperationContext.class), any(SystemMetadataScrollRequest.class));
   }
 
   /** Test that incremental filter is NOT applied for targeted runs (with timestamp filters). */
   @Test
   public void testIncrementalFilterNotAppliedForTargetedRuns() throws Exception {
-    // Create step with timestamp filter (targeted run)
     EntityConsistencyConfiguration config =
         createTestConfig(false, 10, 0, 0, false, List.of(ASSERTION_ENTITY_NAME), null);
     EntityConsistencyConfiguration.SystemMetadataFilterConfig filterConfig =
@@ -1137,7 +927,6 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // Mock previous SUCCEEDED state with lastCompletedTime
     DataHubUpgradeResult prevResult = mock(DataHubUpgradeResult.class);
     when(prevResult.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     StringMap savedState = new StringMap();
@@ -1146,7 +935,6 @@ public class FixEntityConsistencyStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(prevResult));
 
-    // For targeted runs that already succeeded, skip() should return true
     assertTrue(step.skip(mockContext), "Targeted run should skip after SUCCEEDED");
   }
 
@@ -1157,7 +945,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that exception in executable returns FAILED state. */
   @Test
   public void testExceptionInExecutableReturnsFailed() throws Exception {
-    // Create a mock ConsistencyService that throws
     ConsistencyService mockConsistencyService = mock(ConsistencyService.class);
     when(mockConsistencyService.getCheckRegistry())
         .thenReturn(consistencyService.getCheckRegistry());
@@ -1178,13 +965,11 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
-    // Verify error was added to report
     verify(mockReport).addLine(contains("Error:"));
   }
 
@@ -1195,7 +980,6 @@ public class FixEntityConsistencyStepTest {
   /** Test that processing stops when limit is reached. */
   @Test
   public void testLimitEnforcementStopsProcessing() throws Exception {
-    // Create step with limit of 5
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(
             mockOpContext,
@@ -1210,10 +994,8 @@ public class FixEntityConsistencyStepTest {
     when(mockContext.report()).thenReturn(mockReport);
     when(mockContext.opContext()).thenReturn(mockOpContext);
 
-    // No previous run state
     when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
-    // Create responses with 10 entities (more than limit of 5)
     Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
     Urn urn2 = UrnUtils.getUrn("urn:li:assertion:test-2");
     Urn urn3 = UrnUtils.getUrn("urn:li:assertion:test-3");
@@ -1221,28 +1003,18 @@ public class FixEntityConsistencyStepTest {
     Urn urn5 = UrnUtils.getUrn("urn:li:assertion:test-5");
     Urn urn6 = UrnUtils.getUrn("urn:li:assertion:test-6");
 
-    SearchResponse firstBatch =
-        createSearchResponseWithUrns(
-            urn1.toString(),
-            urn2.toString(),
-            urn3.toString(),
-            urn4.toString(),
-            urn5.toString(),
-            urn6.toString());
-    SearchResponse emptyResponse = createEmptySearchResponse();
+    when(mockScrollClient.scrollUrns(
+            any(OperationContext.class), any(SystemMetadataScrollRequest.class)))
+        .thenReturn(
+            scrollResultOf(
+                urn1.toString(),
+                urn2.toString(),
+                urn3.toString(),
+                urn4.toString(),
+                urn5.toString(),
+                urn6.toString()))
+        .thenReturn(SystemMetadataScrollResult.empty());
 
-    when(mockEsSystemMetadataDAO.scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt()))
-        .thenReturn(firstBatch)
-        .thenReturn(emptyResponse);
-
-    // Mock entity responses
     Urn validEntityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
     Map<Urn, EntityResponse> entityResponses = new HashMap<>();
     for (Urn urn : List.of(urn1, urn2, urn3, urn4, urn5, urn6)) {
@@ -1275,8 +1047,6 @@ public class FixEntityConsistencyStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    // With limit=5 and 6 entities returned, should only process until limit
-    // The report should reflect this
     verify(mockReport).addLine(contains("Processed"));
   }
 
@@ -1444,7 +1214,7 @@ public class FixEntityConsistencyStepTest {
     ConsistencyService multiTypeService =
         spy(
             new ConsistencyService(
-                mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry));
+                mockEntityService, mockScrollClient, null, checkRegistry, fixRegistry));
 
     CheckResult emptyResult =
         CheckResult.builder().entitiesScanned(0).issuesFound(0).issues(List.of()).build();
@@ -1511,15 +1281,8 @@ public class FixEntityConsistencyStepTest {
 
     assertEquals(step.executable().apply(mockContext).result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(mockEsSystemMetadataDAO, never())
-        .scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt());
+    verify(mockScrollClient, never())
+        .scrollUrns(any(OperationContext.class), any(SystemMetadataScrollRequest.class));
   }
 
   /** Empty effective check IDs leave the list empty so checkBatch uses entity-type defaults. */

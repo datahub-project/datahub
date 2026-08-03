@@ -46,6 +46,33 @@ public interface GraphService {
   void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
+   * Adds multiple edges. Default implementation calls {@link #addEdge} per item; stores that can
+   * batch I/O should override.
+   */
+  default void addEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      addEdge(opContext, edge);
+    }
+  }
+
+  /** Adds or updates multiple edges. Default calls {@link #upsertEdge} per item. */
+  default void upsertEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      upsertEdge(opContext, edge);
+    }
+  }
+
+  /** Removes multiple edges. Default calls {@link #removeEdge} per item. */
+  default void removeEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      removeEdge(opContext, edge);
+    }
+  }
+
+  /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship
    * types. Related entities can be filtered by source and destination type (use `null` for any
    * type), by source and destination entity filter and relationship filter. Pagination of the

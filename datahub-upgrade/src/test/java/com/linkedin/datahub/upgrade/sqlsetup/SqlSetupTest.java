@@ -6,6 +6,9 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgRoutingGraphSchemaStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgSearchEntitySchemaStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgTimeseriesSchemaStep;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import io.ebean.Database;
@@ -48,8 +51,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     assertNotNull(sqlSetup);
@@ -76,8 +79,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     sqlSetup = new SqlSetup(null, setupArgs);
 
     assertNotNull(sqlSetup);
@@ -124,8 +127,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
@@ -152,8 +155,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
@@ -181,8 +184,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
@@ -210,8 +213,8 @@ public class SqlSetupTest {
             3306, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
@@ -223,23 +226,7 @@ public class SqlSetupTest {
   }
 
   @Test
-  public void testBuildStepsIncludesPgQueueWhenPostgresAndEnabled() {
-    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
-    PostgresSqlSetupProperties.PgQueue pq = pg.getPgQueue();
-    pq.setEnabled(true);
-    pq.setSchema("queue");
-    pq.setTablePrefix("metadata_queue");
-    PostgresSqlSetupProperties.PgQueue.TopicDefaults td = pq.getTopicDefaults();
-    td.setPartitionCount(2);
-    td.setVisibilityTimeoutSeconds(600);
-    td.setPriorityBands(BANDS_JSON);
-    td.setRetentionMaxAgeSeconds(0);
-    td.setMaxRowsPerTopic(0L);
-    td.setMaxTotalPayloadBytesPerTopic(0L);
-    pq.getMaintenance().setCronEnabled(false);
-    pq.getMaintenance().setIntervalSeconds(3600);
-    pq.getMaintenance().setBatchDeleteLimit(5000);
-
+  public void testBuildStepsIncludesPgSearchEntityWhenPostgresAndFeatureEnabled() {
     SqlSetupArgs setupArgs =
         new SqlSetupArgs(
             true,
@@ -256,12 +243,227 @@ public class SqlSetupTest {
             5432,
             "datahub",
             "datahub",
-            false,
-            pg);
+            false);
 
-    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgSearch().getEntity().setEnabled(true);
+    pg.getPgSearch().getEntity().setTablePrefix("metadata_search");
+    pg.getPgSearch().getEntity().getVector().setEnabled(false);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+
+    List<UpgradeStep> steps = sqlSetup.steps();
+    assertEquals(steps.size(), 2);
+    assertTrue(steps.get(0) instanceof CreateTablesStep);
+    assertTrue(steps.get(1) instanceof PgSearchEntitySchemaStep);
+  }
+
+  @Test
+  public void testBuildStepsPgGraphBeforePgSearchEntityOnPostgres() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix("metadata_graph");
+    pg.getPgGraph().setPartitionCount(2);
+    pg.getPgSearch().getEntity().setEnabled(true);
+    pg.getPgSearch().getEntity().setTablePrefix("metadata_search");
+    pg.getPgSearch().getEntity().getVector().setEnabled(false);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+
+    List<UpgradeStep> steps = sqlSetup.steps();
+    assertEquals(steps.size(), 3);
+    assertTrue(steps.get(0) instanceof CreateTablesStep);
+    assertTrue(steps.get(1) instanceof PgRoutingGraphSchemaStep);
+    assertTrue(steps.get(2) instanceof PgSearchEntitySchemaStep);
+  }
+
+  @Test
+  public void testBuildStepsIncludesPgQueueWhenPostgresAndEnabled() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    PostgresSqlSetupProperties.PgQueue pq = pg.getPgQueue();
+    pq.setEnabled(true);
+    pq.setSchema("queue");
+    pq.setTablePrefix("metadata_queue");
+    PostgresSqlSetupProperties.PgQueue.TopicDefaults td = pq.getTopicDefaults();
+    td.setPartitionCount(2);
+    td.setVisibilityTimeoutSeconds(600);
+    td.setPriorityBands(BANDS_JSON);
+    td.setRetentionMaxAgeSeconds(0);
+    td.setMaxRowsPerTopic(0L);
+    td.setMaxTotalPayloadBytesPerTopic(0L);
+    pq.getMaintenance().setCronEnabled(false);
+    pq.getMaintenance().setIntervalSeconds(3600);
+    pq.getMaintenance().setBatchDeleteLimit(5000);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
     List<String> stepIds =
         sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
     assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgQueueSchemaStep")));
+  }
+
+  @Test
+  public void testBuildStepsIncludesPgTimeseriesWhenPostgresAndEnabled() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgTimeseries().setEnabled(true);
+    pg.getPgTimeseries().setTablePrefix("metadata_timeseries");
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+
+    List<String> stepIds =
+        sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
+    assertTrue(stepIds.contains("PgTimeseriesSchemaStep"));
+    assertEquals(stepIds.get(0), "CreateTablesStep");
+    assertEquals(stepIds.get(1), "PgTimeseriesSchemaStep");
+  }
+
+  @Test
+  public void testBuildStepsPgGraphPgSearchPgTimeseriesOrderOnPostgres() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix("metadata_graph");
+    pg.getPgGraph().setPartitionCount(2);
+    pg.getPgSearch().getEntity().setEnabled(true);
+    pg.getPgSearch().getEntity().setTablePrefix("metadata_search");
+    pg.getPgSearch().getEntity().getVector().setEnabled(false);
+    pg.getPgTimeseries().setEnabled(true);
+    pg.getPgTimeseries().setTablePrefix("metadata_timeseries");
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+
+    List<UpgradeStep> steps = sqlSetup.steps();
+    assertEquals(steps.size(), 4);
+    assertTrue(steps.get(1) instanceof PgRoutingGraphSchemaStep);
+    assertTrue(steps.get(2) instanceof PgSearchEntitySchemaStep);
+    assertTrue(steps.get(3) instanceof PgTimeseriesSchemaStep);
+  }
+
+  @Test
+  public void testBuildStepsIncludesPgSystemMetadataWhenPostgresAndEnabled() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgSystemMetadata().setEnabled(true);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+    List<String> stepIds =
+        sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
+    assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgSystemMetadataSchemaStep")));
+  }
+
+  @Test
+  public void testBuildStepsIncludesPgUsageEventsWhenPostgresAndEnabled() {
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false);
+
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.getPgUsageEvents().setEnabled(true);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs, pg);
+    List<String> stepIds =
+        sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
+    assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgUsageEventsSchemaStep")));
   }
 }
