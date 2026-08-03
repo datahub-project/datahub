@@ -51,9 +51,10 @@ export const useGetSearchAssets = (
     });
 
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    // The card query omits matchedFields, and only the combined entities are used here.
     const searchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
-        data?.searchAcrossEntities?.searchResults,
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({ ...result, matchedFields: [] })),
     );
 
     const assets = searchResults?.filter((result) => result.entity).map((result) => result.entity) || [];
