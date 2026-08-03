@@ -29,4 +29,12 @@ public class RetentionBufferProperties {
    * with that placeholder.
    */
   @Builder.Default private long drainIntervalMs = 5000;
+
+  /**
+   * Safety-net lease on the single-winner drain lock so a drainer that dies mid-drain does not
+   * wedge it forever. Must exceed a drain's worst-case duration; if a drain routinely runs longer,
+   * ticks double-drain (safe/idempotent, just wasteful). Raise alongside {@code drainBatchSize}
+   * under DB latency. Bound from {@code datahub.retention.buffer.drainLockLeaseMs}.
+   */
+  @Builder.Default private long drainLockLeaseMs = 60_000;
 }

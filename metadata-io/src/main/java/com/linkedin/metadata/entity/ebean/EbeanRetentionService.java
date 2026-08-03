@@ -195,10 +195,13 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       return successes;
     }
 
+    // REQUIRES_NEW, not REQUIRED: retention is best-effort cleanup and must own an independent
+    // transaction. If this ever runs inside an ambient unit-of-work, joining it and calling
+    // tx.commit() below would prematurely commit the caller's work.
     // Batch mode intentionally OFF: each context is a bulk ExpressionList delete (one immediate
     // DELETE statement), so batching buys nothing here — and buffered DML would not be flushed to
     // the JDBC connection before setSavepoint(), breaking per-context savepoint isolation below.
-    Transaction tx = _server.beginTransaction(TxScope.required());
+    Transaction tx = _server.beginTransaction(TxScope.requiresNew());
     try {
       Connection connection = tx.connection();
       for (RetentionContext context : withDefaults) {
@@ -218,6 +221,10 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
           try {
             connection.rollback(savepoint);
           } catch (SQLException sqle) {
+            // On PostgreSQL a failed savepoint rollback leaves the connection in an aborted state,
+            // so every subsequent context in this loop will also fail and tx.commit() will roll the
+            // whole batch back. Outcome is still safe (returns no successes -> all keys retried),
+            // just coarser than per-context isolation on that engine.
             log.warn(
                 "Failed to rollback to savepoint for urn={} aspect={}",
                 context.getUrn(),

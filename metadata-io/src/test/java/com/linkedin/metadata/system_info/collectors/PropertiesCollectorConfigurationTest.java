@@ -541,6 +541,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.retention.buffer.maxPendingEntries",
           "datahub.retention.buffer.drainBatchSize",
           "datahub.retention.buffer.drainIntervalMs",
+          "datahub.retention.buffer.drainLockLeaseMs",
           // CoalesceBuffer backend selection (Caffeine vs Hazelcast)
           "datahub.buffer.implementation",
           // Messaging transport

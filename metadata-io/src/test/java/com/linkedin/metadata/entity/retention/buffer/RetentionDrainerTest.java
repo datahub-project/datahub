@@ -79,7 +79,7 @@ public class RetentionDrainerTest {
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, true, null);
+        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
 
     drainer.tick();
 
@@ -103,7 +103,8 @@ public class RetentionDrainerTest {
 
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
     RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, true, mockMetricUtils);
+        new RetentionDrainer(
+            buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, mockMetricUtils);
 
     drainer.tick();
 
@@ -122,7 +123,7 @@ public class RetentionDrainerTest {
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, false, null);
+        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, false, null);
 
     drainer.tick();
 
@@ -141,7 +142,7 @@ public class RetentionDrainerTest {
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, true, null);
+        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
 
     drainer.tick();
 
@@ -170,7 +171,13 @@ public class RetentionDrainerTest {
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
         new RetentionDrainer(
-            retentionBuffer.getCoalesceBuffer(), retentionService, SYSTEM_CONTEXT, 10, true, null);
+            retentionBuffer.getCoalesceBuffer(),
+            retentionService,
+            SYSTEM_CONTEXT,
+            10,
+            60_000L,
+            true,
+            null);
 
     drainer.tick();
 

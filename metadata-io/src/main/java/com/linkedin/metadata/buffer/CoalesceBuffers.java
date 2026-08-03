@@ -24,6 +24,8 @@ public final class CoalesceBuffers {
         if (candidate == null) {
           return current;
         }
-        return candidate >= current ? candidate : current;
+        // Strict > (not >=) to match HazelcastCoalesceBuffer.KeepMaxLongProcessor: keep the
+        // incumbent on ties so both backends apply an identical keep-max policy.
+        return candidate > current ? candidate : current;
       };
 }

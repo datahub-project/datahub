@@ -23,7 +23,7 @@ public interface RetentionBuffer {
    */
   boolean defersApply();
 
-  /** No-op buffer used when the Hazelcast-backed buffer is disabled or unavailable. */
+  /** No-op buffer (default): retention runs synchronously whenever coalescing is not wired. */
   RetentionBuffer NO_OP =
       new RetentionBuffer() {
         @Override

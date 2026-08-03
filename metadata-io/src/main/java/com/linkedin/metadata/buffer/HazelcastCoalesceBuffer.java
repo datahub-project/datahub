@@ -63,8 +63,10 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
           "HazelcastCoalesceBuffer only supports CoalesceBuffers.KEEP_MAX_LONG until "
               + "IdentifiedDataSerializable merge policies exist");
     }
-    // Single EntryProcessor RTT — no distributed size()/containsKey() on the ingest thread.
-    pendingMap.executeOnKey(key, new KeepMaxLongProcessor<>(value));
+    // Fire-and-forget: this runs on the ingest request thread (post-commit). executeOnKeyAsync so a
+    // partitioned/GC-paused cluster cannot stall the ingest response for the Hazelcast op timeout —
+    // a dropped merge is under-coalescing (bloat), never data loss. No size()/containsKey() RTT.
+    pendingMap.executeOnKeyAsync(key, new KeepMaxLongProcessor<>(value));
   }
 
   @Override
@@ -104,10 +106,6 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
   }
 
   /**
-   * Keep-max coalescing {@link EntryProcessor} for a single key. {@code EntryProcessor} already
-   * extends {@link Serializable}; Hazelcast serializes this instance to run on the owning member.
-   */
-  /**
    * Serializable total order for {@link #drain}'s {@link PagingPredicate}. Orders by pending value
    * then key string so paging never relies on the key being {@link Comparable}. Order is arbitrary
    * (drain is best-effort), only stability/totality matter.
@@ -125,6 +123,10 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
     }
   }
 
+  /**
+   * Keep-max coalescing {@link EntryProcessor} for a single key. {@code EntryProcessor} already
+   * extends {@link Serializable}; Hazelcast serializes this instance to run on the owning member.
+   */
   static final class KeepMaxLongProcessor<K> implements EntryProcessor<K, Long, Void> {
     private static final long serialVersionUID = 1L;
 

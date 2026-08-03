@@ -19,6 +19,12 @@ public final class HazelcastBootstrapProperties {
    */
   public static final String RETENTION_BUFFER_ENABLED = "featureFlags.retentionBufferEnabled";
 
+  /**
+   * Master gate for post-commit retention; the buffer + drainer only wire when this is also true.
+   */
+  public static final String POST_COMMIT_RETENTION_ENABLED =
+      "featureFlags.postCommitRetentionEnabled";
+
   private HazelcastBootstrapProperties() {}
 
   /**

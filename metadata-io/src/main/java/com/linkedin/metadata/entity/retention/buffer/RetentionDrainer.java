@@ -40,13 +40,14 @@ public class RetentionDrainer {
   /** Sentinel lock name used for the single-winner drain lock; never a real retention key. */
   private static final String DRAIN_LOCK_NAME = "drain";
 
-  /** Safety-net lease so a drainer that dies mid-drain doesn't wedge the lock forever. */
-  private static final Duration DRAIN_LOCK_LEASE = Duration.ofSeconds(60);
-
   private final CoalesceBuffer<RetentionKey, Long> buffer;
   private final RetentionService<?> retentionService;
   private final OperationContext systemOperationContext;
   private final int batchSize;
+
+  /** Safety-net lease so a drainer that dies mid-drain doesn't wedge the lock forever. */
+  private final Duration drainLockLease;
+
   private final boolean enabled;
   @Nullable private final MetricUtils metricUtils;
 
@@ -55,12 +56,14 @@ public class RetentionDrainer {
       @Nonnull RetentionService<?> retentionService,
       @Nonnull OperationContext systemOperationContext,
       int batchSize,
+      long drainLockLeaseMs,
       boolean enabled,
       @Nullable MetricUtils metricUtils) {
     this.buffer = buffer;
     this.retentionService = retentionService;
     this.systemOperationContext = systemOperationContext;
     this.batchSize = batchSize;
+    this.drainLockLease = Duration.ofMillis(drainLockLeaseMs);
     this.enabled = enabled;
     this.metricUtils = metricUtils;
   }
@@ -71,7 +74,7 @@ public class RetentionDrainer {
     if (!enabled) {
       return;
     }
-    if (!buffer.tryAcquireDrainLock(DRAIN_LOCK_NAME, DRAIN_LOCK_LEASE)) {
+    if (!buffer.tryAcquireDrainLock(DRAIN_LOCK_NAME, drainLockLease)) {
       // Another pod already won the drain lock for this tick.
       return;
     }

@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
 import com.linkedin.metadata.config.hazelcast.RetentionBufferHazelcastCondition;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.retention.buffer.CoalesceRetentionBuffer;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
@@ -43,8 +44,9 @@ import org.springframework.context.annotation.Lazy;
  *   <li>{@code featureFlags.retentionBufferEnabled=false} (default) — no beans created here; {@code
  *       EntityServiceImpl} keeps its {@code RetentionBuffer.NO_OP} default and applies retention
  *       synchronously post-commit (when post-commit itself is on).
- *   <li>{@code retentionBufferEnabled=true} but {@code postCommitRetentionEnabled=false} — falls
- *       back to {@code RetentionBuffer.NO_OP} (sync DELETE); no drainer bean is created.
+ *   <li>{@code retentionBufferEnabled=true} but {@code postCommitRetentionEnabled=false} — neither
+ *       buffer nor drainer bean is created; {@code EntityServiceImpl} keeps {@code
+ *       RetentionBuffer.NO_OP} (sync DELETE).
  *   <li>Both flags true — a real {@link CoalesceRetentionBuffer} + {@link RetentionDrainer}, backed
  *       by whichever implementation {@link CoalesceBufferFactory} resolved.
  * </ul>
@@ -83,21 +85,19 @@ public class RetentionBufferFactory {
     return new MapConfig(props.getLockMapName()).setBackupCount(1);
   }
 
+  // Both beans require BOTH flags true. When retentionBufferEnabled=true but
+  // postCommitRetentionEnabled=false, neither bean is created and EntityServiceImpl keeps its
+  // RetentionBuffer.NO_OP default (synchronous post-commit retention) — no null beans registered.
   @Bean
   @ConditionalOnProperty(
-      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      name = {
+        HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+        HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED
+      },
       havingValue = "true")
   @Nonnull
   public RetentionBuffer retentionBuffer(
       ConfigurationProvider configurationProvider, CoalesceBufferFactory coalesceBufferFactory) {
-    boolean postCommitRetentionEnabled =
-        configurationProvider.getFeatureFlags().isPostCommitRetentionEnabled();
-    if (!postCommitRetentionEnabled) {
-      log.warn(
-          "featureFlags.retentionBufferEnabled=true but featureFlags.postCommitRetentionEnabled"
-              + " is false — falling back to synchronous post-commit retention (NO_OP buffer)");
-      return RetentionBuffer.NO_OP;
-    }
     RetentionBufferProperties props = effectiveProperties(configurationProvider);
     CoalesceBuffer<RetentionKey, Long> coalesceBuffer =
         coalesceBufferFactory.create(
@@ -107,19 +107,26 @@ public class RetentionBufferFactory {
 
   @Bean
   @ConditionalOnProperty(
-      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      name = {
+        HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+        HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED
+      },
       havingValue = "true")
-  @Nullable
+  @Nonnull
   public RetentionDrainer retentionDrainer(
       RetentionBuffer retentionBuffer,
       @Qualifier("retentionService") RetentionService<ChangeItemImpl> retentionService,
       ConfigurationProvider configurationProvider,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
       @Nullable MetricUtils metricUtils) {
-    if (!(retentionBuffer instanceof CoalesceRetentionBuffer)) {
-      // retentionBuffer() above already fell back to NO_OP (post-commit flag off) and logged
-      // why; no drainer needed without a real coalesce-backed buffer.
-      return null;
+    if (!(retentionService instanceof EbeanRetentionService)) {
+      // Only EbeanRetentionService overrides applyRetentionBatchWithPolicyDefaults with per-context
+      // savepoint isolation. Other impls (e.g. Cassandra) inherit the default, which treats the
+      // whole batch as all-or-nothing success — weaker durability contract, still no data loss.
+      log.warn(
+          "Coalesced retention drainer wired with non-Ebean RetentionService ({}); batch retention"
+              + " has no per-context savepoint isolation.",
+          retentionService.getClass().getSimpleName());
     }
     RetentionBufferProperties props = effectiveProperties(configurationProvider);
     return new RetentionDrainer(
@@ -127,6 +134,7 @@ public class RetentionBufferFactory {
         retentionService,
         systemOperationContext,
         props.getDrainBatchSize(),
+        props.getDrainLockLeaseMs(),
         true,
         metricUtils);
   }
