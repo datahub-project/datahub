@@ -12,6 +12,7 @@ import {
     MANUAL_INGESTION_SOURCE,
     RUNNING,
     SCHEDULED_INGESTION_SOURCE,
+    SUCCEEDED_WITH_WARNINGS,
     SUCCESS,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -146,7 +147,7 @@ export function ButtonsColumn({
                     CANCEL
                 </Button>
             )}
-            {record.status === SUCCESS && record.showRollback && (
+            {(record.status === SUCCESS || record.status === SUCCEEDED_WITH_WARNINGS) && record.showRollback && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
                     ROLLBACK
                 </Button>
