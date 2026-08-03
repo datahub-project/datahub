@@ -425,10 +425,11 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
     """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
 
     BigQuery federation (``EXTERNAL_QUERY(connection, sql)``) runs the inner SQL on an
-    external engine (Cloud SQL, AlloyDB, Spanner). The connection id
-    (``project.region.connection``) does not reveal the external platform, so this mapping
-    supplies it, letting PowerBI lineage point at the real upstream table on that platform
-    instead of failing to resolve a URN.
+    external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL). The
+    connection id (``project.region.connection``) does not reveal the external platform,
+    so this mapping supplies it, letting PowerBI lineage point at the real upstream table
+    on that platform instead of failing to resolve a URN. ``platform`` must be a
+    recognized DataHub platform (see ``SupportedDataPlatform``).
     """
 
     platform: str = pydantic.Field(
@@ -613,10 +614,11 @@ class PowerBiDashboardSourceConfig(
         description="Mapping from a BigQuery ``EXTERNAL_QUERY`` connection id "
         "(``project.region.connection``, the first argument of EXTERNAL_QUERY) to the "
         "external source it federates to. BigQuery federation runs the inner SQL on an "
-        "external engine (Cloud SQL, AlloyDB, Spanner); configure this so PowerBI lineage "
-        "resolves to the real upstream table on that platform instead of failing. The "
-        "value sets the target `platform` (required) plus optional `platform_instance`, "
-        "`env`, `default_database`, and `default_schema`.",
+        "external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL); "
+        "configure this so PowerBI lineage resolves to the real upstream table on that "
+        "platform instead of failing. The value sets the target `platform` (required, "
+        "must be a recognized DataHub platform such as `postgres` or `mysql`) plus "
+        "optional `platform_instance`, `env`, `default_database`, and `default_schema`.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
