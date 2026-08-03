@@ -453,8 +453,10 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
     @field_validator("platform")
     @classmethod
     def _validate_known_platform(cls, value: str) -> str:
-        # Restrict to platforms whose PowerBI name is present in dataset_type_mapping;
-        # otherwise the resolved upstream is silently dropped in Mapper.extract_lineage.
+        # Restrict to SupportedDataPlatform so _data_platform_pair_for can resolve the
+        # PowerBI name used by Mapper.extract_lineage. This does not cover a
+        # user-narrowed dataset_type_mapping — if that mapping omits the PowerBI name,
+        # the resolved EXTERNAL_QUERY upstream can still be filtered there.
         known_platforms = {
             item.value.datahub_data_platform_name for item in SupportedDataPlatform
         }
@@ -617,8 +619,11 @@ class PowerBiDashboardSourceConfig(
         "external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL); "
         "configure this so PowerBI lineage resolves to the real upstream table on that "
         "platform instead of failing. The value sets the target `platform` (required, "
-        "must be a recognized DataHub platform such as `postgres` or `mysql`) plus "
-        "optional `platform_instance`, `env`, `default_database`, and `default_schema`.",
+        "must be a recognized DataHub platform such as `postgres` or `mysql`, and its "
+        "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
+        "plus optional `platform_instance`, `env`, `default_database`, and "
+        "`default_schema`. Requires `native_query_parsing` and "
+        "`enable_advance_lineage_sql_construct`.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

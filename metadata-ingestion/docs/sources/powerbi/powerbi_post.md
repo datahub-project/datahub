@@ -140,6 +140,43 @@ If `default_schema` is missing and the inline SQL references unqualified tables,
 
 At least one of `default_schema` / `default_database` must be set for an Oracle entry; a mapping that needs neither should be a plain `platform_instance` / `env` entry.
 
+#### BigQuery EXTERNAL_QUERY Federation
+
+PowerBI datasets that query BigQuery often use BigQuery federation
+(`EXTERNAL_QUERY("project.region.connection", "<sql>")`) to run SQL on an external
+engine such as Cloud SQL or AlloyDB. The generic SQL parser cannot resolve those
+calls — the arguments are string literals, not table identifiers — so lineage would
+fail with empty URNs unless you map each connection to its external platform.
+
+**Requirements:** `native_query_parsing: true` and
+`enable_advance_lineage_sql_construct: true`. The target `platform` must be a
+recognized DataHub platform. If you narrow `dataset_type_mapping`, keep the
+target platform's PowerBI name in that mapping so the resolved upstream is not
+filtered out.
+
+**Configuration:**
+
+```yaml
+source:
+  type: powerbi
+  config:
+    native_query_parsing: true
+    enable_advance_lineage_sql_construct: true
+    # ... other config ...
+    bigquery_external_query_connection_to_platform:
+      "my-gcp-project.us-east1.my_cloudsql_connection":
+        platform: postgres # required; e.g. postgres, mysql
+        default_database: ext_db # optional; match your external source's URN shape
+        default_schema: public # optional
+        # platform_instance: pg-prod  # optional
+        # env: PROD                  # optional
+```
+
+The map key is the connection id exactly as it appears as the first
+`EXTERNAL_QUERY` argument (`project.region.connection`). Unmapped connections are
+reported as info (`BigQuery EXTERNAL_QUERY connection not mapped`); parse failures
+and empty resolutions are reported as warnings under `SQL Parsing Failure`.
+
 #### Athena Federated Query Platform Override
 
 When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.

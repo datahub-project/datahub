@@ -216,7 +216,7 @@ class TestPowerBiConfig:
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
     def test_bigquery_external_query_unknown_platform_invalid(self):
-        """Unknown external platform must be rejected so upstreams aren't silently dropped."""
+        """Unknown external platform must be rejected at config validation."""
         config_dict = {
             **self.base_config,
             "bigquery_external_query_connection_to_platform": {
