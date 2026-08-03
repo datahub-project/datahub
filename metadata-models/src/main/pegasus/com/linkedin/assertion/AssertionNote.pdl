@@ -8,7 +8,8 @@ import com.linkedin.common.AuditStamp
  * sources that UPSERT AssertionInfo do not accidentally overwrite user-authored notes.
  */
 @Aspect = {
-  "name": "assertionNote"
+  "name": "assertionNote",
+  "schemaVersion": 2
 }
 record AssertionNote {
     /**

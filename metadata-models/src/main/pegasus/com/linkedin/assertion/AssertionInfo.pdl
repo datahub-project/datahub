@@ -10,7 +10,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "assertionInfo",
-  "schemaVersion": 5
+  "schemaVersion": 6
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
