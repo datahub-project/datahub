@@ -54,6 +54,26 @@ _QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
 _QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
+
+def _console_can_encode(text: str) -> bool:
+    """Whether stdout can represent this text.
+
+    Windows consoles commonly default to a legacy code page such as cp1252 or
+    cp437, neither of which has a code point for U+2714 or U+26A0. Writing one
+    raises UnicodeEncodeError, which is why these symbols are resolved once here
+    rather than embedded directly in output.
+    """
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        text.encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        return False
+    return True
+
+
+CHECK_MARK = "✔" if _console_can_encode("✔") else "OK:"
+WARNING_SIGN = "⚠️" if _console_can_encode("⚠️") else "WARNING:"
+
 MIGRATION_REQUIRED_INSTRUCTIONS = f"""
 Your existing DataHub server was installed with an \
 older CLI and is incompatible with the current CLI (version {nice_version_name}).
@@ -69,7 +89,7 @@ Required steps to upgrade:
 4. Restore data:
     datahub docker quickstart --restore
 
-⚠️  Without backup, all existing data will be lost.
+{WARNING_SIGN}  Without backup, all existing data will be lost.
 
 For fresh start (if data is not needed):
 1. Remove installation: 
@@ -106,7 +126,7 @@ OPTION 2 - Fresh start (if data not needed):
 2. Start fresh: 
     datahub docker quickstart
 
-⚠️  The current CLI cannot repair installations created by older versions.
+{WARNING_SIGN}  The current CLI cannot repair installations created by older versions.
 
 Additional information on backup and restore: https://docs.datahub.com/docs/quickstart#back-up-datahub
 Troubleshooting guide: https://docs.datahub.com/docs/troubleshooting/quickstart
@@ -155,7 +175,7 @@ def check() -> None:
     status = check_docker_quickstart()
 
     if status.is_ok():
-        click.secho("✔ No issues detected", fg="green")
+        click.secho(f"{CHECK_MARK} No issues detected", fg="green")
         if status.running_unsupported_version:
             show_migration_instructions()
     else:
@@ -843,7 +863,7 @@ def quickstart(
 
     # Handle success condition.
     click.echo()
-    click.secho("✔ DataHub is now running", fg="green")
+    click.secho(f"{CHECK_MARK} DataHub is now running", fg="green")
     click.secho(
         "Load sample data: run `datahub init` then `datahub datapack load showcase-ecommerce`,\n"
         "or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.",

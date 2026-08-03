@@ -471,3 +471,59 @@ def test_resolve_secrets_generated_values_are_unique(tmp_path: Path) -> None:
 
     assert results[0][0] != results[1][0]
     assert results[0][1] != results[1][1]
+
+
+def test_console_symbols_fall_back_on_legacy_code_pages() -> None:
+    """Windows consoles often default to a code page without U+2714 or U+26A0.
+
+    Writing one raises UnicodeEncodeError, which previously meant a successful
+    quickstart exited non-zero, and the migration and repair instructions threw
+    while explaining how to recover from a broken install.
+    """
+    import io
+
+    from datahub.cli.docker_cli import _console_can_encode
+
+    for encoding in ("cp1252", "cp437", "ascii"):
+        stream = io.TextIOWrapper(io.BytesIO(), encoding=encoding, errors="strict")
+        with patch("datahub.cli.docker_cli.sys.stdout", stream):
+            assert not _console_can_encode("✔")
+            assert not _console_can_encode("⚠️")
+
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="strict")
+    with patch("datahub.cli.docker_cli.sys.stdout", stream):
+        assert _console_can_encode("✔")
+        assert _console_can_encode("⚠️")
+
+
+def test_console_symbols_survive_a_stream_with_no_encoding() -> None:
+    """Some wrapped streams expose no encoding at all; assume ASCII rather than raise."""
+    from datahub.cli.docker_cli import _console_can_encode
+
+    class _NoEncoding:
+        encoding = None
+
+    with patch("datahub.cli.docker_cli.sys.stdout", _NoEncoding()):
+        assert not _console_can_encode("✔")
+        assert _console_can_encode("plain text")
+
+
+def test_resolved_symbols_are_always_encodable_by_the_current_console() -> None:
+    """Whatever was chosen at import must be printable, or the CLI still crashes."""
+    import sys as _sys
+
+    from datahub.cli.docker_cli import (
+        CHECK_MARK,
+        MIGRATION_REQUIRED_INSTRUCTIONS,
+        REPAIR_REQUIRED_INSTRUCTIONS,
+        WARNING_SIGN,
+    )
+
+    encoding = getattr(_sys.stdout, "encoding", None) or "ascii"
+    for text in (
+        CHECK_MARK,
+        WARNING_SIGN,
+        MIGRATION_REQUIRED_INSTRUCTIONS,
+        REPAIR_REQUIRED_INSTRUCTIONS,
+    ):
+        text.encode(encoding)
