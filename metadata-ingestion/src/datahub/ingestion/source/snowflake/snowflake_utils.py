@@ -9,7 +9,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
-from datahub.ingestion.source.azure.abs_utils import make_abs_urn
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri, make_abs_urn
 from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX, make_gcs_urn
 from datahub.ingestion.source.snowflake.constants import (
     DEFAULT_SNOWFLAKE_DOMAIN,
@@ -283,8 +283,10 @@ def make_snowflake_external_urn(
     is what `platform_instance_map` keys are validated against -- adding a scheme here
     means adding its platform there.
 
-    Returns None for a scheme we do not support; callers decide whether that is worth
-    reporting.
+    Returns None for any location we cannot name, never raises. Callers decide whether
+    that is worth reporting, and several of them iterate rows inside a single try/except,
+    so an exception here would abandon the rest of that lineage pass rather than skip one
+    edge.
     """
     if url.startswith("s3://"):
         return make_s3_urn_for_lineage(
@@ -299,11 +301,17 @@ def make_snowflake_external_urn(
             platform_instance=identifier_config.lineage_platform_instance("gcs"),
         )
     if url.startswith("azure://"):
-        return make_abs_urn(
-            url.replace("azure://", "https://", 1),
-            identifier_config.env,
-            platform_instance=identifier_config.lineage_platform_instance("abs"),
-        )
+        # `azure://` covers more than the ABS source can name: ADLS Gen2
+        # (`dfs.core.windows.net`), Fabric OneLake (`onelake.dfs.fabric.microsoft.com`),
+        # and account names outside `[a-z0-9]{3,24}` all fail `is_abs_uri`, and
+        # `make_abs_urn` raises on them. Check first so they read as unsupported.
+        abs_url = url.replace("azure://", "https://", 1)
+        if is_abs_uri(abs_url):
+            return make_abs_urn(
+                abs_url,
+                identifier_config.env,
+                platform_instance=identifier_config.lineage_platform_instance("abs"),
+            )
     return None
 
 

@@ -215,8 +215,10 @@ class SnowflakeStagesExtractor:
         urn = make_snowflake_external_urn(url, self.config)
         if urn is None:
             self.report.warning(
-                title="Unsupported external stage URL scheme",
-                message="Stage lineage will be skipped. Only s3://, gcs://, and azure:// are supported.",
+                title="Unsupported external stage location",
+                message="Stage lineage will be skipped. Supported: s3://, gcs://, and "
+                "azure:// on a <account>.blob.core.windows.net host (ADLS Gen2 and "
+                "Fabric OneLake paths are not named by the Azure Blob Storage source).",
                 context=url,
             )
         return urn

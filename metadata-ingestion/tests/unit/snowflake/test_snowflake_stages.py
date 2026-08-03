@@ -23,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_stages import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    make_snowflake_external_urn,
 )
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
@@ -511,3 +512,105 @@ class TestPlatformInstanceMapKeyValidation:
     def test_error_names_the_offending_key(self) -> None:
         with pytest.raises(ValidationError, match=r"\['aws'\]"):
             _make_config(platform_instance_map={"s3": "ok", "aws": "typo"})
+
+
+class TestUnnameableExternalLocations:
+    """
+    `azure://` covers more than the ABS source can name -- ADLS Gen2, Fabric OneLake,
+    out-of-range account names -- and `make_abs_urn` raises on those. Several callers
+    iterate rows inside one try/except, so raising would abandon the rest of that lineage
+    pass instead of skipping a single edge.
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",  # Fabric OneLake
+            "azure://myacct.dfs.core.windows.net/container/path",  # ADLS Gen2
+            "azure://ACCT.blob.core.windows.net/container/path",  # uppercase account
+            "azure://an-extremely-long-storage-account-name.blob.core.windows.net/c/p",
+            "azure://",
+            "hdfs://namenode/data",
+        ],
+    )
+    def test_unnameable_location_is_skipped_not_raised(self, url: str) -> None:
+        config = _make_config(platform_instance_map={"abs": "abs_inst"})
+        assert make_snowflake_external_urn(url, config) is None
+
+    def test_stage_with_unnameable_azure_url_warns(self) -> None:
+        _, extractor, report = _collect_workunits(
+            [
+                _make_external_stage(
+                    "onelake_stage",
+                    url="azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+                )
+            ]
+        )
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ONELAKE_STAGE")
+        assert entry is not None and entry.dataset_urn is None
+        assert len(report.warnings) == 1
+
+    def test_ddl_lineage_continues_past_unnameable_location(self) -> None:
+        # The whole row loop sits inside one try/except, so a raise here used to swallow
+        # every edge after the offending row -- reported only as a warning.
+        config = _make_config(platform_instance_map={"s3": "product"})
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "ONELAKE_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+            },
+            {
+                "name": "EXT_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen,
+                ["test_db.test_schema.onelake_table", "test_db.test_schema.ext_table"],
+            )
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        ]
+        assert report.num_external_table_edges_scanned == 1
+
+    def test_copy_history_continues_past_unnameable_location(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(
+                    [
+                        "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+                        "s3://my-bucket/data",
+                    ]
+                ),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert mapping is not None
+        assert mapping.upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
