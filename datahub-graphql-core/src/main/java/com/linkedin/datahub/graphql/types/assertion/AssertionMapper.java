@@ -305,7 +305,7 @@ public class AssertionMapper {
   private static AssertionStdParameter mapParameter(
       final com.linkedin.assertion.AssertionStdParameter param) {
     final AssertionStdParameter result = new AssertionStdParameter();
-    result.setType(AssertionStdParameterType.valueOf(param.getType().name()));
+    result.setType(PdlEnumMapper.mapDefaultNull(AssertionStdParameterType.class, param.getType()));
     result.setValue(param.getValue());
     return result;
   }

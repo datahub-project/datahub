@@ -31,6 +31,14 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 You may create custom assertions using the following APIs for a Dataset in DataHub.
 
+### Upsert semantics (full replace)
+
+`upsertCustomAssertion` creates or **fully replaces** the assertion's `assertionInfo` /
+`customAssertion` on each call — the same contract as DataHub Cloud's native assertion
+monitor upserts (`upsertDatasetFreshnessAssertionMonitor`, volume / field / SQL / schema).
+When updating an existing assertion (pass `urn`), resend every field you want to keep;
+omitted optional fields are cleared.
+
 ### Required and optional fields
 
 `upsertCustomAssertion` requires:
@@ -111,7 +119,8 @@ graph.report_assertion_result(
 <TabItem value="graphql" label="GraphQL" default>
 
 To create a new assertion, use the `upsertCustomAssertion` GraphQL Mutation. This mutation both allows you to
-create and update a given assertion.
+create and update a given assertion. Updates fully replace `assertionInfo` / `customAssertion` — resend
+fields you want to keep (see [Upsert semantics](#upsert-semantics-full-replace)).
 
 ```graphql
 mutation upsertCustomAssertion {

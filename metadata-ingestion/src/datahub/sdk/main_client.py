@@ -135,8 +135,11 @@ class DataHubClient:
             )
 
             return AssertionsClient(self)
-        except ImportError:
-            # Fallback: CUSTOM / external assertion sync + result reporting only.
+        except ImportError as e:
+            # Fallback only when the cloud package is missing. Re-raise other
+            # ImportErrors (broken deps inside an installed cloud package).
+            if "acryl_datahub_cloud" not in str(e):
+                raise
             from datahub.sdk.assertion_client import AssertionClient
 
             return AssertionClient(self)

@@ -1,6 +1,11 @@
 extend type Mutation {
   """
-  Upsert a Custom Assertion
+  Upsert a Custom Assertion.
+
+  Updates fully replace assertionInfo / customAssertion (same contract as
+  native freshness / volume / field / SQL / schema assertion monitor upserts).
+  Callers must resend any fields they want to keep; omitted optional fields
+  are cleared.
   """
   upsertCustomAssertion(
     """
