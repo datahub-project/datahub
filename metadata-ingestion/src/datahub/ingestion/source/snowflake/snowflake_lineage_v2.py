@@ -340,10 +340,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
         try:
             for db_row in self.connection.query(query):
-                known_lineage_mapping = self._process_external_lineage_result_row(
+                for known_lineage_mapping in self._process_external_lineage_result_row(
                     db_row, discovered_tables, identifiers=self.identifiers
-                )
-                if known_lineage_mapping:
+                ):
                     self.report.num_external_table_edges_scanned += 1
                     yield known_lineage_mapping
         except Exception as e:
@@ -363,29 +362,36 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         db_row: dict,
         discovered_tables: Optional[Collection[str]],
         identifiers: SnowflakeIdentifierBuilder,
-    ) -> Optional[KnownLineageMapping]:
+    ) -> List[KnownLineageMapping]:
         # key is the down-stream table name
         key: str = identifiers.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if discovered_tables is not None and key not in discovered_tables:
-            return None
+            return []
 
-        if db_row["UPSTREAM_LOCATIONS"] is not None:
-            external_locations = json.loads(db_row["UPSTREAM_LOCATIONS"])
+        if db_row["UPSTREAM_LOCATIONS"] is None:
+            return []
 
-            loc: str
-            for loc in external_locations:
-                upstream_urn = make_snowflake_external_urn(
-                    loc, identifiers.identifier_config
-                )
-                if upstream_urn:
-                    return KnownLineageMapping(
+        # Every location we can name becomes an upstream. This used to return on the
+        # first one, which was survivable while only `s3://` resolved but silently drops
+        # edges now that all three platforms do: a table loaded from both a GCS and an S3
+        # stage would keep whichever `ARRAY_UNIQUE_AGG` happened to list first.
+        downstream_urn = identifiers.gen_dataset_urn(key)
+        mappings = []
+        loc: str
+        for loc in json.loads(db_row["UPSTREAM_LOCATIONS"]):
+            upstream_urn = make_snowflake_external_urn(
+                loc, identifiers.identifier_config
+            )
+            if upstream_urn:
+                mappings.append(
+                    KnownLineageMapping(
                         upstream_urn=upstream_urn,
-                        downstream_urn=identifiers.gen_dataset_urn(key),
+                        downstream_urn=downstream_urn,
                     )
-
-        return None
+                )
+        return mappings
 
     def _fetch_upstream_lineages_for_tables(self) -> Iterable[UpstreamLineageEdge]:
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(

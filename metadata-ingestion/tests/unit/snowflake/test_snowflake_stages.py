@@ -323,7 +323,7 @@ class TestS3UpstreamPlatformInstance:
             structured_reporter=SnowflakeV2Report(),
         )
 
-        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
             db_row={
                 "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
                 "UPSTREAM_LOCATIONS": json.dumps(["s3://my-bucket/data"]),
@@ -332,10 +332,41 @@ class TestS3UpstreamPlatformInstance:
             identifiers=identifiers,
         )
 
-        assert mapping is not None
-        assert mapping.upstream_urn == (
+        assert [m.upstream_urn for m in mappings] == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        ]
+
+    def test_copy_history_emits_every_nameable_location(self) -> None:
+        # `ARRAY_UNIQUE_AGG(stage_location)` can list several locations for one
+        # downstream. Returning only the first was survivable while S3 was the only
+        # scheme resolved, but would now drop a real S3 upstream whenever a GCS or Azure
+        # location happened to be listed ahead of it.
+        config = _make_config(
+            platform_instance_map={"s3": "product", "gcs": "gcs_inst"}
         )
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(
+                    ["gcs://other-bucket/data", "s3://my-bucket/data"]
+                ),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.other-bucket/data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)",
+        ]
+        assert {m.downstream_urn for m in mappings} == {
+            identifiers.gen_dataset_urn("db.schema.table")
+        }
 
     def test_copy_history_lineage_covers_gcs_and_abs(self) -> None:
         # All three storage platforms go through the shared helper, so COPY history
@@ -349,7 +380,7 @@ class TestS3UpstreamPlatformInstance:
         )
 
         def upstream_for(location: str) -> Optional[str]:
-            mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
                 db_row={
                     "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
                     "UPSTREAM_LOCATIONS": json.dumps([location]),
@@ -357,7 +388,7 @@ class TestS3UpstreamPlatformInstance:
                 discovered_tables=None,
                 identifiers=identifiers,
             )
-            return mapping.upstream_urn if mapping else None
+            return mappings[0].upstream_urn if mappings else None
 
         assert upstream_for("gcs://my-bucket/data") == (
             "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.my-bucket/data,PROD)"
@@ -596,7 +627,7 @@ class TestUnnameableExternalLocations:
             structured_reporter=SnowflakeV2Report(),
         )
 
-        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
             db_row={
                 "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
                 "UPSTREAM_LOCATIONS": json.dumps(
@@ -610,7 +641,6 @@ class TestUnnameableExternalLocations:
             identifiers=identifiers,
         )
 
-        assert mapping is not None
-        assert mapping.upstream_urn == (
+        assert [m.upstream_urn for m in mappings] == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
-        )
+        ]
