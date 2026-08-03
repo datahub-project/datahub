@@ -228,7 +228,11 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
         dialect = None
 
     try:
-        expression = sqlglot.parse_one(query, dialect=dialect)
+        # PowerBI native SQL can contain multiple statements; parse (not parse_one) so a
+        # federation in a later statement is not dropped when the query is re-serialized.
+        statements = [
+            stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None
+        ]
     except SqlglotError:
         logger.debug("Failed to parse query for EXTERNAL_QUERY extraction: %s", query)
         return ExternalQueryExtraction(
@@ -239,82 +243,90 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
     unresolvable: List[str] = []
     placeholder_index = 0
     mutated = False
-    # Materialize before mutating the tree, since replacing nodes during a lazy
-    # find_all traversal is unsafe.
-    for func in list(expression.find_all(exp.Anonymous)):
-        if func.name.upper() != EXTERNAL_QUERY_FUNCTION_NAME:
-            continue
+    for statement in statements:
+        # Materialize before mutating the tree, since replacing nodes during a lazy
+        # find_all traversal is unsafe.
+        for func in list(statement.find_all(exp.Anonymous)):
+            if func.name.upper() != EXTERNAL_QUERY_FUNCTION_NAME:
+                continue
 
-        func_sql = func.sql(dialect=dialect)
-        # EXTERNAL_QUERY appears as a table-valued function wrapped in a Table node when
-        # used in a FROM/JOIN position.
-        table_source = func.parent
-        in_table_position = isinstance(table_source, exp.Table)
+            func_sql = func.sql(dialect=dialect)
+            # EXTERNAL_QUERY appears as a table-valued function wrapped in a Table node
+            # when used in a FROM/JOIN position.
+            table_source = func.parent
+            in_table_position = isinstance(table_source, exp.Table)
 
-        # EXTERNAL_QUERY is (connection, sql) with an optional third JSON options arg;
-        # only the first two are needed. A usable reference requires two string-literal
-        # arguments in a table position; anything else can't be turned into an upstream.
-        args = func.expressions
-        connection_arg = args[0] if len(args) >= 1 else None
-        inner_arg = args[1] if len(args) >= 2 else None
-        if len(args) < 2:
-            reason: Optional[str] = f"unexpected argument count {len(args)}"
-        elif not (
-            isinstance(connection_arg, exp.Literal)
-            and connection_arg.is_string
-            and isinstance(inner_arg, exp.Literal)
-            and inner_arg.is_string
-        ):
-            reason = "non-string-literal arguments"
-        elif not in_table_position:
-            reason = "not in a FROM/JOIN table position"
-        else:
-            reason = None
-
-        if reason is None:
-            assert connection_arg is not None and inner_arg is not None
-            references.append(
-                ExternalQueryReference(
-                    connection=connection_arg.this,
-                    inner_sql=inner_arg.this,
-                )
-            )
-        else:
-            # Record every federation we can't extract so the caller surfaces the dropped
-            # lineage via report.warning instead of it being lost at debug level only.
-            logger.debug("Skipping EXTERNAL_QUERY (%s): %s", reason, func_sql)
-            unresolvable.append(func_sql)
-
-        # Strip the federation from the outer query whenever it sits in a table position -
-        # extractable or not - so the generic parser never resolves it to a bogus URN.
-        # Preserve the original source's alias (or synthesize a unique one) so column
-        # references and joins stay valid and multiple federations don't collide. A
-        # federation outside a table position can't be cleanly stripped; it is left in
-        # place and surfaced as unresolvable.
-        if in_table_position:
-            # ``in_table_position`` already guarantees this, but assert so mypy narrows
-            # ``table_source`` from Optional[Expression] to a concrete Table node.
-            assert isinstance(table_source, exp.Table)
-            placeholder = sqlglot.parse_one(
-                EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect
-            )
-            original_alias = table_source.args.get("alias")
-            if original_alias is not None:
-                placeholder.set("alias", original_alias.copy())
+            # EXTERNAL_QUERY is (connection, sql) with an optional third JSON options arg;
+            # only the first two are needed. A usable reference requires two string-literal
+            # arguments in a table position; anything else can't be turned into an upstream.
+            args = func.expressions
+            connection_arg = args[0] if len(args) >= 1 else None
+            inner_arg = args[1] if len(args) >= 2 else None
+            if len(args) < 2:
+                reason: Optional[str] = f"unexpected argument count {len(args)}"
+            elif not (
+                isinstance(connection_arg, exp.Literal)
+                and connection_arg.is_string
+                and isinstance(inner_arg, exp.Literal)
+                and inner_arg.is_string
+            ):
+                reason = "non-string-literal arguments"
+            elif not in_table_position:
+                reason = "not in a FROM/JOIN table position"
             else:
-                placeholder.set(
-                    "alias",
-                    exp.TableAlias(
-                        this=exp.to_identifier(
-                            f"{EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX}_{placeholder_index}"
-                        )
-                    ),
-                )
-            placeholder_index += 1
-            table_source.replace(placeholder)
-            mutated = True
+                reason = None
 
-    rewritten_query = expression.sql(dialect=dialect) if mutated else query
+            if reason is None:
+                assert connection_arg is not None and inner_arg is not None
+                references.append(
+                    ExternalQueryReference(
+                        connection=connection_arg.this,
+                        inner_sql=inner_arg.this,
+                    )
+                )
+            else:
+                # Record every federation we can't extract so the caller surfaces the
+                # dropped lineage via report.warning instead of it being lost at debug
+                # level only.
+                logger.debug("Skipping EXTERNAL_QUERY (%s): %s", reason, func_sql)
+                unresolvable.append(func_sql)
+
+            # Strip the federation from the outer query whenever it sits in a table
+            # position - extractable or not - so the generic parser never resolves it to a
+            # bogus URN. Preserve the original source's alias (or synthesize a unique one)
+            # so column references and joins stay valid and multiple federations don't
+            # collide. A federation outside a table position can't be cleanly stripped; it
+            # is left in place and surfaced as unresolvable.
+            if in_table_position:
+                # ``in_table_position`` already guarantees this, but assert so mypy narrows
+                # ``table_source`` from Optional[Expression] to a concrete Table node.
+                assert isinstance(table_source, exp.Table)
+                placeholder = sqlglot.parse_one(
+                    EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect
+                )
+                original_alias = table_source.args.get("alias")
+                if original_alias is not None:
+                    placeholder.set("alias", original_alias.copy())
+                else:
+                    placeholder.set(
+                        "alias",
+                        exp.TableAlias(
+                            this=exp.to_identifier(
+                                f"{EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX}_{placeholder_index}"
+                            )
+                        ),
+                    )
+                placeholder_index += 1
+                table_source.replace(placeholder)
+                mutated = True
+
+    # Re-serialize every statement (not just the mutated ones) so the rewritten query keeps
+    # all original statements, joined back into a single multi-statement string.
+    rewritten_query = (
+        ";\n".join(stmt.sql(dialect=dialect) for stmt in statements)
+        if mutated
+        else query
+    )
     return ExternalQueryExtraction(
         references=references,
         rewritten_query=rewritten_query,

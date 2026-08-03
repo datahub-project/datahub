@@ -475,3 +475,21 @@ def test_extract_external_queries_unparseable_flags_parse_failed():
     assert extraction.references == []
     assert extraction.rewritten_query == query
     assert extraction.parse_failed is True
+
+
+def test_extract_external_queries_multi_statement_preserves_all_statements():
+    # A multi-statement query with a federation in a later statement: the federation must
+    # be extracted and every statement (including the native one that has no federation)
+    # must survive into the rewritten query, so its native upstreams aren't dropped.
+    query = (
+        "SELECT a FROM project.dataset.native_table;\n"
+        'SELECT * FROM EXTERNAL_QUERY("proj.r.conn", "SELECT b FROM s.t")'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert extraction.references[0].connection == "proj.r.conn"
+    # The federation is stripped, but the native statement must not be discarded.
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    assert "native_table" in extraction.rewritten_query
