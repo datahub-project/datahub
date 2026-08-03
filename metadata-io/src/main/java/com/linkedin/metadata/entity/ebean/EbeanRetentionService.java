@@ -195,9 +195,10 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       return successes;
     }
 
+    // Batch mode intentionally OFF: each context is a bulk ExpressionList delete (one immediate
+    // DELETE statement), so batching buys nothing here — and buffered DML would not be flushed to
+    // the JDBC connection before setSavepoint(), breaking per-context savepoint isolation below.
     Transaction tx = _server.beginTransaction(TxScope.required());
-    tx.setBatchMode(true);
-    tx.setBatchSize(_batchSize);
     try {
       Connection connection = tx.connection();
       for (RetentionContext context : withDefaults) {

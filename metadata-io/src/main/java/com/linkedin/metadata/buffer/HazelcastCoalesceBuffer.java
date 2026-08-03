@@ -8,6 +8,7 @@ import com.hazelcast.query.Predicates;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,7 +73,11 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
     if (limit <= 0) {
       return List.of();
     }
-    PagingPredicate<K, Long> page = Predicates.pagingPredicate(limit);
+    // Explicit comparator so paging does NOT fall back to natural ordering, which would cast the
+    // key to Comparable and throw ClassCastException for non-Comparable keys (e.g. RetentionKey).
+    // Any deterministic total order is fine here — drain is a best-effort bounded batch, not a
+    // ranked query. Comparator must be Serializable (it ships to cluster members).
+    PagingPredicate<K, Long> page = Predicates.pagingPredicate(new DrainOrder<>(), limit);
     return new ArrayList<>(pendingMap.entrySet(page));
   }
 
@@ -102,6 +107,24 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
    * Keep-max coalescing {@link EntryProcessor} for a single key. {@code EntryProcessor} already
    * extends {@link Serializable}; Hazelcast serializes this instance to run on the owning member.
    */
+  /**
+   * Serializable total order for {@link #drain}'s {@link PagingPredicate}. Orders by pending value
+   * then key string so paging never relies on the key being {@link Comparable}. Order is arbitrary
+   * (drain is best-effort), only stability/totality matter.
+   */
+  static final class DrainOrder<K> implements Comparator<Map.Entry<K, Long>>, Serializable {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public int compare(Map.Entry<K, Long> a, Map.Entry<K, Long> b) {
+      int byValue = Long.compare(a.getValue(), b.getValue());
+      if (byValue != 0) {
+        return byValue;
+      }
+      return String.valueOf(a.getKey()).compareTo(String.valueOf(b.getKey()));
+    }
+  }
+
   static final class KeepMaxLongProcessor<K> implements EntryProcessor<K, Long, Void> {
     private static final long serialVersionUID = 1L;
 

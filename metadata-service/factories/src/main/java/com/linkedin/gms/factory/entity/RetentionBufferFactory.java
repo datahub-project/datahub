@@ -30,9 +30,8 @@ import org.springframework.context.annotation.Lazy;
 
 /**
  * Wires the optional post-commit retention buffer + drainer on top of the store-agnostic {@link
- * CoalesceBufferFactory}. See {@code docs/superpowers/specs/2026-07-28-coalesce-buffer-design.md}
- * and {@code docs/superpowers/specs/2026-07-28-post-commit-retention-buffer-rfc.md}. Controlled by
- * {@link HazelcastBootstrapProperties#RETENTION_BUFFER_ENABLED} ({@code
+ * CoalesceBufferFactory}. Controlled by {@link
+ * HazelcastBootstrapProperties#RETENTION_BUFFER_ENABLED} ({@code
  * featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}); the backend (Caffeine
  * or Hazelcast) is selected separately by {@code datahub.buffer.implementation}, which also decides
  * whether {@code HazelcastInstanceBootstrapCondition} provisions the shared {@code

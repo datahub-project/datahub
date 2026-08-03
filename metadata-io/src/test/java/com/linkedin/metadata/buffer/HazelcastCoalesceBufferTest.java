@@ -8,6 +8,7 @@ import static org.testng.Assert.assertTrue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -104,5 +105,26 @@ public class HazelcastCoalesceBufferTest {
     buffer.releaseDrainLock("drain");
     assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
     buffer.releaseDrainLock("drain");
+  }
+
+  @Test
+  public void testDrainWithNonComparableKey() {
+    // RetentionKey (the real prod key) is Serializable but NOT Comparable. drain()'s
+    // PagingPredicate must supply its own comparator; otherwise natural ordering casts the key to
+    // Comparable and throws ClassCastException. String-keyed tests above cannot catch this.
+    hazelcastInstance = newIsolatedInstance();
+    HazelcastCoalesceBuffer<RetentionKey> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+
+    for (int i = 0; i < 5; i++) {
+      buffer.merge(
+          new RetentionKey(
+              "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.t" + i + ",PROD)", "status"),
+          (long) i,
+          CoalesceBuffers.KEEP_MAX_LONG);
+    }
+
+    assertEquals(buffer.drain(3).size(), 3);
+    assertEquals(buffer.drain(10).size(), 5);
   }
 }

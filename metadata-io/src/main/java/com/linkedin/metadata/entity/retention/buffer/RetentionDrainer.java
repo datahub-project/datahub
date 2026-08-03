@@ -118,8 +118,9 @@ public class RetentionDrainer {
       successes =
           retentionService.applyRetentionBatchWithPolicyDefaults(systemOperationContext, contexts);
     } catch (Exception e) {
-      // Whole batch failed (tx setup / commit). Nothing durable — all keys stay for retry.
-      log.warn("Retention batch apply failed; leaving all {} keys for retry", batch.size(), e);
+      // Whole batch failed (tx setup / commit). Nothing durable — the attempted contexts stay for
+      // retry (malformed keys were already removed above, so count off contexts, not batch).
+      log.warn("Retention batch apply failed; leaving {} keys for retry", contexts.size(), e);
       if (metricUtils != null) {
         metricUtils.increment(RetentionDrainer.class, "retention_drain_failed", 1);
       }

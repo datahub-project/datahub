@@ -15,9 +15,10 @@ public class FeatureFlags {
   // Lifecycle: introduced for scale. Default OFF. Sunset target: remove in-tx retention block
   // + this flag once post-commit path is validated in prod.
   private boolean postCommitRetentionEnabled = false;
-  // When true (and postCommitRetentionEnabled), coalesce post-commit retention into a Hazelcast
-  // IMap drained by RetentionDrainer off the ingest thread. When false, post-commit path (if on)
-  // applies retention synchronously. Requires Hazelcast; otherwise falls back to sync DELETE.
+  // When true (and postCommitRetentionEnabled), coalesce post-commit retention into a pluggable
+  // buffer drained by RetentionDrainer off the ingest thread. When false, post-commit path (if on)
+  // applies retention synchronously. Backend is datahub.buffer.implementation: caffeine (local
+  // per-pod, default) or hazelcast (cross-pod); does NOT require Hazelcast.
   // Lifecycle: introduced for scale. Default OFF.
   private boolean retentionBufferEnabled = false;
   private boolean readOnlyModeEnabled = false;
