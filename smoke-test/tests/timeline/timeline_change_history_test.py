@@ -18,7 +18,6 @@ Covered categories per entity:
 
 import logging
 import time
-import uuid
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
@@ -53,7 +52,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import StructuredPropertyUrn
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import execute_graphql
+from tests.utils import execute_graphql, unique_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +113,7 @@ def _assign_run_ids(unique: Optional[str] = None) -> str:
     global SP_URN, TERM_A, TERM_B, DOMAIN_ENGINEERING, DOMAIN_MARKETING
     global APP_URN_1, APP_URN_2, ASSET_DATASET_1, ASSET_DATASET_2
 
-    UNIQUE = unique or uuid.uuid4().hex[:8]
+    UNIQUE = unique or unique_suffix()
     DATASET_URN = (
         f"urn:li:dataset:(urn:li:dataPlatform:kafka,timeline-test-{UNIQUE},PROD)"
     )

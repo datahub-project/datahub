@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import tempfile
-from random import randint
 from typing import Iterable, List, Optional, Union
 
 import pydantic
@@ -32,15 +31,17 @@ from tests.utils import (
     delete_urns,
     delete_urns_from_file,
     ingest_file_via_rest,
+    unique_suffix,
     with_test_retry,
 )
 
 logger = logging.getLogger(__name__)
 
-start_index = randint(10, 10000)
+# Run-unique dataset name prefix so concurrent modules / repeated runs never
+# collide on a shared URN (see smoke-test unique-URN pattern).
+_UNIQUE = unique_suffix()
 dataset_urns = [
-    make_dataset_urn("snowflake", f"table_foo_{i}")
-    for i in range(start_index, start_index + 10)
+    make_dataset_urn("snowflake", f"table_foo_{_UNIQUE}_{i}") for i in range(10)
 ]
 
 schema_field_urns = [
@@ -173,7 +174,7 @@ def to_es_filter_name(
 
 
 def test_structured_property_string(ingest_cleanup_data, graph_client):
-    property_name = f"retention{randint(10, 10000)}Policy"
+    property_name = f"retention{unique_suffix()}Policy"
 
     create_property_definition(property_name, graph_client)
 
@@ -189,7 +190,7 @@ def test_structured_property_string(ingest_cleanup_data, graph_client):
 
 
 def test_structured_property_double(ingest_cleanup_data, graph_client):
-    property_name = f"expiryTime{randint(10, 10000)}"
+    property_name = f"expiryTime{unique_suffix()}"
 
     create_property_definition(property_name, graph_client, value_type="number")
 
@@ -211,7 +212,7 @@ def test_structured_property_double(ingest_cleanup_data, graph_client):
 
 
 def test_structured_property_double_multiple(ingest_cleanup_data, graph_client):
-    property_name = f"versions{randint(10, 10000)}"
+    property_name = f"versions{unique_suffix()}"
 
     create_property_definition(
         property_name, graph_client, value_type="number", cardinality="MULTIPLE"
@@ -223,7 +224,7 @@ def test_structured_property_double_multiple(ingest_cleanup_data, graph_client):
 
 
 def test_structured_property_string_allowed_values(ingest_cleanup_data, graph_client):
-    property_name = f"enumProperty{randint(10, 10000)}"
+    property_name = f"enumProperty{unique_suffix()}"
 
     create_property_definition(
         property_name,
@@ -250,7 +251,7 @@ def test_structured_property_string_allowed_values(ingest_cleanup_data, graph_cl
 
 
 def test_structured_property_definition_evolution(ingest_cleanup_data, graph_client):
-    property_name = f"enumProperty{randint(10, 10000)}"
+    property_name = f"enumProperty{unique_suffix()}"
 
     create_property_definition(
         property_name,
@@ -278,7 +279,7 @@ def test_structured_property_definition_evolution(ingest_cleanup_data, graph_cli
 
 
 def test_structured_property_schema_field(ingest_cleanup_data, graph_client):
-    property_name = f"deprecationDate{randint(10, 10000)}"
+    property_name = f"deprecationDate{unique_suffix()}"
 
     create_property_definition(
         property_name,
@@ -370,7 +371,7 @@ def test_structured_property_search(
     ingest_cleanup_data, graph_client: DataHubGraph, caplog
 ):
     # Attach structured property to entity and to field
-    field_property_name = f"deprecationDate{randint(10, 10000)}"
+    field_property_name = f"deprecationDate{unique_suffix()}"
 
     create_property_definition(
         namespace="io.datahubproject.test",
@@ -387,7 +388,7 @@ def test_structured_property_search(
         graph=graph_client,
         namespace="io.datahubproject.test",
     )
-    dataset_property_name = f"replicationSLA{randint(10, 10000)}"
+    dataset_property_name = f"replicationSLA{unique_suffix()}"
     property_value = 30
     value_type = "number"
 
@@ -478,7 +479,7 @@ def test_structured_property_search(
 
 def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, caplog):
     # Create 1st Property
-    property_name = f"replicationSLA{randint(10, 10000)}"
+    property_name = f"replicationSLA{unique_suffix()}"
     property_value1 = 30.0
     property_value2 = 100.0
     value_type = "number"
@@ -492,7 +493,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, ca
     )
 
     # Create 2nd Property
-    property_name_other = f"replicationSLAOther{randint(10, 10000)}"
+    property_name_other = f"replicationSLAOther{unique_suffix()}"
     property_value_other = 200.0
     create_property_definition(
         property_name=property_name_other,
@@ -554,7 +555,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, ca
 def test_dataset_structured_property_soft_delete_validation(
     ingest_cleanup_data, graph_client, caplog
 ):
-    property_name = f"softDeleteTest{randint(10, 10000)}Property"
+    property_name = f"softDeleteTest{unique_suffix()}Property"
     value_type = "string"
     property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
 
@@ -596,7 +597,7 @@ def test_dataset_structured_property_soft_delete_validation(
 def test_dataset_structured_property_soft_delete_read_mutation(
     ingest_cleanup_data, graph_client, caplog
 ):
-    property_name = f"softDeleteReadTest{randint(10, 10000)}Property"
+    property_name = f"softDeleteReadTest{unique_suffix()}Property"
     value_type = "string"
     property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
     property_value = "test string"
@@ -633,7 +634,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
     ingest_cleanup_data, graph_client: DataHubGraph, caplog: pytest.LogCaptureFixture
 ):
     # Create a test structured property
-    dataset_property_name = f"softDeleteSearchFilter{randint(10, 10000)}"
+    dataset_property_name = f"softDeleteSearchFilter{unique_suffix()}"
     property_value = 30
     value_type = "number"
     property_urn = (
@@ -686,7 +687,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
 def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, caplog):
     # Create property, assign value to target dataset urn
     def create_property(target_dataset, prop_value):
-        property_name = f"hardDeleteTest{randint(10, 10000)}Property"
+        property_name = f"hardDeleteTest{unique_suffix()}Property"
         value_type = "string"
         property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
 
@@ -782,7 +783,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
 def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
     # Create property, assign value to target dataset urn
     def create_property():
-        property_name = f"listTest{randint(10, 10000)}Property"
+        property_name = f"listTest{unique_suffix()}Property"
         value_type = "string"
         property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
 
