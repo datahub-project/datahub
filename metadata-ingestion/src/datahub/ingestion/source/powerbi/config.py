@@ -312,6 +312,15 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("must not be empty or whitespace")
+    return stripped
+
+
 class OraclePlatformDetail(PlatformDetail):
     default_schema: Optional[str] = pydantic.Field(
         default=None,
@@ -336,13 +345,8 @@ class OraclePlatformDetail(PlatformDetail):
 
     @field_validator("default_schema", "default_database")
     @classmethod
-    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("must not be empty or whitespace")
-        return stripped
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
     # Requires at least one knob. This is also relied on to disambiguate
     # OraclePlatformDetail from a plain PlatformDetail in the
@@ -474,13 +478,8 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
 
     @field_validator("default_schema", "default_database")
     @classmethod
-    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("must not be empty or whitespace")
-        return stripped
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
 
 # Workspace ``type`` values returned by the PowerBI admin API for personal
