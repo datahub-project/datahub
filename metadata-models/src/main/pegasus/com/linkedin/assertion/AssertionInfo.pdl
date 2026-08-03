@@ -10,7 +10,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "assertionInfo",
-  "schemaVersion": 4
+  "schemaVersion": 5
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
@@ -24,8 +24,10 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     type: AssertionType
 
     /**
-    * A Dataset Assertion definition. This field is populated when the type is DATASET.
+    * @deprecated A Dataset Assertion definition. This field is populated when the type is DATASET.
+    * Prefer customAssertion with AssertionType.CUSTOM for external assertions.
     */
+    @deprecated = "Use customAssertion with AssertionType.CUSTOM for external assertions."
     datasetAssertion: optional DatasetAssertionInfo
 
     /**
