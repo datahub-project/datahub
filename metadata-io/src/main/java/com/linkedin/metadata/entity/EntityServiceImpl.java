@@ -1280,21 +1280,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                               final Map<String, Set<String>> urnAspects =
                                   batchWithDefaults.getUrnAspectsMap();
-                          // Opt-in Postgres per-entity write serialization (advisory lock), taken
-                          // before any row locks so this write serializes against a concurrent
-                          // hard-delete on the same entity. No-op unless enabled on a Postgres
-                          // store.
-                          aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+                              // Opt-in Postgres per-entity write serialization (advisory lock),
+                              // taken
+                              // before any row locks so this write serializes against a concurrent
+                              // hard-delete on the same entity. No-op unless enabled on a Postgres
+                              // store.
+                              aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
 
-                          // read #1
-                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
-                          // in
-                          // order
-                          // to ensure that the aspect's version is not modified outside the
-                          // transaction.
-                          // We rely on the retry mechanism if the row is modified and will re-read
-                          // (require the
-                          // lock)
+                              // read #1
+                              // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read
+                              // lock)
+                              // in
+                              // order
+                              // to ensure that the aspect's version is not modified outside the
+                              // transaction.
+                              // We rely on the retry mechanism if the row is modified and will
+                              // re-read
+                              // (require the
+                              // lock)
 
                               // Source the (latest aspects, next versions, upsert items) triple.
                               // Coordinated (PESSIMISTIC_SINGLE_WAVE): pre-lock the FULL mutation

@@ -392,14 +392,21 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     for (int position = 0; position < keys.size(); position += chunkSize) {
       final List<EbeanAspectV2.PrimaryKey> chunk =
           keys.subList(position, Math.min(position + chunkSize, keys.size()));
-      primaryStorageResolver
-          .resolveEbean(opContext, true)
-          .find(EbeanAspectV2.class)
-          .select(EbeanAspectV2.KEY_ID)
-          .where()
-          .idIn(chunk)
-          .forUpdate()
-          .findList();
+      final Query<EbeanAspectV2> chunkQuery =
+          primaryStorageResolver
+              .resolveEbean(opContext, true)
+              .find(EbeanAspectV2.class)
+              .select(EbeanAspectV2.KEY_ID)
+              .where()
+              .idIn(chunk)
+              .query();
+      // PostgreSQL locks the IN-list in physical scan order -- force key-order lock acquisition
+      // with
+      // an explicit ORDER BY (MySQL/InnoDB already locks the PK IN-list in index order).
+      if (isPostgres) {
+        chunkQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+      }
+      chunkQuery.forUpdate().findList();
     }
   }
 
@@ -1382,20 +1389,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       for (int position = 0; position < forUpdateKeys.size(); position += chunkSize) {
         final List<EbeanAspectV2.PrimaryKey> chunk =
             forUpdateKeys.subList(position, Math.min(position + chunkSize, forUpdateKeys.size()));
-        server
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.KEY_ID)
-            .where()
-            .idIn(chunk)
-            .forUpdate()
-            .findList();
+        // PostgreSQL locks the IN-list in physical scan order, so add an explicit ORDER BY to force
+        // key-order lock acquisition; MySQL/InnoDB already locks the PK IN-list in index order.
+        final Query<EbeanAspectV2> chunkQuery =
+            server
+                .find(EbeanAspectV2.class)
+                .select(EbeanAspectV2.KEY_ID)
+                .where()
+                .idIn(chunk)
+                .query();
+        if (isPostgres) {
+          chunkQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+        }
+        chunkQuery.forUpdate().findList();
       }
-      final Query<EbeanAspectV2> lockQuery =
-          server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
-      if (isPostgres) {
-        lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
-      }
-      lockQuery.forUpdate().findList();
     }
 
     // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.
