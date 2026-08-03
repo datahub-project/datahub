@@ -1,5 +1,7 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 
+import { mergeServerChildNode } from '@app/document/utils/documentTreeNodeMerge';
+
 import { DataPlatform, EntityType } from '@types';
 
 /**
@@ -263,72 +265,60 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, []);
 
-    // Mutation: Set children for a parent node
-    // IMPORTANT: This merges server data with existing local state to preserve optimistic updates
+    // Merge server pages with local state so optimistic nodes and nested loads survive refetch.
     const setNodeChildren = useCallback((parentUrn: string | null, childNodes: DocumentTreeNode[]) => {
         if (parentUrn === null) {
-            // Setting root nodes - merge with existing roots to preserve optimistic updates
             setRootUrns((prevRootUrns) => {
-                // Merge using Map for deduplication
                 const mergedMap = new Map<string, string>();
 
-                // Add server roots first (fresher data)
                 childNodes.forEach((child) => {
                     mergedMap.set(child.urn, child.urn);
                 });
 
-                // Add existing roots not in server response (optimistic)
                 prevRootUrns.forEach((urn) => {
                     if (!mergedMap.has(urn)) {
                         mergedMap.set(urn, urn);
                     }
                 });
 
-                const mergedRootUrns = Array.from(mergedMap.values());
-
-                return mergedRootUrns;
+                return Array.from(mergedMap.values());
             });
 
             setNodes((prev) => {
                 const updated = new Map(prev);
-                childNodes.forEach((child) => updated.set(child.urn, child));
+                childNodes.forEach((child) => {
+                    updated.set(child.urn, mergeServerChildNode(updated.get(child.urn), child));
+                });
                 return updated;
             });
         } else {
-            // Setting children for a specific parent - merge server data with existing local children
             setNodes((prev) => {
                 const updated = new Map(prev);
                 const parent = updated.get(parentUrn);
                 if (parent) {
-                    // Get existing children (might include optimistic updates)
                     const existingChildren = parent.children || [];
-
-                    // Merge strategy: Server data takes precedence, preserve optimistic updates not yet on server
                     const mergedMap = new Map<string, DocumentTreeNode>();
 
-                    // First, add all server children (fresher data from backend)
                     childNodes.forEach((serverChild) => {
-                        mergedMap.set(serverChild.urn, serverChild);
+                        mergedMap.set(serverChild.urn, mergeServerChildNode(updated.get(serverChild.urn), serverChild));
                     });
 
-                    // Then, add existing children that are NOT in server response (optimistic updates)
                     existingChildren.forEach((existingChild) => {
                         if (!mergedMap.has(existingChild.urn)) {
                             mergedMap.set(existingChild.urn, existingChild);
                         }
                     });
 
-                    // Convert back to array (guaranteed unique by URN)
                     const mergedChildren = Array.from(mergedMap.values());
 
                     updated.set(parentUrn, {
                         ...parent,
                         children: mergedChildren,
-                        hasChildren: mergedChildren.length > 0,
+                        hasChildren: mergedChildren.length > 0 || parent.hasChildren,
                     });
+
+                    mergedChildren.forEach((child) => updated.set(child.urn, child));
                 }
-                // Also add all children to the nodes map
-                childNodes.forEach((child) => updated.set(child.urn, child));
                 return updated;
             });
         }

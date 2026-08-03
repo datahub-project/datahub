@@ -317,7 +317,7 @@ export default function DomainNode({
                         />
                     </ButtonWrapper>
                 )}
-                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.1} mouseLeaveDelay={0}>
                     <NameWrapper
                         onClick={handleSelectDomain}
                         $isSelected={isDomainNodeSelected}
@@ -327,7 +327,7 @@ export default function DomainNode({
                             <Tooltip
                                 placement="right"
                                 title={isCollapsed && displayName}
-                                mouseEnterDelay={0.7}
+                                mouseEnterDelay={0.1}
                                 mouseLeaveDelay={0}
                             >
                                 <DomainColoredIcon domain={domain} size={30} fontSize={14} />
