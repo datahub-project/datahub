@@ -725,7 +725,12 @@ describe('filter utils - getNewFilters with availableFilters (TEXT condition)', 
 });
 
 describe('filter utils - getDynamicFilterField structured-property type routing', () => {
-    const makeSpFacet = (fieldSuffix: string, valueTypeUrn: string, allowedValues: any[] = [], typeQualifier?: any) => ({
+    const makeSpFacet = (
+        fieldSuffix: string,
+        valueTypeUrn: string,
+        allowedValues: any[] = [],
+        typeQualifier?: any,
+    ) => ({
         field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.${fieldSuffix}`,
         aggregations: [],
         entity: {
