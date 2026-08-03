@@ -31,6 +31,12 @@ ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 # an upstream URN from it. It is handled explicitly instead. See extract_external_queries.
 EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
 
+# Fast case-insensitive gate before federation extraction. Avoids allocating
+# query.upper() on every BigQuery native-query parse when no federation is present.
+EXTERNAL_QUERY_PATTERN = re.compile(
+    rf"\b{EXTERNAL_QUERY_FUNCTION_NAME}\b", re.IGNORECASE
+)
+
 # Inert derived table used to replace each EXTERNAL_QUERY source in the outer query so
 # the remaining (native) query still parses without the federation yielding a bogus URN.
 # It is left unaliased here; the original EXTERNAL_QUERY source's alias is reused (so
