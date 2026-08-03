@@ -16,10 +16,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.CoordinatedIngestConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import java.util.Map;
-import java.util.SortedMap;
 import java.util.SortedSet;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +26,6 @@ import org.testng.annotations.Test;
 
 public class MutationCoordinatorTest {
 
-  private static final String COMMAND_ID = "cmd-1";
   private static final ConflictKey KEY_A = ConflictKey.of("a", "id-a");
   private static final ConflictKey KEY_B = ConflictKey.of("b", "id-b");
   private static final String LOCK_A = "a/id-a";
@@ -46,9 +42,7 @@ public class MutationCoordinatorTest {
     for (ConflictKey key : keys) {
       conflictKeys.add(key);
     }
-    Map<AspectKey, String> observedVersions = Map.of();
-    SortedMap<AspectKey, PlannedMutation> mutations = new TreeMap<>();
-    return new MutationPlan(COMMAND_ID, conflictKeys, observedVersions, mutations);
+    return new MutationPlan(conflictKeys);
   }
 
   @Test

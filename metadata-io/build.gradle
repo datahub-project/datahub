@@ -191,6 +191,7 @@ dependencies {
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.testContainersNeo4j
   testImplementation externalDependency.testContainersPostgresql
+  testImplementation externalDependency.testContainersMysql
   testImplementation externalDependency.postgresql
   testImplementation externalDependency.lombok
   testFixturesApi externalDependency.springBootTest

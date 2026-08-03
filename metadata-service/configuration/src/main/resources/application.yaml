@@ -1884,7 +1884,7 @@ metadataChangeProposal:
     maxMutationCount: ${COORDINATED_INGEST_MAX_MUTATION_COUNT:10000}
     lockLeaseSeconds: ${COORDINATED_INGEST_LOCK_LEASE_SECONDS:30}
     lockAcquireTimeoutSeconds: ${COORDINATED_INGEST_LOCK_ACQUIRE_TIMEOUT_SECONDS:10}
-    lockProvider: ${COORDINATED_INGEST_LOCK_PROVIDER:hazelcast} # hazelcast | local (redis: future)
+    lockProvider: ${COORDINATED_INGEST_LOCK_PROVIDER:${searchService.cacheImplementation:caffeine}} # hazelcast | local; defaults to the cache impl so caffeine/non-Hazelcast deployments use the in-JVM lock and never fail startup
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

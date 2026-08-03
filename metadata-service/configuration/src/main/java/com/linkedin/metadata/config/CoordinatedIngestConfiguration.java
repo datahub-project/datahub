@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
  * <p>All defaults are specified in application.yaml via environment variables.
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CoordinatedIngestConfiguration {

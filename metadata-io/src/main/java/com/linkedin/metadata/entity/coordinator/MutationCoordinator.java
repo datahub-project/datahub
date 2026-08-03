@@ -42,7 +42,9 @@ public class MutationCoordinator {
   // TODO(coordinated-ingest observability): confirm final metric names with the shadow-metrics
   // phase. These mirror the counters listed in the design doc's v1 shadow-metrics section.
   static final String METRIC_LOCK_TIMEOUTS = "coordinator.lock_timeouts";
-  static final String METRIC_ACTIVE_CONFLICT_KEYS = "coordinator.active_conflict_keys";
+  // Distribution (histogram) of the per-plan conflict-key count -- NOT a cumulative counter, so
+  // plan sizes are observable without accumulating across plans.
+  static final String METRIC_PLAN_CONFLICT_KEYS = "coordinator.plan_conflict_keys";
 
   @Nullable private final CoordinationLockProvider lockProvider;
   @Nonnull private final CoordinatedIngestConfiguration config;
@@ -79,7 +81,7 @@ public class MutationCoordinator {
    */
   public <T> T execute(@Nonnull final MutationPlan plan, @Nonnull final CoordinatedCommit<T> commit)
       throws Exception {
-    recordActiveConflictKeys(plan.conflictKeys().size());
+    recordPlanConflictKeys(plan.conflictKeys().size());
 
     if (lockProvider == null) {
       // No lock substrate: no-op locking. The DB single-sorted commit remains authoritative.
@@ -154,9 +156,10 @@ public class MutationCoordinator {
     }
   }
 
-  private void recordActiveConflictKeys(final int count) {
+  private void recordPlanConflictKeys(final int count) {
     if (metricUtils != null) {
-      metricUtils.incrementMicrometer(METRIC_ACTIVE_CONFLICT_KEYS, count);
+      // Distribution of per-plan conflict-key counts (not a running total).
+      metricUtils.recordDistribution(METRIC_PLAN_CONFLICT_KEYS, count);
     }
   }
 }

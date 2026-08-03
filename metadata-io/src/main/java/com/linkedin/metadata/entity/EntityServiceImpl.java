@@ -125,7 +125,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -1122,11 +1121,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         .map(aspectName -> AspectKey.latest(entry.getKey(), aspectName)))
             .collect(Collectors.toSet());
     final SortedSet<ConflictKey> conflictKeys = conflictKeyResolver.resolveAll(keys);
-    return new MutationPlan(
-        UUID.randomUUID().toString(),
-        conflictKeys,
-        Collections.emptyMap(),
-        Collections.emptySortedMap());
+    return new MutationPlan(conflictKeys);
   }
 
   /**
@@ -1191,27 +1186,37 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               } catch (Exception e) {
                 // Malformed urn or an entity type the registry cannot resolve: skip adding its key
                 // aspect to the lock closure rather than failing the whole batch on one bad urn.
-                log.debug("Skipping key-aspect lock for unresolvable urn {}", urn, e);
+                // Legacy fails on such a urn, so warn that coordinated behavior differs here.
+                log.warn(
+                    "Skipping key-aspect lock for unresolvable urn {}; this urn is not serialized "
+                        + "against concurrent entity delete (legacy would fail on it).",
+                    urn,
+                    e);
                 return;
               }
               if (keyAspectName == null || keyAspectName.isBlank()) {
-                log.debug("Skipping key-aspect lock for urn {} with unresolved key aspect", urn);
+                log.warn(
+                    "Skipping key-aspect lock for urn {} with unresolved key aspect; this urn is "
+                        + "not serialized against concurrent entity delete (legacy would fail on it).",
+                    urn);
                 return;
               }
               closure.computeIfAbsent(urn, k -> new HashSet<>()).add(keyAspectName);
             });
 
-    // Runaway fan-out guard: cap the number of (urn, aspect) rows locked in this single wave.
-    // maxMutationCount <= 0 means unlimited.
+    // Runaway fan-out observability: warn (once, here) when the single-wave lock closure is larger
+    // than the configured soft limit, then PROCEED and lock the full closure. Legacy has no such
+    // cap, so throwing here would fail a large-but-legitimate batch that legacy would accept; the
+    // limit is a signal for operators, not a hard gate. maxMutationCount <= 0 means unlimited.
     if (coordinatedMaxMutationCount > 0) {
       final int closureSize = closure.values().stream().mapToInt(Set::size).sum();
       if (closureSize > coordinatedMaxMutationCount) {
-        throw new IllegalStateException(
-            "Coordinated ingest closure size "
-                + closureSize
-                + " exceeds maxMutationCount "
-                + coordinatedMaxMutationCount
-                + " (runaway fan-out guard)");
+        log.warn(
+            "Coordinated ingest closure size {} exceeds soft maxMutationCount {} across {} urns; "
+                + "proceeding with the full closure (legacy has no such cap).",
+            closureSize,
+            coordinatedMaxMutationCount,
+            closure.size());
       }
     }
 
@@ -1254,6 +1259,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 coordinated
                     ? IngestWriteMode.PESSIMISTIC_SINGLE_WAVE
                     : IngestWriteMode.LEGACY_MULTI_WAVE;
+
+            // Path-selection counter so operators can see coordinated vs legacy ingest usage.
+            opContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(
+                            EntityServiceImpl.class,
+                            coordinated ? "coordinated_ingest_path" : "legacy_ingest_path",
+                            1));
 
             final Supplier<IngestAspectsResult> txCall =
                 () ->

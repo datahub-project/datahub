@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.entity;
 
-import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CoordinatedIngestConfiguration;
@@ -10,8 +9,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.coordinator.ConflictKeyResolver;
 import com.linkedin.metadata.entity.coordinator.CoordinationLockProvider;
-import com.linkedin.metadata.entity.coordinator.HazelcastLockProvider;
-import com.linkedin.metadata.entity.coordinator.LocalLockProvider;
 import com.linkedin.metadata.entity.coordinator.MutationCoordinator;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
@@ -42,7 +39,7 @@ public class EntityServiceFactory {
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       final List<ThrottleSensor> throttleSensors,
       @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
-      @javax.annotation.Nullable final HazelcastInstance hazelcastInstance) {
+      @javax.annotation.Nullable final CoordinationLockProvider coordinationLockProvider) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
@@ -65,10 +62,11 @@ public class EntityServiceFactory {
     final CoordinatedIngestConfiguration coordinatedIngestConfig =
         configurationProvider.getMetadataChangeProposal().getCoordinatedIngest();
     if (featureFlags.isCoordinatedIngestEnabled() && coordinatedIngestConfig != null) {
-      final CoordinationLockProvider lockProvider =
-          buildLockProvider(coordinatedIngestConfig, hazelcastInstance);
+      // The lock provider is a Spring bean chosen by CoordinationLockProviderFactory (env-selected,
+      // pluggable — a new substrate is a new conditional bean, not a change here). Best-effort
+      // serializer only; the DB single-sorted commit stays authoritative.
       MutationCoordinator mutationCoordinator =
-          new MutationCoordinator(lockProvider, coordinatedIngestConfig, metricUtils);
+          new MutationCoordinator(coordinationLockProvider, coordinatedIngestConfig, metricUtils);
       entityService.setCoordinatedIngest(
           mutationCoordinator,
           new ConflictKeyResolver(),
@@ -91,38 +89,5 @@ public class EntityServiceFactory {
     }
 
     return entityService;
-  }
-
-  /**
-   * Resolves the env-selected ({@code COORDINATED_INGEST_LOCK_PROVIDER}) coordination lock
-   * substrate. Fails fast on a misconfiguration rather than silently downgrading coordination:
-   * {@code hazelcast} without a live instance, or an unrecognized value, both throw. Correctness
-   * never depends on the chosen provider — the DB single-sorted commit is authoritative — but the
-   * operator's explicit choice must be honored.
-   */
-  @Nonnull
-  private static CoordinationLockProvider buildLockProvider(
-      @Nonnull final CoordinatedIngestConfiguration config,
-      @javax.annotation.Nullable final HazelcastInstance hazelcastInstance) {
-    final String selected = config.getLockProvider();
-    switch (selected == null ? "" : selected) {
-      case "local":
-        log.info("Coordinated ingest lock provider: local (in-JVM only; DB commit authoritative).");
-        return new LocalLockProvider();
-      case "hazelcast":
-        if (hazelcastInstance == null) {
-          throw new IllegalStateException(
-              "coordinatedIngest lockProvider=hazelcast but no HazelcastInstance is available; "
-                  + "deploy Hazelcast or set COORDINATED_INGEST_LOCK_PROVIDER=local");
-        }
-        log.info("Coordinated ingest lock provider: hazelcast (distributed).");
-        return new HazelcastLockProvider(hazelcastInstance);
-        // case "redis": user-supplied RedisLockProvider bean (future distributed provider).
-      default:
-        throw new IllegalStateException(
-            "Unknown coordinatedIngest lockProvider: "
-                + selected
-                + " (expected: local | hazelcast)");
-    }
   }
 }

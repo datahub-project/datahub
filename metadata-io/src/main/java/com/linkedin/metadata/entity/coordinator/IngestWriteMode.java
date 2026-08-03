@@ -23,9 +23,12 @@ public enum IngestWriteMode {
   PESSIMISTIC_SINGLE_WAVE,
 
   /**
-   * Optimistic: no row locks; each write is a conditional UPDATE (compare-and-swap) on {@code
-   * SystemMetadata.version}, retrying on conflict. Reserved for the next phase (optimistic
-   * locking). Not yet wired — present so the branch point is explicit.
+   * Optimistic: no row locks; each write would be a conditional UPDATE (compare-and-swap) on {@code
+   * SystemMetadata.version}, retrying on conflict.
+   *
+   * <p>RESERVED marker for the future optimistic-locking phase. It is <b>not yet produced</b> by
+   * any write-mode selection and <b>not yet handled</b> by any commit path — it exists only so the
+   * branch point where that phase will slot in is explicit.
    */
   OPTIMISTIC_CAS
 }

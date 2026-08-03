@@ -398,6 +398,7 @@ project.ext.externalDependency = [
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
+    'testContainersMysql':'org.testcontainers:mysql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
