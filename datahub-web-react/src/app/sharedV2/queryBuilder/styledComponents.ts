@@ -54,7 +54,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         padding: 0 0 0 ${(props) => props.depth * 20 + (props.hasChildren ? 20 : 48)}px !important;
         align-items: center !important;
         margin: 8px 0;
-        background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     .ant-collapse-item {
@@ -68,7 +68,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: 52px;
         width: 2px;
         height: calc(100% - 78px);
-        background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 
@@ -79,7 +79,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         top: calc(100% - 28px);
         width: 5px;
         height: 2px;
-        background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
 
