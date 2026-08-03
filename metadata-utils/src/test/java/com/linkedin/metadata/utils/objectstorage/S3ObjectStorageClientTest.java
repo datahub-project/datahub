@@ -164,7 +164,7 @@ public class S3ObjectStorageClientTest {
 
   @Test
   public void testGetObjectAsStringWrapsProviderErrors() {
-    // ObjectStorageIngestionCliVersionMatrixSource.classify() unwraps this RuntimeException to tell
+    // ObjectStorageMatrixDocumentReader.classify() unwraps this RuntimeException to tell
     // a missing object apart from other failures, so the cause must be preserved, not swallowed.
     S3Client s3Client = mock(S3Client.class);
     NoSuchKeyException notFound =

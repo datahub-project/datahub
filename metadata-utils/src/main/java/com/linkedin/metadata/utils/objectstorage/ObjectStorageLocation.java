@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.objectstorage;
 
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,6 +52,57 @@ public record ObjectStorageLocation(
       return Optional.of(parse(configuredUri.trim()));
     }
     return synthesizeFromLegacy(legacyBucketName, legacyPath, legacyProvider);
+  }
+
+  /**
+   * A URI that addresses one object rather than a root: the location a client is rooted at, plus
+   * the key of the object within that root.
+   */
+  public record Document(@Nonnull ObjectStorageLocation root, @Nonnull String objectKey) {}
+
+  /**
+   * Splits a document URI into the root a client is built from and the object key within it —
+   * {@code s3://bucket/dir/matrix.json} becomes a client rooted at {@code s3://bucket/dir} reading
+   * key {@code matrix.json}, and {@code file:///dir/matrix.json} a client rooted at {@code /dir}.
+   *
+   * <p>{@link #parse} models a root, so callers holding a URI that names a single document would
+   * otherwise each reinvent this split — and reinvent it differently for cloud and local.
+   *
+   * @throws IllegalArgumentException if the URI names no object, e.g. a bare bucket or a filesystem
+   *     root
+   */
+  @Nonnull
+  public static Document parseDocument(@Nonnull String uri) {
+    ObjectStorageLocation parsed = parse(uri);
+    return switch (parsed.provider()) {
+      case LOCAL -> {
+        Path path = Path.of(parsed.localRoot());
+        Path parent = path.getParent();
+        if (parent == null) {
+          throw new IllegalArgumentException(
+              "file URI must name a file inside a directory (expected e.g. file:///dir/matrix.json): "
+                  + uri);
+        }
+        yield new Document(
+            new ObjectStorageLocation(ObjectStorageProvider.LOCAL, null, null, parent.toString()),
+            path.getFileName().toString());
+      }
+      case S3, GCS -> {
+        String key = parsed.keyPrefix();
+        if (key == null || key.isEmpty()) {
+          throw new IllegalArgumentException(
+              "URI does not include an object key (expected e.g. s3://bucket/matrix.json): " + uri);
+        }
+        int lastSlash = key.lastIndexOf('/');
+        yield new Document(
+            new ObjectStorageLocation(
+                parsed.provider(),
+                parsed.bucket(),
+                lastSlash < 0 ? "" : key.substring(0, lastSlash),
+                null),
+            lastSlash < 0 ? key : key.substring(lastSlash + 1));
+      }
+    };
   }
 
   @Nonnull

@@ -103,7 +103,7 @@ public class GcsObjectStorageClientTest {
 
   @Test
   public void testGetObjectAsStringWrapsProviderErrors() {
-    // ObjectStorageIngestionCliVersionMatrixSource.classify() unwraps this RuntimeException to tell
+    // ObjectStorageMatrixDocumentReader.classify() unwraps this RuntimeException to tell
     // a permission failure apart from other errors, so the cause must be preserved, not swallowed.
     Storage storage = mock(Storage.class);
     StorageException forbidden = new StorageException(403, "Forbidden");

@@ -54,42 +54,7 @@ public class ObjectStorageClientFactory {
         return null;
       }
 
-      ObjectStorageLocation resolvedLocation = location.get();
-      int multipartThreshold =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartThresholdBytes() != null
-              ? objectStorageConfiguration.getMultipartThresholdBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
-      int multipartPartSize =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartPartSizeBytes() != null
-              ? objectStorageConfiguration.getMultipartPartSizeBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
-
-      return switch (resolvedLocation.provider()) {
-        case LOCAL -> new LocalObjectStorageClient(resolvedLocation.localRoot());
-        case S3 -> {
-          S3Client s3Client = createS3Client(objectStorageConfiguration);
-          if (s3Client == null) {
-            yield null;
-          }
-          yield new S3ObjectStorageClient(
-              s3Client,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-        case GCS -> {
-          Storage storage = StorageOptions.getDefaultInstance().getService();
-          yield new GcsObjectStorageClient(
-              storage,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-      };
+      return clientFor(location.get());
     } catch (Exception e) {
       log.error("Failed to create ObjectStorageClient", e);
       return null;
@@ -97,14 +62,51 @@ public class ObjectStorageClientFactory {
   }
 
   /**
-   * An S3 client built from {@code datahub.objectStorage}, exposed so factories needing to address
-   * a bucket other than the configured one reuse this credential resolution (role assumption,
-   * endpoint override, region) rather than standing up a second client of their own. Null when AWS
-   * is not configured.
+   * Builds a client rooted at an arbitrary location rather than only the configured one, so a
+   * caller addressing a different bucket reuses this credential resolution (role assumption,
+   * endpoint override, region) and this provider routing instead of standing up its own.
+   * Credentials and multipart sizing still come from {@code datahub.objectStorage}; only the
+   * location varies.
+   *
+   * <p>Null when the provider needs a client that cannot be built — today only S3, when AWS is
+   * unconfigured.
    */
   @Nullable
-  public S3Client createS3Client() {
-    return createS3Client(configurationProvider.getDatahub().getObjectStorage());
+  public ObjectStorageClient clientFor(@Nonnull ObjectStorageLocation location) {
+    ObjectStorageConfiguration config = configurationProvider.getDatahub().getObjectStorage();
+    int multipartThreshold =
+        config != null && config.getMultipartThresholdBytes() != null
+            ? config.getMultipartThresholdBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
+    int multipartPartSize =
+        config != null && config.getMultipartPartSizeBytes() != null
+            ? config.getMultipartPartSizeBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
+
+    return switch (location.provider()) {
+      case LOCAL -> new LocalObjectStorageClient(location.localRoot());
+      case S3 -> {
+        S3Client s3Client = createS3Client(config);
+        if (s3Client == null) {
+          yield null;
+        }
+        yield new S3ObjectStorageClient(
+            s3Client,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
+      }
+      case GCS -> {
+        Storage storage = StorageOptions.getDefaultInstance().getService();
+        yield new GcsObjectStorageClient(
+            storage,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
+      }
+    };
   }
 
   @Nullable

@@ -7,10 +7,13 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.objectstorage.ObjectStorageClientFactory;
 import com.linkedin.metadata.config.CliVersionMatrixConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.HttpMatrixDocumentReader;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.PollingIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageLocation;
 import com.linkedin.metadata.version.GitVersion;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
@@ -18,10 +21,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
 
 /**
  * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. The contract under test is
@@ -30,7 +29,7 @@ import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
  *
  * <p>{@code gs://} wiring is deliberately not covered: constructing the GCS client resolves ambient
  * Application Default Credentials, which is environment-dependent and would make the test flaky.
- * The read path it feeds is covered by {@link ObjectStorageIngestionCliVersionMatrixSourceTest}.
+ * The read path it feeds is covered by {@link ObjectStorageMatrixDocumentReaderTest}.
  */
 public class IngestionCliVersionMatrixServiceFactoryTest {
 
@@ -56,6 +55,7 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
 
     setField(factory, "configProvider", configProvider);
     setField(factory, "gitVersion", gitVersion);
+    setField(factory, "objectStorageClientFactory", factoryWithClient());
   }
 
   // ---------------------------------------------------------------------------
@@ -92,8 +92,11 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
       IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
       try {
         assertTrue(
-            source instanceof HttpUrlIngestionCliVersionMatrixSource,
-            uri + " must wire HttpUrlIngestionCliVersionMatrixSource");
+            source instanceof PollingIngestionCliVersionMatrixSource s
+                && uri.equals(s.displayUri()),
+            uri
+                + " must wire a polling source over an "
+                + HttpMatrixDocumentReader.class.getSimpleName());
       } finally {
         shutdown(source);
       }
@@ -103,13 +106,13 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   @Test
   public void testMatrixSource_whenUriIsS3AndClientAvailable_wiresObjectStorageSource() {
     ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
-    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
 
     IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
     try {
       assertTrue(
-          source instanceof ObjectStorageIngestionCliVersionMatrixSource,
-          "an s3:// URI with an available S3 client wires the object-storage source");
+          source instanceof PollingIngestionCliVersionMatrixSource s
+              && "s3://cli-version-matrix/matrix.json".equals(s.displayUri()),
+          "an s3:// URI with an available S3 client wires a polling source over that URI");
     } finally {
       shutdown(source);
     }
@@ -123,8 +126,8 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
     try {
       assertTrue(
-          source instanceof ObjectStorageIngestionCliVersionMatrixSource,
-          "a file:// URI wires the object-storage source");
+          source instanceof PollingIngestionCliVersionMatrixSource,
+          "a file:// URI wires a polling source");
     } finally {
       shutdown(source);
     }
@@ -136,7 +139,8 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
 
   @Test
   public void testMatrixSource_whenS3ClientUnavailable_wiresNoOp() {
-    // s3:// but no S3 client (AWS not configured) → application default, not a startup failure.
+    // s3:// but clientFor() yields null (AWS not configured) → application default, not a startup
+    // failure. A bare mock returns null from every method, which is exactly that case.
     ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
     setField(factory, "objectStorageClientFactory", mock(ObjectStorageClientFactory.class));
 
@@ -149,7 +153,6 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   public void testMatrixSource_whenUriHasNoObjectKey_wiresNoOp() {
     // A bucket root is not a readable document — the object key is required.
     ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix");
-    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
 
     assertTrue(
         factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
@@ -171,7 +174,6 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     // constructor and fail GMS startup; the factory must degrade to a no-op instead.
     ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
     ingestionConfig.getCliVersionMatrix().setRefreshSeconds(0);
-    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
 
     assertTrue(
         factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
@@ -195,29 +197,17 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
         service.getServerVersion(), "1.5.0", "Service uses the version reported by GitVersion");
   }
 
-  /**
-   * The matrix source only ever reads, but S3ObjectStorageClient's constructor eagerly derives a
-   * presigner from the client's resolved credentials and region — so the mock has to answer {@code
-   * serviceClientConfiguration()} even though no request is ever issued.
-   */
-  private static ObjectStorageClientFactory factoryWithS3Client() {
-    S3Client s3Client = mock(S3Client.class);
-    when(s3Client.serviceClientConfiguration())
-        .thenReturn(
-            S3ServiceClientConfiguration.builder()
-                .credentialsProvider(AnonymousCredentialsProvider.create())
-                .region(Region.US_EAST_1)
-                .build());
+  /** A client factory that serves every location — the read itself is never exercised here. */
+  private static ObjectStorageClientFactory factoryWithClient() {
     ObjectStorageClientFactory clientFactory = mock(ObjectStorageClientFactory.class);
-    when(clientFactory.createS3Client()).thenReturn(s3Client);
+    when(clientFactory.clientFor(any(ObjectStorageLocation.class)))
+        .thenReturn(mock(ObjectStorageClient.class));
     return clientFactory;
   }
 
   /** Stops the background refresh thread a successfully-wired source starts in its constructor. */
   private static void shutdown(IngestionCliVersionMatrixSource source) {
-    if (source instanceof ObjectStorageIngestionCliVersionMatrixSource s) {
-      s.shutdown();
-    } else if (source instanceof HttpUrlIngestionCliVersionMatrixSource s) {
+    if (source instanceof PollingIngestionCliVersionMatrixSource s) {
       s.shutdown();
     }
   }

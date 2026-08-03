@@ -142,4 +142,55 @@ public class ObjectStorageLocationTest {
         IllegalArgumentException.class,
         () -> ObjectStorageLocation.resolve(null, null, "relative/path", "local"));
   }
+
+  // ---------------------------------------------------------------------------
+  // parseDocument — a URI that names one object, split into root + key
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testParseDocumentCloudSplitsTrailingSegmentOffThePrefix() {
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("s3://my-bucket/exports/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.S3);
+    assertEquals(document.root().bucket(), "my-bucket");
+    assertEquals(document.root().keyPrefix(), "exports");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentCloudAtBucketRootHasNoPrefix() {
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("gs://my-bucket/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.GCS);
+    assertEquals(document.root().bucket(), "my-bucket");
+    assertEquals(document.root().keyPrefix(), "");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentLocalRootsAtTheParentDirectory() {
+    // The client is rooted at a directory, so the file name has to become the key.
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("file:///var/lib/datahub/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.LOCAL);
+    assertEquals(document.root().localRoot(), "/var/lib/datahub");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentRejectsUriThatNamesNoObject() {
+    // A bucket root or a filesystem root is not a readable document.
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ObjectStorageLocation.parseDocument("s3://my-bucket"));
+    assertThrows(
+        IllegalArgumentException.class, () -> ObjectStorageLocation.parseDocument("file:///"));
+  }
+
+  @Test
+  public void testParseDocumentRejectsUnsupportedScheme() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ObjectStorageLocation.parseDocument("ftp://host/matrix.json"));
+  }
 }

@@ -120,7 +120,7 @@ public class LocalObjectStorageClientTest {
 
   @Test
   public void testGetObjectAsStringMissingFileThrowsNoSuchFile() throws Exception {
-    // ObjectStorageIngestionCliVersionMatrixSource.classify() matches on
+    // ObjectStorageMatrixDocumentReader.classify() matches on
     // java.nio.file.NoSuchFileException specifically, so the wrapped read must surface it as the
     // cause rather than a generic IOException.
     Path root = Files.createTempDirectory("object-storage-local");
