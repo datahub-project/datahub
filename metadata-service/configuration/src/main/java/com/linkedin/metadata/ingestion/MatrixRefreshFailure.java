@@ -12,10 +12,17 @@ package com.linkedin.metadata.ingestion;
  */
 public enum MatrixRefreshFailure {
 
-  /** Credentials, IAM policy, bucket policy, or auth token rejected the read. */
+  /**
+   * Credentials, IAM policy, bucket policy, or auth token rejected the read.
+   *
+   * <p>The hint names the mechanism rather than a service account, because the identity GMS runs as
+   * is deployment-specific: the Helm chart defaults {@code global.serviceAccount.name} to the
+   * release's fullname, and deployments routinely override it.
+   */
   PERMISSION(
       "permission",
-      "grant the GMS identity read access to the matrix object (IAM/bucket policy, or authToken for http)"),
+      "grant the service account GMS runs as (GKE Workload Identity / EKS IRSA) read access to the "
+          + "matrix object, or set authToken for http"),
 
   /** The URI addresses an object, bucket, or path that does not exist. */
   NOT_FOUND("not-found", "check ingestion.cliVersionMatrix.uri points at an existing object"),
