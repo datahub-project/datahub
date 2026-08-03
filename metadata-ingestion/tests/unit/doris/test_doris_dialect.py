@@ -253,7 +253,7 @@ class TestDorisDialect:
         """
         dialect = DorisDialect()
         # Normally set by dialect.initialize() against a live server.
-        dialect._needs_correct_for_88718_96365 = False
+        dialect._needs_correct_for_88718_96365 = False  # type: ignore[attr-defined]
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "dw_payment"
