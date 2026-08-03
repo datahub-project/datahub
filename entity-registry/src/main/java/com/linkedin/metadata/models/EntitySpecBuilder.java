@@ -412,6 +412,8 @@ public class EntitySpecBuilder {
       aspectNames.add(aspectSpec.getName());
     }
 
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
+
     // Validate entity name
     if (_entityNames.contains(entitySpec.getName().toLowerCase())) {
       // Duplicate entity found.
