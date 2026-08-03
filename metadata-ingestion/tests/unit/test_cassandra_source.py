@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldConverter
@@ -17,7 +18,6 @@ from datahub.ingestion.source.cassandra.cassandra_api import (
 from datahub.ingestion.source.cassandra.cassandra_config import (
     CassandraSourceConfig,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,25 @@ def test_authenticate_no_ssl():
         mock_cluster.assert_called_once()
         assert mock_cluster.call_args[1].get("ssl_context") is None
         report.failure.assert_not_called()
+
+
+def test_close_shuts_down_session_and_cluster():
+    config_dict = _get_base_config_dict()
+    config = CassandraSourceConfig.model_validate(config_dict)
+    report = MagicMock(spec=SourceReport)
+    api = CassandraAPI(config, report)
+
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
+    ) as mock_cluster:
+        mock_session = MagicMock()
+        mock_cluster.return_value.connect.return_value = mock_session
+        assert api.authenticate()
+
+        api.close()
+
+        mock_session.shutdown.assert_called_once()
+        mock_cluster.return_value.shutdown.assert_called_once()
 
 
 def test_authenticate_ssl_ca_certs():
