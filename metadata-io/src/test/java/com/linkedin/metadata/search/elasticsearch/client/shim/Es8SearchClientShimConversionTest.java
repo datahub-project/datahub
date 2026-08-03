@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
 import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -195,7 +196,8 @@ public class Es8SearchClientShimConversionTest {
     invokeAddToProcessor(mockProcessor, indexRequest);
 
     var captor = forClass(BulkOperation.class);
-    verify(mockProcessor).add(captor.capture());
+    // Context is the DocWriteRequest so failed items can be requeued.
+    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
     BulkOperation operation = captor.getValue();
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
@@ -214,7 +216,8 @@ public class Es8SearchClientShimConversionTest {
     invokeAddToProcessor(mockProcessor, indexRequest);
 
     var captor = forClass(BulkOperation.class);
-    verify(mockProcessor).add(captor.capture());
+    // Context is the DocWriteRequest so failed items can be requeued.
+    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
     BulkOperation operation = captor.getValue();
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
