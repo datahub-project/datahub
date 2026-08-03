@@ -390,6 +390,7 @@ org.apache.zookeeper:zookeeper:3.8.6=compileClasspath,runtimeClasspath,testCompi
 org.apiguardian:apiguardian-api:1.1.2=testCompileClasspath
 org.atteo.classindex:classindex:3.13=testCompileClasspath,testRuntimeClasspath
 org.awaitility:awaitility:4.2.0=testCompileClasspath,testRuntimeClasspath
+org.bitbucket.b_c:jose4j:0.9.6=runtimeClasspath,testRuntimeClasspath
 org.bouncycastle:bcpkix-jdk18on:1.84=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.bouncycastle:bcprov-jdk18on:1.84=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.bouncycastle:bcutil-jdk18on:1.84=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

@@ -287,6 +287,9 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$confluentSerdeVersion",
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$confluentSerdeVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184).
+    // 0.9.6 is latest on Maven Central, Kafka-aligned, and patches CVE-2024-29371.
+    'jose4j': 'org.bitbucket.b_c:jose4j:0.9.6',
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'janino': "org.codehaus.janino:janino:$janinoVersion",
     'lokiLogbackAppender': "com.github.loki4j:loki-logback-appender:$lokiLogbackAppenderVersion",
