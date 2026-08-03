@@ -182,7 +182,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           foundClients != null && foundClients.size() == 1,
           "unable to find one indirect client for the callback: check the callback URL for a client name parameter or suffix path or ensure that your configuration defaults to one indirect client");
       Client foundClient = (Client) foundClients.get(0);
-      LOGGER.debug("foundClient: {}", foundClient);
+      LOGGER.debug(
+          "foundClient: name={}, class={}",
+          foundClient != null ? foundClient.getName() : null,
+          foundClient != null ? foundClient.getClass().getName() : null);
       CommonHelper.assertNotNull("foundClient", foundClient);
       Credentials credentials = (Credentials) foundClient.getCredentials(ctx).orElse(null);
       LOGGER.debug("extracted credentials: {}", credentials);
@@ -335,13 +338,19 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
     if (!oidcConfigs.getRequiredGroups().isEmpty()) {
       final Set<String> required = oidcConfigs.getRequiredGroups();
-      final String claimName = oidcConfigs.getGroupsClaimName();
+      final List<String> groupsClaimNames =
+          Arrays.stream(oidcConfigs.getGroupsClaimName().split(","))
+              .map(String::trim)
+              .filter(s -> !s.isEmpty())
+              .collect(Collectors.toList());
 
       final Set<String> userGroups = new HashSet<>();
-      if (profile.containsAttribute(claimName)) {
-        Collection<String> groupNames =
-            getGroupNames(profile, profile.getAttribute(claimName), claimName);
-        userGroups.addAll(groupNames);
+      for (final String claimName : groupsClaimNames) {
+        if (profile.containsAttribute(claimName)) {
+          Collection<String> groupNames =
+              getGroupNames(profile, profile.getAttribute(claimName), claimName);
+          userGroups.addAll(groupNames);
+        }
       }
 
       Set<String> matchingGroups = new HashSet<>(userGroups);
