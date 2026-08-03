@@ -78,6 +78,10 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
                     {assertion.info?.type === AssertionType.Custom &&
                         (() => {
+                            // Prefer explicit description — same as Quality list / profile primary label.
+                            if (assertion.info?.description) {
+                                return <Typography.Text>{assertion.info.description}</Typography.Text>;
+                            }
                             const custom = assertion.info?.customAssertion;
                             if (
                                 custom &&
@@ -102,9 +106,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                                 );
                             }
                             return (
-                                <Typography.Text>
-                                    {assertion.info?.description || assertion.info?.customAssertion?.type}
-                                </Typography.Text>
+                                <Typography.Text>{assertion.info?.customAssertion?.type}</Typography.Text>
                             );
                         })()}
                 </>
