@@ -21,7 +21,7 @@ from datahub.ingestion.source.sql.hana.hana_schema_gen import (
 )
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,

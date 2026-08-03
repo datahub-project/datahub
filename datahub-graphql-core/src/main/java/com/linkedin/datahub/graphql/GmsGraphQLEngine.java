@@ -388,8 +388,8 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
@@ -413,6 +413,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -547,7 +549,7 @@ public class GmsGraphQLEngine {
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
 
-  private final S3Util s3Util;
+  private final ObjectStorageClient objectStorageClient;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -692,7 +694,7 @@ public class GmsGraphQLEngine {
     this.dataHubFileType = new DataHubFileType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
-    this.s3Util = args.s3Util;
+    this.objectStorageClient = args.objectStorageClient;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -1098,7 +1100,9 @@ public class GmsGraphQLEngine {
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
                         this.settingsService,
-                        this.s3Util != null,
+                        this.objectStorageClient != null
+                            && this.objectStorageClient.isConfigured()
+                            && this.objectStorageClient.supportsPresignedUrls(),
                         this.semanticSearchConfiguration))
                 .dataFetcher(
                     "latestProductUpdate",
@@ -1250,7 +1254,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, this.datahubConfiguration.getS3(), this.entityClient)));
+                        this.objectStorageClient,
+                        this.datahubConfiguration.getObjectStorage(),
+                        this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1258,24 +1264,38 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           final QueryContext context = env.getContext();
-          List<String> urns = env.getArgument(URNS_FIELD_NAME);
-          Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
-          return urns.stream()
-              .map(UrnUtils::getUrn)
-              .filter(
-                  urn ->
-                      ResolverUtils.filterEntitiesForExistence(
-                          context.getOperationContext(), urn, entityClient, checkForExistence))
-              .map(
-                  urn -> {
-                    try {
-                      return UrnToEntityMapper.map(context, urn);
-                    } catch (Exception e) {
-                      throw new RuntimeException("Failed to get entity", e);
-                    }
-                  })
-              .collect(Collectors.toList());
+          final List<String> urns = env.getArgument(URNS_FIELD_NAME);
+          final Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
+          return resolveRequestedEntities(
+              context, urns, checkForExistence, entityClient, restrictedService);
         });
+  }
+
+  /**
+   * Builds the placeholder entities for the bulk {@code entities(urns:)} field. Extracted from the
+   * resolver lambda so the per-urn mapping is a named, unit-testable unit.
+   */
+  private static List<Entity> resolveRequestedEntities(
+      final QueryContext context,
+      @Nonnull final List<String> urns,
+      @Nullable final Boolean checkForExistence,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final RestrictedService restrictedService) {
+    return urns.stream()
+        .map(UrnUtils::getUrn)
+        .filter(
+            urn ->
+                ResolverUtils.filterEntitiesForExistence(
+                    context.getOperationContext(), urn, entityClient, checkForExistence))
+        .map(
+            urn -> {
+              try {
+                return UrnToEntityMapper.map(context, urn);
+              } catch (Exception e) {
+                throw new RuntimeException("Failed to get entity", e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
   private DataFetcher getEntityResolver() {
@@ -1600,8 +1620,7 @@ public class GmsGraphQLEngine {
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "createDataHubFile",
-                  new CreateDataHubFileResolver(
-                      this.dataHubFileService, this.datahubConfiguration.getS3()))
+                  new CreateDataHubFileResolver(this.dataHubFileService, this.objectStorageClient))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",

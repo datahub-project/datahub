@@ -1,11 +1,11 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;

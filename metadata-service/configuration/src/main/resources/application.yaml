@@ -102,7 +102,8 @@ authorization:
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
     # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
     # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField. Re-add document via
+    # VIEW_UNRESTRICTED_ENTITY_TYPES_ADD=document if needed.
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -113,7 +114,7 @@ authorization:
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
@@ -320,17 +321,15 @@ datahub:
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
 
-  s3:
-    bucketName: ${DATAHUB_BUCKET_NAME:} # The S3 bucket name to use for storing data
-    roleArn: ${DATAHUB_ROLE_ARN:} # The AWS IAM role ARN to assume for S3 access
-    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
-
   objectStorage:
     uri: ${DATAHUB_OBJECT_STORAGE_URI:} # s3://bucket, s3://bucket/prefix, gs://bucket, or file:///local/root
+    bucket: ${DATAHUB_BUCKET_NAME:} # legacy fallback bucket when uri is unset
     path: ${DATAHUB_OBJECT_STORAGE_PATH:} # legacy fallback prefix/root when uri is unset
     provider: ${DATAHUB_OBJECT_STORAGE_PROVIDER:} # legacy fallback provider when uri is unset
+    roleArn: ${DATAHUB_ROLE_ARN:} # AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600}
+    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600}
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
     multipartThresholdBytes: ${OBJECT_STORAGE_MULTIPART_THRESHOLD_BYTES:8388608}
     multipartPartSizeBytes: ${OBJECT_STORAGE_MULTIPART_PART_SIZE_BYTES:8388608}
 
@@ -403,6 +402,10 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+    documentExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_LIMIT:100}
   limit:
     results:
       max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -539,6 +542,15 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  transactionRetry:
+    # SQLStates / vendor codes that get exponential backoff between retries (all PersistenceExceptions still retry).
+    backoffSqlStates: ${EBEAN_RETRY_BACKOFF_SQL_STATES:40001,40P01}
+    backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
+    initialBackoffMs: ${EBEAN_RETRY_INITIAL_BACKOFF_MS:50}
+    maxBackoffMs: ${EBEAN_RETRY_MAX_BACKOFF_MS:1000}
+    # Retry-After hint (seconds) returned on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li).
+    retryAfterSeconds: ${EBEAN_RETRY_AFTER_SECONDS:1}
+  entityWriteAdvisoryLockEnabled: ${EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED:false} # Postgres-only, opt-in: serialize concurrent writes/deletes per entity via pg_advisory_xact_lock to prevent lock-order deadlocks. No-op on non-Postgres.
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
@@ -821,6 +833,12 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # Bounded same-processor requeue of failed bulk items (version_conflict, 429/503, etc.).
+    itemRequeueEnabled: ${ES_BULK_ITEM_REQUEUE_ENABLED:true}
+    itemRequeueMaxAttempts: ${ES_BULK_ITEM_REQUEUE_MAX_ATTEMPTS:3}
+    # When true, MAE UpdateIndices awaits bulk transfer before Kafka/pgQueue ack.
+    ackAfterTransfer: ${ES_BULK_ACK_AFTER_TRANSFER:false}
+    ackAfterTransferTimeoutSeconds: ${ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS:60}
     # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
@@ -888,6 +906,7 @@ elasticsearch:
     rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
     minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    reconcileInPlaceMappingUpdates: ${ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES:false} # opt-in incremental rebuild when first applying live mapping parameter updates
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
     catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
     catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up

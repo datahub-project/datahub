@@ -89,4 +89,10 @@ public class GcsObjectStorageClient implements ObjectStorageClient {
   public boolean isConfigured() {
     return bucketName != null && !bucketName.isBlank();
   }
+
+  @Override
+  @Nonnull
+  public String storageBucket() {
+    return bucketName;
+  }
 }

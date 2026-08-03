@@ -817,6 +817,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
@@ -1336,6 +1337,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/semantic-models",
         "docs/api/tutorials/applications",
         "docs/api/tutorials/agent-registry",
         "docs/api/tutorials/service-catalog",

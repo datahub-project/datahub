@@ -720,13 +720,14 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
                     (request, bulkListener) -> {
                       client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -734,7 +735,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -748,6 +758,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
@@ -760,7 +771,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         throw new RuntimeException(e);
                       }
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -768,7 +779,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }
