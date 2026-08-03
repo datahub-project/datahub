@@ -101,6 +101,16 @@ public class IngestionCliVersionMatrixServiceFactory {
       return new PollingIngestionCliVersionMatrixSource(
           new HttpMatrixDocumentReader(uri, matrixConfig.getAuthToken()), refreshSeconds);
     }
+    if (!isEmpty(matrixConfig.getAuthToken())) {
+      // Only the HTTP reader sends an Authorization header. Silently dropping the token would leave
+      // an operator who set one debugging a 403 from the wrong end — the fix is bucket policy or
+      // ambient credentials, not the token they just configured.
+      log.warn(
+          "ingestion.cliVersionMatrix.authToken is set but is ignored for {}: s3:// and gs:// "
+              + "authenticate with GMS's ambient cloud credentials and file:// needs none. Grant the "
+              + "GMS identity read access instead (IAM/bucket policy).",
+          uri);
+    }
     return objectStorageMatrixSource(uri, refreshSeconds);
   }
 

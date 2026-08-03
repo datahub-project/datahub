@@ -119,6 +119,24 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   }
 
   @Test
+  public void testMatrixSource_whenAuthTokenSetOnCloudUri_warnsButStillWires() {
+    // authToken only reaches the HTTP reader, so it is ignored here — but ignoring it must stay a
+    // warning, not a silent behaviour change: the source is still wired over the same URI.
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
+    ingestionConfig.getCliVersionMatrix().setAuthToken("token ghp_ignored");
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+    try {
+      assertTrue(
+          source instanceof PollingIngestionCliVersionMatrixSource s
+              && "s3://cli-version-matrix/matrix.json".equals(s.displayUri()),
+          "an ignored authToken must not change which source is wired");
+    } finally {
+      shutdown(source);
+    }
+  }
+
+  @Test
   public void testMatrixSource_whenUriIsFile_wiresObjectStorageSource() throws Exception {
     Path dir = Files.createTempDirectory("cli-version-matrix");
     ingestionConfig.getCliVersionMatrix().setUri("file://" + dir.resolve("matrix.json"));
