@@ -230,7 +230,10 @@ public class EntitySpecBuilder {
       @Nonnull final List<AspectSpec> aspectSpecs,
       @Nonnull final String searchGroup,
       final boolean viewUnrestricted) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
+    EntitySpec entitySpec =
+        new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    return entitySpec;
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -239,6 +242,7 @@ public class EntitySpecBuilder {
       @Nonnull final List<AspectSpec> aspectSpecs) {
     EntitySpec entitySpec =
         new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
     return entitySpec;
   }
 

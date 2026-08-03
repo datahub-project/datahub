@@ -95,6 +95,52 @@ public class RelationshipEdgeUniquenessTest {
     assertEquals(conflicts.get(0).getRelationshipName(), "RelatedTo");
   }
 
+  @Test
+  public void testBuildConfigEntitySpecRejectsConflictingEdges() {
+    AspectSpec aspectA = aspectWithRelationship("aspectA", "OwnedBy", ImmutableList.of("corpuser"));
+    AspectSpec aspectB = aspectWithRelationship("aspectB", "OwnedBy", ImmutableList.of("corpuser"));
+    EntitySpecBuilder builder = new EntitySpecBuilder();
+
+    ModelValidationException thrown =
+        expectThrows(
+            ModelValidationException.class,
+            () ->
+                builder.buildConfigEntitySpec(
+                    "dataset", "datasetKey", ImmutableList.of(aspectA, aspectB), "primary"));
+    assertTrue(thrown.getMessage().contains("OwnedBy"));
+  }
+
+  @Test
+  public void testBuildPartialEntitySpecRejectsConflictingEdges() {
+    AspectSpec aspectA = aspectWithRelationship("aspectA", "OwnedBy", ImmutableList.of("corpuser"));
+    AspectSpec aspectB = aspectWithRelationship("aspectB", "OwnedBy", ImmutableList.of("corpuser"));
+    EntitySpecBuilder builder = new EntitySpecBuilder();
+
+    ModelValidationException thrown =
+        expectThrows(
+            ModelValidationException.class,
+            () ->
+                builder.buildPartialEntitySpec(
+                    "dataset", "datasetKey", ImmutableList.of(aspectA, aspectB)));
+    assertTrue(thrown.getMessage().contains("OwnedBy"));
+  }
+
+  @Test
+  public void testBuildConfigAndPartialEntitySpecAllowUniqueEdges() {
+    AspectSpec ownership =
+        aspectWithRelationship("ownership", "OwnedBy", ImmutableList.of("corpuser"));
+    EntitySpecBuilder builder = new EntitySpecBuilder();
+
+    EntitySpec configSpec =
+        builder.buildConfigEntitySpec(
+            "dataset", "datasetKey", ImmutableList.of(ownership), "primary");
+    assertEquals(configSpec.getName(), "dataset");
+
+    EntitySpec partialSpec =
+        builder.buildPartialEntitySpec("dataset", "datasetKey", ImmutableList.of(ownership));
+    assertEquals(partialSpec.getName(), "dataset");
+  }
+
   private static AspectSpec aspectWithRelationship(
       String aspectName, String relationshipName, List<String> destTypes) {
     return aspectWithRelationships(
