@@ -50,6 +50,12 @@ public class IncidentInfoMatcher implements ArgumentMatcher<MetadataChangePropos
       }
     }
 
+    if (leftProps.hasStartedAt()) {
+      if (!leftProps.getStartedAt().equals(rightProps.getStartedAt())) {
+        return false;
+      }
+    }
+
     if (leftProps.hasAssignees() && leftProps.getAssignees().size() > 0) {
       if (!((Integer) leftProps.getAssignees().size()).equals(rightProps.getAssignees().size())) {
         return false;

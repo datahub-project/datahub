@@ -55,6 +55,7 @@ public class UpdateIncidentResolverTest {
     existingInfo.setStatus(
         new IncidentStatus().setState(IncidentState.ACTIVE).setMessage("Message"));
     existingInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    existingInfo.setStartedAt(5L);
 
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(
@@ -128,7 +129,7 @@ public class UpdateIncidentResolverTest {
   }
 
   @Test
-  public void testGetSuccessRequiredFields() throws Exception {
+  public void testOmittedFieldsRemainUnchanged() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
@@ -156,6 +157,7 @@ public class UpdateIncidentResolverTest {
                     .setAssignedAt(new AuditStamp()))));
     existingInfo.setPriority(0);
     existingInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    existingInfo.setStartedAt(10L);
 
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     Mockito.when(
@@ -188,8 +190,19 @@ public class UpdateIncidentResolverTest {
     expectedInfo.setEntities(
         new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))));
     expectedInfo.setStatus(
-        new IncidentStatus().setState(IncidentState.ACTIVE).setMessage("Message"));
+        new IncidentStatus()
+            .setState(IncidentState.ACTIVE)
+            .setStage(IncidentStage.INVESTIGATION)
+            .setMessage("Message"));
+    expectedInfo.setAssignees(
+        new IncidentAssigneeArray(
+            ImmutableList.of(
+                new IncidentAssignee()
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
+                    .setAssignedAt(new AuditStamp()))));
+    expectedInfo.setPriority(0);
     expectedInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    expectedInfo.setStartedAt(10L);
 
     // Verify entity client
     Mockito.verify(mockClient, Mockito.times(1))

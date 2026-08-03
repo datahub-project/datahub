@@ -126,13 +126,18 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     if (input.getResourceUrns() != null && !input.getResourceUrns().isEmpty()) {
       info.setEntities(new UrnArray(IncidentUtils.stringsToUrns(input.getResourceUrns())));
     }
-
-    info.setPriority(
-        IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.REMOVE_IF_NULL);
-
-    info.setAssignees(
-        IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
-        SetMode.REMOVE_IF_NULL);
+    if (input.getStartedAt() != null) {
+      info.setStartedAt(input.getStartedAt());
+    }
+    if (input.getPriority() != null) {
+      info.setPriority(
+          IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.REMOVE_IF_NULL);
+    }
+    if (input.getAssigneeUrns() != null) {
+      info.setAssignees(
+          IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
+          SetMode.REMOVE_IF_NULL);
+    }
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {
