@@ -14,6 +14,9 @@
     <test name="postgresql-coordinated-ingest-concurrency">
         <classes>
             <class name="com.linkedin.metadata.entity.coordinator.concurrency.CoordinatedIngestConcurrencyPostgresIT"/>
+    <test name="postgresql-ebean-locking">
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT"/>
         </classes>
     </test>
 </suite>
