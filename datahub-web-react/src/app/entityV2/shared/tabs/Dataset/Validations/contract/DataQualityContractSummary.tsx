@@ -7,11 +7,14 @@ import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/V
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
-import { customAssertionToDatasetAssertionView } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
+import {
+    getCustomAssertionFields,
+    hasStructuredAssertionDescriptionFields,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import { DataContractAssertionStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
-import { Assertion, AssertionType, DataQualityContract, DatasetAssertionInfo } from '@types';
+import { Assertion, AssertionType, DataQualityContract } from '@types';
 
 const TitleText = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
@@ -56,7 +59,14 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                 <>
                     {assertion.info?.type === AssertionType.Dataset && assertion.info?.datasetAssertion && (
                         <DatasetAssertionDescription
-                            assertionInfo={assertion.info?.datasetAssertion as DatasetAssertionInfo}
+                            scope={assertion.info.datasetAssertion.scope}
+                            aggregation={assertion.info.datasetAssertion.aggregation}
+                            operator={assertion.info.datasetAssertion.operator}
+                            fields={assertion.info.datasetAssertion.fields}
+                            parameters={assertion.info.datasetAssertion.parameters}
+                            nativeType={assertion.info.datasetAssertion.nativeType}
+                            nativeParameters={assertion.info.datasetAssertion.nativeParameters}
+                            logic={assertion.info.datasetAssertion.logic}
                         />
                     )}
                     {assertion.info?.volumeAssertion && (
@@ -68,11 +78,28 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
                     {assertion.info?.type === AssertionType.Custom &&
                         (() => {
-                            const structuredView = customAssertionToDatasetAssertionView(
-                                assertion.info?.customAssertion,
-                            );
-                            if (structuredView) {
-                                return <DatasetAssertionDescription assertionInfo={structuredView} />;
+                            const custom = assertion.info?.customAssertion;
+                            if (
+                                custom &&
+                                hasStructuredAssertionDescriptionFields({
+                                    scope: custom.scope,
+                                    operator: custom.operator,
+                                    aggregation: custom.aggregation,
+                                    nativeType: custom.nativeType,
+                                })
+                            ) {
+                                return (
+                                    <DatasetAssertionDescription
+                                        scope={custom.scope}
+                                        aggregation={custom.aggregation}
+                                        operator={custom.operator}
+                                        fields={getCustomAssertionFields(custom)}
+                                        parameters={custom.parameters}
+                                        nativeType={custom.nativeType}
+                                        nativeParameters={custom.nativeParameters}
+                                        logic={custom.logic}
+                                    />
+                                );
                             }
                             return (
                                 <Typography.Text>
