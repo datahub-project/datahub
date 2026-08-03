@@ -14,7 +14,9 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     DORIS_MAP,
     DORIS_STRUCT,
     HLL,
+    LARGEINT,
     QUANTILE_STATE,
+    VARIANT,
     DorisDialect,
     _parse_doris_type,
 )
@@ -240,6 +242,52 @@ class TestDorisDialect:
         # Should return parent result without executing DESCRIBE
         assert len(columns) == 1
         mock_connection.execute.assert_not_called()
+
+    @patch("datahub.ingestion.source.sql.doris.doris_dialect.text")
+    def test_get_columns_falls_back_to_describe_for_async_materialized_view(
+        self, mock_text
+    ):
+        """Doris rejects SHOW CREATE TABLE for async MVs; DESCRIBE still answers."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "dw_payment"
+        mock_connection.execute.return_value = [
+            ("user_id", "LARGEINT", "NO", "true", None, ""),
+            ("deposit_amount", "DECIMALV3(20,6)", "YES", "false", None, ""),
+            ("payload", "VARIANT", "YES", "false", None, ""),
+        ]
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "get_columns",
+            side_effect=SQLAlchemyError(
+                "not support async materialized view, please use "
+                "`show create materialized view`"
+            ),
+        ):
+            columns = dialect.get_columns(
+                mock_connection, "dws_user_deposit_mv", schema="dw_payment"
+            )
+
+        assert [col["name"] for col in columns] == [
+            "user_id",
+            "deposit_amount",
+            "payload",
+        ]
+        assert isinstance(columns[0]["type"], LARGEINT)
+        assert isinstance(columns[1]["type"], sqltypes.DECIMAL)
+        assert isinstance(columns[2]["type"], VARIANT)
+        assert columns[0]["nullable"] is False
+        assert columns[1]["nullable"] is True
+        assert columns[1]["full_type"] == "DECIMALV3(20,6)"
+
+    def test_largeint_does_not_fall_back_to_nulltype(self):
+        """NullType(*args) raises TypeError, so Doris-only types must be registered."""
+        dialect = DorisDialect()
+
+        for type_name in ("largeint", "variant", "ipv4", "ipv6", "string"):
+            assert dialect.ischema_names[type_name] is not sqltypes.NullType
 
     @patch("datahub.ingestion.source.sql.doris.doris_dialect.text")
     def test_get_schema_names(self, mock_text):

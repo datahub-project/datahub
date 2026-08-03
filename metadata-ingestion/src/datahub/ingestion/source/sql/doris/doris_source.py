@@ -25,7 +25,11 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     DORIS_MAP,
     DORIS_STRUCT,
     HLL,
+    IPV4,
+    IPV6,
+    LARGEINT,
     QUANTILE_STATE,
+    VARIANT,
 )
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import register_custom_type
@@ -33,7 +37,9 @@ from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
+    NumberTypeClass,
     RecordTypeClass,
+    StringTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,6 +59,10 @@ register_custom_type(DORIS_ARRAY, ArrayTypeClass)
 register_custom_type(DORIS_MAP, RecordTypeClass)
 register_custom_type(DORIS_STRUCT, RecordTypeClass)
 register_custom_type(DORIS_JSONB, RecordTypeClass)
+register_custom_type(VARIANT, RecordTypeClass)
+register_custom_type(LARGEINT, NumberTypeClass)
+register_custom_type(IPV4, StringTypeClass)
+register_custom_type(IPV6, StringTypeClass)
 
 
 class DorisConfig(MySQLConfig):
