@@ -20,6 +20,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -752,6 +753,8 @@ public class ESUtils {
   @Nonnull
   public static String toParentField(
       @Nonnull final String filterField, @Nullable final AspectRetriever aspectRetriever) {
+    // Only structured-property filters need definition lookup to sanitize/version the ES field
+    // name. Non-SP fields pass through unchanged aside from stripping known subfield suffixes.
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
             .map(
@@ -796,23 +799,41 @@ public class ESUtils {
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
-    String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
-            .map(
-                urnDefinition ->
-                    STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(
-                            urnDefinition.getFirst(), urnDefinition.getSecond()))
-            .orElse(filterField);
+    // Structured properties: single source of truth for parent vs .keyword is
+    // StructuredPropertyUtils.toStructuredPropertyFacetName (DATE/NUMBER/URN skip .keyword).
+    Optional<String> structuredPropertyField =
+        StructuredPropertyUtils.toStructuredPropertyFacetName(filterField, aspectRetriever);
+    if (structuredPropertyField.isPresent()) {
+      return skipKeywordSuffix
+          ? replaceSuffix(structuredPropertyField.get())
+          : structuredPropertyField.get();
+    }
+
+    // Definition lookup failed. If the caller already passed a versioned ES path, infer type from
+    // the trailing segment so STRING still gets .keyword and URN/DATE/NUMBER do not. Unversioned
+    // FQN misses prefer the parent (strip any caller-supplied .keyword / other subfields) so
+    // typed parents are not queried on a missing multi-field.
+    if (filterField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      Optional<LogicalValueType> inferredType =
+          StructuredPropertyUtils.getLogicalValueTypeFromFieldName(filterField);
+      if (inferredType.isPresent()) {
+        String parent = replaceSuffix(filterField);
+        if (skipKeywordSuffix || !StructuredPropertyUtils.usesKeywordSubfield(inferredType.get())) {
+          return parent;
+        }
+        return parent + ESUtils.KEYWORD_SUFFIX;
+      }
+      return replaceSuffix(filterField);
+    }
 
     return skipKeywordSuffix
-            || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.contains(filterField)
             || KEYWORD_FIELDS.stream()
-                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
-            || PATH_HIERARCHY_FIELDS.contains(fieldName)
-            || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
-        ? fieldName
-        : fieldName + ESUtils.KEYWORD_SUFFIX;
+                .anyMatch(nestedField -> filterField.endsWith("." + nestedField))
+            || PATH_HIERARCHY_FIELDS.contains(filterField)
+            || SUBFIELDS.stream().anyMatch(subfield -> filterField.endsWith("." + subfield))
+        ? filterField
+        : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
   public static RequestOptions buildReindexTaskRequestOptions(
