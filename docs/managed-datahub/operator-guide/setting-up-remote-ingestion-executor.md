@@ -246,7 +246,7 @@ terraform apply
 </TabItem>
 </Tabs>
 
-### Update on Amazon ECS
+4. **Update**
 
 Both tools update the deployment **in place** — to change the executor version or configuration, re-deploy with a new image tag. Existing resources (IAM roles, secrets) are preserved, and the ECS service performs a rolling replacement of the task.
 
