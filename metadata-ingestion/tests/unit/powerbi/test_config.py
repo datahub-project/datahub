@@ -259,6 +259,9 @@ class TestPowerBiConfig:
         """Mapping must fail-fast when native/advanced SQL lineage flags are off."""
         config_dict = {
             **self.base_config,
+            # Disable CLL first so its flag-combo validator does not fire before the
+            # EXTERNAL_QUERY mapping check under test.
+            "extract_column_level_lineage": False,
             "native_query_parsing": False,
             "enable_advance_lineage_sql_construct": False,
             "bigquery_external_query_connection_to_platform": {
