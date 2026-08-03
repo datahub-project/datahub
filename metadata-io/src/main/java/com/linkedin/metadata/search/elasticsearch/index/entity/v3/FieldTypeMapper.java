@@ -154,7 +154,13 @@ public class FieldTypeMapper {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
     mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
-    mapping.put("fields", Map.of(KEYWORD_FIELD_TYPE, Map.of("type", KEYWORD_FIELD_TYPE)));
+    // Subfield must also set ignore_above — filters/facets query .keyword, and Lucene
+    // still rejects oversized terms on multi-fields that omit the limit.
+    mapping.put(
+        "fields",
+        Map.of(
+            KEYWORD_FIELD_TYPE,
+            Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, KEYWORD_MAXLENGTH)));
     return mapping;
   }
 
@@ -164,11 +170,15 @@ public class FieldTypeMapper {
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
+    int ignoreAbove = keywordIgnoreAboveForMaxBytes(keywordMaxBytes);
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
-    // Plain keyword subfield for exact-match / aggregation queries that append .keyword.
-    mapping.put("fields", Map.of(KEYWORD_FIELD_TYPE, Map.of("type", KEYWORD_FIELD_TYPE)));
+    mapping.put(IGNORE_ABOVE, ignoreAbove);
+    // Subfield mirrors parent ignore_above so exact-match / aggregation queries on .keyword
+    // are protected from Lucene term-length failures on oversized values.
+    mapping.put(
+        "fields",
+        Map.of(KEYWORD_FIELD_TYPE, Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, ignoreAbove)));
     return mapping;
   }
 

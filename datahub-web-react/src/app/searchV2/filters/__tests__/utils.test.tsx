@@ -777,6 +777,9 @@ describe('filter utils - getDynamicFilterField structured-property type routing'
             }),
         ]);
         expect(result.type).toBe(FieldType.ENTITY);
-        expect(result.entityTypes).toEqual([EntityType.CorpUser, EntityType.CorpGroup]);
+        expect(result.type === FieldType.ENTITY && result.entityTypes).toEqual([
+            EntityType.CorpUser,
+            EntityType.CorpGroup,
+        ]);
     });
 });

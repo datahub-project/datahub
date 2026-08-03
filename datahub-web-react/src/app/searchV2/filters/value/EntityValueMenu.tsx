@@ -59,7 +59,13 @@ export default function EntityValueMenu({
 
     const localSearchOptions = useFilterOptionsBySearchQuery(defaultOptions, searchQuery);
 
-    const finalSearchOptions = [...localSearchOptions, ...deduplicateOptions(localSearchOptions, searchOptions)];
+    // Only merge remote results once the debounced query is set. While debounce is pending,
+    // useLoadSearchOptions still holds the initial '*' search; merging those would flash
+    // unfiltered entities into the URN structured-property picker.
+    const finalSearchOptions = [
+        ...localSearchOptions,
+        ...(debouncedSearchQuery ? deduplicateOptions(localSearchOptions, searchOptions) : []),
+    ];
 
     // Compute the final options to show to the user.
     const finalDefaultOptions = defaultOptions.length ? defaultOptions : searchOptions;

@@ -109,6 +109,10 @@ public class FieldTypeMapperTest {
     assertTrue(fields.containsKey("keyword"), "Must expose .keyword multi-field for exact match");
     Map<String, Object> keyword = (Map<String, Object>) fields.get("keyword");
     assertEquals(keyword.get("type"), "keyword");
+    assertEquals(
+        keyword.get("ignore_above"),
+        mapping.get("ignore_above"),
+        ".keyword subfield must mirror parent ignore_above");
   }
 
   @Test
