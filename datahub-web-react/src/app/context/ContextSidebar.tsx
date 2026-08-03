@@ -74,6 +74,7 @@ type Props = {
     isCollapsed?: boolean;
     onToggleCollapsed?: () => void;
     onExpandSidebar?: () => void;
+    onWidthChange?: (width: number) => void;
 };
 
 export default function ContextSidebar({
@@ -81,6 +82,7 @@ export default function ContextSidebar({
     isCollapsed = false,
     onToggleCollapsed,
     onExpandSidebar,
+    onWidthChange,
 }: Props) {
     const { t } = useTranslation('misc');
     const { t: tc } = useTranslation('common.actions');
@@ -275,6 +277,7 @@ export default function ContextSidebar({
             isCollapsed={isCollapsed}
             onToggleCollapsed={onToggleCollapsed}
             onExpandSidebar={onExpandSidebar}
+            onWidthChange={onWidthChange}
             headerActions={headerActions}
             dataTestId="context-documents-sidebar"
             collapseButtonTestId="context-sidebar-collapse-button"

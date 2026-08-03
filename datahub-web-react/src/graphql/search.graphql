@@ -983,6 +983,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         institutionalMemory {
             ...institutionalMemoryFields
         }
+        tags {
+            ...globalTagsFields
+        }
     }
     ... on Domain {
         properties {
@@ -1433,6 +1436,20 @@ fragment facetFields on FacetMetadata {
             ... on Application {
                 properties {
                     name
+                }
+            }
+            ... on Document {
+                info {
+                    title
+                }
+                parentDocuments {
+                    documents {
+                        urn
+                        type
+                        info {
+                            title
+                        }
+                    }
                 }
             }
         }

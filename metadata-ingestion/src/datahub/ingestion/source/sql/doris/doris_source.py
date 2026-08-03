@@ -29,7 +29,7 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
 )
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import register_custom_type
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
