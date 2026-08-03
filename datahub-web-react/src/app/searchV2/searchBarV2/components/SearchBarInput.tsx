@@ -182,6 +182,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     }
                     width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
                 />
             </Wrapper>
         );
