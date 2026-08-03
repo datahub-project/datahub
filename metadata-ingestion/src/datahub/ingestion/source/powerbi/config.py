@@ -843,6 +843,29 @@ class PowerBiDashboardSourceConfig(
 
         return self
 
+    @model_validator(mode="after")
+    def validate_external_query_requires_advanced_sql(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # Federation resolution only runs inside parse_custom_sql when both flags are on.
+        # Fail fast so a configured mapping cannot silently no-op.
+        if not self.bigquery_external_query_connection_to_platform:
+            return self
+        missing = [
+            flag
+            for flag in (
+                "native_query_parsing",
+                "enable_advance_lineage_sql_construct",
+            )
+            if not getattr(self, flag)
+        ]
+        if missing:
+            raise ValueError(
+                "bigquery_external_query_connection_to_platform requires these "
+                f"flags enabled: {missing}"
+            )
+        return self
+
     @field_validator("server_to_platform_instance", mode="after")
     @classmethod
     def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:

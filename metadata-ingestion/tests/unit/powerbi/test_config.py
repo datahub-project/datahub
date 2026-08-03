@@ -255,6 +255,22 @@ class TestPowerBiConfig:
         assert detail.platform == "postgres"
         assert detail.default_database == "ext_db"
 
+    def test_bigquery_external_query_requires_advanced_sql_flags(self):
+        """Mapping must fail-fast when native/advanced SQL lineage flags are off."""
+        config_dict = {
+            **self.base_config,
+            "native_query_parsing": False,
+            "enable_advance_lineage_sql_construct": False,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres"}
+            },
+        }
+        with pytest.raises(
+            ValueError,
+            match="bigquery_external_query_connection_to_platform requires these flags",
+        ):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
     def test_get_from_dataset_type_mapping_exact_match(self):
         """Test get_from_dataset_type_mapping with exact match."""
         config = PowerBiDashboardSourceConfig(

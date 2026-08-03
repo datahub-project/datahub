@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
+from typing_extensions import LiteralString
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -433,10 +434,12 @@ class AbstractLineage(ABC):
             logger.debug(f"Failed to parse query as SQL: {query}")
             return False
 
-    def _report_external_query_parse_error(self, message: str, context: str) -> None:
+    def _report_external_query_parse_error(
+        self, message: LiteralString, context: str
+    ) -> None:
         # Centralizes the "every dropped federation bumps the counter and warns under the
         # same SQL_PARSING_FAILURE title" invariant so a new warning can't forget the
-        # counter. ``message`` stays a LiteralString constant at each call site.
+        # counter.
         self.reporter.m_query_external_query_parse_errors += 1
         self.reporter.warning(
             title=Constant.SQL_PARSING_FAILURE,
@@ -633,7 +636,12 @@ class AbstractLineage(ABC):
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
             self.reporter.warning(
                 title=Constant.SQL_PARSING_FAILURE,
-                message="Fail to parse native sql present in PowerBI M-Query",
+                message=(
+                    "Fail to parse native sql present in PowerBI M-Query; "
+                    "only federated EXTERNAL_QUERY upstreams were resolved."
+                    if external_upstreams
+                    else "Fail to parse native sql present in PowerBI M-Query"
+                ),
                 context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
             )
             if external_upstreams:

@@ -1315,7 +1315,10 @@ def test_bigquery_external_query_partial_lineage_when_outer_table_error():
     assert reporter.m_query_external_query_connections_resolved == 1
     # Native tables are lost while federated lineage survives, so the partial loss must
     # surface as a warning rather than be silently dropped.
-    assert len(reporter.warnings) >= 1
+    assert any(
+        "only federated EXTERNAL_QUERY upstreams were resolved" in warning.message
+        for warning in reporter.warnings
+    )
 
 
 @pytest.mark.integration
