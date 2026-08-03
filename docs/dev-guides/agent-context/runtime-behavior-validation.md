@@ -83,27 +83,27 @@ Start with the target asset, not with an arbitrary list of endpoints. Use the
 Agent Context tools to build a small context snapshot that explains why the
 workflow should be tested:
 
-| Context | Agent Context operation | Use in the plan |
-| --- | --- | --- |
-| Asset identity, owner, description, criticality | `get_entities` | Select the target and accountable owner |
-| Live schema and field descriptions | `list_schema_fields` | Identify fields that affect routing or assertions |
-| Downstream and upstream dependencies | `get_lineage` | Estimate impact and select related checks |
-| Existing incidents and quality signals | `search` or the relevant asset APIs | Avoid duplicating an already-known finding |
+| Context                                         | Agent Context operation             | Use in the plan                                   |
+| ----------------------------------------------- | ----------------------------------- | ------------------------------------------------- |
+| Asset identity, owner, description, criticality | `get_entities`                      | Select the target and accountable owner           |
+| Live schema and field descriptions              | `list_schema_fields`                | Identify fields that affect routing or assertions |
+| Downstream and upstream dependencies            | `get_lineage`                       | Estimate impact and select related checks         |
+| Existing incidents and quality signals          | `search` or the relevant asset APIs | Avoid duplicating an already-known finding        |
 
 Persist the context snapshot or its digest alongside the execution result. A
 plan should be explainable without replaying the agent conversation:
 
 ```json
 {
-  "target_urn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
-  "workflow_id": "checkout_paid_path",
-  "context_source": "official-datahub-mcp",
-  "reasons": [
-    "criticality=tier_1",
-    "workflow depends on the target asset",
-    "downstream closure includes the retry path"
-  ],
-  "context_snapshot": "sha256:<context-digest>"
+    "target_urn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
+    "workflow_id": "checkout_paid_path",
+    "context_source": "official-datahub-mcp",
+    "reasons": [
+        "criticality=tier_1",
+        "workflow depends on the target asset",
+        "downstream closure includes the retry path"
+    ],
+    "context_snapshot": "sha256:<context-digest>"
 }
 ```
 
@@ -130,17 +130,17 @@ the route evidence visible:
 
 ```json
 {
-  "workflow_id": "checkout_paid_path",
-  "step": "checkout",
-  "baseline": {
-    "status": 200,
-    "route": "poll_status"
-  },
-  "changed": {
-    "status": 200,
-    "route": "retry_queued",
-    "rejected_edge": "body.status (expected exists: true, got <missing>)"
-  }
+    "workflow_id": "checkout_paid_path",
+    "step": "checkout",
+    "baseline": {
+        "status": 200,
+        "route": "poll_status"
+    },
+    "changed": {
+        "status": 200,
+        "route": "retry_queued",
+        "rejected_edge": "body.status (expected exists: true, got <missing>)"
+    }
 }
 ```
 
@@ -152,25 +152,25 @@ trace, the result is not comparable and must be marked `INCONCLUSIVE`.
 
 Use three explicit verdicts:
 
-| Verdict | Meaning | Incident write-back |
-| --- | --- | --- |
-| `NO_DRIFT` | Comparable traces reached equivalent behavior | Do not create an Incident |
-| `DRIFT` | Comparable traces differ and identify a first divergent step | Eligible, after validation |
-| `INCONCLUSIVE` | Inputs, traces, or environment evidence are incomplete | Do not create an Incident |
+| Verdict        | Meaning                                                      | Incident write-back        |
+| -------------- | ------------------------------------------------------------ | -------------------------- |
+| `NO_DRIFT`     | Comparable traces reached equivalent behavior                | Do not create an Incident  |
+| `DRIFT`        | Comparable traces differ and identify a first divergent step | Eligible, after validation |
+| `INCONCLUSIVE` | Inputs, traces, or environment evidence are incomplete       | Do not create an Incident  |
 
 For `DRIFT`, require a non-empty first divergence and preserve the evidence
 used to compute it. A compact evidence contract can look like this:
 
 ```json
 {
-  "verdict": "DRIFT",
-  "kind": "routing_diverged",
-  "root_step": "checkout",
-  "baseline_route": "poll_status",
-  "changed_route": "retry_queued",
-  "baseline_status": 200,
-  "changed_status": 200,
-  "evidence_fingerprint": "sha256:<trace-digest>"
+    "verdict": "DRIFT",
+    "kind": "routing_diverged",
+    "root_step": "checkout",
+    "baseline_route": "poll_status",
+    "changed_route": "retry_queued",
+    "baseline_status": 200,
+    "changed_status": 200,
+    "evidence_fingerprint": "sha256:<trace-digest>"
 }
 ```
 
@@ -195,7 +195,7 @@ human or another agent to reproduce it:
 
 ```graphql
 mutation RaiseBehaviorFinding($input: RaiseIncidentInput!) {
-  raiseIncident(input: $input)
+    raiseIncident(input: $input)
 }
 ```
 
@@ -203,14 +203,14 @@ Example variables:
 
 ```json
 {
-  "input": {
-    "resourceUrn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
-    "type": "CUSTOM",
-    "customType": "runtime_behavior_drift",
-    "title": "Checkout route diverged after deployment",
-    "description": "{\"workflow_id\":\"checkout_paid_path\",\"verdict\":\"DRIFT\",\"root_step\":\"checkout\",\"baseline_route\":\"poll_status\",\"changed_route\":\"retry_queued\",\"evidence_fingerprint\":\"sha256:<trace-digest>\"}",
-    "priority": "HIGH"
-  }
+    "input": {
+        "resourceUrn": "urn:li:dataset:(urn:li:dataPlatform:openapi,checkout-service.orders.checkout,PROD)",
+        "type": "CUSTOM",
+        "customType": "runtime_behavior_drift",
+        "title": "Checkout route diverged after deployment",
+        "description": "{\"workflow_id\":\"checkout_paid_path\",\"verdict\":\"DRIFT\",\"root_step\":\"checkout\",\"baseline_route\":\"poll_status\",\"changed_route\":\"retry_queued\",\"evidence_fingerprint\":\"sha256:<trace-digest>\"}",
+        "priority": "HIGH"
+    }
 }
 ```
 
@@ -228,21 +228,27 @@ shows the complete query; the essential check is:
 
 ```graphql
 query ReadBehaviorFinding($urn: String!, $start: Int!, $count: Int!) {
-  dataset(urn: $urn) {
-    incidents(start: $start, count: $count) {
-      total
-      incidents {
-        urn
-        title
-        description
-        incidentType
-        customType
-        priority
-        status { state stage message }
-        entity { urn }
-      }
+    dataset(urn: $urn) {
+        incidents(start: $start, count: $count) {
+            total
+            incidents {
+                urn
+                title
+                description
+                incidentType
+                customType
+                priority
+                status {
+                    state
+                    stage
+                    message
+                }
+                entity {
+                    urn
+                }
+            }
+        }
     }
-  }
 }
 ```
 
@@ -279,11 +285,11 @@ Suppose a checkout workflow uses the `status` field to decide whether to poll
 or enqueue a retry. The baseline and changed deployments both return HTTP
 200, but the traces show:
 
-| Step | Baseline | Changed |
-| --- | --- | --- |
-| `checkout` | routes to `poll_status` | routes to `retry_queued` |
-| `poll_status` | executes | missing from changed trace |
-| `retry_queued` | absent | executes |
+| Step           | Baseline                | Changed                    |
+| -------------- | ----------------------- | -------------------------- |
+| `checkout`     | routes to `poll_status` | routes to `retry_queued`   |
+| `poll_status`  | executes                | missing from changed trace |
+| `retry_queued` | absent                  | executes                   |
 
 The evidence gate reports `DRIFT`, identifies `checkout` as the first
 divergent step, and records the failed `body.status` assertion that caused the
@@ -323,14 +329,14 @@ long as it produces comparable traces and preserves the same evidence gates.
 
 ## Common failure modes
 
-| Symptom | Correct response |
-| --- | --- |
-| Both environments return HTTP 200 | Compare route and assertion evidence; status alone is insufficient |
-| A schema changed but the workflow did not execute the affected step | Mark `INCONCLUSIVE`; do not write an Incident |
-| Baseline and changed runs used different fixtures | Reject the comparison and rerun with one immutable fixture |
-| The same finding appears more than once | Stop and surface the duplicate; do not silently pick one |
-| MCP Incident lookup returns no entity | Record the released-stack capability result and use the asset Incident connection |
-| Read-after-write returns a different fingerprint | Treat the write as unverified and investigate before reporting success |
+| Symptom                                                             | Correct response                                                                  |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Both environments return HTTP 200                                   | Compare route and assertion evidence; status alone is insufficient                |
+| A schema changed but the workflow did not execute the affected step | Mark `INCONCLUSIVE`; do not write an Incident                                     |
+| Baseline and changed runs used different fixtures                   | Reject the comparison and rerun with one immutable fixture                        |
+| The same finding appears more than once                             | Stop and surface the duplicate; do not silently pick one                          |
+| MCP Incident lookup returns no entity                               | Record the released-stack capability result and use the asset Incident connection |
+| Read-after-write returns a different fingerprint                    | Treat the write as unverified and investigate before reporting success            |
 
 ## Boundaries
 
