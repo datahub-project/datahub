@@ -2407,6 +2407,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
                 else:
                     self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
+                    if self.config.include_column_lineage:
+                        self.report.warning(
+                            title="Missing compiled code, skipping column lineage",
+                            message="Column-level lineage requires compiled SQL, which is not present "
+                            "in the manifest for this node. Manifests written by `dbt test` or "
+                            "`dbt source freshness` do not include compiled model SQL; generate "
+                            "the manifest with `dbt compile`, `dbt build`, or `dbt docs generate` "
+                            "and point the ingestion at that manifest instead.",
+                            context=node.dbt_name,
+                        )
 
                 # Save the column lineage.
                 if self.config.include_column_lineage and sql_result:
