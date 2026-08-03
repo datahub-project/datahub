@@ -314,8 +314,8 @@ public abstract class RetentionService<U extends ChangeMCP> {
    *
    * @param opContext operation context
    * @param retentionContexts urn, aspect name, and additional context to apply retention for
-   * @return the subset of {@code retentionContexts} that were durably committed (empty on full-batch
-   *     failure — all keys stay for retry)
+   * @return the subset of {@code retentionContexts} that were durably committed (empty on
+   *     full-batch failure — all keys stay for retry)
    */
   @Nonnull
   public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(

@@ -51,8 +51,7 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
       // maxPendingEntries is enforced by MapConfig (RetentionBufferFactory), not on the hot
       // merge path — avoids distributed size()/containsKey() on every ingest enqueue.
       return (CoalesceBuffer<K, V>)
-          (CoalesceBuffer<?, ?>)
-              new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName);
+          (CoalesceBuffer<?, ?>) new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName);
     }
     return new CaffeineCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
   }
