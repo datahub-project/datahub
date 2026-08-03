@@ -244,11 +244,16 @@ class TestDorisDialect:
         mock_connection.execute.assert_not_called()
 
     @patch("datahub.ingestion.source.sql.doris.doris_dialect.text")
-    def test_get_columns_falls_back_to_describe_for_async_materialized_view(
-        self, mock_text
-    ):
-        """Doris rejects SHOW CREATE TABLE for async MVs; DESCRIBE still answers."""
+    def test_reflection_survives_async_materialized_view(self, mock_text):
+        """Doris rejects SHOW CREATE TABLE for async MVs.
+
+        Every reflection method sql_common's _process_table calls reads the state
+        parsed from that statement, so all of them have to degrade together —
+        surviving get_columns alone still loses the table.
+        """
         dialect = DorisDialect()
+        # Normally set by dialect.initialize() against a live server.
+        dialect._needs_correct_for_88718_96365 = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "dw_payment"
@@ -258,17 +263,27 @@ class TestDorisDialect:
             ("payload", "VARIANT", "YES", "false", None, ""),
         ]
 
+        # The Inspector shares one info_cache across a table's reflection calls.
+        kw = {"schema": "dw_payment", "info_cache": {}}
         with patch.object(
             dialect.__class__.__bases__[0],
-            "get_columns",
+            "_setup_parser",
             side_effect=SQLAlchemyError(
                 "not support async materialized view, please use "
                 "`show create materialized view`"
             ),
         ):
-            columns = dialect.get_columns(
-                mock_connection, "dws_user_deposit_mv", schema="dw_payment"
+            columns = dialect.get_columns(mock_connection, "dws_user_deposit_mv", **kw)
+            pk_constraint = dialect.get_pk_constraint(
+                mock_connection, "dws_user_deposit_mv", **kw
             )
+            foreign_keys = dialect.get_foreign_keys(
+                mock_connection, "dws_user_deposit_mv", **kw
+            )
+            table_comment = dialect.get_table_comment(
+                mock_connection, "dws_user_deposit_mv", **kw
+            )
+            indexes = dialect.get_indexes(mock_connection, "dws_user_deposit_mv", **kw)
 
         assert [col["name"] for col in columns] == [
             "user_id",
@@ -281,6 +296,16 @@ class TestDorisDialect:
         assert columns[0]["nullable"] is False
         assert columns[1]["nullable"] is True
         assert columns[1]["full_type"] == "DECIMALV3(20,6)"
+
+        # No DDL to parse, so these degrade to empty rather than raising.
+        assert pk_constraint == {"constrained_columns": [], "name": None}
+        assert foreign_keys == []
+        assert table_comment["text"] is None
+        assert indexes == []
+
+        # The fallback state is cached, so the four later calls reuse it instead of
+        # re-running DESCRIBE per method.
+        assert mock_connection.execute.call_count <= 2
 
     def test_largeint_does_not_fall_back_to_nulltype(self):
         """NullType(*args) raises TypeError, so Doris-only types must be registered."""
