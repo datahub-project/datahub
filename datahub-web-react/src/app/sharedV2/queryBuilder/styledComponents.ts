@@ -33,12 +33,12 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? props.theme.colors.textBrand : props.theme.colors.textSecondary)};
-    background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurface : 'transparent')};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textSelected : props.theme.colors.textSecondary)};
+    background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSelected : 'transparent')};
     padding: 10px 12px;
 
     &:focus {
-        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSurface : 'transparent')};
+        background-color: ${(props) => (props.isSelected ? props.theme.colors.bgSelected : 'transparent')};
         box-shadow: none;
     }
 `;

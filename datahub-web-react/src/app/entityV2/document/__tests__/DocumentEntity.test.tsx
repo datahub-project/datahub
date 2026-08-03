@@ -15,14 +15,11 @@ import { mocks } from '@src/Mocks';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
-// Mock loadIsDarkMode to prevent localStorage race conditions with CustomThemeProvider
-vi.mock('@app/theme/useIsDarkMode', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@app/theme/useIsDarkMode')>();
-    return {
-        ...actual,
-        loadIsDarkMode: () => false,
-    };
-});
+// Mock dark mode hook to prevent localStorage race conditions with CustomThemeProvider
+vi.mock('@app/theme/useIsDarkMode', () => ({
+    useIsDarkMode: () => [false, vi.fn()],
+    loadIsDarkMode: () => false,
+}));
 
 // Mock entity registry with all required methods
 const mockEntityRegistry = {
@@ -421,7 +418,7 @@ describe('Document Preview - Platform Logo Display', () => {
                 expect(platformImage).toBeInTheDocument();
                 expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
             });
-        }, 30_000);
+        });
 
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
@@ -1037,7 +1034,7 @@ describe('Document Ownership Display', () => {
         await waitFor(() => {
             expect(screen.getByText('Document with Owner')).toBeInTheDocument();
         });
-    }, 30_000);
+    });
 
     it('should render document without owners', async () => {
         const mockDocument = createMockDocument({
@@ -1060,7 +1057,7 @@ describe('Document Ownership Display', () => {
         await waitFor(() => {
             expect(screen.getByText('Unowned Document')).toBeInTheDocument();
         });
-    }, 30_000);
+    });
 });
 
 // =============================================================================
@@ -1090,7 +1087,7 @@ describe('Document Title Display', () => {
         await waitFor(() => {
             expect(screen.getByText('My Custom Document Title')).toBeInTheDocument();
         });
-    }, 30_000);
+    });
 
     it('should handle empty title gracefully', async () => {
         const mockDocument = createMockDocument({
@@ -1117,7 +1114,7 @@ describe('Document Title Display', () => {
             const preview = screen.getByTestId(`preview-${mockDocument.urn}`);
             expect(preview).toBeInTheDocument();
         });
-    }, 30_000);
+    });
 });
 
 // =============================================================================
@@ -1187,7 +1184,7 @@ describe('Document Profile Rendering', () => {
                 // Native profile should render the document
                 expect(screen.getByText('My Native Document Title')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
 
         it('should render native profile with parent document breadcrumbs', async () => {
             const parentDocs = createMockParentDocuments();
@@ -1223,7 +1220,7 @@ describe('Document Profile Rendering', () => {
                 // At least the breadcrumbs should be present (order may vary)
                 expect(grandparentBreadcrumb || parentBreadcrumb).toBeTruthy();
             });
-        }, 30_000);
+        });
 
         it('should render native profile loading state', async () => {
             const mockDocument = createMockNativeDocument();
@@ -1244,7 +1241,7 @@ describe('Document Profile Rendering', () => {
                 const loadingIcon = container.querySelector('.anticon-loading');
                 expect(loadingIcon).toBeInTheDocument();
             });
-        }, 30_000);
+        });
 
         it('should return null when document is undefined', async () => {
             const { container } = render(
@@ -1262,7 +1259,7 @@ describe('Document Profile Rendering', () => {
             await waitFor(() => {
                 expect(container.firstChild).toBeNull();
             });
-        }, 30_000);
+        });
 
         it('should render document content area for native documents', async () => {
             const mockDocument = createMockNativeDocument({
@@ -1289,7 +1286,7 @@ describe('Document Profile Rendering', () => {
             await waitFor(() => {
                 expect(screen.getByText('Document with Content')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
     });
 
     describe('Native vs External Profile Differences', () => {
@@ -1321,7 +1318,7 @@ describe('Document Profile Rendering', () => {
                 // Native profile renders title directly
                 expect(screen.getByText('Native Document')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
 
         it('should differentiate native documents by source type in preview', async () => {
             const nativeDoc = createMockNativeDocument({
@@ -1387,7 +1384,7 @@ describe('Document Profile Rendering', () => {
                 const platformImg = externalContainer.querySelector('img[alt="Notion"]');
                 expect(platformImg).toBeInTheDocument();
             });
-        }, 30_000);
+        });
     });
 
     describe('Parent Document Path in Profile', () => {
@@ -1435,7 +1432,7 @@ describe('Document Profile Rendering', () => {
             await waitFor(() => {
                 expect(screen.getByText('Deeply Nested Doc')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
 
         it('should handle documents without parent hierarchy', async () => {
             const mockDocument = createMockNativeDocument({
@@ -1460,7 +1457,7 @@ describe('Document Profile Rendering', () => {
             await waitFor(() => {
                 expect(screen.getByText('Root Level Document')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
     });
 
     describe('External Document Profile Features', () => {
@@ -1571,6 +1568,6 @@ describe('Document Profile Rendering', () => {
                 const sidebarElements = container.querySelectorAll('[class*="sidebar"]');
                 expect(sidebarElements.length).toBeGreaterThanOrEqual(0); // Sidebar may or may not be visible based on state
             });
-        }, 30_000);
+        });
     });
 });
