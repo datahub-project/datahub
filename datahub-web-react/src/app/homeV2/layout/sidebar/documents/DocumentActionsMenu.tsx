@@ -1,5 +1,5 @@
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -17,6 +17,9 @@ import { Button, Menu, Popover } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 const MenuButton = styled(Button)`
+    padding: 2px !important;
+    min-width: 0;
+
     &:hover {
         colors: ${(props) => props.theme.colors.textSecondary};
     }
@@ -47,10 +50,16 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
     const { t: tc } = useTranslation('common.actions');
     const [showMoveDialog, setShowMoveDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const { deleteDocument } = useDeleteDocumentTreeMutation();
     const { getNode, getRootNodes } = useDocumentTree();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+
+    const pinActions = menuOpen || showMoveDialog || showDeleteConfirm;
+    useEffect(() => {
+        onMenuVisibilityChange?.(pinActions);
+    }, [pinActions, onMenuVisibilityChange]);
 
     const handleDelete = async (e?: React.MouseEvent) => {
         // Prevent event propagation if event is provided
@@ -97,7 +106,6 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                       title: tc('move'),
                       onClick: () => {
                           setShowMoveDialog(true);
-                          onMenuVisibilityChange?.(true);
                       },
                   },
               ]
@@ -122,7 +130,13 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
 
     return (
         <>
-            <Menu items={menuItems} placement="bottomRight">
+            <Menu
+                items={menuItems}
+                placement="bottomRight"
+                onOpenChange={(open) => {
+                    setMenuOpen(open);
+                }}
+            >
                 <MenuButton
                     data-testid="document-actions-menu-button"
                     icon={{
@@ -133,7 +147,7 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                     }}
                     variant="text"
                     isCircle
-                    size="md"
+                    size="sm"
                     onClick={(e) => {
                         e.stopPropagation();
                     }}
@@ -145,9 +159,6 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                 trigger="click"
                 onOpenChange={(visible) => {
                     setShowMoveDialog(visible);
-                    if (!visible) {
-                        onMenuVisibilityChange?.(false);
-                    }
                 }}
                 content={
                     <MoveDocumentPopover
@@ -155,7 +166,6 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
                         currentParentUrn={currentParentUrn}
                         onClose={() => {
                             setShowMoveDialog(false);
-                            onMenuVisibilityChange?.(false);
                         }}
                         onMove={onMove}
                     />

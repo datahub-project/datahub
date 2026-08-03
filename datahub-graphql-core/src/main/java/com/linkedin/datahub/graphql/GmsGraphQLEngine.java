@@ -412,6 +412,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -1254,24 +1256,38 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           final QueryContext context = env.getContext();
-          List<String> urns = env.getArgument(URNS_FIELD_NAME);
-          Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
-          return urns.stream()
-              .map(UrnUtils::getUrn)
-              .filter(
-                  urn ->
-                      ResolverUtils.filterEntitiesForExistence(
-                          context.getOperationContext(), urn, entityClient, checkForExistence))
-              .map(
-                  urn -> {
-                    try {
-                      return UrnToEntityMapper.map(context, urn);
-                    } catch (Exception e) {
-                      throw new RuntimeException("Failed to get entity", e);
-                    }
-                  })
-              .collect(Collectors.toList());
+          final List<String> urns = env.getArgument(URNS_FIELD_NAME);
+          final Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
+          return resolveRequestedEntities(
+              context, urns, checkForExistence, entityClient, restrictedService);
         });
+  }
+
+  /**
+   * Builds the placeholder entities for the bulk {@code entities(urns:)} field. Extracted from the
+   * resolver lambda so the per-urn mapping is a named, unit-testable unit.
+   */
+  private static List<Entity> resolveRequestedEntities(
+      final QueryContext context,
+      @Nonnull final List<String> urns,
+      @Nullable final Boolean checkForExistence,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final RestrictedService restrictedService) {
+    return urns.stream()
+        .map(UrnUtils::getUrn)
+        .filter(
+            urn ->
+                ResolverUtils.filterEntitiesForExistence(
+                    context.getOperationContext(), urn, entityClient, checkForExistence))
+        .map(
+            urn -> {
+              try {
+                return UrnToEntityMapper.map(context, urn);
+              } catch (Exception e) {
+                throw new RuntimeException("Failed to get entity", e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
   private DataFetcher getEntityResolver() {

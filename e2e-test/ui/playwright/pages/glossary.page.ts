@@ -67,6 +67,14 @@ export class GlossaryPage extends BasePage {
   // ── Tabs ──────────────────────────────────────────────────────────────────
   readonly propertiesTab: Locator;
 
+  // ── Sidebar Tags section (entity profile) ─────────────────────────────────
+  readonly tagsSectionContainer: Locator;
+  readonly addTagsButton: Locator;
+  readonly tagTermModalInput: Locator;
+  readonly tagTermInput: Locator;
+  readonly addTagFromModalButton: Locator;
+  readonly tagUnassignConfirmButton: Locator;
+
   private readonly graphqlHelper: GraphQLHelper;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
@@ -128,6 +136,15 @@ export class GlossaryPage extends BasePage {
     this.createGlossaryTermHeading = page.getByRole('heading', { name: 'Create Glossary Term' });
     this.deleteConfirmButton = page.getByRole('button', { name: 'Yes' });
     this.propertiesTab = page.getByRole('tab').filter({ has: page.getByTestId('Properties-entity-tab-header') });
+
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by SidebarTagsSection; no data-testid equivalent
+    this.tagsSectionContainer = page.locator('#entity-profile-tags');
+    this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
+    this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
+    // Alchemy SimpleSelect: search input lives in the portaled dropdown; open the trigger first.
+    this.tagTermInput = page.getByTestId('dropdown-search-input');
+    this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
+    this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
   }
 
   // ── Dynamic locator getters ───────────────────────────────────────────────────
@@ -186,6 +203,75 @@ export class GlossaryPage extends BasePage {
     this.logger?.step('navigateToGlossaryTermByUrn', { urn });
     await this.page.goto(`/glossaryTerm/${encodeURIComponent(urn)}`);
     await this.waitForPageLoad();
+  }
+
+  getTagChip(tagName: string): Locator {
+    return this.page.getByTestId(`tag-${tagName}`);
+  }
+
+  getTagOption(tagName: string): Locator {
+    return this.page.getByTestId(`tag-term-option-${tagName}`);
+  }
+
+  getTagRemoveIcon(tagName: string): Locator {
+    return this.getTagChip(tagName).getByTestId('remove-icon');
+  }
+
+  /**
+   * Assign a tag via the glossary term profile sidebar Tags section.
+   *
+   * Multi-select SimpleSelect only commits via the alchemy Checkbox
+   * (`checkbox-base`); the native input is visually hidden. Dismiss the
+   * dropdown by clicking the modal title (Escape closes the whole modal),
+   * then confirm Add.
+   */
+  async assignTag(tagName: string, tagUrn = `urn:li:tag:${tagName}`): Promise<void> {
+    this.logger?.step('assignTag', { tagName, tagUrn });
+    await expect(this.tagsSectionContainer).toBeVisible({ timeout: 30000 });
+    await this.tagsSectionContainer.scrollIntoViewIfNeeded();
+    await expect(this.addTagsButton).toBeVisible();
+    await expect(this.addTagsButton).toBeEnabled();
+    await this.addTagsButton.click();
+
+    const addTagsDialog = this.page.getByRole('dialog').filter({ hasText: 'Add Tags' });
+    await expect(addTagsDialog).toBeVisible();
+    await this.tagTermModalInput.click();
+    await this.tagTermInput.fill(tagName);
+
+    const option = this.page.getByTestId(`option-${tagUrn}`);
+    await expect(option).toBeVisible({ timeout: 15000 });
+    const checkbox = option.getByTestId('checkbox-base');
+    await checkbox.click();
+    await expect(checkbox).toHaveAttribute('data-checked', 'true', { timeout: 10000 });
+    await expect(this.page.getByTestId(`selected-${tagName}`)).toBeVisible({ timeout: 10000 });
+
+    // Dismiss the search dropdown without clearing selection or closing the modal.
+    await addTagsDialog.getByRole('heading', { name: 'Add Tags' }).click();
+
+    await expect(this.addTagFromModalButton).toBeEnabled({ timeout: 10000 });
+    await this.addTagFromModalButton.click();
+
+    await expect(addTagsDialog).toBeHidden({ timeout: 15000 });
+    await this.toast.expectVisible('Added Tags!', { timeout: 15000 });
+  }
+
+  async unassignTag(tagName: string): Promise<void> {
+    this.logger?.step('unassignTag', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible({ timeout: 15000 });
+    await this.getTagRemoveIcon(tagName).click();
+    await expect(this.tagUnassignConfirmButton).toBeVisible();
+    await this.tagUnassignConfirmButton.click();
+    await this.toast.expectVisible('Removed Tag!');
+  }
+
+  async expectTagAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible({ timeout: 15000 });
+  }
+
+  async expectTagNotAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagNotAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeHidden({ timeout: 15000 });
   }
 
   async navigateToGlossaryNodeByUrn(urn: string): Promise<void> {
