@@ -948,9 +948,6 @@ class TableauSourceReport(
     num_initial_sql_definitions_missing: int = 0
     num_initial_sql_embedded_datasources_unmatched: int = 0
     num_hidden_assets_skipped: int = 0
-    database_servers_not_routed: LossyList[str] = dataclass_field(
-        default_factory=LossyList
-    )
     logged_in_user: LossyList[UserInfo] = dataclass_field(default_factory=LossyList)
 
     last_authenticated_at: Optional[datetime] = None
@@ -1296,18 +1293,11 @@ class TableauSiteSource:
                 return parsed_host_name
             return server_connection
 
-        hostname_map = self.config.database_hostname_to_platform_instance_map or {}
-        id_map = self.config.database_id_to_platform_instance_map or {}
-        unmatched_hostname_keys = set(hostname_map)
-        unmatched_id_keys = set(id_map)
-        num_database_servers = 0
-
         for database_server in self.get_connection_objects(
             query=database_servers_graphql_query,
             connection_type=c.DATABASE_SERVERS_CONNECTION,
             page_size=self.config.effective_database_server_page_size,
         ):
-            num_database_servers += 1
             database_server_id = str(database_server.get(c.ID) or "")
             server_connection = database_server.get(c.HOST_NAME)
             host_name = maybe_parse_hostname()
@@ -1316,8 +1306,6 @@ class TableauSiteSource:
 
             if host_name:
                 self.database_server_hostname_map[database_server_id] = host_name
-                unmatched_hostname_keys.discard(host_name)
-            unmatched_id_keys.discard(database_server_id)
 
             # Log every server so users can find ids for the id routing map
             # without hitting the Tableau Metadata API directly.
@@ -1327,37 +1315,6 @@ class TableauSiteSource:
                 name,
                 host_name,
                 connection_type,
-            )
-
-            routed_by_hostname = bool(host_name and host_name in hostname_map)
-            routed_by_id = bool(database_server_id and database_server_id in id_map)
-            if not (routed_by_hostname or routed_by_id):
-                # Not a warning: routing only a subset of connections is a
-                # legitimate setup.
-                self.report.database_servers_not_routed.append(
-                    f"id={database_server_id} name={name!r} "
-                    f"hostName={host_name} connectionType={connection_type}"
-                )
-
-        # A key matching nothing is a typo or a stale connection, and silently
-        # has no effect. Bounded by config size, unlike the unrouted count.
-        unmatched_entries = [
-            f"database_hostname_to_platform_instance_map[{key!r}]"
-            for key in sorted(unmatched_hostname_keys)
-        ] + [
-            f"database_id_to_platform_instance_map[{key!r}]"
-            for key in sorted(unmatched_id_keys)
-        ]
-        if num_database_servers and unmatched_entries:
-            self.report.warning(
-                title="Tableau platform_instance routing entry matched nothing",
-                message=(
-                    "Entries in the platform_instance routing maps matched no "
-                    "Tableau database server, so they had no effect. Check them "
-                    "against the `Tableau database server:` lines logged at INFO, "
-                    "which list the id and hostName of every connection found."
-                ),
-                context=", ".join(unmatched_entries),
             )
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
