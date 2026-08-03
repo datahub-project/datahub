@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.pac4j.oidc.client.OidcClient;
@@ -334,6 +335,35 @@ public class OidcConfigurationTest {
             .getConfiguration()
             .getPreferredJwsAlgorithm()
             .toString());
+  }
+
+  @Test
+  public void readRequiredGroupsFromJSON() {
+    final String SSO_SETTINGS_JSON_STR =
+        new JSONObject()
+            .put(REQUIRED_GROUPS, new JSONArray(List.of("group-a", " group-b ", "")))
+            .toString();
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    // Values are trimmed and blanks dropped, matching the env-var parsing behavior.
+    assertEquals(Set.of("group-a", "group-b"), oidcConfigs.getRequiredGroups());
+  }
+
+  @Test
+  public void readAccessDeniedMessageAndRedirectFromJSON() {
+    final String SSO_SETTINGS_JSON_STR =
+        new JSONObject()
+            .put(ACCESS_DENIED_MESSAGE, "You need role X.")
+            .put(ACCESS_DENIED_REDIRECT_URL, "https://intranet.example.com/request-access")
+            .toString();
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    assertEquals("You need role X.", oidcConfigs.getAccessDeniedMessage().orElse(null));
+    assertEquals(
+        "https://intranet.example.com/request-access",
+        oidcConfigs.getAccessDeniedRedirectUrl().orElse(null));
   }
 
   @Test
