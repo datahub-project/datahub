@@ -9,7 +9,7 @@ import parse
 from cached_property import cached_property
 from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
-from wcmatch import pathlib
+from wcmatch import glob, pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
@@ -178,17 +178,13 @@ class PathSpec(ConfigModel):
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return False
 
-        if not pathlib.PurePath(path).globmatch(
-            self.glob_include, flags=pathlib.GLOBSTAR
-        ):
+        if not self._globmatch(self._include_matcher, path):
             return False
 
-        if self.exclude:
-            for exclude_path in self.exclude:
-                if pathlib.PurePath(path).globmatch(
-                    exclude_path, flags=pathlib.GLOBSTAR
-                ):
-                    return False
+        if self._exclude_matcher is not None and self._globmatch(
+            self._exclude_matcher, path
+        ):
+            return False
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
@@ -576,6 +572,27 @@ class PathSpec(ConfigModel):
         glob_include = re.sub(r"\{[^}]+\}", "*", self.include)
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
+
+    # glob.compile(...) uses the same wcmatch internals as PurePath.globmatch, so results
+    # match as long as the subject path is normalized the same way (see _globmatch).
+    @cached_property
+    def _include_matcher(self):
+        return glob.compile([self.glob_include], flags=glob.GLOBSTAR)
+
+    @cached_property
+    def _exclude_matcher(self):
+        return (
+            glob.compile(list(self.exclude), flags=glob.GLOBSTAR)
+            if self.exclude
+            else None
+        )
+
+    @staticmethod
+    def _globmatch(matcher: "glob.WcMatcher", path: str) -> bool:
+        # PurePath.globmatch matches against str(PurePath(path)), which collapses
+        # duplicate separators ("s3://" -> "s3:/") and strips trailing slashes;
+        # normalize identically so the precompiled matcher stays equivalent.
+        return matcher.match(str(pathlib.PurePath(path)))
 
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
