@@ -63,10 +63,12 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
           "HazelcastCoalesceBuffer only supports CoalesceBuffers.KEEP_MAX_LONG until "
               + "IdentifiedDataSerializable merge policies exist");
     }
-    // Fire-and-forget: this runs on the ingest request thread (post-commit). executeOnKeyAsync so a
-    // partitioned/GC-paused cluster cannot stall the ingest response for the Hazelcast op timeout —
-    // a dropped merge is under-coalescing (bloat), never data loss. No size()/containsKey() RTT.
-    pendingMap.executeOnKeyAsync(key, new KeepMaxLongProcessor<>(value));
+    // Fire-and-forget: this runs on the ingest request thread (post-commit). submitToKey is the
+    // async entry-processor variant (returns a CompletionStage we ignore) so a
+    // partitioned/GC-paused
+    // cluster cannot stall the ingest response for the Hazelcast op timeout — a dropped merge is
+    // under-coalescing (bloat), never data loss. No size()/containsKey() RTT.
+    pendingMap.submitToKey(key, new KeepMaxLongProcessor<>(value));
   }
 
   @Override
