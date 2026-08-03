@@ -14,6 +14,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.IncidentInfoPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -88,6 +89,84 @@ public class IncidentService extends BaseService {
         opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.INCIDENTS_SUMMARY_ASPECT_NAME, newSummary),
+        false);
+  }
+
+  /**
+   * Applies a partial update to an incident without reading or rewriting the full aspect.
+   *
+   * <p>Fields that are null in {@code update} are omitted from the JSON Patch and therefore remain
+   * unchanged. The aspect patch processor applies all supplied field operations atomically.
+   */
+  public void updateIncident(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final IncidentInfoUpdate update)
+      throws Exception {
+    Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
+    Objects.requireNonNull(update, "update must not be null");
+    if (update.isEmpty()) {
+      return;
+    }
+
+    IncidentInfoPatchBuilder patchBuilder = new IncidentInfoPatchBuilder().urn(incidentUrn);
+    if (update.getTitle() != null) {
+      patchBuilder.setTitle(update.getTitle());
+    }
+    if (update.getDescription() != null) {
+      patchBuilder.setDescription(update.getDescription());
+    }
+    if (update.getStartedAt() != null) {
+      patchBuilder.setStartedAt(update.getStartedAt());
+    }
+    if (update.getStatus() != null) {
+      patchBuilder.setStatus(update.getStatus());
+    }
+    if (update.getPriority() != null) {
+      patchBuilder.setPriority(update.getPriority());
+    }
+    if (update.getEntities() != null) {
+      patchBuilder.setEntities(update.getEntities());
+    }
+    if (update.getAssignees() != null) {
+      patchBuilder.setAssignees(update.getAssignees());
+    }
+
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+  }
+
+  /**
+   * Replaces the fields owned by the incident editor while preserving metadata it cannot edit.
+   * Nullable values intentionally clear their corresponding fields.
+   */
+  public void replaceIncident(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final IncidentInfo existingInfo,
+      @Nonnull final IncidentInfoUpdate replacement)
+      throws Exception {
+    Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
+    Objects.requireNonNull(existingInfo, "existingInfo must not be null");
+    Objects.requireNonNull(replacement, "replacement must not be null");
+    if (replacement.getStatus() == null) {
+      throw new IllegalArgumentException("Incident status is required for replacement");
+    }
+    if (replacement.getEntities() == null || replacement.getEntities().isEmpty()) {
+      throw new IllegalArgumentException("Incident resources cannot be empty for replacement");
+    }
+
+    IncidentInfo updatedInfo = new IncidentInfo(existingInfo.data());
+    updatedInfo.setTitle(replacement.getTitle(), SetMode.REMOVE_IF_NULL);
+    updatedInfo.setDescription(replacement.getDescription(), SetMode.REMOVE_IF_NULL);
+    updatedInfo.setStatus(replacement.getStatus());
+    updatedInfo.setPriority(replacement.getPriority(), SetMode.REMOVE_IF_NULL);
+    updatedInfo.setEntities(new UrnArray(replacement.getEntities()));
+    updatedInfo.setAssignees(replacement.getAssignees(), SetMode.REMOVE_IF_NULL);
+
+    this.entityClient.ingestProposal(
+        opContext,
+        AspectUtils.buildMetadataChangeProposal(
+            incidentUrn, Constants.INCIDENT_INFO_ASPECT_NAME, updatedInfo),
         false);
   }
 

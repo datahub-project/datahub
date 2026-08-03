@@ -25,7 +25,9 @@ extend type Mutation {
   ): Boolean
 
   """
-  Update an existing data incident. Any fields that are omitted will simply not be updated.
+  Patch an existing data incident. Omitted fields, and null scalar fields, remain unchanged.
+  An empty assigneeUrns list clears assignees; priority and startedAt cannot be cleared by this
+  mutation. Use replaceIncident for an editor-owned full replacement that can clear priority.
   """
   updateIncident(
     """
@@ -37,6 +39,23 @@ extend type Mutation {
     Input required to update an existing incident
     """
     input: UpdateIncidentInput!
+  ): Boolean
+
+  """
+  Replace the fields owned by the incident editor. Nullable fields are cleared when omitted or
+  set to null. Fields that are not part of this input, such as the incident type, source, and
+  creation audit, are preserved. Use updateIncident when omitted fields must remain unchanged.
+  """
+  replaceIncident(
+    """
+    The urn for an existing incident
+    """
+    urn: String!
+
+    """
+    Complete editable incident state
+    """
+    input: ReplaceIncidentInput!
   ): Boolean
 }
 
@@ -378,32 +397,34 @@ input RaiseIncidentInput {
 }
 
 """
-Input required to update an existing incident.
+Input for patching an existing incident. Omitted fields and null scalar values are unchanged.
+Use replaceIncident when a nullable editor-owned field must be cleared.
 """
 input UpdateIncidentInput {
   """
-  An optional title associated with the incident
+  A replacement title. Omit or set to null to leave the current title unchanged.
   """
   title: String
 
   """
-  An optional description associated with the incident
+  A replacement description. Omit or set to null to leave the current description unchanged.
   """
   description: String
 
   """
-  An optional time at which the incident actually started (may be before the date it was raised).
+  A replacement start time. Omit or set to null to leave it unchanged; this mutation cannot clear
+  an existing value.
   """
   startedAt: Long
 
   """
-  The status of the incident
+  A replacement status. Omit or set to null to leave the current status unchanged.
   """
   status: IncidentStatusInput
 
   """
-  An optional priority for the incident: CRITICAL, HIGH, MEDIUM or LOW.
-  Must be one of these enum names, not the integer stored on the 'incidentInfo' aspect.
+  A replacement priority. Omit or set to null to leave it unchanged; this mutation cannot clear an
+  existing value. Must be an enum name, not the integer stored on the 'incidentInfo' aspect.
   """
   priority: IncidentPriority
 
@@ -414,9 +435,46 @@ input UpdateIncidentInput {
   resourceUrns: [String!]
 
   """
-  An optional set of user or group assignee urns
+  A replacement set of user or group assignee urns. An empty list clears assignees.
   """
   assigneeUrns: [String!]
+}
+
+"""
+Complete editable state for an existing incident. The editor uses this operation so nullable
+fields such as priority can be intentionally cleared. The incident type, source, creation audit,
+and startedAt value are preserved because they are not editable in this form.
+"""
+input ReplaceIncidentInput {
+  """
+  The title associated with the incident. Omit or set to null to clear it.
+  """
+  title: String
+
+  """
+  The description associated with the incident. Omit or set to null to clear it.
+  """
+  description: String
+
+  """
+  The complete status of the incident.
+  """
+  status: IncidentStatusInput!
+
+  """
+  An optional priority for the incident. Omit or set to null to clear it.
+  """
+  priority: IncidentPriority
+
+  """
+  The complete set of resources associated with the incident. It must not be empty.
+  """
+  resourceUrns: [String!]!
+
+  """
+  The complete set of user or group assignee urns. Use an empty list to clear assignees.
+  """
+  assigneeUrns: [String!]!
 }
 
 """

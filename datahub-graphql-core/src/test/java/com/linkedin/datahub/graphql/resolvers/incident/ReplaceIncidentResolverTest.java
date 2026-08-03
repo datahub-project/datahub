@@ -1,0 +1,95 @@
+package com.linkedin.datahub.graphql.resolvers.incident;
+
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.generated.IncidentState;
+import com.linkedin.datahub.graphql.generated.IncidentStatusInput;
+import com.linkedin.datahub.graphql.generated.ReplaceIncidentInput;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.service.IncidentInfoUpdate;
+import com.linkedin.metadata.service.IncidentService;
+import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+public class ReplaceIncidentResolverTest {
+
+  private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:TEST");
+
+  @Test
+  public void testReplacementPassesExplicitClearsToService() throws Exception {
+    IncidentService mockIncidentService = Mockito.mock(IncidentService.class);
+    EntityService mockEntityService = Mockito.mock(EntityService.class);
+    IncidentInfo existingInfo = existingInfo();
+    Mockito.when(
+            mockEntityService.getAspect(
+                any(OperationContext.class),
+                Mockito.eq(TEST_INCIDENT_URN),
+                Mockito.eq(INCIDENT_INFO_ASPECT_NAME),
+                Mockito.eq(0L)))
+        .thenReturn(existingInfo);
+
+    ReplaceIncidentInput input = new ReplaceIncidentInput();
+    input.setTitle(null);
+    input.setDescription(null);
+    input.setStatus(
+        new IncidentStatusInput(
+            IncidentState.RESOLVED,
+            com.linkedin.datahub.graphql.generated.IncidentStage.FIXED,
+            null));
+    input.setPriority(null);
+    input.setResourceUrns(List.of("urn:li:dataset:(test,test,test2)"));
+    input.setAssigneeUrns(List.of());
+
+    DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
+    var context = getMockAllowContext();
+    Mockito.when(environment.getContext()).thenReturn(context);
+    Mockito.when(environment.getArgument(Mockito.eq("urn")))
+        .thenReturn(TEST_INCIDENT_URN.toString());
+    Mockito.when(environment.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    Boolean result =
+        new ReplaceIncidentResolver(mockIncidentService, mockEntityService).get(environment).get();
+
+    Assert.assertTrue(result);
+    ArgumentCaptor<IncidentInfoUpdate> replacementCaptor =
+        ArgumentCaptor.forClass(IncidentInfoUpdate.class);
+    Mockito.verify(mockIncidentService)
+        .replaceIncident(
+            any(OperationContext.class),
+            Mockito.eq(TEST_INCIDENT_URN),
+            Mockito.same(existingInfo),
+            replacementCaptor.capture());
+    IncidentInfoUpdate replacement = replacementCaptor.getValue();
+    Assert.assertNull(replacement.getTitle());
+    Assert.assertNull(replacement.getDescription());
+    Assert.assertNull(replacement.getPriority());
+    Assert.assertEquals(
+        replacement.getEntities(), IncidentUtils.stringsToUrns(input.getResourceUrns()));
+    Assert.assertNotNull(replacement.getAssignees());
+    Assert.assertTrue(replacement.getAssignees().isEmpty());
+    Assert.assertEquals(
+        replacement.getStatus().getState(), com.linkedin.incident.IncidentState.RESOLVED);
+  }
+
+  private static IncidentInfo existingInfo() {
+    return new IncidentInfo()
+        .setType(IncidentType.SQL)
+        .setEntities(
+            new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))))
+        .setStatus(new IncidentStatus().setState(com.linkedin.incident.IncidentState.ACTIVE));
+  }
+}
