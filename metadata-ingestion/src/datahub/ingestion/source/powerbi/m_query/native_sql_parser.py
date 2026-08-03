@@ -56,7 +56,7 @@ class ExternalQueryReference:
     inner_sql: str
 
 
-@dataclass(frozen=True)
+@dataclass
 class ExternalQueryExtraction:
     # EXTERNAL_QUERY federations found in the outer query.
     references: List[ExternalQueryReference]
