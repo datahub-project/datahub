@@ -11,6 +11,7 @@ class DatasetSubTypes(StrEnum):
     TABLE = "Table"
     VIEW = "View"
     TOPIC = "Topic"
+    QUEUE = "Queue"
     SCHEMA = "Schema"
     GRAPH = "Graph"
     # System-Specific SubTypes
@@ -108,6 +109,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # TIBCO EMS
+    TIBCO_EMS_SERVER_GROUP = "EMS Server Group"
 
 
 class BIContainerSubTypes(StrEnum):
