@@ -65,6 +65,14 @@ _BIGQUERY_PLATFORM_NAME = (
     SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name
 )
 
+# First enum entry wins when multiple PowerBI names share a DataHub platform
+# (e.g. Databricks / DatabricksMultiCloud both map to "databricks").
+_DATAHUB_PLATFORM_TO_PAIR: Dict[str, DataPlatformPair] = {}
+for _item in SupportedDataPlatform:
+    _DATAHUB_PLATFORM_TO_PAIR.setdefault(
+        _item.value.datahub_data_platform_name, _item.value
+    )
+
 
 @dataclass
 class _ExternalQueryResolution:
@@ -80,17 +88,17 @@ class _ExternalQueryResolution:
 def _data_platform_pair_for(platform: str) -> DataPlatformPair:
     """Resolve a DataPlatformPair for a DataHub platform name.
 
-    Config validation restricts external-query platforms to known
-    SupportedDataPlatform values, so the enum lookup normally succeeds and carries the
-    correct PowerBI name (needed by the dataset_type_mapping filter in the mapper). The
-    passthrough pair is only a defensive fallback.
+    Config validation already restricts external-query platforms to
+    SupportedDataPlatform, so a miss here is a programming error — raise rather
+    than return a silently wrong pair (powerbi name == datahub name).
     """
-    for item in SupportedDataPlatform:
-        if item.value.datahub_data_platform_name == platform:
-            return item.value
-    return DataPlatformPair(
-        datahub_data_platform_name=platform, powerbi_data_platform_name=platform
-    )
+    try:
+        return _DATAHUB_PLATFORM_TO_PAIR[platform]
+    except KeyError:
+        raise ValueError(
+            f"platform '{platform}' is not a recognized DataHub platform. "
+            f"Known platforms: {sorted(_DATAHUB_PLATFORM_TO_PAIR)}."
+        ) from None
 
 
 def _unwrap_csv(elem: dict) -> dict:
