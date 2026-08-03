@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -27,6 +27,22 @@ def test_doris_uses_native_dialect():
         pass
 
 
+def _mock_list_conn(current_catalog: str = "internal") -> MagicMock:
+    conn = MagicMock()
+
+    def _execute(statement, *args, **kwargs):
+        sql = str(statement)
+        result = MagicMock()
+        if "CURRENT_CATALOG" in sql:
+            result.fetchone.return_value = (current_catalog,)
+        else:
+            result.fetchone.return_value = None
+        return result
+
+    conn.execute.side_effect = _execute
+    return conn
+
+
 class TestDorisConfig:
     def test_scheme_validator_corrects_mysql_scheme(self):
         config_dict = {
@@ -35,6 +51,35 @@ class TestDorisConfig:
         }
         config = DorisConfig.model_validate(config_dict)
         assert config.scheme == "doris+pymysql"
+
+    def test_catalog_and_database_split_from_qualified_database(self):
+        config = DorisConfig.model_validate(
+            {
+                "host_port": "localhost:9030",
+                "database": "iceberg_catalog.db_ods",
+            }
+        )
+        assert config.catalog == "iceberg_catalog"
+        assert config.database == "db_ods"
+
+    def test_catalog_mismatch_with_qualified_database_raises(self):
+        with pytest.raises(ValueError, match="does not match catalog"):
+            DorisConfig.model_validate(
+                {
+                    "host_port": "localhost:9030",
+                    "catalog": "hive_catalog",
+                    "database": "iceberg_catalog.db_ods",
+                }
+            )
+
+    def test_explicit_catalog_with_short_database(self):
+        config = DorisConfig(
+            host_port="localhost:9030",
+            catalog="iceberg_catalog",
+            database="db_ods",
+        )
+        assert config.catalog == "iceberg_catalog"
+        assert config.database == "db_ods"
 
 
 class TestDorisSourceMethods:
@@ -124,8 +169,6 @@ class TestDorisSourceMethods:
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
 
-        from unittest.mock import patch
-
         with (
             patch(
                 "datahub.ingestion.source.sql.doris.doris_source.create_engine"
@@ -136,8 +179,9 @@ class TestDorisSourceMethods:
         ):
             mock_engine = MagicMock()
             mock_create.return_value = mock_engine
-            mock_conn = MagicMock()
-            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+            mock_engine.connect.return_value.__enter__.return_value = _mock_list_conn(
+                "internal"
+            )
 
             mock_main_inspector = MagicMock(spec=Inspector)
             mock_main_inspector.get_schema_names.return_value = ["db1", "db2"]
@@ -153,12 +197,106 @@ class TestDorisSourceMethods:
 
             assert len(inspectors) == 2
             assert mock_engine.dispose.call_count == 2
+            db_urls = [c.args[0] for c in mock_create.call_args_list[1:]]
+            assert all("/db1" in url or "/db2" in url for url in db_urls)
+            assert all("internal." not in url for url in db_urls)
+
+    def test_get_inspectors_external_catalog_uses_qualified_database(self):
+        config = DorisConfig(
+            host_port="localhost:9030",
+            catalog="iceberg_catalog",
+        )
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            list_engine = MagicMock()
+            db_engine = MagicMock()
+            mock_create.side_effect = [list_engine, db_engine, db_engine]
+
+            list_conn = _mock_list_conn("iceberg_catalog")
+            list_engine.connect.return_value.__enter__.return_value = list_conn
+            db_engine.connect.return_value.__enter__.return_value = MagicMock()
+
+            mock_main_inspector = MagicMock(spec=Inspector)
+            mock_main_inspector.get_schema_names.return_value = ["db_ods", "db_dwd"]
+            mock_db_inspector = MagicMock(spec=Inspector)
+            mock_inspect.side_effect = [
+                mock_main_inspector,
+                mock_db_inspector,
+                mock_db_inspector,
+            ]
+
+            inspectors = list(source.get_inspectors())
+
+            assert len(inspectors) == 2
+            switch_calls = [
+                c
+                for c in list_conn.execute.call_args_list
+                if "SWITCH" in str(c.args[0])
+            ]
+            assert len(switch_calls) == 1
+            assert "iceberg_catalog" in str(switch_calls[0].args[0])
+
+            db_urls = [c.args[0] for c in mock_create.call_args_list[1:]]
+            assert "iceberg_catalog.db_ods" in db_urls[0]
+            assert "iceberg_catalog.db_dwd" in db_urls[1]
+
+    def test_get_inspectors_preserves_detected_catalog_without_config(self):
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            list_engine = MagicMock()
+            db_engine = MagicMock()
+            mock_create.side_effect = [list_engine, db_engine]
+
+            list_engine.connect.return_value.__enter__.return_value = _mock_list_conn(
+                "iceberg_catalog"
+            )
+            db_engine.connect.return_value.__enter__.return_value = MagicMock()
+
+            mock_main_inspector = MagicMock(spec=Inspector)
+            mock_main_inspector.get_schema_names.return_value = ["db_ods"]
+            mock_inspect.side_effect = [
+                mock_main_inspector,
+                MagicMock(spec=Inspector),
+            ]
+
+            inspectors = list(source.get_inspectors())
+
+            assert len(inspectors) == 1
+            assert "iceberg_catalog.db_ods" in mock_create.call_args_list[1].args[0]
+
+    def test_get_db_name_strips_catalog_prefix(self):
+        config = DorisConfig(
+            host_port="localhost:9030",
+            catalog="iceberg_catalog",
+        )
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        source._session_catalog = "iceberg_catalog"
+
+        inspector = MagicMock()
+        inspector.engine.url.database = "iceberg_catalog.db_ods"
+
+        assert source.get_db_name(inspector) == "db_ods"
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
-
-        from unittest.mock import patch
 
         with (
             patch(
@@ -169,9 +307,8 @@ class TestDorisSourceMethods:
             ) as mock_inspect,
         ):
             mock_main_engine = MagicMock()
-            mock_main_conn = MagicMock()
             mock_main_engine.connect.return_value.__enter__.return_value = (
-                mock_main_conn
+                _mock_list_conn("internal")
             )
 
             mock_main_inspector = MagicMock(spec=Inspector)
@@ -188,3 +325,4 @@ class TestDorisSourceMethods:
 
             assert len(inspectors) == 0
             assert len(source.report.failures) > 0
+            assert any("db1" in str(ctx) for ctx in source.report.failures[0].context)
