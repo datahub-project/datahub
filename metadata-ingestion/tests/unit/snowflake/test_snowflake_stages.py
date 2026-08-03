@@ -644,3 +644,69 @@ class TestUnnameableExternalLocations:
         assert [m.upstream_urn for m in mappings] == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
         ]
+
+
+class TestExternalStorageCasing:
+    """
+    Snowflake lowercases its *own* dataset names via `convert_urns_to_lowercase` (on by
+    default), but the storage URN helpers deliberately do not normalize case: the storage
+    source lowercases via its own config, which these helpers cannot see. So a mixed-case
+    object key has to survive verbatim even while the Snowflake side is lowercased.
+
+    Documented in snowflake_post.md and in `make_s3_urn_for_lineage`, and previously
+    unenforced -- routing the upstream URN through Snowflake's own identifier lowercasing
+    would silently re-key every mixed-case storage upstream.
+    """
+
+    def test_storage_case_preserved_while_snowflake_side_is_lowercased(self) -> None:
+        config = _make_config(
+            platform_instance_map={"s3": "Product"},
+            convert_urns_to_lowercase=True,
+        )
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "Ext_Table",
+                "schema_name": "Test_Schema",
+                "database_name": "Test_DB",
+                "location": "s3://My-Bucket/Mixed_Case/Nodes.CSV",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen, ["test_db.test_schema.ext_table"]
+            )
+        )
+
+        assert len(mappings) == 1
+        # Bucket, key and platform instance keep their case exactly as configured.
+        assert mappings[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,Product.My-Bucket/Mixed_Case/Nodes.CSV,PROD)"
+        )
+        # ...while the Snowflake table on the other end of the same edge is lowercased.
+        assert mappings[0].downstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.ext_table,PROD)"
+        )
+
+    def test_stage_url_case_preserved(self) -> None:
+        config = _make_config(
+            platform_instance_map={"s3": "Product"},
+            convert_urns_to_lowercase=True,
+        )
+        _, extractor, _ = _collect_workunits(
+            [_make_external_stage("mixed_stage", url="s3://My-Bucket/Mixed_Case/Data")],
+            config,
+        )
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.MIXED_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,Product.My-Bucket/Mixed_Case/Data,PROD)"
+        )
