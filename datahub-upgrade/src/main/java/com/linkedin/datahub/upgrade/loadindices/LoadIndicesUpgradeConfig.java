@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.entity",
+      "com.linkedin.gms.factory.buffer",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.entityregistry",
