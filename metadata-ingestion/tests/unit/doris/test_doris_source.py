@@ -9,6 +9,39 @@ from datahub.ingestion.source.sql.doris.doris_dialect import DorisDialect
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
 
 
+def _profiling_source() -> DorisSource:
+    config = DorisConfig(
+        host_port="localhost:9030",
+        profiling={"enabled": True},
+    )
+    return DorisSource(config, PipelineContext(run_id="doris-profiling-test"))
+
+
+def _inspector_returning(rows: list) -> MagicMock:
+    conn = MagicMock()
+    conn.execute.return_value = rows
+    inspector = MagicMock()
+    inspector.engine.connect.return_value.__enter__.return_value = conn
+    return inspector
+
+
+def test_add_profile_metadata_reads_storage_bytes_positionally() -> None:
+    source = _profiling_source()
+    inspector = _inspector_returning(
+        [
+            ("dorisdb", "orders", 4096),
+            ("dorisdb", "customers", 8192),
+        ]
+    )
+
+    source.add_profile_metadata(inspector)
+
+    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {
+        "dorisdb.orders": 4096,
+        "dorisdb.customers": 8192,
+    }
+
+
 def test_doris_uses_native_dialect():
     config = DorisConfig(host_port="localhost:9030", database="test")
     assert config.scheme == "doris+pymysql"

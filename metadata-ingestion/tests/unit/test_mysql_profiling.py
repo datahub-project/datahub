@@ -21,8 +21,6 @@ def _inspector_returning(rows: list) -> MagicMock:
 
 
 def test_add_profile_metadata_reads_storage_bytes_positionally() -> None:
-    # Tuple rows (no named attributes) prove access is positional, not by the
-    # case-sensitive attribute name that differs between MySQL and MariaDB.
     source = _source()
     inspector = _inspector_returning(
         [
