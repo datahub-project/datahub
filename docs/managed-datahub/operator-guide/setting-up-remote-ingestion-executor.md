@@ -115,7 +115,7 @@ This grants your AWS account access to pull the Remote Executor container image.
 
 3. **Deploy**
 
-Choose your infrastructure tool:
+Choose your infrastructure tool below — both provision the same ECS/Fargate stack.
 
 <Tabs groupId="ecs-iac">
 <TabItem value="cloudformation" label="CloudFormation" default>
@@ -162,19 +162,6 @@ aws secretsmanager create-secret \
   --name my-source-secret \
   --secret-string '{"username":"user","password":"pass"}'
 ```
-
-**Updating**
-
-To deploy a new container version or change configuration, update your existing CloudFormation stack — re-deploy the template with updated parameters while preserving existing resources:
-
-1. In the AWS CloudFormation Console, select your Remote Executor stack and click **Update**.
-2. Choose **Replace current template** → **Upload a template file**, and upload the latest [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml).
-3. Review and update parameters (e.g. `ImageTag` for a new version); unchanged parameters keep their previous values. Click **Next**.
-4. Acknowledge any IAM capabilities if prompted, then **Update stack**.
-
-:::note
-The update preserves your existing resources (secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track progress.
-:::
 
 </TabItem>
 <TabItem value="terraform" label="Terraform">
@@ -256,14 +243,36 @@ terraform plan
 terraform apply
 ```
 
-**Updating**
+</TabItem>
+</Tabs>
 
-To upgrade the version or change configuration, update your module inputs and re-apply:
+### Update on Amazon ECS
+
+Both tools update the deployment **in place** — to change the executor version or configuration, re-deploy with a new image tag. Existing resources (IAM roles, secrets) are preserved, and the ECS service performs a rolling replacement of the task.
+
+<Tabs groupId="ecs-iac">
+<TabItem value="cloudformation" label="CloudFormation" default>
+
+Update the existing stack with the new parameters:
+
+1. In the AWS CloudFormation Console, select your Remote Executor stack and click **Update**.
+2. Choose **Replace current template** → **Upload a template file**, and upload the latest [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml).
+3. Review and update parameters (e.g. `ImageTag` for a new version); unchanged parameters keep their previous values. Click **Next**.
+4. Acknowledge any IAM capabilities if prompted, then **Update stack**.
+
+:::note
+Monitor the stack events to track update progress.
+:::
+
+</TabItem>
+<TabItem value="terraform" label="Terraform">
+
+Update your module inputs and re-apply:
 
 - **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently.
 - **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
 
-Then run `terraform apply`. Terraform shows a plan of exactly what will change before you confirm; the ECS service performs a rolling replacement of the task.
+Then run `terraform apply` — it shows a plan of exactly what will change before you confirm.
 
 </TabItem>
 </Tabs>
