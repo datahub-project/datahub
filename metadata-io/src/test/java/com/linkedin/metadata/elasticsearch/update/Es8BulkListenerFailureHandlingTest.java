@@ -16,6 +16,7 @@ import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.bulk.OperationType;
+import com.linkedin.metadata.graph.elastic.GraphEdgeWriteVersionFence;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
@@ -25,7 +26,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.update.UpdateRequest;
 import org.testng.annotations.Test;
 
 public class Es8BulkListenerFailureHandlingTest {
@@ -280,6 +283,68 @@ public class Es8BulkListenerFailureHandlingTest {
     listener.afterBulk(1L, bulkRequestWithIndexOp(), null, failure);
     assertEquals(tracker.getPendingItems(), 0);
     assertEquals(tracker.getUnrecoveredTransferFailures(), 0);
+  }
+
+  @Test
+  public void testDeclinedStaleOnRetriableStatusIsCompletedNotUnrecovered() {
+    synchronized (GraphEdgeWriteVersionFence.class) {
+      GraphEdgeWriteVersionFence.INSTANCE.resetForTesting();
+      BulkWriteResultTracker tracker = new BulkWriteResultTracker();
+      tracker.recordEnqueued(1);
+      Consumer<DocWriteRequest<?>> requeue = mock(Consumer.class);
+      BulkItemRequeueSupport support = new BulkItemRequeueSupport(true, 3, requeue);
+      Es8BulkListener listener = new Es8BulkListener(null, tracker, support);
+
+      String docId = "es8-declined-stale-429";
+      UpdateRequest staleUpsert = new UpdateRequest("graph_service_v1", docId);
+      DeleteRequest newerDelete = new DeleteRequest("graph_service_v1").id(docId);
+      GraphEdgeWriteVersionFence.INSTANCE.recordSubmit(docId, 2L, staleUpsert);
+      GraphEdgeWriteVersionFence.INSTANCE.recordSubmit(docId, 3L, newerDelete);
+
+      BulkResponse response =
+          new BulkResponse.Builder()
+              .errors(true)
+              .took(1L)
+              .items(
+                  failureItem(
+                      "graph_service_v1",
+                      docId,
+                      429,
+                      "es_rejected_execution_exception",
+                      "rejected"))
+              .build();
+
+      listener.afterBulk(1L, emptyBulkRequest(), List.of(staleUpsert), response);
+
+      verify(requeue, never()).accept(any());
+      assertEquals(tracker.getPendingItems(), 0);
+      assertEquals(tracker.drainUnrecoveredTransferFailures(), 0);
+    }
+  }
+
+  @Test
+  public void testDeclinedStaleOnTransportFailureIsCompletedNotUnrecovered() {
+    synchronized (GraphEdgeWriteVersionFence.class) {
+      GraphEdgeWriteVersionFence.INSTANCE.resetForTesting();
+      BulkWriteResultTracker tracker = new BulkWriteResultTracker();
+      tracker.recordEnqueued(1);
+      Consumer<DocWriteRequest<?>> requeue = mock(Consumer.class);
+      BulkItemRequeueSupport support = new BulkItemRequeueSupport(true, 3, requeue);
+      Es8BulkListener listener = new Es8BulkListener(null, tracker, support);
+
+      String docId = "es8-declined-stale-transport";
+      UpdateRequest staleUpsert = new UpdateRequest("graph_service_v1", docId);
+      DeleteRequest newerDelete = new DeleteRequest("graph_service_v1").id(docId);
+      GraphEdgeWriteVersionFence.INSTANCE.recordSubmit(docId, 2L, staleUpsert);
+      GraphEdgeWriteVersionFence.INSTANCE.recordSubmit(docId, 3L, newerDelete);
+
+      listener.afterBulk(
+          1L, bulkRequestWithIndexOp(), List.of(staleUpsert), new RuntimeException("transport"));
+
+      verify(requeue, never()).accept(any());
+      assertEquals(tracker.getPendingItems(), 0);
+      assertEquals(tracker.drainUnrecoveredTransferFailures(), 0);
+    }
   }
 
   private static BulkRequest emptyBulkRequest() {

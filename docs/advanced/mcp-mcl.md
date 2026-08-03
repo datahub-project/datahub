@@ -159,7 +159,7 @@ Following the change in our event models, we introduced 4 new topics. The old to
 
 2. **MetadataChangeLog_Versioned_v1**
 
-   Analogous to the MAE topic, MCLs for versioned aspects will get produced into this topic. Since versioned aspects have a source of truth that can be separately backed up, the retention of this topic is short (by default 7 days). Note both this and the next topic are consumed by the same MCL processor.
+   Analogous to the MAE topic, MCLs for versioned aspects will get produced into this topic. Since versioned aspects have a source of truth that can be separately backed up, the retention of this topic is short (by default 7 days). Note both this and the next topic are consumed by the same MCL processor. The secondary graph projection stamps each edge write with the aspect's `SystemMetadata.version` (`graphWriteVersion`) for conditional upserts and bulk requeue fencing — see [graph write semantics](../what/graph.md#graphwriteversion-fencing).
 
 3. **MetadataChangeLog_Timeseries_v1**
 

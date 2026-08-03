@@ -132,22 +132,33 @@ public class BulkListener implements BulkProcessor.Listener {
     incrementMetrics(request, failure);
 
     // Transport-level failure: try requeue each request; otherwise unrecovered transfer failure.
+    // Declined-stale (superseded graph op) completes pending and must not count as unrecovered.
     int unrecovered = 0;
-    int requeued = 0;
+    int declinedStale = 0;
     for (DocWriteRequest<?> writeRequest : request.requests()) {
-      if (requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
-        requeued++;
-        incrementMetric(METRIC_ITEM_REQUEUE);
-      } else {
+      if (requeueSupport == null) {
         unrecovered++;
-        if (requeueSupport != null) {
+        continue;
+      }
+      BulkItemRequeueSupport.Outcome outcome = requeueSupport.tryRequeue(writeRequest);
+      switch (outcome) {
+        case REQUEUED:
+          incrementMetric(METRIC_ITEM_REQUEUE);
+          break;
+        case DECLINED_STALE:
+          declinedStale++;
+          break;
+        case EXHAUSTED:
+        case DISABLED:
+        default:
+          unrecovered++;
           requeueSupport.clearAttempts(writeRequest);
-        }
+          break;
       }
     }
     if (tracker != null) {
-      if (requeued > 0) {
-        // requeued items remain pending
+      if (declinedStale > 0) {
+        tracker.recordCompleted(declinedStale);
       }
       if (unrecovered > 0) {
         tracker.recordUnrecoveredTransferFailure(unrecovered);
@@ -193,10 +204,21 @@ public class BulkListener implements BulkProcessor.Listener {
       boolean versionConflict = BulkItemFailureClassifier.isVersionConflict(failureMessage);
       boolean retriable = BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
-      if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
-        incrementMetric(METRIC_ITEM_REQUEUE);
-        // still pending — do not recordCompleted
-        continue;
+      if (retriable && requeueSupport != null) {
+        BulkItemRequeueSupport.Outcome outcome = requeueSupport.tryRequeue(writeRequest);
+        if (outcome == BulkItemRequeueSupport.Outcome.REQUEUED) {
+          incrementMetric(METRIC_ITEM_REQUEUE);
+          // still pending — do not recordCompleted
+          continue;
+        }
+        if (outcome == BulkItemRequeueSupport.Outcome.DECLINED_STALE) {
+          // Superseded by a newer submit for the same docId — intentional drop.
+          if (tracker != null) {
+            tracker.recordCompleted(1);
+          }
+          continue;
+        }
+        // EXHAUSTED / DISABLED: fall through to LWW vs unrecovered
       }
 
       if (versionConflict) {

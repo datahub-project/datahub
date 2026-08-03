@@ -199,7 +199,8 @@ public class GraphIndexUtils {
         oldEdge.getViaStatus(),
         oldEdge.getLifecycleOwnerStatus(),
         oldEdge.getSourceStatus(),
-        oldEdge.getDestinationStatus());
+        oldEdge.getDestinationStatus(),
+        newEdge.getGraphWriteVersion());
   }
 
   // TODO: remove this method once we implement sourceOverride when creating graph edges

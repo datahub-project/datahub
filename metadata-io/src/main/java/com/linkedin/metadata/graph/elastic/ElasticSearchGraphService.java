@@ -141,6 +141,9 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     if (edge.getDestinationStatus() != null) {
       searchDocument.put(EDGE_DESTINATION_STATUS, edge.getDestinationStatus());
     }
+    if (edge.getGraphWriteVersion() != null) {
+      searchDocument.put(EDGE_FIELD_GRAPH_WRITE_VERSION, edge.getGraphWriteVersion());
+    }
     log.debug("Search doc for write {}", searchDocument);
 
     return searchDocument.toString();
@@ -169,7 +172,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public void addEdge(@Nonnull OperationContext opContext, @Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
-    graphWriteDAO.upsertDocument(opContext, docId, edgeDocument);
+    graphWriteDAO.upsertDocument(opContext, docId, edgeDocument, edge.getGraphWriteVersion());
   }
 
   @Override
@@ -180,7 +183,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public void removeEdge(@Nonnull OperationContext opContext, @Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
-    graphWriteDAO.deleteDocument(opContext, docId);
+    graphWriteDAO.deleteDocument(opContext, docId, edge.getGraphWriteVersion());
   }
 
   @Override

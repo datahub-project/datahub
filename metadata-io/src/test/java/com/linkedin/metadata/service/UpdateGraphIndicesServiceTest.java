@@ -51,6 +51,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
@@ -332,7 +333,7 @@ public class UpdateGraphIndicesServiceTest {
     // Verify that deleteDocument was called for the removed edge
     ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
     verify(mockWriteDAO, times(1))
-        .deleteDocument(any(OperationContext.class), docIdCaptor.capture());
+        .deleteDocument(any(OperationContext.class), docIdCaptor.capture(), any());
 
     String docId = docIdCaptor.getValue();
     // The doc ID should contain hash of the edge including source and destination
@@ -377,7 +378,7 @@ public class UpdateGraphIndicesServiceTest {
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
     verify(mockWriteDAO, times(2))
         .upsertDocument(
-            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture());
+            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture(), any());
 
     String docId = docIdCaptor.getValue();
     assertNotNull(docId);
@@ -435,7 +436,7 @@ public class UpdateGraphIndicesServiceTest {
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
     verify(mockWriteDAO, times(1))
         .upsertDocument(
-            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture());
+            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture(), any());
 
     String document = documentCaptor.getValue();
     // The updated document should contain the new audit stamp info
@@ -489,17 +490,101 @@ public class UpdateGraphIndicesServiceTest {
 
     // Verify all three operations occurred
     // 1 delete for upstream2 removal
-    verify(mockWriteDAO, times(1)).deleteDocument(any(OperationContext.class), any(String.class));
+    verify(mockWriteDAO, times(1))
+        .deleteDocument(any(OperationContext.class), any(String.class), any());
 
     // 2 upserts: one for upstream1 update, one for upstream3 addition
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
     verify(mockWriteDAO, times(2))
-        .upsertDocument(any(OperationContext.class), any(String.class), documentCaptor.capture());
+        .upsertDocument(
+            any(OperationContext.class), any(String.class), documentCaptor.capture(), any());
 
     List<String> documents = documentCaptor.getAllValues();
     // Verify that we have documents for both the update and the addition
     assertTrue(documents.stream().anyMatch(doc -> doc.contains("updatedUser")));
     assertTrue(documents.stream().anyMatch(doc -> doc.contains(upstream3.toString())));
+  }
+
+  @Test
+  public void testDiffModeStampsNewAspectVersionOnRemoveAndAdd() throws URISyntaxException {
+    test.setGraphDiffMode(true);
+
+    Urn upstream1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,upstream1,PROD)");
+    Urn upstream2 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,upstream2,PROD)");
+
+    UpstreamArray oldUpstreamArray = new UpstreamArray();
+    oldUpstreamArray.add(createUpstream(upstream1));
+    oldUpstreamArray.add(createUpstream(upstream2));
+    GenericAspect oldAspect =
+        GenericRecordUtils.serializeAspect(new UpstreamLineage().setUpstreams(oldUpstreamArray));
+
+    UpstreamArray newUpstreamArray = new UpstreamArray();
+    newUpstreamArray.add(createUpstream(upstream1));
+    GenericAspect newAspect =
+        GenericRecordUtils.serializeAspect(new UpstreamLineage().setUpstreams(newUpstreamArray));
+
+    SystemMetadata systemMetadata = new SystemMetadata().setVersion("42");
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)
+            .setPreviousAspectValue(oldAspect)
+            .setAspect(newAspect)
+            .setSystemMetadata(systemMetadata));
+
+    ArgumentCaptor<Long> deleteVersionCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(mockWriteDAO, times(1))
+        .deleteDocument(
+            any(OperationContext.class), any(String.class), deleteVersionCaptor.capture());
+    assertEquals(deleteVersionCaptor.getValue(), Long.valueOf(42L));
+
+    // Surviving edge is merged/updated at the new aspect version as well.
+    ArgumentCaptor<Long> upsertVersionCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(mockWriteDAO, times(1))
+        .upsertDocument(
+            any(OperationContext.class),
+            any(String.class),
+            any(String.class),
+            upsertVersionCaptor.capture());
+    assertEquals(upsertVersionCaptor.getValue(), Long.valueOf(42L));
+  }
+
+  @Test
+  public void testDiffModeNullPreviousAspectIsAddOnly() throws URISyntaxException {
+    test.setGraphDiffMode(true);
+
+    Urn upstream1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,upstream1,PROD)");
+    UpstreamArray newUpstreamArray = new UpstreamArray();
+    newUpstreamArray.add(createUpstream(upstream1));
+    GenericAspect newAspect =
+        GenericRecordUtils.serializeAspect(new UpstreamLineage().setUpstreams(newUpstreamArray));
+
+    test.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)
+            .setAspect(newAspect)
+            .setSystemMetadata(new SystemMetadata().setVersion("7")));
+
+    verify(mockWriteDAO, times(0))
+        .deleteDocument(any(OperationContext.class), any(String.class), any());
+    verify(mockWriteDAO, times(0)).deleteByQuery(any(OperationContext.class), any());
+
+    ArgumentCaptor<Long> upsertVersionCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(mockWriteDAO, times(1))
+        .upsertDocument(
+            any(OperationContext.class),
+            any(String.class),
+            any(String.class),
+            upsertVersionCaptor.capture());
+    assertEquals(upsertVersionCaptor.getValue(), Long.valueOf(7L));
   }
 
   // Helper method

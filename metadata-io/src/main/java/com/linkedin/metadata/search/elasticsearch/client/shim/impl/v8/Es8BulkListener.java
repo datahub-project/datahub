@@ -116,14 +116,27 @@ public class Es8BulkListener
     incrementMetrics(metricUtils, request, failure);
 
     int unrecovered = 0;
+    int declinedStale = 0;
     if (objects != null) {
       for (Object context : objects) {
         DocWriteRequest<?> writeRequest =
             context instanceof DocWriteRequest ? (DocWriteRequest<?>) context : null;
-        if (writeRequest != null
-            && requeueSupport != null
-            && requeueSupport.tryRequeue(writeRequest)) {
-          incrementMetric(METRIC_ITEM_REQUEUE);
+        if (writeRequest != null && requeueSupport != null) {
+          BulkItemRequeueSupport.Outcome outcome = requeueSupport.tryRequeue(writeRequest);
+          switch (outcome) {
+            case REQUEUED:
+              incrementMetric(METRIC_ITEM_REQUEUE);
+              break;
+            case DECLINED_STALE:
+              declinedStale++;
+              break;
+            case EXHAUSTED:
+            case DISABLED:
+            default:
+              unrecovered++;
+              requeueSupport.clearAttempts(writeRequest);
+              break;
+          }
         } else {
           unrecovered++;
           if (requeueSupport != null && writeRequest != null) {
@@ -132,9 +145,14 @@ public class Es8BulkListener
         }
       }
     }
-    if (tracker != null && unrecovered > 0) {
-      tracker.recordUnrecoveredTransferFailure(unrecovered);
-      incrementMetric(METRIC_TRANSFER_FAILURE, unrecovered);
+    if (tracker != null) {
+      if (declinedStale > 0) {
+        tracker.recordCompleted(declinedStale);
+      }
+      if (unrecovered > 0) {
+        tracker.recordUnrecoveredTransferFailure(unrecovered);
+        incrementMetric(METRIC_TRANSFER_FAILURE, unrecovered);
+      }
     }
   }
 
@@ -175,9 +193,19 @@ public class Es8BulkListener
       boolean versionConflict = BulkItemFailureClassifier.isVersionConflict(failureMessage);
       boolean retriable = BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
-      if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
-        incrementMetric(METRIC_ITEM_REQUEUE);
-        continue;
+      if (retriable && requeueSupport != null) {
+        BulkItemRequeueSupport.Outcome outcome = requeueSupport.tryRequeue(writeRequest);
+        if (outcome == BulkItemRequeueSupport.Outcome.REQUEUED) {
+          incrementMetric(METRIC_ITEM_REQUEUE);
+          continue;
+        }
+        if (outcome == BulkItemRequeueSupport.Outcome.DECLINED_STALE) {
+          if (tracker != null) {
+            tracker.recordCompleted(1);
+          }
+          continue;
+        }
+        // EXHAUSTED / DISABLED: fall through to LWW vs unrecovered
       }
 
       if (versionConflict) {

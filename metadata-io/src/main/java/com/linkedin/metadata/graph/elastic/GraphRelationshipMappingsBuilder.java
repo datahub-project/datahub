@@ -27,6 +27,7 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put("createdActor", getMappingsForKeyword());
     mappings.put("updatedOn", getMappingsForLong());
     mappings.put("updatedActor", getMappingsForKeyword());
+    mappings.put(EDGE_FIELD_GRAPH_WRITE_VERSION, getMappingsForLong());
     return ImmutableMap.of("properties", mappings);
   }
 

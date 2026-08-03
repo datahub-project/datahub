@@ -97,6 +97,7 @@ To clear existing index contents before restore (recommended if you suspect inco
 
 :::info
 Without the `-a clean` flag, old documents may remain in your search/graph index, even if they no longer exist in your SQL database.
+Orphaned graph edges (for example historical ghost `TaggedWith` / `TermedWith` relationships left when a bulk delete never applied) also require a clean restore to remove, because pairwise graph diff never reconciles the live graph against aspects. See [graph write semantics](../what/graph.md#how-graph-edges-are-written-es--opensearch).
 :::
 
 Refer to the [Upgrade Script Docs](../../docker/datahub-upgrade/README.md#environment-variables) for more info on environment configuration.

@@ -290,6 +290,47 @@ public class GraphIndexUtilsTest {
   }
 
   @Test
+  public void testMergeEdgesPreservesNewGraphWriteVersion() {
+    Edge oldEdge =
+        new Edge(
+            datasetUrn,
+            upstreamUrn,
+            RELATIONSHIP_NAME,
+            1000L,
+            actorUrn,
+            2000L,
+            actorUrn,
+            Collections.singletonMap("k", "v"),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            1L);
+    Edge newEdge =
+        new Edge(
+            datasetUrn,
+            upstreamUrn,
+            RELATIONSHIP_NAME,
+            3000L,
+            actorUrn,
+            4000L,
+            actorUrn,
+            Collections.singletonMap("k", "v2"),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            9L);
+
+    Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);
+    assertEquals(mergedEdge.getGraphWriteVersion(), Long.valueOf(9L));
+  }
+
+  @Test
   public void testMergeEdgesWithAllFieldsFromOldEdge() {
     // Create edges with all optional fields populated
     Urn lifecycleOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:owner");
@@ -310,7 +351,8 @@ public class GraphIndexUtilsTest {
             true, // sourceStatus
             true, // destinationStatus
             true, // viaStatus
-            true // lifecycleOwnerStatus
+            true, // lifecycleOwnerStatus
+            null // graphWriteVersion
             );
 
     Edge newEdge =

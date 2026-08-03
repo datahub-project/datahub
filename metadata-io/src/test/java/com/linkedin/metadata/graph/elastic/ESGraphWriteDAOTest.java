@@ -9,8 +9,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -127,6 +129,43 @@ public class ESGraphWriteDAOTest {
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
     verify(mockBulkProcessor).add(eq(opContext), eq(docId), captor.capture());
     assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test
+  public void testVersionedUpsertUsesConditionalScript() {
+    String docId = "edge-doc-versioned";
+    String document =
+        "{\"source\":{\"urn\":\"urn:li:dataset:a\"},\"destination\":{\"urn\":\"urn:li:dataset:b\"},"
+            + "\"graphWriteVersion\":5}";
+
+    testDao.upsertDocument(opContext, docId, document, 5L);
+
+    ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(docId), captor.capture());
+    UpdateRequest request = captor.getValue();
+    assertTrue(request.scriptedUpsert());
+    assertNotNull(request.script());
+    assertTrue(
+        request.script().getIdOrCode().contains("hasExistingVersion"),
+        "Script must treat missing graphWriteVersion as unversioned");
+    assertTrue(request.script().getIdOrCode().contains("graphWriteVersion"));
+  }
+
+  @Test
+  public void testUnversionedExistingEdgeAlwaysAcceptsVersionedWrite() {
+    // Pre-upgrade docs have no graphWriteVersion — must not be treated as version 0.
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(null, 0L));
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(null, 1L));
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(null, Long.MAX_VALUE));
+  }
+
+  @Test
+  public void testConditionalUpsertNoopOnlyWhenExistingStrictlyNewer() {
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(5L, 5L));
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(5L, 6L));
+    assertTrue(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(6L, 5L));
+    assertFalse(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(0L, 0L));
+    assertTrue(ESGraphWriteDAO.shouldNoopConditionalGraphUpsert(1L, 0L));
   }
 
   @Test

@@ -42,6 +42,12 @@ public class Edge {
   @EqualsAndHashCode.Exclude @Nullable private Boolean viaStatus;
   @EqualsAndHashCode.Exclude @Nullable private Boolean lifecycleOwnerStatus;
 
+  /**
+   * Aspect {@code SystemMetadata.version} from the MCL that produced this write. Used for
+   * conditional graph upserts and bulk requeue fencing. Not part of edge identity.
+   */
+  @EqualsAndHashCode.Exclude @Nullable private Long graphWriteVersion;
+
   // For backwards compatibility
   public Edge(
       Urn source,
@@ -61,6 +67,7 @@ public class Edge {
         updatedOn,
         updatedActor,
         properties,
+        null,
         null,
         null,
         null,
@@ -91,6 +98,7 @@ public class Edge {
         properties,
         lifecycleOwner,
         via,
+        null,
         null,
         null,
         null,
@@ -134,6 +142,23 @@ public class Edge {
   public static final String EDGE_FIELD_LIFECYCLE_OWNER_STATUS = "lifecycleOwnerRemoved";
   public static final String EDGE_FIELD_UPDATED_ON = "updatedOn";
   public static final String EDGE_FIELD_CREATED_ON = "createdOn";
+  public static final String EDGE_FIELD_GRAPH_WRITE_VERSION = "graphWriteVersion";
+
+  /**
+   * Parses {@link com.linkedin.mxe.SystemMetadata#getVersion()} for graph write fencing. Returns
+   * null when missing or unparseable.
+   */
+  @Nullable
+  public static Long parseGraphWriteVersion(@Nullable String version) {
+    if (version == null || version.isBlank()) {
+      return null;
+    }
+    try {
+      return Long.parseLong(version.trim());
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
       ImmutableList.of(

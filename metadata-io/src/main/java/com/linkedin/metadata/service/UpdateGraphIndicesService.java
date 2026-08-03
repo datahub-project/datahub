@@ -226,6 +226,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
         edgeAndRelationTypes.getSecond();
 
+    stampGraphWriteVersion(edgesToAdd, event);
+
     log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
     if (!urnToRelationshipTypesBeingAdded.isEmpty()) {
       for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
@@ -267,6 +269,11 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Edges to update
     final List<Edge> mergedEdges = edgeDiff.getEdgesToUpdate();
 
+    // All ops from this MCL use the NEW aspect version (including subtractive removes).
+    stampGraphWriteVersion(additiveDifference, event);
+    stampGraphWriteVersion(subtractiveDifference, event);
+    stampGraphWriteVersion(mergedEdges, event);
+
     // Remove any old edges that no longer exist first
     if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
@@ -303,6 +310,28 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
               metricUtils ->
                   metricUtils.increment(
                       this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC, mergedEdges.size()));
+    }
+  }
+
+  /**
+   * Stamp the MCL's new aspect {@code SystemMetadata.version} onto every edge write from this
+   * event. Subtractive removes use the new version as well — they are authorized by the write to
+   * that version, not by previousSystemMetadata.
+   */
+  private static void stampGraphWriteVersion(
+      @Nonnull final List<Edge> edges, @Nonnull final MetadataChangeLog event) {
+    if (edges.isEmpty()) {
+      return;
+    }
+    Long version =
+        event.hasSystemMetadata()
+            ? Edge.parseGraphWriteVersion(event.getSystemMetadata().getVersion())
+            : null;
+    if (version == null) {
+      return;
+    }
+    for (Edge edge : edges) {
+      edge.setGraphWriteVersion(version);
     }
   }
 
