@@ -490,7 +490,7 @@ class AbstractLineage(ABC):
         for reference in extraction.references:
             connection_detail = mapping.get(reference.connection)
             if connection_detail is None:
-                self.reporter.m_query_external_query_unmapped += 1
+                self.reporter.m_query_external_query_connections_unmapped += 1
                 self.reporter.info(
                     title=Constant.EXTERNAL_QUERY_NOT_MAPPED,
                     message="BigQuery EXTERNAL_QUERY connection is not mapped to a "
@@ -544,7 +544,7 @@ class AbstractLineage(ABC):
                 upstreams.append(
                     DataPlatformTable(data_platform_pair=platform_pair, urn=urn)
                 )
-            self.reporter.m_query_external_query_resolved += 1
+            self.reporter.m_query_external_query_connections_resolved += 1
 
         return _ExternalQueryResolution(
             upstreams=upstreams,

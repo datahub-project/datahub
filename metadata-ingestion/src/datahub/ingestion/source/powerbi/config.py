@@ -266,9 +266,14 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
-    # BigQuery EXTERNAL_QUERY federation resolution.
-    m_query_external_query_resolved: int = 0
-    m_query_external_query_unmapped: int = 0
+    # BigQuery EXTERNAL_QUERY federation resolution. Units are per EXTERNAL_QUERY
+    # connection reference (not per upstream table URN):
+    # - connections_resolved: mapped connection whose inner SQL yielded >=1 upstream
+    # - connections_unmapped: connection id absent from the config mapping
+    # - parse_errors: dropped federations (outer parse fail, unextractable call,
+    #   inner SQL parse fail, or inner SQL with no tables) — one increment per event
+    m_query_external_query_connections_resolved: int = 0
+    m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_parse_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:

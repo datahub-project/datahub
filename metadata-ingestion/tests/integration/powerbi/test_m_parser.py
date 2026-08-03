@@ -1006,7 +1006,7 @@ def test_bigquery_external_query_resolves_to_external_platform():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     )
-    assert reporter.m_query_external_query_resolved == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
 
 
 @pytest.mark.integration
@@ -1045,7 +1045,7 @@ def test_bigquery_external_query_unmapped_connection_skips_with_info():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_unmapped == 1
+    assert reporter.m_query_external_query_connections_unmapped == 1
     # No SQL-parsing-failure warning should be raised for the (expected) unmapped case.
     assert len(reporter.warnings) == 0
 
@@ -1138,7 +1138,7 @@ def test_bigquery_external_query_combined_with_native_table():
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
         in urns
     )
-    assert reporter.m_query_external_query_resolved == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
 
 
 @pytest.mark.integration
@@ -1249,7 +1249,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
     assert urns == {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     }
-    assert reporter.m_query_external_query_resolved == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
     # Native tables are lost while federated lineage survives, so the partial loss must
     # surface as a warning rather than the benign pure-native info level.
     assert len(reporter.warnings) >= 1
@@ -1319,7 +1319,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_table_error():
     assert urns == {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     }
-    assert reporter.m_query_external_query_resolved == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
     # Native tables are lost while federated lineage survives, so the partial loss must
     # surface as a warning rather than be silently dropped.
     assert len(reporter.warnings) >= 1
@@ -1369,7 +1369,7 @@ def test_bigquery_external_query_default_schema_applied_to_inner_sql():
     assert urns == {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     }
-    assert reporter.m_query_external_query_resolved == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
 
 
 @pytest.mark.integration
@@ -1414,7 +1414,7 @@ def test_bigquery_external_query_inner_sql_resolves_no_table_warns():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_resolved == 0
+    assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_parse_errors == 1
     # A federation that resolves nothing must surface as a warning, not be silently dropped.
     assert len(reporter.warnings) >= 1
@@ -1482,7 +1482,7 @@ def test_bigquery_external_query_inner_sql_table_error_warns():
         )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_resolved == 0
+    assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_parse_errors == 1
     assert len(reporter.warnings) >= 1
 
@@ -1531,8 +1531,8 @@ def test_bigquery_external_query_mixed_resolved_and_unmapped():
     assert urns == {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     }
-    assert reporter.m_query_external_query_resolved == 1
-    assert reporter.m_query_external_query_unmapped == 1
+    assert reporter.m_query_external_query_connections_resolved == 1
+    assert reporter.m_query_external_query_connections_unmapped == 1
 
 
 @pytest.mark.integration
