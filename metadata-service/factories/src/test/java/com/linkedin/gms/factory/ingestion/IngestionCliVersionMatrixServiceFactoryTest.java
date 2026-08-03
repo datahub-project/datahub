@@ -168,6 +168,22 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   }
 
   @Test
+  public void testMatrixSource_whenNoObjectStorageClientFactoryInContext_wiresNoOp() {
+    // This factory is also loaded by contexts that never import ObjectStorageClientFactory — the
+    // mae-consumer app context pulls it in via IngestionSchedulerFactory. A required injection
+    // there
+    // fails the whole context at startup, so the dependency is optional and its absence must
+    // degrade
+    // to the application default like any other unusable configuration.
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
+    setField(factory, "objectStorageClientFactory", null);
+
+    assertTrue(
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "a context without ObjectStorageClientFactory must wire a no-op, not fail startup");
+  }
+
+  @Test
   public void testMatrixSource_whenUriHasNoObjectKey_wiresNoOp() {
     // A bucket root is not a readable document — the object key is required.
     ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix");

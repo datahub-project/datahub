@@ -63,10 +63,14 @@ public class IngestionCliVersionMatrixServiceFactory {
 
   // The single place that maps a location onto a storage client, so the matrix inherits the same
   // provider routing and credential resolution (role assumption / endpoint / region) as every other
-  // object-storage caller in GMS. clientFor() yields null when the provider needs a client that
-  // cannot be built, in which case the URI degrades to a no-op matrix source with a warning rather
-  // than failing startup.
-  @Autowired private ObjectStorageClientFactory objectStorageClientFactory;
+  // object-storage caller in GMS.
+  //
+  // Optional: this factory is also loaded by contexts that never import the object-storage factory
+  // (mae-consumer reaches it via IngestionSchedulerFactory), where a required injection would fail
+  // the whole context at startup. Absent — or present but unable to build a client for the provider
+  // — degrades the URI to a no-op matrix source, as every other unusable configuration here does.
+  @Autowired(required = false)
+  private ObjectStorageClientFactory objectStorageClientFactory;
 
   /**
    * Picks the matrix backend from the scheme of {@code ingestion.cliVersionMatrix.uri}. Every
@@ -124,6 +128,13 @@ public class IngestionCliVersionMatrixServiceFactory {
   @Nonnull
   private IngestionCliVersionMatrixSource objectStorageMatrixSource(
       @Nonnull final String uri, final int refreshSeconds) {
+    if (objectStorageClientFactory == null) {
+      log.warn(
+          "ingestion.cliVersionMatrix.uri is {} but this context has no ObjectStorageClientFactory; "
+              + "matrix lookups disabled.",
+          uri);
+      return new NoOpIngestionCliVersionMatrixSource();
+    }
     try {
       final ObjectStorageLocation.Document document = ObjectStorageLocation.parseDocument(uri);
       final ObjectStorageClient client = objectStorageClientFactory.clientFor(document.root());
