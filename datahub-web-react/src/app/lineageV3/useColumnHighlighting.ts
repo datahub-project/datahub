@@ -11,6 +11,7 @@ import {
     HighlightedColumns,
     LineageNodesContext,
     NodeContext,
+    createColumnRef,
     createLineageFilterNodeId,
     isTransformational,
     isUrnQuery,
@@ -28,6 +29,7 @@ export default function useColumnHighlighting(
     hoveredColumn: ColumnRef | null,
     fineGrainedLineage: FineGrainedLineage,
     shownUrns: string[],
+    nodeIdsByUrn: Map<string, string[]>,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
@@ -62,6 +64,7 @@ export default function useColumnHighlighting(
                 nodes,
                 adjacencyList,
                 displayedNodeIds,
+                nodeIdsByUrn,
                 validQueryIds,
                 rootUrn,
                 rootType,
@@ -70,7 +73,17 @@ export default function useColumnHighlighting(
             theme.colors.borderHover,
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
+    }, [
+        columnEdgeVersion,
+        selectedColumn,
+        hoveredColumn,
+        nodes,
+        edges,
+        fineGrainedLineage,
+        shownUrns,
+        nodeIdsByUrn,
+        entityRegistry,
+    ]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered? For now, just use timeout
@@ -99,6 +112,8 @@ interface ArgumentBundle {
     nodes: NodeContext['nodes'];
     adjacencyList: NodeContext['adjacencyList'];
     displayedNodeIds: Set<string>;
+    /** Flow node ids for each urn, as one urn can be rendered by multiple nodes. */
+    nodeIdsByUrn: Map<string, string[]>;
     validQueryIds: Set<string>;
     rootUrn: string;
     rootType: EntityType;
@@ -117,9 +132,18 @@ function processColumnHighlights(
     return computeSingleColumnHighlights(hoveredColumn, argumentBundle, hoverColor);
 }
 
-function computeSingleColumnHighlights(
+export function computeSingleColumnHighlights(
     column: ColumnRef | null,
-    { fineGrainedLineage, nodes, adjacencyList, displayedNodeIds, validQueryIds, rootUrn, rootType }: ArgumentBundle,
+    {
+        fineGrainedLineage,
+        nodes,
+        adjacencyList,
+        displayedNodeIds,
+        nodeIdsByUrn,
+        validQueryIds,
+        rootUrn,
+        rootType,
+    }: ArgumentBundle,
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
@@ -129,6 +153,7 @@ function computeSingleColumnHighlights(
     const cllHighlightedNodes = new Map<string, Set<FineGrainedOperationRef> | null>();
     const highlightedColumns = new Map<string, Set<string>>();
     const columnEdges = new Map<string, Edge>();
+    const nodeIdsFor = (urn: string) => nodeIdsByUrn.get(urn) ?? [urn];
 
     if (column === null) {
         return { cllHighlightedNodes, highlightedColumns, columnEdges };
@@ -167,17 +192,24 @@ function computeSingleColumnHighlights(
                     return;
                 }
             }
-            const id = `${fromRef}-${toRef}`;
-            columnEdges.set(id, {
-                id,
-                source: fromUrn,
-                target: toUrn,
-                sourceHandle: fromField ? fromRef : undefined,
-                targetHandle: toField ? toRef : undefined,
-                type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
-                markerEnd: LINEAGE_ARROW_MARKER,
-                style: { stroke, strokeWidth: 1.25 },
-                data: { isColumnEdge: true }, // Used to hide column edges
+            // Handle ids stay urn-based (see Column.tsx), but node ids may not be: an entity in a
+            // data product renders as `<dataProductUrn>␟<urn>`, once per data product it belongs
+            // to, so a single column->column edge can map to several rendered edges.
+            nodeIdsFor(fromUrn).forEach((source) => {
+                nodeIdsFor(toUrn).forEach((target) => {
+                    const id = `${createColumnRef(source, fromField)}-${createColumnRef(target, toField)}`;
+                    columnEdges.set(id, {
+                        id,
+                        source,
+                        target,
+                        sourceHandle: fromField ? fromRef : undefined,
+                        targetHandle: toField ? toRef : undefined,
+                        type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
+                        markerEnd: LINEAGE_ARROW_MARKER,
+                        style: { stroke, strokeWidth: 1.25 },
+                        data: { isColumnEdge: true }, // Used to hide column edges
+                    });
+                });
             });
         }
 

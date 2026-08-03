@@ -33,8 +33,6 @@ public class DataHubConfiguration {
 
   private PoliciesConfiguration policies;
 
-  private S3Configuration s3;
-
   private ObjectStorageConfiguration objectStorage;
 
   /** Neutral API usage aggregation (OSS). */
