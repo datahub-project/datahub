@@ -75,6 +75,9 @@ public class AddTagsResolverTest {
             Urn.createFromString(TEST_ENTITY_URN), GLOBAL_TAGS_ASPECT_NAME, newTags);
 
     verifyIngestProposal(mockService, 1, proposal);
+
+    // Tag and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test
@@ -127,6 +130,9 @@ public class AddTagsResolverTest {
             Urn.createFromString(TEST_ENTITY_URN), GLOBAL_TAGS_ASPECT_NAME, newTags);
 
     verifyIngestProposal(mockService, 1, proposal);
+
+    // Tag and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test

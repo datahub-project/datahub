@@ -242,12 +242,20 @@ public class TestUtils {
 
   /**
    * Asserts that existence was resolved in {@code expectedBatchCalls} batched calls and never one
-   * urn at a time.
+   * urn at a time. Use this where the number of groups is the point of the test; prefer {@link
+   * #verifyExistenceResolvedInBatches(EntityService)} elsewhere, so tests do not pin down a call
+   * count they are not actually asserting anything about.
    */
   public static void verifyExistenceResolvedInBatches(
       EntityService<?> mockService, int expectedBatchCalls) {
     Mockito.verify(mockService, Mockito.times(expectedBatchCalls))
         .exists(any(), anyCollection(), eq(true));
+    verifyExistenceResolvedInBatches(mockService);
+  }
+
+  /** Asserts that existence was resolved via the batched call and never one urn at a time. */
+  public static void verifyExistenceResolvedInBatches(EntityService<?> mockService) {
+    Mockito.verify(mockService, Mockito.atLeastOnce()).exists(any(), anyCollection(), eq(true));
     Mockito.verify(mockService, Mockito.never())
         .exists(any(), any(Urn.class), Mockito.anyBoolean());
   }

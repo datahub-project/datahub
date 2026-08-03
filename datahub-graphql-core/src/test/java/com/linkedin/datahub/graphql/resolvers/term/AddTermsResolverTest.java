@@ -63,6 +63,9 @@ public class AddTermsResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
+
+    // Term and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test
@@ -106,6 +109,9 @@ public class AddTermsResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
+
+    // Term and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test
