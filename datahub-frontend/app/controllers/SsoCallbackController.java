@@ -50,6 +50,10 @@ public class SsoCallbackController extends CallbackController {
   private final String normalizedBasePath;
   private final boolean authVerboseLogging;
   private final String accessDeniedMessage;
+  private final String accessDeniedRedirectUrl;
+
+  private static final String DEFAULT_REQUIRED_GROUPS_DENIED_MESSAGE =
+      "Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.";
 
   @Inject
   public SsoCallbackController(
@@ -65,6 +69,10 @@ public class SsoCallbackController extends CallbackController {
     this.accessDeniedMessage =
         configs.hasPath("auth.oidc.accessDeniedMessage")
             ? configs.getString("auth.oidc.accessDeniedMessage")
+            : null;
+    this.accessDeniedRedirectUrl =
+        configs.hasPath("auth.oidc.accessDeniedRedirectUrl")
+            ? configs.getString("auth.oidc.accessDeniedRedirectUrl")
             : null;
 
     // Set default URL with proper base path - redirects to Home Page on log in
@@ -104,6 +112,49 @@ public class SsoCallbackController extends CallbackController {
     return accessDeniedMessage;
   }
 
+  /**
+   * Resolve the external redirect URL for access denials. Prefers the active OIDC provider config,
+   * falling back to the static {@code auth.oidc.accessDeniedRedirectUrl} env config.
+   */
+  private Optional<String> resolveAccessDeniedRedirectUrl() {
+    final SsoProvider<?> provider = ssoManager.getSsoProvider();
+    if (provider instanceof OidcProvider) {
+      final Optional<String> dynamicUrl =
+          ((OidcProvider) provider).configs().getAccessDeniedRedirectUrl();
+      if (dynamicUrl.isPresent() && !dynamicUrl.get().isEmpty()) {
+        return dynamicUrl;
+      }
+    }
+    if (accessDeniedRedirectUrl != null && !accessDeniedRedirectUrl.isEmpty()) {
+      return Optional.of(accessDeniedRedirectUrl);
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Build the HTTP result for a required-groups denial. When an access-denied redirect URL is
+   * configured it takes precedence over the login-page error message.
+   */
+  static Result requiredGroupsDenialResult(
+      final Optional<String> accessDeniedRedirectUrl,
+      final String accessDeniedMessage,
+      final String loginUrl) {
+    if (accessDeniedRedirectUrl.isPresent() && !accessDeniedRedirectUrl.get().isEmpty()) {
+      return Results.redirect(accessDeniedRedirectUrl.get())
+          .discardingCookie("actor")
+          .withNewSession();
+    }
+    final String message =
+        (accessDeniedMessage != null && !accessDeniedMessage.isEmpty())
+            ? accessDeniedMessage
+            : DEFAULT_REQUIRED_GROUPS_DENIED_MESSAGE;
+    return Results.redirect(
+            String.format(
+                "%s?error_msg=%s", loginUrl, URLEncoder.encode(message, StandardCharsets.UTF_8)))
+        .discardingCookie("actor")
+        .withNewSession();
+  }
+
   @Override
   public CompletionStage<Result> callback(Http.Request request) {
     FrameworkAdapter.INSTANCE.applyDefaultSettingsIfUndefined(this.config);
@@ -133,22 +184,18 @@ public class SsoCallbackController extends CallbackController {
                   String basePath =
                       BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
                   String loginUrl = BasePathUtils.addBasePath("/login", basePath);
-                  String message;
                   if (e.getCause() instanceof RequiredGroupsException) {
                     log.warn("User missing required groups.");
-                    final String resolvedMessage = resolveAccessDeniedMessage();
-                    message =
-                        (resolvedMessage != null && !resolvedMessage.isEmpty())
-                            ? resolvedMessage
-                            : "Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.";
-                  } else {
-                    message =
-                        "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.";
+                    return requiredGroupsDenialResult(
+                        resolveAccessDeniedRedirectUrl(), resolveAccessDeniedMessage(), loginUrl);
                   }
                   return Results.redirect(
                           String.format(
                               "%s?error_msg=%s",
-                              loginUrl, URLEncoder.encode(message, StandardCharsets.UTF_8)))
+                              loginUrl,
+                              URLEncoder.encode(
+                                  "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
+                                  StandardCharsets.UTF_8)))
                       .discardingCookie("actor")
                       .withNewSession();
                 }
