@@ -444,9 +444,7 @@ class AbstractLineage(ABC):
             context=context,
         )
 
-    def _resolve_external_query_upstreams(
-        self, query: str
-    ) -> _ExternalQueryResolution:
+    def _resolve_external_query_upstreams(self, query: str) -> _ExternalQueryResolution:
         """Resolve upstreams for BigQuery EXTERNAL_QUERY federations in a native query.
 
         Each EXTERNAL_QUERY exposes a connection id and the SQL run on the external engine.
