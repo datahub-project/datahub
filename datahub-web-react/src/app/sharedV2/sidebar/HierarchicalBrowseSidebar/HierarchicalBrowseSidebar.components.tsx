@@ -68,24 +68,35 @@ export const CollapsedScrollColumn = styled.div`
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 2px;
+    padding: 8px;
     ${scrollbar}
+`;
+
+export const SidebarShell = styled.div`
+    position: relative;
+    flex-shrink: 0;
+    align-self: stretch;
+    height: 100%;
+    max-height: 100%;
 `;
 
 export const SidebarContainer = styled.div<{
     $isCollapsed: boolean;
     $width: number;
     $isShowNavBarRedesign?: boolean;
+    $isResizing?: boolean;
 }>`
+    position: relative;
     flex-shrink: 0;
     height: 100%;
     max-height: 100%;
     align-self: stretch;
     width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
     min-width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
-    transition:
-        width ${SIDEBAR_TRANSITION_MS}ms ease-in-out,
-        min-width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
+    transition: ${(props) =>
+        props.$isResizing
+            ? 'none'
+            : `width ${SIDEBAR_TRANSITION_MS}ms ease-in-out, min-width ${SIDEBAR_TRANSITION_MS}ms ease-in-out`};
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -163,7 +174,8 @@ export const TreeContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 2px 8px 8px;
+    /* Equal L/R inset — asymmetric 8/2 looked lopsided inside the white shell. */
+    padding: 8px;
     ${scrollbar}
 `;
 
@@ -179,7 +191,7 @@ export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
     ${treeRowHitTarget}
     display: flex;
     align-items: center;
-    padding: 4px 2px 4px 8px;
+    padding: 4px 8px;
     text-decoration: none;
     cursor: pointer;
     ${treeRowInteractionBg}

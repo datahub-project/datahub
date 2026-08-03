@@ -15,7 +15,7 @@ const SectionHeaderRow = styled.div<{ $level: number }>`
     align-items: center;
     gap: 4px;
     width: 100%;
-    padding: 6px 2px 6px ${(props) => getTreeRowPaddingLeft(props.$level)}px;
+    padding: 6px 8px 6px ${(props) => getTreeRowPaddingLeft(props.$level)}px;
     min-height: 32px;
     color: ${(props) => props.theme.colors.textTertiary};
     font-family: Mulish;

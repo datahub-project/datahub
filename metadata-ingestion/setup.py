@@ -75,7 +75,9 @@ framework_common = {
     # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
-    "ijson<4.0.0",
+    # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
+    # schema inferrer relies on to keep numbers as native int/float.
+    "ijson>=3.2.0,<4.0.0",
     "click-spinner<0.2.0",
     "requests_file<4.0.0",
     "jsonref<2.0.0",
