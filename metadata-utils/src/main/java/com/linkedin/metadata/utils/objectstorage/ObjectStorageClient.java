@@ -7,6 +7,15 @@ public interface ObjectStorageClient {
 
   void putObject(@Nonnull String objectKey, @Nonnull byte[] bytes);
 
+  default boolean supportsPresignedUrls() {
+    return false;
+  }
+
+  @Nullable
+  default String storageBucket() {
+    return null;
+  }
+
   @Nonnull
   default String presignedDownloadUrl(@Nonnull ObjectStorageReference ref, int expirationSeconds) {
     throw unsupported("presignedDownloadUrl");

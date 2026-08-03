@@ -19,8 +19,9 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.config.S3Configuration;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import org.mockito.ArgumentCaptor;
@@ -41,11 +42,11 @@ public class GetPresignedUploadUrlResolverTest {
   private static final String TEST_ASSET_PATH_PREFIX =
       "product_assets"; // Default from application.yaml
 
-  @Mock private S3Util mockS3Util;
+  @Mock private ObjectStorageClient mockObjectStorageClient;
   @Mock private QueryContext mockQueryContext;
   @Mock private DataFetchingEnvironment mockEnv;
   @Mock private Authorizer mockAuthorizer;
-  @Mock private S3Configuration mockS3Configuration;
+  @Mock private ObjectStorageConfiguration mockObjectStorageConfiguration;
   @Mock private EntityClient mockEntityClient;
 
   private AutoCloseable mocks;
@@ -98,6 +99,13 @@ public class GetPresignedUploadUrlResolverTest {
                 com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
                     .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
         .thenReturn(false); // Default to false so LinkUtils authorization takes effect
+
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.supportsPresignedUrls()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_BUCKET_NAME);
+    when(mockObjectStorageConfiguration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockObjectStorageConfiguration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
   }
 
   @AfterMethod
@@ -142,21 +150,15 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -164,7 +166,7 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -189,31 +191,25 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     future.get(); // Execute the resolver to capture the argument
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
     assertTrue(capturedS3Key.contains(testFileName));
   }
 
   @Test
-  public void testGetPresignedUploadUrlWithNullS3Util() throws Exception {
+  public void testGetPresignedUploadUrlWithNullObjectStorageClient() throws Exception {
     GetPresignedUploadUrlInput input =
         createInput(
             UploadDownloadScenario.ASSET_DOCUMENTATION,
@@ -225,15 +221,12 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(null, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(null, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
-        "S3Util isn't provided", IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
+        "Object storage is not configured",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
   }
 
   @Test
@@ -248,32 +241,22 @@ public class GetPresignedUploadUrlResolverTest {
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    when(mockObjectStorageClient.presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
 
-    verify(mockS3Util)
-        .generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE));
+    verify(mockObjectStorageClient)
+        .presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE));
   }
 
   @Test
@@ -289,13 +272,10 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(null); // Simulate null bucket name
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
+    when(mockObjectStorageClient.storageBucket()).thenReturn(null);
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Bucket name isn't provided",
         IllegalArgumentException.class,
@@ -315,13 +295,10 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(""); // Simulate empty bucket name
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
+    when(mockObjectStorageClient.storageBucket()).thenReturn("");
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Bucket name isn't provided",
         IllegalArgumentException.class,
@@ -337,13 +314,9 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "assetUrn is required for ASSET_DOCUMENTATION scenario",
         IllegalArgumentException.class,
@@ -371,13 +344,9 @@ public class GetPresignedUploadUrlResolverTest {
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(false);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit documentation for asset: " + TEST_ASSET_URN,
         AuthorizationException.class,
@@ -398,13 +367,9 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
   }
 
@@ -427,20 +392,13 @@ public class GetPresignedUploadUrlResolverTest {
 
     when(mockEnv.getArgument("input")).thenReturn(input1).thenReturn(input2);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    when(mockObjectStorageClient.presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
 
     CompletableFuture<GetPresignedUploadUrlResponse> future1 = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result1 = future1.get();
@@ -475,33 +433,23 @@ public class GetPresignedUploadUrlResolverTest {
 
       when(mockEnv.getArgument("input")).thenReturn(input);
       when(mockEnv.getContext()).thenReturn(mockQueryContext);
-      when(mockS3Util.generatePresignedUploadUrl(
-              eq(TEST_BUCKET_NAME),
-              any(String.class),
-              eq(TEST_EXPIRATION_SECONDS),
-              eq(contentType)))
+      when(mockObjectStorageClient.presignedUploadUrl(
+              any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(contentType)))
           .thenReturn(MOCKED_PRESIGNED_URL);
 
-      when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-      when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-          .thenReturn(TEST_EXPIRATION_SECONDS);
-      when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
       GetPresignedUploadUrlResolver resolver =
-          new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+          new GetPresignedUploadUrlResolver(
+              mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
       CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
       GetPresignedUploadUrlResponse result = future.get();
 
       assertNotNull(result, "Result should not be null for content type: " + contentType);
       assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
 
-      // Verify that the correct content type was passed to S3Util
-      verify(mockS3Util)
-          .generatePresignedUploadUrl(
-              eq(TEST_BUCKET_NAME),
-              any(String.class),
-              eq(TEST_EXPIRATION_SECONDS),
-              eq(contentType));
+      // Verify that the correct content type was passed to ObjectStorageClient
+      verify(mockObjectStorageClient)
+          .presignedUploadUrl(
+              any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(contentType));
     }
   }
 
@@ -517,37 +465,27 @@ public class GetPresignedUploadUrlResolverTest {
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq((String) null)))
+    when(mockObjectStorageClient.presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq((String) null)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
 
-    // Verify that null content type was passed to S3Util
-    verify(mockS3Util)
-        .generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq((String) null));
+    // Verify that null content type was passed to ObjectStorageClient
+    verify(mockObjectStorageClient)
+        .presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq((String) null));
   }
 
   @Test
-  public void testGetPresignedUploadUrlWithS3UtilException() throws Exception {
+  public void testGetPresignedUploadUrlWithObjectStorageClientException() throws Exception {
     GetPresignedUploadUrlInput input =
         createInput(
             UploadDownloadScenario.ASSET_DOCUMENTATION,
@@ -558,20 +496,13 @@ public class GetPresignedUploadUrlResolverTest {
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            any(String.class),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    when(mockObjectStorageClient.presignedUploadUrl(
+            any(ObjectStorageReference.class), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenThrow(new RuntimeException("S3 service unavailable"));
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
 
     // The RuntimeException gets wrapped in ExecutionException when called via
     // CompletableFuture.get()
@@ -594,21 +525,15 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -622,7 +547,7 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -657,13 +582,9 @@ public class GetPresignedUploadUrlResolverTest {
                     any(QueryContext.class), any(Urn.class)))
         .thenReturn(false);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit documentation for schema field: " + schemaFieldUrn,
         AuthorizationException.class,
@@ -684,21 +605,15 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -712,7 +627,7 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -740,18 +655,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     // Mock only the field description authorization method to be called when schemaFieldUrn is
     // present
@@ -769,7 +677,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(true);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -785,7 +694,7 @@ public class GetPresignedUploadUrlResolverTest {
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -810,18 +719,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
@@ -839,7 +741,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -854,7 +757,7 @@ public class GetPresignedUploadUrlResolverTest {
             com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
                 any(QueryContext.class), any(Urn.class)));
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -882,18 +785,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
@@ -911,7 +807,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -926,7 +823,7 @@ public class GetPresignedUploadUrlResolverTest {
             com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
                 any(QueryContext.class), any(Urn.class)));
 
-    String capturedS3Key = s3KeyCaptor.getValue();
+    String capturedS3Key = refCaptor.getValue().key();
     assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
@@ -951,13 +848,9 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "assetUrn is required for ASSET_DOCUMENTATION scenario",
         IllegalArgumentException.class,
@@ -979,11 +872,6 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     // Reset mocks to return false for link/glossary authorization (this should cause the failure)
     linkUtilsMockedStatic.reset();
     linkUtilsMockedStatic
@@ -1001,7 +889,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit links for asset: " + TEST_ASSET_URN,
         AuthorizationException.class,
@@ -1022,13 +911,9 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
-
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "assetUrn is required for ASSET_DOCUMENTATION scenario",
         IllegalArgumentException.class,
@@ -1050,18 +935,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     // Temporarily reset the mocks to return false for unauthorized test
     linkUtilsMockedStatic.reset();
@@ -1080,7 +958,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit links for asset: " + TEST_ASSET_URN,
         AuthorizationException.class,
@@ -1102,18 +981,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     // Temporarily reset the mocks to return true for LinkUtils
     linkUtilsMockedStatic.reset();
@@ -1132,7 +1004,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false); // Doesn't matter since LinkUtils returns true
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -1157,18 +1030,11 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
 
-    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
-    when(mockS3Util.generatePresignedUploadUrl(
-            eq(TEST_BUCKET_NAME),
-            s3KeyCaptor.capture(),
-            eq(TEST_EXPIRATION_SECONDS),
-            eq(TEST_CONTENT_TYPE)))
+    ArgumentCaptor<ObjectStorageReference> refCaptor =
+        ArgumentCaptor.forClass(ObjectStorageReference.class);
+    when(mockObjectStorageClient.presignedUploadUrl(
+            refCaptor.capture(), eq(TEST_EXPIRATION_SECONDS), eq(TEST_CONTENT_TYPE)))
         .thenReturn(MOCKED_PRESIGNED_URL);
-
-    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
-    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
-        .thenReturn(TEST_EXPIRATION_SECONDS);
-    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     // Temporarily reset the mocks to return false for LinkUtils and true for Glossary
     linkUtilsMockedStatic.reset();
@@ -1187,7 +1053,8 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(true);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+        new GetPresignedUploadUrlResolver(
+            mockObjectStorageClient, mockObjectStorageConfiguration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 

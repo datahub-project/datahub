@@ -4,8 +4,8 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,9 +30,9 @@ public class DeleteEntityServiceFactory {
   private EntitySearchService _entitySearchService;
 
   @Autowired(required = false)
-  @Qualifier("s3Util")
+  @Qualifier("objectStorageClient")
   @Nullable
-  private S3Util _s3Util;
+  private ObjectStorageClient _objectStorageClient;
 
   @Autowired(required = false)
   @Nullable
@@ -42,6 +42,6 @@ public class DeleteEntityServiceFactory {
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
     return new DeleteEntityService(
-        _entityService, _graphService, _entitySearchService, _s3Util, _metricUtils);
+        _entityService, _graphService, _entitySearchService, _objectStorageClient, _metricUtils);
   }
 }
