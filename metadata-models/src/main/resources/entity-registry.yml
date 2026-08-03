@@ -57,6 +57,7 @@ entities:
       - logicalParent
       - assetSettings
       - documentation
+      - aliases
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -332,6 +333,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -348,6 +350,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey

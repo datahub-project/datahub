@@ -22,6 +22,12 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <!-- PostgreSQL Testcontainers IT; runs in testng-postgresql.xml, not the default suite -->
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.search.embedding.LocalEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>

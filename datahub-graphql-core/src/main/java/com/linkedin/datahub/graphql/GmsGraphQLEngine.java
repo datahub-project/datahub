@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -154,6 +155,7 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
@@ -410,6 +412,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -947,6 +951,9 @@ public class GmsGraphQLEngine {
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
         .addDataLoader(
+            DomainEntityCountsBatchLoader.LOADER_NAME,
+            context -> DomainEntityCountsBatchLoader.create(entityClient, context))
+        .addDataLoader(
             WeaklyTypedAspectsResolver.LOADER_NAME,
             context ->
                 WeaklyTypedAspectsResolver.createDataLoader(entityClient, entityRegistry, context))
@@ -954,6 +961,9 @@ public class GmsGraphQLEngine {
             TimeseriesAspectBatchLoader.LOADER_NAME,
             context ->
                 TimeseriesAspectBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            GlossaryNodeChildrenCountBatchLoader.LOADER_NAME,
+            context -> GlossaryNodeChildrenCountBatchLoader.createDataLoader(entityClient, context))
         .addDataLoader(
             DashboardStatsSummaryBatchLoader.LOADER_NAME,
             context ->
@@ -1246,24 +1256,38 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           final QueryContext context = env.getContext();
-          List<String> urns = env.getArgument(URNS_FIELD_NAME);
-          Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
-          return urns.stream()
-              .map(UrnUtils::getUrn)
-              .filter(
-                  urn ->
-                      ResolverUtils.filterEntitiesForExistence(
-                          context.getOperationContext(), urn, entityClient, checkForExistence))
-              .map(
-                  urn -> {
-                    try {
-                      return UrnToEntityMapper.map(context, urn);
-                    } catch (Exception e) {
-                      throw new RuntimeException("Failed to get entity", e);
-                    }
-                  })
-              .collect(Collectors.toList());
+          final List<String> urns = env.getArgument(URNS_FIELD_NAME);
+          final Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
+          return resolveRequestedEntities(
+              context, urns, checkForExistence, entityClient, restrictedService);
         });
+  }
+
+  /**
+   * Builds the placeholder entities for the bulk {@code entities(urns:)} field. Extracted from the
+   * resolver lambda so the per-urn mapping is a named, unit-testable unit.
+   */
+  private static List<Entity> resolveRequestedEntities(
+      final QueryContext context,
+      @Nonnull final List<String> urns,
+      @Nullable final Boolean checkForExistence,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final RestrictedService restrictedService) {
+    return urns.stream()
+        .map(UrnUtils::getUrn)
+        .filter(
+            urn ->
+                ResolverUtils.filterEntitiesForExistence(
+                    context.getOperationContext(), urn, entityClient, checkForExistence))
+        .map(
+            urn -> {
+              try {
+                return UrnToEntityMapper.map(context, urn);
+              } catch (Exception e) {
+                throw new RuntimeException("Failed to get entity", e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
   private DataFetcher getEntityResolver() {
@@ -2181,7 +2205,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver(entityClient))
+                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver())
                 .dataFetcher(
                     "glossaryChildrenSearch",
                     new GlossaryChildrenSearchResolver(this.entityClient, this.viewService))

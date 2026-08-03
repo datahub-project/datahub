@@ -136,7 +136,9 @@ public class UsageRecordingFilterTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher enricher = new UsageMetricsSessionEnricher(trackingStore, true);
     OperationContext sessionContext = graphqlSession();
