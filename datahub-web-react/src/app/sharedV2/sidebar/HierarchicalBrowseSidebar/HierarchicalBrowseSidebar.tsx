@@ -10,11 +10,13 @@ import {
     HeaderButtons,
     HeaderControls,
     HomeNavSlot,
+    SearchControl,
     SearchIconButton,
     SearchSlot,
     SidebarContainer,
     SidebarShell,
     SidebarTitle,
+    SortSlot,
     ThinDivider,
     TreeContainer,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
@@ -53,6 +55,11 @@ type Props = {
      * for autocomplete results.
      */
     search?: React.ReactNode;
+    /**
+     * Optional sort control beside search (e.g. `SidebarSortSelect`).
+     * Omit / `null` / `false` — no sort chrome (Domains / Glossary until they opt in).
+     */
+    sort?: React.ReactNode;
     /**
      * Filter controls. When provided, the shell wraps them in FiltersRow and
      * places home *below* the post-filter divider:
@@ -112,6 +119,7 @@ export default function HierarchicalBrowseSidebar({
     onExpandSidebar,
     headerActions,
     search,
+    sort,
     filters,
     homeNav,
     children,
@@ -184,12 +192,14 @@ export default function HierarchicalBrowseSidebar({
 
     const isRenderProp = typeof children === 'function';
     const showFilters = filters != null && filters !== false;
+    const showSort = sort != null && sort !== false;
+    const showSearchRow = search != null || showSort;
     const placeHomeAboveDivider = shouldPlaceHomeAboveDivider({
         showFilters,
         hasHomeNav: homeNav != null,
     });
     const homeAboveDivider = placeHomeAboveDivider ? <HomeNavSlot>{homeNav}</HomeNavSlot> : null;
-    const showDividerBeforeTree = search != null || showFilters || homeAboveDivider != null;
+    const showDividerBeforeTree = showSearchRow || showFilters || homeAboveDivider != null;
 
     const collapsedMode = resolveCollapsedBodyMode(collapsedIcons != null);
 
@@ -230,7 +240,12 @@ export default function HierarchicalBrowseSidebar({
 
     const renderExpandedBody = (tree: React.ReactNode) => (
         <Content>
-            {search != null ? <SearchSlot>{search}</SearchSlot> : null}
+            {showSearchRow ? (
+                <SearchSlot>
+                    {search != null ? <SearchControl>{search}</SearchControl> : null}
+                    {showSort ? <SortSlot>{sort}</SortSlot> : null}
+                </SearchSlot>
+            ) : null}
             {showFilters && <FiltersRow>{filters}</FiltersRow>}
             {homeAboveDivider}
             {showDividerBeforeTree && <ThinDivider />}

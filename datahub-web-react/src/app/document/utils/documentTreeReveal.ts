@@ -1,5 +1,7 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 
+import { DataPlatform } from '@types';
+
 /**
  * Minimal parent-document shape from `getDocument` / search (`parentDocuments.documents`).
  * API order is direct-parent first; callers reverse to walk root → leaf.
@@ -9,11 +11,25 @@ export interface DocumentParentRef {
     title?: string | null;
 }
 
+/** Source / sort fields needed so reveal stubs land in the right sidebar section. */
+export type RevealDocumentNodeMeta = {
+    platform?: DataPlatform | null;
+    isExternal?: boolean;
+    isUnpublished?: boolean;
+    lastModifiedAt?: number;
+};
+
 export interface RevealDocumentInTreeArgs {
     documentUrn: string;
     documentTitle?: string | null;
     /** Parent chain in API order: [direct parent, grandparent, ...]. */
     parentDocuments: DocumentParentRef[];
+    /**
+     * Platform / external / timestamps from getDocument. Applied to reveal stubs so
+     * e.g. a Notion root isn't classified as native DataHub (and prepended to that
+     * section) when it wasn't already on the loaded root page.
+     */
+    documentMeta?: RevealDocumentNodeMeta;
     getNode: (urn: string) => DocumentTreeNode | undefined;
     expandNode: (urn: string) => void;
     /** Synchronously commit the node into tree state before subsequent loads. */
@@ -25,6 +41,35 @@ export interface RevealDocumentInTreeArgs {
 
 function untitledTitle(title?: string | null): string {
     return title?.trim() ? title : 'Untitled';
+}
+
+function stubNode({
+    urn,
+    title,
+    parentUrn,
+    hasChildren,
+    documentMeta,
+    includeTimestamps,
+}: {
+    urn: string;
+    title?: string | null;
+    parentUrn: string | null;
+    hasChildren: boolean;
+    documentMeta?: RevealDocumentNodeMeta;
+    includeTimestamps?: boolean;
+}): DocumentTreeNode {
+    return {
+        urn,
+        title: untitledTitle(title),
+        parentUrn,
+        hasChildren,
+        // Same source tree as the open document — keeps external roots in Notion/GitHub/…
+        // instead of the DataHub section when they weren't on the first root page.
+        platform: documentMeta?.platform ?? null,
+        isExternal: documentMeta?.isExternal,
+        isUnpublished: includeTimestamps ? documentMeta?.isUnpublished : undefined,
+        lastModifiedAt: includeTimestamps ? documentMeta?.lastModifiedAt : undefined,
+    };
 }
 
 /**
@@ -39,6 +84,7 @@ export async function revealDocumentInTree({
     documentUrn,
     documentTitle,
     parentDocuments,
+    documentMeta,
     getNode,
     expandNode,
     ensureNode,
@@ -49,12 +95,16 @@ export async function revealDocumentInTree({
     const ancestors = [...parentDocuments].reverse();
 
     if (ancestors.length === 0) {
-        ensureNode({
-            urn: documentUrn,
-            title: untitledTitle(documentTitle),
-            parentUrn: null,
-            hasChildren: getNode(documentUrn)?.hasChildren ?? false,
-        });
+        ensureNode(
+            stubNode({
+                urn: documentUrn,
+                title: documentTitle,
+                parentUrn: null,
+                hasChildren: getNode(documentUrn)?.hasChildren ?? false,
+                documentMeta,
+                includeTimestamps: true,
+            }),
+        );
         return;
     }
 
@@ -63,12 +113,15 @@ export async function revealDocumentInTree({
         const parentUrn = i === 0 ? null : ancestors[i - 1].urn;
         const nextUrn = i < ancestors.length - 1 ? ancestors[i + 1].urn : documentUrn;
 
-        ensureNode({
-            urn: ancestor.urn,
-            title: untitledTitle(ancestor.title),
-            parentUrn,
-            hasChildren: true,
-        });
+        ensureNode(
+            stubNode({
+                urn: ancestor.urn,
+                title: ancestor.title,
+                parentUrn,
+                hasChildren: true,
+                documentMeta,
+            }),
+        );
 
         expandNode(ancestor.urn);
 
@@ -82,20 +135,27 @@ export async function revealDocumentInTree({
         }
 
         if (!getNode(nextUrn) && nextUrn !== documentUrn) {
-            ensureNode({
-                urn: nextUrn,
-                title: untitledTitle(ancestors[i + 1]?.title),
-                parentUrn: ancestor.urn,
-                hasChildren: true,
-            });
+            ensureNode(
+                stubNode({
+                    urn: nextUrn,
+                    title: ancestors[i + 1]?.title,
+                    parentUrn: ancestor.urn,
+                    hasChildren: true,
+                    documentMeta,
+                }),
+            );
         }
     }
 
     const directParentUrn = ancestors[ancestors.length - 1].urn;
-    ensureNode({
-        urn: documentUrn,
-        title: untitledTitle(documentTitle),
-        parentUrn: directParentUrn,
-        hasChildren: getNode(documentUrn)?.hasChildren ?? false,
-    });
+    ensureNode(
+        stubNode({
+            urn: documentUrn,
+            title: documentTitle,
+            parentUrn: directParentUrn,
+            hasChildren: getNode(documentUrn)?.hasChildren ?? false,
+            documentMeta,
+            includeTimestamps: true,
+        }),
+    );
 }

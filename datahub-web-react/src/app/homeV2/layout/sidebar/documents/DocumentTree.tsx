@@ -8,12 +8,14 @@ import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
 import { useRevealDocumentInTree } from '@app/document/hooks/useRevealDocumentInTree';
 import { useSectionExpansion } from '@app/document/hooks/useSectionExpansion';
+import { DEFAULT_DOCUMENT_SIDEBAR_SORT } from '@app/document/utils/documentSidebarSort';
 import {
     DocumentTreeFilterSelection,
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
 import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
+import { sortDocumentTreeNodes } from '@app/document/utils/sortDocumentTreeNodes';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import Loading from '@app/shared/Loading';
@@ -50,6 +52,10 @@ interface DocumentTreeProps {
      */
     filterSelection?: DocumentTreeFilterSelection;
     /**
+     * Sidebar sort selection. Name and lastModified reorder loaded nodes client-side.
+     */
+    sortSelection?: string;
+    /**
      * Enables multi-select mode: each row renders a leading checkbox driven by
      * `checkedUrns`, and clicking a row fires `onSelectDocument` for the parent
      * to toggle the URN in its own set. Per-row actions (menu, create-child) are
@@ -67,6 +73,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     hideActionsMenu = false,
     hideCreate = false,
     filterSelection = NO_FILTER_SELECTION,
+    sortSelection = DEFAULT_DOCUMENT_SIDEBAR_SORT,
     multiSelect = false,
     checkedUrns,
 }) => {
@@ -110,8 +117,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
 
     const rootNodes = getRootNodes();
     const visibleRootNodes = useMemo(
-        () => filterDocumentNodes(rootNodes, filterSelection),
-        [rootNodes, filterSelection],
+        () => sortDocumentTreeNodes(filterDocumentNodes(rootNodes, filterSelection), sortSelection),
+        [rootNodes, filterSelection, sortSelection],
     );
 
     // Partition visible roots into the native ("DataHub") layer and per-platform
@@ -179,9 +186,12 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // Otherwise, keep the single-selection navigation semantics.
             const isSelected = multiSelect ? !!checkedUrns?.has(urn) : currentUrn === urn;
 
-            // Filter loaded children at render time. Done here (rather than mutating tree state)
-            // so toggling filters never refetches or mutates the underlying tree.
-            const visibleChildren = filterDocumentNodes(node.children || [], filterSelection);
+            // Filter + sort loaded children at render time. Done here (rather than mutating
+            // tree state) so toggling filters/sort never refetches or mutates the tree.
+            const visibleChildren = sortDocumentTreeNodes(
+                filterDocumentNodes(node.children || [], filterSelection),
+                sortSelection,
+            );
 
             return (
                 <React.Fragment key={urn}>
@@ -237,6 +247,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             loadingChildrenUrns,
             handleLoadMoreChildren,
             filterSelection,
+            sortSelection,
             multiSelect,
             checkedUrns,
         ],

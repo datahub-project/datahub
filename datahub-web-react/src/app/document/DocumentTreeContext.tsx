@@ -44,6 +44,8 @@ export interface DocumentTreeNode {
     isExternal?: boolean; // info.source.sourceType === EXTERNAL — renders the platform logo instead of folder/file
     platform?: DataPlatform | null; // Source platform; consumed by DocumentSourceLogo when isExternal is true
     creator?: DocumentCreator | null; // Resolved actor on info.created.actor — drives the sidebar's Author multi-select
+    /** info.lastModified.time — used for Last modified tree sort */
+    lastModifiedAt?: number;
 }
 
 interface DocumentTreeContextType {

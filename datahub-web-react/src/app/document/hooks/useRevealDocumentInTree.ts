@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { revealDocumentInTree } from '@app/document/utils/documentTreeReveal';
+import { isDocumentUnpublished, isExternalDocument } from '@app/document/utils/documentUtils';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 
@@ -76,6 +77,14 @@ export function useRevealDocumentInTree({
                     documentUrn,
                     documentTitle: data.document?.info?.title,
                     parentDocuments: parents,
+                    // Preserve platform so clear-search / deep-link stubs don't dump
+                    // external roots into the DataHub section (and to the top of it).
+                    documentMeta: {
+                        platform: data.document?.platform ?? null,
+                        isExternal: isExternalDocument(data.document),
+                        isUnpublished: isDocumentUnpublished(data.document),
+                        lastModifiedAt: data.document?.info?.lastModified?.time ?? 0,
+                    },
                     getNode: (urn) => getNodeRef.current(urn),
                     expandNode: (urn) => expandNodeRef.current(urn),
                     ensureNode: (node) => {

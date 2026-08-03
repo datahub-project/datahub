@@ -36,6 +36,45 @@ describe('revealDocumentInTree', () => {
         expect(loadChildren).not.toHaveBeenCalled();
     });
 
+    it('copies platform onto root stubs so external docs stay in their source section', async () => {
+        const nodes = new Map<string, DocumentTreeNode>();
+        const ensureNode = vi.fn((node: DocumentTreeNode) => {
+            nodes.set(node.urn, node);
+        });
+        const notionPlatform = {
+            urn: 'urn:li:dataPlatform:notion',
+            type: 'DATA_PLATFORM',
+            name: 'notion',
+        } as any;
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:notion-root',
+            documentTitle: '2e8127c5-notion',
+            parentDocuments: [],
+            documentMeta: {
+                platform: notionPlatform,
+                isExternal: true,
+                lastModifiedAt: 1000,
+            },
+            getNode: (urn) => nodes.get(urn),
+            expandNode: vi.fn(),
+            ensureNode,
+            loadChildren: vi.fn().mockResolvedValue([]),
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
+            hasMoreChildren: () => false,
+        });
+
+        expect(ensureNode).toHaveBeenCalledWith(
+            expect.objectContaining({
+                urn: 'urn:li:document:notion-root',
+                parentUrn: null,
+                platform: notionPlatform,
+                isExternal: true,
+                lastModifiedAt: 1000,
+            }),
+        );
+    });
+
     it('expands ancestors root-first and loads children along the path', async () => {
         const nodes = new Map<string, DocumentTreeNode>();
         const expanded = new Set<string>();
