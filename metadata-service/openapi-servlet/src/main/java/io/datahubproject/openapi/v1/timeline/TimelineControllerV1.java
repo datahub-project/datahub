@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v1.timeline;
 
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -10,6 +12,7 @@ import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -99,9 +102,8 @@ public class TimelineControllerV1 {
       throw new UnauthorizedException(
           actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
     }
-    // Entity-level view authorization (independent of restApiAuthorization flag):
-    // a caller without view privileges on the target URN must not read its history.
-    if (!AuthUtil.canViewEntity(opContext, urn)) {
+    // Entity-level READ via the REST API authorization wrapper (independent of View Authorization).
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
     }
     return ResponseEntity.ok(

@@ -8,6 +8,7 @@ import com.linkedin.metadata.queue.PgQueuePayloadCodec;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
 import com.linkedin.metadata.queue.QueueTopicMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -51,7 +52,12 @@ public final class PgQueueUsageEventPublisher implements UsageEventPublisher {
 
   @Nonnull
   @Override
-  public Future<?> publish(@Nonnull String topic, @Nullable String key, @Nonnull String payload) {
+  public Future<?> publish(
+      @Nonnull OperationContext opContext,
+      @Nonnull String topic,
+      @Nullable String key,
+      @Nonnull String payload) {
+    // pgQueue currently has no header/context channel, so opContext cannot be propagated yet.
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(null);

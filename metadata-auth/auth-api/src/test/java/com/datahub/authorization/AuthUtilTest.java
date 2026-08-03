@@ -66,6 +66,7 @@ public class AuthUtilTest {
   private static final Urn TEST_ENTITY_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,3,PROD)");
   private static final Urn TEST_GLOBAL_SETTINGS_URN = UrnUtils.getUrn("urn:li:globalSettings:0");
+  private static final Urn TEST_DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:new-document");
 
   @Test
   public void testSimplePrivilegeGroupBuilder() {
@@ -342,6 +343,46 @@ public class AuthUtilTest {
   }
 
   @Test
+  public void testDocumentCreateAllowsEntityCreateEditOrManageDocuments() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "documentCreateOnly"), "");
+    Authentication editOnly = new Authentication(new Actor(ActorType.USER, "documentEditOnly"), "");
+    Authentication manageDocuments =
+        new Authentication(new Actor(ActorType.USER, "documentManager"), "");
+    Authentication viewOnly = new Authentication(new Actor(ActorType.USER, "documentViewOnly"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(),
+                    Map.of("CREATE_ENTITY", Set.of(TEST_DOCUMENT_URN)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_DOCUMENT_URN)),
+                manageDocuments.getActor().toUrnStr(),
+                    Map.of(
+                        PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType(),
+                        Set.of(TEST_DOCUMENT_URN)),
+                viewOnly.getActor().toUrnStr(),
+                    Map.of("VIEW_ENTITY_PAGE", Set.of(TEST_DOCUMENT_URN))));
+    Pair<ChangeType, Urn> create = Pair.of(ChangeType.CREATE_ENTITY, TEST_DOCUMENT_URN);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(create)),
+        Map.of(create, 200));
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(create)),
+        Map.of(create, 200));
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(manageDocuments, mockAuthorizer), ENTITY, List.of(create)),
+        Map.of(create, 200));
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(viewOnly, mockAuthorizer), ENTITY, List.of(create)),
+        Map.of(create, 403));
+  }
+
+  @Test
   public void testIsAPIAuthorizedEntityUrnsWithSubResources() {
     // Create some tag entities for subresources
     final Urn TEST_SUB_ENTITY_1 = UrnUtils.getUrn("urn:li:tag:tag1");
@@ -607,10 +648,8 @@ public class AuthUtilTest {
     }
   }
 
-  private static boolean getRestApiAuthorizationEnabled() throws Exception {
-    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
-    field.setAccessible(true);
-    return field.getBoolean(null);
+  private static boolean getRestApiAuthorizationEnabled() {
+    return AuthUtil.isRestApiAuthorizationEnabled();
   }
 
   private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {

@@ -1,14 +1,18 @@
 """Tests for datahub.cli.migrate — core migration orchestration logic."""
 
+from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
 
 from datahub.cli.migrate import (
     MigrationReport,
     _migrate_entities,
     _migrate_single_entity,
+    _read_urns_from_file,
+    snowflake_semantic_views,
 )
 from datahub.cli.migration_utils import ConflictStrategy
 from datahub.metadata.schema_classes import SystemMetadataClass
@@ -413,3 +417,204 @@ class TestMakeUrnBuilderEdgeCases:
 
         with pytest.raises(ValueError, match="does not start with expected"):
             replace_instance_prefix("unrelated.table", "old_inst", "new_inst")
+
+
+# --- _read_urns_from_file ---
+
+
+class TestReadUrnsFromFile:
+    def test_skips_blank_lines_and_comments(self, tmp_path: Path) -> None:
+        urn_file = tmp_path / "urns.txt"
+        urn_file.write_text(
+            "urn:li:dataset:(a,b,PROD)\n\n# a comment\nurn:li:dataset:(c,d,PROD)\n"
+        )
+
+        assert _read_urns_from_file(str(urn_file)) == [
+            "urn:li:dataset:(a,b,PROD)",
+            "urn:li:dataset:(c,d,PROD)",
+        ]
+
+
+# --- snowflake_semantic_views CLI command ---
+
+
+class TestSnowflakeSemanticViewsCli:
+    SRC_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.my_view,PROD)"
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_force_skips_confirmation_prompt(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.SRC_URN], [])
+        mock_run_migration.return_value = MagicMock()
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            ["--direction", "dataset-to-sm", "--urn", self.SRC_URN, "--force"],
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_confirmation_prompt_aborts_on_no(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.SRC_URN], [])
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            ["--direction", "dataset-to-sm", "--urn", self.SRC_URN],
+            input="n\n",
+        )
+
+        assert result.exit_code != 0
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_confirmation_prompt_proceeds_on_yes(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.SRC_URN], [])
+        mock_run_migration.return_value = MagicMock()
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            ["--direction", "dataset-to-sm", "--urn", self.SRC_URN],
+            input="y\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_run_migration.assert_called_once()
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_urn_file_is_read_and_combined_with_explicit_urns(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        file_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.other_view,PROD)"
+        )
+        urn_file = tmp_path / "urns.txt"
+        urn_file.write_text(f"# comment\n\n{file_urn}\n")
+
+        mock_filter.side_effect = lambda graph, urns, force: (list(urns), [])
+        mock_run_migration.return_value = MagicMock()
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            [
+                "--direction",
+                "dataset-to-sm",
+                "--urn",
+                self.SRC_URN,
+                "--urn-file",
+                str(urn_file),
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        migrated_urns = mock_run_migration.call_args.kwargs["urns"]
+        assert set(migrated_urns) == {self.SRC_URN, file_urn}
+
+    @patch("datahub.cli.migrate.discover_semantic_model_urns")
+    @patch("datahub.cli.migrate.discover_semantic_view_dataset_urns")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_no_entities_found_generic_message(
+        self,
+        mock_get_graph: MagicMock,
+        mock_discover_dataset: MagicMock,
+        mock_discover_sm: MagicMock,
+    ) -> None:
+        mock_discover_dataset.return_value = []
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views, ["--direction", "dataset-to-sm"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "No entities found to migrate." in result.output
+        mock_discover_sm.assert_not_called()
+
+    @patch("datahub.cli.migrate.discover_semantic_view_dataset_urns")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_no_live_entities_hints_at_soft_deleted(
+        self, mock_get_graph: MagicMock, mock_discover_dataset: MagicMock
+    ) -> None:
+        # First call is the live discovery (empty); second is the
+        # only_soft_deleted probe (finds some).
+        mock_discover_dataset.side_effect = [[], [self.SRC_URN, self.SRC_URN + "2"]]
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views, ["--direction", "dataset-to-sm"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "2 soft-deleted" in result.output
+        assert "--include-soft-deleted" in result.output
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_explicit_urns_all_lacking_subtype_shows_specific_message(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([], [self.SRC_URN])
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            ["--direction", "dataset-to-sm", "--urn", self.SRC_URN],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "lack the 'Semantic View' subtype" in result.output
+        assert "--force" in result.output
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.run_migration")
+    @patch("datahub.cli.migrate.discover_semantic_model_urns")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_sm_to_dataset_direction_discovers_semantic_models(
+        self,
+        mock_get_graph: MagicMock,
+        mock_discover_sm: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        sm_urn = (
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.schema,my_view)"
+        )
+        mock_discover_sm.return_value = [sm_urn]
+        mock_run_migration.return_value = MagicMock()
+
+        result = CliRunner().invoke(
+            snowflake_semantic_views,
+            ["--direction", "sm-to-dataset", "--env", "PROD", "--force"],
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_discover_sm.assert_called_once()
+        assert mock_run_migration.call_args.kwargs["urns"] == [sm_urn]

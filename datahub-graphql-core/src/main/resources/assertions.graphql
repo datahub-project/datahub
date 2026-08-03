@@ -50,12 +50,15 @@ input UpsertCustomAssertionInput {
   description: String!
 
   """
-  The dataset field targeted by this assertion, if any.
+  Optional dataset column name targeted by this assertion.
+  When set, DataHub builds a schemaField URN from entityUrn + fieldPath.
+  Omit for dataset-level assertions. Do not pass a full schemaField URN — use the bare column name.
   """
   fieldPath: String
 
   """
-  The external Platform associated with the assertion
+  The external Platform associated with the assertion.
+  Required. Provide either PlatformInput.urn or PlatformInput.name (at least one).
   """
   platform: PlatformInput!
 
@@ -129,12 +132,14 @@ Input representing A Data Platform
 """
 input PlatformInput {
   """
-  Urn of platform
+  Urn of platform (for example urn:li:dataPlatform:great-expectations).
+  Provide urn or name — at least one is required.
   """
   urn: String
 
   """
-  Name of platform
+  Name of platform (for example great-expectations). Used when urn is not provided.
+  Provide urn or name — at least one is required.
   """
   name: String
 }
@@ -254,6 +259,11 @@ extend type AssertionInfo {
 }
 
 extend type Assertion {
+  """
+  The dataset targeted by this assertion.
+  """
+  dataset: Dataset
+
   """
   The actions associated with the Assertion
   """

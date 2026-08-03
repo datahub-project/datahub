@@ -15,11 +15,6 @@ record FieldValuesAssertion {
     /**
     * The field under evaluation
     */
-    @Searchable = {
-      "/path": {
-        "fieldName": "fieldPath"
-      }
-    }
     field: SchemaFieldSpec
 
     /**

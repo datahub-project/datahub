@@ -1,0 +1,242 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Orders",
+            "platform": "urn:li:dataPlatform:dynamodb",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "partitionKey",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Numbers",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "partitionKey"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "table.arn": "arn:aws:dynamodb:us-east-1:000000000000:table/Orders",
+                "table.totalItems": "1",
+                "Partition Key": "partitionKey"
+            },
+            "name": "Orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dynamodb",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Products",
+            "platform": "urn:li:dataPlatform:dynamodb",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "partitionKey",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "price",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Numbers",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "partitionKey"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "table.arn": "arn:aws:dynamodb:us-east-1:000000000000:table/Products",
+                "table.totalItems": "1",
+                "Partition Key": "partitionKey"
+            },
+            "name": "Products",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dynamodb",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-east-1.Products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
