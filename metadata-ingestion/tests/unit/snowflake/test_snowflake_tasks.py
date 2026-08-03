@@ -14,12 +14,14 @@ from datahub.ingestion.source.snowflake.snowflake_tasks import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     OwnershipClass,
+    QueryLanguageClass,
     SubTypesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -93,10 +95,42 @@ def _job_urn(wus: List, task_name: str) -> str:
     return urns[0]
 
 
+def _make_procedure(name: str, argument_signature: Optional[str]) -> BaseProcedure:
+    return BaseProcedure(
+        name=name,
+        language=QueryLanguageClass.SQL,
+        argument_signature=argument_signature,
+        return_type=None,
+        procedure_definition=None,
+        created=None,
+        last_altered=None,
+        comment=None,
+        extra_properties=None,
+    )
+
+
+def _procedure_urn(
+    config: SnowflakeV2Config,
+    report: SnowflakeV2Report,
+    procedure: BaseProcedure,
+    db_name: str = "TEST_DB",
+    schema_name: str = "PUBLIC",
+) -> str:
+    """The urn the procedure would actually be ingested under."""
+    identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=config, structured_reporter=report
+    )
+    return procedure.to_urn(
+        identifiers.gen_database_key(db_name),
+        identifiers.gen_schema_key(db_name, schema_name),
+    )
+
+
 def _collect_workunits(
     tasks: List[SnowflakeTask],
     config: Optional[SnowflakeV2Config] = None,
     is_temp_table: Optional[Callable[[str], bool]] = None,
+    procedures: Optional[List[BaseProcedure]] = None,
 ) -> tuple:
     if config is None:
         config = _make_config()
@@ -106,6 +140,11 @@ def _collect_workunits(
     )
     data_dict = MagicMock()
     data_dict.get_tasks_for_schema.return_value = tasks
+    # Keyed on the database so cross-database calls actually miss, the way they
+    # would in production — a flat return_value would resolve any database.
+    data_dict.get_procedures_for_database.side_effect = lambda db_name: (
+        {"PUBLIC": procedures or []} if db_name.upper() == "TEST_DB" else {}
+    )
 
     extractor = SnowflakeTasksExtractor(
         config=config,
@@ -669,25 +708,161 @@ class TestSnowflakeTasksExtractor:
         assert not report.warnings
 
     def test_call_only_task_resolves_to_procedure_job_edge(self) -> None:
-        """A CALL-only body has no DML statements to parse, but
-        parse_procedure_code resolves the call target to a dataJob->dataJob
-        edge (the same procedure-call resolution used by stored procedures),
-        with no dataset-level lineage and no warning."""
-        task = _make_task(
-            name="proc_task",
-            definition="CALL my_proc('arg1', 'arg2')",
-        )
-        wus, report = _collect_workunits([task])
+        """A CALL-only body resolves to a dataJob->dataJob edge.
+
+        Asserted as urn equality against BaseProcedure.to_urn, not by substring:
+        the urn has to carry the argument-signature hash and the connector's
+        identifier casing, and a substring check passes happily without either.
+        """
+        config = _make_config()
+        procedure = _make_procedure("my_proc", "(arg1 VARCHAR)")
+        task = _make_task(name="proc_task", definition="CALL my_proc('a')")
+        wus, report = _collect_workunits([task], config=config, procedures=[procedure])
 
         ios = _data_job_input_outputs(wus)
         assert len(ios) == 1
         io = ios[0]
         assert not io.inputDatasets
         assert not io.outputDatasets
-        assert io.inputDatajobs and len(io.inputDatajobs) == 1
-        assert "my_proc" in io.inputDatajobs[0]
-        assert "stored_procedures" in io.inputDatajobs[0]
+        assert io.inputDatajobs == [_procedure_urn(config, report, procedure)]
         assert not report.warnings
+
+    def test_uppercase_call_resolves_to_lowercased_procedure_urn(self) -> None:
+        """Snowflake hands db/schema over in uppercase and the SQL text may be
+        uppercase too, but the procedure was ingested under snowflake_identifier
+        casing. Resolving through the registry has to bridge that."""
+        config = _make_config()
+        procedure = _make_procedure("my_procedure", "(arg1 VARCHAR)")
+        task = _make_task(
+            name="proc_task",
+            definition="CALL TEST_DB.PUBLIC.MY_PROCEDURE('a')",
+        )
+        wus, report = _collect_workunits([task], config=config, procedures=[procedure])
+
+        expected = _procedure_urn(config, report, procedure)
+        assert "test_db.public.stored_procedures" in expected
+        assert _data_job_input_outputs(wus)[0].inputDatajobs == [expected]
+
+    def test_call_qualifier_case_does_not_affect_resolution(self) -> None:
+        """Snowflake folds unquoted identifiers, so db/schema qualifiers in the
+        CALL text may arrive in any case while the ingested procedures are keyed
+        by Snowflake's own casing. All spellings must resolve to one urn."""
+        config = _make_config()
+        procedure = _make_procedure("my_proc", "(arg1 VARCHAR)")
+        expected = _procedure_urn(config, SnowflakeV2Report(), procedure)
+
+        for definition in (
+            "CALL my_proc('a')",
+            "CALL test_db.public.my_proc('a')",
+            "CALL TEST_DB.PUBLIC.MY_PROC('a')",
+            "CALL public.my_proc('a')",
+        ):
+            wus, _ = _collect_workunits(
+                [_make_task(name="t", definition=definition)],
+                config=config,
+                procedures=[procedure],
+            )
+            ios = _data_job_input_outputs(wus)
+            assert ios and ios[0].inputDatajobs == [expected], definition
+
+    def test_overloaded_procedure_call_resolved_by_argument_count(self) -> None:
+        """Two procedures share a name and differ only by signature, so their
+        urns differ only by hash. Arity at the call site picks the right one."""
+        config = _make_config()
+        one_arg = _make_procedure("my_procedure", "(arg1 VARCHAR)")
+        two_arg = _make_procedure("my_procedure", "(arg1 VARCHAR, arg2 VARCHAR)")
+        task = _make_task(name="proc_task", definition="CALL my_procedure('a', 'b')")
+        wus, report = _collect_workunits(
+            [task], config=config, procedures=[one_arg, two_arg]
+        )
+
+        assert _data_job_input_outputs(wus)[0].inputDatajobs == [
+            _procedure_urn(config, report, two_arg)
+        ]
+        assert not report.warnings
+
+    def test_arity_mismatch_emits_no_edge_and_warns(self) -> None:
+        """A call whose argument count matches no declared overload is either
+        mis-read or stale. Emitting the only same-named procedure anyway would
+        assert lineage the call doesn't support, so we warn and emit nothing."""
+        task = _make_task(name="proc_task", definition="CALL my_proc('a','b','c')")
+        wus, report = _collect_workunits(
+            [task], procedures=[_make_procedure("my_proc", "(arg1 VARCHAR)")]
+        )
+
+        assert _data_job_input_outputs(wus) == []
+        titles = [w.title for w in report.warnings]
+        assert any("Procedure Call Signature Mismatch" in (t or "") for t in titles), (
+            titles
+        )
+
+    def test_unparseable_signature_still_resolves(self) -> None:
+        """Arity filtering must not drop a candidate whose declared signature we
+        couldn't read — unknown is not a contradiction."""
+        config = _make_config()
+        procedure = _make_procedure("my_proc", None)
+        wus, report = _collect_workunits(
+            [_make_task(name="t", definition="CALL my_proc('a')")],
+            config=config,
+            procedures=[procedure],
+        )
+
+        assert _data_job_input_outputs(wus)[0].inputDatajobs == [
+            _procedure_urn(config, report, procedure)
+        ]
+
+    def test_same_arity_overload_is_ambiguous_and_emits_no_edge(self) -> None:
+        """Same-arity overloads can't be told apart without applying Snowflake's
+        implicit-cast rules to the literals. Guessing would invent lineage, so
+        we emit nothing and say why."""
+        config = _make_config()
+        task = _make_task(name="proc_task", definition="CALL my_procedure('a')")
+        wus, report = _collect_workunits(
+            [task],
+            config=config,
+            procedures=[
+                _make_procedure("my_procedure", "(arg1 VARCHAR)"),
+                _make_procedure("my_procedure", "(arg1 NUMBER)"),
+            ],
+        )
+
+        assert _data_job_input_outputs(wus) == []
+        titles = [w.title for w in report.warnings]
+        assert any("Ambiguous Procedure Call" in (t or "") for t in titles), titles
+
+    def test_call_to_uningested_procedure_emits_no_edge(self) -> None:
+        """Nothing was ingested under that name, so there is no DataJob to point
+        at. Composing a urn anyway is what produced dangling edges before."""
+        task = _make_task(name="proc_task", definition="CALL absent_proc('a')")
+        wus, report = _collect_workunits([task], procedures=[])
+
+        assert _data_job_input_outputs(wus) == []
+        assert not report.warnings
+
+    def test_call_into_database_outside_ingestion_scope_emits_no_edge(self) -> None:
+        """A procedure in a database this run never scanned has no DataJob, so the
+        lookup must miss rather than resolve against the current database."""
+        task = _make_task(
+            name="proc_task", definition="CALL other_db.public.my_proc('a')"
+        )
+        wus, report = _collect_workunits(
+            [task], procedures=[_make_procedure("my_proc", "(arg1 VARCHAR)")]
+        )
+
+        assert _data_job_input_outputs(wus) == []
+        assert not report.warnings
+
+    def test_call_edge_skipped_when_include_procedures_disabled(self) -> None:
+        config = _make_config()
+        config.include_procedures = False
+        task = _make_task(name="proc_task", definition="CALL my_proc('a')")
+        wus, _ = _collect_workunits(
+            [task],
+            config=config,
+            procedures=[_make_procedure("my_proc", "(arg1 VARCHAR)")],
+        )
+
+        assert _data_job_input_outputs(wus) == []
 
     def test_empty_definition_emits_no_dataset_lineage(self) -> None:
         task = _make_task(name="empty_task", definition="")

@@ -149,14 +149,10 @@ def test_snowflake_task_lineage_extracted_end_to_end(
     (including the CALL-derived one on CHILD_TASK_1), and the absence of any
     spurious event.
 
-    KNOWN ISSUE captured in the golden: CHILD_TASK_1's CALL-derived edge reads
-    ``...(snowflake,TEST_DB.TEST_SCHEMA.stored_procedures,PROD),MY_PROCEDURE)``,
-    while the procedure DataJob this connector actually emits is
-    ``...(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_<hash>)``
-    (see snowflake_golden.json). The call site can't see the argument signature,
-    so the urn carries neither the hash nor identifier case normalisation. The
-    golden records current behaviour deliberately, so the fix shows up as a diff
-    here — it is not an assertion that this urn is correct.
+    CHILD_TASK_1's CALL-derived edge is the interesting one: its body is
+    ``CALL TEST_DB.TEST_SCHEMA.MY_PROCEDURE('arg1')`` and the fixture defines two
+    ``my_procedure`` overloads, so the golden pins that the one-argument overload's
+    hashed, lower-cased urn is what gets emitted.
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
     output_file = tmp_path / "snowflake_task_lineage_events.json"

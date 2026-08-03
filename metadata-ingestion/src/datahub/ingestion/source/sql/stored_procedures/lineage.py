@@ -10,7 +10,10 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, make_data_job_urn
 from datahub.ingestion.source.sql.stored_procedures.constants import (
     STORED_PROCEDURES_CONTAINER,
 )
-from datahub.ingestion.source.sql.stored_procedures.models import ProcedureCall
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    ProcedureCall,
+    ProcedureReference,
+)
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.query_types import get_query_type_of_sql
@@ -65,6 +68,44 @@ _BLOCK_CLOSER_RE = re.compile(
 )
 
 
+def _count_call_arguments(literal: str) -> Optional[int]:
+    """Count top-level arguments in the first parenthesised group of ``literal``.
+
+    Returns ``None`` if no argument list is present or the parens are unbalanced.
+    Commas inside nested calls and string literals don't count.
+    """
+    start = literal.find("(")
+    if start == -1:
+        return None
+
+    depth = 0
+    commas = 0
+    has_content = False
+    quote: Optional[str] = None
+    for char in literal[start:]:
+        if quote is not None:
+            if char == quote:
+                quote = None
+            continue
+        if char in ("'", '"', "`"):
+            quote = char
+            has_content = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return commas + 1 if has_content else 0
+            if depth < 0:
+                return None
+        elif char == "," and depth == 1:
+            commas += 1
+        elif depth >= 1 and not char.isspace():
+            has_content = True
+
+    return None
+
+
 def _strip_identifier_quotes(ident: str) -> str:
     """Drop surrounding ``[]``, ``""``, or backtick quoting from an identifier."""
     if len(ident) >= 2 and ident[0] == ident[-1] and ident[0] in ('"', "`"):
@@ -89,14 +130,27 @@ def _parse_call_target(literal: str) -> Optional[ProcedureCall]:
         for p in (match.group("part1"), match.group("part2"), match.group("part3"))
         if p is not None
     ]
+    argument_count = _count_call_arguments(literal[match.end() :])
 
     if len(parts) == 1:
-        return ProcedureCall(database=None, db_schema=None, name=parts[0])
+        return ProcedureCall(
+            database=None, db_schema=None, name=parts[0], argument_count=argument_count
+        )
     if len(parts) == 2:
         # Caller resolves the leading qualifier against default_db / default_schema
         # based on whether the source is two-tier or three-tier.
-        return ProcedureCall(database=None, db_schema=parts[0], name=parts[1])
-    return ProcedureCall(database=parts[0], db_schema=parts[1], name=parts[2])
+        return ProcedureCall(
+            database=None,
+            db_schema=parts[0],
+            name=parts[1],
+            argument_count=argument_count,
+        )
+    return ProcedureCall(
+        database=parts[0],
+        db_schema=parts[1],
+        name=parts[2],
+        argument_count=argument_count,
+    )
 
 
 def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[ProcedureCall]:
@@ -148,6 +202,9 @@ def _build_call_datajob_urn(
     schema_resolver: SchemaResolver,
     default_db: Optional[str],
     default_schema: Optional[str],
+    resolve_procedure_urn: Optional[
+        Callable[[ProcedureReference], Optional[str]]
+    ] = None,
 ) -> Optional[str]:
     """Compose a DataJob URN for ``call`` using caller defaults to fill gaps.
 
@@ -156,13 +213,22 @@ def _build_call_datajob_urn(
     treated as the database rather than the schema, matching how table URNs
     are composed for the same sources.
 
-    Note: the called procedure's argument signature is unavailable at the call
-    site, so the resulting URN never carries the ``_<hash>`` suffix that
-    ``BaseProcedure.get_procedure_identifier`` adds for procedures with
-    arguments. For sources that emit argument-hashed procedure URNs (Oracle,
-    MSSQL), call-site lineage will only match procedures whose URNs are
-    unhashed. Two-tier sources (MySQL/MariaDB) never hash, so this caveat is
-    only relevant for three-tier sources that populate ``argument_signature``.
+    Without ``resolve_procedure_urn`` the target URN is composed from the call
+    text, which cannot carry the ``_<hash>`` suffix that
+    ``BaseProcedure.get_procedure_identifier`` adds, nor any identifier casing the
+    source applies. The hash covers the *declared* signature — parameter names and
+    type spellings included, so ``(arg1 VARCHAR)`` and ``(a VARCHAR)`` differ — and
+    a call site sees neither, so no amount of argument parsing recovers it.
+    Composition is therefore only correct for sources that pass
+    ``argument_signature=None`` (MySQL, MariaDB, DB2, MSSQL) and don't normalise
+    identifiers.
+
+    TODO: Oracle and Postgres populate ``argument_signature`` and still rely on
+    composition here, so their call-site edges dangle whenever a signature is
+    present. Both should supply a ``resolve_procedure_urn`` the way
+    ``SnowflakeTasksExtractor`` does. Snowflake's own procedure-to-procedure path
+    (``snowflake_schema_gen`` -> ``generate_procedure_lineage``) needs the same
+    treatment; only the task path resolves today.
     """
     is_two_tier = default_schema is None
 
@@ -174,6 +240,20 @@ def _build_call_datajob_urn(
     else:
         database = call.database or default_db
         schema = call.db_schema or default_schema
+
+    if resolve_procedure_urn is not None:
+        # The source can map this onto a procedure it actually ingested, which is
+        # the only way to recover the argument-signature hash and the source's own
+        # identifier casing. Returning None means "no such procedure here", so we
+        # emit no edge rather than a composed urn that would dangle.
+        return resolve_procedure_urn(
+            ProcedureReference(
+                database=database,
+                db_schema=schema,
+                name=call.name,
+                argument_count=call.argument_count,
+            )
+        )
 
     if not database and not schema:
         # Can't compose a flow URN with nothing — skip silently.
@@ -340,6 +420,9 @@ def parse_procedure_code(
     procedure_name: Optional[str] = None,
     session_id: Optional[str] = None,
     additional_input_jobs: Optional[List[str]] = None,
+    resolve_procedure_urn: Optional[
+        Callable[[ProcedureReference], Optional[str]]
+    ] = None,
 ) -> Optional[DataJobInputOutputClass]:
     """
     Parse stored procedure code and extract lineage.
@@ -364,6 +447,14 @@ def parse_procedure_code(
             predecessor list. Merged into the CALL-derived ``inputDatajobs``,
             deduplicated, CALL-derived first. Dropped when the code yields no
             lineage at all, same as every other result here.
+        resolve_procedure_urn: Maps a CALL target onto a procedure the source
+            actually ingested. Without it the target urn is composed from the
+            call text, which carries neither the argument-signature hash nor the
+            source's identifier casing — so for any source that hashes
+            (Snowflake always; Oracle and Postgres when a signature is present)
+            the composed urn cannot match the procedure that was emitted.
+            Returning None from the callback means "not ingested here", and no
+            edge is emitted.
     """
     # Derive dialect from schema_resolver's platform to support multiple databases
     platform = schema_resolver.platform
@@ -390,6 +481,7 @@ def parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            resolve_procedure_urn=resolve_procedure_urn,
         )
         if urn is None or urn in seen_input_datajobs:
             continue

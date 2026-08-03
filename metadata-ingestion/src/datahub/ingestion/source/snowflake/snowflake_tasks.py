@@ -1,3 +1,4 @@
+import functools
 import logging
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Optional
@@ -24,7 +25,13 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     split_qualified_name,
 )
-from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.ingestion.source.sql.stored_procedures.lineage import (
+    parse_procedure_code,
+)
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    BaseProcedure,
+    ProcedureReference,
+)
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -38,6 +45,20 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _signature_arity(argument_signature: Optional[str]) -> Optional[int]:
+    """Parameter count from a declared signature like ``(arg1 VARCHAR, arg2 INT)``.
+
+    Snowflake reports ``()`` for a zero-parameter procedure.
+    """
+    if argument_signature is None:
+        return None
+    inner = argument_signature.strip()
+    if not inner.startswith("(") or not inner.endswith(")"):
+        return None
+    inner = inner[1:-1].strip()
+    return len(inner.split(",")) if inner else 0
 
 
 @dataclass
@@ -240,6 +261,99 @@ class SnowflakeTasksExtractor:
                 ),
             ).as_workunit()
 
+    def _resolve_procedure_urn(
+        self, task_db: str, task_schema: str, ref: ProcedureReference
+    ) -> Optional[str]:
+        """Map a CALL target onto a procedure this run actually ingested.
+
+        The urn of a Snowflake procedure ends in a hash of its *declared*
+        argument signature, which the call site can't see, so the only way to
+        name it correctly is to look it up among the procedures we fetched.
+        Those are already cached from METADATA_EXTRACTION, so this costs no
+        extra query.
+        """
+        if not self.config.include_procedures or not ref.database or not ref.db_schema:
+            return None
+
+        # Snowflake folds unquoted identifiers to upper case and quoting is
+        # already stripped by the time we see the reference, so `CALL db.sc.p()`
+        # and `CALL DB.SC.P()` name the same procedure. When the call points at
+        # the task's own db/schema we reuse those verbatim — they came from
+        # Snowflake and are correctly cased; otherwise upper-casing matches
+        # Snowflake's own folding. A genuinely lower-case quoted database name is
+        # not resolvable here, matching the connector's handling elsewhere.
+        database = (
+            task_db if ref.database.upper() == task_db.upper() else ref.database.upper()
+        )
+
+        try:
+            # TODO: get_procedures_for_database is @serialized_lru_cache(maxsize=1),
+            # so a schema whose tasks call procedures across several databases
+            # evicts and refetches per call. Correct, just wasteful — raise maxsize
+            # or key a lookup once per run if it shows up in profiling.
+            by_schema = self.data_dictionary.get_procedures_for_database(database)
+        except Exception as e:
+            logger.debug(f"Could not list procedures in {database}: {e}")
+            return None
+
+        in_schema: List[BaseProcedure] = next(
+            (
+                procedures
+                for schema_key, procedures in by_schema.items()
+                if schema_key.upper() == ref.db_schema.upper()
+            ),
+            [],
+        )
+        name_matches = [
+            procedure
+            for procedure in in_schema
+            if procedure.name.upper() == ref.name.upper()
+        ]
+        if not name_matches:
+            # Filtered out by procedure_pattern, or in a database this run never
+            # scanned. Nothing was emitted to point at, so no edge.
+            logger.debug(
+                f"No ingested procedure named {ref.database}.{ref.db_schema}.{ref.name}"
+            )
+            return None
+
+        candidates = name_matches
+        if ref.argument_count is not None:
+            # Arity is a constraint, not just a tiebreaker: a call whose argument
+            # count matches no overload is one we've mis-read or a procedure that
+            # changed shape, and neither justifies inventing an edge. Candidates
+            # whose declared signature we couldn't parse stay in — unknown is not
+            # a contradiction.
+            candidates = [
+                procedure
+                for procedure in name_matches
+                if _signature_arity(procedure.argument_signature)
+                in (None, ref.argument_count)
+            ]
+
+        if not candidates:
+            self.report.warning(
+                title="Procedure Call Signature Mismatch",
+                message="Task calls a procedure with an argument count no overload declares; no job lineage emitted",
+                context=f"{ref.database}.{ref.db_schema}.{ref.name} called with {ref.argument_count} argument(s)",
+            )
+            return None
+
+        if len(candidates) > 1:
+            # Same-arity overloads (VARCHAR vs NUMBER) need Snowflake's
+            # implicit-cast rules applied to the literals to tell apart.
+            self.report.warning(
+                title="Ambiguous Procedure Call",
+                message="Task calls an overloaded procedure that the call site can't disambiguate; no job lineage emitted",
+                context=f"{ref.database}.{ref.db_schema}.{ref.name}",
+            )
+            return None
+
+        return candidates[0].to_urn(
+            self.identifiers.gen_database_key(ref.database),
+            self.identifiers.gen_schema_key(ref.database, ref.db_schema),
+        )
+
     @staticmethod
     def _predecessor_fqn(
         predecessor_name: str,
@@ -288,6 +402,9 @@ class SnowflakeTasksExtractor:
                     is_temp_table=self.is_temp_table,
                     procedure_name=task_fqn,
                     additional_input_jobs=input_datajobs,
+                    resolve_procedure_urn=functools.partial(
+                        self._resolve_procedure_urn, db_name, schema_name
+                    ),
                 )
             except Exception as e:
                 # Guarded here rather than around the whole task so a body we

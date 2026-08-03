@@ -88,3 +88,29 @@ class ProcedureCall(BaseModel):
     # Named ``db_schema`` because ``schema`` shadows a BaseModel attribute.
     db_schema: Optional[str]
     name: str
+    # Number of arguments passed at the call site, or None when the argument list
+    # couldn't be read. Narrows overloads; see ProcedureReference.
+    argument_count: Optional[int] = None
+
+
+class ProcedureReference(BaseModel):
+    """A call target, with the caller's database/schema defaults already applied.
+
+    Handed to a ``resolve_procedure_urn`` callback so a source can map the
+    reference onto a procedure it actually ingested. That lookup is the only way
+    to name the target correctly: the urn's job id ends in a hash of the
+    *declared* argument signature — parameter names and type spellings included,
+    so ``(arg1 VARCHAR)`` and ``(a VARCHAR)`` differ — and a call site carries
+    neither, so no amount of argument parsing reconstructs it.
+
+    ``argument_count`` narrows overloads but cannot identify one alone: two
+    overloads taking the same number of arguments stay ambiguous.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    database: Optional[str]
+    # Named ``db_schema`` for the same reason as ProcedureCall.
+    db_schema: Optional[str]
+    name: str
+    argument_count: Optional[int]

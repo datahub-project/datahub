@@ -4423,7 +4423,7 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(snowflake,TEST_DB.TEST_SCHEMA.stored_procedures,PROD),MY_PROCEDURE)",
+                "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
                 "urn:li:dataJob:(urn:li:dataFlow:(snowflake,test_db.test_schema.tasks,PROD),root_task)"
             ]
         }
