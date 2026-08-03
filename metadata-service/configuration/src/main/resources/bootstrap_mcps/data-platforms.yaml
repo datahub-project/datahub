@@ -359,6 +359,16 @@
     displayName: Cube
     type: OTHERS
     logoUrl: "assets/platforms/cubelogo.png"
+- entityUrn: urn:li:dataPlatform:sap-mdg
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sap-mdg
+    displayName: SAP MDG
+    type: OTHERS
+    logoUrl: "assets/platforms/sapmdglogo.png"
 - entityUrn: urn:li:dataPlatform:odcs
   entityType: dataPlatform
   aspectName: dataPlatformInfo

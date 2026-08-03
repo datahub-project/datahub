@@ -53,6 +53,8 @@ class DatasetSubTypes(StrEnum):
     SAP_ANALYTICAL_MODEL = "Analytic Model"
     SAP_LOCAL_TABLE = "Local Table"
     SAP_REMOTE_TABLE = "Remote Table"
+    SAP_MDG_ENTITY_SET = "Entity Set"
+    SAP_MDG_ENTITY_TYPE = "Entity Type"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -108,6 +110,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # SAP MDG (one OData service groups its entity sets)
+    SAP_MDG_ODATA_SERVICE = "OData Service"
 
 
 class BIContainerSubTypes(StrEnum):

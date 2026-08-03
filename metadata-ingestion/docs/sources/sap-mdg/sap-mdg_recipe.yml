@@ -1,0 +1,31 @@
+source:
+  type: sap-mdg
+  config:
+    # Base URL of the SAP Gateway host serving the MDG OData services.
+    base_url: "https://sap-gw.example.com:44300"
+
+    # One or more OData service paths, relative to base_url.
+    services:
+      - "/sap/opu/odata/sap/ZMDG_BP_SRV"
+      - "/sap/opu/odata/sap/ZMDG_MATERIAL_SRV"
+
+    # Authentication: choose basic auth, a bearer token, or a client certificate.
+    username: "${SAP_MDG_USERNAME}"
+    password: "${SAP_MDG_PASSWORD}"
+    # token: "${SAP_MDG_TOKEN}"
+
+    # Optional SAP client passed as the sap-client query parameter.
+    sap_client: "100"
+
+    # Optionally restrict which entity sets are ingested.
+    # entity_set_pattern:
+    #   allow:
+    #     - ".*BusinessPartner.*"
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0"
+           xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns:sap="http://www.sap.com/Protocols/SAPData">
+  <edmx:DataServices>
+    <Schema Namespace="com.example.mdg" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="BusinessPartner" sap:label="Business Partner">
+        <Key>
+          <PropertyRef Name="BusinessPartnerId"/>
+        </Key>
+        <Property Name="BusinessPartnerId" Type="Edm.String" Nullable="false" MaxLength="10" sap:label="BP Number"/>
+        <Property Name="Name" Type="Edm.String" MaxLength="80" sap:label="Name"/>
+        <Property Name="IsBlocked" Type="Edm.Boolean" sap:label="Central Block"/>
+        <Property Name="CreatedAt" Type="Edm.DateTimeOffset" sap:label="Created At"/>
+      </EntityType>
+      <EntityType Name="Address" sap:label="Address">
+        <Key>
+          <PropertyRef Name="AddressId"/>
+        </Key>
+        <Property Name="AddressId" Type="Edm.String" Nullable="false" MaxLength="10" sap:label="Address ID"/>
+        <Property Name="BusinessPartnerId" Type="Edm.String" MaxLength="10" sap:label="BP Number"/>
+        <Property Name="City" Type="Edm.String" MaxLength="40" sap:label="City"/>
+        <Property Name="PostalCode" Type="Edm.String" MaxLength="10" sap:label="Postal Code"/>
+        <NavigationProperty Name="Partner" Type="com.example.mdg.BusinessPartner">
+          <ReferentialConstraint Property="BusinessPartnerId" ReferencedProperty="BusinessPartnerId"/>
+        </NavigationProperty>
+      </EntityType>
+      <EntityContainer Name="Container">
+        <EntitySet Name="BusinessPartners" EntityType="com.example.mdg.BusinessPartner" sap:label="Business Partners"/>
+        <EntitySet Name="Addresses" EntityType="com.example.mdg.Address" sap:label="Addresses"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
