@@ -389,9 +389,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             self.admin_client = get_kafka_admin_client(self.source_config.connection)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            self.report.report_warning(
-                "kafka-admin-client",
-                f"Failed to create Kafka Admin Client due to error {e}.",
+            self.report.warning(
+                message="Failed to create Kafka Admin Client",
+                context="kafka-admin-client",
+                exc=e,
+                log=False,
             )
 
     @staticmethod
@@ -506,8 +508,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             except Exception as e:
                 logger.warning(f"Failed to extract topic {topic}", exc_info=True)
-                self.report.report_warning(
-                    "topic", f"Exception while extracting topic {topic}: {e}"
+                self.report.warning(
+                    message="Exception while extracting topic",
+                    context=topic,
+                    exc=e,
+                    log=False,
                 )
 
         # Collect samples and compute profiles in parallel — each worker owns its consumer
@@ -525,14 +530,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     logger.warning(
                         f"Failed to extract subject {subject}", exc_info=True
                     )
-                    self.report.report_warning(
-                        "subject", f"Exception while extracting topic {subject}: {e}"
+                    self.report.warning(
+                        message="Exception while extracting subject",
+                        context=subject,
+                        exc=e,
+                        log=False,
                     )
 
-    def _locked_warning(self, key: str, message: str) -> None:
-        # report_warning is not thread-safe; serialize the profiling worker calls.
+    def _locked_warning(self, message: str, context: str) -> None:
+        # report.warning is not thread-safe; serialize the profiling worker calls.
         with self._report_lock:
-            self.report.report_warning(key, message)
+            self.report.warning(message=message, context=context, log=False)
 
     def get_sample_messages(
         self,
@@ -566,9 +574,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             ]
 
             if not partitions:
-                self._locked_warning(
-                    "profiling", f"No partitions found for topic {topic}"
-                )
+                self._locked_warning("No partitions found for topic", topic)
                 return samples
 
             # Calculate optimal sample distribution
@@ -619,17 +625,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             TypeError,
             KeyError,
             json.JSONDecodeError,
-        ) as e:
-            self._locked_warning(
-                "profiling", f"Failed to collect samples from {topic}: {str(e)}"
-            )
+        ):
+            self._locked_warning("Failed to collect samples from topic", topic)
         finally:
             try:
                 _consumer.unassign()
-            except Exception as e:
-                self._locked_warning(
-                    "profiling", f"Failed to unassign consumer: {str(e)}"
-                )
+            except Exception:
+                self._locked_warning("Failed to unassign consumer", "profiling")
 
         return samples
 
@@ -713,8 +715,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             continue
                         if msg.error():
                             self._locked_warning(
-                                "profiling",
-                                f"Error while consuming from {topic}: {msg.error()}",
+                                "Error while consuming from topic", topic
                             )
                             continue
                         self._process_message_to_sample(
@@ -757,10 +758,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             # Process the batch of messages
             for msg in messages:
                 if msg.error():
-                    self._locked_warning(
-                        "profiling",
-                        f"Error while consuming from {topic}: {msg.error()}",
-                    )
+                    self._locked_warning("Error while consuming from topic", topic)
                     continue
 
                 before_count = len(samples)
@@ -836,8 +834,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             UnicodeDecodeError,
             KeyError,
             AttributeError,
-        ) as e:
-            self._locked_warning("profiling", f"Failed to process message: {str(e)}")
+        ):
+            self._locked_warning("Failed to process message", "profiling")
 
     def _process_message_part(
         self,
@@ -897,10 +895,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             # which would pollute the profile as a fake topic column.
                             with self._report_lock:
                                 self.report.profiling_avro_decode_failures += 1
-                                self.report.report_warning(
-                                    "avro-decode",
-                                    f"Skipped a message for topic {topic} that failed Avro "
-                                    f"decoding ({type(e).__name__}): {e}",
+                                self.report.warning(
+                                    message="Skipped a message that failed Avro decoding",
+                                    context=topic,
+                                    exc=e,
+                                    log=False,
                                 )
                             return None
 
@@ -923,9 +922,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 # pollute the profile as a synthetic field value.
                 with self._report_lock:
                     self.report.profiling_samples_skipped += 1
-                    self.report.report_warning(
-                        "profiling",
-                        f"Skipped a message for topic {topic} that failed to decode: {e}",
+                    self.report.warning(
+                        message="Skipped a message that failed to decode",
+                        context=topic,
+                        exc=e,
+                        log=False,
                     )
                 return None
 
@@ -954,9 +955,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             with self._report_lock:
                 self.report.profiling_topics_dropped += 1
                 if self.source_config.profiling.report_dropped_profiles:
-                    self.report.report_warning(
-                        "profiling",
-                        f"No samples collected for topic {topic}; profile dropped.",
+                    self.report.warning(
+                        message="No samples collected for topic; profile dropped",
+                        context=topic,
+                        log=False,
                     )
             return None
 
@@ -1021,9 +1023,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     # other workers may still be mutating the same counters.
                     with self._report_lock:
                         self.report.profiling_topics_dropped += 1
-                        self.report.report_warning(
-                            "profiling",
-                            f"Failed to profile topic {topic_name}: {str(e)}",
+                        self.report.warning(
+                            message="Failed to profile topic",
+                            context=topic_name,
+                            exc=e,
+                            log=False,
                         )
 
     def _resolve_missing_schemas(
@@ -1221,8 +1225,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     all_tags.append(self.source_config.tag_prefix + tag)
             except TypeError as e:
                 self.report.warning(
-                    message=f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}. Expected an array of strings.",
-                    context=dataset_name,
+                    message="Unable to extract tags from schema field. Expected an array of strings.",
+                    context=f"{dataset_name} (field: {self.source_config.schema_tags_field})",
                     title="Unable to extract tags from schema field",
                     exc=e,
                 )
@@ -1349,10 +1353,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 extra_topic_details = self.fetch_topic_configurations(topics)
             except Exception as e:
                 logger.debug(e, exc_info=e)
-                self.report.report_warning(
-                    "topic-config",
-                    f"Failed to fetch topic configuration details (partitions, "
-                    f"retention, cleanup policy, etc.) due to error {e}.",
+                self.report.warning(
+                    message="Failed to fetch topic configuration details (partitions, retention, cleanup policy, etc.)",
+                    context="topic-config",
+                    exc=e,
+                    log=False,
                 )
         return extra_topic_details
 

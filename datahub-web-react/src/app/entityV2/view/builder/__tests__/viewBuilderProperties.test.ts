@@ -39,6 +39,7 @@ describe('viewBuilderProperties', () => {
 
         const domainsProp = viewBuilderProperties.find((p) => p.id === 'domains');
         expect(domainsProp?.operators).toContain(OperatorId.NOT_EQUAL);
+        expect(domainsProp?.operators).toContain(OperatorId.WITHIN);
 
         // Entity type is lifted to the top-level scope; it keeps the default operators.
         const entityTypeProp = viewBuilderProperties.find((p) => p.id === '_entityType');
@@ -72,6 +73,7 @@ describe('viewBuilderProperties', () => {
     it('should include domains property with correct display name', () => {
         const domainsProp = viewBuilderProperties.find((p) => p.id === 'domains');
         expect(domainsProp?.displayName).toBe('Domain');
+        expect(domainsProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(domainsProp?.valueOptions?.entityTypes).toContain(EntityType.Domain);
     });
 
@@ -96,7 +98,27 @@ describe('viewBuilderProperties', () => {
         const containerProp = viewBuilderProperties.find((p) => p.id === 'container');
         expect(containerProp?.displayName).toBe('Container');
         expect(containerProp?.description).toBe('The parent container of the asset.');
+        expect(containerProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(containerProp?.valueOptions?.entityTypes).toContain(EntityType.Container);
+    });
+
+    it('should include parentDocument property with hierarchical URN operators', () => {
+        const parentDocumentProp = viewBuilderProperties.find((p) => p.id === 'parentDocument');
+        expect(parentDocumentProp?.displayName).toBe('Parent Document');
+        expect(parentDocumentProp?.description).toBe('The parent document of a document.');
+        expect(parentDocumentProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+        expect(parentDocumentProp?.valueOptions?.entityTypes).toContain(EntityType.Document);
+        expect(parentDocumentProp?.valueOptions?.mode).toBe(SelectInputMode.MULTIPLE);
+    });
+
+    it('exposes Within as the first operator for hierarchical properties', () => {
+        const hierarchicalIds = ['domains', 'container', 'parentDocument'];
+        hierarchicalIds.forEach((id) => {
+            const prop = viewBuilderProperties.find((p) => p.id === id);
+            expect(prop?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+            expect(prop?.operators?.[0]).toBe(OperatorId.WITHIN);
+            expect(prop?.operators).toContain(OperatorId.NOT_EQUAL);
+        });
     });
 
     it('should include column field properties with correct display names', () => {

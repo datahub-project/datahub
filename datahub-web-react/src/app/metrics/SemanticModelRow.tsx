@@ -31,6 +31,7 @@ export function SemanticModelRow({
     const history = useHistory();
     const { entityData } = useMetricsEntityContext();
     const hasChildren = (model.metrics?.total ?? 0) > 0;
+    const childCount = model.metrics?.total ?? 0;
 
     // Auto-expand when navigating to a metric that belongs to this semantic model.
     useEffect(() => {
@@ -39,7 +40,7 @@ export function SemanticModelRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData, model.urn, isExpanded]);
+    }, [entityData?.urn, entityData?.semanticModel?.urn, model.urn]);
 
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'model', modelUrn: model.urn },
@@ -58,6 +59,7 @@ export function SemanticModelRow({
                 title={modelTitle}
                 isSelected={isSelected}
                 hasChildren={hasChildren}
+                childCount={childCount}
                 isExpanded={isExpanded}
                 onClick={() => history.push(`${PageRoutes.SEMANTIC_MODEL_ENTITY}/${encodeURIComponent(model.urn)}`)}
                 onToggleExpand={hasChildren ? onToggle : undefined}

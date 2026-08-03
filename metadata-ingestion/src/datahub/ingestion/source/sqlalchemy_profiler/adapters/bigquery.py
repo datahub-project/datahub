@@ -53,8 +53,9 @@ class BigQueryAdapter(PlatformAdapter):
         if context.custom_sql or self.config.limit or self.config.offset:
             context = self._create_temp_table_for_query(context)
 
-        # Step 2: Setup sampling for large tables
-        if self._should_sample_table(context, conn):
+        # Step 2: Sample large tables (and large partitions) into a temp table.
+        # Skip when a LIMIT is configured — the row set is already bounded.
+        if self.config.use_sampling and not self.config.limit:
             context = self._setup_sampling(context, conn)
 
         # Step 3: Create SQLAlchemy table object
@@ -160,9 +161,8 @@ class BigQueryAdapter(PlatformAdapter):
             )
 
         # Execute query to create cached temp table
+        raw_conn = self.base_engine.raw_connection()
         try:
-            # Get raw DBAPI connection
-            raw_conn = self.base_engine.raw_connection()
             cursor: BigQueryCursor = raw_conn.cursor()  # type: ignore[assignment]
 
             logger.debug(
@@ -216,85 +216,86 @@ class BigQueryAdapter(PlatformAdapter):
             # Even with catch_exceptions, we must fail here because temp table is REQUIRED
             # Without it, we'd silently profile the full table instead of the requested sample
             raise RuntimeError(error_msg) from e
-
-    def _should_sample_table(self, context: ProfilingContext, conn: Connection) -> bool:
-        """
-        Check if table should be sampled based on size and configuration.
-
-        Args:
-            context: Current profiling context
-            conn: Active database connection
-
-        Returns:
-            True if table should be sampled
-        """
-        if not self.config.use_sampling:
-            return False
-
-        if self.config.limit:
-            # Already limited by LIMIT clause
-            return False
-
-        if context.custom_sql:
-            # Don't sample custom SQL
-            return False
-
-        if not context.table:
-            # Can't sample without a table
-            return False
-
-        # Check if table is large enough to warrant sampling
-        # Get quick row count estimate
-        row_count = self._get_quick_row_count(context, conn)
-        if row_count is None:
-            return False
-
-        return row_count > self.config.sample_size
+        finally:
+            # Guard the close so a teardown error can't replace the in-flight
+            # exception (the actionable RuntimeError/DatabaseError above).
+            try:
+                raw_conn.close()
+            except Exception as close_err:
+                logger.debug(
+                    f"Failed to close raw connection after temp-table creation: {close_err}"
+                )
 
     def _get_quick_row_count(
         self, context: ProfilingContext, conn: Connection
     ) -> Optional[int]:
         """
-        Get quick row count estimate for sampling decision.
+        Get a quick row count for the current profiling target.
+
+        Counts whichever target is active: a temp table materialized in step 1
+        (e.g. a partition) takes precedence, then an already-built sql_table,
+        then the original table. On BigQuery a COUNT(*) is a metadata-only,
+        0-bytes-billed query.
 
         Args:
             context: Current profiling context
             conn: Active database connection
 
         Returns:
-            Estimated row count, or None if unavailable
+            Row count, or None if unavailable
         """
         try:
-            if context.sql_table is not None:
-                query: Any = sa.select([sa.func.count()]).select_from(context.sql_table)
-            else:
-                # Build quick count query using query builder
-                if not context.table:
-                    return None
-                # Create SQLAlchemy Table object for query construction
+            if context.temp_table:
+                # A partition/query temp table exists — count it, not the
+                # original table (its size differs from the full table).
+                table_obj: sa.Table = sa.Table(
+                    context.temp_table,
+                    sa.MetaData(),
+                    schema=context.temp_schema,
+                )
+            elif context.sql_table is not None:
+                table_obj = context.sql_table
+            elif context.table:
                 table_obj = sa.Table(
                     context.table,
                     sa.MetaData(),
                     schema=context.schema,
                 )
-                query = sa.select([sa.func.count()]).select_from(table_obj)
+            else:
+                return None
 
+            query = sa.select([sa.func.count()]).select_from(table_obj)
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
         except SQLAlchemyError as e:
-            logger.debug(f"Failed to get quick row count: {type(e).__name__}: {str(e)}")
+            self.report.warning(
+                title="Profiling: unable to get row count for sampling",
+                message="Could not determine row count; the table will be "
+                "profiled without sampling.",
+                context=context.pretty_name,
+                exc=e,
+            )
             return None
 
     def _setup_sampling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
         """
-        Setup BigQuery TABLESAMPLE for large tables.
+        Sample a large table (or partition) into a cached temp table.
 
-        According to BigQuery Sampling Docs, BigQuery does not cache the results
-        of a query that includes a TABLESAMPLE clause. However, for a simple
-        SELECT * query with TABLESAMPLE, results are cached and stored in a
-        temporary table. This can be (ab)used for column level profiling.
+        Mirrors the GE profiler (update_dataset_batch_use_sampling): run
+        `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and reuse
+        BigQuery's cached-results table as the profiling target. Because
+        TABLESAMPLE must be applied to a table (not a subquery), a partitioned
+        table is sampled via the partition temp table materialized in step 1,
+        not by wrapping the partition SQL.
+
+        Note on custom_sql: for BigQuery, `custom_sql` (the partition filter
+        built in bigquery_v2/profiler.py) feeds BOTH the GE and SQLAlchemy
+        engines — unlike Snowflake, where #18253 gated custom_sql to the GE
+        path. Once the GE profiler is removed, partition selection should be
+        pushed down into this adapter (see the deprecation note on
+        ProfilingContext.custom_sql).
 
         Args:
             context: Current profiling context
@@ -303,42 +304,46 @@ class BigQueryAdapter(PlatformAdapter):
         Returns:
             Updated context with sampled temp table
         """
-        # Get row count for calculating sample percentage
-        row_count = context.row_count or self._get_quick_row_count(context, conn)
+        # Resolve the profiling target and its row count once.
+        if context.temp_table:
+            # Step 1 materialized a partition/query temp table. Sample THAT
+            # table: context.row_count is the full-table count from the source,
+            # not this partition, so measure the partition directly via
+            # _get_quick_row_count (which targets the temp table).
+            target = self.quote_identifier(
+                f"{context.temp_schema}.{context.temp_table}"
+            )
+            row_count = self._get_quick_row_count(context, conn)
+        elif context.table:
+            # Prefer the row count the BigQuery source already knows
+            # (INFORMATION_SCHEMA / __TABLES__); COUNT(*) only when it is
+            # missing (e.g. views, external tables).
+            target = self.quote_identifier(
+                f"{context.schema}.{context.table}" if context.schema else context.table
+            )
+            row_count = (
+                context.row_count
+                if context.row_count is not None
+                else self._get_quick_row_count(context, conn)
+            )
+        else:
+            return context
+
         if not row_count or row_count <= self.config.sample_size:
             return context
 
-        # Calculate sample percentage (validated as float from config)
-        sample_pc = 100 * self.config.sample_size / row_count
-        # Ensure sample_pc is within valid range [0, 100]
-        sample_pc = max(0.0, min(100.0, sample_pc))
-
-        # Table must be present for sampling
-        if not context.table:
-            raise ValueError(
-                f"Cannot sample {context.pretty_name}: table name is required"
-            )
-
-        # Safely quote table identifier to prevent SQL injection
-        table_identifier = (
-            f"{context.schema}.{context.table}" if context.schema else context.table
-        )
-        quoted_table = self.quote_identifier(table_identifier)
-
-        # Build query with properly escaped identifiers and validated percentage
-        # SQL Injection Safety: quoted_table uses quote_identifier() (properly quoted),
-        # not user input. sample_pc is a validated float (0-100), not user input.
-        # We use f-string here because SQLAlchemy's tablesample() doesn't generate correct
-        # BigQuery syntax (PERCENT keyword required but not emitted).
-        sql = (
-            f"SELECT * FROM {quoted_table} TABLESAMPLE SYSTEM ({sample_pc:.8f} PERCENT)"
-        )
+        # SQL Injection Safety: `target` is quote_identifier() output over
+        # metadata / BigQuery-API identifiers (never user input); sample_pc is a
+        # validated float in [0, 100]. We use an f-string here because
+        # SQLAlchemy's tablesample() omits the PERCENT keyword BigQuery requires.
+        sample_pc = max(0.0, min(100.0, 100 * self.config.sample_size / row_count))
+        sql = f"SELECT * FROM {target} TABLESAMPLE SYSTEM ({sample_pc:.8f} PERCENT)"
 
         logger.debug(
             f"Creating sampled BigQuery temp table for {context.pretty_name}: {sql}"
         )
 
-        # Create sampled temp table (reuse temp table creation logic)
+        # Materialize the sample into a cached temp table (reuse the query path).
         old_custom_sql = context.custom_sql
         context.custom_sql = sql
         context = self._create_temp_table_for_query(context)

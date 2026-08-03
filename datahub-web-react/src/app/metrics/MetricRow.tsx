@@ -33,6 +33,7 @@ export function MetricRow({
     const history = useHistory();
     const { entityData } = useMetricsEntityContext();
     const hasChildren = (metric.childMetrics?.total ?? 0) > 0;
+    const childCount = metric.childMetrics?.total ?? 0;
 
     // Auto-expand when navigating to a metric whose ancestor chain passes through this metric.
     useEffect(() => {
@@ -41,7 +42,7 @@ export function MetricRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData, metric.urn, isExpanded]);
+    }, [entityData?.urn, metric.urn]);
 
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'metric', parentMetricUrn: metric.urn },
@@ -59,6 +60,7 @@ export function MetricRow({
                 title={metricTitle}
                 isSelected={isSelected}
                 hasChildren={hasChildren}
+                childCount={childCount}
                 isExpanded={isExpanded}
                 onClick={() => history.push(`${PageRoutes.METRIC_ENTITY}/${encodeURIComponent(metric.urn)}`)}
                 onToggleExpand={hasChildren ? onToggle : undefined}

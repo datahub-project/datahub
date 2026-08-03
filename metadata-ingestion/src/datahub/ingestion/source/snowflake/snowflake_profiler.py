@@ -100,14 +100,19 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> dict:
         custom_sql = None
         if (
-            not self.config.profiling.limit
+            self.config.profiling.method == "ge"
+            and not self.config.profiling.limit
             and self.config.profiling.use_sampling
             and table.rows_count
             and table.rows_count > self.config.profiling.sample_size
         ):
-            # GX creates a temporary table from query if query is passed as batch kwargs.
+            # The sample becomes a custom_sql query, and GX internally creates a
+            # temporary table from it — so all profiling queries run against that
+            # materialized temp table. The SQLAlchemy profiler path does NOT use
+            # custom_sql; its Snowflake adapter materializes the sample directly.
+            #
             # We are using fraction-based sampling here, instead of fixed-size sampling because
-            # Fixed-size sampling can be slower than equivalent fraction-based sampling
+            # fixed-size sampling can be slower than equivalent fraction-based sampling
             # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
             estimated_block_row_count = 500_000
             block_profiling_min_rows = 100 * estimated_block_row_count
@@ -136,6 +141,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             # https://github.com/great-expectations/great_expectations/pull/2023
             "use_quoted_name": (table.name != table.name.upper()),
             "custom_sql": custom_sql,
+            "row_count": table.rows_count,
         }
 
     def get_profiler_instance(

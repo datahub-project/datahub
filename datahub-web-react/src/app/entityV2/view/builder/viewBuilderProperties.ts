@@ -15,6 +15,13 @@ import { EntityType } from '@types';
 const REF_OPERATORS = [OperatorId.EQUAL_TO, OperatorId.NOT_EQUAL, OperatorId.EXISTS];
 
 /**
+ * Hierarchical URN filters (Domain / Container / Parent Document) keep WITHIN as
+ * the primary operator from the URN_HIERARCHY value type, and additionally expose
+ * NOT_EQUAL so Views can express per-row negation on these fields too.
+ */
+const HIERARCHY_OPERATORS = [OperatorId.WITHIN, OperatorId.EQUAL_TO, OperatorId.NOT_EQUAL, OperatorId.EXISTS];
+
+/**
  * View-specific properties for the Dynamic Filter tab in the View builder.
  * Matches the filter capabilities from VIEW_BUILDER_FIELDS while using
  * the query builder property format.
@@ -83,14 +90,14 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'domains',
-        operators: REF_OPERATORS,
+        operators: HIERARCHY_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.domain');
         },
         get description() {
             return i18next.t('shared.query-builder:prop.domainDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.MULTIPLE,
@@ -143,16 +150,31 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'container',
-        operators: REF_OPERATORS,
+        operators: HIERARCHY_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.container');
         },
         get description() {
             return i18next.t('shared.query-builder:prop.containerDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Container],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'parentDocument',
+        operators: HIERARCHY_OPERATORS,
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.parentDocument');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.parentDocumentDesc');
+        },
+        valueType: ValueTypeId.URN_HIERARCHY,
+        valueOptions: {
+            entityTypes: [EntityType.Document],
             mode: SelectInputMode.MULTIPLE,
         },
     },

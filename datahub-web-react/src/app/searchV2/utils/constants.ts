@@ -18,6 +18,7 @@ export const PROPOSED_GLOSSARY_TERMS_FILTER_NAME = 'proposedGlossaryTerms';
 export const PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME = 'proposedSchemaGlossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const PARENT_DOCUMENT_FILTER_NAME = 'parentDocument';
 export const DATA_PRODUCT_FILTER_NAME = 'dataProduct';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
@@ -40,6 +41,11 @@ export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
+export const ASSERTION_TYPE_FILTER_NAME = 'assertionType';
+export const ASSERTION_FIELD_PATH_FILTER_NAME = 'fieldPath';
+export const ASSERTION_CUSTOM_TYPE_FILTER_NAME = 'customType';
+export const ASSERTION_SOURCE_FILTER_NAME = 'sourceType';
+export const ASSERTION_STATUS_FILTER_NAME = 'assertionStatus';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
@@ -129,6 +135,9 @@ export const FIELD_TO_LABEL: Record<string, string> = {
     get container() {
         return i18next.t('search:fieldLabel.container');
     },
+    get parentDocument() {
+        return i18next.t('search:fieldLabel.parentDocument');
+    },
     get typeNames() {
         return i18next.t('search:fieldLabel.subType');
     },
@@ -197,6 +206,7 @@ export const ENTITY_FIELDS = new Set([
     PROPOSED_TAGS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DATA_PRODUCT_FILTER_NAME,
 ]);

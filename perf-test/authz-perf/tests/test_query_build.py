@@ -1,12 +1,11 @@
 from unittest.mock import MagicMock
 
-from graphql import GraphQLSchema, build_schema
+from graphql import build_schema
 
 from lib.graphql import resolve_operation_document
 from lib.graphql_adapt import GraphqlQueryRegistry
 from lib.query_build import build_operation_document
 from lib.query_spec import QuerySpec
-
 
 MINIMAL_SCHEMA = build_schema(
     """

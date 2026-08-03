@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
@@ -50,6 +53,11 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
     final String urnStr = ((Entity) environment.getSource()).getUrn();
     final EntityType entityType = ((Entity) environment.getSource()).getType();
     final String entityTypeName = EntityTypeMapper.getName(entityType);
+    final QueryContext context = environment.getContext();
+    if (DOCUMENT_ENTITY_NAME.equals(entityTypeName)
+        && !AuthorizationUtils.canView(context.getOperationContext(), UrnUtils.getUrn(urnStr))) {
+      return CompletableFuture.completedFuture(List.of());
+    }
     final AspectParams input = bindArgument(environment.getArgument("input"), AspectParams.class);
     final DataLoader<AspectsKey, List<RawAspect>> loader =
         environment.getDataLoaderRegistry().getDataLoader(LOADER_NAME);

@@ -46,10 +46,14 @@ def test_search_works(auth_session):
         search_result = get_search_results(auth_session, entity_type)
         num_entities = search_result["total"]
         add_datahub_stats(f"num-{entity_type}", num_entities)
-        if num_entities == 0:
-            logger.warning(f"No results for {entity_type}")
-            return
         entities = search_result["searchResults"]
+        # Guard on the actual results page, not `total`: under ES eventual
+        # consistency the aggregate `total` can be > 0 while `searchResults` is
+        # momentarily empty, which IndexErrors on entities[0]. Skip gracefully
+        # when the page is empty (read-only tests must tolerate no data).
+        if not entities:
+            logger.warning(f"No searchResults for {entity_type} (total={num_entities})")
+            return
 
         first_urn = entities[0]["entity"]["urn"]
 
@@ -108,10 +112,13 @@ def test_openapi_v3_entity(auth_session):
     def test_entity(entity_type: str) -> None:
         search_result = get_search_results(auth_session, entity_type)
         num_entities = search_result["total"]
-        if num_entities == 0:
-            logger.warning(f"No results for {entity_type}")
-            return
         entities = search_result["searchResults"]
+        # Guard on the actual results page, not `total` (see test_search_works):
+        # `total` can be > 0 while searchResults is momentarily empty under ES
+        # lag, which IndexErrors on entities[0].
+        if not entities:
+            logger.warning(f"No searchResults for {entity_type} (total={num_entities})")
+            return
 
         first_urn = entities[0]["entity"]["urn"]
 

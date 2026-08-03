@@ -145,8 +145,20 @@ public class ESUtils {
    * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
    * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
    * sub-fields are unaffected.
+   *
+   * <p>Structured-property write validation is configured separately via {@code
+   * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
    */
   public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /** Mapping parameter name for the keyword length guard described above. */
+  public static final String IGNORE_ABOVE = "ignore_above";
+
+  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return maxBytes / 4;
+  }
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(

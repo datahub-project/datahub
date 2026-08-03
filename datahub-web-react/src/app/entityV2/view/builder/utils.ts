@@ -25,6 +25,7 @@ export function mapUiOperatorToCondition(operator: string | undefined): FilterOp
         equals: FilterOperator.Equal,
         [NOT_EQUAL_OPERATOR]: FilterOperator.Equal,
         exists: FilterOperator.Exists,
+        within: FilterOperator.DescendantsIncl,
         contains_str: FilterOperator.Contain,
         contains_any: FilterOperator.Contain,
         starts_with: FilterOperator.StartWith,
@@ -62,6 +63,7 @@ export function mapConditionToUiOperator(
     const map: Record<string, string> = {
         [FilterOperator.Equal]: 'equals',
         [FilterOperator.Exists]: 'exists',
+        [FilterOperator.DescendantsIncl]: 'within',
         [FilterOperator.Contain]: 'contains_str',
         [FilterOperator.StartWith]: 'starts_with',
         [FilterOperator.GreaterThan]: 'greater_than',

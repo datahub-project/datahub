@@ -1,11 +1,11 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -79,7 +79,7 @@ public class EntityVersionedV2Resource
               .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet());
 
       Authentication auth = AuthenticationContext.getAuthentication();
-      final OperationContext opContext = OperationContext.asSession(
+      final OperationContext opContext = RestliUtils.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
                       .map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
@@ -97,7 +97,7 @@ public class EntityVersionedV2Resource
     if (versionedUrnStrs.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
