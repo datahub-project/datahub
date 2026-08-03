@@ -26,7 +26,10 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    EXTERNAL_STORAGE_PLATFORMS,
+    SnowflakeEdition,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -282,15 +285,23 @@ class SnowflakeIdentifierConfig(
         year=2025,
     )
 
-    platform_instance_map: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Platform instances of the external storage that Snowflake reads "
-        "from, keyed by platform, e.g. `{'s3': 'my_instance'}`. Only the `s3`, `gcs`, "
-        "and `abs` keys are read. Each value must exactly match (case-sensitively) the "
-        "`platform_instance` used in that storage source's own recipe -- and both "
-        "recipes must use the same `env` -- otherwise the upstream URNs will not match "
-        "and the lineage will silently not appear.",
-    )
+    @field_validator("platform_instance_map", mode="after")
+    @classmethod
+    def validate_external_storage_platforms(
+        cls, platform_instance_map: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        # `lineage_platform_instance` looks keys up by exact DataHub platform name, so a
+        # key Snowflake never reads (`S3`, `aws`, a typo) would be accepted and then
+        # silently ignored -- emitting zero lineage with no error, the exact failure this
+        # mapping exists to prevent. Fail at startup instead.
+        unknown = sorted(set(platform_instance_map or {}) - EXTERNAL_STORAGE_PLATFORMS)
+        if unknown:
+            raise ValueError(
+                f"platform_instance_map keys {unknown} are not read by the Snowflake "
+                f"source. It emits external storage lineage for "
+                f"{sorted(EXTERNAL_STORAGE_PLATFORMS)} only, and keys are case-sensitive."
+            )
+        return platform_instance_map
 
     def lineage_platform_instance(self, platform: str) -> Optional[str]:
         # Snowflake reads these platforms as upstreams, so the instance that matters is

@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import Field, SecretStr
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 
 GCS_PREFIX = "gs://"
 GCS_ENDPOINT_URL = "https://storage.googleapis.com"
@@ -53,6 +54,30 @@ def strip_gcs_prefix(gcs_uri: str) -> str:
         raise ValueError(f"Not a GCS URI. Must start with prefix: {GCS_PREFIX}")
 
     return gcs_uri[len(GCS_PREFIX) :]
+
+
+def make_gcs_urn(
+    gcs_uri: str, env: str, *, platform_instance: Optional[str] = None
+) -> str:
+    """
+    Build the dataset URN that the GCS source itself would emit for this URI.
+
+    Counterpart to `make_s3_urn_for_lineage` and `make_abs_urn`: warehouse sources use
+    this to name a GCS dataset the *GCS source* owns, so the name has to be built the way
+    gcs/gcs_source.py builds it -- scheme stripped, both ends stripped of slashes, same
+    platform instance prefix. Anything else silently produces a dangling upstream instead
+    of a connected edge.
+
+    Case is NOT normalized here: the GCS source lowercases via its own
+    `convert_urns_to_lowercase` config, which this helper cannot see. Only the global
+    DATASET_URN_TO_LOWER flag applies on both sides.
+    """
+    return make_dataset_urn_with_platform_instance(
+        platform="gcs",
+        name=strip_gcs_prefix(gcs_uri).strip("/"),
+        platform_instance=platform_instance,
+        env=env,
+    )
 
 
 def get_gcs_bucket_relative_path(gcs_uri: str) -> str:

@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
@@ -33,6 +32,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
+    make_snowflake_external_urn,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -376,15 +376,12 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
             loc: str
             for loc in external_locations:
-                if loc.startswith("s3://"):
+                upstream_urn = make_snowflake_external_urn(
+                    loc, identifiers.identifier_config
+                )
+                if upstream_urn:
                     return KnownLineageMapping(
-                        upstream_urn=make_s3_urn_for_lineage(
-                            loc,
-                            identifiers.identifier_config.env,
-                            platform_instance=identifiers.identifier_config.lineage_platform_instance(
-                                "s3"
-                            ),
-                        ),
+                        upstream_urn=upstream_urn,
                         downstream_urn=identifiers.gen_dataset_urn(key),
                     )
 
@@ -566,17 +563,16 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def get_external_upstreams(self, external_lineage: Set[str]) -> List[UpstreamClass]:
         external_upstreams = []
         for external_lineage_entry in sorted(external_lineage):
-            # For now, populate only for S3
-            if external_lineage_entry.startswith("s3://"):
-                external_upstream_table = UpstreamClass(
-                    dataset=make_s3_urn_for_lineage(
-                        external_lineage_entry,
-                        self.config.env,
-                        platform_instance=self.config.lineage_platform_instance("s3"),
-                    ),
-                    type=DatasetLineageTypeClass.COPY,
+            upstream_urn = make_snowflake_external_urn(
+                external_lineage_entry, self.config
+            )
+            if upstream_urn:
+                external_upstreams.append(
+                    UpstreamClass(
+                        dataset=upstream_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    )
                 )
-                external_upstreams.append(external_upstream_table)
         return external_upstreams
 
     def _should_ingest_lineage(self) -> bool:

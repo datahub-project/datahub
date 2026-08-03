@@ -1217,6 +1217,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     normalized_path = _strip_s3_partition_from_path(external_ref.path)
                     if normalized_path != external_ref.path:
                         self.report.num_external_upstreams_partition_stripped += 1
+                    # TODO: no config for the platform_instance the S3 source was
+                    # ingested under, so this upstream will not join an S3 dataset
+                    # ingested with one. Snowflake solves this with
+                    # `platform_instance_map` (PR #18781); Glue has the same gap.
                     upstreams.append(
                         UpstreamClass(
                             dataset=make_s3_urn_for_lineage(

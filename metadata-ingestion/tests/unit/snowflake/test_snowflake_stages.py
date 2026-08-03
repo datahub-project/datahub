@@ -1,7 +1,10 @@
 import json
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
+
+import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
@@ -333,23 +336,37 @@ class TestS3UpstreamPlatformInstance:
             "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
         )
 
-    def test_copy_history_lineage_returns_none_without_s3_location(self) -> None:
-        config = _make_config(platform_instance_map={"s3": "product"})
+    def test_copy_history_lineage_covers_gcs_and_abs(self) -> None:
+        # All three storage platforms go through the shared helper, so COPY history
+        # gets the same scheme coverage as stage lineage rather than S3 only.
+        config = _make_config(
+            platform_instance_map={"gcs": "gcs_inst", "abs": "abs_inst"}
+        )
         identifiers = SnowflakeIdentifierBuilder(
             identifier_config=config,
             structured_reporter=SnowflakeV2Report(),
         )
 
-        mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
-            db_row={
-                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
-                "UPSTREAM_LOCATIONS": json.dumps(["gcs://my-bucket/data"]),
-            },
-            discovered_tables=None,
-            identifiers=identifiers,
-        )
+        def upstream_for(location: str) -> Optional[str]:
+            mapping = SnowflakeLineageExtractor._process_external_lineage_result_row(
+                db_row={
+                    "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                    "UPSTREAM_LOCATIONS": json.dumps([location]),
+                },
+                discovered_tables=None,
+                identifiers=identifiers,
+            )
+            return mapping.upstream_urn if mapping else None
 
-        assert mapping is None
+        assert upstream_for("gcs://my-bucket/data") == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.my-bucket/data,PROD)"
+        )
+        assert upstream_for(
+            "azure://myacct.blob.core.windows.net/my-container/data"
+        ) == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,abs_inst.my-container/data,PROD)"
+        )
+        assert upstream_for("hdfs://namenode/data") is None
 
     def test_external_upstreams_apply_platform_instance(self) -> None:
         config = _make_config(platform_instance_map={"s3": "product"})
@@ -374,7 +391,9 @@ class TestS3UpstreamPlatformInstance:
         assert upstreams[0].type == DatasetLineageTypeClass.COPY
 
     def test_external_table_ddl_lineage_applies_platform_instance(self) -> None:
-        config = _make_config(platform_instance_map={"s3": "product"})
+        config = _make_config(
+            platform_instance_map={"s3": "product", "gcs": "gcs_inst"}
+        )
         report = SnowflakeV2Report()
         schema_gen = MagicMock()
         schema_gen.config = config
@@ -395,21 +414,31 @@ class TestS3UpstreamPlatformInstance:
                 "database_name": "TEST_DB",
                 "location": "gcs://other-bucket/data",
             },
+            {
+                "name": "HDFS_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "hdfs://namenode/data",
+            },
         ]
 
         mappings = list(
             SnowflakeSchemaGenerator._external_tables_ddl_lineage(
                 schema_gen,
-                ["test_db.test_schema.ext_table", "test_db.test_schema.gcs_table"],
+                [
+                    "test_db.test_schema.ext_table",
+                    "test_db.test_schema.gcs_table",
+                    "test_db.test_schema.hdfs_table",
+                ],
             )
         )
 
-        # Only the S3 row yields lineage; gcs:// is not handled on this path.
-        assert len(mappings) == 1
-        assert mappings[0].upstream_urn == (
-            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
-        )
-        # Both rows are scanned exactly once -- the S3 row used to be counted twice.
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.other-bucket/data,PROD)",
+        ]
+        # Counts edges emitted, not rows seen: the hdfs:// row produces no edge, so
+        # counting it would report lineage that does not exist.
         assert report.num_external_table_edges_scanned == 2
 
     def test_external_table_ddl_lineage_skips_undiscovered_table(self) -> None:
@@ -440,3 +469,45 @@ class TestS3UpstreamPlatformInstance:
         # check ever runs -- no lineage, and it isn't counted as a scanned edge either.
         assert mappings == []
         assert report.num_external_table_edges_scanned == 0
+
+
+class TestPlatformInstanceMapKeyValidation:
+    """
+    `lineage_platform_instance` looks keys up by exact platform name, so an unread key
+    would be accepted and then ignored -- zero lineage, no error. The keys are validated
+    at startup instead.
+    """
+
+    @pytest.mark.parametrize(
+        "platform_instance_map",
+        [
+            {"s3": "product"},
+            {"s3": "product", "gcs": "gcs_inst", "abs": "abs_inst"},
+            {},
+            None,
+        ],
+    )
+    def test_accepts_platforms_snowflake_reads(
+        self, platform_instance_map: Optional[Dict[str, str]]
+    ) -> None:
+        config = _make_config(platform_instance_map=platform_instance_map)
+        assert config.platform_instance_map == platform_instance_map
+
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            "S3",  # right platform, wrong case
+            "aws",  # cloud provider rather than DataHub platform name
+            "gs",  # GCS's own URI scheme rather than the platform name
+            "hive",  # a real platform, but not one Snowflake reads
+        ],
+    )
+    def test_rejects_keys_snowflake_never_reads(self, bad_key: str) -> None:
+        with pytest.raises(
+            ValidationError, match="are not read by the Snowflake source"
+        ):
+            _make_config(platform_instance_map={bad_key: "product"})
+
+    def test_error_names_the_offending_key(self) -> None:
+        with pytest.raises(ValidationError, match=r"\['aws'\]"):
+            _make_config(platform_instance_map={"s3": "ok", "aws": "typo"})
