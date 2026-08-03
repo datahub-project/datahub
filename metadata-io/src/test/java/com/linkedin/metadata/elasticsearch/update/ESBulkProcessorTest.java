@@ -56,6 +56,9 @@ public class ESBulkProcessorTest {
         .when(mockSearchClient)
         .generateAsyncBulkProcessor(
             any(), any(), anyInt(), anyLong(), anyLong(), anyInt(), anyInt());
+    doNothing()
+        .when(mockSearchClient)
+        .configureBulkProcessorWriteOptions(any(Boolean.class), anyInt());
     // Ensure closeBulkProcessor can be called without issues
     doNothing().when(mockSearchClient).closeBulkProcessor();
     doNothing().when(mockSearchClient).flushBulkProcessor();
@@ -97,6 +100,32 @@ public class ESBulkProcessorTest {
 
     assertNotNull(test);
     assertEquals(test.getWriteRequestRefreshPolicy(), WriteRequest.RefreshPolicy.IMMEDIATE);
+  }
+
+  @Test
+  public void testFlushAndWaitSuccess() throws Exception {
+    when(mockSearchClient.drainBulkTransferFailures()).thenReturn(0L);
+    ESBulkProcessor processor =
+        ESBulkProcessor.builder(mockSearchClient, mockMetricUtils)
+            .ackAfterTransfer(true)
+            .ackAfterTransferTimeoutSeconds(15)
+            .build();
+
+    processor.flushAndWait(java.time.Duration.ofSeconds(15));
+    verify(mockSearchClient).flushAndAwaitBulkTransfer(15000L);
+    verify(mockSearchClient).drainBulkTransferFailures();
+    assertTrue(processor.isAckAfterTransfer());
+    assertEquals(processor.getAckAfterTransferTimeoutSeconds(), 15);
+  }
+
+  @Test
+  public void testFlushAndWaitThrowsOnTransferFailures() throws Exception {
+    when(mockSearchClient.drainBulkTransferFailures()).thenReturn(3L);
+    ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+
+    expectThrows(
+        com.linkedin.metadata.search.elasticsearch.update.BulkTransferException.class,
+        () -> processor.flushAndWait(java.time.Duration.ofSeconds(5)));
   }
 
   @Test

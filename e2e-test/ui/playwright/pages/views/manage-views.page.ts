@@ -56,6 +56,10 @@ export class ManageViewsPage extends BasePage {
     return this.page.getByTestId(`option-${operator}`);
   }
 
+  private getFilterValueOption(searchValue: string): Locator {
+    return this.page.getByText(searchValue, { exact: false });
+  }
+
   // ============================================================================
   // PUBLIC METHODS
   // ============================================================================
@@ -85,6 +89,67 @@ export class ManageViewsPage extends BasePage {
     await this.conditionOperatorSelect.click();
     const operatorOption = this.getOperatorOption(operator);
     await operatorOption.click();
+  }
+
+  async selectProperty(fieldName: string): Promise<void> {
+    await this.conditionSelect.click();
+    const option = this.getFieldOption(fieldName);
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await option.click();
+  }
+
+  async openOperatorDropdown(): Promise<void> {
+    await this.conditionOperatorSelect.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await this.conditionOperatorSelect.click();
+  }
+
+  async expectOperatorOptionVisible(operator: string): Promise<void> {
+    await expect(this.getOperatorOption(operator)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+  }
+
+  async expectOperatorOptionNotVisible(operator: string): Promise<void> {
+    await expect(this.getOperatorOption(operator)).toHaveCount(0);
+  }
+
+  async expectOperatorDescriptionVisible(description: string): Promise<void> {
+    await expect(this.page.getByText(description, { exact: false })).toBeVisible({
+      timeout: TIMEOUTS.MEDIUM,
+    });
+  }
+
+  async selectOperator(operator: string): Promise<void> {
+    await this.openOperatorDropdown();
+    const operatorOption = this.getOperatorOption(operator);
+    await operatorOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await operatorOption.click();
+  }
+
+  async addFilterWithSearch(fieldName: string, operator: string, searchValue: string): Promise<void> {
+    await this.selectProperty(fieldName);
+    await this.selectOperator(operator);
+
+    const entitySearchInput = this.page.getByTestId('entity-search-input');
+    await entitySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await entitySearchInput.click();
+
+    const dropdownSearchInput = this.page.getByTestId('dropdown-search-input');
+    await dropdownSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await dropdownSearchInput.fill(searchValue);
+
+    const valueOption = this.getFilterValueOption(searchValue);
+    await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await valueOption.click();
+
+    const footerButtonUpdate = this.page.getByTestId('footer-button-update');
+    await footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await footerButtonUpdate.click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectSelectedOperator(operatorLabel: string): Promise<void> {
+    await expect(this.conditionOperatorSelect.getByText(operatorLabel, { exact: false })).toBeVisible({
+      timeout: TIMEOUTS.MEDIUM,
+    });
   }
 
   async saveView(): Promise<void> {

@@ -106,8 +106,6 @@ def _test_jobs(client: AirbyteBaseClient, connection_id: str) -> AirbyteTestResu
 
 
 def test_connection(config: AirbyteClientConfig) -> Optional[str]:
-    """Test the connection to the Airbyte API; returns None on success, or an
-    error message describing the first failure encountered."""
     try:
         if not config.verify_ssl:
             logger.warning("SSL certificate verification is disabled")

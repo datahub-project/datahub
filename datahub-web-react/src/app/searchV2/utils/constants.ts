@@ -18,6 +18,7 @@ export const PROPOSED_GLOSSARY_TERMS_FILTER_NAME = 'proposedGlossaryTerms';
 export const PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME = 'proposedSchemaGlossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const PARENT_DOCUMENT_FILTER_NAME = 'parentDocument';
 export const DATA_PRODUCT_FILTER_NAME = 'dataProduct';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
@@ -134,6 +135,9 @@ export const FIELD_TO_LABEL: Record<string, string> = {
     get container() {
         return i18next.t('search:fieldLabel.container');
     },
+    get parentDocument() {
+        return i18next.t('search:fieldLabel.parentDocument');
+    },
     get typeNames() {
         return i18next.t('search:fieldLabel.subType');
     },
@@ -202,6 +206,7 @@ export const ENTITY_FIELDS = new Set([
     PROPOSED_TAGS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DATA_PRODUCT_FILTER_NAME,
 ]);
