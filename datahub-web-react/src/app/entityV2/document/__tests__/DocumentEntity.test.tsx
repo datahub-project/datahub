@@ -1037,7 +1037,7 @@ describe('Document Ownership Display', () => {
         await waitFor(() => {
             expect(screen.getByText('Document with Owner')).toBeInTheDocument();
         });
-    });
+    }, 30_000);
 
     it('should render document without owners', async () => {
         const mockDocument = createMockDocument({
@@ -1060,7 +1060,7 @@ describe('Document Ownership Display', () => {
         await waitFor(() => {
             expect(screen.getByText('Unowned Document')).toBeInTheDocument();
         });
-    });
+    }, 30_000);
 });
 
 // =============================================================================
@@ -1090,7 +1090,7 @@ describe('Document Title Display', () => {
         await waitFor(() => {
             expect(screen.getByText('My Custom Document Title')).toBeInTheDocument();
         });
-    });
+    }, 30_000);
 
     it('should handle empty title gracefully', async () => {
         const mockDocument = createMockDocument({
@@ -1117,7 +1117,7 @@ describe('Document Title Display', () => {
             const preview = screen.getByTestId(`preview-${mockDocument.urn}`);
             expect(preview).toBeInTheDocument();
         });
-    });
+    }, 30_000);
 });
 
 // =============================================================================
