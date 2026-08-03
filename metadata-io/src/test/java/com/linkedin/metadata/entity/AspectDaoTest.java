@@ -452,6 +452,12 @@ public class AspectDaoTest {
       return null;
     }
 
+    @Override
+    public void lockLatestRows(
+        @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+      getLatestAspects(opContext, urnAspects, true);
+    }
+
     @Nonnull
     @Override
     public Optional<EntityAspect> updateAspect(

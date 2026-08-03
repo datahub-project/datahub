@@ -220,6 +220,63 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
+  public void lockLatestRows(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    validateConnection();
+
+    // Read-only mode takes no row locks (mirrors the forUpdate && canWrite guard used elsewhere).
+    if (!canWrite) {
+      return;
+    }
+
+    // Build the LATEST-version (version 0) primary keys for the entire closure.
+    final List<EbeanAspectV2.PrimaryKey> keys =
+        urnAspects.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .map(
+                            aspect ->
+                                new EbeanAspectV2.PrimaryKey(
+                                    entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+            .collect(Collectors.toCollection(ArrayList::new));
+
+    if (keys.isEmpty()) {
+      return;
+    }
+
+    // Sort the FULL keyset ONCE by natural PrimaryKey order (PrimaryKey.compareTo) so every
+    // transaction acquires row locks in the same global order. Using PrimaryKey.compareTo -- the
+    // same
+    // ordering getNextVersions applies via Collections.sort -- keeps the lock order consistent
+    // across
+    // the statements/transactions that lock these rows (it strips trailing whitespace exactly as
+    // the
+    // key's equals/hashCode do). This is the deadlock-safety invariant: two different orderings of
+    // the
+    // same rows under FOR UPDATE cause lock-order deadlocks between concurrent writers.
+    keys.sort(null);
+
+    // Chunk the pre-sorted keyset (same queryKeysCount batchGet uses) to bound IN-clause size, and
+    // FOR UPDATE each chunk in sorted order. KEY_ID projects only the @EmbeddedId (urn, aspect,
+    // version) -- the indexed composite key -- so the metadata/systemMetadata @Lob blobs are never
+    // fetched; the lock only needs the row locks taken via the key/index.
+    final int chunkSize = queryKeysCount > 0 ? queryKeysCount : keys.size();
+    for (int position = 0; position < keys.size(); position += chunkSize) {
+      final List<EbeanAspectV2.PrimaryKey> chunk =
+          keys.subList(position, Math.min(position + chunkSize, keys.size()));
+      primaryStorageResolver
+          .resolveEbean(opContext, true)
+          .find(EbeanAspectV2.class)
+          .select(EbeanAspectV2.KEY_ID)
+          .where()
+          .idIn(chunk)
+          .forUpdate()
+          .findList();
+    }
+  }
+
+  @Override
   public long countEntities(@Nonnull OperationContext opContext) {
     validateConnection();
     return server
@@ -1073,7 +1130,27 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (canWrite && lockLatestForWrite) {
       // Sorting is required to ensure consistent lock ordering and avoid deadlocks
       Collections.sort(forUpdateKeys);
-      server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
+      // Chunk the pre-sorted keyset (same queryKeysCount batchGet uses) to bound IN-clause size so
+      // a
+      // large keyset cannot exhaust the DB optimizer (e.g. MySQL range_optimizer_max_mem_size).
+      // Each
+      // chunk is locked in the same global sorted order, so this stays deadlock-safe -- it only
+      // splits one statement into bounded ones. KEY_ID projects only the @EmbeddedId (urn, aspect,
+      // version) -- the indexed composite key -- so the metadata/systemMetadata @Lob blobs are
+      // never
+      // fetched; the lock result is discarded (max(version) below is a separate query).
+      final int chunkSize = queryKeysCount > 0 ? queryKeysCount : forUpdateKeys.size();
+      for (int position = 0; position < forUpdateKeys.size(); position += chunkSize) {
+        final List<EbeanAspectV2.PrimaryKey> chunk =
+            forUpdateKeys.subList(position, Math.min(position + chunkSize, forUpdateKeys.size()));
+        server
+            .find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.KEY_ID)
+            .where()
+            .idIn(chunk)
+            .forUpdate()
+            .findList();
+      }
     }
 
     // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.

@@ -65,6 +65,21 @@ public class DefaultAspectsUtil {
       @Nonnull final AspectsBatch inputBatch,
       @Nonnull EntityService<?> entityService,
       boolean enableBrowseV2) {
+    return withAdditionalChanges(opContext, inputBatch, entityService, enableBrowseV2, true);
+  }
+
+  /**
+   * @param forUpdateKeyExists whether the key-aspect existence check should take a row lock ({@code
+   *     FOR UPDATE}). The legacy ingest path passes {@code true}. The coordinated-ingest path
+   *     passes {@code false} for its non-locking closure-discovery pass, so that all rows are
+   *     locked once in a single sorted statement afterward.
+   */
+  public static AspectsBatch withAdditionalChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull final AspectsBatch inputBatch,
+      @Nonnull EntityService<?> entityService,
+      boolean enableBrowseV2,
+      boolean forUpdateKeyExists) {
     /*
      * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
      *    if the batch is fixed with a key aspect prior to the transaction.
@@ -82,7 +97,11 @@ public class DefaultAspectsUtil {
     // Key aspect restored if needed
     result.addAll(
         DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2));
+            opContext,
+            inputBatch.getMCPItems(),
+            entityService,
+            enableBrowseV2,
+            forUpdateKeyExists));
     return AspectsBatchImpl.builder()
         .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
@@ -94,6 +113,15 @@ public class DefaultAspectsUtil {
       @Nonnull Collection<MCPItem> batch,
       @Nonnull EntityService<?> entityService,
       boolean browsePathV2) {
+    return getAdditionalChanges(opContext, batch, entityService, browsePathV2, true);
+  }
+
+  public static List<MCPItem> getAdditionalChanges(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<MCPItem> batch,
+      @Nonnull EntityService<?> entityService,
+      boolean browsePathV2,
+      boolean forUpdateKeyExists) {
 
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.stream()
@@ -101,7 +129,7 @@ public class DefaultAspectsUtil {
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
     Set<Urn> urnsWithExistingKeyAspects =
-        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
+        entityService.exists(opContext, itemsByUrn.keySet(), true, forUpdateKeyExists);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()

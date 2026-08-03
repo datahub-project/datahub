@@ -4,12 +4,14 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -24,8 +26,13 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.versionset.VersionSetProperties;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,8 +57,63 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
       @Nonnull OperationFingerprint operationContext,
       Collection<ChangeMCP> changeMCPS,
       @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream()
-        .flatMap(item -> processMCP(operationContext, item, retrieverContext));
+    AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+
+    // First pass: keep the version-properties items we can process and collect the version-set
+    // URNs whose VersionSetProperties must be read.
+    List<VersionPropertiesContext> contexts = new ArrayList<>();
+    Set<Urn> versionSetUrns = new HashSet<>();
+    for (ChangeMCP item : changeMCPS) {
+      if (!VERSION_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
+        continue;
+      }
+      VersionProperties versionProperties = item.getAspect(VersionProperties.class);
+      if (versionProperties == null) {
+        log.error("Unable to process version properties for urn: {}", item.getUrn());
+        continue;
+      }
+      contexts.add(new VersionPropertiesContext(item, versionProperties));
+      versionSetUrns.add(versionProperties.getVersionSet());
+    }
+
+    if (contexts.isEmpty()) {
+      return Stream.empty();
+    }
+
+    // Batched read #1: VersionSetProperties for every referenced version set.
+    Map<Urn, Map<String, Aspect>> versionSetAspects =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext, versionSetUrns, ImmutableSet.of(VERSION_SET_PROPERTIES_ASPECT_NAME));
+
+    // Resolve each item's version set and, for existing sets whose latest differs from the entity,
+    // collect the previous-latest URNs whose VersionProperties must be read.
+    Set<Urn> prevLatestUrns = new HashSet<>();
+    for (VersionPropertiesContext ctx : contexts) {
+      Aspect versionSetPropertiesAspect =
+          versionSetAspects
+              .getOrDefault(ctx.versionProperties.getVersionSet(), Collections.emptyMap())
+              .get(VERSION_SET_PROPERTIES_ASPECT_NAME);
+      ctx.versionSetPropertiesAspect = versionSetPropertiesAspect;
+      if (versionSetPropertiesAspect != null) {
+        VersionSetProperties versionSetProperties =
+            RecordUtils.toRecordTemplate(
+                VersionSetProperties.class, versionSetPropertiesAspect.data());
+        ctx.prevLatest = versionSetProperties.getLatest();
+        if (!ctx.prevLatest.equals(ctx.item.getUrn())) {
+          prevLatestUrns.add(ctx.prevLatest);
+        }
+      }
+    }
+
+    // Batched read #2: VersionProperties for every previous-latest entity.
+    Map<Urn, Map<String, Aspect>> prevLatestAspects =
+        prevLatestUrns.isEmpty()
+            ? Collections.emptyMap()
+            : aspectRetriever.getLatestAspectObjects(
+                operationContext, prevLatestUrns, ImmutableSet.of(VERSION_PROPERTIES_ASPECT_NAME));
+
+    // Final pass: compute side-effect MCPs from the pre-fetched aspects, preserving input order.
+    return contexts.stream().flatMap(ctx -> processMCP(ctx, prevLatestAspects, retrieverContext));
   }
 
   @Override
@@ -63,45 +125,28 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
   }
 
   private static Stream<ChangeMCP> processMCP(
-      OperationFingerprint operationFingerprint,
-      ChangeMCP changeMCP,
+      VersionPropertiesContext ctx,
+      Map<Urn, Map<String, Aspect>> prevLatestAspects,
       @Nonnull RetrieverContext retrieverContext) {
+    ChangeMCP changeMCP = ctx.item;
+    VersionProperties versionProperties = ctx.versionProperties;
     Urn entityUrn = changeMCP.getUrn();
 
-    if (!VERSION_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
-      return Stream.empty();
-    }
-
-    VersionProperties versionProperties = changeMCP.getAspect(VersionProperties.class);
-    if (versionProperties == null) {
-      log.error("Unable to process version properties for urn: {}", changeMCP.getUrn());
-      return Stream.empty();
-    }
-
-    Urn versionSetUrn = versionProperties.getVersionSet();
-    Aspect versionSetPropertiesAspect =
-        retrieverContext
-            .getAspectRetriever()
-            .getLatestAspectObject(
-                operationFingerprint, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
-    if (versionSetPropertiesAspect == null) {
+    if (ctx.versionSetPropertiesAspect == null) {
       return createVersionSet(versionProperties, changeMCP, retrieverContext);
     }
 
     // Version set exists -- only update if there is a new latest
-    VersionSetProperties versionSetProperties =
-        RecordUtils.toRecordTemplate(VersionSetProperties.class, versionSetPropertiesAspect.data());
-    Urn prevLatest = versionSetProperties.getLatest();
+    Urn prevLatest = ctx.prevLatest;
     if (prevLatest.equals(entityUrn)) {
       return Stream.empty();
     }
 
     VersionProperties prevLatestVersionProperties = null;
     Aspect prevLatestVersionPropertiesAspect =
-        retrieverContext
-            .getAspectRetriever()
-            .getLatestAspectObject(
-                operationFingerprint, prevLatest, VERSION_PROPERTIES_ASPECT_NAME);
+        prevLatestAspects
+            .getOrDefault(prevLatest, Collections.emptyMap())
+            .get(VERSION_PROPERTIES_ASPECT_NAME);
     if (prevLatestVersionPropertiesAspect != null) {
       prevLatestVersionProperties =
           RecordUtils.toRecordTemplate(
@@ -241,5 +286,18 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
         .auditStamp(changeMCP.getAuditStamp())
         .systemMetadata(changeMCP.getSystemMetadata())
         .build(retrieverContext.getAspectRetriever());
+  }
+
+  /** Per-item state carried between the batched-read passes of {@link #applyMCPSideEffect}. */
+  private static final class VersionPropertiesContext {
+    private final ChangeMCP item;
+    private final VersionProperties versionProperties;
+    @Nullable private Aspect versionSetPropertiesAspect;
+    @Nullable private Urn prevLatest;
+
+    private VersionPropertiesContext(ChangeMCP item, VersionProperties versionProperties) {
+      this.item = item;
+      this.versionProperties = versionProperties;
+    }
   }
 }

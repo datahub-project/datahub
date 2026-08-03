@@ -16,6 +16,7 @@ public class MetadataChangeProposalConfig {
   ThrottlesConfig throttle;
   MCPValidationConfig validation;
   SideEffectsConfig sideEffects;
+  CoordinatedIngestConfiguration coordinatedIngest;
 
   @Data
   @NoArgsConstructor

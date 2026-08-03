@@ -311,6 +311,21 @@ public class EntityUtils {
       AspectDao aspectDao,
       Map<String, Map<String, T>> latestAspects,
       Map<String, Set<String>> urnAspects) {
+    return calculateNextVersions(opContext, txContext, aspectDao, latestAspects, urnAspects, true);
+  }
+
+  /**
+   * @param forUpdate whether the database max-version lookup for aspects missing from {@code
+   *     latestAspects} takes a row lock. The legacy ingest path passes {@code true}. The
+   *     coordinated path passes {@code false} for its non-locking closure-discovery pass.
+   */
+  public static <T extends SystemAspect> Map<String, Map<String, Long>> calculateNextVersions(
+      @Nonnull OperationContext opContext,
+      TransactionContext txContext,
+      AspectDao aspectDao,
+      Map<String, Map<String, T>> latestAspects,
+      Map<String, Set<String>> urnAspects,
+      boolean forUpdate) {
 
     final Map<String, Map<String, Long>> precalculatedVersions;
     final Map<String, Set<String>> missingAspectVersions;
@@ -348,7 +363,7 @@ public class EntityUtils {
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
-            : aspectDao.getNextVersions(opContext, missingAspectVersions, true);
+            : aspectDao.getNextVersions(opContext, missingAspectVersions, forUpdate);
 
     // stitch back together the precalculated and database versions
     return Stream.concat(

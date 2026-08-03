@@ -8,4 +8,12 @@
             <package name="com.linkedin.metadata.entity.storage"/>
         </packages>
     </test>
+    <!-- Coordinated-ingest concurrency against real PostgreSQL. The MySQL subclass is registered in
+         testng-mysql.xml instead; only the Postgres class is listed here so the postgres suite does
+         not start a MySQL container. -->
+    <test name="postgresql-coordinated-ingest-concurrency">
+        <classes>
+            <class name="com.linkedin.metadata.entity.coordinator.concurrency.CoordinatedIngestConcurrencyPostgresIT"/>
+        </classes>
+    </test>
 </suite>

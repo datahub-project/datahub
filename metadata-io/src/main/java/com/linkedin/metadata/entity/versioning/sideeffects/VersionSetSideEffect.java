@@ -5,9 +5,11 @@ import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -21,7 +23,11 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -45,8 +51,42 @@ public class VersionSetSideEffect extends MCPSideEffect {
       @Nonnull OperationFingerprint operationContext,
       Collection<ChangeMCP> changeMCPS,
       @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream()
-        .flatMap(item -> updateLatest(operationContext, item, retrieverContext));
+    AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+
+    // First pass: keep the version-set-properties items we can process and collect the
+    // VersionProperties URNs (new latest, plus previous latest when present) we must read.
+    List<ChangeMCP> relevant = new ArrayList<>();
+    Set<Urn> versionPropertyUrns = new HashSet<>();
+    for (ChangeMCP item : changeMCPS) {
+      if (!VERSION_SET_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())) {
+        continue;
+      }
+      VersionSetProperties versionSetProperties = item.getAspect(VersionSetProperties.class);
+      if (versionSetProperties == null) {
+        log.error("Unable to process version set properties for urn: {}", item.getUrn());
+        continue;
+      }
+      relevant.add(item);
+      versionPropertyUrns.add(versionSetProperties.getLatest());
+      VersionSetProperties previousVersionSetProperties =
+          item.getPreviousAspect(VersionSetProperties.class);
+      if (previousVersionSetProperties != null) {
+        versionPropertyUrns.add(previousVersionSetProperties.getLatest());
+      }
+    }
+
+    if (relevant.isEmpty()) {
+      return Stream.empty();
+    }
+
+    // Batched read: VersionProperties for every referenced latest / previous-latest entity.
+    Map<Urn, Map<String, Aspect>> versionPropertyAspects =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext, versionPropertyUrns, ImmutableSet.of(VERSION_PROPERTIES_ASPECT_NAME));
+
+    // Second pass: compute side-effect MCPs from the pre-fetched aspects, preserving input order.
+    return relevant.stream()
+        .flatMap(item -> updateLatest(item, versionPropertyAspects, retrieverContext));
   }
 
   @Override
@@ -58,8 +98,8 @@ public class VersionSetSideEffect extends MCPSideEffect {
   }
 
   private static Stream<ChangeMCP> updateLatest(
-      OperationFingerprint operationFingerprint,
       ChangeMCP changeMCP,
+      Map<Urn, Map<String, Aspect>> versionPropertyAspects,
       @Nonnull RetrieverContext retrieverContext) {
 
     if (VERSION_SET_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
@@ -82,10 +122,9 @@ public class VersionSetSideEffect extends MCPSideEffect {
       if (previousVersionSetProperties != null) {
         Urn previousLatest = previousVersionSetProperties.getLatest();
         Aspect previousLatestEntity =
-            retrieverContext
-                .getAspectRetriever()
-                .getLatestAspectObject(
-                    operationFingerprint, previousLatest, VERSION_PROPERTIES_ASPECT_NAME);
+            versionPropertyAspects
+                .getOrDefault(previousLatest, Collections.emptyMap())
+                .get(VERSION_PROPERTIES_ASPECT_NAME);
         if (!newLatest.equals(previousLatest) && previousLatestEntity != null) {
           EntitySpec entitySpec =
               retrieverContext
@@ -118,10 +157,9 @@ public class VersionSetSideEffect extends MCPSideEffect {
 
       // Explicitly error here to avoid downstream patch error with less context
       Aspect newLatestEntity =
-          retrieverContext
-              .getAspectRetriever()
-              .getLatestAspectObject(
-                  operationFingerprint, newLatest, VERSION_PROPERTIES_ASPECT_NAME);
+          versionPropertyAspects
+              .getOrDefault(newLatest, Collections.emptyMap())
+              .get(VERSION_PROPERTIES_ASPECT_NAME);
       if (newLatestEntity == null) {
         throw new UnsupportedOperationException(
             "Cannot set latest version to unversioned entity: " + newLatest);

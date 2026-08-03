@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="metadata-io-mysql" parallel="classes" thread-count="2">
+    <!-- Coordinated-ingest concurrency against real MySQL/InnoDB. Shares the abstract harness with
+         the Postgres subclass (registered in testng-postgresql.xml); only the MySQL class is listed
+         here so this suite does not start a PostgreSQL container. -->
+    <test name="mysql-coordinated-ingest-concurrency">
+        <classes>
+            <class name="com.linkedin.metadata.entity.coordinator.concurrency.CoordinatedIngestConcurrencyMysqlIT"/>
+        </classes>
+    </test>
+</suite>

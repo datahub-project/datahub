@@ -142,6 +142,18 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
+  public void lockLatestRows(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    // Cassandra has no FOR UPDATE / row-level locks, so it cannot honor the coordinated-ingest
+    // single-wave lock. Coordinated ingest is SQL-only by design; this is a no-op that warns no
+    // lock
+    // was acquired.
+    log.warn(
+        "lockLatestRows is a no-op on Cassandra: coordinated ingest lock requires a SQL backend "
+            + "(no row-level locking available). No lock acquired.");
+  }
+
+  @Override
   public long getMaxVersion(
       OperationContext operationContext,
       @Nonnull final String urn,

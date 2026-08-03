@@ -100,6 +100,30 @@ public interface AspectDao {
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   /**
+   * Locks the LATEST-version (version 0) row for every {@code (urn, aspect)} pair in {@code
+   * urnAspects} using a single globally-sorted {@code FOR UPDATE} statement (or a chunked sequence
+   * sliced from a single globally pre-sorted keyset, preserving global {@code (urn, aspect,
+   * version)} order across transactions and chunks).
+   *
+   * <p>This is a PK-only lock: it selects only the key columns to acquire the row locks and never
+   * fetches the aspect payload (metadata / systemmetadata blobs), so it returns nothing.
+   *
+   * <p>This is the coordinator's single-wave lock. Because the entire mutation closure is locked in
+   * one sorted pass, there is no cross-wave lock-ordering gap between concurrent writers (see the
+   * coordinated-ingest design). It MUST be called inside a transaction (see {@link
+   * #runInTransactionWithRetry}); the acquired row locks are held until that transaction commits or
+   * rolls back.
+   *
+   * <p>SQL backends acquire real row locks. Backends without row-level locking (e.g. Cassandra)
+   * cannot honor this contract and MUST NOT be relied upon for coordinated-ingest correctness.
+   *
+   * @param opContext operation context
+   * @param urnAspects urn to aspect-name-set map identifying the latest rows to lock
+   */
+  void lockLatestRows(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects);
+
+  /**
    * Updates the system aspect
    *
    * @param operationContext
