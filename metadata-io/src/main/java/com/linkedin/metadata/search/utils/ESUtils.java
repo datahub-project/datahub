@@ -12,6 +12,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
@@ -20,6 +21,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -758,9 +760,11 @@ public class ESUtils {
       @Nullable final Object opContext,
       @Nonnull final String filterField,
       @Nullable final AspectRetriever aspectRetriever) {
+    // Only structured-property filters need definition lookup to sanitize/version the ES field
+    // name. Non-SP fields pass through unchanged aside from stripping known subfield suffixes.
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
+                (OperationFingerprint) opContext, filterField, aspectRetriever)
             .map(
                 urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
@@ -805,24 +809,41 @@ public class ESUtils {
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
-    String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
-            .map(
-                urnDefinition ->
-                    STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(
-                            urnDefinition.getFirst(), urnDefinition.getSecond()))
-            .orElse(filterField);
+    // Structured properties: single source of truth for parent vs .keyword is
+    // StructuredPropertyUtils.toStructuredPropertyFacetName (DATE/NUMBER/URN skip .keyword).
+    Optional<String> structuredPropertyField =
+        StructuredPropertyUtils.toStructuredPropertyFacetName(
+            (OperationFingerprint) opContext, filterField, aspectRetriever);
+    if (structuredPropertyField.isPresent()) {
+      return skipKeywordSuffix
+          ? replaceSuffix(structuredPropertyField.get())
+          : structuredPropertyField.get();
+    }
+
+    // Definition lookup failed. If the caller already passed a versioned ES path, infer type from
+    // the trailing segment so STRING still gets .keyword and URN/DATE/NUMBER do not. Unversioned
+    // FQN misses prefer the parent (avoids empty results for typed parents).
+    if (filterField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      Optional<LogicalValueType> inferredType =
+          StructuredPropertyUtils.getLogicalValueTypeFromFieldName(filterField);
+      if (inferredType.isPresent()) {
+        String parent = replaceSuffix(filterField);
+        if (skipKeywordSuffix || !StructuredPropertyUtils.usesKeywordSubfield(inferredType.get())) {
+          return parent;
+        }
+        return parent + ESUtils.KEYWORD_SUFFIX;
+      }
+      return filterField;
+    }
 
     return skipKeywordSuffix
-            || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.contains(filterField)
             || KEYWORD_FIELDS.stream()
-                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
-            || PATH_HIERARCHY_FIELDS.contains(fieldName)
-            || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
-        ? fieldName
-        : fieldName + ESUtils.KEYWORD_SUFFIX;
+                .anyMatch(nestedField -> filterField.endsWith("." + nestedField))
+            || PATH_HIERARCHY_FIELDS.contains(filterField)
+            || SUBFIELDS.stream().anyMatch(subfield -> filterField.endsWith("." + subfield))
+        ? filterField
+        : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
   public static RequestOptions buildReindexTaskRequestOptions(
@@ -1118,7 +1139,7 @@ public class ESUtils {
       // underscores
       finalFieldTypes =
           StructuredPropertyUtils.toElasticsearchFieldType(
-              (com.datahub.context.OperationFingerprint) opContext,
+              (OperationFingerprint) opContext,
               replaceSuffix(criterion.getField()),
               aspectRetriever);
     } else {

@@ -60,6 +60,21 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForUrn();
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), 255);
+    assertFalse(
+        mapping.containsKey("fields"),
+        "URN mapping is parent keyword only; query time skips .keyword for URN SPs");
+  }
+
+  @Test
+  public void testUrnLogicalValueTypeUsesUrnMapping() {
+    Map<String, Object> mapping =
+        FieldTypeMapper.getMappingsForLogicalValueType(
+            com.linkedin.metadata.models.LogicalValueType.URN);
+    assertEquals(mapping.get("type"), "keyword");
+    assertEquals(mapping.get("ignore_above"), 255);
+    assertFalse(
+        mapping.containsKey("fields"),
+        "URN logical value type must use parent keyword mapping without .keyword subfield");
   }
 
   @Test
