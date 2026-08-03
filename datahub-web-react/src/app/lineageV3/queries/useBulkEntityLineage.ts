@@ -14,6 +14,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
+import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
 import usePrevious from '@app/shared/usePrevious';
@@ -103,13 +104,17 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         onCompleted: (data) => {
             const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let changed = false;
-            data?.entities?.forEach((rawEntity) => {
+            // Results are positional & 1:1 with the requested urns. A neighbor the user
+            // can't view returns as a Restricted placeholder with a re-encrypted urn that
+            // won't match its node key, so match those back by request position.
+            const requestedUrns = data?.entities?.length === urnsToFetch.length ? urnsToFetch : [];
+            data?.entities?.forEach((rawEntity, index) => {
                 if (!rawEntity) return;
                 const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity, flags);
                 if (!config) return;
                 const entity = { ...config, lineageAssets: entityRegistry.getLineageAssets(rawEntity.type, rawEntity) };
 
-                const node = nodes.get(entity.urn);
+                const node = getNodeForBulkResult(nodes, entity.urn, rawEntity.type, requestedUrns, index);
                 if (node) {
                     node.entity = entity;
                     node.rawEntity = rawEntity;

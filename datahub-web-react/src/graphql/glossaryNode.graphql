@@ -50,6 +50,9 @@ fragment glossaryNodeFields on GlossaryNode {
     institutionalMemory {
         ...institutionalMemoryFields
     }
+    tags {
+        ...globalTagsFields
+    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields

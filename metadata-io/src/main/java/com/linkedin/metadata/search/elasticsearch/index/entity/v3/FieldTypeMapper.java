@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.FLOAT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.INTEGER_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
@@ -149,7 +150,7 @@ public class FieldTypeMapper {
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", KEYWORD_MAXLENGTH);
+    mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
     return mapping;
   }
 
@@ -161,7 +162,7 @@ public class FieldTypeMapper {
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
+    mapping.put(IGNORE_ABOVE, keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
     return mapping;
   }
 
@@ -174,7 +175,7 @@ public class FieldTypeMapper {
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", 255);
+    mapping.put(IGNORE_ABOVE, 255);
     return mapping;
   }
 
