@@ -27,6 +27,9 @@ import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.sql.Connection;
+import java.sql.Savepoint;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -90,41 +93,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     if (!nonEmptyContexts.isEmpty()) {
       int deletedCount = 0;
       for (RetentionContext context : nonEmptyContexts) {
-        Retention retentionPolicy = context.getRetentionPolicy().get();
-
-        // Build a separate DELETE query for this specific (urn, aspect) pair
-        ExpressionList<EbeanAspectV2> deleteQuery =
-            _server
-                .find(EbeanAspectV2.class)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
-                .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
-                .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
-
-        boolean hasVersionCondition = false;
-        if (retentionPolicy.hasVersion()) {
-          Optional<Expression> versionExpr =
-              getVersionBasedRetentionQuery(
-                  context.getUrn(),
-                  context.getAspectName(),
-                  retentionPolicy.getVersion(),
-                  context.getMaxVersion());
-          if (versionExpr.isPresent()) {
-            deleteQuery.add(versionExpr.get());
-            hasVersionCondition = true;
-          }
-        }
-
-        boolean hasTimeCondition = false;
-        if (retentionPolicy.hasTime()) {
-          deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
-          hasTimeCondition = true;
-        }
-
-        // Execute DELETE immediately for this (urn, aspect) pair if any condition applies
-        if (hasVersionCondition || hasTimeCondition) {
-          int rowsDeleted = deleteQuery.delete();
-          deletedCount += rowsDeleted;
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        deletedCount += rowsDeleted;
+        if (rowsDeleted > 0) {
           log.debug(
               "Deleted {} rows for urn={} aspect={}",
               rowsDeleted,
@@ -139,6 +110,142 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
             deletedCount,
             nonEmptyContexts.size());
       }
+    }
+  }
+
+  /**
+   * Build and execute the single-pair DELETE for one {@link RetentionContext}. Returns rows deleted
+   * (0 when no version/time condition applies — a no-op, not a failure). Caller owns the
+   * transaction; this method issues one {@code DELETE} against the ambient/current tx.
+   */
+  private int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
+    Retention retentionPolicy = context.getRetentionPolicy().orElseThrow();
+
+    ExpressionList<EbeanAspectV2> deleteQuery =
+        _server
+            .find(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+            .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+            .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
+
+    boolean hasVersionCondition = false;
+    if (retentionPolicy.hasVersion()) {
+      Optional<Expression> versionExpr =
+          getVersionBasedRetentionQuery(
+              context.getUrn(),
+              context.getAspectName(),
+              retentionPolicy.getVersion(),
+              context.getMaxVersion());
+      if (versionExpr.isPresent()) {
+        deleteQuery.add(versionExpr.get());
+        hasVersionCondition = true;
+      }
+    }
+
+    boolean hasTimeCondition = false;
+    if (retentionPolicy.hasTime()) {
+      deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
+      hasTimeCondition = true;
+    }
+
+    if (hasVersionCondition || hasTimeCondition) {
+      return deleteQuery.delete();
+    }
+    return 0;
+  }
+
+  /**
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} that wraps all per-pair DELETEs in a
+   * single database transaction (one commit / fsync per drain tick). Per-pair JDBC savepoints
+   * isolate failures: a poison (urn, aspect) pair rolls back only its own DELETE, so one bad pair
+   * no longer wedges the whole batch. Returns the contexts that were durably committed — the caller
+   * ({@link com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those
+   * keys from the buffer via {@code removeIfSame}.
+   *
+   * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
+   * cleared rather than retried forever.
+   *
+   * <p>If the final commit fails, returns an empty list — nothing is durable and all keys stay for
+   * retry.
+   */
+  @Override
+  @WithSpan
+  @Nonnull
+  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+    List<RetentionContext> withDefaults =
+        retentionContexts.stream()
+            .map(
+                context -> {
+                  if (context.getRetentionPolicy().isEmpty()) {
+                    Retention retentionPolicy =
+                        getRetention(
+                            opContext, context.getUrn().getEntityType(), context.getAspectName());
+                    return context.toBuilder()
+                        .retentionPolicy(Optional.of(retentionPolicy))
+                        .build();
+                  }
+                  return context;
+                })
+            .collect(Collectors.toList());
+
+    List<RetentionContext> successes = new ArrayList<>(withDefaults.size());
+    if (withDefaults.isEmpty()) {
+      return successes;
+    }
+
+    Transaction tx = _server.beginTransaction(TxScope.required());
+    tx.setBatchMode(true);
+    tx.setBatchSize(_batchSize);
+    try {
+      Connection connection = tx.connection();
+      for (RetentionContext context : withDefaults) {
+        Savepoint savepoint = connection.setSavepoint();
+        try {
+          int rowsDeleted = executeRetentionDeleteForContext(context);
+          connection.releaseSavepoint(savepoint);
+          successes.add(context);
+          if (rowsDeleted > 0) {
+            log.debug(
+                "Deleted {} rows for urn={} aspect={}",
+                rowsDeleted,
+                context.getUrn(),
+                context.getAspectName());
+          }
+        } catch (Exception e) {
+          try {
+            connection.rollback(savepoint);
+          } catch (SQLException sqle) {
+            log.warn(
+                "Failed to rollback to savepoint for urn={} aspect={}",
+                context.getUrn(),
+                context.getAspectName(),
+                sqle);
+          }
+          log.warn(
+              "Retention delete failed for urn={} aspect={}; leaving key for retry",
+              context.getUrn(),
+              context.getAspectName(),
+              e);
+        }
+      }
+      tx.commit();
+      return successes;
+    } catch (Exception e) {
+      log.warn(
+          "Retention batch tx failed; {} of {} pairs applied before failure",
+          successes.size(),
+          withDefaults.size(),
+          e);
+      try {
+        tx.rollback();
+      } catch (Exception ignored) {
+        // Already logging the primary failure above.
+      }
+      return List.of();
+    } finally {
+      tx.end();
     }
   }
 

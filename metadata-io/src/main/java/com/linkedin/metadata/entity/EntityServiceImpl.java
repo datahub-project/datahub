@@ -1098,6 +1098,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // so a retention bug must never fail the ingest call.
     try {
       List<RetentionService.RetentionContext> retentionBatch =
+          // null updatedLatestAspects: post-commit has no in-tx snapshot; oldValue!=null filter
+          // below is the sole eligibility gate (intentional — see buildRetentionContexts javadoc).
           buildRetentionContexts(upsertResults, null);
       if (retentionBatch.isEmpty()) {
         return;

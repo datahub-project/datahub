@@ -1,9 +1,5 @@
 package com.linkedin.metadata.buffer;
 
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
@@ -12,7 +8,6 @@ import static org.testng.Assert.assertTrue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +22,6 @@ public class HazelcastCoalesceBufferTest {
   private static final String LOCK_MAP_NAME = "test-drain-lock";
   private static final String KEY =
       "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)|status";
-  private static final String OTHER_KEY =
-      "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.overflow,PROD)|status";
 
   private HazelcastInstance hazelcastInstance;
 
@@ -54,7 +47,7 @@ public class HazelcastCoalesceBufferTest {
   public void testMergeKeepsMaxValueOnCoalesce() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, 100, null);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
 
     buffer.merge(KEY, 5L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 2L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -70,35 +63,28 @@ public class HazelcastCoalesceBufferTest {
   public void testMergeRejectsNonKeepMaxLongPolicy() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, 100, null);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
     BinaryOperator<Long> notKeepMaxLong = (a, b) -> a;
 
     assertThrows(UnsupportedOperationException.class, () -> buffer.merge(KEY, 1L, notKeepMaxLong));
   }
 
   @Test
-  public void testMergeDropsNewKeysWhenBufferFull() {
+  public void testDrainRespectsLimit() {
     hazelcastInstance = newIsolatedInstance();
-    MetricUtils mockMetricUtils = mock(MetricUtils.class);
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(
-            hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, 1, mockMetricUtils);
-
-    buffer.merge(KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
-    buffer.merge(OTHER_KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
-
-    List<Map.Entry<String, Long>> batch = buffer.drain(10);
-    assertEquals(batch.size(), 1);
-    assertEquals(batch.get(0).getKey(), KEY);
-    verify(mockMetricUtils, times(1))
-        .increment(eq(HazelcastCoalesceBuffer.class), eq(MAP_NAME + "_overflow"), eq(1.0d));
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+    for (int i = 0; i < 5; i++) {
+      buffer.merge(KEY + "-" + i, (long) i, CoalesceBuffers.KEEP_MAX_LONG);
+    }
+    assertEquals(buffer.drain(2).size(), 2);
   }
 
   @Test
   public void testRemoveIfSameOnlyRemovesMatchingValue() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, 100, null);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
     buffer.merge(KEY, 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     assertFalse(buffer.removeIfSame(KEY, 999L));
@@ -110,7 +96,7 @@ public class HazelcastCoalesceBufferTest {
   public void testDrainLockIsMutuallyExclusive() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, 100, null);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
 
     assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
     assertFalse(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));

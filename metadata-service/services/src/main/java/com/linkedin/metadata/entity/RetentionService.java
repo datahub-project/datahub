@@ -302,6 +302,29 @@ public abstract class RetentionService<U extends ChangeMCP> {
   }
 
   /**
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} intended for the post-commit drain
+   * path. Wraps all per-pair DELETEs in a single database transaction where supported by the
+   * storage backend (see {@code EbeanRetentionService} for the tx + savepoint implementation).
+   * Returns the contexts that were durably committed — callers should clear only those keys from
+   * the buffer.
+   *
+   * <p>Default implementation falls back to {@link #applyRetentionWithPolicyDefaults} and returns
+   * the full input list (treats all as committed). Storage-specific subclasses override to provide
+   * real transaction batching and per-pair failure isolation.
+   *
+   * @param opContext operation context
+   * @param retentionContexts urn, aspect name, and additional context to apply retention for
+   * @return the subset of {@code retentionContexts} that were durably committed (empty on full-batch
+   *     failure — all keys stay for retry)
+   */
+  @Nonnull
+  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+    applyRetentionWithPolicyDefaults(opContext, retentionContexts);
+    return retentionContexts;
+  }
+
+  /**
    * Apply retention policies given the urn and aspect name and policies. This protected method
    * assumes that the policy is provided, however we likely need to fetch these from system
    * configuration.

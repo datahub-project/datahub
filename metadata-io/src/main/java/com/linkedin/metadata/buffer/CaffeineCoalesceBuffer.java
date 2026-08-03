@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BinaryOperator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,16 +26,18 @@ import lombok.extern.slf4j.Slf4j;
  * overflow accounting this class provides for new keys, so capacity is enforced manually in {@link
  * #merge} instead (existing keys are never evicted, only new keys are rejected once full).
  *
- * <p>Drain locks are local {@link ReentrantLock}s keyed by lock name; they coordinate drainer
- * threads within this JVM only and are not cluster-wide. {@code lease} is accepted for API parity
- * with distributed backends but is not enforced here — a single JVM losing a thread mid-drain
- * without unlocking is a bug to fix, not a multi-pod race to bound with a timeout.
+ * <p>Drain locks are local non-reentrant {@link AtomicBoolean} CAS flags keyed by lock name (not
+ * {@code ReentrantLock} — drain is never recursive, and reentrancy would make same-thread double
+ * acquire succeed). They coordinate drainer threads within this JVM only and are not cluster-wide.
+ * {@code lease} is accepted for API parity with distributed backends but is not enforced here — a
+ * single JVM losing a thread mid-drain without unlocking is a bug to fix, not a multi-pod race to
+ * bound with a timeout.
  */
 @Slf4j
 public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   private final ConcurrentMap<K, V> map;
-  private final ConcurrentMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, AtomicBoolean> locks = new ConcurrentHashMap<>();
   private final int maxPendingEntries;
   private final String name;
   @Nullable private final MetricUtils metricUtils;
@@ -91,15 +93,14 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   @Override
   public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
-    return locks.computeIfAbsent(lockName, k -> new ReentrantLock()).tryLock();
+    // Non-reentrant: CAS false→true fails if already held, including by this thread.
+    return locks.computeIfAbsent(lockName, k -> new AtomicBoolean(false)).compareAndSet(false, true);
   }
 
   @Override
   public void releaseDrainLock(@Nonnull String lockName) {
-    ReentrantLock lock = locks.get(lockName);
-    if (lock != null && lock.isHeldByCurrentThread()) {
-      lock.unlock();
-    } else {
+    AtomicBoolean lock = locks.get(lockName);
+    if (lock == null || !lock.compareAndSet(true, false)) {
       log.warn("Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
     }
   }

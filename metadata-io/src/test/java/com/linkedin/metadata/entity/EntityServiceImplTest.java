@@ -1755,4 +1755,115 @@ public class EntityServiceImplTest {
     verify(retentionBuffer, times(1)).enqueue(eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
     verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
   }
+
+  @Test
+  public void testApplyRetentionPostCommitNullBufferFallsBackToSync() {
+    // Mirrors EntityServiceFactory: setRetentionBuffer(getIfAvailable()) when no bean → null.
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            true,
+            null);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+    entityService.setRetentionBuffer(null);
+
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    UpdateAspectResult upsertResult =
+        UpdateAspectResult.builder()
+            .urn(TEST_URN)
+            .request(request)
+            .oldValue(oldAspect)
+            .newValue(newAspect)
+            .maxVersion(2L)
+            .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build();
+
+    entityService.applyRetentionPostCommit(opContext, List.of(upsertResult));
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitBufferThrowDoesNotPropagate() {
+    // Outer safety net: a throw from the deferred-buffer path (now the primary prod path) must be
+    // swallowed. The upsert + MCL emit already happened, so an escaping exception here would fail
+    // the ingest call and trigger a full retry -> duplicate MCL emission.
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            true,
+            null);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    doThrow(new RuntimeException("enqueue exploded"))
+        .when(retentionBuffer)
+        .enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .tracer(SystemTelemetryContext.TEST.getTracer())
+                    .metricUtils(mockMetricUtils)
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
+
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    UpdateAspectResult upsertResult =
+        UpdateAspectResult.builder()
+            .urn(TEST_URN)
+            .request(request)
+            .oldValue(oldAspect)
+            .newValue(newAspect)
+            .maxVersion(2L)
+            .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build();
+
+    // Must not throw.
+    entityService.applyRetentionPostCommit(testContext, List.of(upsertResult));
+
+    verify(retentionBuffer, times(1)).enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
 }

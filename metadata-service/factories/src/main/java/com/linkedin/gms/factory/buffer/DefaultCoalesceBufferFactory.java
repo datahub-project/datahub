@@ -48,10 +48,11 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
     if (implementation == BufferImplementation.HAZELCAST) {
       // Hazelcast backend is Long-valued only (KEEP_MAX_LONG EntryProcessor). Callers that need
       // other V must use caffeine, or extend HazelcastCoalesceBuffer with new processors.
+      // maxPendingEntries is enforced by MapConfig (RetentionBufferFactory), not on the hot
+      // merge path — avoids distributed size()/containsKey() on every ingest enqueue.
       return (CoalesceBuffer<K, V>)
           (CoalesceBuffer<?, ?>)
-              new HazelcastCoalesceBuffer<K>(
-                  hazelcastInstance, name, lockName, maxPendingEntries, metricUtils);
+              new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName);
     }
     return new CaffeineCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
   }
