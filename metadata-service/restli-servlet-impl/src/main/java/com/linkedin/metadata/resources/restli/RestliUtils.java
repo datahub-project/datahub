@@ -1,9 +1,11 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -49,14 +51,43 @@ public class RestliUtils {
         finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException apiThrottleException) {
         finalException = apiThrottled(apiThrottleException);
-      } else if (throwable instanceof RestLiServiceException) {
-        finalException = (RestLiServiceException) throwable;
       } else {
-        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        DatabaseTransactionConflictException conflict =
+            findDatabaseTransactionConflict(throwable);
+        if (conflict != null) {
+          finalException = databaseTransactionConflict(conflict);
+        } else if (throwable instanceof RestLiServiceException) {
+          finalException = (RestLiServiceException) throwable;
+        } else {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        }
       }
 
       throw finalException;
     }
+  }
+
+
+  @Nonnull
+  private static RestLiServiceException databaseTransactionConflict(
+      @Nonnull DatabaseTransactionConflictException conflict) {
+    // RestLiServiceException has no setHeader(); Retry-After is exposed via
+    // DatabaseTransactionConflictRestLiServiceException.getResponseHeaders() and applied by
+    // RestliThrottleResponseFilter (same pattern as ThrottledRestLiServiceException).
+    return new DatabaseTransactionConflictRestLiServiceException(conflict);
+  }
+
+  @Nullable
+  private static DatabaseTransactionConflictException findDatabaseTransactionConflict(
+      @Nonnull Throwable throwable) {
+    while (throwable != null) {
+      if (throwable instanceof DatabaseTransactionConflictException conflict) {
+        return conflict;
+      }
+      throwable = throwable.getCause();
+    }
+    return null;
   }
 
   @Nonnull

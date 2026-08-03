@@ -35,12 +35,20 @@ class ServiceFeature(Enum):
     PATCH_CAPABLE = "patch_capable"
     CLI_TELEMETRY = "cli_telemetry"
     DATAHUB_CLOUD = "datahub_cloud"
+    # Server can accept semanticModel/metric entities (and their structured-property
+    # entityTypes). Version-gated on managed servers; OSS is recipe-driven, so no
+    # "core" requirement is defined (supports_feature returns False for core).
+    SEMANTIC_MODEL_ENTITIES = "semantic_model_entities"
     # Add more features as needed
 
 
 _REQUIRED_VERSION_OPENAPI_TRACING = {
     "cloud": (0, 3, 11, 0),
     "core": (1, 0, 1, 0),
+}
+
+_REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES = {
+    "cloud": (2, 1, 0, 0),
 }
 
 
@@ -249,6 +257,7 @@ class RestServiceConfig:
         feature_requirements = {
             ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
             ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
+            ServiceFeature.SEMANTIC_MODEL_ENTITIES: _REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES,
             # Additional features can be defined here
         }
 
