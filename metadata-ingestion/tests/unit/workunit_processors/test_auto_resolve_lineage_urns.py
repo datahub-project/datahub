@@ -606,6 +606,35 @@ def test_malformed_fine_grained_field_left_unchanged():
     assert _fine_grained(out).upstreams == ["not-a-valid-urn"]
 
 
+def test_unresolvable_refs_are_still_counted_when_nothing_is_resolvable():
+    # An aspect whose only references can't be parsed yields an *empty* batch to resolve.
+    # That is not the same as a failed resolve: the rewriters must still run, because their
+    # per-reference bookkeeping is what accounts for references nothing could be done with.
+    # Skipping them on an empty batch loses the count silently.
+    aspect = UpstreamLineageClass(
+        upstreams=[],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=["not-a-valid-urn"],
+                downstreams=[],
+            )
+        ],
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    processor, provide_mock, patcher = _make_processor({})
+    try:
+        list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_refs_unchanged == 1
+    assert processor.report.num_refs_unresolved == 0
+
+
 def test_field_helpers_reject_non_schemafield_urns():
     # A dataset URN is not a schemaField URN -> both helpers return None. Previously
     # _field_path returned the dataset *name* as a bogus field path (positional

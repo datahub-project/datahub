@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, Optional, Protocol
+from typing import TYPE_CHECKING, Dict, Literal, Optional, Protocol, Set
 
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorReport
 from datahub.metadata.schema_classes import LineageMatchTypeClass
@@ -47,7 +47,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     unresolved_refs_sample: LossyList[str] = field(default_factory=LossyList)
 
 
-@dataclass
+# Frozen: one Resolution is shared by every reference that resolves to the same entity, so
+# mutating one in place would silently change the others.
+@dataclass(frozen=True)
 class Resolution:
     """Outcome of resolving one dataset URN against the entities DataHub already stores."""
 
@@ -58,17 +60,31 @@ class Resolution:
 
 
 class ResolutionStrategy(Protocol):
-    """How the processor turns a reference URN into the URN DataHub actually stores.
+    """How the processor turns reference URNs into the URNs DataHub actually stores.
 
-    Implementations differ only in where the answer comes from; the processor's rewrite
+    Implementations differ only in where the answers come from; the processor's rewrite
     and reporting logic is identical either way.
     """
 
-    def resolve(self, urn: str, *, need_schema: bool = False) -> Resolution:
-        """Resolve one upstream reference.
+    def resolve_many(
+        self, *, urns: Set[str], schema_urns: Set[str]
+    ) -> Dict[str, Resolution]:
+        """Resolve a batch of upstream references.
 
-        ``need_schema`` is set only on the column-level path, so a strategy that pays per
-        schema fetch can skip it for table-level-only references.
+        Batch-shaped rather than one URN at a time so that a strategy which pays per
+        request can amortise it. ``BulkCatalogStrategy`` gains nothing from this -- its
+        catalog is already in memory -- but a strategy that queries the server per lookup
+        does, and widening the batch beyond a single work unit then becomes a change to the
+        processor's stream handling alone.
+
+        ``schema_urns`` is the subset of ``urns`` reached by column-level lineage, i.e. the
+        only ones whose ``Resolution.schema`` needs populating. A strategy that pays per
+        schema fetch can therefore skip it entirely for a table-level-only source.
+
+        Must return an entry for *every* URN in ``urns``, using ``match_type=None`` for
+        references it considers out of scope. The processor treats a missing key as a bug
+        rather than as "out of scope", so that a reference it rewrites but never collected
+        fails loudly instead of being silently skipped.
         """
         ...
 

@@ -140,11 +140,19 @@ class BulkCatalogStrategy:
             return name[len(platform_instance) + 1 :]
         return name
 
-    def resolve(self, urn: str, *, need_schema: bool = False) -> Resolution:
-        """Resolve `urn` to the casing DataHub already stores, via SchemaResolver.
+    def resolve_many(
+        self, *, urns: Set[str], schema_urns: Set[str]
+    ) -> Dict[str, Resolution]:
+        """Resolve each reference against the in-memory catalogs.
 
-        ``need_schema`` is ignored: the bulk catalog already holds every schema it loaded,
-        so a schema costs nothing extra here.
+        There is nothing to batch: the catalogs were downloaded up front, so every lookup
+        is local. ``schema_urns`` is ignored because the catalog already holds a schema for
+        everything it loaded, so column data costs nothing extra here.
+        """
+        return {urn: self._resolve_one(urn) for urn in urns}
+
+    def _resolve_one(self, urn: str) -> Resolution:
+        """Resolve `urn` to the casing DataHub already stores, via SchemaResolver.
 
         Delegates matching to ``SchemaResolver.resolve_table``, which tries three casing
         candidates for the reference and returns the first that exists in DataHub:
