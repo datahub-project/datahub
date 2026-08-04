@@ -25,23 +25,35 @@ public class InstitutionalMemoryTemplateTest {
             new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L));
   }
 
+  /**
+   * JSON Pointer escaping, which matters more here than for the urn-keyed aspects: a URL contains
+   * slashes, and an unescaped slash is a path separator rather than part of the key.
+   */
+  private static String pointer(String url) {
+    return "/elements/" + url.replace("~", "~0").replace("/", "~1");
+  }
+
   private static JsonPatch addElement(String url, String description) {
     return Json.createPatch(
         Json.createArrayBuilder()
             .add(
                 Json.createObjectBuilder()
                     .add("op", "add")
-                    .add("path", "/elements/" + url)
+                    .add("path", pointer(url))
+                    // ArrayMergingTemplate maps each key to a *list* of entries, so the
+                    // patch value is an array, as in GlobalTagsTemplateTest.
                     .add(
                         "value",
-                        Json.createObjectBuilder()
-                            .add("url", url)
-                            .add("description", description)
+                        Json.createArrayBuilder()
                             .add(
-                                "createStamp",
                                 Json.createObjectBuilder()
-                                    .add("actor", "urn:li:corpuser:datahub")
-                                    .add("time", 0))))
+                                    .add("url", url)
+                                    .add("description", description)
+                                    .add(
+                                        "createStamp",
+                                        Json.createObjectBuilder()
+                                            .add("actor", "urn:li:corpuser:datahub")
+                                            .add("time", 0)))))
             .build());
   }
 
@@ -93,7 +105,7 @@ public class InstitutionalMemoryTemplateTest {
                 .add(
                     Json.createObjectBuilder()
                         .add("op", "remove")
-                        .add("path", "/elements/https://example.org/a"))
+                        .add("path", pointer("https://example.org/a")))
                 .build());
 
     InstitutionalMemory result = TEMPLATE.applyPatch(initial, patch);
