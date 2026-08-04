@@ -324,8 +324,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         // already CUSTOM to avoid double-counting subtype-less customs.
         if (assertion.info?.type === AssertionType.Custom) {
             if (type !== AssertionType.Custom) {
-                filterGroupCounts.type[AssertionType.Custom] =
-                    (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
+                filterGroupCounts.type[AssertionType.Custom] = (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
             }
             const customIndex = remainingAssertionTypes.indexOf(AssertionType.Custom);
             if (customIndex > -1) {
@@ -530,10 +529,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
  * Type filter matching. `getAssertionType` prefers `customAssertion.type` (provider key),
  * so selecting Custom must also match any assertion whose top-level type is CUSTOM.
  */
-export const assertionMatchesTypeFilter = (
-    assertion: Assertion,
-    selectedTypes: AssertionType[],
-): boolean => {
+export const assertionMatchesTypeFilter = (assertion: Assertion, selectedTypes: AssertionType[]): boolean => {
     if (selectedTypes.length === 0) {
         return true;
     }

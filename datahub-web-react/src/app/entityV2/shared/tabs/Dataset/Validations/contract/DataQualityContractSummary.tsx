@@ -105,9 +105,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                                     />
                                 );
                             }
-                            return (
-                                <Typography.Text>{assertion.info?.customAssertion?.type}</Typography.Text>
-                            );
+                            return <Typography.Text>{assertion.info?.customAssertion?.type}</Typography.Text>;
                         })()}
                 </>
             ),
