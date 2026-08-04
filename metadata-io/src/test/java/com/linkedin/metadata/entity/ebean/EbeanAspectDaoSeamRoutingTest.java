@@ -37,8 +37,8 @@ import org.testng.annotations.Test;
 
 /**
  * Guards the per-request DB-routing seam. An extension module can replace {@link
- * AspectTableResolver} and {@link ScopedTransactionFactory} with {@code @Primary} beans that pick
- * a different underlying database based on the {@link OperationContext}, so a call site in {@link
+ * AspectTableResolver} and {@link ScopedTransactionFactory} with {@code @Primary} beans that pick a
+ * different underlying database based on the {@link OperationContext}, so a call site in {@link
  * EbeanAspectDao} that touches the {@code Database} field directly, or that hands the seam some
  * context other than the caller's, silently reads or writes against the wrong database — no
  * exception, no log. These tests therefore assert reference <em>identity</em> of the propagated
