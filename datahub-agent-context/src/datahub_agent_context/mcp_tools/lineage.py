@@ -27,6 +27,7 @@ from datahub_agent_context.mcp_tools.search_filter_parser import (
 
 logger = logging.getLogger(__name__)
 
+# Crossing this bound must remain distinguishable from an exhaustive not-found result.
 LINEAGE_PATH_PAGE_SIZE = 100
 MAX_LINEAGE_PATH_RESULTS = 1000
 
