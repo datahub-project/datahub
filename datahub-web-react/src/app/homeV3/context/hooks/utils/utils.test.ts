@@ -155,13 +155,14 @@ describe('getDefaultSummaryPageTemplate', () => {
     it.each([
         [EntityType.Application, 1],
         [EntityType.Container, 1],
-        [EntityType.Chart, 1],
-        [EntityType.Dashboard, 1],
+        [EntityType.Chart, 2],
+        [EntityType.Dashboard, 2],
         [EntityType.Mlmodel, 1],
-    ])('should return correct template for %s entity type', (entityType, moduleCount) => {
+    ])('should return correct template for %s entity type', (entityType, rowCount) => {
         const result = getDefaultSummaryPageTemplate(entityType);
 
-        expect(result.properties.rows[0].modules).toHaveLength(moduleCount);
+        expect(result.properties.rows).toHaveLength(rowCount);
+        expect(result.properties.rows[0].modules).toHaveLength(1);
         expect(result.properties.assetSummary?.summaryElements).toEqual([
             { elementType: SummaryElementType.Created },
             { elementType: SummaryElementType.Owners },

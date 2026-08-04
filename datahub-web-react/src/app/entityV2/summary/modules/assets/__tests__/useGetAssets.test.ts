@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
 import { useGetAssets } from '@app/entityV2/summary/modules/assets/useGetAssets';
+import { useGetChartAssets } from '@app/entityV2/summary/modules/assets/useGetChartAssets';
 import { useGetContainerAssets } from '@app/entityV2/summary/modules/assets/useGetContainerAssets';
+import { useGetDashboardAssets } from '@app/entityV2/summary/modules/assets/useGetDashboardAssets';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
 import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
@@ -29,6 +31,12 @@ vi.mock('@app/entityV2/summary/modules/assets/useGetApplicationAssets', () => ({
 }));
 vi.mock('@app/entityV2/summary/modules/assets/useGetContainerAssets', () => ({
     useGetContainerAssets: vi.fn(),
+}));
+vi.mock('@app/entityV2/summary/modules/assets/useGetDashboardAssets', () => ({
+    useGetDashboardAssets: vi.fn(),
+}));
+vi.mock('@app/entityV2/summary/modules/assets/useGetChartAssets', () => ({
+    useGetChartAssets: vi.fn(),
 }));
 
 describe('useGetAssets', () => {
@@ -62,6 +70,18 @@ describe('useGetAssets', () => {
         total: 6,
         navigateToAssetsTab: vi.fn(),
     };
+    const mockDashboard = {
+        loading: false,
+        fetchAssets: vi.fn(),
+        total: 7,
+        navigateToAssetsTab: vi.fn(),
+    };
+    const mockChart = {
+        loading: false,
+        fetchAssets: vi.fn(),
+        total: 2,
+        navigateToAssetsTab: vi.fn(),
+    };
 
     const setup = (entityType) => {
         (useEntityData as unknown as any).mockReturnValue({ entityType });
@@ -70,6 +90,8 @@ describe('useGetAssets', () => {
         (useGetTermAssets as unknown as any).mockReturnValue(mockTerm);
         (useGetApplicationAssets as unknown as any).mockReturnValue(mockApplication);
         (useGetContainerAssets as unknown as any).mockReturnValue(mockContainer);
+        (useGetDashboardAssets as unknown as any).mockReturnValue(mockDashboard);
+        (useGetChartAssets as unknown as any).mockReturnValue(mockChart);
         return renderHook(() => useGetAssets());
     };
 
@@ -115,6 +137,22 @@ describe('useGetAssets', () => {
         expect(result.current.loading).toBe(mockContainer.loading);
         expect(result.current.total).toBe(mockContainer.total);
         expect(result.current.navigateToAssetsTab).toBe(mockContainer.navigateToAssetsTab);
+    });
+
+    it('should return dashboard assets info when entity type is Dashboard', () => {
+        const { result } = setup(EntityType.Dashboard);
+        expect(result.current.fetchAssets).toBe(mockDashboard.fetchAssets);
+        expect(result.current.loading).toBe(mockDashboard.loading);
+        expect(result.current.total).toBe(mockDashboard.total);
+        expect(result.current.navigateToAssetsTab).toBe(mockDashboard.navigateToAssetsTab);
+    });
+
+    it('should return chart assets info when entity type is Chart', () => {
+        const { result } = setup(EntityType.Chart);
+        expect(result.current.fetchAssets).toBe(mockChart.fetchAssets);
+        expect(result.current.loading).toBe(mockChart.loading);
+        expect(result.current.total).toBe(mockChart.total);
+        expect(result.current.navigateToAssetsTab).toBe(mockChart.navigateToAssetsTab);
     });
 
     it('should return undefineds when entity type is not mapped', () => {

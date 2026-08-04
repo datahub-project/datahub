@@ -527,9 +527,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [schemaTable, lineage];
         } else if (
             entityType === EntityType.Chart ||
-            entityType === EntityType.Dashboard ||
-            entityType === EntityType.Mlmodel
+            entityType === EntityType.Dashboard
         ) {
+            defaultSummaryModules = [assets, lineage];
+        } else if (entityType === EntityType.Mlmodel) {
             defaultSummaryModules = [lineage];
         } else if (entityType === EntityType.Application || entityType === EntityType.Container) {
             defaultSummaryModules = [assets];

@@ -63,11 +63,11 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.Chart:
-            rows = [{ modules: [LINEAGE_MODULE] }];
+            rows = [{ modules: [ASSETS_MODULE] }, { modules: [LINEAGE_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.Dashboard:
-            rows = [{ modules: [LINEAGE_MODULE] }];
+            rows = [{ modules: [ASSETS_MODULE] }, { modules: [LINEAGE_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.Mlmodel:

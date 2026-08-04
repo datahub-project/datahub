@@ -1,6 +1,8 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
+import { useGetChartAssets } from '@app/entityV2/summary/modules/assets/useGetChartAssets';
 import { useGetContainerAssets } from '@app/entityV2/summary/modules/assets/useGetContainerAssets';
+import { useGetDashboardAssets } from '@app/entityV2/summary/modules/assets/useGetDashboardAssets';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
 import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
@@ -46,6 +48,20 @@ export function useGetAssets() {
         navigateToAssetsTab: navigateToContainerAssetsTab,
     } = useGetContainerAssets(NUMBER_OF_ASSETS_TO_FETCH);
 
+    const {
+        loading: dashboardAssetsLoading,
+        fetchAssets: fetchDashboardAssets,
+        total: dashboardAssetsTotal,
+        navigateToAssetsTab: navigateToDashboardAssetsTab,
+    } = useGetDashboardAssets();
+
+    const {
+        loading: chartAssetsLoading,
+        fetchAssets: fetchChartAssets,
+        total: chartAssetsTotal,
+        navigateToAssetsTab: navigateToChartAssetsTab,
+    } = useGetChartAssets();
+
     let fetchAssets;
     let loading;
     let total;
@@ -81,6 +97,18 @@ export function useGetAssets() {
             loading = containerAssetsLoading;
             total = containerAssetsTotal;
             navigateToAssetsTab = navigateToContainerAssetsTab;
+            break;
+        case EntityType.Dashboard:
+            fetchAssets = fetchDashboardAssets;
+            loading = dashboardAssetsLoading;
+            total = dashboardAssetsTotal;
+            navigateToAssetsTab = navigateToDashboardAssetsTab;
+            break;
+        case EntityType.Chart:
+            fetchAssets = fetchChartAssets;
+            loading = chartAssetsLoading;
+            total = chartAssetsTotal;
+            navigateToAssetsTab = navigateToChartAssetsTab;
             break;
         default:
             break;
