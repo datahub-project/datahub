@@ -54,15 +54,12 @@ public class BatchRemoveOwnersResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1),
+        Urn.createFromString(TEST_OWNER_URN_2));
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService, mockClient);
 
@@ -81,6 +78,8 @@ public class BatchRemoveOwnersResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     verifyIngestProposal(mockService, 1);
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -122,15 +121,12 @@ public class BatchRemoveOwnersResolverTest {
                 eq(0L)))
         .thenReturn(oldOwners2);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1),
+        Urn.createFromString(TEST_OWNER_URN_2));
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService, mockClient);
 
@@ -149,6 +145,8 @@ public class BatchRemoveOwnersResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     verifyIngestProposal(mockService, 1);
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -171,12 +169,11 @@ public class BatchRemoveOwnersResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_OWNER_URN_1));
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService, mockClient);
 
