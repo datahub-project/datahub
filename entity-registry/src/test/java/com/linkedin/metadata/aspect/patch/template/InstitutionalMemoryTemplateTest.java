@@ -22,9 +22,7 @@ public class InstitutionalMemoryTemplateTest {
         .setUrl(new Url(url))
         .setDescription(description)
         .setCreateStamp(
-            new AuditStamp()
-                .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"))
-                .setTime(0L));
+            new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L));
   }
 
   private static JsonPatch addElement(String url, String description) {
@@ -64,7 +62,8 @@ public class InstitutionalMemoryTemplateTest {
     Assert.assertEquals(result.getElements().size(), 2);
     List<String> urls = result.getElements().stream().map(e -> e.getUrl().toString()).toList();
     Assert.assertTrue(urls.contains("https://example.org/a"), "first writer's link should survive");
-    Assert.assertTrue(urls.contains("https://example.org/b"), "second writer's link should be added");
+    Assert.assertTrue(
+        urls.contains("https://example.org/b"), "second writer's link should be added");
   }
 
   @Test

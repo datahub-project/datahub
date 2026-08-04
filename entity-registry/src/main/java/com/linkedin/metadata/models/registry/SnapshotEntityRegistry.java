@@ -112,8 +112,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
-    aspectSpecTemplateMap.put(
-        INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryTemplate());
+    aspectSpecTemplateMap.put(INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryTemplate());
     aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
     aspectSpecTemplateMap.put(
