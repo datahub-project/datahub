@@ -655,19 +655,18 @@ def get_platform(connection_type: str) -> str:
     return platform
 
 
-# Platforms whose GraphQL upstream reference carries no database segment worth
-# keeping: the schema already names the only container these systems have, so the
+# Platforms where Tableau's `database` names the same container as the schema, so the
 # dataset identifier is `schema.table`.
 _TWO_TIER_DB_STRIP_PLATFORMS = ("athena", "hive", "mysql", "teradata")
 
-# Two-tier (database.table) platforms. Everything else is treated as three-tier
-# (database.schema.table). Used to decide how many trailing name segments make up a
-# DataHub dataset identifier when trimming over-qualified names.
+# Two-tier (database.table) platforms; everything else is three-tier. Decides how many
+# trailing segments a dataset identifier keeps when trimming over-qualified names.
 #
-# This must be a superset of _TWO_TIER_DB_STRIP_PLATFORMS: the GraphQL path drops the
-# db for those (yielding a 2-part name), so the SQL-parsed path must trim to 2 parts as
-# well, otherwise the two lineage paths emit mismatched URNs for the same table
-# (e.g. teradata: `db.schema.table` from SQL parsing vs `schema.table` from GraphQL).
+# Superset by construction: stripping yields a 2-part name from GraphQL, so SQL-parsed
+# names must trim to 2 as well or the two lineage paths disagree on the same table.
+# clickhouse is trimmed without being stripped (as it has been since #11230) — trimming
+# alone gets it to 2 parts, and keeping the database means a schemaless upstream still
+# resolves to `db.table` rather than a bare table name.
 _TWO_TIER_PLATFORMS = (*_TWO_TIER_DB_STRIP_PLATFORMS, "clickhouse")
 
 
@@ -830,9 +829,8 @@ class TableauUpstreamReference:
             database_id_to_platform_instance_map=database_id_to_platform_instance_map,
         )
 
-        # Build the URN with the overridden platform's semantics so the result
-        # matches what the target platform's ingestion source emits (two-tier
-        # vs three-tier, identifier casing, database stripping).
+        # Name the table in the overridden platform's shape, not the source's, so it
+        # matches what the target platform's own ingestion emits.
         table_name = get_fully_qualified_table_name(
             platform,
             upstream_db or "",
@@ -886,9 +884,8 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    # database id is strictly more specific than hostname: one id identifies
-    # one connection, whereas a hostname can be shared (e.g. Athena workgroups
-    # behind a regional endpoint). Apply id routing last so it wins on conflict.
+    # Applied after hostname so it wins: one id is one connection, whereas a hostname
+    # can be shared (e.g. Athena workgroups behind a regional endpoint).
     if (
         database_id_to_platform_instance_map is not None
         and upstream_db_id is not None
@@ -896,11 +893,8 @@ def get_overridden_info(
     ):
         platform_instance = database_id_to_platform_instance_map[upstream_db_id]
 
-    # Either side being two-tier means there is no database segment to emit. A
-    # two-tier target (e.g. presto -> athena) has no slot for one, and a two-tier
-    # source has no catalog to put in one — its database duplicates the schema, and
-    # remapping it to a three-tier target does not invent the target's catalog, so
-    # that case stays two-part and the catalog has to arrive via platform_instance.
+    # Either side being two-tier leaves nothing for the database segment: a two-tier
+    # target has no slot for one, and a two-tier source has no catalog to fill one.
     if (
         platform in _TWO_TIER_DB_STRIP_PLATFORMS
         or original_platform in _TWO_TIER_DB_STRIP_PLATFORMS

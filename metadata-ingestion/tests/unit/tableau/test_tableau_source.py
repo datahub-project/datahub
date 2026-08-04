@@ -366,9 +366,8 @@ def test_lineage_overrides():
 
 
 def test_lineage_overrides_presto_to_athena():
-    # Tableau models an Athena connection as `presto` with a `hive` catalog.
-    # Remapping presto -> athena must produce Athena's two-tier
-    # `schema.table` URN, not Presto's three-tier `catalog.schema.table`.
+    # Tableau models an Athena connection as `presto` with a `hive` catalog, so the
+    # remap has to produce Athena's two-tier name, not Presto's three-tier one.
     assert (
         TableauUpstreamReference(
             "hive",
@@ -388,10 +387,9 @@ def test_lineage_overrides_presto_to_athena():
 
 
 def test_lineage_overrides_two_tier_to_three_tier_keeps_two_part_name():
-    # The reverse direction of the presto -> athena fix. A two-tier source has no
-    # catalog to promote into a three-tier target's first segment — its `database`
-    # names the same container as the schema — so the URN stays two-part and the
-    # catalog arrives via platform_instance.
+    # The other direction: a two-tier source has no catalog for a three-tier target's
+    # first segment, so the name stays two-part and the catalog comes from
+    # platform_instance. Keeping the database here would repeat the schema.
     assert (
         TableauUpstreamReference(
             "test-schema",
@@ -411,10 +409,8 @@ def test_lineage_overrides_two_tier_to_three_tier_keeps_two_part_name():
 
 
 def test_database_id_to_platform_instance_map_routes_per_id():
-    # Motivating case: multiple Athena workgroups (PROD/DEV/STG) share a
-    # regional hostname, so hostname routing collapses them. Each connection
-    # has a distinct Tableau database id, so id routing disambiguates them
-    # from a single recipe.
+    # Multiple Athena workgroups share a regional hostname, so hostname routing
+    # collapses them; their Tableau database ids stay distinct.
     id_map = {
         "id-prod": "athena_prod_instance",
         "id-dev": "athena_dev_instance",
@@ -442,9 +438,8 @@ def test_database_id_to_platform_instance_map_routes_per_id():
 
 
 def test_database_id_to_platform_instance_map_is_platform_agnostic():
-    # The feature is not Athena-specific. Same pattern routes per-account for
-    # any platform whose hostname can be shared — e.g. Snowflake accounts
-    # behind a proxy, with no lineage_overrides involved.
+    # Not Athena-specific: Snowflake accounts behind a shared proxy route the same
+    # way, with no lineage_overrides involved.
     assert (
         TableauUpstreamReference(
             "test-database-name",
@@ -513,12 +508,9 @@ def test_database_id_to_platform_instance_map_wins_over_hostname():
 
 
 def test_overridden_info_drives_target_platform_url_shape():
-    # Guards both URN-building sites in the Tableau source: every caller of
-    # get_overridden_info() must pass the returned `platform` (the overridden
-    # one) into get_fully_qualified_table_name(), not `original_platform`.
-    # Passing original_platform would advertise the target platform in the
-    # URN but keep the source platform's URN shape, producing dangling URNs
-    # that never match what the target platform's ingestion source emits.
+    # Guards both URN-building sites: each must pass the overridden `platform` into
+    # get_fully_qualified_table_name(). Passing `original_platform` stamps the target
+    # platform onto the source's name shape, which resolves to nothing.
     upstream_db, _, platform, original_platform = get_overridden_info(
         connection_type="presto",
         upstream_db="hive",
