@@ -35,9 +35,9 @@ endpoint; on versions that do, the same status means the source is not accessibl
 credentials in the recipe, so check permissions.
 
 A `Stream Namespaces Not Reported` warning means `/streams` described the source's streams but
-gave no namespace for any of them, so dataset URNs carry no schema tier. Airbyte only reports
-stream namespaces from 1.7.0 onwards. Either upgrade Airbyte, or set the schema for that source
-in the recipe:
+gave no namespace for any of them, and nothing else supplied a schema for the streams it names,
+so their dataset URNs carry no schema tier. Airbyte only reports stream namespaces from 1.7.0
+onwards. Either upgrade Airbyte, or set the schema for that source in the recipe:
 
 ```yaml
 sources_to_platform_instance:
@@ -47,7 +47,8 @@ sources_to_platform_instance:
 ```
 
 `default_schema` is only used when neither Airbyte nor the connector's own configuration reveals
-a schema, so it is safe to leave in place after an upgrade.
+a schema, so it is safe to leave in place after an upgrade — and once it applies, the warning
+stops for the streams it covers.
 
 An `Ambiguous Stream Namespace` warning means several schemas expose a stream with the same
 name and Airbyte does not say which configured stream belongs to which schema. DataHub leaves

@@ -788,17 +788,58 @@ def test_default_schema_yields_to_schemas_airbyte_and_the_connector_report(mock_
     assert from_per_table[0].details.namespace == "audit"
 
 
+def _namespace_warnings(source: AirbyteSource) -> list:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Namespaces Not Reported" in str(warning)
+    ]
+
+
 def test_warns_once_per_source_when_streams_api_reports_no_namespaces(mock_ctx):
     source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
     pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
     pipeline_info.connection.streams_api_namespaces_absent = True
 
-    source._fetch_streams_for_source(pipeline_info)
+    streams = source._fetch_streams_for_source(pipeline_info)
     source._fetch_streams_for_source(pipeline_info)
 
-    matching = [
-        warning
-        for warning in source.report.warnings
-        if "Stream Namespaces Not Reported" in str(warning)
-    ]
-    assert len(matching) == 1
+    assert streams[0].details.namespace == ""
+    assert len(_namespace_warnings(source)) == 1
+    assert "transfers" in str(_namespace_warnings(source)[0])
+
+
+@pytest.mark.parametrize(
+    "details,source_configuration",
+    [
+        (
+            PlatformDetail(platform="mssql", default_schema="dbo"),
+            {"database": "wallet_db"},
+        ),
+        (
+            PlatformDetail(platform="mssql"),
+            {
+                "database": "wallet_db",
+                "tables": [{"name": "transfers", "schema": "dbo"}],
+            },
+        ),
+    ],
+)
+def test_no_namespace_warning_when_another_tier_supplies_the_schema(
+    mock_ctx, details, source_configuration
+):
+    # Telling an operator their URNs have no schema tier while pointing them at
+    # the very setting they already applied is worse than staying quiet, so the
+    # warning has to reflect what resolution produced, not what Airbyte sent.
+    source = _source_with_details(mock_ctx, details)
+    pipeline_info = _source_schema_pipeline(source_configuration)
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+    assert _namespace_warnings(source) == []

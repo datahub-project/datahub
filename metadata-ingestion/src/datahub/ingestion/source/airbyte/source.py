@@ -529,11 +529,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
 
     def _report_namespace_backfill_gaps(
-        self, pipeline_info: AirbytePipelineInfo
+        self,
+        pipeline_info: AirbytePipelineInfo,
+        streams_without_namespace: List[str],
     ) -> None:
-        """Without a namespace a dataset URN falls back to the source's default
-        schema, which points lineage at the wrong table rather than failing, so
-        every cause of a missing one gets a warning an operator can act on."""
+        """A wrong or missing schema points a dataset URN at the wrong table
+        rather than failing, so every cause of one gets a warning an operator
+        can act on. Called after resolution: a gap that a later tier filled in
+        needs no warning, and `streams_without_namespace` names the rest."""
         connection = pipeline_info.connection
         connection_context = (
             f"connection_id={connection.connection_id}, "
@@ -556,18 +559,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     context=f"source_id={source_id}, {connection_context}",
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
-            elif connection.streams_api_namespaces_absent:
+            elif connection.streams_api_namespaces_absent and streams_without_namespace:
                 self.report.warning(
                     title="Stream Namespaces Not Reported",
                     message=(
                         "Airbyte /streams described this source's streams but "
-                        "reported no namespace for any of them, so dataset URNs "
-                        "get no schema tier. Airbyte only exposes stream "
-                        "namespaces from 1.7.0 onwards; on older deployments set "
-                        "'default_schema' for this source in "
+                        "reported no namespace for any of them, and nothing else "
+                        "supplied a schema for the streams below, so their "
+                        "dataset URNs have no schema tier. Airbyte only exposes "
+                        "stream namespaces from 1.7.0 onwards; on older "
+                        "deployments set 'default_schema' for this source in "
                         "'sources_to_platform_instance'"
                     ),
-                    context=f"source_id={source_id}, {connection_context}",
+                    context=(
+                        f"source_id={source_id}, "
+                        f"streams={streams_without_namespace}, {connection_context}"
+                    ),
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
 
@@ -634,7 +641,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return []
 
-        self._report_namespace_backfill_gaps(pipeline_info)
+        streams_without_namespace: List[str] = []
 
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
@@ -649,6 +656,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 source_details=source_details,
                 stream_name=stream.name,
             )
+            if not namespace:
+                streams_without_namespace.append(stream.name)
 
             properties = {}
             if stream.json_schema:
@@ -668,6 +677,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
             streams.append(
                 AirbyteStreamInfo(config=stream_config, details=stream_details)
             )
+
+        # Reported after resolution so the warnings describe what the URNs
+        # actually ended up with, not what Airbyte alone could tell us.
+        self._report_namespace_backfill_gaps(pipeline_info, streams_without_namespace)
 
         return streams
 
