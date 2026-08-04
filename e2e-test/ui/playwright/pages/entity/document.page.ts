@@ -105,10 +105,13 @@ export class DocumentPage extends BasePage {
     // Create is async (mutation + history.push). networkidle alone can resolve while we are
     // still on the previous document — then setDocumentTitle would rename that doc.
     await expect
-      .poll(() => {
-        const urn = this.extractDocumentUrnFromUrl(this.page.url());
-        return urn && urn !== previousUrn ? urn : '';
-      }, { timeout: TIMEOUTS.LONG })
+      .poll(
+        () => {
+          const urn = this.extractDocumentUrnFromUrl(this.page.url());
+          return urn && urn !== previousUrn ? urn : '';
+        },
+        { timeout: TIMEOUTS.LONG },
+      )
       .not.toBe('');
     return this.extractDocumentUrnFromUrl(this.page.url());
   }
