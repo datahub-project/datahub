@@ -26,15 +26,11 @@ import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/share
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { EntityTab } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
-import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlModel, SearchResult } from '@types';
@@ -98,57 +94,46 @@ export class MLModelEntity implements Entity<MlModel> {
             useEntityQuery={useGetMlModelQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
-            tabs={this.getProfileTabs()}
+            tabs={[
+                {
+                    name: i18next.t('entity.types:tab.summary'),
+                    component: MLModelSummary,
+                },
+                {
+                    name: i18next.t('entity.types:tab.documentation'),
+                    component: DocumentationTab,
+                },
+                {
+                    name: i18next.t('entity.types:tab.lineage'),
+                    component: LineageTab,
+                    icon: PartitionOutlined,
+                    supportsFullsize: true,
+                },
+                {
+                    name: i18next.t('entity.types:tab.properties'),
+                    component: PropertiesTab,
+                },
+                {
+                    name: i18next.t('entity.types:group.name'),
+                    component: MLModelGroupsTab,
+                },
+                {
+                    name: i18next.t('entity.types:mlFeature.namePlural'),
+                    component: MlModelFeaturesTab,
+                },
+                {
+                    name: i18next.t('entity.types:tab.incidents'),
+                    icon: WarningOutlined,
+                    component: IncidentTab,
+                    getCount: (_, mlModel) => {
+                        return mlModel?.mlModel?.activeIncidents?.total;
+                    },
+                },
+            ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
-
-    getProfileTabs = (): EntityTab[] => {
-        const showSummaryTab = useShowAssetSummaryPage();
-
-        return [
-            {
-                name: i18next.t('entity.types:tab.summary'),
-                component: showSummaryTab ? SummaryTab : MLModelSummary,
-                icon: SUMMARY_TAB_ICON,
-            },
-            ...(!showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.documentation'),
-                          component: DocumentationTab,
-                      },
-                  ]
-                : []),
-            {
-                name: i18next.t('entity.types:tab.lineage'),
-                component: LineageTab,
-                icon: PartitionOutlined,
-                supportsFullsize: true,
-            },
-            {
-                name: i18next.t('entity.types:tab.properties'),
-                component: PropertiesTab,
-            },
-            {
-                name: i18next.t('entity.types:group.name'),
-                component: MLModelGroupsTab,
-            },
-            {
-                name: i18next.t('entity.types:mlFeature.namePlural'),
-                component: MlModelFeaturesTab,
-            },
-            {
-                name: i18next.t('entity.types:tab.incidents'),
-                icon: WarningOutlined,
-                component: IncidentTab,
-                getCount: (_, mlModel) => {
-                    return mlModel?.mlModel?.activeIncidents?.total;
-                },
-            },
-        ];
-    };
 
     getSidebarSections = () => [
         {

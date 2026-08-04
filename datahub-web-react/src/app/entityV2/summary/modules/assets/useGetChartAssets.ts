@@ -7,11 +7,11 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { GetChartQuery } from '@graphql/chart.generated';
 import { Entity, EntityType } from '@types';
 
-function dedupeEntities(entities: (Entity | null | undefined)[]): Entity[] {
+function dedupeEntities(entities: Entity[]): Entity[] {
     const seen = new Set<string>();
     const result: Entity[] = [];
     entities.forEach((entity) => {
-        if (entity && !seen.has(entity.urn)) {
+        if (!seen.has(entity.urn)) {
             seen.add(entity.urn);
             result.push(entity);
         }
@@ -29,12 +29,12 @@ export const useGetChartAssets = () => {
         if (entityType !== EntityType.Chart) {
             return [];
         }
-        const dataSources =
-            chart?.inputs?.relationships
-                ?.map((relationship) => relationship.entity)
-                ?.filter((entity) => entity?.__typename === 'Dataset') || [];
-        const dashboards =
-            chart?.dashboards?.relationships?.map((relationship) => relationship.entity).filter(Boolean) || [];
+        const dataSources = (chart?.inputs?.relationships
+            ?.map((relationship) => relationship.entity)
+            ?.filter((entity) => entity?.__typename === 'Dataset') || []) as Entity[];
+        const dashboards = (chart?.dashboards?.relationships
+            ?.map((relationship) => relationship.entity)
+            .filter(Boolean) || []) as Entity[];
         return dedupeEntities([...dataSources, ...dashboards]);
     }, [chart?.dashboards?.relationships, chart?.inputs?.relationships, entityType]);
 
