@@ -69,6 +69,8 @@ coverage:
         only_pulls: true
 
 ignore:
+  # No business logic; wiring only
+  - "**/*Factory.java"
   # Import-time / interpreter-startup hooks: their behaviour only manifests in a
   # fresh interpreter (before/at startup), so in-process coverage can't observe
   # them. They are exercised via subprocess tests instead (see
