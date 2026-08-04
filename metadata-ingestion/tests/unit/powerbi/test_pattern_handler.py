@@ -685,7 +685,7 @@ def test_remap_column_lineage_empty_inputs():
 # ---------------------------------------------------------------------------
 
 
-def _build_odbc_lineage() -> OdbcLineage:
+def _build_odbc_lineage(**config_overrides: object) -> OdbcLineage:
     """OdbcLineage with a column-less table (so create_table_column_lineage is a
     no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
     table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
@@ -694,7 +694,7 @@ def _build_odbc_lineage() -> OdbcLineage:
     return OdbcLineage(
         ctx=MagicMock(spec=PipelineContext),
         table=table,
-        config=_build_config(),
+        config=_build_config(**config_overrides),
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=resolver,
     )
@@ -796,6 +796,61 @@ def test_odbc_two_tier_platform_with_no_schema():
         w.title == "Cannot build two-tier ODBC table name"
         for w in instance.reporter.warnings
     )
+
+
+def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
+    """Regression for incomplete three-tier guard: Snowflake (and peers) need
+    database.schema.table. Table-only navigation + a one-part dsn mapping fills
+    only the database tier — must warn, not emit a truncated database.table URN.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"snow_dsn": "ANALYTICS"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "ORDERS")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_two_part_mysql_allows_database_table_fallback():
+    """MySQL is allowlisted for the database.table fallback when schema is absent."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "employees"),
+            ("Table", "employees"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    ]
 
 
 def test_remap_column_lineage_multi_table_shared_column_name():
