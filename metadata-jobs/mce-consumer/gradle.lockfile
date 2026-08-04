@@ -448,6 +448,7 @@ org.apfloat:apfloat:1.14.0=runtimeClasspath,testRuntimeClasspath
 org.apiguardian:apiguardian-api:1.1.2=testCompileClasspath
 org.assertj:assertj-core:3.27.7=testCompileClasspath,testRuntimeClasspath
 org.awaitility:awaitility:4.3.0=testCompileClasspath,testRuntimeClasspath
+org.bitbucket.b_c:jose4j:0.9.6=runtimeClasspath,testRuntimeClasspath
 org.checkerframework:checker-qual:2.6.0=dataTemplate,dataTemplateCompile,pegasusPlugin,restClient,restClientCompile,testDataTemplate,testRestClient
 org.checkerframework:checker-qual:3.37.0=compileClasspath,testCompileClasspath
 org.checkerframework:checker-qual:3.48.3=runtimeClasspath,testRuntimeClasspath

@@ -447,6 +447,7 @@ org.apfloat:apfloat:1.14.0=productionRuntimeClasspath,runtimeClasspath,testRunti
 org.apiguardian:apiguardian-api:1.1.2=testCompileClasspath
 org.assertj:assertj-core:3.27.7=testCompileClasspath,testRuntimeClasspath
 org.awaitility:awaitility:4.3.0=testCompileClasspath,testRuntimeClasspath
+org.bitbucket.b_c:jose4j:0.9.6=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.checkerframework:checker-qual:3.37.0=compileClasspath,testCompileClasspath
 org.checkerframework:checker-qual:3.48.3=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.codehaus.jackson:jackson-core-asl:1.8.8=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
