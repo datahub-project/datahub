@@ -914,7 +914,9 @@ networkx==3.6.1 ; python_full_version >= '3.11'
 nh3==0.3.3
     # via readme-renderer
 nltk==3.9.3
-    # via unstructured
+    # via
+    #   acryl-datahub
+    #   unstructured
 notebook==7.5.4
     # via acryl-great-expectations
 notebook-shim==0.2.4
