@@ -90,11 +90,7 @@ public class SearchDocumentsResolver
             final List<String> requestedStates = mapRequestedStates(input.getStates());
             Filter filter =
                 DocumentSearchFilterUtils.buildCombinedFilter(
-                    baseUserCriteria,
-                    userAndGroupUrns,
-                    true,
-                    canManageDocuments,
-                    requestedStates);
+                    baseUserCriteria, userAndGroupUrns, true, canManageDocuments, requestedStates);
 
             if (input.getViewUrn() != null) {
               final DataHubViewInfo resolvedView =
@@ -108,19 +104,13 @@ public class SearchDocumentsResolver
             }
 
             final List<SortCriterion> sortCriteria = getSortCriteria(input.getSortInput());
-            final SortCriterion sortCriterion =
-                sortCriteria.isEmpty() ? null : sortCriteria.get(0);
+            final SortCriterion sortCriterion = sortCriteria.isEmpty() ? null : sortCriteria.get(0);
 
             final SearchResult gmsResult;
             try {
               gmsResult =
                   _documentService.searchDocuments(
-                      context.getOperationContext(),
-                      query,
-                      filter,
-                      sortCriterion,
-                      start,
-                      count);
+                      context.getOperationContext(), query, filter, sortCriterion, start, count);
             } catch (Exception e) {
               throw new RuntimeException("Failed to search documents", e);
             }
