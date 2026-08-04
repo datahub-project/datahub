@@ -930,4 +930,103 @@ public class UpdateIndicesV3StrategyTest {
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
   }
+
+  @Test
+  public void testProcessBatch_Timeseries_dualWritesToServiceAndSink() throws Exception {
+    TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+    verify(sink)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testProcessBatch_TimeseriesDelete_dualWritesWhenApplyDeleteTrue() throws Exception {
+    TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mockAspect);
+    when(mockEvent.getPreviousSystemMetadata()).thenReturn(mockSystemMetadata);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
+
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(mockEvent))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+      dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+    }
+
+    verify(timeseriesAspectService)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+    verify(sink)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+  }
 }
