@@ -536,10 +536,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         streams_with_guessed_namespace: List[str],
         guessed_schema: str,
     ) -> None:
-        """A wrong or missing schema points a dataset URN at the wrong table
-        rather than failing, so every cause of one gets a warning an operator
-        can act on. Called after resolution, because only its outcome says
-        whether a gap was filled, left empty, or filled with a guess."""
+        """Must run after resolution: only its outcome says whether a gap was
+        filled, left empty, or filled with a guess."""
         connection = pipeline_info.connection
         connection_context = (
             f"connection_id={connection.connection_id}, "
@@ -566,13 +564,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Stream Namespaces Not Reported",
                     message=(
-                        "Airbyte /streams described this source's streams but "
-                        "reported no namespace for any of them, and nothing else "
-                        "supplied a schema for the streams below, so their "
-                        "dataset URNs have no schema tier. Airbyte only exposes "
-                        "stream namespaces from 1.7.0 onwards; on older "
-                        "deployments set 'default_schema' for this source in "
-                        "'sources_to_platform_instance'"
+                        "Airbyte /streams reported no namespace for any of this "
+                        "source's streams and nothing else supplied a schema for "
+                        "the streams below, so their dataset URNs have no schema "
+                        "tier. Airbyte exposes stream namespaces from 1.7.0 "
+                        "onwards; on older deployments set 'default_schema' for "
+                        "this source in 'sources_to_platform_instance'"
                     ),
                     context=(
                         f"source_id={source_id}, "
@@ -587,16 +584,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Stream Schema Guessed",
                     message=(
-                        "Airbyte /streams described this source's streams but "
-                        "reported no namespace for any of them, and this source "
-                        "replicates several schemas, so nothing says which "
-                        "stream belongs to which. Every stream below carries the "
-                        "same schema tier in its dataset URN, which can only be "
-                        "right for the streams that live in that one schema; the "
-                        "rest point at another table's URN. Airbyte exposes "
-                        "stream namespaces from 1.7.0 onwards, and upgrading is "
-                        "the only way to tell these streams apart. Ignore this "
-                        "if every stream really does share the schema shown"
+                        "Airbyte /streams reported no namespace for any of this "
+                        "source's streams and the source replicates several "
+                        "schemas, so nothing says which stream belongs to which. "
+                        "The streams below all take the schema shown, which is "
+                        "wrong for any that live elsewhere — those URNs point at "
+                        "another table. Airbyte exposes stream namespaces from "
+                        "1.7.0 onwards; upgrading is the only way to tell these "
+                        "streams apart. Ignore this if they do share one schema"
                     ),
                     context=(
                         f"source_id={source_id}, schema={guessed_schema}, "
@@ -712,8 +707,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 AirbyteStreamInfo(config=stream_config, details=stream_details)
             )
 
-        # Reported after resolution so the warnings describe what the URNs
-        # actually ended up with, not what Airbyte alone could tell us.
         self._report_namespace_backfill_gaps(
             pipeline_info,
             streams_without_namespace,
@@ -1086,14 +1079,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_details: PlatformDetail,
         stream_name: Optional[str],
     ) -> ResolvedSchema:
-        # Most specific wins. The connector-wide schema is last because it is
-        # often the only schema-shaped key a connector config has and can hold
-        # something that is not a schema at all (SQL Server sources sometimes
-        # carry the database name there), which would then shadow the per-table
-        # schema that is right.
-        # Only the first two tiers are per-stream, so only they can be trusted
-        # when the connector replicates several schemas. A single recipe-level
-        # or connector-level name is right for at most one of them.
+        # Only these two are per-stream, so only they survive a source that
+        # replicates several schemas. They also outrank the connector-wide
+        # schema because that key can hold something that is not a schema at
+        # all — SQL Server sources sometimes carry the database name there.
         per_stream = (
             stream_namespace,
             source.get_schema_for_table(stream_name) if stream_name else None,

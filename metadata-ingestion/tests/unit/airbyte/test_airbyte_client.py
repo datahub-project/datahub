@@ -1425,8 +1425,7 @@ class TestFetchStreamApiMetadata:
         self, mock_list_streams
     ):
         # Airbyte below 1.7.0 describes the streams but has no namespace field,
-        # which is indistinguishable from a namespace-free source at the URN
-        # level — so it gets flagged rather than silently producing no schema.
+        # which the source can only warn about if the client flags it.
         mock_list_streams.return_value = [
             {"streamName": "users", "propertyFields": [["id"]]}
         ]

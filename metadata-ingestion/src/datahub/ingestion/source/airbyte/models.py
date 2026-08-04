@@ -226,7 +226,7 @@ class AirbyteConfigStreamRef(BaseModel):
 
 class AirbyteStreamsApiRow(BaseModel):
     """One row from Airbyte `/streams`. Field names vary by version, and the
-    namespace is only present from Airbyte 1.7.0 onwards."""
+    namespace only appears from 1.7.0 onwards."""
 
     stream_name: Optional[str] = None
     namespace: str = ""
@@ -366,8 +366,8 @@ class NamespaceQueueResult(BaseModel):
 
 
 class ResolvedSchema(BaseModel):
-    """The schema a stream's dataset URN will carry. `guessed` marks a name that
-    resolution had to pick rather than read, so the report can say so."""
+    """A stream's schema tier. `guessed` marks a name resolution had to pick
+    rather than read."""
 
     name: str = ""
     guessed: bool = False
@@ -463,9 +463,9 @@ class AirbyteSourcePartial(BaseModel):
 
     @property
     def schema_is_guess(self) -> bool:
-        """True when the only schema the configuration reveals is one entry of a
-        list of several. Nothing in the payload says which stream belongs to
-        which, so picking the first is a guess that is wrong for the rest."""
+        """True when the configuration only offers a list of several schemas.
+        Nothing says which stream belongs to which, so picking one is a guess
+        that is wrong for the rest."""
         return self.declared_schema is None and len(self.configured_schemas) > 1
 
     @property
@@ -575,8 +575,7 @@ class AirbytePipelineInfo(BaseModel):
 
 class AirbyteStreamDetails(BaseModel):
     stream_name: str = Field(alias=API_FIELD_STREAM_NAME)
-    # Airbyte's namespace when it reports one, otherwise the schema resolved
-    # from the connector configuration or the recipe. Empty when nothing does.
+    # Holds the resolved schema tier, not just Airbyte's namespace.
     namespace: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -622,8 +621,8 @@ class AirbyteStreamApiMetadata(BaseModel):
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
     unavailable: bool = False
-    # `/streams` answered, but with no namespace on any row: Airbyte only added
-    # the field in 1.7.0, so there is nothing to back-fill from.
+    # `/streams` answered but no row carried a namespace, so there is nothing to
+    # back-fill from.
     namespaces_absent: bool = False
     skipped_rows: List[str] = Field(default_factory=list)
 

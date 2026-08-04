@@ -574,9 +574,9 @@ class AirbyteBaseClient(ABC):
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        # Older Airbyte versions 404 here — callers should treat that as "fall
-        # back to configurations.streams" instead of propagating the error. The
-        # namespace field is only populated from Airbyte 1.7.0 onwards.
+        # Older Airbyte versions 404 here; callers fall back to
+        # configurations.streams rather than propagating the error. The namespace
+        # field only appears from 1.7.0 onwards.
         self._check_auth_before_request()
         query_params = []
         if source_id:

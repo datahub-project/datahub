@@ -723,9 +723,8 @@ def _source_with_details(mock_ctx: MagicMock, details: PlatformDetail) -> Airbyt
 
 
 def test_per_table_schema_outranks_connector_wide_schema(mock_ctx):
-    # A connector-wide schema key can hold something that is not a schema (here
-    # the database name), which used to shadow the per-table schema and collapse
-    # the URN to two tiers because schema and database matched.
+    # The connector-wide schema key holds the database name here, which used to
+    # shadow the per-table schema and collapse the URN to two tiers.
     source = _source_with_details(
         mock_ctx, PlatformDetail(platform="mssql", convert_urns_to_lowercase=True)
     )
@@ -836,9 +835,8 @@ def test_warns_once_per_source_when_streams_api_reports_no_namespaces(mock_ctx):
 def test_no_namespace_warning_when_another_tier_supplies_the_schema(
     mock_ctx, details, source_configuration
 ):
-    # Telling an operator their URNs have no schema tier while pointing them at
-    # the very setting they already applied is worse than staying quiet, so the
-    # warning has to reflect what resolution produced, not what Airbyte sent.
+    # The warning has to reflect what resolution produced, not what Airbyte
+    # sent, or it points operators at a setting they already applied.
     source = _source_with_details(mock_ctx, details)
     pipeline_info = _source_schema_pipeline(source_configuration)
     pipeline_info.connection.streams_api_namespaces_absent = True
@@ -856,8 +854,8 @@ def test_no_namespace_warning_when_another_tier_supplies_the_schema(
 
 def test_warns_when_a_multi_schema_list_forces_a_guessed_schema(mock_ctx):
     # Reproduced against Airbyte 1.6.9: a Postgres source over two schemas
-    # reports no namespace on either surface, so both streams take schemas[0]
-    # and the one that lives elsewhere silently claims another table's URN.
+    # reports no namespace on either surface, so every stream takes schemas[0]
+    # and the ones living elsewhere claim another table's URN.
     source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
     pipeline_info = _source_schema_pipeline(
         {"database": "test", "schemas": ["source_schema", "audit_schema"]}
