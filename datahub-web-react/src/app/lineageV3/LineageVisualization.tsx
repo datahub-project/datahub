@@ -36,9 +36,14 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
     ${({ isDraggingBoundingBox }) =>
         !isDraggingBoundingBox &&
-        `.react-flow__node-lineage-entity:not(.dragging) {
+        `
+        .react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
-        }`}
+        }
+        .react-flow__node-lineage-bounding-box:not(.dragging) {
+            transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;        
+        }
+        `}
 
     /* Hovered nodes render above their neighbors, so overlays like the expand/contract
        controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */

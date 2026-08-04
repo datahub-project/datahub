@@ -4,7 +4,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
-import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
@@ -35,11 +34,11 @@ public class ObjectStorageClientFactory {
   @Nullable
   protected ObjectStorageClient getInstance() {
     try {
-      S3Configuration s3Configuration = configurationProvider.getDatahub().getS3();
       ObjectStorageConfiguration objectStorageConfiguration =
           configurationProvider.getDatahub().getObjectStorage();
 
-      String legacyBucketName = s3Configuration != null ? s3Configuration.getBucketName() : null;
+      String legacyBucketName =
+          objectStorageConfiguration != null ? objectStorageConfiguration.getBucket() : null;
       String configuredUri =
           objectStorageConfiguration != null ? objectStorageConfiguration.getUri() : null;
       String legacyPath =
@@ -70,7 +69,7 @@ public class ObjectStorageClientFactory {
       return switch (resolvedLocation.provider()) {
         case LOCAL -> new LocalObjectStorageClient(resolvedLocation.localRoot());
         case S3 -> {
-          S3Client s3Client = createS3Client(s3Configuration);
+          S3Client s3Client = createS3Client(objectStorageConfiguration);
           if (s3Client == null) {
             yield null;
           }
@@ -98,12 +97,13 @@ public class ObjectStorageClientFactory {
   }
 
   @Nullable
-  private S3Client createS3Client(@Nullable S3Configuration s3Configuration) {
-    String roleArn = s3Configuration != null ? s3Configuration.getRoleArn() : null;
+  private S3Client createS3Client(@Nullable ObjectStorageConfiguration objectStorageConfiguration) {
+    String roleArn =
+        objectStorageConfiguration != null ? objectStorageConfiguration.getRoleArn() : null;
     if (roleArn != null && !roleArn.trim().isEmpty()) {
       if (stsClient == null) {
         throw new IllegalStateException(
-            "StsClient bean is required when datahub.s3.roleArn is configured");
+            "StsClient bean is required when datahub.objectStorage.roleArn is configured");
       }
       StsAssumeRoleCredentialsProvider credentialsProvider =
           StsAssumeRoleCredentialsProvider.builder()
