@@ -26,8 +26,8 @@ extend type Mutation {
 
   """
   Patch an existing data incident. Omitted fields, and null scalar fields, remain unchanged.
-  An empty assigneeUrns list clears assignees; priority and startedAt cannot be cleared by this
-  mutation. Use replaceIncident for an editor-owned full replacement that can clear priority.
+  An empty assigneeUrns list clears assignees; priority cannot be cleared by this mutation. Use
+  upsertIncident for an editor-owned full replacement that can clear priority.
   """
   updateIncident(
     """
@@ -43,10 +43,11 @@ extend type Mutation {
 
   """
   Replace the fields owned by the incident editor. Nullable fields are cleared when omitted or
-  set to null. Fields that are not part of this input, such as the incident type, source, and
-  creation audit, are preserved. Use updateIncident when omitted fields must remain unchanged.
+  set to null. Fields that are not part of this input, such as the incident type, source,
+  creation audit, and startedAt, are preserved. Use updateIncident when omitted fields must
+  remain unchanged.
   """
-  replaceIncident(
+  upsertIncident(
     """
     The urn for an existing incident
     """
@@ -55,7 +56,7 @@ extend type Mutation {
     """
     Complete editable incident state
     """
-    input: ReplaceIncidentInput!
+    input: UpsertIncidentInput!
   ): Boolean
 }
 
@@ -398,7 +399,7 @@ input RaiseIncidentInput {
 
 """
 Input for patching an existing incident. Omitted fields and null scalar values are unchanged.
-Use replaceIncident when a nullable editor-owned field must be cleared.
+Use upsertIncident when a nullable editor-owned field must be cleared.
 """
 input UpdateIncidentInput {
   """
@@ -412,13 +413,8 @@ input UpdateIncidentInput {
   description: String
 
   """
-  A replacement start time. Omit or set to null to leave it unchanged; this mutation cannot clear
-  an existing value.
-  """
-  startedAt: Long
-
-  """
-  A replacement status. Omit or set to null to leave the current status unchanged.
+  A replacement status. Omit or set to null to leave the current status unchanged. Only the
+  supplied sub-fields (state, stage, message) are patched; unsupplied sub-fields are preserved.
   """
   status: IncidentStatusInput
 
@@ -445,7 +441,7 @@ Complete editable state for an existing incident. The editor uses this operation
 fields such as priority can be intentionally cleared. The incident type, source, creation audit,
 and startedAt value are preserved because they are not editable in this form.
 """
-input ReplaceIncidentInput {
+input UpsertIncidentInput {
   """
   The title associated with the incident. Omit or set to null to clear it.
   """

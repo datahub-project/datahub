@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.ReplaceIncidentInput;
+import com.linkedin.datahub.graphql.generated.UpsertIncidentInput;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -21,9 +21,9 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-/** Replaces the fields owned by the incident editor. */
+/** Applies the editor's complete field snapshot to an incident as a JSON Patch. */
 @RequiredArgsConstructor
-public class ReplaceIncidentResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpsertIncidentResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final IncidentService _incidentService;
   private final EntityService _entityService;
@@ -33,8 +33,8 @@ public class ReplaceIncidentResolver implements DataFetcher<CompletableFuture<Bo
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
-    final ReplaceIncidentInput input =
-        bindArgument(environment.getArgument("input"), ReplaceIncidentInput.class);
+    final UpsertIncidentInput input =
+        bindArgument(environment.getArgument("input"), UpsertIncidentInput.class);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -48,7 +48,7 @@ public class ReplaceIncidentResolver implements DataFetcher<CompletableFuture<Bo
                       null);
           if (info == null) {
             throw new DataHubGraphQLException(
-                "Failed to replace incident. Incident does not exist.",
+                "Failed to upsert incident. Incident does not exist.",
                 DataHubGraphQLErrorCode.NOT_FOUND);
           }
 
@@ -57,13 +57,13 @@ public class ReplaceIncidentResolver implements DataFetcher<CompletableFuture<Bo
               new AuditStamp()
                   .setActor(UrnUtils.getUrn(context.getActorUrn()))
                   .setTime(System.currentTimeMillis());
-          IncidentInfoUpdate replacement = IncidentUtils.mapIncidentReplacement(input, actorStamp);
+          IncidentInfoUpdate replacement = IncidentUtils.mapIncidentUpsert(input, actorStamp);
           try {
-            _incidentService.replaceIncident(
-                context.getOperationContext(), incidentUrn, info, replacement);
+            _incidentService.upsertIncident(
+                context.getOperationContext(), incidentUrn, replacement);
             return true;
           } catch (Exception e) {
-            throw new RuntimeException("Failed to replace incident!", e);
+            throw new RuntimeException("Failed to upsert incident!", e);
           }
         },
         this.getClass().getSimpleName(),

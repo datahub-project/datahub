@@ -11,8 +11,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
-import com.linkedin.datahub.graphql.generated.ReplaceIncidentInput;
 import com.linkedin.datahub.graphql.generated.UpdateIncidentInput;
+import com.linkedin.datahub.graphql.generated.UpsertIncidentInput;
 import com.linkedin.incident.IncidentAssignee;
 import com.linkedin.incident.IncidentAssigneeArray;
 import com.linkedin.incident.IncidentInfo;
@@ -116,7 +116,6 @@ public class IncidentUtils {
         IncidentInfoUpdate.builder()
             .title(input.getTitle())
             .description(input.getDescription())
-            .startedAt(input.getStartedAt())
             .priority(mapIncidentPriority(input.getPriority()))
             .entities(
                 input.getResourceUrns() == null ? null : stringsToUrns(input.getResourceUrns()))
@@ -129,8 +128,8 @@ public class IncidentUtils {
 
   /** Maps the complete editor input into the service's GraphQL-independent update object. */
   @Nonnull
-  public static IncidentInfoUpdate mapIncidentReplacement(
-      @Nonnull final ReplaceIncidentInput input, @Nonnull final AuditStamp auditStamp) {
+  public static IncidentInfoUpdate mapIncidentUpsert(
+      @Nonnull final UpsertIncidentInput input, @Nonnull final AuditStamp auditStamp) {
     IncidentInfoUpdate.Builder builder =
         IncidentInfoUpdate.builder()
             .title(input.getTitle())

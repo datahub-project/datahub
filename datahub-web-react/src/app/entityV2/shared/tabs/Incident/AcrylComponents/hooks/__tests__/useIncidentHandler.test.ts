@@ -6,11 +6,11 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
-import { useRaiseIncidentMutation, useReplaceIncidentMutation } from '@src/graphql/mutations.generated';
+import { useRaiseIncidentMutation, useUpsertIncidentMutation } from '@src/graphql/mutations.generated';
 
 vi.mock('@src/graphql/mutations.generated', () => ({
     useRaiseIncidentMutation: vi.fn(),
-    useReplaceIncidentMutation: vi.fn(),
+    useUpsertIncidentMutation: vi.fn(),
 }));
 
 vi.mock('@app/entity/shared/EntityContext', () => ({
@@ -66,14 +66,14 @@ const FORM_VALUES_BASE = {
 
 describe('useIncidentHandler', () => {
     const raiseIncidentMutation = vi.fn().mockResolvedValue({ data: { raiseIncident: 'urn:li:incident:new' } });
-    const replaceIncidentMutation = vi.fn().mockResolvedValue({});
+    const upsertIncidentMutation = vi.fn().mockResolvedValue({});
 
     beforeEach(() => {
         vi.clearAllMocks();
 
         mockFormValues = { ...FORM_VALUES_BASE };
         (useRaiseIncidentMutation as Mock).mockReturnValue([raiseIncidentMutation]);
-        (useReplaceIncidentMutation as Mock).mockReturnValue([replaceIncidentMutation]);
+        (useUpsertIncidentMutation as Mock).mockReturnValue([upsertIncidentMutation]);
         (useEntityData as Mock).mockReturnValue({ urn: undefined });
     });
 
@@ -99,8 +99,8 @@ describe('useIncidentHandler', () => {
             await result.current.handleSubmit();
         });
 
-        expect(replaceIncidentMutation).toHaveBeenCalledTimes(1);
-        const { input } = replaceIncidentMutation.mock.calls[0][0].variables;
+        expect(upsertIncidentMutation).toHaveBeenCalledTimes(1);
+        const { input } = upsertIncidentMutation.mock.calls[0][0].variables;
         expect(input.resourceUrns).toEqual(FORM_VALUES_BASE.resourceUrns);
         expect(input.priority).toBeNull();
         expect(input.assigneeUrns).toEqual([]);
@@ -113,7 +113,7 @@ describe('useIncidentHandler', () => {
             await result.current.handleSubmit();
         });
 
-        const { input } = replaceIncidentMutation.mock.calls[0][0].variables;
+        const { input } = upsertIncidentMutation.mock.calls[0][0].variables;
         expect(input).not.toHaveProperty('resourceUrn');
         expect(input).not.toHaveProperty('type');
         expect(input).not.toHaveProperty('customType');

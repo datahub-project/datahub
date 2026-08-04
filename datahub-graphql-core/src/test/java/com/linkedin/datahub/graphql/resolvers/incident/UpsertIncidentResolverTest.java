@@ -10,7 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.IncidentState;
 import com.linkedin.datahub.graphql.generated.IncidentStatusInput;
-import com.linkedin.datahub.graphql.generated.ReplaceIncidentInput;
+import com.linkedin.datahub.graphql.generated.UpsertIncidentInput;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
@@ -25,12 +25,12 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class ReplaceIncidentResolverTest {
+public class UpsertIncidentResolverTest {
 
   private static final Urn TEST_INCIDENT_URN = UrnUtils.getUrn("urn:li:incident:TEST");
 
   @Test
-  public void testReplacementPassesExplicitClearsToService() throws Exception {
+  public void testUpsertPassesExplicitClearsToService() throws Exception {
     IncidentService mockIncidentService = Mockito.mock(IncidentService.class);
     EntityService mockEntityService = Mockito.mock(EntityService.class);
     IncidentInfo existingInfo = existingInfo();
@@ -42,7 +42,7 @@ public class ReplaceIncidentResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(existingInfo);
 
-    ReplaceIncidentInput input = new ReplaceIncidentInput();
+    UpsertIncidentInput input = new UpsertIncidentInput();
     input.setTitle(null);
     input.setDescription(null);
     input.setStatus(
@@ -62,16 +62,15 @@ public class ReplaceIncidentResolverTest {
     Mockito.when(environment.getArgument(Mockito.eq("input"))).thenReturn(input);
 
     Boolean result =
-        new ReplaceIncidentResolver(mockIncidentService, mockEntityService).get(environment).get();
+        new UpsertIncidentResolver(mockIncidentService, mockEntityService).get(environment).get();
 
     Assert.assertTrue(result);
     ArgumentCaptor<IncidentInfoUpdate> replacementCaptor =
         ArgumentCaptor.forClass(IncidentInfoUpdate.class);
     Mockito.verify(mockIncidentService)
-        .replaceIncident(
+        .upsertIncident(
             any(OperationContext.class),
             Mockito.eq(TEST_INCIDENT_URN),
-            Mockito.same(existingInfo),
             replacementCaptor.capture());
     IncidentInfoUpdate replacement = replacementCaptor.getValue();
     Assert.assertNull(replacement.getTitle());

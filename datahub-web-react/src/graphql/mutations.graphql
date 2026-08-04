@@ -114,8 +114,8 @@ mutation updateIncident($urn: String!, $input: UpdateIncidentInput!) {
     updateIncident(urn: $urn, input: $input)
 }
 
-mutation replaceIncident($urn: String!, $input: ReplaceIncidentInput!) {
-    replaceIncident(urn: $urn, input: $input)
+mutation upsertIncident($urn: String!, $input: UpsertIncidentInput!) {
+    upsertIncident(urn: $urn, input: $input)
 }
 
 mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {

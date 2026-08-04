@@ -45,7 +45,6 @@ public class UpdateIncidentResolverTest {
     UpdateIncidentInput input = new UpdateIncidentInput();
     input.setTitle("New Title");
     input.setDescription("New Description");
-    input.setStartedAt(10L);
     input.setStatus(
         new com.linkedin.datahub.graphql.generated.IncidentStatusInput(
             com.linkedin.datahub.graphql.generated.IncidentState.RESOLVED,
@@ -67,7 +66,6 @@ public class UpdateIncidentResolverTest {
     IncidentInfoUpdate update = updateCaptor.getValue();
     Assert.assertEquals(update.getTitle(), "New Title");
     Assert.assertEquals(update.getDescription(), "New Description");
-    Assert.assertEquals(update.getStartedAt(), Long.valueOf(10L));
     Assert.assertEquals(update.getPriority(), Integer.valueOf(3));
     Assert.assertEquals(update.getEntities(), IncidentUtils.stringsToUrns(input.getResourceUrns()));
     Assert.assertEquals(update.getAssignees().size(), 2);
@@ -101,7 +99,6 @@ public class UpdateIncidentResolverTest {
     IncidentInfoUpdate update = updateCaptor.getValue();
     Assert.assertEquals(update.getTitle(), "Only title changes");
     Assert.assertNull(update.getDescription());
-    Assert.assertNull(update.getStartedAt());
     Assert.assertNull(update.getStatus());
     Assert.assertNull(update.getPriority());
     Assert.assertNull(update.getEntities());

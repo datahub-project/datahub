@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.incident.IncidentAssigneeArray;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentState;
@@ -96,7 +97,9 @@ public class IncidentService extends BaseService {
    * Applies a partial update to an incident without reading or rewriting the full aspect.
    *
    * <p>Fields that are null in {@code update} are omitted from the JSON Patch and therefore remain
-   * unchanged. The aspect patch processor applies all supplied field operations atomically.
+   * unchanged. The aspect patch processor applies all supplied field operations atomically. Status
+   * is patched at the sub-field level so a partial status update cannot wipe an unrelated stage or
+   * message set by a previous call.
    */
   public void updateIncident(
       @Nonnull OperationContext opContext,
@@ -116,11 +119,15 @@ public class IncidentService extends BaseService {
     if (update.getDescription() != null) {
       patchBuilder.setDescription(update.getDescription());
     }
-    if (update.getStartedAt() != null) {
-      patchBuilder.setStartedAt(update.getStartedAt());
-    }
     if (update.getStatus() != null) {
-      patchBuilder.setStatus(update.getStatus());
+      final IncidentStatus status = update.getStatus();
+      patchBuilder.setStatusState(status.getState());
+      if (status.hasStage()) {
+        patchBuilder.setStatusStage(status.getStage());
+      }
+      if (status.hasMessage()) {
+        patchBuilder.setStatusMessage(status.getMessage());
+      }
     }
     if (update.getPriority() != null) {
       patchBuilder.setPriority(update.getPriority());
@@ -136,17 +143,17 @@ public class IncidentService extends BaseService {
   }
 
   /**
-   * Replaces the fields owned by the incident editor while preserving metadata it cannot edit.
-   * Nullable values intentionally clear their corresponding fields.
+   * Applies the editor's complete field snapshot as a JSON Patch, without reading or rewriting the
+   * full aspect. Nullable editor fields that are null in {@code replacement} are explicitly cleared
+   * (PATCH remove); fields the editor does not own (type, customType, source, created) are never
+   * targeted and therefore survive untouched.
    */
-  public void replaceIncident(
+  public void upsertIncident(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn incidentUrn,
-      @Nonnull final IncidentInfo existingInfo,
       @Nonnull final IncidentInfoUpdate replacement)
       throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    Objects.requireNonNull(existingInfo, "existingInfo must not be null");
     Objects.requireNonNull(replacement, "replacement must not be null");
     if (replacement.getStatus() == null) {
       throw new IllegalArgumentException("Incident status is required for replacement");
@@ -155,19 +162,30 @@ public class IncidentService extends BaseService {
       throw new IllegalArgumentException("Incident resources cannot be empty for replacement");
     }
 
-    IncidentInfo updatedInfo = new IncidentInfo(existingInfo.data());
-    updatedInfo.setTitle(replacement.getTitle(), SetMode.REMOVE_IF_NULL);
-    updatedInfo.setDescription(replacement.getDescription(), SetMode.REMOVE_IF_NULL);
-    updatedInfo.setStatus(replacement.getStatus());
-    updatedInfo.setPriority(replacement.getPriority(), SetMode.REMOVE_IF_NULL);
-    updatedInfo.setEntities(new UrnArray(replacement.getEntities()));
-    updatedInfo.setAssignees(replacement.getAssignees(), SetMode.REMOVE_IF_NULL);
+    IncidentInfoPatchBuilder patchBuilder = new IncidentInfoPatchBuilder().urn(incidentUrn);
+    if (replacement.getTitle() != null) {
+      patchBuilder.setTitle(replacement.getTitle());
+    } else {
+      patchBuilder.clearTitle();
+    }
+    if (replacement.getDescription() != null) {
+      patchBuilder.setDescription(replacement.getDescription());
+    } else {
+      patchBuilder.clearDescription();
+    }
+    patchBuilder.setStatus(replacement.getStatus());
+    if (replacement.getPriority() != null) {
+      patchBuilder.setPriority(replacement.getPriority());
+    } else {
+      patchBuilder.clearPriority();
+    }
+    patchBuilder.setEntities(replacement.getEntities());
+    patchBuilder.setAssignees(
+        replacement.getAssignees() == null
+            ? new IncidentAssigneeArray()
+            : replacement.getAssignees());
 
-    this.entityClient.ingestProposal(
-        opContext,
-        AspectUtils.buildMetadataChangeProposal(
-            incidentUrn, Constants.INCIDENT_INFO_ASPECT_NAME, updatedInfo),
-        false);
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }
 
   /** Deletes an incident with a given URN */

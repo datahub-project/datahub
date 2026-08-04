@@ -5,24 +5,19 @@ import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentAssigneeArray;
-import com.linkedin.incident.IncidentInfo;
-import com.linkedin.incident.IncidentSource;
-import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
-import com.linkedin.incident.IncidentType;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -45,34 +40,51 @@ public class IncidentServiceUpdateTest {
     MetadataChangeProposal proposal = captureProposal(client);
     Assert.assertEquals(proposal.getChangeType(), ChangeType.PATCH);
     Assert.assertEquals(proposal.getAspect().getContentType(), "application/json-patch+json");
-    JsonNode operations =
-        new ObjectMapper()
-            .readTree(proposal.getAspect().getValue().asString(StandardCharsets.UTF_8));
-    Assert.assertEquals(operations.findValuesAsText("path"), List.of("/title", "/priority"));
+    List<String> paths = patchOpPaths(proposal);
+    Assert.assertEquals(paths, List.of("/title", "/priority"));
     Mockito.verify(client, Mockito.never()).getV2(any(), any(), any(), any());
   }
 
   @Test
-  public void replacementClearsNullableEditorFieldsAndPreservesMetadata() throws Exception {
+  public void patchProposalUsesModernGenericPatchEnvelope() throws Exception {
     SystemEntityClient client = mock(SystemEntityClient.class);
     IncidentService service = new IncidentService(client);
-    IncidentInfo existing =
-        new IncidentInfo()
-            .setType(IncidentType.SQL)
-            .setTitle("old title")
-            .setDescription("old description")
-            .setPriority(0)
-            .setStartedAt(5L)
-            .setSource(new IncidentSource().setType(IncidentSourceType.MANUAL))
-            .setEntities(
-                new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)"))))
-            .setAssignees(new IncidentAssigneeArray())
-            .setStatus(new IncidentStatus().setState(IncidentState.ACTIVE));
 
-    service.replaceIncident(
+    service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        existing,
+        IncidentInfoUpdate.builder().title("new title").build());
+
+    JsonNode envelope = envelopeNode(captureProposal(client));
+    Assert.assertTrue(envelope.isObject());
+    Assert.assertTrue(envelope.get("forceGenericPatch").asBoolean());
+    Assert.assertTrue(envelope.get("patch").isArray());
+  }
+
+  @Test
+  public void nestedStatusUpdatePatchesOnlySuppliedSubFields() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+
+    service.updateIncident(
+        mock(OperationContext.class),
+        INCIDENT_URN,
+        IncidentInfoUpdate.builder()
+            .status(new IncidentStatus().setState(IncidentState.RESOLVED))
+            .build());
+
+    List<String> paths = patchOpPaths(captureProposal(client));
+    Assert.assertEquals(paths, List.of("/status/state"));
+  }
+
+  @Test
+  public void upsertProducesPatchOnlyWriteWithExplicitClears() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+
+    service.upsertIncident(
+        mock(OperationContext.class),
+        INCIDENT_URN,
         IncidentInfoUpdate.builder()
             .title("new title")
             .description(null)
@@ -82,21 +94,71 @@ public class IncidentServiceUpdateTest {
             .assignees(new IncidentAssigneeArray())
             .build());
 
-    IncidentInfo updated =
-        GenericRecordUtils.deserializeAspect(
-            captureProposal(client).getAspect().getValue(), "application/json", IncidentInfo.class);
-    Assert.assertEquals(updated.getTitle(), "new title");
-    Assert.assertFalse(updated.hasDescription());
-    Assert.assertFalse(updated.hasPriority());
-    Assert.assertEquals(updated.getStartedAt(), Long.valueOf(5L));
-    Assert.assertEquals(updated.getType(), IncidentType.SQL);
-    Assert.assertEquals(updated.getSource().getType(), IncidentSourceType.MANUAL);
-    Assert.assertEquals(
-        updated.getEntities(),
-        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test2)"))));
-    Assert.assertTrue(updated.hasAssignees());
-    Assert.assertTrue(updated.getAssignees().isEmpty());
-    Assert.assertEquals(updated.getStatus().getState(), IncidentState.RESOLVED);
+    MetadataChangeProposal proposal = captureProposal(client);
+    Assert.assertEquals(proposal.getChangeType(), ChangeType.PATCH);
+    Assert.assertEquals(proposal.getAspect().getContentType(), "application/json-patch+json");
+    Mockito.verify(client, Mockito.never()).getV2(any(), any(), any(), any());
+
+    Map<String, JsonNode> opsByPath = patchOpsByPath(proposal);
+    Assert.assertEquals(opsByPath.get("/title").get("op").asText(), "add");
+    Assert.assertEquals(opsByPath.get("/title").get("value").asText(), "new title");
+    Assert.assertEquals(opsByPath.get("/description").get("op").asText(), "remove");
+    Assert.assertEquals(opsByPath.get("/priority").get("op").asText(), "remove");
+    Assert.assertEquals(opsByPath.get("/status").get("op").asText(), "add");
+    Assert.assertEquals(opsByPath.get("/entities").get("op").asText(), "add");
+    Assert.assertEquals(opsByPath.get("/assignees").get("op").asText(), "add");
+    Assert.assertTrue(opsByPath.get("/assignees").get("value").isArray());
+    Assert.assertEquals(opsByPath.get("/assignees").get("value").size(), 0);
+    // startedAt is not editor-owned; upsertIncident must never target it.
+    Assert.assertFalse(opsByPath.containsKey("/startedAt"));
+  }
+
+  @Test
+  public void upsertWithNullAssigneesClearsAssignees() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+
+    service.upsertIncident(
+        mock(OperationContext.class),
+        INCIDENT_URN,
+        IncidentInfoUpdate.builder()
+            .title("t")
+            .status(new IncidentStatus().setState(IncidentState.ACTIVE))
+            .entities(List.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)")))
+            .assignees(null)
+            .build());
+
+    Map<String, JsonNode> opsByPath = patchOpsByPath(captureProposal(client));
+    Assert.assertEquals(opsByPath.get("/assignees").get("op").asText(), "add");
+    Assert.assertTrue(opsByPath.get("/assignees").get("value").isArray());
+    Assert.assertEquals(opsByPath.get("/assignees").get("value").size(), 0);
+  }
+
+  @Test
+  public void upsertRequiresStatusAndNonEmptyEntities() {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.upsertIncident(
+                mock(OperationContext.class),
+                INCIDENT_URN,
+                IncidentInfoUpdate.builder()
+                    .entities(List.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)")))
+                    .build()));
+
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.upsertIncident(
+                mock(OperationContext.class),
+                INCIDENT_URN,
+                IncidentInfoUpdate.builder()
+                    .status(new IncidentStatus().setState(IncidentState.ACTIVE))
+                    .entities(List.of())
+                    .build()));
   }
 
   private static MetadataChangeProposal captureProposal(SystemEntityClient client)
@@ -106,5 +168,23 @@ public class IncidentServiceUpdateTest {
     Mockito.verify(client)
         .ingestProposal(any(OperationContext.class), captor.capture(), Mockito.eq(false));
     return captor.getValue();
+  }
+
+  private static JsonNode envelopeNode(MetadataChangeProposal proposal) throws Exception {
+    return new ObjectMapper()
+        .readTree(proposal.getAspect().getValue().asString(StandardCharsets.UTF_8));
+  }
+
+  private static List<String> patchOpPaths(MetadataChangeProposal proposal) throws Exception {
+    return envelopeNode(proposal).get("patch").findValuesAsText("path");
+  }
+
+  private static Map<String, JsonNode> patchOpsByPath(MetadataChangeProposal proposal)
+      throws Exception {
+    Map<String, JsonNode> byPath = new HashMap<>();
+    for (JsonNode op : envelopeNode(proposal).get("patch")) {
+      byPath.put(op.get("path").asText(), op);
+    }
+    return byPath;
   }
 }

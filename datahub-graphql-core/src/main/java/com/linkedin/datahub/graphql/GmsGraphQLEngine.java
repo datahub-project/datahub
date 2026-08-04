@@ -124,9 +124,9 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
-import com.linkedin.datahub.graphql.resolvers.incident.ReplaceIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpsertIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
@@ -1605,8 +1605,8 @@ public class GmsGraphQLEngine {
                   "updateIncident",
                   new UpdateIncidentResolver(this.incidentService, this.entityService))
               .dataFetcher(
-                  "replaceIncident",
-                  new ReplaceIncidentResolver(this.incidentService, this.entityService))
+                  "upsertIncident",
+                  new UpsertIncidentResolver(this.incidentService, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
