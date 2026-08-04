@@ -46,9 +46,15 @@ sources_to_platform_instance:
     default_schema: dbo
 ```
 
-`default_schema` is only used when neither Airbyte nor the connector's own configuration reveals
-a schema, so it is safe to leave in place after an upgrade — and once it applies, the warning
-stops for the streams it covers.
+`default_schema` is only overridden by a namespace reported by Airbyte or a per-table schema in the
+connector's own configuration, so it is safe to leave in place after an upgrade — and once it
+applies, the warning stops for the streams it covers. It deliberately outranks the connector-wide
+schema key, which sometimes holds a database name rather than a schema.
+
+A `Stream Namespace Missing` warning names streams that Airbyte left without a namespace on a
+source where it reported one for others, so the Airbyte version is not the cause. Set the schema
+for those tables in the Airbyte connector's own configuration, or `default_schema` as above if
+every stream on that source shares one schema.
 
 A `Stream Schema Guessed` warning means the same thing happened on a source that replicates
 several schemas. One name cannot be right for all of them, so every stream gets the same schema

@@ -434,6 +434,7 @@ class AirbyteBaseClient(ABC):
         property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
         namespaces_by_name: Dict[str, List[str]] = {}
         skipped_rows: List[str] = []
+        validated_rows = 0
         for index, stream in enumerate(detailed_streams):
             try:
                 row = AirbyteStreamsApiRow.model_validate(stream)
@@ -443,6 +444,8 @@ class AirbyteBaseClient(ABC):
                     f"/streams[{index}]: {e.error_count()} validation error(s)"
                 )
                 continue
+
+            validated_rows += 1
 
             if not row.stream_name:
                 continue
@@ -463,7 +466,10 @@ class AirbyteBaseClient(ABC):
         return AirbyteStreamApiMetadata(
             property_fields_by_stream=property_fields_by_stream,
             namespaces_by_name=namespaces_by_name,
-            namespaces_absent=bool(detailed_streams) and not namespaces_by_name,
+            # Counted over readable rows only: rows that all failed validation
+            # leave no namespaces either, and blaming the Airbyte version for
+            # that sends operators after the wrong problem.
+            namespaces_absent=validated_rows > 0 and not namespaces_by_name,
             skipped_rows=skipped_rows,
         )
 

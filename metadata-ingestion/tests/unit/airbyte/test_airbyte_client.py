@@ -1508,6 +1508,26 @@ class TestFetchStreamApiMetadata:
         assert metadata.namespaces_by_name == {"users": ["public"]}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_does_not_flag_unreadable_response(
+        self, mock_list_streams
+    ):
+        # No namespace survives, but the cause is the payloads rather than the
+        # Airbyte version, so the version warning must not claim this one.
+        mock_list_streams.return_value = ["not-an-object", 7]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 2
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is False
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_ignores_404_substring_without_status(
         self, mock_list_streams
     ):

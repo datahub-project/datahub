@@ -602,6 +602,30 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
 
+        if (
+            streams_without_namespace
+            and not connection.streams_api_unavailable
+            and not connection.streams_api_namespaces_absent
+        ):
+            # Airbyte named a namespace for this source's other streams, so the
+            # version is not the story here and this cannot be deduped per
+            # source — a sibling connection may be missing different streams.
+            self.report.warning(
+                title="Stream Namespace Missing",
+                message=(
+                    "Airbyte reported no namespace for the streams below, though "
+                    "it did for others on this source, and nothing else supplied "
+                    "a schema for them, so their dataset URNs have no schema "
+                    "tier. Set a per-table schema in the connector configuration, "
+                    "or 'default_schema' for this source in "
+                    "'sources_to_platform_instance' if they all share one schema"
+                ),
+                context=(
+                    f"source_id={source_id}, "
+                    f"streams={streams_without_namespace}, {connection_context}"
+                ),
+            )
+
         for stream_name, candidates in connection.ambiguous_stream_namespaces.items():
             self.report.warning(
                 title="Ambiguous Stream Namespace",
@@ -709,9 +733,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         self._report_namespace_backfill_gaps(
             pipeline_info,
-            streams_without_namespace,
-            streams_with_guessed_namespace,
-            guessed_schema,
+            streams_without_namespace=streams_without_namespace,
+            streams_with_guessed_namespace=streams_with_guessed_namespace,
+            guessed_schema=guessed_schema,
         )
 
         return streams

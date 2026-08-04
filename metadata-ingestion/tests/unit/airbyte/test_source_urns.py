@@ -1,10 +1,11 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.source.airbyte.client import AirbyteOSSClient
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
@@ -787,7 +788,7 @@ def test_default_schema_yields_to_schemas_airbyte_and_the_connector_report(mock_
     assert from_per_table[0].details.namespace == "audit"
 
 
-def _namespace_warnings(source: AirbyteSource) -> list:
+def _namespace_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
     return [
         warning
         for warning in source.report.warnings
@@ -795,12 +796,35 @@ def _namespace_warnings(source: AirbyteSource) -> list:
     ]
 
 
-def _guessed_schema_warnings(source: AirbyteSource) -> list:
+def _guessed_schema_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
     return [
         warning
         for warning in source.report.warnings
         if "Stream Schema Guessed" in str(warning)
     ]
+
+
+def _missing_namespace_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Namespace Missing" in str(warning)
+    ]
+
+
+def test_warns_when_a_stream_alone_has_no_namespace(mock_ctx):
+    # Airbyte answered with namespaces for this source, so a stream left
+    # without one is its own gap and the version cannot be blamed for it.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == ""
+    warnings = _missing_namespace_warnings(source)
+    assert len(warnings) == 1
+    assert "transfers" in str(warnings[0])
+    assert _namespace_warnings(source) == []
 
 
 @pytest.mark.parametrize(

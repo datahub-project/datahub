@@ -56,10 +56,12 @@ class PlatformDetail(ConfigModel):
     )
     default_schema: Optional[str] = Field(
         default=None,
-        description="Schema to use when neither Airbyte nor the connector configuration reveals one "
-        "(e.g. 'dbo' for SQL Server). Airbyte only exposes per-stream namespaces from version 1.7.0 onwards, "
+        description="Schema to use when no per-stream schema is known (e.g. 'dbo' for SQL Server). "
+        "Airbyte only exposes per-stream namespaces from version 1.7.0 onwards, "
         "so on older deployments this is the only way to get a schema tier into the dataset URN. "
-        "A namespace reported by Airbyte, or a per-table schema in the connector configuration, takes precedence.",
+        "Only a namespace reported by Airbyte, or a per-table schema in the connector configuration, "
+        "takes precedence; this deliberately outranks the connector-wide schema key, which sometimes "
+        "holds a database name rather than a schema.",
     )
     convert_urns_to_lowercase: bool = Field(
         default=True,
