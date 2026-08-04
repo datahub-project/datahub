@@ -34,6 +34,7 @@ application {
 }
 
 test {
+  environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
   jacoco {
     excludes = ["com/gargoylesoftware/**"]
   }
