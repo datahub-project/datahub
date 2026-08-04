@@ -201,6 +201,22 @@ export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     return [urn, field];
 }
 
+/** Sentinel "field" naming the handle at a node's side control, which stands in for lineage to
+ *  nodes that are not on the graph. Prefixed with `␟` so it cannot collide with a field path. */
+const HIDDEN_LINEAGE_FIELD: Record<LineageDirection, string> = {
+    [LineageDirection.Upstream]: '␟hidden-upstream',
+    [LineageDirection.Downstream]: '␟hidden-downstream',
+};
+
+/**
+ * Column ref for the handle placed where a node's expand / contract lineage control renders.
+ * Column edges to hidden nodes terminate here, as the control is part of the node's own DOM rather
+ * than a node of its own.
+ */
+export function createHiddenLineageRef(urn: Urn, direction: LineageDirection): ColumnRef {
+    return createColumnRef(urn, HIDDEN_LINEAGE_FIELD[direction]);
+}
+
 export function createFineGrainedOperationRef(
     queryUrn: Urn,
     upstreams: Maybe<SchemaFieldRef[]>,
