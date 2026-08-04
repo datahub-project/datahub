@@ -265,6 +265,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Table-to-table lineage edges emitted from M-Query references to sibling
+    # tables in the same PowerBI dataset.
+    m_query_table_to_table_lineage: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

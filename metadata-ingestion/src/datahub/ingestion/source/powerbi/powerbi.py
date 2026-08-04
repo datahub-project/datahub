@@ -402,6 +402,16 @@ class Mapper:
                     )
                 )
 
+            # Table-to-table lineage: references to sibling tables in the same
+            # PowerBI dataset (resolved from the M-Query by the parser).
+            for sibling_urn in self._table_reference_upstreams(
+                lineage.powerbi_table_upstreams, table
+            ):
+                upstream.append(
+                    UpstreamClass(sibling_urn, DatasetLineageTypeClass.TRANSFORMED)
+                )
+                self.__reporter.m_query_table_to_table_lineage += 1
+
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
@@ -417,6 +427,48 @@ class Mapper:
             mcps.append(mcp)
 
         return mcps
+
+    def _table_reference_upstreams(
+        self,
+        table_references: List[str],
+        current_table: powerbi_data_classes.Table,
+    ) -> List[str]:
+        """Resolve M-Query references to sibling tables in the same dataset to URNs.
+
+        Candidate names come from the M-Query parser. They are matched
+        case-insensitively against the dataset's real tables, so an unresolved
+        identifier that is not an actual sibling table produces no edge. A table
+        referencing itself is skipped.
+        """
+        dataset = current_table.dataset
+        if not table_references or dataset is None:
+            return []
+
+        siblings_by_name = {table.name.lower(): table for table in dataset.tables}
+        upstream_urns: List[str] = []
+        for reference in table_references:
+            sibling = siblings_by_name.get(reference.lower())
+            if sibling is None:
+                logger.debug(
+                    "M-Query reference %r in table %s matched no table in dataset %s",
+                    reference,
+                    current_table.full_name,
+                    dataset.name,
+                )
+                continue
+            if sibling.full_name == current_table.full_name:
+                continue
+            upstream_urns.append(
+                self.assets_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=self.__config.platform_name,
+                        name=sibling.full_name,
+                        platform_instance=self.__config.platform_instance,
+                        env=self.__config.env,
+                    )
+                )
+            )
+        return upstream_urns
 
     def create_datahub_owner_urn(self, user: str) -> str:
         """

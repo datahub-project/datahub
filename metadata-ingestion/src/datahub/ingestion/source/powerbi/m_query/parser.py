@@ -57,6 +57,10 @@ def get_upstream_tables(
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
+    Covers external data sources (recognized M data-access functions) and
+    references to sibling tables in the same dataset (surfaced on
+    ``Lineage.powerbi_table_upstreams`` for the mapper to resolve to URNs).
+
     Returns an empty list when the expression is absent, empty, a DAX
     computed-table expression (no ``let`` keyword), or a NativeQuery that the
     caller has opted out of (``native_query_parsing=False``).
@@ -144,16 +148,30 @@ def get_upstream_tables(
             node_map, parameters=parameters
         )
 
-        if not data_access_func_details:
-            logger.debug(
-                "No recognized data-access function found in expression for table %s."
-                " Expression may use an unsupported source (e.g. Web.Contents,"
-                " Excel.Workbook). To add support, reproduce with: %r",
-                table.full_name,
-                expression,
-            )
-
         lineages: List[Lineage] = []
+
+        if not data_access_func_details:
+            # The expression may still reference another table in the same
+            # dataset by name (table-to-table lineage). The mapper validates
+            # these candidate names against the dataset's actual tables.
+            table_refs = mquery_resolver.resolve_to_table_references(node_map)
+            if table_refs:
+                lineages.append(
+                    Lineage(
+                        upstreams=[],
+                        column_lineage=[],
+                        powerbi_table_upstreams=table_refs,
+                    )
+                )
+            else:
+                logger.debug(
+                    "No recognized data-access function found in expression for table"
+                    " %s. Expression may use an unsupported source (e.g. Web.Contents,"
+                    " Excel.Workbook). To add support, reproduce with: %r",
+                    table.full_name,
+                    expression,
+                )
+
         for f_detail in data_access_func_details:
             supported_pattern = pattern_handler.SupportedPattern.get_pattern_handler(
                 f_detail.data_access_function_name

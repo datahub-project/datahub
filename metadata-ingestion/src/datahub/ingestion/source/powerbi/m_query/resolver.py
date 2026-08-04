@@ -66,6 +66,61 @@ def resolve_to_data_access_functions(
     return results
 
 
+def resolve_to_table_references(node_map: NodeIdMap) -> List[str]:
+    """
+    Find identifier names in the expression that do not resolve to a local `let`
+    variable — i.e. references to another table in the same PowerBI dataset.
+
+    Covers bare identifiers (``DimDate``), quoted identifiers
+    (``#"tbl_PayrollHistory"``), and identifiers inside wrapper functions
+    (``Table.Combine({tblA, tblB})``). The returned names are candidates: the
+    caller validates them against the dataset's actual table names before
+    emitting lineage, which is what guards against false positives.
+    """
+    if not node_map:
+        return []
+
+    let_nodes = [
+        (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
+    ]
+    if let_nodes:
+        # Use the outermost let (smallest id = parsed first / outermost scope)
+        root_let_id, root_let = min(let_nodes, key=lambda kv: kv[0])
+        root_node = root_let.get("expression")
+        current_let: dict = root_let
+        current_let_id = root_let_id
+    else:
+        # No let scope. Only a plain identifier expression (e.g. `DimDate`) is a
+        # bare sibling reference. Anything with a function call
+        # (RecursivePrimaryExpression / InvokeExpression) is a data-source or
+        # transformation expression — e.g. an unsupported source like
+        # `LOAD_DATA(Source)` — not table-to-table lineage, so skip it.
+        kinds = {node.get("kind") for node in node_map.values()}
+        if kinds & {"RecursivePrimaryExpression", "InvokeExpression"}:
+            return []
+        root_id = min(node_map.keys())
+        root_node = node_map[root_id]
+        current_let = {}
+        current_let_id = root_id
+
+    if root_node is None:
+        return []
+
+    unresolved: Set[str] = set()
+    _walk(
+        node_map=node_map,
+        node=root_node,
+        current_let=current_let,
+        current_let_id=current_let_id,
+        accessor_chain=None,
+        results=[],
+        seen=set(),
+        parameters={},
+        unresolved=unresolved,
+    )
+    return sorted(unresolved)
+
+
 def _walk(
     node_map: NodeIdMap,
     node: Optional[dict],
@@ -75,6 +130,7 @@ def _walk(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     if node is None:
         return
@@ -97,6 +153,7 @@ def _walk(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -114,6 +171,7 @@ def _walk(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -130,6 +188,7 @@ def _walk(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -146,6 +205,7 @@ def _walk(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -166,6 +226,7 @@ def _walk(
                     results,
                     seen.copy(),
                     parameters,
+                    unresolved,
                 )
         return
 
@@ -182,6 +243,7 @@ def _walk(
                 results,
                 seen,
                 parameters,
+                unresolved,
             )
         return
 
@@ -196,6 +258,7 @@ def _walk(
             results,
             seen,
             parameters,
+            unresolved,
         )
         _walk(
             node_map,
@@ -206,6 +269,7 @@ def _walk(
             results,
             seen.copy(),
             parameters,
+            unresolved,
         )
         return
 
@@ -221,6 +285,7 @@ def _walk_recursive_primary(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -236,6 +301,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -253,6 +319,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -277,6 +344,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -290,6 +358,7 @@ def _walk_recursive_primary(
         results,
         seen,
         parameters,
+        unresolved,
     )
 
 
@@ -303,6 +372,7 @@ def _walk_invoke(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -320,8 +390,7 @@ def _walk_invoke(
         )
         return
 
-    # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
-    # Recurse into first argument
+    # Unrecognized wrapper (Table.RenameColumns, Table.NestedJoin, etc.).
     if callee:
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
@@ -336,8 +405,14 @@ def _walk_invoke(
                     results,
                     seen,
                     parameters,
+                    unresolved,
                 )
-                return  # only first arg
+                # Data-access resolution follows only the first argument (the
+                # pipeline chain). Table-reference collection walks every
+                # argument, since joins (Table.NestedJoin / Table.Join) name
+                # sibling tables in later arguments too.
+                if unresolved is None:
+                    return
 
 
 def _unwrap_csv(elem: object) -> Optional[dict]:
@@ -358,6 +433,7 @@ def _walk_identifier_name(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     """Resolve a variable name in the current let scope and continue walking."""
     if not name:
@@ -370,6 +446,12 @@ def _walk_identifier_name(
     seen.add(guard_key)
 
     resolved = resolve_identifier(node_map, current_let, name)
+    if resolved is None:
+        # Not a local `let` variable. When collecting table references, this is
+        # a candidate reference to a sibling table in the same dataset.
+        if unresolved is not None:
+            unresolved.add(name)
+        return
     _walk(
         node_map,
         resolved,
@@ -379,4 +461,5 @@ def _walk_identifier_name(
         results,
         seen,
         parameters,
+        unresolved,
     )
