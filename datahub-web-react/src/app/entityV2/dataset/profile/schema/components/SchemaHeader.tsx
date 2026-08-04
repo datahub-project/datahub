@@ -2,7 +2,7 @@ import { Button, Icon, Tooltip } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
@@ -130,31 +130,32 @@ export default function SchemaHeader({
     const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
     const schemaViewActiveKey = showRaw ? SCHEMA_VIEW_RAW : SCHEMA_VIEW_TABULAR;
 
-    const schemaViewTabs: Tab[] = useMemo(
-        () => [
-            {
-                key: SCHEMA_VIEW_TABULAR,
-                label: (
-                    <SchemaViewIcon title={t('dataset.tabularView')}>
+    const schemaViewTabs: Tab[] = [
+        {
+            key: SCHEMA_VIEW_TABULAR,
+            label: (
+                <Tooltip title={t('dataset.tabularView')} showArrow={false}>
+                    <SchemaViewIcon>
                         <Icon icon={Table} size="lg" color="inherit" />
                     </SchemaViewIcon>
-                ),
-                dataTestId: 'schema-tabular-view-button',
-                content: null,
-            },
-            {
-                key: SCHEMA_VIEW_RAW,
-                label: (
-                    <SchemaViewIcon title={t('dataset.rawView')}>
+                </Tooltip>
+            ),
+            dataTestId: 'schema-tabular-view-button',
+            content: null,
+        },
+        {
+            key: SCHEMA_VIEW_RAW,
+            label: (
+                <Tooltip title={t('dataset.rawView')} showArrow={false}>
+                    <SchemaViewIcon>
                         <Icon icon={FileText} size="lg" color="inherit" />
                     </SchemaViewIcon>
-                ),
-                dataTestId: 'schema-raw-view-button',
-                content: null,
-            },
-        ],
-        [t],
-    );
+                </Tooltip>
+            ),
+            dataTestId: 'schema-raw-view-button',
+            content: null,
+        },
+    ];
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
