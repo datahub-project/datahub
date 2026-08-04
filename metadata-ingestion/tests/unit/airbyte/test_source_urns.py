@@ -803,9 +803,20 @@ def _guessed_schema_warnings(source: AirbyteSource) -> list:
     ]
 
 
-def test_warns_once_per_source_when_streams_api_reports_no_namespaces(mock_ctx):
+@pytest.mark.parametrize(
+    "source_configuration",
+    [
+        {"database": "wallet_db"},
+        # A schemas entry naming nothing we recognise has to leave the tier
+        # empty; reading the wrong key would point the URN at a made-up schema.
+        {"database": "wallet_db", "schemas": [{"dataset": "wallet_db"}]},
+    ],
+)
+def test_warns_once_per_source_when_streams_api_reports_no_namespaces(
+    mock_ctx, source_configuration
+):
     source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
-    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+    pipeline_info = _source_schema_pipeline(source_configuration)
     pipeline_info.connection.streams_api_namespaces_absent = True
 
     streams = source._fetch_streams_for_source(pipeline_info)
@@ -852,14 +863,19 @@ def test_no_namespace_warning_when_another_tier_supplies_the_schema(
     assert _guessed_schema_warnings(source) == []
 
 
-def test_warns_when_a_multi_schema_list_forces_a_guessed_schema(mock_ctx):
+@pytest.mark.parametrize(
+    "schemas",
+    [
+        ["source_schema", "audit_schema"],
+        [{"name": "source_schema"}, {"schema": "audit_schema"}],
+    ],
+)
+def test_warns_when_a_multi_schema_list_forces_a_guessed_schema(mock_ctx, schemas):
     # Reproduced against Airbyte 1.6.9: a Postgres source over two schemas
     # reports no namespace on either surface, so every stream takes schemas[0]
     # and the ones living elsewhere claim another table's URN.
     source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
-    pipeline_info = _source_schema_pipeline(
-        {"database": "test", "schemas": ["source_schema", "audit_schema"]}
-    )
+    pipeline_info = _source_schema_pipeline({"database": "test", "schemas": schemas})
     pipeline_info.connection.streams_api_namespaces_absent = True
 
     streams = source._fetch_streams_for_source(pipeline_info)
@@ -917,6 +933,10 @@ def test_per_table_schema_is_trusted_on_a_multi_schema_source(mock_ctx):
     [
         {"database": "test", "schemas": ["source_schema"]},
         {"database": "test", "schema": "source_schema"},
+        # Snowflake / BigQuery send objects rather than bare names, under
+        # either key.
+        {"database": "test", "schemas": [{"name": "source_schema"}]},
+        {"database": "test", "schemas": [{"schema": "source_schema"}]},
     ],
 )
 def test_no_guess_warning_when_the_configuration_names_one_schema(
