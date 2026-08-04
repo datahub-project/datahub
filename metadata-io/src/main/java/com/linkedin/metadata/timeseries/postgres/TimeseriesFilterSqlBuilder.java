@@ -147,12 +147,32 @@ public final class TimeseriesFilterSqlBuilder {
       OperationContext opContext,
       List<Object> params,
       boolean alreadyNegated) {
+    return buildCriterionSql(
+        criterion,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        params,
+        alreadyNegated,
+        /* expandFields= */ true);
+  }
+
+  private static String buildCriterionSql(
+      @Nonnull Criterion criterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      boolean alreadyNegated,
+      boolean expandFields) {
 
     boolean negated = criterion.isNegated() ^ alreadyNegated;
     String expandKey =
         ESUtils.toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
     Optional<List<String>> expand =
-        Optional.ofNullable(ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST.get(expandKey));
+        expandFields
+            ? Optional.ofNullable(ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST.get(expandKey))
+            : Optional.empty();
 
     if (expand.isPresent()) {
       List<String> ors = new ArrayList<>();
@@ -163,9 +183,16 @@ public final class TimeseriesFilterSqlBuilder {
                 .setCondition(criterion.getCondition())
                 .setNegated(criterion.isNegated())
                 .setValues(criterion.getValues());
+        // Match ES: expanded alts are single-field predicates (no recursive expansion).
         ors.add(
             buildCriterionSql(
-                copy, isTimeseries, searchableFieldTypes, opContext, params, alreadyNegated));
+                copy,
+                isTimeseries,
+                searchableFieldTypes,
+                opContext,
+                params,
+                alreadyNegated,
+                /* expandFields= */ false));
       }
       String combined =
           String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()));

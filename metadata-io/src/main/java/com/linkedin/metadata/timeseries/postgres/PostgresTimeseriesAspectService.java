@@ -427,7 +427,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull OperationContext opContext, @Nonnull String runId) {
     int total = 0;
     try (Connection c = database.dataSource().getConnection()) {
-      for (var ent : opContext.getEntityRegistry().getEntitySpecs().entrySet()) {
+      c.setAutoCommit(true);
+      // Use EntitySpec#getName() (canonical casing), not the registry map key (lowercased in
+      // ConfigEntityRegistry) — writers store the canonical entity name in entity_name.
+      for (var ent : entityRegistry.getEntitySpecs().entrySet()) {
         for (AspectSpec asp : ent.getValue().getAspectSpecs()) {
           if (!asp.isTimeseries()) {
             continue;
@@ -437,7 +440,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
                   + qualifiedTable()
                   + " WHERE entity_name = ? AND aspect_name = ? AND run_id = ?";
           try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, ent.getKey());
+            ps.setString(1, ent.getValue().getName());
             ps.setString(2, asp.getName());
             ps.setString(3, runId);
             total += ps.executeUpdate();

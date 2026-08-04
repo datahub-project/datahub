@@ -800,6 +800,139 @@ public class TimeseriesAspectServicePostgresIT {
     assertScrollPagesCoverAllPrimaryDocs(sort, /* pageSize= */ 11);
   }
 
+  @Test
+  public void getLatestTimeseriesAspectValues_returnsNewestProfile() {
+    Map<Urn, Map<String, EnvelopedAspect>> latest =
+        pgTimeseries.getLatestTimeseriesAspectValues(
+            opContext, Set.of(TEST_URN), Set.of(ASPECT_NAME), null);
+    assertTrue(latest.containsKey(TEST_URN));
+    EnvelopedAspect aspect = latest.get(TEST_URN).get(ASPECT_NAME);
+    assertNotNull(aspect);
+    assertNotNull(aspect.getAspect());
+    assertTrue(aspect.getAspect().getValue().length() > 0);
+
+    // Primary (non-exploded) latest profile via filtered getAspectValues for typed assertions.
+    List<EnvelopedAspect> primary =
+        pgTimeseries.getAspectValues(
+            opContext,
+            TEST_URN,
+            ENTITY_NAME,
+            ASPECT_NAME,
+            null,
+            null,
+            1,
+            withPrimaryAspectDocumentFilter(null));
+    assertEquals(primary.size(), 1);
+    TestEntityProfile profile =
+        (TestEntityProfile)
+            GenericRecordUtils.deserializeAspect(
+                primary.get(0).getAspect().getValue(), CONTENT_TYPE, aspectSpec);
+    assertEquals(
+        profile.getTimestampMillis().longValue(), startTime + TIME_INCREMENT * (NUM_PROFILES - 1));
+  }
+
+  @Test
+  public void raw_returnsLatestDocumentMap() {
+    Map<Urn, Map<String, Map<String, Object>>> raw =
+        pgTimeseries.raw(opContext, Map.of(TEST_URN.toString(), Set.of(ASPECT_NAME)));
+    assertTrue(raw.containsKey(TEST_URN));
+    Map<String, Object> doc = raw.get(TEST_URN).get(ASPECT_NAME);
+    assertNotNull(doc);
+    assertEquals(doc.get(MappingsBuilder.URN_FIELD), TEST_URN.toString());
+  }
+
+  @Test
+  public void rollbackTimeseriesAspects_deletesByRunId() throws Exception {
+    try (java.sql.Connection c = database.dataSource().getConnection();
+        java.sql.Statement st = c.createStatement()) {
+      int updated =
+          st.executeUpdate(
+              "UPDATE " + schema + "." + tablePrefix + "_aspect SET run_id = 'rollback-run'");
+      assertTrue(updated > 0);
+      c.commit();
+    }
+
+    DeleteAspectValuesResult rolled =
+        pgTimeseries.rollbackTimeseriesAspects(opContext, "rollback-run");
+    assertTrue(rolled.getNumDocsDeleted() > 0);
+
+    Filter urnFilter =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            List.of(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.EQUAL, TEST_URN.toString())));
+    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
+  }
+
+  @Test
+  public void deleteAspectValuesAsync_deletesMatchingRows() {
+    Filter urnFilter =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            List.of(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.EQUAL, TEST_URN.toString())));
+    long before = pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter);
+    assertTrue(before > 0);
+
+    String taskId =
+        pgTimeseries.deleteAspectValuesAsync(
+            opContext,
+            ENTITY_NAME,
+            ASPECT_NAME,
+            urnFilter,
+            new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(50, 60));
+    assertNotNull(taskId);
+    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
+  }
+
+  @Test
+  public void supportsReindexForTruncate_isFalse_andReindexAsyncThrows() {
+    assertTrue(!pgTimeseries.supportsReindexForTruncate());
+    try {
+      pgTimeseries.reindexAsync(
+          opContext,
+          ENTITY_NAME,
+          ASPECT_NAME,
+          new Filter(),
+          new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions());
+      throw new AssertionError("expected UnsupportedOperationException");
+    } catch (UnsupportedOperationException expected) {
+      assertTrue(expected.getMessage().contains("does not support reindex"));
+    }
+  }
+
+  @Test
+  public void aggregatedStats_stringGrouping_onStrStat() {
+    Filter filter =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            List.of(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.EQUAL, TEST_URN.toString()),
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTime.toString()),
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    ES_FIELD_TIMESTAMP,
+                    Condition.LESS_THAN_OR_EQUAL_TO,
+                    String.valueOf(startTime + 2 * TIME_INCREMENT))));
+
+    AggregationSpec sumSpec =
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("stat");
+    GroupingBucket stringBucket =
+        new GroupingBucket().setKey("strStat").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+
+    GenericTable table =
+        pgTimeseries.getAggregatedStats(
+            opContext,
+            ENTITY_NAME,
+            ASPECT_NAME,
+            new AggregationSpec[] {sumSpec},
+            filter,
+            new GroupingBucket[] {stringBucket});
+
+    assertTrue(table.getRows().size() >= 1);
+    assertEquals(table.getColumnNames().get(0), "strStat");
+  }
+
   /**
    * Pages through all primary (aspect-level) docs for {@link #TEST_URN} and asserts the union of
    * pages equals a single full-page scroll with no duplicates.
