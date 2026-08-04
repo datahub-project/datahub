@@ -579,7 +579,8 @@ def grep_documents(
       - title: Document title
       - matches: List of excerpts with position info (positions are absolute)
       - total_matches: Total matches found (may exceed max_matches_per_doc)
-      - content_length: Total length of document content (when start_offset is used)
+      - content_length: Total length of the complete document content
+      - is_truncated: Whether any returned excerpt omits document content
     - total_matches: Total matches across all documents
     - documents_with_matches: Number of documents containing matches
 
@@ -660,6 +661,7 @@ def grep_documents(
         # but count all matches without keeping them in memory
         excerpts: List[Dict[str, Any]] = []
         doc_total_matches = 0
+        is_truncated = start_offset > 0
 
         for match in regex.finditer(text):
             doc_total_matches += 1
@@ -668,6 +670,7 @@ def grep_documents(
             if len(excerpts) < max_matches_per_doc:
                 start_pos = max(0, match.start() - context_chars)
                 end_pos = min(len(text), match.end() + context_chars)
+                is_truncated = is_truncated or start_pos > 0 or end_pos < len(text)
 
                 # Extract excerpt
                 excerpt = text[start_pos:end_pos]
@@ -699,11 +702,9 @@ def grep_documents(
             "title": title,
             "matches": excerpts,
             "total_matches": doc_total_matches,
+            "content_length": full_content_length,
+            "is_truncated": is_truncated,
         }
-
-        # Include content_length when using start_offset to help with pagination
-        if start_offset > 0:
-            result_entry["content_length"] = full_content_length
 
         results.append(result_entry)
 
