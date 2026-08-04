@@ -1,0 +1,31 @@
+# Opt-in uv profile that resolves Python packages from Chainguard Libraries
+# (rebuilt from verified source), with PyPI as the final fallback.
+#
+# This is the LOCAL-DEV profile (local install + local Docker). It deliberately
+# OMITS the chainguard-remediated index — that index lives in chainguard-ci.toml
+# (CI only). See chainguard-ci.toml for why remediated breaks local Mac installs.
+#
+# Select with:
+#   export UV_DOCKER_PROFILE=chainguard
+#   export UV_INSTALL_PROFILE=chainguard
+#   # or: ./gradlew ... -P'datahub.dependencies.python.uvDockerProfile'=chainguard
+# For local non-Gradle `uv` invocations, point UV_CONFIG_FILE at this file
+# (e.g. via .mise.local.toml).
+#
+# Credentials are read from .netrc — never embedded in URLs:
+#   machine libraries.cgr.dev login <chainguard-python-identity-id> password <chainguard-python-token>
+# The libraries.cgr.dev entry is shared across ecosystems; the pull token must
+# carry a Python entitlement (chainctl libraries entitlements create --ecosystems=PYTHON).
+# See docker/snippets/uv/.netrc.example.
+
+index-strategy = "unsafe-best-match"
+
+[[index]]
+name = "chainguard"
+url = "https://libraries.cgr.dev/python/simple/"
+authenticate = "always"
+
+[[index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+default = true
