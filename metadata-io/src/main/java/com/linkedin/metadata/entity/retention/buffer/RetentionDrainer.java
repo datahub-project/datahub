@@ -123,19 +123,19 @@ public class RetentionDrainer {
     List<RetentionService.RetentionContext> contexts = new ArrayList<>(batch.size());
     for (Map.Entry<RetentionKey, Long> entry : batch) {
       try {
-        Urn urn = Urn.createFromString(entry.getKey().getUrn());
+        Urn urn = Urn.createFromString(entry.getKey().urn());
         contexts.add(
             RetentionService.RetentionContext.builder()
                 .urn(urn)
-                .aspectName(entry.getKey().getAspectName())
+                .aspectName(entry.getKey().aspectName())
                 .maxVersion(Optional.of(entry.getValue()))
                 .build());
       } catch (Exception e) {
         // Malformed URN in the buffer — clear it so it doesn't wedge the drainer forever.
         log.warn(
             "Skipping malformed retention key urn={} aspect={}; removing from buffer",
-            entry.getKey().getUrn(),
-            entry.getKey().getAspectName(),
+            entry.getKey().urn(),
+            entry.getKey().aspectName(),
             e);
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }

@@ -16,7 +16,7 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.buffer.CaffeineCoalesceBuffer;
+import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffers;
 import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
@@ -159,7 +159,7 @@ public class RetentionDrainerTest {
     // → RetentionDrainer.tick() → RetentionService.apply with the exact (urn, aspect, maxVersion)
     // that was enqueued. No sleep, no @Scheduled, no docker — tick() is invoked directly.
     CoalesceBuffer<RetentionKey, Long> caffeine =
-        new CaffeineCoalesceBuffer<>("retention-pending", 100, null);
+        new LocalCoalesceBuffer<>("retention-pending", 100, null);
     CoalesceRetentionBuffer retentionBuffer = new CoalesceRetentionBuffer(caffeine);
 
     retentionBuffer.enqueue(TEST_URN, ASPECT, 3L);

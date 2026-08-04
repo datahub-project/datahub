@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
 
-public class CaffeineCoalesceBufferTest {
+public class LocalCoalesceBufferTest {
 
   private static final String KEY =
       "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)|status";
@@ -23,8 +23,8 @@ public class CaffeineCoalesceBufferTest {
 
   @Test
   public void testMergeKeepsMaxValueOnCoalesce() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
     buffer.merge(KEY, 5L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 2L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -39,8 +39,8 @@ public class CaffeineCoalesceBufferTest {
   @Test
   public void testMergeDropsNewKeysWhenBufferFull() {
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 1, mockMetricUtils);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 1, mockMetricUtils);
 
     buffer.merge(KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(OTHER_KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -49,13 +49,13 @@ public class CaffeineCoalesceBufferTest {
     assertEquals(batch.size(), 1);
     assertEquals(batch.get(0).getKey(), KEY);
     verify(mockMetricUtils, times(1))
-        .increment(eq(CaffeineCoalesceBuffer.class), eq("test-buffer_overflow"), eq(1.0d));
+        .increment(eq(LocalCoalesceBuffer.class), eq("test-buffer_overflow"), eq(1.0d));
   }
 
   @Test
   public void testMergeAllowsExistingKeyUpdateWhenBufferFull() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 1, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 1, null);
 
     buffer.merge(KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 7L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -67,8 +67,8 @@ public class CaffeineCoalesceBufferTest {
 
   @Test
   public void testRemoveIfSameOnlyRemovesMatchingValue() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 100, null);
     buffer.merge(KEY, 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     assertFalse(buffer.removeIfSame(KEY, 999L));
@@ -78,8 +78,8 @@ public class CaffeineCoalesceBufferTest {
 
   @Test
   public void testDrainLockIsMutuallyExclusive() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
     assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
     assertFalse(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
@@ -91,8 +91,8 @@ public class CaffeineCoalesceBufferTest {
 
   @Test
   public void testDrainLocksAreIndependentPerName() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
     assertTrue(buffer.tryAcquireDrainLock("drain-a", Duration.ofSeconds(60)));
     assertTrue(buffer.tryAcquireDrainLock("drain-b", Duration.ofSeconds(60)));
@@ -103,8 +103,8 @@ public class CaffeineCoalesceBufferTest {
 
   @Test
   public void testDrainRespectsLimit() {
-    CaffeineCoalesceBuffer<String, Long> buffer =
-        new CaffeineCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer =
+        new LocalCoalesceBuffer<>("test-buffer", 100, null);
     buffer.merge("k1", 1L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge("k2", 2L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge("k3", 3L, CoalesceBuffers.KEEP_MAX_LONG);

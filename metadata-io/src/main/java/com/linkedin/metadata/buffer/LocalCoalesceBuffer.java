@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  * its lease (stuck-lock recovery, mirroring the Hazelcast backend's TTL lock).
  */
 @Slf4j
-public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
+public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   private final ConcurrentMap<K, V> map;
   // Value = lease-expiry epoch millis; 0 means free.
@@ -40,7 +40,7 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   private final String name;
   @Nullable private final MetricUtils metricUtils;
 
-  public CaffeineCoalesceBuffer(
+  public LocalCoalesceBuffer(
       @Nonnull String name, int maxPendingEntries, @Nullable MetricUtils metricUtils) {
     this.name = name;
     this.maxPendingEntries = maxPendingEntries;
@@ -58,7 +58,7 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
     // not correctness.
     if (map.size() >= maxPendingEntries && !map.containsKey(key)) {
       if (metricUtils != null) {
-        metricUtils.increment(CaffeineCoalesceBuffer.class, name + "_overflow", 1);
+        metricUtils.increment(LocalCoalesceBuffer.class, name + "_overflow", 1);
       }
       log.debug(
           "Coalesce buffer '{}' full ({} entries); dropping merge for key={}",

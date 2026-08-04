@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.buffer;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.buffer.BufferImplementation;
-import com.linkedin.metadata.buffer.CaffeineCoalesceBuffer;
+import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBufferFactory;
 import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
@@ -55,6 +55,6 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
           (CoalesceBuffer<?, ?>)
               new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName, metricUtils);
     }
-    return new CaffeineCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
+    return new LocalCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
   }
 }
