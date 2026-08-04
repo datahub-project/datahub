@@ -59,7 +59,10 @@ public class RetentionBufferFactory {
 
   @Bean
   @ConditionalOnProperty(
-      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      name = {
+        HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+        HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED
+      },
       havingValue = "true")
   @Nonnull
   public MapConfig retentionPendingMapConfig(ConfigurationProvider configurationProvider) {
@@ -77,7 +80,10 @@ public class RetentionBufferFactory {
 
   @Bean
   @ConditionalOnProperty(
-      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      name = {
+        HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+        HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED
+      },
       havingValue = "true")
   @Nonnull
   public MapConfig retentionDrainLockMapConfig(ConfigurationProvider configurationProvider) {

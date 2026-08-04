@@ -982,47 +982,54 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     List<UpdateAspectResult> updateAspectResults;
 
     List<MCLEmitResult> mclEmitResults;
-    if (!cdcModeChangeLog && emitMCL) {
-      mclEmitResults = produceMCLAsync(opContext, mcls);
-    } else {
-      // This results in pre-process being called here that may be potentially out-of-order.
-      // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
-      // will result in pre-process being called again potentially overwriting this first
-      // preprocess result.
-      mclEmitResults =
-          mcls.stream()
-              .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
-              .map(
-                  preprocessResult ->
-                      MCLEmitResult.builder()
-                          .emitted(false)
-                          .processedMCL(preprocessResult.getFirst())
-                          .mclFuture(null)
-                          .metadataChangeLog(preprocessResult.getSecond())
-                          .build())
+    try {
+      if (!cdcModeChangeLog && emitMCL) {
+        mclEmitResults = produceMCLAsync(opContext, mcls);
+      } else {
+        // This results in pre-process being called here that may be potentially out-of-order.
+        // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
+        // will result in pre-process being called again potentially overwriting this first
+        // preprocess result.
+        mclEmitResults =
+            mcls.stream()
+                .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
+                .map(
+                    preprocessResult ->
+                        MCLEmitResult.builder()
+                            .emitted(false)
+                            .processedMCL(preprocessResult.getFirst())
+                            .mclFuture(null)
+                            .metadataChangeLog(preprocessResult.getSecond())
+                            .build())
+                .collect(Collectors.toList());
+      }
+      updateAspectResults =
+          IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+              .mapToObj(
+                  i -> {
+                    UpdateAspectResult updateAspectResult =
+                        ingestResults.getUpdateAspectResults().get(i);
+                    MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                    return updateAspectResult.toBuilder()
+                        .mclFuture(mclEmitResult.getMclFuture())
+                        .processedMCL(mclEmitResult.isProcessedMCL())
+                        .build();
+                  })
               .collect(Collectors.toList());
+
+      // Produce FailedMCPs for tracing
+      produceFailedMCPs(opContext, ingestResults);
+
+      invalidateEntityGraphCacheOnSyncIngest(
+          opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
+    } finally {
+      // Retention is best-effort cleanup keyed only on the committed upsert results, not on MCL
+      // output. Run it in a finally so a failure emitting MCLs / running side effects — all of
+      // which happen after the upsert has already committed — cannot skip the prune (legacy in-tx
+      // retention ran before MCL work; post-commit must not regress that). applyRetentionPostCommit
+      // never throws (its own outer try/catch), so it cannot mask an in-flight exception here.
+      applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
     }
-    updateAspectResults =
-        IntStream.range(0, ingestResults.getUpdateAspectResults().size())
-            .mapToObj(
-                i -> {
-                  UpdateAspectResult updateAspectResult =
-                      ingestResults.getUpdateAspectResults().get(i);
-                  MCLEmitResult mclEmitResult = mclEmitResults.get(i);
-                  return updateAspectResult.toBuilder()
-                      .mclFuture(mclEmitResult.getMclFuture())
-                      .processedMCL(mclEmitResult.isProcessedMCL())
-                      .build();
-                })
-            .collect(Collectors.toList());
-
-    // Produce FailedMCPs for tracing
-    produceFailedMCPs(opContext, ingestResults);
-
-    invalidateEntityGraphCacheOnSyncIngest(
-        opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
-
-    applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
 
     return updateAspectResults;
   }

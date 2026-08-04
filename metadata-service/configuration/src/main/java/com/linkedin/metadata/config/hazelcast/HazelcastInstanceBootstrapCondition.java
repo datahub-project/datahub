@@ -25,8 +25,13 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
       return true;
     }
     if (Boolean.parseBoolean(
-        env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))) {
-      // Retention buffer is Hazelcast-backed only, so the flag alone requires the embedded node.
+            env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))
+        && Boolean.parseBoolean(
+            env.getProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "false"))) {
+      // Retention buffer is Hazelcast-backed only, so it requires the embedded node — but ONLY when
+      // it will actually wire (RetentionBufferFactory needs BOTH flags). Gating on retentionBuffer
+      // alone would boot an unused cluster (and risk startup failure if it can't join) while ingest
+      // still runs legacy in-transaction retention with RetentionBuffer.NO_OP.
       return true;
     }
     // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone
