@@ -328,12 +328,17 @@ public class EbeanAspectDaoTest {
   }
 
   private void insertAspect(String urn, String aspect, long version, String metadata) {
+    insertAspect(urn, aspect, version, metadata, System.currentTimeMillis());
+  }
+
+  private void insertAspect(
+      String urn, String aspect, long version, String metadata, long createdOnMs) {
     EbeanAspectV2 aspectRecord = new EbeanAspectV2();
     aspectRecord.setKey(new EbeanAspectV2.PrimaryKey(urn, aspect, version));
     aspectRecord.setMetadata(metadata);
     aspectRecord.setCreatedBy("test");
     aspectRecord.setCreatedFor(null);
-    aspectRecord.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+    aspectRecord.setCreatedOn(new Timestamp(createdOnMs));
     aspectRecord.setSystemMetadata(null);
     testDao.getServer().save(aspectRecord);
   }
@@ -361,6 +366,41 @@ public class EbeanAspectDaoTest {
     int count3 = testDao.countAspect(opContext, args3);
     assertEquals(
         count3, 2, "Should return count of aspects matching both URN pattern and aspect name");
+  }
+
+  @Test
+  public void testCountAspectWithPitEpochMsBounds() {
+    long nowMs = System.currentTimeMillis();
+    long oneHourAgoMs = nowMs - 3_600_000L;
+    long twoHoursAgoMs = nowMs - 7_200_000L;
+
+    insertAspect("urn:li:test:recent", "testAspect1", 0, "recent", nowMs);
+    insertAspect("urn:li:test:middle", "testAspect1", 0, "middle", oneHourAgoMs);
+    insertAspect("urn:li:test:old", "testAspect1", 0, "old", twoHoursAgoMs);
+
+    // Regression test: only gePitEpochMs set (lePitEpochMs left at its 0 default, as
+    // datahub-upgrade's RestoreIndices does) must not silently match zero rows.
+    var geOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    geOnlyArgs.gePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, geOnlyArgs),
+        2,
+        "Only gePitEpochMs set: should match rows created at or after the lower bound");
+
+    var leOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    leOnlyArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, leOnlyArgs),
+        2,
+        "Only lePitEpochMs set: should match rows created at or before the upper bound");
+
+    var bothArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    bothArgs.gePitEpochMs = oneHourAgoMs;
+    bothArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, bothArgs),
+        1,
+        "Both bounds set: should match only rows created within the range");
   }
 
   @Test(dataProvider = "writabilityConfig")

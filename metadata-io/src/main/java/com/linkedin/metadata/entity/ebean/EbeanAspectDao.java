@@ -717,14 +717,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
     }
+    // Apply the time-range bounds independently: an unset bound is left at 0, and applying
+    // `createdon <= epoch(0)` when only gePitEpochMs was provided would silently match zero rows.
     if (args.gePitEpochMs > 0) {
       exp =
           exp.ge(
-                  EbeanAspectV2.CREATED_ON_COLUMN,
-                  Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)))
-              .le(
-                  EbeanAspectV2.CREATED_ON_COLUMN,
-                  Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
+              EbeanAspectV2.CREATED_ON_COLUMN,
+              Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)));
+    }
+    if (args.lePitEpochMs > 0) {
+      exp =
+          exp.le(
+              EbeanAspectV2.CREATED_ON_COLUMN,
+              Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
     }
 
     if (args.urnBasedPagination) {
