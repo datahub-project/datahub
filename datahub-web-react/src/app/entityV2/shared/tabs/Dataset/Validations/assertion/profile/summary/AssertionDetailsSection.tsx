@@ -121,7 +121,7 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
           )
         : null;
 
-    if (!logic && !hasCustomProperties) {
+    if (!hasAssertionDetails(assertion)) {
         return null;
     }
 

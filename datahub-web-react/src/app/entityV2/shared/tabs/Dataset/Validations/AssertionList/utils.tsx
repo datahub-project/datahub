@@ -319,11 +319,14 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
-        // getAssertionType prefers customAssertion.type (e.g. GREAT_EXPECTATIONS), but the
-        // Custom ASSERTION_INFO bucket must still count/match info.type === CUSTOM.
+        // getAssertionType prefers customAssertion.type (e.g. GREAT_EXPECTATIONS). When that
+        // differs from CUSTOM, also count the Custom ASSERTION_INFO bucket. Skip when type is
+        // already CUSTOM to avoid double-counting subtype-less customs.
         if (assertion.info?.type === AssertionType.Custom) {
-            filterGroupCounts.type[AssertionType.Custom] =
-                (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
+            if (type !== AssertionType.Custom) {
+                filterGroupCounts.type[AssertionType.Custom] =
+                    (filterGroupCounts.type[AssertionType.Custom] || 0) + 1;
+            }
             const customIndex = remainingAssertionTypes.indexOf(AssertionType.Custom);
             if (customIndex > -1) {
                 remainingAssertionTypes.splice(customIndex, 1);
@@ -523,6 +526,24 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     return assertionRawData;
 };
 
+/**
+ * Type filter matching. `getAssertionType` prefers `customAssertion.type` (provider key),
+ * so selecting Custom must also match any assertion whose top-level type is CUSTOM.
+ */
+export const assertionMatchesTypeFilter = (
+    assertion: Assertion,
+    selectedTypes: AssertionType[],
+): boolean => {
+    if (selectedTypes.length === 0) {
+        return true;
+    }
+    const resolvedType = getAssertionType(assertion) as AssertionType;
+    if (selectedTypes.includes(resolvedType)) {
+        return true;
+    }
+    return selectedTypes.includes(AssertionType.Custom) && assertion.info?.type === AssertionType.Custom;
+};
+
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
     const { type, status, source, column } = filter.filterCriteria;
 
@@ -541,24 +562,6 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
 
         return matchesType && matchesStatus && matchesOthers && matchesColumn;
     });
-};
-
-/**
- * Type filter matching. `getAssertionType` prefers `customAssertion.type` (provider key),
- * so selecting Custom must also match any assertion whose top-level type is CUSTOM.
- */
-export const assertionMatchesTypeFilter = (
-    assertion: Assertion,
-    selectedTypes: AssertionType[],
-): boolean => {
-    if (selectedTypes.length === 0) {
-        return true;
-    }
-    const resolvedType = getAssertionType(assertion) as AssertionType;
-    if (selectedTypes.includes(resolvedType)) {
-        return true;
-    }
-    return selectedTypes.includes(AssertionType.Custom) && assertion.info?.type === AssertionType.Custom;
 };
 
 // Fuse.js setup for search functionality
