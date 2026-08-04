@@ -20,3 +20,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### "Table reflected without keys or comment"
+
+Doris rejects `SHOW CREATE TABLE` for some objects, most commonly async materialized views. Those tables are still ingested — columns and types come from `DESCRIBE` instead — but primary keys, foreign keys and the table comment are unavailable. The warning context names each affected table along with the error Doris returned.

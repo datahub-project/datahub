@@ -1,7 +1,8 @@
+import functools
 import logging
 import re
 import warnings
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Type
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
@@ -68,7 +69,7 @@ class IPV6(sqltypes.String):
     __visit_name__ = "IPV6"
 
 
-_doris_type_map = {
+_doris_type_map: Dict[str, Type[TypeEngine]] = {
     "hll": HLL,
     "bitmap": BITMAP,
     "quantile_state": QUANTILE_STATE,
@@ -86,7 +87,7 @@ _doris_type_map = {
 # Doris names for types MySQL already models. Registering them keeps SQLAlchemy's
 # MySQL DDL parser from falling back to NullType(*args), which raises TypeError
 # because NullType takes no arguments.
-_doris_alias_type_map = {
+_doris_alias_type_map: Dict[str, Type[TypeEngine]] = {
     "string": sqltypes.TEXT,
     "datev2": sqltypes.DATE,
     "datetimev2": sqltypes.DATETIME,
@@ -98,13 +99,22 @@ _doris_alias_type_map = {
 _TYPE_NAME_PATTERN = re.compile(r"\w+")
 
 
+@functools.lru_cache(maxsize=None)
+def _warn_type_not_instantiable(type_name: str) -> None:
+    # lru_cache keeps this to one line per type name: a registered type that cannot be
+    # built without arguments is a bug in the type map, not a per-column event.
+    logger.warning(
+        f"Type {type_name!r} is registered but cannot be built without arguments. "
+        f"Falling back to MySQL type reflection."
+    )
+
+
 def _parse_doris_type(
-    type_str: str, type_map: Optional[Mapping[str, Any]] = None
+    type_str: str, type_map: Optional[Mapping[str, Type[TypeEngine]]] = None
 ) -> TypeEngine:
     # Precision and length arguments are dropped: full_type carries the exact Doris
     # type string for display, and DataHub only maps the type class.
-    if type_map is None:
-        type_map = _doris_type_map
+    known_types = _doris_type_map if type_map is None else type_map
     match = _TYPE_NAME_PATTERN.match(type_str.strip().lower())
     if not match:
         logger.debug(
@@ -114,14 +124,14 @@ def _parse_doris_type(
         return sqltypes.NULLTYPE
 
     type_name = match.group()
-    type_class = type_map.get(type_name)
+    type_class = known_types.get(type_name)
     if type_class is None:
         logger.debug(f"No SQLAlchemy type registered for {type_name!r}.")
         return sqltypes.NULLTYPE
     try:
         return type_class()
     except Exception:
-        logger.debug(f"Type {type_name!r} cannot be built without arguments.")
+        _warn_type_not_instantiable(type_name)
         return sqltypes.NULLTYPE
 
 
@@ -133,6 +143,10 @@ class DorisDialect(MySQLDialect_pymysql):
         super().__init__(*args, **kwargs)
         self.ischema_names.update(_doris_type_map)
         self.ischema_names.update(_doris_alias_type_map)
+        # Tables reflected from DESCRIBE instead of SHOW CREATE TABLE, keyed by
+        # quoted full name. The dialect cannot reach the ingestion report, so
+        # DorisSource drains this into report warnings once a database is done.
+        self.reflection_fallbacks: Dict[str, str] = {}
 
     @reflection.cache  # type: ignore[call-arg]
     def _setup_parser(self, connection, table_name, schema=None, **kw):
@@ -169,14 +183,17 @@ class DorisDialect(MySQLDialect_pymysql):
                 return super()._setup_parser(  # type: ignore[misc]
                     connection, table_name, schema, **kw
                 )
-        except Exception as e:
+        except (SQLAlchemyError, TypeError) as e:
             # Doris rejects SHOW CREATE TABLE for async materialized views, and the
-            # MySQL DDL parser raises on Doris types it cannot model. DESCRIBE answers
-            # for both, but carries no keys, constraints or table comment, so those
-            # degrade to empty rather than taking the whole table down.
+            # MySQL DDL parser raises TypeError on Doris types it cannot model.
+            # DESCRIBE answers for both, but carries no keys, constraints or table
+            # comment, so those degrade to empty rather than taking the whole table
+            # down. Errors outside those two families stay fatal rather than turning a
+            # bug in this path into missing metadata.
             full_name = self._full_name(connection, table_name, schema)
             if full_name is None:
                 raise
+            self.reflection_fallbacks[full_name] = str(e)
             logger.info(
                 f"SHOW CREATE TABLE reflection failed for {full_name}: {e}. "
                 f"Falling back to DESCRIBE; keys, foreign keys and the table comment "
@@ -202,6 +219,11 @@ class DorisDialect(MySQLDialect_pymysql):
 
         full_name = self._full_name(connection, table_name, schema)
         if full_name is None:
+            return columns
+
+        if full_name in self.reflection_fallbacks:
+            # _describe_columns already built these from DESCRIBE, so the overlay below
+            # would only repeat that round-trip to compute identical types.
             return columns
 
         try:

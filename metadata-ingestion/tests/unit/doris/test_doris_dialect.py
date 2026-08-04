@@ -256,15 +256,15 @@ class TestDorisDialect:
         dialect._needs_correct_for_88718_96365 = False  # type: ignore[attr-defined]
 
         mock_connection = Mock()
-        mock_connection.engine.url.database = "dw_payment"
+        mock_connection.engine.url.database = "my_db"
         mock_connection.execute.return_value = [
-            ("user_id", "LARGEINT", "NO", "true", None, ""),
-            ("deposit_amount", "DECIMALV3(20,6)", "YES", "false", None, ""),
-            ("payload", "VARIANT", "YES", "false", None, ""),
+            ("col_a", "LARGEINT", "NO", "true", None, ""),
+            ("col_b", "DECIMALV3(20,6)", "YES", "false", None, ""),
+            ("col_c", "VARIANT", "YES", "false", None, ""),
         ]
 
         # The Inspector shares one info_cache across a table's reflection calls.
-        kw = {"schema": "dw_payment", "info_cache": {}}
+        kw = {"schema": "my_db", "info_cache": {}}
         with patch.object(
             dialect.__class__.__bases__[0],
             "_setup_parser",
@@ -273,23 +273,19 @@ class TestDorisDialect:
                 "`show create materialized view`"
             ),
         ):
-            columns = dialect.get_columns(mock_connection, "dws_user_deposit_mv", **kw)
+            columns = dialect.get_columns(mock_connection, "my_async_mv", **kw)
             pk_constraint = dialect.get_pk_constraint(
-                mock_connection, "dws_user_deposit_mv", **kw
+                mock_connection, "my_async_mv", **kw
             )
             foreign_keys = dialect.get_foreign_keys(
-                mock_connection, "dws_user_deposit_mv", **kw
+                mock_connection, "my_async_mv", **kw
             )
             table_comment = dialect.get_table_comment(
-                mock_connection, "dws_user_deposit_mv", **kw
+                mock_connection, "my_async_mv", **kw
             )
-            indexes = dialect.get_indexes(mock_connection, "dws_user_deposit_mv", **kw)
+            indexes = dialect.get_indexes(mock_connection, "my_async_mv", **kw)
 
-        assert [col["name"] for col in columns] == [
-            "user_id",
-            "deposit_amount",
-            "payload",
-        ]
+        assert [col["name"] for col in columns] == ["col_a", "col_b", "col_c"]
         assert isinstance(columns[0]["type"], LARGEINT)
         assert isinstance(columns[1]["type"], sqltypes.DECIMAL)
         assert isinstance(columns[2]["type"], VARIANT)
@@ -303,9 +299,36 @@ class TestDorisDialect:
         assert table_comment["text"] is None
         assert indexes == []
 
-        # The fallback state is cached, so the four later calls reuse it instead of
-        # re-running DESCRIBE per method.
-        assert mock_connection.execute.call_count <= 2
+        # One DESCRIBE for the whole table: the fallback state is cached for the four
+        # later calls, and get_columns skips its type overlay on a fallback table.
+        assert mock_connection.execute.call_count == 1
+
+        # The source drains this into the ingestion report, so the degraded table is
+        # visible to operators rather than only in the logs.
+        assert list(dialect.reflection_fallbacks) == ["`my_db`.`my_async_mv`"]
+        assert (
+            "async materialized view"
+            in dialect.reflection_fallbacks["`my_db`.`my_async_mv`"]
+        )
+
+    def test_reflection_does_not_degrade_on_unexpected_error(self):
+        """Only Doris' two known refusals fall back; other errors stay fatal."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "_setup_parser",
+            side_effect=MemoryError("out of memory"),
+        ):
+            with pytest.raises(MemoryError):
+                dialect.get_columns(
+                    mock_connection, "my_table", schema="my_db", info_cache={}
+                )
+
+        assert dialect.reflection_fallbacks == {}
 
     def test_largeint_does_not_fall_back_to_nulltype(self):
         """NullType(*args) raises TypeError, so Doris-only types must be registered."""
@@ -313,6 +336,27 @@ class TestDorisDialect:
 
         for type_name in ("largeint", "variant", "ipv4", "ipv6", "string"):
             assert dialect.ischema_names[type_name] is not sqltypes.NullType
+
+    def test_doris_types_parse_from_show_create_table(self):
+        """The DDL parser builds NullType(40) for `largeint(40)` unless the Doris type
+        names are registered, and NullType takes no arguments."""
+        dialect = DorisDialect()
+
+        state = dialect._tabledef_parser.parse(  # type: ignore[attr-defined]
+            "CREATE TABLE `my_table` (\n"
+            "  `col_a` largeint(40) NOT NULL,\n"
+            "  `col_b` decimalv3(20,6) NULL,\n"
+            "  `col_c` datetimev2(3) NULL,\n"
+            "  `col_d` string NULL\n"
+            ") ENGINE=OLAP",
+            "utf8",
+        )
+
+        types = {col["name"]: col["type"] for col in state.columns}
+        assert isinstance(types["col_a"], LARGEINT)
+        assert isinstance(types["col_b"], sqltypes.DECIMAL)
+        assert isinstance(types["col_c"], sqltypes.DATETIME)
+        assert isinstance(types["col_d"], sqltypes.TEXT)
 
     @patch("datahub.ingestion.source.sql.doris.doris_dialect.text")
     def test_get_schema_names(self, mock_text):

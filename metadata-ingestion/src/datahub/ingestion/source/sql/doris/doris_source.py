@@ -1,9 +1,11 @@
 import logging
 import re
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List
 
 from pydantic import Field, field_validator
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
@@ -30,9 +32,11 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     LARGEINT,
     QUANTILE_STATE,
     VARIANT,
+    DorisDialect,
 )
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -101,6 +105,11 @@ class DorisConfig(MySQLConfig):
     )
 
 
+@dataclass
+class DorisSourceReport(SQLSourceReport):
+    tables_reflected_without_keys: int = 0
+
+
 @platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -109,6 +118,13 @@ class DorisConfig(MySQLConfig):
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class DorisSource(MySQLSource):
     config: DorisConfig
+    report: DorisSourceReport
+
+    def __init__(self, config: DorisConfig, ctx: PipelineContext) -> None:
+        super().__init__(config, ctx)
+        self.report = DorisSourceReport()
+        self.classification_handler.report = self.report
+        self.report.sql_aggregator = self.aggregator.report
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -139,6 +155,7 @@ class DorisSource(MySQLSource):
 
                         with db_engine.connect() as db_conn:
                             yield inspect(db_conn)
+                            self._report_reflection_fallbacks(db_conn)
                     except Exception as e:
                         self.report.failure(
                             title="Failed to connect to database",
@@ -149,6 +166,25 @@ class DorisSource(MySQLSource):
                     finally:
                         if db_engine is not None:
                             db_engine.dispose()
+
+    def _report_reflection_fallbacks(self, conn: Connection) -> None:
+        """Surface tables the dialect had to reflect from DESCRIBE.
+
+        Called once the caller has finished with a database's inspector, so the
+        dialect has recorded every table it fell back on.
+        """
+        dialect = conn.dialect
+        if not isinstance(dialect, DorisDialect):
+            return
+
+        for full_name, error in dialect.reflection_fallbacks.items():
+            self.report.tables_reflected_without_keys += 1
+            self.report.warning(
+                title="Table reflected without keys or comment",
+                message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: columns are complete but keys, foreign keys and the table comment are missing.",
+                context=f"{full_name}: {error}",
+            )
+        dialect.reflection_fallbacks.clear()
 
     def get_platform(self) -> str:
         return "doris"

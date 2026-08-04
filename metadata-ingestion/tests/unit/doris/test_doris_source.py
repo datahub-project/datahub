@@ -154,6 +154,43 @@ class TestDorisSourceMethods:
             assert len(inspectors) == 2
             assert mock_engine.dispose.call_count == 2
 
+    def test_get_inspectors_reports_reflection_fallbacks(self):
+        """A table reflected from DESCRIBE loses keys and comments, so it has to reach
+        the report rather than only the logs."""
+        config = DorisConfig(host_port="localhost:9030", database="db1")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        from unittest.mock import patch
+
+        dialect = DorisDialect()
+        dialect.reflection_fallbacks["`db1`.`my_async_mv`"] = (
+            "not support async materialized view"
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            mock_engine = MagicMock()
+            mock_create.return_value = mock_engine
+            mock_conn = MagicMock()
+            mock_conn.dialect = dialect
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+            mock_inspect.return_value = MagicMock(spec=Inspector)
+
+            list(source.get_inspectors())
+
+        assert source.report.tables_reflected_without_keys == 1
+        warnings = [str(warning) for warning in source.report.warnings]
+        assert any("Table reflected without keys or comment" in w for w in warnings)
+        assert any("my_async_mv" in w for w in warnings)
+        # Drained, so a second database cannot re-report the first one's tables.
+        assert dialect.reflection_fallbacks == {}
+
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
