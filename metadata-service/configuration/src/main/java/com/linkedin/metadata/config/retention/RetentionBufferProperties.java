@@ -25,8 +25,9 @@ public class RetentionBufferProperties {
    * Bound from {@code datahub.retention.buffer.drainIntervalMs} for config surface /
    * PropertiesCollector. Not read by Java callers of this POJO — {@code RetentionDrainer} consumes
    * the same Spring property key via {@code @Scheduled(fixedDelayString =
-   * "${datahub.retention.buffer.drainIntervalMs:5000}")}. Keep the YAML key and this field in sync
-   * with that placeholder.
+   * "${datahub.retention.buffer.drainIntervalMs:5000}")}. The {@code 5000} default is duplicated in
+   * both places (the {@code @Scheduled} placeholder must be a compile-time literal, and this POJO
+   * lives in a different module) — no shared constant is possible, so keep both in sync by hand.
    */
   @Builder.Default private long drainIntervalMs = 5000;
 

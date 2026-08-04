@@ -85,9 +85,8 @@ public class RetentionBufferFactory {
     return new MapConfig(props.getLockMapName()).setBackupCount(1);
   }
 
-  // Both beans require BOTH flags true. When retentionBufferEnabled=true but
-  // postCommitRetentionEnabled=false, neither bean is created and EntityServiceImpl keeps its
-  // RetentionBuffer.NO_OP default (synchronous post-commit retention) — no null beans registered.
+  // Both beans gated on BOTH flags (array @ConditionalOnProperty) so neither is created — rather
+  // than registering a null bean — when only one flag is on. State matrix in the class javadoc.
   @Bean
   @ConditionalOnProperty(
       name = {

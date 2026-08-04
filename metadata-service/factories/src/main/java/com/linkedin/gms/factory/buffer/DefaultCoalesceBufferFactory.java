@@ -46,8 +46,11 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
   public <K, V> CoalesceBuffer<K, V> create(
       @Nonnull String name, @Nonnull String lockName, int maxPendingEntries) {
     if (implementation == BufferImplementation.HAZELCAST) {
-      // Hazelcast backend is Long-valued only (KEEP_MAX_LONG EntryProcessor). Callers that need
-      // other V must use caffeine, or extend HazelcastCoalesceBuffer with new processors.
+      // Hazelcast backend is Long-valued only (KEEP_MAX_LONG EntryProcessor). The unchecked cast
+      // below can't be validated at wiring time (V is erased), but a V != Long caller can only pass
+      // a BinaryOperator<V> that isn't KEEP_MAX_LONG, which HazelcastCoalesceBuffer.merge rejects
+      // with UnsupportedOperationException on first use — a clear fail, not a silent CCE. Callers
+      // needing other V must use caffeine, or add new processors here.
       // maxPendingEntries is enforced by MapConfig (RetentionBufferFactory), not on the hot
       // merge path — avoids distributed size()/containsKey() on every ingest enqueue.
       return (CoalesceBuffer<K, V>)

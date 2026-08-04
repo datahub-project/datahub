@@ -18,21 +18,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
- * Scheduled background drainer over a {@link CoalesceBuffer} of pending retention keys. Only one
- * GMS pod applies retention per tick (drain lock); the rest no-op. The whole drained batch is
- * handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults} in a single database
- * transaction (one commit per tick); per-pair savepoint isolation inside that tx means a poison
- * (urn, aspect) pair rolls back only its own DELETE. Keys whose contexts are returned as committed
- * are cleared via {@code removeIfSame}; everything else stays for the next tick to retry (no
- * retention_dlq table in v1 — see plan Global Constraints).
+ * Background drainer over a {@link CoalesceBuffer} of pending retention keys. With the Hazelcast
+ * backend exactly one pod cluster-wide applies retention per tick (shared drain lock) and the rest
+ * no-op; with the local Caffeine backend each pod drains its own buffer independently. The drained
+ * batch is handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults} in a single
+ * database transaction (one commit per tick); per-pair savepoint isolation inside that tx means a
+ * poison (urn, aspect) pair rolls back only its own DELETE. Keys whose contexts are returned as
+ * committed are cleared via {@code removeIfSame}; everything else stays for the next tick to retry
+ * (no retention_dlq table in v1 — see plan Global Constraints).
  *
- * <p>Requires Spring {@code @EnableScheduling} in the owning context (GMS enables this via {@code
- * ScheduledAnalyticsFactory}). Without it, {@link #tick} never runs and pending keys sit until
- * MapConfig eviction — missed prune = bloat, not data loss.
+ * <p>{@code tick()} is {@code @Scheduled}; scheduling is turned on by {@code
+ * RetentionBufferSchedulingConfig} (a gated {@code @EnableScheduling}) in ANY process that wires
+ * the buffer — every GMS and MCE-consumer pod — not just the GMS analytics context. With the
+ * Hazelcast backend all pods share one cluster-wide drain lock, so exactly one drains per tick
+ * regardless of pod count or type; with the local Caffeine backend each pod simply drains its own
+ * local buffer.
  *
- * <p>Drain-lock lease ({@link #DRAIN_LOCK_LEASE}) is not renewed mid-drain. If a batch of deletes
- * exceeds the lease, another pod may acquire the lock and drain concurrently; {@code removeIfSame}
- * prevents data loss (worst case: duplicate delete attempts).
+ * <p>Drain-lock lease is not renewed mid-drain. If a batch of deletes exceeds the lease, another
+ * pod may acquire the lock and drain concurrently; {@code removeIfSame} plus idempotent version-
+ * range DELETEs prevent data loss (worst case: duplicate delete attempts).
  */
 @Slf4j
 public class RetentionDrainer {
@@ -68,7 +72,9 @@ public class RetentionDrainer {
     this.metricUtils = metricUtils;
   }
 
-  // Interval from Spring env / YAML — not RetentionBufferProperties.drainIntervalMs field reads.
+  // Scheduling is enabled by RetentionBufferSchedulingConfig (@EnableScheduling gated on the same
+  // buffer flags), so this fires in every process that wires the buffer — GMS and MCE-consumer pods
+  // alike — not just the GMS analytics context. Interval from the property, not a POJO field read.
   @Scheduled(fixedDelayString = "${datahub.retention.buffer.drainIntervalMs:5000}")
   public void tick() {
     if (!enabled) {
@@ -128,6 +134,18 @@ public class RetentionDrainer {
         metricUtils.increment(RetentionDrainer.class, "retention_drain_failed", 1);
       }
       return;
+    }
+
+    if (metricUtils != null) {
+      metricUtils.increment(RetentionDrainer.class, "retention_drained", successes.size());
+    }
+    // Drained a full batch → the buffer likely holds more; the drainer may be falling behind the
+    // enqueue rate. Operators watch this to decide whether to raise drainBatchSize / lower
+    // interval.
+    if (batch.size() == batchSize) {
+      log.info(
+          "Retention drain hit the batch cap ({}); buffer may be filling faster than it drains",
+          batchSize);
     }
 
     // Clear only the keys whose contexts were durably committed. removeIfSame guards against a

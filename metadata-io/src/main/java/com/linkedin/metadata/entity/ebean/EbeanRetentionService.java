@@ -118,7 +118,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
    * (0 when no version/time condition applies — a no-op, not a failure). Caller owns the
    * transaction; this method issues one {@code DELETE} against the ambient/current tx.
    */
-  private int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
+  // Package-private (not private) so a test subclass can override it to force a per-context DELETE
+  // failure and exercise the savepoint-isolation path in applyRetentionBatchWithPolicyDefaults.
+  int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
     Retention retentionPolicy = context.getRetentionPolicy().orElseThrow();
 
     ExpressionList<EbeanAspectV2> deleteQuery =

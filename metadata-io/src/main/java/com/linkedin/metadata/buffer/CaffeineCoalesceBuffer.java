@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BinaryOperator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,18 +26,17 @@ import lombok.extern.slf4j.Slf4j;
  * overflow accounting this class provides for new keys, so capacity is enforced manually in {@link
  * #merge} instead (existing keys are never evicted, only new keys are rejected once full).
  *
- * <p>Drain locks are local non-reentrant {@link AtomicBoolean} CAS flags keyed by lock name (not
- * {@code ReentrantLock} — drain is never recursive, and reentrancy would make same-thread double
- * acquire succeed). They coordinate drainer threads within this JVM only and are not cluster-wide.
- * {@code lease} is accepted for API parity with distributed backends but is not enforced here — a
- * single JVM losing a thread mid-drain without unlocking is a bug to fix, not a multi-pod race to
- * bound with a timeout.
+ * <p>Drain locks are local, non-reentrant, and lease-based: each holds an expiry timestamp keyed by
+ * lock name, coordinating drainer threads within this JVM only (not cluster-wide). The {@code
+ * lease} is enforced — a drainer that dies mid-drain without releasing cannot wedge the lock past
+ * its lease (stuck-lock recovery, mirroring the Hazelcast backend's TTL lock).
  */
 @Slf4j
 public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   private final ConcurrentMap<K, V> map;
-  private final ConcurrentMap<String, AtomicBoolean> locks = new ConcurrentHashMap<>();
+  // Value = lease-expiry epoch millis; 0 means free.
+  private final ConcurrentMap<String, AtomicLong> lockExpiries = new ConcurrentHashMap<>();
   private final int maxPendingEntries;
   private final String name;
   @Nullable private final MetricUtils metricUtils;
@@ -93,16 +92,26 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   @Override
   public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
-    // Non-reentrant: CAS false→true fails if already held, including by this thread.
-    return locks
-        .computeIfAbsent(lockName, k -> new AtomicBoolean(false))
-        .compareAndSet(false, true);
+    long now = System.currentTimeMillis();
+    long newExpiry = now + Math.max(1L, lease.toMillis());
+    AtomicLong holder = lockExpiries.computeIfAbsent(lockName, k -> new AtomicLong(0L));
+    while (true) {
+      long current = holder.get();
+      // Held and not yet expired → fail (non-reentrant: same thread cannot re-acquire).
+      if (current != 0L && now < current) {
+        return false;
+      }
+      // Free, or the prior holder's lease expired → steal it (stuck-lock recovery).
+      if (holder.compareAndSet(current, newExpiry)) {
+        return true;
+      }
+    }
   }
 
   @Override
   public void releaseDrainLock(@Nonnull String lockName) {
-    AtomicBoolean lock = locks.get(lockName);
-    if (lock == null || !lock.compareAndSet(true, false)) {
+    AtomicLong holder = lockExpiries.get(lockName);
+    if (holder == null || holder.getAndSet(0L) == 0L) {
       log.warn("Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
     }
   }

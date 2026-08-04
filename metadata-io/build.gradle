@@ -135,7 +135,10 @@ dependencies {
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   compileOnly externalDependency.hazelcast
-  compileOnly externalDependency.caffeine
+  // Caffeine is used directly at runtime (CaffeineCoalesceBuffer, CacheEvictionService,
+  // KafkaTraceReader, ...), so declare it as a runtime dependency instead of relying on a
+  // transitive chain that could break and cause NoClassDefFoundError at startup.
+  implementation externalDependency.caffeine
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'

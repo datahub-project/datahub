@@ -63,12 +63,12 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
           "HazelcastCoalesceBuffer only supports CoalesceBuffers.KEEP_MAX_LONG until "
               + "IdentifiedDataSerializable merge policies exist");
     }
-    // Fire-and-forget: this runs on the ingest request thread (post-commit). submitToKey is the
-    // async entry-processor variant (returns a CompletionStage we ignore) so a
-    // partitioned/GC-paused
-    // cluster cannot stall the ingest response for the Hazelcast op timeout — a dropped merge is
-    // under-coalescing (bloat), never data loss. No size()/containsKey() RTT.
-    pendingMap.submitToKey(key, new KeepMaxLongProcessor<>(value));
+    // Synchronous single-key entry processor: the merge must be observable once this returns, so a
+    // drain reading immediately afterwards sees it (the void CoalesceBuffer#merge contract, which
+    // Caffeine also honors). Async submitToKey would race the drain and drop coalesced updates.
+    // No size()/containsKey() round-trip. Tradeoff: this opt-in, best-effort, post-commit path can
+    // block the ingest thread up to the Hazelcast operation timeout under a partitioned cluster.
+    pendingMap.executeOnKey(key, new KeepMaxLongProcessor<>(value));
   }
 
   @Override
@@ -94,10 +94,12 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
   public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
     // Non-reentrant: IMap.tryLock is re-entrant for the same thread, which breaks the mutual-
     // exclusion contract the drain tests (and multi-drainer same-thread edge cases) rely on.
-    // putIfAbsent fails if the key is already present, even for this thread. TTL ≈ lease so a
-    // crashed drainer does not wedge the lock forever.
-    long leaseSeconds = Math.max(1, lease.getSeconds());
-    return lockMap.putIfAbsent(lockName, Boolean.TRUE, leaseSeconds, TimeUnit.SECONDS) == null;
+    // putIfAbsent fails if the key is already present, even for this thread. TTL = lease so a
+    // crashed drainer does not wedge the lock forever. Millisecond granularity to match the
+    // Caffeine
+    // backend (Hazelcast IMap TTL accepts MILLISECONDS) so a sub-second lease behaves the same.
+    long leaseMillis = Math.max(1L, lease.toMillis());
+    return lockMap.putIfAbsent(lockName, Boolean.TRUE, leaseMillis, TimeUnit.MILLISECONDS) == null;
   }
 
   @Override
@@ -125,10 +127,7 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
     }
   }
 
-  /**
-   * Keep-max coalescing {@link EntryProcessor} for a single key. {@code EntryProcessor} already
-   * extends {@link Serializable}; Hazelcast serializes this instance to run on the owning member.
-   */
+  /** Keep-max coalescing {@link EntryProcessor} for a single key. */
   static final class KeepMaxLongProcessor<K> implements EntryProcessor<K, Long, Void> {
     private static final long serialVersionUID = 1L;
 

@@ -19,6 +19,9 @@ public class FeatureFlags {
   // buffer drained by RetentionDrainer off the ingest thread. When false, post-commit path (if on)
   // applies retention synchronously. Backend is datahub.buffer.implementation: caffeine (local
   // per-pod, default) or hazelcast (cross-pod); does NOT require Hazelcast.
+  // Every ingesting pod (GMS or MCE consumer) runs the drainer — RetentionBufferSchedulingConfig
+  // enables scheduling wherever the buffer is wired. With hazelcast, pods share one map + one
+  // cluster-wide drain lock (best coalescing); with caffeine each pod drains its own local buffer.
   // Lifecycle: introduced for scale. Default OFF.
   private boolean retentionBufferEnabled = false;
   private boolean readOnlyModeEnabled = false;
