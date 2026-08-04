@@ -27,6 +27,9 @@ from datahub_agent_context.mcp_tools.search_filter_parser import (
 
 logger = logging.getLogger(__name__)
 
+LINEAGE_PATH_PAGE_SIZE = 100
+MAX_LINEAGE_PATH_RESULTS = 1000
+
 # Load GraphQL query
 entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
@@ -42,6 +45,7 @@ class AssetLineageDirective(BaseModel):
     max_hops: int
     extra_filters: Optional[Filter]
     max_results: int
+    start: int = 0
 
 
 class AssetLineageAPI:
@@ -101,7 +105,7 @@ class AssetLineageAPI:
         variables = {
             "urn": asset_lineage_directive.urn,
             "query": query or "*",
-            "start": 0,
+            "start": asset_lineage_directive.start,
             "count": asset_lineage_directive.max_results,
             "types": types,
             "orFilters": compiled_filters,
@@ -236,6 +240,7 @@ def get_lineage(
         max_hops=max_hops,
         extra_filters=parsed_filters,
         max_results=max_results,
+        start=max(0, offset),
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive, query=query)
     inject_urls_for_urns(graph, lineage, ["*.searchResults[].entity"])
@@ -244,26 +249,14 @@ def get_lineage(
     # Track if this is column-level lineage for metadata
     is_column_level_lineage = column is not None
 
-    # Apply offset, entity-level truncation, and cleaning to upstreams/downstreams
+    # Apply entity-level truncation and cleaning to upstreams/downstreams
     for direction in ["upstreams", "downstreams"]:
         if direction_results := lineage.get(direction):
-            if search_results := direction_results.get("searchResults"):
+            search_results = direction_results.get("searchResults") or []
+            if search_results:
                 # Extract lineageColumns from paths for column-level lineage
                 search_results = _extract_lineage_columns_from_paths(search_results)
                 direction_results["searchResults"] = search_results
-
-                total_available = len(search_results)
-
-                # Apply offset (skip first N entities)
-                if offset >= total_available:
-                    direction_results["searchResults"] = []
-                    direction_results["offset"] = offset
-                    direction_results["returned"] = 0
-                    direction_results["hasMore"] = False
-                    continue
-
-                # Skip offset and apply token budget using generic helper
-                results_after_offset = search_results[offset:]
 
                 # Lambda to clean entity in place and return it for token counting
                 def get_cleaned_entity(result_item: dict) -> dict:
@@ -275,7 +268,7 @@ def get_lineage(
                 # Get results within budget (entities cleaned in place, degree preserved)
                 selected_results = list(
                     _select_results_within_budget(
-                        results=iter(results_after_offset),
+                        results=iter(search_results),
                         fetch_entity=get_cleaned_entity,
                         max_results=max_results,
                     )
@@ -283,19 +276,21 @@ def get_lineage(
 
                 # Update results and add metadata
                 direction_results["searchResults"] = selected_results
-                direction_results["offset"] = offset
-                direction_results["returned"] = len(selected_results)
-                direction_results["hasMore"] = (
-                    offset + len(selected_results)
-                ) < total_available
 
-                if len(selected_results) < len(results_after_offset):
+                if len(selected_results) < len(search_results):
                     direction_results["truncatedDueToTokenBudget"] = True
 
-                logger.info(
-                    f"get_lineage {direction}: Returned {len(selected_results)}/{total_available} entities "
-                    f"(offset={offset}, hasMore={direction_results['hasMore']})"
-                )
+            server_start = direction_results.get("start", max(0, offset))
+            server_total = direction_results.get("total", len(search_results))
+            returned = len(direction_results.get("searchResults") or [])
+            direction_results["offset"] = server_start
+            direction_results["returned"] = returned
+            direction_results["hasMore"] = server_start + returned < server_total
+
+            logger.info(
+                f"get_lineage {direction}: Returned {returned}/{server_total} entities "
+                f"(offset={server_start}, hasMore={direction_results['hasMore']})"
+            )
 
     # Add metadata for column-level lineage responses
     if is_column_level_lineage:
@@ -397,43 +392,60 @@ def _find_upstream_lineage_path(
     graph = get_graph()
     # Get lineage with paths using the API directly (always upstream)
     lineage_api = AssetLineageAPI()
-    asset_lineage_directive = AssetLineageDirective(
-        urn=query_urn,
-        upstream=True,  # Always upstream
-        downstream=False,
-        max_hops=10,  # Higher to ensure we find target
-        extra_filters=None,
-        max_results=100,  # Need enough results to find target
-    )
-    lineage = lineage_api.get_lineage(asset_lineage_directive, query="*")
+    target_result: Optional[dict] = None
+    start = 0
+    total = 0
+    while start < MAX_LINEAGE_PATH_RESULTS:
+        asset_lineage_directive = AssetLineageDirective(
+            urn=query_urn,
+            upstream=True,
+            downstream=False,
+            max_hops=10,
+            extra_filters=None,
+            max_results=LINEAGE_PATH_PAGE_SIZE,
+            start=start,
+        )
+        lineage = lineage_api.get_lineage(asset_lineage_directive, query="*")
+        upstreams = lineage.get("upstreams", {})
+        search_results = upstreams.get("searchResults") or []
+        total = upstreams.get("total", len(search_results))
 
-    # Clean up the response
-    inject_urls_for_urns(graph, lineage, ["*.searchResults[].entity"])
-    truncate_descriptions(lineage)
+        target_result = _find_result_with_target_urn(
+            search_results=search_results,
+            target_urn=search_for_urn,
+            is_column_level=(target_column is not None),
+        )
+        if target_result:
+            break
 
-    # Get upstream results (always querying upstream)
-    search_results = lineage.get("upstreams", {}).get("searchResults", [])
+        returned = len(search_results)
+        if returned == 0 or start + returned >= total:
+            break
+        start += returned
 
-    if not search_results:
+    if target_result is None and total > MAX_LINEAGE_PATH_RESULTS:
+        raise RuntimeError(
+            "Lineage path search is incomplete because the result set exceeds "
+            f"the {MAX_LINEAGE_PATH_RESULTS}-result safety limit"
+        )
+
+    if total == 0:
         raise ItemNotFoundError(
             f"No lineage found from {source_urn}"
             + (f".{source_column}" if source_column else "")
         )
 
-    # Find the result containing the target URN
-    target_result = _find_result_with_target_urn(
-        search_results=search_results,
-        target_urn=search_for_urn,
-        is_column_level=(target_column is not None),
-    )
-
-    if not target_result:
+    if target_result is None:
         raise ItemNotFoundError(
             f"No lineage path found from {source_urn}"
             + (f".{source_column}" if source_column else "")
             + f" to {target_urn}"
             + (f".{target_column}" if target_column else "")
         )
+
+    lineage = {"upstreams": {"searchResults": [target_result]}}
+    inject_urls_for_urns(graph, lineage, ["*.searchResults[].entity"])
+    truncate_descriptions(lineage)
 
     # Extract paths array (with QUERY URNs as-is)
     paths = target_result.get("paths", [])
