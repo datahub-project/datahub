@@ -177,6 +177,18 @@ public class AssertionMapperTest {
     if (input.hasCustomAssertion()) {
       verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
     }
+
+    if (input.hasCustomProperties()) {
+      Assert.assertNotNull(output.getInfo().getCustomProperties());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().size(), input.getCustomProperties().size());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().get(0).getKey(),
+          input.getCustomProperties().keySet().iterator().next());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().get(0).getValue(),
+          input.getCustomProperties().values().iterator().next());
+    }
   }
 
   private void verifyDatasetAssertion(
@@ -416,6 +428,7 @@ public class AssertionMapperTest {
         new StringMap(Collections.singletonMap("key", "value")));
     customAssertionInfo.setLogic("custom logic");
     info.setCustomAssertion(customAssertionInfo);
+    info.setCustomProperties(new StringMap(Collections.singletonMap("suite_name", "demo_suite")));
     info.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
 
     return info;
