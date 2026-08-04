@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BinaryOperator;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Store-agnostic coalescing buffer: callers merge repeated writes for the same key into a single
@@ -41,13 +42,19 @@ public interface CoalesceBuffer<K, V> {
   boolean removeIfSame(@Nonnull K key, @Nonnull V expected);
 
   /**
-   * Attempts to acquire the named drain lock without blocking. Callers must release it via {@link
-   * #releaseDrainLock} in a {@code finally} block when this returns {@code true}. {@code lease} is
-   * a safety-net so a drainer that dies mid-drain doesn't wedge the lock forever; local
-   * (non-distributed) implementations may not enforce it — see the implementation's javadoc.
+   * Attempts to acquire the named drain lock without blocking. On success returns a non-null
+   * fencing token that must be passed to {@link #releaseDrainLock} in a {@code finally} block;
+   * returns {@code null} if the lock is already held. {@code lease} is a safety-net so a drainer
+   * that dies mid-drain doesn't wedge the lock forever — once it expires another caller may
+   * acquire, which is why release is token-fenced.
    */
-  boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease);
+  @Nullable
+  Object tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease);
 
-  /** Releases the named drain lock. No-op (aside from a warning log) if not held by the caller. */
-  void releaseDrainLock(@Nonnull String lockName);
+  /**
+   * Releases the named drain lock only if {@code token} (from {@link #tryAcquireDrainLock}) still
+   * matches the current holder. No-op (with a warning log) if the lease already expired and another
+   * caller re-acquired — this never clears a lock the caller no longer owns.
+   */
+  void releaseDrainLock(@Nonnull String lockName, @Nonnull Object token);
 }

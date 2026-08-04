@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.hazelcast.config.Config;
@@ -16,10 +17,10 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffers;
 import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
+import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -138,7 +139,8 @@ public class RetentionDrainerTest {
     CoalesceBuffer<RetentionKey, Long> buffer =
         new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
-    assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
+    Object heldToken = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
+    assertNotNull(heldToken);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     RetentionDrainer drainer =
@@ -149,7 +151,7 @@ public class RetentionDrainerTest {
     verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
     assertTrue(buffer.drain(10).size() == 1);
 
-    buffer.releaseDrainLock("drain");
+    buffer.releaseDrainLock("drain", heldToken);
   }
 
   @Test

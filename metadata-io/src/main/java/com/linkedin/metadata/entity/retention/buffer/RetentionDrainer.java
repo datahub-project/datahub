@@ -85,7 +85,8 @@ public class RetentionDrainer {
     if (!enabled) {
       return;
     }
-    if (!buffer.tryAcquireDrainLock(DRAIN_LOCK_NAME, drainLockLease)) {
+    Object lockToken = buffer.tryAcquireDrainLock(DRAIN_LOCK_NAME, drainLockLease);
+    if (lockToken == null) {
       // Another pod already won the drain lock for this tick.
       return;
     }
@@ -109,7 +110,7 @@ public class RetentionDrainer {
         }
       }
     } finally {
-      buffer.releaseDrainLock(DRAIN_LOCK_NAME);
+      buffer.releaseDrainLock(DRAIN_LOCK_NAME, lockToken);
     }
   }
 

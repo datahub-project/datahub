@@ -2,10 +2,10 @@ package com.linkedin.gms.factory.buffer;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.buffer.BufferImplementation;
-import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBufferFactory;
 import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
+import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

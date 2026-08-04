@@ -6,6 +6,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -23,8 +25,7 @@ public class LocalCoalesceBufferTest {
 
   @Test
   public void testMergeKeepsMaxValueOnCoalesce() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
     buffer.merge(KEY, 5L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 2L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -54,8 +55,7 @@ public class LocalCoalesceBufferTest {
 
   @Test
   public void testMergeAllowsExistingKeyUpdateWhenBufferFull() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 1, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 1, null);
 
     buffer.merge(KEY, 1L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 7L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -67,8 +67,7 @@ public class LocalCoalesceBufferTest {
 
   @Test
   public void testRemoveIfSameOnlyRemovesMatchingValue() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 100, null);
     buffer.merge(KEY, 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     assertFalse(buffer.removeIfSame(KEY, 999L));
@@ -78,33 +77,34 @@ public class LocalCoalesceBufferTest {
 
   @Test
   public void testDrainLockIsMutuallyExclusive() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
-    assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
-    assertFalse(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
+    Object token = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
+    assertNotNull(token);
+    assertNull(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
 
-    buffer.releaseDrainLock("drain");
-    assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
-    buffer.releaseDrainLock("drain");
+    buffer.releaseDrainLock("drain", token);
+    Object token2 = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
+    assertNotNull(token2);
+    buffer.releaseDrainLock("drain", token2);
   }
 
   @Test
   public void testDrainLocksAreIndependentPerName() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 100, null);
 
-    assertTrue(buffer.tryAcquireDrainLock("drain-a", Duration.ofSeconds(60)));
-    assertTrue(buffer.tryAcquireDrainLock("drain-b", Duration.ofSeconds(60)));
+    Object tokenA = buffer.tryAcquireDrainLock("drain-a", Duration.ofSeconds(60));
+    Object tokenB = buffer.tryAcquireDrainLock("drain-b", Duration.ofSeconds(60));
+    assertNotNull(tokenA);
+    assertNotNull(tokenB);
 
-    buffer.releaseDrainLock("drain-a");
-    buffer.releaseDrainLock("drain-b");
+    buffer.releaseDrainLock("drain-a", tokenA);
+    buffer.releaseDrainLock("drain-b", tokenB);
   }
 
   @Test
   public void testDrainRespectsLimit() {
-    LocalCoalesceBuffer<String, Long> buffer =
-        new LocalCoalesceBuffer<>("test-buffer", 100, null);
+    LocalCoalesceBuffer<String, Long> buffer = new LocalCoalesceBuffer<>("test-buffer", 100, null);
     buffer.merge("k1", 1L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge("k2", 2L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge("k3", 3L, CoalesceBuffers.KEEP_MAX_LONG);

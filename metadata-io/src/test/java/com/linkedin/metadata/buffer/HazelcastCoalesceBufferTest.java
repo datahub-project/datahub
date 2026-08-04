@@ -2,6 +2,8 @@ package com.linkedin.metadata.buffer;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -99,12 +101,14 @@ public class HazelcastCoalesceBufferTest {
     HazelcastCoalesceBuffer<String> buffer =
         new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
 
-    assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
-    assertFalse(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
+    Object token = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
+    assertNotNull(token);
+    assertNull(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
 
-    buffer.releaseDrainLock("drain");
-    assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
-    buffer.releaseDrainLock("drain");
+    buffer.releaseDrainLock("drain", token);
+    Object token2 = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
+    assertNotNull(token2);
+    buffer.releaseDrainLock("drain", token2);
   }
 
   @Test

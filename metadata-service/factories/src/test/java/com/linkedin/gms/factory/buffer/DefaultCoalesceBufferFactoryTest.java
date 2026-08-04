@@ -3,8 +3,8 @@ package com.linkedin.gms.factory.buffer;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.buffer.BufferImplementation;
-import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
+import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import org.testng.annotations.Test;
 
 public class DefaultCoalesceBufferFactoryTest {

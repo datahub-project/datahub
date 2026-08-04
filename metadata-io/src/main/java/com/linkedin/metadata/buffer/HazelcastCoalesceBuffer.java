@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -23,9 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Hazelcast-backed {@link CoalesceBuffer} with value type fixed to {@link Long}: coalesces merges
- * into a shared {@code IMap<K, Long>} ({@code name}), with a second {@code IMap<String, Boolean>}
- * ({@code lockMapName}) used as a <b>non-reentrant</b> drain lock via {@code putIfAbsent} (not
- * {@code IMap.tryLock}, which is re-entrant for the same thread).
+ * into a shared {@code IMap<K, Long>} ({@code name}), with a second {@code IMap<String, String>}
+ * ({@code lockMapName}) used as a <b>non-reentrant</b>, token-fenced drain lock via {@code
+ * putIfAbsent} (not {@code IMap.tryLock}, which is re-entrant for the same thread).
  *
  * <p><b>Merge policy constraint:</b> Hazelcast {@link EntryProcessor}s must be serialized to run on
  * the owning cluster member, so this class cannot ship an arbitrary {@link BinaryOperator} over the
@@ -53,7 +54,9 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
   private static final long MERGE_TIMEOUT_MS = 1000L;
 
   private final IMap<K, Long> pendingMap;
-  private final IMap<String, Boolean> lockMap;
+  // Value is a per-acquire fencing token (UUID), not a flag, so releaseDrainLock only clears the
+  // lock the caller still owns.
+  private final IMap<String, String> lockMap;
   @Nullable private final MetricUtils metricUtils;
 
   public HazelcastCoalesceBuffer(
@@ -124,21 +127,28 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
   }
 
   @Override
-  public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
-    // Non-reentrant: IMap.tryLock is re-entrant for the same thread, which breaks the mutual-
-    // exclusion contract the drain tests (and multi-drainer same-thread edge cases) rely on.
-    // putIfAbsent fails if the key is already present, even for this thread. TTL = lease so a
-    // crashed drainer does not wedge the lock forever. Millisecond granularity to match the
-    // Caffeine
-    // backend (Hazelcast IMap TTL accepts MILLISECONDS) so a sub-second lease behaves the same.
+  @Nullable
+  public Object tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
+    // Non-reentrant: IMap.tryLock is re-entrant for the same thread; putIfAbsent fails if the key
+    // is
+    // present even for this thread. The stored value is a per-acquire fencing token so release only
+    // clears our own lock. TTL = lease (millisecond granularity, matching the local backend) so a
+    // crashed drainer does not wedge the lock forever.
+    String token = UUID.randomUUID().toString();
     long leaseMillis = Math.max(1L, lease.toMillis());
-    return lockMap.putIfAbsent(lockName, Boolean.TRUE, leaseMillis, TimeUnit.MILLISECONDS) == null;
+    boolean acquired =
+        lockMap.putIfAbsent(lockName, token, leaseMillis, TimeUnit.MILLISECONDS) == null;
+    return acquired ? token : null;
   }
 
   @Override
-  public void releaseDrainLock(@Nonnull String lockName) {
-    if (!lockMap.remove(lockName, Boolean.TRUE)) {
-      log.warn("Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
+  public void releaseDrainLock(@Nonnull String lockName, @Nonnull Object token) {
+    // Remove only if the stored token is still ours; if the lease expired and another drainer
+    // re-acquired (new token), this no-ops and leaves their lock intact.
+    if (!lockMap.remove(lockName, token)) {
+      log.warn(
+          "Drain lock '{}' not released by owner — lease likely expired and it was re-acquired",
+          lockName);
     }
   }
 

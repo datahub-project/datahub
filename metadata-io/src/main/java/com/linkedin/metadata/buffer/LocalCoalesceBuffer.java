@@ -92,7 +92,8 @@ public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   }
 
   @Override
-  public boolean tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
+  @Nullable
+  public Object tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
     long now = System.currentTimeMillis();
     long newExpiry = now + Math.max(1L, lease.toMillis());
     AtomicLong holder = lockExpiries.computeIfAbsent(lockName, k -> new AtomicLong(0L));
@@ -100,20 +101,26 @@ public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
       long current = holder.get();
       // Held and not yet expired → fail (non-reentrant: same thread cannot re-acquire).
       if (current != 0L && now < current) {
-        return false;
+        return null;
       }
-      // Free, or the prior holder's lease expired → steal it (stuck-lock recovery).
+      // Free, or the prior holder's lease expired → steal it (stuck-lock recovery). The expiry is
+      // the fencing token: it strictly increases across steals, so a prior holder's release can
+      // never match a later holder's lease.
       if (holder.compareAndSet(current, newExpiry)) {
-        return true;
+        return newExpiry;
       }
     }
   }
 
   @Override
-  public void releaseDrainLock(@Nonnull String lockName) {
+  public void releaseDrainLock(@Nonnull String lockName, @Nonnull Object token) {
     AtomicLong holder = lockExpiries.get(lockName);
-    if (holder == null || holder.getAndSet(0L) == 0L) {
-      log.warn("Attempted to release coalesce buffer drain lock '{}' that was not held", lockName);
+    // Clear only if we still hold our own lease. If it expired and another drainer stole the lock
+    // (a later, larger expiry), our token no longer matches — leave theirs intact.
+    if (holder == null || !holder.compareAndSet((Long) token, 0L)) {
+      log.warn(
+          "Drain lock '{}' not released by owner — lease likely expired and it was re-acquired",
+          lockName);
     }
   }
 }
