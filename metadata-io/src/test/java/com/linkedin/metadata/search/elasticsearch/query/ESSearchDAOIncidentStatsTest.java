@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -26,6 +27,8 @@ import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
@@ -35,6 +38,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESSearchDAOIncidentStatsTest {
+
+  private static final String TEST_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:x,a,PROD)";
 
   private SearchClientShim<?> mockClient;
   private ESSearchDAO esSearchDAO;
@@ -69,6 +74,40 @@ public class ESSearchDAOIncidentStatsTest {
     assertTrue(source.contains("\"top_hits\""), "expected top_hits sub-agg for latest incident");
     assertTrue(source.contains("lastUpdated"), "expected sort by lastUpdated");
     assertTrue(source.contains("ACTIVE"), "expected active-state filter");
+  }
+
+  @Test
+  public void testBuildActiveIncidentStatsRequestExcludesSoftDeletedByDefault() throws Exception {
+    final Set<Urn> urns = Set.of(UrnUtils.getUrn(TEST_DATASET_URN));
+
+    final SearchRequest request = esSearchDAO.buildActiveIncidentStatsRequest(opContext, urns);
+
+    assertTrue(
+        hasRemovedExclusion(request),
+        "default search flags must exclude soft-deleted incidents, matching the unbatched"
+            + " entityClient.filter path");
+  }
+
+  @Test
+  public void testBuildActiveIncidentStatsRequestHonorsIncludeSoftDeleted() throws Exception {
+    final Set<Urn> urns = Set.of(UrnUtils.getUrn(TEST_DATASET_URN));
+    final OperationContext softDeletedContext =
+        opContext.withSearchFlags(flags -> flags.setIncludeSoftDeleted(true));
+
+    final SearchRequest request =
+        esSearchDAO.buildActiveIncidentStatsRequest(softDeletedContext, urns);
+
+    assertFalse(
+        hasRemovedExclusion(request),
+        "includeSoftDeleted=true must not exclude soft-deleted incidents");
+  }
+
+  private static boolean hasRemovedExclusion(SearchRequest request) {
+    final BoolQueryBuilder query = (BoolQueryBuilder) request.source().query();
+    return query.mustNot().stream()
+        .filter(clause -> clause instanceof TermQueryBuilder)
+        .map(clause -> (TermQueryBuilder) clause)
+        .anyMatch(term -> "removed".equals(term.fieldName()) && Boolean.TRUE.equals(term.value()));
   }
 
   @Test

@@ -622,6 +622,13 @@ public class ESSearchDAO {
             .filter(QueryBuilders.termQuery(INCIDENT_STATE_FIELD, INCIDENT_ACTIVE_STATE))
             .filter(QueryBuilders.termsQuery(INCIDENT_ENTITIES_FIELD, urnStrings));
 
+    // This aggregation bypasses SearchRequestHandler, so apply the same soft-delete / hidden-stage
+    // defaults the unbatched entityClient.filter path gets, keeping the two paths in agreement.
+    // A no-op while the incident entity declares no status aspect (hence no indexed `removed`
+    // field), but it means the batched counts cannot drift from the per-entity query if it does.
+    ESUtils.applyDefaultSearchFilters(
+        opContext, List.of(Constants.INCIDENT_ENTITY_NAME), null, query);
+
     final TermsAggregationBuilder byEntity =
         AggregationBuilders.terms(BY_ENTITY_AGG)
             .field(INCIDENT_ENTITIES_FIELD)
