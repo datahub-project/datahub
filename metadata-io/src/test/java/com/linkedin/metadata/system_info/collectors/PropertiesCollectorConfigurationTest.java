@@ -89,7 +89,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
           // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
           // catches it without needing a new keyword in SENSITIVE_PATTERNS.
-          "ingestion.cliVersionMatrix.http.authToken");
+          "ingestion.cliVersionMatrix.authToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -854,9 +854,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.deploymentId",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
-          "ingestion.cliVersionMatrix.http.refreshSeconds",
-          "ingestion.cliVersionMatrix.http.url",
-          "ingestion.cliVersionMatrix.source",
+          "ingestion.cliVersionMatrix.refreshSeconds",
+          // Storage location of the matrix document (s3://, gs://, file://, http(s)://).
+          // Non-sensitive,
+          // matching the existing datahub.objectStorage.uri classification.
+          "ingestion.cliVersionMatrix.uri",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",

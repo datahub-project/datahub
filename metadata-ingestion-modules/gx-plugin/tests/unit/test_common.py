@@ -7,6 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultSeverity,
     AssertionResultType,
     AssertionStdOperator,
+    AssertionType,
     DatasetAssertionScope,
 )
 from datahub_gx_plugin.common import (
@@ -92,9 +93,12 @@ def test_build_assertion_info_known_expectation():
             "expectation_id": "exp-1",
         },
     )
-    assert info.datasetAssertion is not None
-    assert info.datasetAssertion.scope == DatasetAssertionScope.DATASET_COLUMN
-    assert info.datasetAssertion.operator == AssertionStdOperator.NOT_NULL
+    assert info.type == AssertionType.CUSTOM
+    assert info.customAssertion is not None
+    assert info.datasetAssertion is None
+    assert info.customAssertion.scope == DatasetAssertionScope.DATASET_COLUMN
+    assert info.customAssertion.operator == AssertionStdOperator.NOT_NULL
+    assert info.customAssertion.nativeType == "expect_column_values_to_not_be_null"
     assert info.description == "id must be present"
     assert info.customProperties["checkpoint_name"] == "cp"
     assert info.customProperties["expectation_id"] == "exp-1"

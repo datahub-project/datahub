@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionFieldPath;
+import com.linkedin.datahub.upgrade.system.assertions.MigrateAssertionNoteToAspect;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
@@ -169,6 +170,19 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.assertionEntityField.delayMs}") final Integer delayMs,
       @Value("${systemUpdate.assertionEntityField.limit}") final Integer limit) {
     return new GenerateAssertionEntityField(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateAssertionNoteToAspect(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.assertionNote.enabled}") final boolean enabled,
+      @Value("${systemUpdate.assertionNote.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.assertionNote.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.assertionNote.limit}") final Integer limit) {
+    return new MigrateAssertionNoteToAspect(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 
