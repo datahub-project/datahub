@@ -4,6 +4,7 @@ import json
 import logging
 import textwrap
 import time
+from collections import defaultdict
 from datetime import datetime
 from json.decoder import JSONDecodeError
 from typing import (
@@ -52,6 +53,7 @@ from datahub.ingestion.graph.filters import (
     RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
+    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
@@ -68,6 +70,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
+    AliasesClass,
     AspectBag,
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -93,7 +96,9 @@ from datahub.metadata.urns import (
 )
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 if TYPE_CHECKING:
     from datahub.ingestion.sink.datahub_rest import (
@@ -113,6 +118,11 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# Keys per lowercasedUrn lookup request. The filter compiles to a single terms query, so
+# this bounds request size only -- resolve_lowercased_urns chunks internally, so callers
+# never have to think about the limit.
+_LOWERCASED_URN_LOOKUP_CHUNK_SIZE = 500
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
@@ -535,6 +545,24 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
         self._entity_aspect_specs = (commit_hash, specs)
         return specs
+
+    def supports_dataset_aliases(self) -> bool:
+        """Whether this server registers the ``aliases`` aspect on datasets.
+
+        Gates :meth:`resolve_lowercased_urns`, which is otherwise indistinguishable from a
+        lookup that matched nothing: a filter on a field the server does not index returns
+        zero hits rather than an error. Returns False rather than raising when the registry
+        API is unreachable or ``dataset`` is not registered at all, for the same reason --
+        a caller needs to tell "unsupported" from "nothing matched".
+        """
+        specs = self.get_entity_aspect_specs()
+        if specs is None:
+            return False
+        try:
+            return specs.supports("dataset", AliasesClass.ASPECT_NAME)
+        except ValueError:
+            # The server does not register the dataset entity type at all.
+            return False
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
@@ -1197,6 +1225,60 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def resolve_lowercased_urns(self, keys: Iterable[str]) -> Dict[str, List[str]]:
+        """Map each lowercased dataset URN to every dataset URN stored under it.
+
+        GMS derives ``aliases.lowercasedUrn`` for every dataset and indexes it for exact
+        match, so a reference in any casing resolves to the URN DataHub actually stores in
+        one batchable lookup. Build keys with
+        :func:`datahub.utilities.urns.urn_iter.lowercase_dataset_urn` -- it computes the
+        same value the server indexes.
+
+        Requires :meth:`supports_dataset_aliases`; on a server without the aspect this
+        returns no matches rather than failing, which is why callers must check first.
+
+        Returns *every* URN sharing a key, not one: on a case-sensitive platform two
+        distinct tables can share a key, and a caller has to be able to see that collision
+        instead of being handed an arbitrary winner. Keys with no match are absent.
+        """
+        requested = sorted({key for key in keys if key})
+        matches: Dict[str, List[str]] = defaultdict(list)
+        for start in range(0, len(requested), _LOWERCASED_URN_LOOKUP_CHUNK_SIZE):
+            chunk = requested[start : start + _LOWERCASED_URN_LOOKUP_CHUNK_SIZE]
+            chunk_keys = set(chunk)
+            for urn in self.get_urns_by_filter(
+                entity_types=["dataset"],
+                extra_or_filters=[
+                    {
+                        "and": [
+                            SearchFilterRule(
+                                field=AliasesClass.RECORD_SCHEMA.fields[0].name,
+                                condition="EQUAL",
+                                values=chunk,
+                            ).to_raw()
+                        ]
+                    }
+                ],
+            ):
+                # Group by re-deriving each hit's key locally rather than asking the server
+                # to return the field: it is the same derivation that built the query, so
+                # this is consistent by construction, and it keeps the lookup to a single
+                # request on any server (fetchExtraFields is DataHub Cloud only).
+                try:
+                    key = lowercase_dataset_urn(urn)
+                except InvalidUrnError:
+                    continue
+                if key not in chunk_keys:
+                    # Only reachable if this derivation and the server's have diverged,
+                    # which would otherwise present as "nothing matched".
+                    logger.debug(
+                        f"Ignoring hit {urn} whose derived key {key} was not requested; "
+                        f"client and server lowercasing may have diverged"
+                    )
+                    continue
+                matches[key].append(urn)
+        return dict(matches)
 
     def get_results_by_filter(
         self,

@@ -1,3 +1,5 @@
+import pytest
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -8,7 +10,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
-from datahub.utilities.urns.urn_iter import list_urns_with_path, lowercase_dataset_urns
+from datahub.utilities.urns.urn_iter import (
+    list_urns_with_path,
+    lowercase_dataset_urn,
+    lowercase_dataset_urns,
+)
 
 
 def _datasetUrn(tbl: str) -> str:
@@ -151,3 +157,49 @@ def test_dataset_urn_lowercase_transformer():
 
     lowercase_dataset_urns(original)
     assert original == expected
+
+
+# Mirrors metadata-io AliasesUtilsTest case for case. GMS derives aliases.lowercasedUrn with
+# the same rule and indexes it for exact match, so these pairs are a cross-language
+# contract: if the two derivations drift by a single character, every lookup against that
+# field misses *silently* -- a filter on a value nothing was indexed under returns zero hits
+# rather than an error. Keep this list in sync with AliasesUtilsTest.
+LOWERCASE_DATASET_URN_CASES = [
+    # Platform casing is preserved; only the name is lowercased.
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:adlsGen2,Container/Folder,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:adlsGen2,container/folder,PROD)",
+    ),
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Schema.Table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
+    ),
+    # env is untouched.
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,DEV)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,DEV)",
+    ),
+    # A platform instance is fused into the name, so it lowercases with it.
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Instance.DB.Schema.Table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.db.schema.table,PROD)",
+    ),
+    # Non-ASCII: Java uses Locale.ROOT so the key cannot depend on the JVM locale, and
+    # Python's str.lower() is locale-independent. Both must land on the same string.
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,CAFÉ.Ñ_TITLE,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,café.ñ_title,PROD)",
+    ),
+    # Idempotent on an already-lowercased URN.
+    (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
+    ),
+]
+
+
+@pytest.mark.parametrize("urn,expected", LOWERCASE_DATASET_URN_CASES)
+def test_lowercase_dataset_urn_matches_server_derivation(
+    urn: str, expected: str
+) -> None:
+    assert lowercase_dataset_urn(urn) == expected

@@ -132,6 +132,15 @@ def _modify_at_path(
 
 
 def lowercase_dataset_urn(dataset_urn: str) -> str:
+    """Lowercase a dataset URN's name, leaving its platform and env untouched.
+
+    This is also the case-insensitive resolution key GMS derives and indexes as
+    ``aliases.lowercasedUrn`` (see ``AliasesUtils.lowercaseDatasetUrn``), so changing the
+    rule here silently breaks every lookup against that field -- filtering on a value
+    nothing was indexed under returns zero hits, not an error. The parametrized cases in
+    tests/unit/serde/test_urn_iterator.py mirror the server's own test suite; keep both in
+    sync.
+    """
     cur_urn = DatasetUrn.from_string(dataset_urn)
     new_urn = DatasetUrn(
         platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
