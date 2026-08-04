@@ -806,6 +806,51 @@ public class V2MappingsBuilderTest {
     }
   }
 
+  @Test
+  public void testUrnStructuredPropertyMapsToKeywordParent() throws URISyntaxException {
+    // URN SPs use the shared URN mapping (parent keyword + delimited/ngram). Facets/filters
+    // target the parent via query-time logic (usesKeywordSubfield), not a .keyword subfield.
+    StructuredPropertyDefinition urnProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("steward")
+            .setDisplayName("Steward")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, urnProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a URN prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+
+    assertTrue(spFields.containsKey("steward"), "Should contain the steward field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stewardMapping = (Map<String, Object>) spFields.get("steward");
+    assertEquals(stewardMapping.get("type"), "keyword", "Top-level type should be keyword");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) stewardMapping.get("fields");
+    assertNotNull(subFields, "URN structured property must have subfields");
+    assertFalse(
+        subFields.containsKey("keyword"),
+        "URN structured property must not require .keyword; query time targets the parent");
+    assertTrue(
+        subFields.containsKey("delimited"),
+        "URN structured property must have .delimited subfield for URN component search");
+  }
+
   private EntityRegistry getTestEntityRegistry() {
     return new ConfigEntityRegistry(
         TestSearchFieldConfig.class

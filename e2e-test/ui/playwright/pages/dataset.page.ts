@@ -331,17 +331,13 @@ export class DatasetPage extends BasePage {
     await tagOption.waitFor({ state: 'visible' });
     await tagOption.click();
 
-    // Close the SimpleSelect dropdown by re-clicking its trigger. We can't press Escape
-    // (closes the alchemy Modal — AntD Modal default), and we can't just click the footer
-    // confirm button while the popover is open because the popover renders below the
-    // trigger and physically covers the footer when search results are short — the
-    // CI trace shows `<div label="" type="text">` (the DropdownSearchBar Input wrapper)
-    // intercepting pointer events. The trigger itself sits above the popover and is
-    // never covered, so clicking it toggles the dropdown closed.
-    await this.tagTermModalInput.click();
-
+    // The multi-select dropdown popover overlaps the footer, so a normal click on the confirm
+    // button is intercepted, and re-clicking the trigger to close the dropdown flakes when an
+    // option overlaps it. The selected tags are already in state after picking the option, so
+    // dispatch the click directly on the confirm button — it submits regardless of the open
+    // popover, independent of which way AntD flips the dropdown.
     await expect(this.addTagFromModalButton).toBeEnabled();
-    await this.addTagFromModalButton.click();
+    await this.addTagFromModalButton.dispatchEvent('click');
 
     await this.toast.expectVisible('Added Tags!');
   }
