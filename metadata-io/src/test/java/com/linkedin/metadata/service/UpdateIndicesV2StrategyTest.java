@@ -1442,4 +1442,139 @@ public class UpdateIndicesV2StrategyTest {
     when(event.getMetadataChangeLog()).thenReturn(mcl);
     return event;
   }
+
+  @Test
+  public void testUpdateTimeseriesFields_dualWritesToServiceAndSink() throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy dualWriteStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+
+    dualWriteStrategy.updateTimeseriesFields(
+        operationContext, Collections.singletonList(mockEvent));
+
+    verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+    verify(sink)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testDeleteTimeseriesFields_sinkAlways_serviceWhenApplyDeleteTrue() {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy dualWriteStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mockPreviousAspect);
+    when(mockEvent.getPreviousSystemMetadata()).thenReturn(mockSystemMetadata);
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockPreviousAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
+
+    dualWriteStrategy.deleteTimeseriesFieldsForDeleteEvent(operationContext, mockEvent);
+
+    verify(timeseriesAspectService)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+    verify(sink)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+  }
+
+  @Test
+  public void testDeleteTimeseriesFields_skipsServiceDeleteWhenApplyFalse() {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy dualWriteStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mockPreviousAspect);
+    when(mockEvent.getPreviousSystemMetadata()).thenReturn(mockSystemMetadata);
+    DataMap tsData = new DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockPreviousAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+
+    dualWriteStrategy.deleteTimeseriesFieldsForDeleteEvent(operationContext, mockEvent);
+
+    verify(timeseriesAspectService, never())
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+    verify(sink)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+  }
 }

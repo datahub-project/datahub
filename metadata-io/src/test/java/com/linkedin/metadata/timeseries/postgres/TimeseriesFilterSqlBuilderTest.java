@@ -4,16 +4,21 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildConjunctiveCriteri
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.TimeWindowSize;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
@@ -289,5 +294,100 @@ public class TimeseriesFilterSqlBuilderTest {
 
     assertTrue(built.getExpression().contains("document->>'isLatest' = 'true'"));
     assertTrue(built.getExpression().contains("document->>'isLatest' IS NULL"));
+  }
+
+  @Test
+  public void buildDocumentFilter_emptyValues_isTrue() {
+    Criterion empty = new Criterion().setField("strStat").setCondition(Condition.EQUAL);
+    Filter filter = QueryUtils.getFilterFromCriteria(List.of(empty));
+    OperationContext noLatestFlag =
+        opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), noLatestFlag, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains("TRUE"));
+    assertTrue(built.getParams().isEmpty());
+  }
+
+  @Test
+  public void buildDocumentFilter_timestampFieldAlias_usesEventTime() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("@timestamp", Condition.EQUAL, "1700000000000")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains("event_time = ?"));
+    assertEquals(built.getParams().size(), 1);
+  }
+
+  @Test
+  public void buildDocumentFilter_multiValueEventTimeEqual() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("timestampMillis", Condition.EQUAL, "1000", "2000")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains(" OR "));
+    assertEquals(built.getParams().size(), 2);
+  }
+
+  @Test
+  public void buildDocumentFilter_fieldExpansion_description() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("description", Condition.EQUAL, "docs")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains(" OR "));
+    assertTrue(built.getExpression().contains("document->>'description'"));
+    assertTrue(built.getExpression().contains("document->>'editedDescription'"));
+    assertEquals(built.getParams(), List.of("docs", "docs"));
+  }
+
+  @Test
+  public void buildDocumentFilter_unsupportedCondition_throws() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(List.of(buildCriterion("strStat", Condition.IN, "a")));
+
+    expectThrows(
+        UnsupportedOperationException.class,
+        () ->
+            TimeseriesFilterSqlBuilder.buildDocumentFilter(
+                filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY));
+  }
+
+  @Test
+  public void buildDocumentFilter_lineageAncestors_expandsViaGraph() {
+    OperationContext lineageCtx = mock(OperationContext.class);
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    when(lineageCtx.getRetrieverContext()).thenReturn(retrieverContext);
+    when(retrieverContext.getGraphRetriever()).thenReturn(null);
+    when(lineageCtx.getAspectRetriever()).thenReturn(opContext.getAspectRetriever());
+    when(lineageCtx.getObjectMapper()).thenReturn(opContext.getObjectMapper());
+    when(lineageCtx.getEntityRegistry()).thenReturn(opContext.getEntityRegistry());
+    when(lineageCtx.getSearchContext()).thenReturn(opContext.getSearchContext());
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("urn", Condition.ANCESTORS_INCL, "urn:li:container:root")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), lineageCtx, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains("= ANY(?)"));
+    assertEquals(built.getParams().size(), 1);
+    assertTrue(built.getParams().get(0) instanceof String[]);
   }
 }
