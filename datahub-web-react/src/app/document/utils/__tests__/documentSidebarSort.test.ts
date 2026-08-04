@@ -22,7 +22,7 @@ describe('documentSidebarSort', () => {
         });
     });
 
-    it('defaults to name A–Z', () => {
-        expect(DEFAULT_DOCUMENT_SIDEBAR_SORT).toBe(DOCUMENT_SIDEBAR_SORT.NAME_ASC);
+    it('defaults to last modified (newest first)', () => {
+        expect(DEFAULT_DOCUMENT_SIDEBAR_SORT).toBe(DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC);
     });
 });

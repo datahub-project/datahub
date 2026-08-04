@@ -283,11 +283,33 @@ export class DocumentPage extends BasePage {
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
-  async selectMoveTreeResult(text: string): Promise<void> {
-    // Prefer the browse tree over search — avoids ES indexing lag for brand-new docs.
+  async selectMoveTreeResult(text: string, urn?: string): Promise<void> {
+    // Prefer browse-tree by URN — title text can still be "New Document" while search lags.
+    if (urn) {
+      const byUrn = this.movePopover.getByTestId(`document-tree-item-${urn}`);
+      try {
+        await expect(byUrn).toBeVisible({ timeout: TIMEOUTS.LONG });
+        await byUrn.scrollIntoViewIfNeeded();
+        await byUrn.click({ force: true });
+        return;
+      } catch {
+        // Fall through to title / search.
+      }
+    }
+
     const resultElement = this.movePopover.getByText(text, { exact: false });
-    await expect(resultElement).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await resultElement.click({ force: true });
+    try {
+      await expect(resultElement).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await resultElement.click({ force: true });
+      return;
+    } catch {
+      // Browse tree missed it — try popover search.
+    }
+
+    await this.searchInMovePopover(text);
+    const searchResult = this.getMoveSearchResultByText(text);
+    await expect(searchResult).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await searchResult.click({ force: true });
   }
 
   async clickMoveConfirmButton(): Promise<void> {
@@ -346,7 +368,7 @@ export class DocumentPage extends BasePage {
     await this.clickTreeItemMenu(childUrn);
     await this.clickMoveOption();
     await this.expectMovePopoverVisible();
-    await this.selectMoveTreeResult(parentTitle);
+    await this.selectMoveTreeResult(parentTitle, parentUrn);
     await this.clickMoveConfirmButton();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await this.expectMoveSuccessMessage();

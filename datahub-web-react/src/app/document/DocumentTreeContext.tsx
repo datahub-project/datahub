@@ -48,6 +48,14 @@ export interface DocumentTreeNode {
     lastModifiedAt?: number;
 }
 
+export type AddNodeOptions = {
+    /**
+     * Root placement. `start` = optimistic create (show at top under last-modified default).
+     * `end` = deep-link reveal stub (must not jump above the sorted window).
+     */
+    placement?: 'start' | 'end';
+};
+
 interface DocumentTreeContextType {
     // Tree state
     nodes: Map<string, DocumentTreeNode>;
@@ -62,7 +70,7 @@ interface DocumentTreeContextType {
     updateNodeTitle: (urn: string, newTitle: string) => void;
     moveNode: (urn: string, newParentUrn: string | null) => void;
     deleteNode: (urn: string) => void;
-    addNode: (node: DocumentTreeNode) => void;
+    addNode: (node: DocumentTreeNode, options?: AddNodeOptions) => void;
     setNodeChildren: (parentUrn: string | null, children: DocumentTreeNode[]) => void;
     appendRootNodes: (nodes: DocumentTreeNode[]) => void;
     appendNodeChildren: (parentUrn: string, nodes: DocumentTreeNode[]) => void;
@@ -231,7 +239,9 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     // Mutation: Add a new node
-    const addNode = useCallback((node: DocumentTreeNode) => {
+    const addNode = useCallback((node: DocumentTreeNode, options?: AddNodeOptions) => {
+        const placement = options?.placement ?? 'end';
+
         setNodes((prev) => {
             const updated = new Map(prev);
             updated.set(node.urn, node);
@@ -261,11 +271,13 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return updated;
         });
 
-        // Root stubs (deep-link reveal) append — never prepend. Prepending broke
-        // server-side Name A–Z (open doc jumped above earlier titles like "Hi").
-        // Prefer paging roots until the doc appears; this is only a fallback.
+        // Roots: create uses `start` (newest first with last-modified default).
+        // Deep-link reveal stubs use `end` so they do not jump the sorted window.
         if (node.parentUrn === null) {
-            setRootUrns((prev) => (prev.includes(node.urn) ? prev : [...prev, node.urn]));
+            setRootUrns((prev) => {
+                const without = prev.filter((u) => u !== node.urn);
+                return placement === 'start' ? [node.urn, ...without] : [...without, node.urn];
+            });
         }
     }, []);
 
@@ -364,10 +376,22 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
-    // Batch initialization
+    // Batch initialization (page 0 / sort remount). Merge instead of wipe so
+    // optimistic creates and local renames survive search-index lag.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
-        setRootUrns(rootNodes.map((n) => n.urn));
-        setNodes(new Map(rootNodes.map((n) => [n.urn, n])));
+        setRootUrns((prev) => {
+            const serverUrns = rootNodes.map((n) => n.urn);
+            const serverSet = new Set(serverUrns);
+            const localOnly = prev.filter((urn) => !serverSet.has(urn));
+            return [...serverUrns, ...localOnly];
+        });
+        setNodes((prev) => {
+            const updated = new Map(prev);
+            rootNodes.forEach((serverNode) => {
+                updated.set(serverNode.urn, mergeServerChildNode(updated.get(serverNode.urn), serverNode));
+            });
+            return updated;
+        });
     }, []);
 
     // Expansion state helpers

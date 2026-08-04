@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import {
-    DOCUMENT_SIDEBAR_SORT,
+    DEFAULT_DOCUMENT_SIDEBAR_SORT,
     DocumentSidebarSortValue,
     documentSidebarSortToCriterion,
 } from '@app/document/utils/documentSidebarSort';
@@ -51,7 +51,7 @@ export default function useDocumentSidebarSearch({
     authorUrns = [],
     platformUrns = [],
     status = 'all',
-    sort = DOCUMENT_SIDEBAR_SORT.NAME_ASC,
+    sort = DEFAULT_DOCUMENT_SIDEBAR_SORT,
     viewUrn,
     skip,
 }: Props) {

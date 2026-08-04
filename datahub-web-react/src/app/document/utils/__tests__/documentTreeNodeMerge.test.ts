@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
-import { mergeServerChildNode, shouldFetchChildrenOnExpand } from '@app/document/utils/documentTreeNodeMerge';
+import {
+    DEFAULT_DOCUMENT_TITLE,
+    mergeServerChildNode,
+    shouldFetchChildrenOnExpand,
+} from '@app/document/utils/documentTreeNodeMerge';
 
 function makeNode(overrides: Partial<DocumentTreeNode> = {}): DocumentTreeNode {
     return {
@@ -49,6 +53,18 @@ describe('mergeServerChildNode', () => {
         const existing = makeNode({ urn: 'a', hasChildren: true, children: [] });
         const server = makeNode({ urn: 'a', hasChildren: false });
         expect(mergeServerChildNode(existing, server).hasChildren).toBe(true);
+    });
+
+    it('keeps a local rename when search still returns the create-time default title', () => {
+        const existing = makeNode({ urn: 'a', title: 'Renamed Doc' });
+        const server = makeNode({ urn: 'a', title: DEFAULT_DOCUMENT_TITLE });
+        expect(mergeServerChildNode(existing, server).title).toBe('Renamed Doc');
+    });
+
+    it('still takes a non-default server title over a local title', () => {
+        const existing = makeNode({ urn: 'a', title: 'Local' });
+        const server = makeNode({ urn: 'a', title: 'From search' });
+        expect(mergeServerChildNode(existing, server).title).toBe('From search');
     });
 });
 

@@ -11,7 +11,7 @@ export const DOCUMENT_SIDEBAR_SORT = {
 
 export type DocumentSidebarSortValue = (typeof DOCUMENT_SIDEBAR_SORT)[keyof typeof DOCUMENT_SIDEBAR_SORT];
 
-export const DEFAULT_DOCUMENT_SIDEBAR_SORT: DocumentSidebarSortValue = DOCUMENT_SIDEBAR_SORT.NAME_ASC;
+export const DEFAULT_DOCUMENT_SIDEBAR_SORT: DocumentSidebarSortValue = DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC;
 
 /**
  * Same fields as global search Name A–Z / Z–A / Last modified ({@link ENTITY_NAME_FIELD}).

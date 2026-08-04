@@ -328,9 +328,9 @@ export default function ContextSidebar({
 
     const sortOptions = useMemo(
         () => [
+            { value: DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC, label: t('sidebarSort.lastModified') },
             { value: DOCUMENT_SIDEBAR_SORT.NAME_ASC, label: t('sidebarSort.nameAtoZ') },
             { value: DOCUMENT_SIDEBAR_SORT.NAME_DESC, label: t('sidebarSort.nameZtoA') },
-            { value: DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC, label: t('sidebarSort.lastModified') },
         ],
         [t],
     );
