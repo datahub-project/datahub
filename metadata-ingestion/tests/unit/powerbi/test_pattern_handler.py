@@ -828,6 +828,41 @@ def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
     )
 
 
+def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
+    """Contiguous-prefix backfill: when navigation already anchored Database but
+    exposed no Schema, a two-part dsn_to_database_schema value must not splice
+    config schema into the middle (that path is SQL-parse only). Three-tier
+    platforms then warn instead of emitting database.table or a fabricated
+    database.schema.table URN.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"snow_dsn": "ANALYTICS.PUBLIC"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ANALYTICS"),
+            ("Table", "ORDERS"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_odbc_two_part_mysql_allows_database_table_fallback():
     """MySQL is allowlisted for the database.table fallback when schema is absent."""
     instance = _build_odbc_lineage()
