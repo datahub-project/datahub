@@ -1,6 +1,6 @@
 import { Avatar, SearchBar, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import { useDebounce } from 'react-use';
@@ -81,6 +81,9 @@ export default function ContextSidebar({
     const [selectedTermUrns, setSelectedTermUrns] = useState<string[]>([]);
     const [selectedTypeNames, setSelectedTypeNames] = useState<string[]>([]);
     const [sortSelection, setSortSelection] = useState<DocumentSidebarSortValue>(DEFAULT_DOCUMENT_SIDEBAR_SORT);
+    // After sort, keep list at top — selected-row scrollIntoView would jump to the open doc.
+    const [suppressSelectionScroll, setSuppressSelectionScroll] = useState(false);
+    const isFirstSortEffectRef = useRef(true);
     // Notion-style: Tag / Status / Author / Source start behind "+ Filter" until promoted.
     const [promotedBrowseFilters, setPromotedBrowseFilters] = useState<Set<SecondaryBrowseFilter>>(new Set());
     // One-shot: open the dropdown for a filter just chosen from "+ Filter".
@@ -98,11 +101,27 @@ export default function ContextSidebar({
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
     const { createDocument } = useCreateDocumentTreeMutation();
-    const { expandNode, getNode } = useDocumentTree();
-    const { loadChildren } = useLoadDocumentTree();
+    const { expandNode, getNode, setExpandedUrns } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree(sortSelection, { paginateRoots: false });
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+
+    // Sort is server-side: remounting DocumentTree reloads roots from page 1.
+    // Drop expansion that would point at wiped child lists, suppress selection
+    // scroll, and pin the browse list at the top (same as search).
+    useEffect(() => {
+        if (isFirstSortEffectRef.current) {
+            isFirstSortEffectRef.current = false;
+            return;
+        }
+        setExpandedUrns(new Set());
+        setSuppressSelectionScroll(true);
+        const treeScroll = document.querySelector('[data-testid="hierarchical-browse-tree-scroll"]');
+        if (treeScroll instanceof HTMLElement) {
+            treeScroll.scrollTop = 0;
+        }
+    }, [sortSelection, setExpandedUrns]);
 
     const importParentDocumentUrn = useMemo(() => {
         if (!isEntityProfile) {
@@ -370,6 +389,7 @@ export default function ContextSidebar({
 
     const handleDocumentClick = useCallback(
         (urn: string) => {
+            setSuppressSelectionScroll(false);
             // Navigate only — keep query/filters so the user can open another result
             // without re-applying. "Clear search" is the explicit exit back to the tree.
             const url = entityRegistry.getEntityUrl(EntityType.Document, urn);
@@ -554,8 +574,10 @@ export default function ContextSidebar({
                 />
             ) : (
                 <DocumentTree
+                    key={sortSelection}
                     onCreateChild={(parentUrn) => handleCreateDocument(parentUrn || undefined)}
                     sortSelection={sortSelection}
+                    suppressSelectionScroll={suppressSelectionScroll}
                 />
             )}
         </HierarchicalBrowseSidebar>

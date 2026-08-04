@@ -44,7 +44,7 @@ export interface DocumentTreeNode {
     isExternal?: boolean; // info.source.sourceType === EXTERNAL — renders the platform logo instead of folder/file
     platform?: DataPlatform | null; // Source platform; consumed by DocumentSourceLogo when isExternal is true
     creator?: DocumentCreator | null; // Resolved actor on info.created.actor — drives the sidebar's Author multi-select
-    /** info.lastModified.time — used for Last modified tree sort */
+    /** info.lastModified.time — available on the node for UI; ordering uses searchDocuments sortInput */
     lastModifiedAt?: number;
 }
 
@@ -261,9 +261,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return updated;
         });
 
-        // Add to rootUrns if it's a root node (at the top)
+        // Root stubs (deep-link reveal) append — never prepend. Prepending broke
+        // server-side Name A–Z (open doc jumped above earlier titles like "Hi").
+        // Prefer paging roots until the doc appears; this is only a fallback.
         if (node.parentUrn === null) {
-            setRootUrns((prev) => (prev.includes(node.urn) ? prev : [node.urn, ...prev]));
+            setRootUrns((prev) => (prev.includes(node.urn) ? prev : [...prev, node.urn]));
         }
     }, []);
 

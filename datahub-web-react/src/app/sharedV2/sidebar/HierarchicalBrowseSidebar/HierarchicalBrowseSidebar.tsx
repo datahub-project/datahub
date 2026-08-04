@@ -235,7 +235,7 @@ export default function HierarchicalBrowseSidebar({
             ) : (
                 tree
             );
-        return <TreeContainer>{treeBody}</TreeContainer>;
+        return <TreeContainer data-testid="hierarchical-browse-tree-scroll">{treeBody}</TreeContainer>;
     };
 
     const renderExpandedBody = (tree: React.ReactNode) => (

@@ -11,7 +11,7 @@ export interface DocumentParentRef {
     title?: string | null;
 }
 
-/** Source / sort fields needed so reveal stubs land in the right sidebar section. */
+/** Source fields needed so reveal stubs land in the right sidebar section. */
 export type RevealDocumentNodeMeta = {
     platform?: DataPlatform | null;
     isExternal?: boolean;
@@ -26,8 +26,8 @@ export interface RevealDocumentInTreeArgs {
     parentDocuments: DocumentParentRef[];
     /**
      * Platform / external / timestamps from getDocument. Applied to reveal stubs so
-     * e.g. a Notion root isn't classified as native DataHub (and prepended to that
-     * section) when it wasn't already on the loaded root page.
+     * e.g. a Notion root isn't classified as native DataHub when it wasn't already
+     * on the loaded root page.
      */
     documentMeta?: RevealDocumentNodeMeta;
     getNode: (urn: string) => DocumentTreeNode | undefined;
@@ -63,8 +63,6 @@ function stubNode({
         title: untitledTitle(title),
         parentUrn,
         hasChildren,
-        // Same source tree as the open document — keeps external roots in Notion/GitHub/…
-        // instead of the DataHub section when they weren't on the first root page.
         platform: documentMeta?.platform ?? null,
         isExternal: documentMeta?.isExternal,
         isUnpublished: includeTimestamps ? documentMeta?.isUnpublished : undefined,
@@ -73,12 +71,13 @@ function stubNode({
 }
 
 /**
- * Expand and lazy-load every ancestor so `documentUrn` is mounted in the sidebar tree.
+ * Expand and lazy-load ancestors so `documentUrn` can mount in the sidebar tree.
  *
- * Deep links only open the profile; nested rows are not fetched until parents expand.
- * This walks the parent chain root-first, expands each folder, loads children (paging
- * until the next path node appears), and injects stubs when a node is missing from
- * the currently loaded window (e.g. root beyond the first page).
+ * Like global search: the root list stays in server sort order from the top of
+ * page 1. We never page-through or inject a missing root into the list (that
+ * yanked scroll to the bottom). If the open doc's root isn't in the already-loaded
+ * window, reveal is a no-op — the profile still works; the row appears when the
+ * user scrolls the sorted list far enough.
  */
 export async function revealDocumentInTree({
     documentUrn,
@@ -94,17 +93,14 @@ export async function revealDocumentInTree({
 }: RevealDocumentInTreeArgs): Promise<void> {
     const ancestors = [...parentDocuments].reverse();
 
+    // Root document: only meaningful if it's already in the loaded sorted window.
     if (ancestors.length === 0) {
-        ensureNode(
-            stubNode({
-                urn: documentUrn,
-                title: documentTitle,
-                parentUrn: null,
-                hasChildren: getNode(documentUrn)?.hasChildren ?? false,
-                documentMeta,
-                includeTimestamps: true,
-            }),
-        );
+        return;
+    }
+
+    // Nested: root ancestor must already be loaded — do not fetch every root page.
+    const rootAncestor = ancestors[0];
+    if (!getNode(rootAncestor.urn)) {
         return;
     }
 
@@ -113,15 +109,17 @@ export async function revealDocumentInTree({
         const parentUrn = i === 0 ? null : ancestors[i - 1].urn;
         const nextUrn = i < ancestors.length - 1 ? ancestors[i + 1].urn : documentUrn;
 
-        ensureNode(
-            stubNode({
-                urn: ancestor.urn,
-                title: ancestor.title,
-                parentUrn,
-                hasChildren: true,
-                documentMeta,
-            }),
-        );
+        if (parentUrn !== null && !getNode(ancestor.urn)) {
+            ensureNode(
+                stubNode({
+                    urn: ancestor.urn,
+                    title: ancestor.title,
+                    parentUrn,
+                    hasChildren: true,
+                    documentMeta,
+                }),
+            );
+        }
 
         expandNode(ancestor.urn);
 
@@ -148,14 +146,16 @@ export async function revealDocumentInTree({
     }
 
     const directParentUrn = ancestors[ancestors.length - 1].urn;
-    ensureNode(
-        stubNode({
-            urn: documentUrn,
-            title: documentTitle,
-            parentUrn: directParentUrn,
-            hasChildren: getNode(documentUrn)?.hasChildren ?? false,
-            documentMeta,
-            includeTimestamps: true,
-        }),
-    );
+    if (!getNode(documentUrn)) {
+        ensureNode(
+            stubNode({
+                urn: documentUrn,
+                title: documentTitle,
+                parentUrn: directParentUrn,
+                hasChildren: false,
+                documentMeta,
+                includeTimestamps: true,
+            }),
+        );
+    }
 }

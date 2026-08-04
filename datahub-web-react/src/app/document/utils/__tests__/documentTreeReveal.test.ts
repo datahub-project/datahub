@@ -8,75 +8,55 @@ function makeNode(overrides: Partial<DocumentTreeNode> = {}): DocumentTreeNode {
 }
 
 describe('revealDocumentInTree', () => {
-    it('ensures a root document is present without loading children', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
-        const ensureNode = vi.fn((node: DocumentTreeNode) => {
-            nodes.set(node.urn, node);
-        });
+    it('no-ops for a root document missing from the loaded window (keeps sort + scroll at top)', async () => {
+        const ensureNode = vi.fn();
         const expandNode = vi.fn();
         const loadChildren = vi.fn().mockResolvedValue([]);
-        const loadMoreChildren = vi.fn().mockResolvedValue([]);
 
         await revealDocumentInTree({
             documentUrn: 'urn:li:document:root',
             documentTitle: 'Root Doc',
             parentDocuments: [],
-            getNode: (urn) => nodes.get(urn),
+            getNode: () => undefined,
             expandNode,
             ensureNode,
             loadChildren,
-            loadMoreChildren,
-            hasMoreChildren: () => false,
-        });
-
-        expect(ensureNode).toHaveBeenCalledWith(
-            expect.objectContaining({ urn: 'urn:li:document:root', parentUrn: null, title: 'Root Doc' }),
-        );
-        expect(expandNode).not.toHaveBeenCalled();
-        expect(loadChildren).not.toHaveBeenCalled();
-    });
-
-    it('copies platform onto root stubs so external docs stay in their source section', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
-        const ensureNode = vi.fn((node: DocumentTreeNode) => {
-            nodes.set(node.urn, node);
-        });
-        const notionPlatform = {
-            urn: 'urn:li:dataPlatform:notion',
-            type: 'DATA_PLATFORM',
-            name: 'notion',
-        } as any;
-
-        await revealDocumentInTree({
-            documentUrn: 'urn:li:document:notion-root',
-            documentTitle: '2e8127c5-notion',
-            parentDocuments: [],
-            documentMeta: {
-                platform: notionPlatform,
-                isExternal: true,
-                lastModifiedAt: 1000,
-            },
-            getNode: (urn) => nodes.get(urn),
-            expandNode: vi.fn(),
-            ensureNode,
-            loadChildren: vi.fn().mockResolvedValue([]),
             loadMoreChildren: vi.fn().mockResolvedValue([]),
             hasMoreChildren: () => false,
         });
 
-        expect(ensureNode).toHaveBeenCalledWith(
-            expect.objectContaining({
-                urn: 'urn:li:document:notion-root',
-                parentUrn: null,
-                platform: notionPlatform,
-                isExternal: true,
-                lastModifiedAt: 1000,
-            }),
-        );
+        expect(ensureNode).not.toHaveBeenCalled();
+        expect(expandNode).not.toHaveBeenCalled();
+        expect(loadChildren).not.toHaveBeenCalled();
     });
 
-    it('expands ancestors root-first and loads children along the path', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+    it('no-ops when nested doc root ancestor is not in the loaded window', async () => {
+        const ensureNode = vi.fn();
+        const loadChildren = vi.fn().mockResolvedValue([]);
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:c',
+            documentTitle: 'C',
+            parentDocuments: [
+                { urn: 'urn:li:document:b', title: 'B' },
+                { urn: 'urn:li:document:a', title: 'A' },
+            ],
+            getNode: () => undefined,
+            expandNode: vi.fn(),
+            ensureNode,
+            loadChildren,
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
+            hasMoreChildren: () => false,
+        });
+
+        expect(ensureNode).not.toHaveBeenCalled();
+        expect(loadChildren).not.toHaveBeenCalled();
+    });
+
+    it('expands ancestors root-first and loads children along the path when root is loaded', async () => {
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const expanded = new Set<string>();
         const childPages = new Map<string, DocumentTreeNode[][]>([
             [
@@ -125,7 +105,9 @@ describe('revealDocumentInTree', () => {
     });
 
     it('pages through children until the next path node appears', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const ensureNode = vi.fn((node: DocumentTreeNode) => {
             nodes.set(node.urn, node);
         });
@@ -163,7 +145,9 @@ describe('revealDocumentInTree', () => {
     });
 
     it('pages through multiple child pages when the target is far down the list', async () => {
-        const nodes = new Map<string, DocumentTreeNode>();
+        const nodes = new Map<string, DocumentTreeNode>([
+            ['urn:li:document:a', makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true })],
+        ]);
         const ensureNode = vi.fn((node: DocumentTreeNode) => {
             nodes.set(node.urn, node);
         });

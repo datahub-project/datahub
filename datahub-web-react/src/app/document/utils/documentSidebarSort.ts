@@ -1,3 +1,5 @@
+import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+
 import { SortCriterion, SortOrder } from '@types';
 
 /** Document sidebar sort option values (also used as menu keys). */
@@ -12,16 +14,15 @@ export type DocumentSidebarSortValue = (typeof DOCUMENT_SIDEBAR_SORT)[keyof type
 export const DEFAULT_DOCUMENT_SIDEBAR_SORT: DocumentSidebarSortValue = DOCUMENT_SIDEBAR_SORT.NAME_ASC;
 
 /**
- * Maps sidebar sort selection to searchAcrossEntities sortCriterion.
- * Tree browse sorts name + lastModified client-side on DocumentTreeNode;
- * search mode uses this criterion against the index.
+ * Same fields as global search Name A–Z / Z–A / Last modified ({@link ENTITY_NAME_FIELD}).
+ * Pass via searchDocuments sortInput — never reorder client-side.
  */
 export function documentSidebarSortToCriterion(sort: DocumentSidebarSortValue): SortCriterion {
     switch (sort) {
         case DOCUMENT_SIDEBAR_SORT.NAME_ASC:
-            return { field: '_entityName', sortOrder: SortOrder.Ascending };
+            return { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending };
         case DOCUMENT_SIDEBAR_SORT.NAME_DESC:
-            return { field: '_entityName', sortOrder: SortOrder.Descending };
+            return { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Descending };
         case DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC:
             return { field: 'lastModifiedAt', sortOrder: SortOrder.Descending };
         default: {
