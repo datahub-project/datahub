@@ -1,6 +1,5 @@
 package com.linkedin.metadata.config;
 
-import com.linkedin.metadata.config.buffer.BufferConfiguration;
 import com.linkedin.metadata.config.retention.RetentionConfiguration;
 import lombok.Data;
 
@@ -42,9 +41,6 @@ public class DataHubConfiguration {
 
   /** Post-commit aspect retention buffering (coalesce + drain). */
   private RetentionConfiguration retention;
-
-  /** Backend selection for {@code CoalesceBuffer<K,V>} (e.g. the post-commit retention buffer). */
-  private BufferConfiguration buffer;
 
   @Data
   public static class DataHubMetrics {

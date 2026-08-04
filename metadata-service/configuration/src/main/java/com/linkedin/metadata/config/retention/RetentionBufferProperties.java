@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 /**
  * POJO representing the "datahub.retention.buffer" tuning block in application.yaml (map names,
  * batch sizes, drain interval). On/off is {@code featureFlags.retentionBufferEnabled}, not this
- * POJO. Also requires {@code featureFlags.postCommitRetentionEnabled}; backend is {@code
- * datahub.buffer.implementation} (caffeine | hazelcast), else sync DELETE post-commit.
+ * POJO. Also requires {@code featureFlags.postCommitRetentionEnabled}; the buffer is backed by the
+ * shared embedded Hazelcast instance, else sync DELETE post-commit.
  */
 @Data
 @Builder

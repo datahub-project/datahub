@@ -20,7 +20,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffers;
 import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
-import com.linkedin.metadata.buffer.LocalCoalesceBuffer;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -122,7 +121,9 @@ public class RetentionDrainerTest {
   public void testTickRemovesOnlyCommittedKeysOnPartialSuccess() {
     // Two pending keys; the service commits only one (the other's per-context tx failed). Only the
     // committed key must be cleared via removeIfSame — the failed key stays for the next tick.
-    CoalesceBuffer<RetentionKey, Long> buffer = new LocalCoalesceBuffer<>(MAP_NAME, 100, null);
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     RetentionKey committedKey = new RetentionKey(TEST_URN.toString(), ASPECT);
     RetentionKey failedKey = new RetentionKey(TEST_URN.toString(), FAILED_ASPECT);
     buffer.merge(committedKey, 3L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -196,9 +197,10 @@ public class RetentionDrainerTest {
     // End-to-end Java path: CoalesceRetentionBuffer.enqueue (the adapter EntityServiceImpl calls)
     // → RetentionDrainer.tick() → RetentionService.apply with the exact (urn, aspect, maxVersion)
     // that was enqueued. No sleep, no @Scheduled, no docker — tick() is invoked directly.
-    CoalesceBuffer<RetentionKey, Long> caffeine =
-        new LocalCoalesceBuffer<>("retention-pending", 100, null);
-    CoalesceRetentionBuffer retentionBuffer = new CoalesceRetentionBuffer(caffeine);
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    CoalesceRetentionBuffer retentionBuffer = new CoalesceRetentionBuffer(buffer);
 
     retentionBuffer.enqueue(TEST_URN, ASPECT, 3L);
     // keep-max coalesce: a lower re-merge must not win.
@@ -208,7 +210,7 @@ public class RetentionDrainerTest {
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
-        new RetentionDrainer(caffeine, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
 
     drainer.tick();
 
@@ -223,6 +225,6 @@ public class RetentionDrainerTest {
     assertEquals(applied.get(0).getMaxVersion().orElseThrow(), 3L);
 
     // removeIfSame on success must have cleared the key.
-    assertTrue(caffeine.drain(10).isEmpty());
+    assertTrue(buffer.drain(10).isEmpty());
   }
 }

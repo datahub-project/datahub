@@ -19,21 +19,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
- * Background drainer over a {@link CoalesceBuffer} of pending retention keys. With the Hazelcast
- * backend exactly one pod cluster-wide applies retention per tick (shared drain lock) and the rest
- * no-op; with the local Caffeine backend each pod drains its own buffer independently. The drained
- * batch is handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults}, which applies
- * each (urn, aspect) pair in its own transaction so a poison pair fails and retries on its own
- * without blocking the rest of the batch. Keys whose contexts are returned as committed are cleared
- * via {@code removeIfSame}; everything else stays for the next tick to retry (no retention_dlq
- * table in v1 — see plan Global Constraints).
+ * Background drainer over a {@link CoalesceBuffer} of pending retention keys. All pods share one
+ * cluster-wide drain lock (Hazelcast), so exactly one pod applies retention per tick and the rest
+ * no-op. The drained batch is handed to {@link
+ * RetentionService#applyRetentionBatchWithPolicyDefaults}, which applies each (urn, aspect) pair in
+ * its own transaction so a poison pair fails and retries on its own without blocking the rest of
+ * the batch. Keys whose contexts are returned as committed are cleared via {@code removeIfSame};
+ * everything else stays for the next tick to retry (no retention_dlq table in v1 — see plan Global
+ * Constraints).
  *
  * <p>{@code tick()} is {@code @Scheduled}; scheduling is turned on by {@code
  * RetentionBufferSchedulingConfig} (a gated {@code @EnableScheduling}) in ANY process that wires
- * the buffer — every GMS and MCE-consumer pod — not just the GMS analytics context. With the
- * Hazelcast backend all pods share one cluster-wide drain lock, so exactly one drains per tick
- * regardless of pod count or type; with the local Caffeine backend each pod simply drains its own
- * local buffer.
+ * the buffer — every GMS and MCE-consumer pod — not just the GMS analytics context. All pods share
+ * one cluster-wide drain lock, so exactly one drains per tick regardless of pod count or type.
+ * (Cluster discovery is Kubernetes-only; outside k8s each JVM is its own single-member cluster and
+ * drains its own buffer — still safe via idempotent version-range DELETEs, just no cross-pod
+ * coalescing.)
  *
  * <p>Drain-lock lease is not renewed mid-drain. If a batch of deletes exceeds the lease, another
  * pod may acquire the lock and drain concurrently; {@code removeIfSame} plus idempotent version-

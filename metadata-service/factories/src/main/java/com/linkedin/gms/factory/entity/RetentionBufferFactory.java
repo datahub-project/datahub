@@ -8,7 +8,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBufferFactory;
 import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
-import com.linkedin.metadata.config.hazelcast.RetentionBufferHazelcastCondition;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
@@ -25,18 +24,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
 /**
- * Wires the optional post-commit retention buffer + drainer on top of the store-agnostic {@link
- * CoalesceBufferFactory}. Controlled by {@link
+ * Wires the optional post-commit retention buffer + drainer on top of the {@link
+ * CoalesceBufferFactory} (Hazelcast-backed). Controlled by {@link
  * HazelcastBootstrapProperties#RETENTION_BUFFER_ENABLED} ({@code
- * featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}); the backend (Caffeine
- * or Hazelcast) is selected separately by {@code datahub.buffer.implementation}, which also decides
- * whether {@code HazelcastInstanceBootstrapCondition} provisions the shared {@code
- * hazelcastInstance} bean for this feature.
+ * featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}); turning it on also
+ * makes {@code HazelcastInstanceBootstrapCondition} provision the shared {@code hazelcastInstance}
+ * bean.
  *
  * <p>Behavior matrix:
  *
@@ -47,21 +44,23 @@ import org.springframework.context.annotation.Lazy;
  *   <li>{@code retentionBufferEnabled=true} but {@code postCommitRetentionEnabled=false} — neither
  *       buffer nor drainer bean is created; {@code EntityServiceImpl} keeps {@code
  *       RetentionBuffer.NO_OP} (sync DELETE).
- *   <li>Both flags true — a real {@link CoalesceRetentionBuffer} + {@link RetentionDrainer}, backed
- *       by whichever implementation {@link CoalesceBufferFactory} resolved.
+ *   <li>Both flags true — a real {@link CoalesceRetentionBuffer} + {@link RetentionDrainer} over
+ *       the shared Hazelcast map.
  * </ul>
  *
- * <p>{@link #retentionPendingMapConfig} and {@link #retentionDrainLockMapConfig} only matter when
- * the Hazelcast backend is selected; they register bounded {@link MapConfig}s that {@code
- * CacheConfig.hazelcastInstance} picks up automatically via its {@code List<MapConfig>} dependency
- * (no {@code hazelcast.xml}/{@code .yaml} config file exists in this repo).
+ * <p>{@link #retentionPendingMapConfig} and {@link #retentionDrainLockMapConfig} register bounded
+ * {@link MapConfig}s (gated on the same flag) that {@code CacheConfig.hazelcastInstance} picks up
+ * automatically via its {@code List<MapConfig>} dependency (no {@code hazelcast.xml}/{@code .yaml}
+ * config file exists in this repo).
  */
 @Slf4j
 @Configuration
 public class RetentionBufferFactory {
 
   @Bean
-  @Conditional(RetentionBufferHazelcastCondition.class)
+  @ConditionalOnProperty(
+      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      havingValue = "true")
   @Nonnull
   public MapConfig retentionPendingMapConfig(ConfigurationProvider configurationProvider) {
     RetentionBufferProperties props = effectiveProperties(configurationProvider);
@@ -77,7 +76,9 @@ public class RetentionBufferFactory {
   }
 
   @Bean
-  @Conditional(RetentionBufferHazelcastCondition.class)
+  @ConditionalOnProperty(
+      name = HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+      havingValue = "true")
   @Nonnull
   public MapConfig retentionDrainLockMapConfig(ConfigurationProvider configurationProvider) {
     RetentionBufferProperties props = effectiveProperties(configurationProvider);

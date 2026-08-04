@@ -6,10 +6,9 @@ import com.linkedin.metadata.buffer.CoalesceBuffers;
 import javax.annotation.Nonnull;
 
 /**
- * {@link RetentionBuffer} adapter over a store-agnostic {@link CoalesceBuffer}. Keeps the
- * retention-domain API (urn/aspect, keep-max version) separate from the buffer's backend (Caffeine
- * or Hazelcast, selected by {@code datahub.buffer.implementation}) so retention callers never see
- * {@code IMap} or Caffeine types.
+ * {@link RetentionBuffer} adapter over a {@link CoalesceBuffer}. Keeps the retention-domain API
+ * (urn/aspect, keep-max version) separate from the buffer's Hazelcast backend so retention callers
+ * never see {@code IMap} types.
  */
 public class CoalesceRetentionBuffer implements RetentionBuffer {
 

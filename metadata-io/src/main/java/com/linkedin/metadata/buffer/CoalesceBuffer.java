@@ -10,9 +10,8 @@ import javax.annotation.Nullable;
 /**
  * Store-agnostic coalescing buffer: callers merge repeated writes for the same key into a single
  * pending value, then a background drainer periodically {@link #drain}s bounded batches and applies
- * them. Implementations back this with a local cache (Caffeine) or a distributed store (Hazelcast
- * today; Redis/Dragonfly reserved for later) so callers never depend on the backing technology (no
- * {@code IMap}, Caffeine, or Redis types on this API).
+ * them. Backed by a distributed store (Hazelcast today; Redis/Dragonfly reserved for later) so
+ * callers never depend on the backing technology (no {@code IMap} or Redis types on this API).
  *
  * @param <K> coalescing key type
  * @param <V> pending value type

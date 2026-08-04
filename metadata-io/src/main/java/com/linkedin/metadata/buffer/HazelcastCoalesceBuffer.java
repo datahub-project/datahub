@@ -81,8 +81,8 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
     }
     // Bounded synchronous apply: submitToKey runs the entry processor on the owning member and we
     // wait up to MERGE_TIMEOUT_MS. Waiting keeps the merge observable to a drain that reads right
-    // after (the void CoalesceBuffer#merge contract, which Caffeine also honors) without the
-    // unbounded stall a plain executeOnKey would incur under a partition; a fire-and-forget
+    // after (the void CoalesceBuffer#merge contract) without the unbounded stall a plain
+    // executeOnKey would incur under a partition; a fire-and-forget
     // submitToKey would instead race the drain and drop coalesced updates. On timeout/failure the
     // merge is dropped and metric'd — best-effort, bloat not loss. No size()/containsKey() RTT.
     try {

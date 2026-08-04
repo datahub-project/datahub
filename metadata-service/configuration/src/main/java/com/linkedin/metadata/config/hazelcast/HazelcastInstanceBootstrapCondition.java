@@ -25,9 +25,8 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
       return true;
     }
     if (Boolean.parseBoolean(
-            env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))
-        && "hazelcast"
-            .equalsIgnoreCase(HazelcastBootstrapProperties.resolveBufferImplementation(env))) {
+        env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))) {
+      // Retention buffer is Hazelcast-backed only, so the flag alone requires the embedded node.
       return true;
     }
     // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone
