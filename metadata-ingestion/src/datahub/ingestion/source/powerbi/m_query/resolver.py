@@ -447,9 +447,12 @@ def _walk_identifier_name(
 
     resolved = resolve_identifier(node_map, current_let, name)
     if resolved is None:
-        # Not a local `let` variable. When collecting table references, this is
-        # a candidate reference to a sibling table in the same dataset.
-        if unresolved is not None:
+        # Not a local `let` variable. When collecting table references, this is a
+        # candidate reference to a sibling table — but skip dotted identifiers,
+        # which are M library/enum references (e.g. QuoteStyle.Csv,
+        # JoinKind.LeftOuter) that appear as function arguments and are never
+        # table names.
+        if unresolved is not None and "." not in name:
             unresolved.add(name)
         return
     _walk(

@@ -1,4 +1,4 @@
-"""Tests for M-Query table-to-table lineage (ING-1905).
+"""Tests for M-Query table-to-table lineage.
 
 Bridge-backed: each M-Query expression is parsed via the JS bridge, mirroring
 tests/unit/test_ast_utils.py. No static fixtures.
@@ -156,6 +156,77 @@ def test_get_upstream_tables_captures_sibling_reference() -> None:
     assert len(lineages) == 1
     assert lineages[0].powerbi_table_upstreams == ["factNewNames"]
     assert lineages[0].upstreams == []
+
+
+def test_sibling_reference_alongside_data_source() -> None:
+    # An M-Query that combines an external source with a sibling-table reference
+    # must surface both — the sibling ref is not skipped just because a
+    # recognized data-access function is present.
+    config = _config()
+    table = Table(
+        name="Combined",
+        full_name="d1.Combined",
+        expression=(
+            'let Source = Sql.Database("srv", "db"),'
+            " Combined = Table.Combine({Source, SiblingTable}) in Combined"
+        ),
+    )
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    all_refs = [name for lin in lineages for name in lin.powerbi_table_upstreams]
+    assert "SiblingTable" in all_refs
+
+
+def test_get_upstream_tables_captures_dax_calculated_table_reference() -> None:
+    # A DAX calculated-table expression fails M-Query parsing and is routed to the
+    # DAX extractor, which surfaces the referenced sibling table.
+    config = _config()
+    table = Table(
+        name="FMS Summary",
+        full_name="d1.FMS Summary",
+        expression="summarize('FMS Lookup', 'FMS Lookup'[FMSID])",
+    )
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    assert len(lineages) == 1
+    assert lineages[0].powerbi_table_upstreams == ["FMS Lookup"]
+    assert lineages[0].upstreams == []
+
+
+def test_dax_table_name_containing_let_substring() -> None:
+    # "Outlet" contains the substring "let" but is not the M-Query `let` keyword;
+    # the DAX expression must still be routed to the DAX extractor.
+    config = _config()
+    table = Table(
+        name="Outlet Summary",
+        full_name="d1.Outlet Summary",
+        expression="summarize('Outlet', 'Outlet'[Region])",
+    )
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    assert len(lineages) == 1
+    assert lineages[0].powerbi_table_upstreams == ["Outlet"]
 
 
 def test_sibling_reference_resolves_to_upstream_urn() -> None:
