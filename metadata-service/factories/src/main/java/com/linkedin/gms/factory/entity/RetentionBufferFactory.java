@@ -85,8 +85,24 @@ public class RetentionBufferFactory {
     return new MapConfig(props.getLockMapName()).setBackupCount(1);
   }
 
-  // Both beans gated on BOTH flags (array @ConditionalOnProperty) so neither is created — rather
-  // than registering a null bean — when only one flag is on. State matrix in the class javadoc.
+  // The single CoalesceBuffer bean is shared: retentionBuffer enqueues into it and retentionDrainer
+  // drains it, so no RetentionBuffer downcast is needed. (Two-flag gating + state matrix: class
+  // javadoc; none is created rather than a null bean when only one flag is on.)
+  @Bean
+  @ConditionalOnProperty(
+      name = {
+        HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED,
+        HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED
+      },
+      havingValue = "true")
+  @Nonnull
+  public CoalesceBuffer<RetentionKey, Long> retentionCoalesceBuffer(
+      ConfigurationProvider configurationProvider, CoalesceBufferFactory coalesceBufferFactory) {
+    RetentionBufferProperties props = effectiveProperties(configurationProvider);
+    return coalesceBufferFactory.create(
+        props.getMapName(), props.getLockMapName(), props.getMaxPendingEntries());
+  }
+
   @Bean
   @ConditionalOnProperty(
       name = {
@@ -96,12 +112,8 @@ public class RetentionBufferFactory {
       havingValue = "true")
   @Nonnull
   public RetentionBuffer retentionBuffer(
-      ConfigurationProvider configurationProvider, CoalesceBufferFactory coalesceBufferFactory) {
-    RetentionBufferProperties props = effectiveProperties(configurationProvider);
-    CoalesceBuffer<RetentionKey, Long> coalesceBuffer =
-        coalesceBufferFactory.create(
-            props.getMapName(), props.getLockMapName(), props.getMaxPendingEntries());
-    return new CoalesceRetentionBuffer(coalesceBuffer);
+      CoalesceBuffer<RetentionKey, Long> retentionCoalesceBuffer) {
+    return new CoalesceRetentionBuffer(retentionCoalesceBuffer);
   }
 
   @Bean
@@ -113,7 +125,7 @@ public class RetentionBufferFactory {
       havingValue = "true")
   @Nonnull
   public RetentionDrainer retentionDrainer(
-      RetentionBuffer retentionBuffer,
+      CoalesceBuffer<RetentionKey, Long> retentionCoalesceBuffer,
       @Qualifier("retentionService") RetentionService<ChangeItemImpl> retentionService,
       ConfigurationProvider configurationProvider,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
@@ -129,7 +141,7 @@ public class RetentionBufferFactory {
     }
     RetentionBufferProperties props = effectiveProperties(configurationProvider);
     return new RetentionDrainer(
-        ((CoalesceRetentionBuffer) retentionBuffer).getCoalesceBuffer(),
+        retentionCoalesceBuffer,
         retentionService,
         systemOperationContext,
         props.getDrainBatchSize(),

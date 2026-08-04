@@ -2869,8 +2869,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /**
    * Not part of the {@link EntityService} interface (avoids a circular dependency between
-   * metadata-service/services and metadata-io, where {@link RetentionBuffer} lives). Wired directly
-   * by {@code EntityServiceFactory} via an instanceof/cast check.
+   * metadata-service/services and metadata-io, where {@link RetentionBuffer} lives). Wired by
+   * {@code EntityServiceFactory} via {@code ObjectProvider.getIfAvailable()}; a null (no buffer
+   * bean) is normalized to {@link RetentionBuffer#NO_OP} so callers never see null.
    */
   public void setRetentionBuffer(@Nullable RetentionBuffer retentionBuffer) {
     this.retentionBuffer = retentionBuffer != null ? retentionBuffer : RetentionBuffer.NO_OP;

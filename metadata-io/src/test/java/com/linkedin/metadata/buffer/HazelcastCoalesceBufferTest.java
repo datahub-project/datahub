@@ -48,7 +48,7 @@ public class HazelcastCoalesceBufferTest {
   public void testMergeKeepsMaxValueOnCoalesce() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
 
     buffer.merge(KEY, 5L, CoalesceBuffers.KEEP_MAX_LONG);
     buffer.merge(KEY, 2L, CoalesceBuffers.KEEP_MAX_LONG);
@@ -64,7 +64,7 @@ public class HazelcastCoalesceBufferTest {
   public void testMergeRejectsNonKeepMaxLongPolicy() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     BinaryOperator<Long> notKeepMaxLong = (a, b) -> a;
 
     assertThrows(UnsupportedOperationException.class, () -> buffer.merge(KEY, 1L, notKeepMaxLong));
@@ -74,7 +74,7 @@ public class HazelcastCoalesceBufferTest {
   public void testDrainRespectsLimit() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     for (int i = 0; i < 5; i++) {
       buffer.merge(KEY + "-" + i, (long) i, CoalesceBuffers.KEEP_MAX_LONG);
     }
@@ -85,7 +85,7 @@ public class HazelcastCoalesceBufferTest {
   public void testRemoveIfSameOnlyRemovesMatchingValue() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(KEY, 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     assertFalse(buffer.removeIfSame(KEY, 999L));
@@ -97,7 +97,7 @@ public class HazelcastCoalesceBufferTest {
   public void testDrainLockIsMutuallyExclusive() {
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<String> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
 
     assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
     assertFalse(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
@@ -114,7 +114,7 @@ public class HazelcastCoalesceBufferTest {
     // Comparable and throws ClassCastException. String-keyed tests above cannot catch this.
     hazelcastInstance = newIsolatedInstance();
     HazelcastCoalesceBuffer<RetentionKey> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
 
     for (int i = 0; i < 5; i++) {
       buffer.merge(

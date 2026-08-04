@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -42,15 +41,6 @@ public class CoalesceRetentionBufferTest {
     CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(coalesceBuffer);
 
     assertTrue(buffer.defersApply());
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testGetCoalesceBufferReturnsWrappedInstance() {
-    CoalesceBuffer<RetentionKey, Long> coalesceBuffer = mock(CoalesceBuffer.class);
-    CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(coalesceBuffer);
-
-    assertSame(buffer.getCoalesceBuffer(), coalesceBuffer);
   }
 
   /**

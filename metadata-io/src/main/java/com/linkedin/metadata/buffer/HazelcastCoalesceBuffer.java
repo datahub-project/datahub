@@ -5,6 +5,7 @@ import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.IMap;
 import com.hazelcast.query.PagingPredicate;
 import com.hazelcast.query.Predicates;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -12,9 +13,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BinaryOperator;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -42,15 +46,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
 
+  // Fail-fast bound on the per-merge cluster op so a partitioned / GC-paused member cannot stall
+  // the
+  // ingest thread for Hazelcast's (5-minute) default operation timeout. On timeout the merge is
+  // dropped (best-effort: under-coalescing = bloat, never data loss).
+  private static final long MERGE_TIMEOUT_MS = 1000L;
+
   private final IMap<K, Long> pendingMap;
   private final IMap<String, Boolean> lockMap;
+  @Nullable private final MetricUtils metricUtils;
 
   public HazelcastCoalesceBuffer(
       @Nonnull HazelcastInstance hazelcastInstance,
       @Nonnull String name,
-      @Nonnull String lockMapName) {
+      @Nonnull String lockMapName,
+      @Nullable MetricUtils metricUtils) {
     this.pendingMap = hazelcastInstance.getMap(name);
     this.lockMap = hazelcastInstance.getMap(lockMapName);
+    this.metricUtils = metricUtils;
   }
 
   @Override
@@ -63,12 +76,32 @@ public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
           "HazelcastCoalesceBuffer only supports CoalesceBuffers.KEEP_MAX_LONG until "
               + "IdentifiedDataSerializable merge policies exist");
     }
-    // Synchronous single-key entry processor: the merge must be observable once this returns, so a
-    // drain reading immediately afterwards sees it (the void CoalesceBuffer#merge contract, which
-    // Caffeine also honors). Async submitToKey would race the drain and drop coalesced updates.
-    // No size()/containsKey() round-trip. Tradeoff: this opt-in, best-effort, post-commit path can
-    // block the ingest thread up to the Hazelcast operation timeout under a partitioned cluster.
-    pendingMap.executeOnKey(key, new KeepMaxLongProcessor<>(value));
+    // Bounded synchronous apply: submitToKey runs the entry processor on the owning member and we
+    // wait up to MERGE_TIMEOUT_MS. Waiting keeps the merge observable to a drain that reads right
+    // after (the void CoalesceBuffer#merge contract, which Caffeine also honors) without the
+    // unbounded stall a plain executeOnKey would incur under a partition; a fire-and-forget
+    // submitToKey would instead race the drain and drop coalesced updates. On timeout/failure the
+    // merge is dropped and metric'd — best-effort, bloat not loss. No size()/containsKey() RTT.
+    try {
+      pendingMap
+          .submitToKey(key, new KeepMaxLongProcessor<>(value))
+          .toCompletableFuture()
+          .get(MERGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      incrementDrop("retention_buffer_merge_timeout");
+    } catch (ExecutionException e) {
+      incrementDrop("retention_buffer_merge_failed");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      incrementDrop("retention_buffer_merge_interrupted");
+    }
+  }
+
+  private void incrementDrop(@Nonnull String metric) {
+    log.debug("Hazelcast retention merge dropped ({})", metric);
+    if (metricUtils != null) {
+      metricUtils.increment(HazelcastCoalesceBuffer.class, metric, 1);
+    }
   }
 
   @Override

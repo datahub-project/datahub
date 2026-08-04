@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.retention.buffer;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
+import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -72,10 +73,14 @@ public class RetentionDrainer {
     this.metricUtils = metricUtils;
   }
 
-  // Scheduling is enabled by RetentionBufferSchedulingConfig (@EnableScheduling gated on the same
-  // buffer flags), so this fires in every process that wires the buffer — GMS and MCE-consumer pods
-  // alike — not just the GMS analytics context. Interval from the property, not a POJO field read.
-  @Scheduled(fixedDelayString = "${datahub.retention.buffer.drainIntervalMs:5000}")
+  // Default shared with RetentionBufferProperties.DEFAULT_DRAIN_INTERVAL_MS so the placeholder
+  // fallback and the POJO field default can't drift. (Scheduling gate:
+  // RetentionBufferSchedulingConfig.)
+  @Scheduled(
+      fixedDelayString =
+          "${datahub.retention.buffer.drainIntervalMs:"
+              + RetentionBufferProperties.DEFAULT_DRAIN_INTERVAL_MS
+              + "}")
   public void tick() {
     if (!enabled) {
       return;

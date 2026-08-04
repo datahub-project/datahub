@@ -51,10 +51,9 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
       // a BinaryOperator<V> that isn't KEEP_MAX_LONG, which HazelcastCoalesceBuffer.merge rejects
       // with UnsupportedOperationException on first use — a clear fail, not a silent CCE. Callers
       // needing other V must use caffeine, or add new processors here.
-      // maxPendingEntries is enforced by MapConfig (RetentionBufferFactory), not on the hot
-      // merge path — avoids distributed size()/containsKey() on every ingest enqueue.
       return (CoalesceBuffer<K, V>)
-          (CoalesceBuffer<?, ?>) new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName);
+          (CoalesceBuffer<?, ?>)
+              new HazelcastCoalesceBuffer<K>(hazelcastInstance, name, lockName, metricUtils);
     }
     return new CaffeineCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
   }

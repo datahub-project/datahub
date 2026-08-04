@@ -31,12 +31,4 @@ public class CoalesceRetentionBuffer implements RetentionBuffer {
   public boolean defersApply() {
     return true;
   }
-
-  /**
-   * Exposed for {@code RetentionDrainer} wiring only; not part of the {@link RetentionBuffer} API.
-   */
-  @Nonnull
-  public CoalesceBuffer<RetentionKey, Long> getCoalesceBuffer() {
-    return buffer;
-  }
 }

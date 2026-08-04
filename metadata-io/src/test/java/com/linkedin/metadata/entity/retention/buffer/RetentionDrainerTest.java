@@ -71,7 +71,7 @@ public class RetentionDrainerTest {
   public void testTickAppliesRetentionAndRemovesKeyOnSuccess() {
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
@@ -93,7 +93,7 @@ public class RetentionDrainerTest {
   public void testTickLeavesKeyForRetryOnFailure() {
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
@@ -118,7 +118,7 @@ public class RetentionDrainerTest {
   public void testTickSkipsWhenDisabled() {
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
@@ -136,7 +136,7 @@ public class RetentionDrainerTest {
   public void testTickSkipsWhenAnotherDrainerHoldsLock() {
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME);
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
     assertTrue(buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60)));
 
@@ -170,14 +170,7 @@ public class RetentionDrainerTest {
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
-        new RetentionDrainer(
-            retentionBuffer.getCoalesceBuffer(),
-            retentionService,
-            SYSTEM_CONTEXT,
-            10,
-            60_000L,
-            true,
-            null);
+        new RetentionDrainer(caffeine, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
 
     drainer.tick();
 

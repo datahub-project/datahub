@@ -1,7 +1,5 @@
 package com.linkedin.metadata.buffer;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Duration;
 import java.util.AbstractMap;
@@ -18,13 +16,14 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Local, single-JVM {@link CoalesceBuffer} backed by a Caffeine {@link Cache}. No cross-pod
- * coalescing: each GMS pod has its own independent buffer.
+ * Local, single-JVM {@link CoalesceBuffer} backed by a plain {@link ConcurrentHashMap}. No
+ * cross-pod coalescing: each pod has its own independent buffer. ("caffeine" is the config-facing
+ * backend id in {@code datahub.buffer.implementation}; no Caffeine eviction features are needed
+ * here.)
  *
- * <p>Deliberately built with no {@code maximumSize}/eviction policy on the Caffeine cache itself —
- * silent Caffeine-driven eviction would drop pending entries without the explicit "bloat, not loss"
- * overflow accounting this class provides for new keys, so capacity is enforced manually in {@link
- * #merge} instead (existing keys are never evicted, only new keys are rejected once full).
+ * <p>Capacity is enforced manually in {@link #merge} rather than via a cache eviction policy, so an
+ * over-capacity insert is accounted as an explicit "bloat, not loss" overflow drop — existing keys
+ * are never evicted, only new keys are rejected once full.
  *
  * <p>Drain locks are local, non-reentrant, and lease-based: each holds an expiry timestamp keyed by
  * lock name, coordinating drainer threads within this JVM only (not cluster-wide). The {@code
@@ -46,8 +45,7 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
     this.name = name;
     this.maxPendingEntries = maxPendingEntries;
     this.metricUtils = metricUtils;
-    Cache<K, V> cache = Caffeine.newBuilder().build();
-    this.map = cache.asMap();
+    this.map = new ConcurrentHashMap<>();
   }
 
   @Override

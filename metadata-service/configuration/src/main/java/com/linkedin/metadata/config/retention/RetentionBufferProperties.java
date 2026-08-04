@@ -16,6 +16,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RetentionBufferProperties {
+
+  /**
+   * Single source of the drain-interval default. Referenced both by this POJO's {@code
+   * drainIntervalMs} field and by {@code RetentionDrainer}'s {@code @Scheduled} placeholder (as a
+   * compile-time constant, which the annotation requires), so the two can never drift.
+   * (String-typed because the {@code @Scheduled} placeholder needs a String constant.)
+   */
+  public static final String DEFAULT_DRAIN_INTERVAL_MS = "5000";
+
   @Builder.Default private String mapName = "retention-pending";
   @Builder.Default private String lockMapName = "retention-drain-lock";
   @Builder.Default private int maxPendingEntries = 100_000;
@@ -24,12 +33,11 @@ public class RetentionBufferProperties {
   /**
    * Bound from {@code datahub.retention.buffer.drainIntervalMs} for config surface /
    * PropertiesCollector. Not read by Java callers of this POJO — {@code RetentionDrainer} consumes
-   * the same Spring property key via {@code @Scheduled(fixedDelayString =
-   * "${datahub.retention.buffer.drainIntervalMs:5000}")}. The {@code 5000} default is duplicated in
-   * both places (the {@code @Scheduled} placeholder must be a compile-time literal, and this POJO
-   * lives in a different module) — no shared constant is possible, so keep both in sync by hand.
+   * the same Spring property key via {@code @Scheduled}. Both defaults come from {@link
+   * #DEFAULT_DRAIN_INTERVAL_MS}. (The application.yaml default is separate and authoritative at
+   * runtime; these are only the code fallbacks when the property is unset.)
    */
-  @Builder.Default private long drainIntervalMs = 5000;
+  @Builder.Default private long drainIntervalMs = Long.parseLong(DEFAULT_DRAIN_INTERVAL_MS);
 
   /**
    * Safety-net lease on the single-winner drain lock so a drainer that dies mid-drain does not
