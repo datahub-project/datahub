@@ -7,10 +7,12 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -50,6 +52,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
 
     List<String> groupAliases = new ArrayList<>();
     List<String> groupSql = new ArrayList<>();
+    List<String> stringGroupPathExprs = new ArrayList<>();
     int bi = 0;
     for (GroupingBucket b : buckets) {
       String alias = "g" + (bi++);
@@ -68,8 +71,11 @@ public final class PostgresTimeseriesAggregatedStatsDao {
                 + "') AS "
                 + alias);
       } else if (b.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
-        groupSql.add(
-            PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey()) + " AS " + alias);
+        String pathExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
+        // ES terms buckets omit missing values; parent (non-exploded) rows lack collection fields
+        // such as userCounts.user, so exclude NULL/empty keys to avoid a phantom NULL group.
+        stringGroupPathExprs.add(pathExpr);
+        groupSql.add(pathExpr + " AS " + alias);
       } else {
         throw new UnsupportedOperationException("Unsupported grouping bucket type: " + b.getType());
       }
@@ -77,10 +83,14 @@ public final class PostgresTimeseriesAggregatedStatsDao {
 
     List<String> metricSql = new ArrayList<>();
     List<String> metricColumnNames = new ArrayList<>();
+    List<AggregationType> metricAggTypes = new ArrayList<>();
+    List<DataSchema.Type> metricMemberTypes = new ArrayList<>();
     for (AggregationSpec spec : aggregationSpecs) {
       String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(spec.getFieldPath());
       String colName = getAggregationSpecAggDisplayName(spec);
       metricColumnNames.add(colName);
+      metricAggTypes.add(spec.getAggregationType());
+      metricMemberTypes.add(getTimeseriesFieldType(aspectSpec, spec.getFieldPath()));
       String sqlAlias = sqlSafeAlias(colName);
       switch (spec.getAggregationType()) {
         case SUM:
@@ -130,6 +140,13 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     sql.append(" FROM ").append(qualifiedTable);
     sql.append(" WHERE entity_name = ? AND aspect_name = ? ");
     sql.append(" AND (").append(filterSql.getExpression()).append(")");
+    for (String pathExpr : stringGroupPathExprs) {
+      sql.append(" AND ")
+          .append(pathExpr)
+          .append(" IS NOT NULL AND ")
+          .append(pathExpr)
+          .append(" <> ''");
+    }
     if (!groupSql.isEmpty()) {
       sql.append(" GROUP BY ");
       sql.append(String.join(", ", groupAliases));
@@ -182,7 +199,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           }
           for (int j = 0; j < metricColumnNames.size(); j++) {
             Object v = rs.getObject(col++);
-            row.add(v == null ? ES_NULL_VALUE : String.valueOf(v));
+            row.add(formatMetricCell(v, metricAggTypes.get(j), metricMemberTypes.get(j)));
           }
           rows.add(new StringArray(row));
         }
@@ -204,6 +221,53 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       return String.valueOf(((Timestamp) o).getTime());
     }
     return String.valueOf(o);
+  }
+
+  /**
+   * Match {@link com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO} cell
+   * formatting: integral SUM values as long strings ({@code "6"} not {@code "6.0"}), cardinality as
+   * long.
+   */
+  @Nonnull
+  static String formatMetricCell(
+      @Nullable Object value,
+      @Nonnull AggregationType aggregationType,
+      @Nonnull DataSchema.Type memberType) {
+    if (value == null) {
+      return ES_NULL_VALUE;
+    }
+    switch (aggregationType) {
+      case SUM:
+        switch (memberType) {
+          case INT:
+          case LONG:
+            return String.valueOf(toLong(value));
+          case DOUBLE:
+          case FLOAT:
+            return String.valueOf(toDouble(value));
+          default:
+            return String.valueOf(toDouble(value));
+        }
+      case CARDINALITY:
+        return String.valueOf(toLong(value));
+      case LATEST:
+      default:
+        return String.valueOf(value);
+    }
+  }
+
+  private static long toLong(@Nonnull Object value) {
+    if (value instanceof Number) {
+      return ((Number) value).longValue();
+    }
+    return new BigDecimal(value.toString().trim()).longValue();
+  }
+
+  private static double toDouble(@Nonnull Object value) {
+    if (value instanceof Number) {
+      return ((Number) value).doubleValue();
+    }
+    return Double.parseDouble(value.toString().trim());
   }
 
   private static String sqlSafeAlias(String name) {
@@ -242,8 +306,10 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     }
   }
 
-  private static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
-    if ("timestampMillis".equals(fieldPath)) {
+  /** Resolved member type for a timeseries field path (parity with ESAggregatedStatsDAO). */
+  @Nonnull
+  static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
+    if ("timestampMillis".equals(fieldPath) || "@timestamp".equals(fieldPath)) {
       return DataSchema.Type.LONG;
     }
     String[] memberParts = fieldPath.split("\\.");
@@ -256,6 +322,18 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
       if (coll != null) {
         return coll.getPegasusSchema().getType();
+      }
+    } else if (memberParts.length == 2) {
+      TimeseriesFieldCollectionSpec coll =
+          aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
+      if (coll != null) {
+        if (coll.getTimeseriesFieldCollectionAnnotation().getKey().equals(memberParts[1])) {
+          return DataSchema.Type.STRING;
+        }
+        TimeseriesFieldSpec tsFieldSpec = coll.getTimeseriesFieldSpecMap().get(memberParts[1]);
+        if (tsFieldSpec != null) {
+          return tsFieldSpec.getPegasusSchema().getType();
+        }
       }
     }
     return DataSchema.Type.STRING;
