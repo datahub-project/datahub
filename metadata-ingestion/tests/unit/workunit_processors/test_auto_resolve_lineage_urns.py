@@ -15,6 +15,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline_config import (
     AutoResolveLineageUrnsConfig,
+    LineageUrnResolutionMode,
     UpstreamPlatformCasing,
 )
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
@@ -962,6 +963,7 @@ def _ctx(
     enabled: bool,
     graph: object,
     upstream_platforms: Optional[List[UpstreamPlatformCasing]] = None,
+    mode: Optional[str] = None,
 ) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = graph
@@ -970,6 +972,7 @@ def _ctx(
         upstream_platforms=upstream_platforms
         if upstream_platforms is not None
         else [UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+        **({"mode": mode} if mode is not None else {}),
     )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -992,6 +995,35 @@ def test_enabled_without_upstream_platforms_is_a_config_error():
     # config parse rather than silently no-op.
     with pytest.raises(pydantic.ValidationError, match="upstream_platforms"):
         AutoResolveLineageUrnsConfig(enabled=True, upstream_platforms=[])
+
+
+def test_bulk_catalog_is_the_default_mode():
+    # An existing recipe must behave exactly as it does today on upgrade.
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+    )
+    assert cfg.mode == LineageUrnResolutionMode.BULK_CATALOG
+
+
+def test_alias_lookup_mode_does_not_require_upstream_platforms():
+    # Nothing is downloaded per platform in this mode, so there is nothing to configure.
+    cfg = AutoResolveLineageUrnsConfig(enabled=True, mode="alias_lookup")
+    assert cfg.mode == LineageUrnResolutionMode.ALIAS_LOOKUP
+
+
+def test_unknown_mode_is_rejected():
+    with pytest.raises(pydantic.ValidationError):
+        AutoResolveLineageUrnsConfig(enabled=True, mode="batch")
+
+
+def test_enabled_in_alias_lookup_mode_without_platforms():
+    assert (
+        AutoResolveLineageUrnsProcessor.should_enable(
+            _ctx(True, mock.MagicMock(), upstream_platforms=[], mode="alias_lookup")
+        )
+        is True
+    )
 
 
 def test_enabled_when_flag_on_with_graph():

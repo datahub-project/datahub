@@ -4,11 +4,17 @@ import datetime
 import logging
 import random
 import string
+from enum import auto
 from typing import Dict, List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
+from datahub.configuration.common import (
+    ConfigEnum,
+    ConfigModel,
+    DynamicTypedConfig,
+    HiddenFromDocs,
+)
 from datahub.configuration.env_vars import (
     get_progress_report_max_failures,
     get_progress_report_max_infos,
@@ -76,6 +82,13 @@ class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
         return DataPlatformUrn(v).platform_name
 
 
+class LineageUrnResolutionMode(ConfigEnum):
+    """How a lineage reference is resolved to the URN DataHub actually stores."""
+
+    BULK_CATALOG = auto()
+    ALIAS_LOOKUP = auto()
+
+
 class AutoResolveLineageUrnsConfig(ConfigModel):
     """Configuration for the auto-resolve lineage URNs work unit processor.
 
@@ -92,24 +105,37 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
         "connector extra that bundles it. Every intended BI/dashboard connector already "
         "does, so the target use case needs no extra install.",
     )
+    mode: LineageUrnResolutionMode = Field(
+        default=LineageUrnResolutionMode.BULK_CATALOG,
+        description="How references are resolved. `bulk_catalog` (the default) downloads "
+        "each configured upstream platform's catalog up front and matches references "
+        "against that copy, so it heals only references DataHub stores as-given or "
+        "lowercased. `alias_lookup` queries DataHub per reference instead — no catalog "
+        "download, and matches any casing — but requires a server that registers the "
+        "`aliases` aspect.",
+    )
     upstream_platforms: List[UpstreamPlatformCasing] = Field(
         default_factory=list,
         description="The upstream warehouse platform(s) to bulk-load and reconcile "
         "lineage references against. References to platforms not listed here are "
-        "left unchanged.",
+        "left unchanged. Required in `bulk_catalog` mode; ignored in `alias_lookup` "
+        "mode, which resolves any platform without being told about it.",
     )
 
     @model_validator(mode="after")
     def _require_upstream_platforms_when_enabled(
         self,
     ) -> "AutoResolveLineageUrnsConfig":
-        # Enabled with no upstream_platforms has nothing to reconcile against — every
-        # reference would no-op. Fail fast rather than silently doing nothing.
-        if self.enabled and not self.upstream_platforms:
+        if (
+            self.enabled
+            and self.mode is LineageUrnResolutionMode.BULK_CATALOG
+            and not self.upstream_platforms
+        ):
             raise ValueError(
-                "auto_resolve_lineage_urns is enabled but no upstream_platforms are "
-                "configured; there is nothing to reconcile against. List the upstream "
-                "warehouse platform(s) this source references, or set enabled: false."
+                "auto_resolve_lineage_urns is enabled in bulk_catalog mode but no "
+                "upstream_platforms are configured; there is nothing to reconcile "
+                "against. List the upstream warehouse platform(s) this source "
+                "references, use mode: alias_lookup, or set enabled: false."
             )
         return self
 
@@ -118,7 +144,10 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
         # Fail fast at config parse (only when enabled) if the SQL parser is missing,
         # rather than deep in the processor at run time. Resolution reuses the
         # SchemaResolver, which depends on sqlglot; sqlglot is not in the ingestion core,
-        # so a source whose extra doesn't bundle it would otherwise fail mid-run.
+        # so a source whose extra doesn't bundle it would otherwise fail mid-run. Required
+        # in alias_lookup mode too: it doesn't resolve via SchemaResolver, but the column
+        # matching and schema conversion it uses still live in that sqlglot-importing
+        # module. Extracting those is what will narrow this to bulk_catalog only.
         if self.enabled:
             try:
                 import sqlglot  # noqa: F401

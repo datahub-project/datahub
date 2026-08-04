@@ -23,17 +23,19 @@ entire downstream path.
 
 ## Two ways to keep lineage connected
 
-**`convert_urns_to_lowercase` (legacy).** The older mitigation is this per-source flag, which keeps
-lineage connected by **lowercasing every URN**. It works only when enabled consistently across _all_
-sources that reference the same entities, isn't available on some BI connectors (e.g. Looker, Tableau),
-and — because it flattens every identity to lowercase — loses the warehouse's real display casing and can
-even merge two genuinely different tables (`MyTable` and `mytable`) into one entity.
+**`convert_urns_to_lowercase` (legacy)** — a per-source flag that **lowercases every URN**. Drawbacks:
 
-**Lineage URN casing normalization (recommended).** Instead of flattening identities, this feature
-resolves each upstream reference to the casing of the entity that **already exists** in DataHub. It is
-preferred because it **does not alter the identity of your assets**: the warehouse keeps its original
-casing, reconciliation happens per ingestion with no cross-source coordination, and references are only
-rewritten when the match is unambiguous. It is opt-in and **not enabled by default**.
+- must be enabled consistently across _all_ sources referencing the same entities
+- unavailable on some BI connectors (e.g. Looker, Tableau)
+- loses the warehouse's real display casing, and can merge `MyTable` with `mytable`
+
+**Lineage URN casing normalization (recommended)** — rewrites each upstream reference to the casing of the
+entity that **already exists** in DataHub, leaving asset identity untouched:
+
+- the warehouse keeps its original casing
+- reconciliation is per ingestion, with no cross-source coordination
+- references are rewritten only when an existing entity matches
+- opt-in, **not enabled by default**
 
 ## How it works
 
@@ -50,12 +52,11 @@ downstream fields are never touched — the feature respects the casing the ware
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
-> **Current coverage limit.** Reconciliation currently heals a reference when the warehouse stores the
-> entity in its **lowercased** form (the common Snowflake/BigQuery default) — regardless of how the BI
-> tool cased it. A warehouse that keeps a **non-lowercase** identity (UPPER / Pascal / Mixed) is **not
-> yet** reconciled, and ambiguous case-collisions are not detected. Full any-casing resolution and
-> collision-safety are planned as backend infrastructure; once it lands, this feature picks it up
-> automatically with no config change.
+> **Coverage depends on the resolution mode.** The default `bulk_catalog` mode heals a reference when the
+> warehouse stores the entity in its **lowercased** form (the common Snowflake/BigQuery default),
+> regardless of how the BI tool cased it; a warehouse that keeps a **non-lowercase** identity
+> (UPPER / Pascal / Mixed) is not reconciled, and case-collisions are not detected. The `alias_lookup`
+> mode covers **every** casing and handles collisions. See [Resolution modes](#resolution-modes).
 
 ### What gets fixed
 
@@ -71,8 +72,43 @@ Column-level casing is corrected the same way, using the schema DataHub stores f
 | `dataProcessInstance` run lineage                       | ❌ not yet covered                        |
 
 A DataJob's **outputs** are its own declared products, so they are deliberately left untouched — the
-feature never rewrites an entity's own or downstream side. The not-yet-covered rows are incremental
-follow-ups; most connectors emit the covered aspects.
+feature never rewrites an entity's own or downstream side.
+
+## Resolution modes
+
+Both modes reconcile the same references and record the same match types; they differ only in how the
+stored URN is found.
+
+**`bulk_catalog` (default).** Downloads each configured upstream platform's catalog once at the start of
+the run and matches against it locally. Because it rebuilds the URN from the table's name parts, it can
+also heal a reference whose platform-instance prefix is missing or miscased — the one thing `alias_lookup`
+cannot do.
+
+**`alias_lookup`.** Looks each reference up directly in DataHub, using an index the server maintains of
+every dataset's lowercased URN:
+
+- downloads no catalog
+- covers **every** casing, not just the lowercased form
+- handles case-collisions instead of missing them (below)
+- resolves any platform, so `upstream_platforms` is not consulted
+- matches **by casing alone**, so a reference with a wrong platform-instance prefix stays unresolved
+
+When two live entities differ only by casing — usually the residue of turning `convert_urns_to_lowercase`
+on or off — the reference resolves to whichever it matches exactly, else to the **lowercased** one, since
+that is the variant the flag produced. Retired duplicates don't interfere: soft-deleted entities are never
+candidates. Only when neither the reference nor the lowercased form exists is it left unchanged and
+reported.
+
+`alias_lookup` requires a DataHub server that registers the `aliases` aspect on datasets. On an older
+server the run **fails at startup** with an actionable message rather than silently resolving nothing.
+
+Start on the default. Switch to `alias_lookup` when your warehouse keeps non-lowercase identities, when
+the catalog is large enough that holding it in memory is a problem, or when you'd rather not maintain
+`upstream_platforms`.
+
+> **Not necessarily faster.** `alias_lookup` trades one large upfront download for one small query per
+> reference, and references are not memoized — a table referenced by fifty dashboards costs fifty
+> lookups. Pick it for coverage and memory, not for run time.
 
 ## Enabling the feature
 
@@ -102,13 +138,24 @@ sink:
 
 ### Configuration reference
 
-| Field                                    | Required           | Default | Description                                                                     |
-| ---------------------------------------- | ------------------ | ------- | ------------------------------------------------------------------------------- |
-| `enabled`                                | yes                | `false` | Whether to reconcile upstream lineage URN casing.                               |
-| `upstream_platforms`                     | yes (when enabled) | `[]`    | Upstream warehouse platform(s) to reconcile against. Others are left unchanged. |
-| `upstream_platforms[].platform`          | yes                | —       | The upstream data platform, e.g. `snowflake`.                                   |
-| `upstream_platforms[].platform_instance` | no                 | `null`  | Platform instance of the upstream platform, if any.                             |
-| `upstream_platforms[].env`               | no                 | `PROD`  | Environment (FabricType) of the upstream platform's assets.                     |
+| Field                                    | Required               | Default        | Description                                                                                                     |
+| ---------------------------------------- | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `enabled`                                | yes                    | `false`        | Whether to reconcile upstream lineage URN casing.                                                               |
+| `mode`                                   | no                     | `bulk_catalog` | `bulk_catalog` or `alias_lookup` — see [Resolution modes](#resolution-modes).                                   |
+| `upstream_platforms`                     | in `bulk_catalog` mode | `[]`           | Upstream warehouse platform(s) to reconcile against. Others are left unchanged. Ignored in `alias_lookup` mode. |
+| `upstream_platforms[].platform`          | yes                    | —              | The upstream data platform, e.g. `snowflake`.                                                                   |
+| `upstream_platforms[].platform_instance` | no                     | `null`         | Platform instance of the upstream platform, if any.                                                             |
+| `upstream_platforms[].env`               | no                     | `PROD`         | Environment (FabricType) of the upstream platform's assets.                                                     |
+
+To use `alias_lookup`, set the mode and drop `upstream_platforms` — every platform is resolved without
+being listed:
+
+```yaml
+flags:
+  auto_resolve_lineage_urns:
+    enabled: true
+    mode: alias_lookup
+```
 
 ### Where to enable it
 
@@ -118,24 +165,25 @@ Tableau, Sigma, Redash, Superset, Qlik, etc.), pointing it at the upstream wareh
 Do **not** enable it on the warehouse ingestion itself (e.g. Snowflake) — the warehouse is the source of
 truth for its own casing and identity.
 
-> **Expect mostly `EXACT` if there is no actual mismatch.** The feature only rewrites genuine casing
-> mismatches. If both sides already agree on casing, references are recorded `EXACT` with zero rewrites —
-> that is the feature working correctly. You'll see `NORMALIZED` only where the two sides disagree.
+> **Expect mostly `EXACT`.** Where both sides already agree on casing, references are recorded `EXACT`
+> with zero rewrites — that is the feature working correctly. `NORMALIZED` appears only where they
+> disagree.
 
 ## Match types
 
-For every upstream reference **on a configured platform**, the feature records a `matchType` on the
-lineage aspect:
+For every upstream reference **in scope** — the configured platforms in `bulk_catalog` mode, any dataset
+reference in `alias_lookup` mode — the feature records a `matchType` on the lineage aspect:
 
 - **`EXACT`** — already matched an existing entity exactly, including casing. Left unchanged.
 - **`NORMALIZED`** — rewritten to heal a casing mismatch against an existing entity.
-- **`UNRESOLVED`** — could not be resolved to a single existing entity (no match, or an ambiguous
-  collision). Left unchanged, but flagged so potentially **broken lineage** is visible rather than
-  indistinguishable from a clean edge.
+- **`UNRESOLVED`** — no existing entity matched, or several did with no way to choose between them. Left
+  unchanged, but flagged so potentially **broken lineage** is visible rather than indistinguishable from a
+  clean edge.
 
-**No `matchType` means the reference is out of scope** — its platform isn't configured, the feature is
-disabled for that source, or the data predates the feature. Absence is not a verdict. Stamping is
-ingest-time only: existing metadata is updated only when its source is re-ingested with the feature on.
+**No `matchType` means the reference is out of scope** — it isn't a dataset reference, its platform isn't
+configured (`bulk_catalog` only), the feature is disabled for that source, or the data predates the
+feature. Absence is not a verdict. Stamping is ingest-time only: existing metadata is updated only when
+its source is re-ingested with the feature on.
 
 ## Requirements and limitations
 
@@ -147,17 +195,18 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   and the BI source re-runs.
 - **Does not retroactively heal existing broken edges.** Re-ingest the affected source after enabling the
   flag to fix them.
-- **Conservative on collisions.** On case-sensitive platforms where two genuinely different tables differ
-  only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
-- **Reconciles against tables that have a schema in DataHub.** A referenced table that exists without a
-  schema (more common on schemaless platforms like Kafka/DynamoDB) is left unchanged and reported
-  `UNRESOLVED`. Broadening this is a tracked follow-up.
+- **Conservative on collisions.** When two entities differ only by casing and neither the reference nor
+  the lowercased form is one of them, the reference is left unchanged rather than risk merging distinct
+  tables. These get their own warning, since the fix (remove the duplicate entity) differs from the fix
+  for an unresolved reference (ingest the upstream). Only `alias_lookup` mode sees collisions at all —
+  see [Resolution modes](#resolution-modes).
+- **In `bulk_catalog` mode, reconciles only against tables that have a schema in DataHub.** A referenced
+  table that exists without a schema (more common on schemaless platforms like Kafka/DynamoDB) is left
+  unchanged and reported `UNRESOLVED`. `alias_lookup` mode resolves on existence and is unaffected.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage
   unchanged.
-- **Only reconciles full-aspect (UPSERT) lineage, not PATCH.** A lineage aspect emitted as a patch
-  (e.g. `dataJobInputOutput` via `DatasetPatchBuilder.add_upstream_lineage` / `DataJobPatchBuilder`,
-  used by some dbt / Airflow / Spark paths) is emitted unchanged and counted under
-  `num_patch_lineage_skipped` with an end-of-run warning. The BI/dashboard targets emit full aspects
-  and are unaffected; broadening this to patches is a tracked follow-up.
+- **Only reconciles full-aspect (UPSERT) lineage, not PATCH.** A lineage aspect emitted as a patch (some
+  dbt / Airflow / Spark paths) is emitted unchanged and counted under `num_patch_lineage_skipped` with an
+  end-of-run warning. The BI/dashboard targets emit full aspects and are unaffected.

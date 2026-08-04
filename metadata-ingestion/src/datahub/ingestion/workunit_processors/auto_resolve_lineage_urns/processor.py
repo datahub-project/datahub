@@ -31,6 +31,7 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessor,
     WorkunitProcessorContext,
 )
+from datahub.ingestion.run.pipeline_config import LineageUrnResolutionMode
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns.models import (
     EXACT,
     NORMALIZED,
@@ -126,18 +127,12 @@ class AutoResolveLineageUrnsProcessor(
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
-        # Deferred imports, for the same reason the module docstring gives: both of these
-        # reach sqlglot-backed code, and this __init__ runs only once should_enable() has
-        # confirmed the feature is on.
-        from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns.bulk import (
-            BulkCatalogStrategy,
-        )
         from datahub.sql_parsing.schema_resolver import match_columns_to_schema
 
         self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]] = (
             match_columns_to_schema
         )
-        self._strategy: ResolutionStrategy = BulkCatalogStrategy(ctx)
+        self._strategy: ResolutionStrategy = self._make_strategy(ctx)
         # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
         # These are the aspects a BI / orchestration source emits that carry *upstream
         # dataset* references — the only refs affected by cross-source casing mismatch:
@@ -164,19 +159,35 @@ class AutoResolveLineageUrnsProcessor(
             aspect_cls.ASPECT_NAME for aspect_cls, _ in self._normalizers
         }
 
+    @staticmethod
+    def _make_strategy(ctx: WorkunitProcessorContext) -> ResolutionStrategy:
+        """The resolution strategy the config selects. Lazily imported, as above."""
+        mode = ctx.pipeline_context.flags.auto_resolve_lineage_urns.mode
+        if mode is LineageUrnResolutionMode.ALIAS_LOOKUP:
+            from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns.alias_lookup import (
+                AliasLookupStrategy,
+            )
+
+            return AliasLookupStrategy(ctx)
+        from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns.bulk import (
+            BulkCatalogStrategy,
+        )
+
+        return BulkCatalogStrategy(ctx)
+
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
-        # Fail closed on a degenerate/mock config: this processor is in the shared chain
-        # for *every* source, and some connector tests build a source with a bare Mock()
-        # ctx where cfg.enabled / cfg.upstream_platforms are truthy Mocks that bypass
-        # pydantic validation. Require enabled to be exactly True and upstream_platforms a
-        # real, non-empty list. (A real enabled config is guaranteed a non-empty
-        # upstream_platforms list by AutoResolveLineageUrnsConfig's validator, which fails
-        # config parse otherwise.)
+        # Fail closed on a Mock ctx: this processor is in the shared chain for *every*
+        # source, and some connector tests pass a bare Mock() whose cfg fields are truthy
+        # Mocks bypassing pydantic — hence exact-True / isinstance over plain truthiness.
         if cfg.enabled is not True:
             return False
-        if not isinstance(cfg.upstream_platforms, list) or not cfg.upstream_platforms:
+        # Only bulk_catalog needs platforms. The config validator runs at construction only,
+        # so a later `enabled = True` can still reach here with an empty list.
+        if cfg.mode is LineageUrnResolutionMode.BULK_CATALOG and (
+            not isinstance(cfg.upstream_platforms, list) or not cfg.upstream_platforms
+        ):
             return False
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by

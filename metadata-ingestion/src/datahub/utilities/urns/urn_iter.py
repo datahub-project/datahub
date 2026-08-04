@@ -132,6 +132,11 @@ def _modify_at_path(
 
 
 def lowercase_dataset_urn(dataset_urn: str) -> str:
+    """Lowercase a dataset URN's name, leaving its platform and env untouched.
+
+    Must stay in sync with GMS's ``AliasesUtils.lowercaseDatasetUrn``, which computes the
+    indexed ``aliases.lowercasedUrn`` we filter on -- a mismatch returns zero hits, not an error.
+    """
     cur_urn = DatasetUrn.from_string(dataset_urn)
     new_urn = DatasetUrn(
         platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
