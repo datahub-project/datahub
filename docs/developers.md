@@ -402,28 +402,41 @@ written into the image at build time, and credentials are injected via a `netrc`
 
 ##### Gradle properties
 
-| Property                                       | Default                          | Purpose                                              |
-| ---------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)    |
-| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Additional index URL (used when profile is `custom`) |
-| `datahub.dependencies.python.uvProfile`        | `default`                        | Which index profile to use (see below)               |
+| Property                                       | Default                          | Purpose                                                                  |
+| ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)                        |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Extra indexes layered on the selected profile (or required for `custom`) |
+| `datahub.dependencies.python.uvDockerProfile`  | `default`                        | Index profile for Python Docker image builds                             |
+| `datahub.dependencies.python.uvInstallProfile` | `default`                        | Index profile for runner-side Gradle `uv` installs                       |
 
 The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
 
+Docker and runner profiles are independent. Override either via:
+
+```bash
+export UV_DOCKER_PROFILE=default          # or a profile under docker/snippets/uv/profiles/
+export UV_INSTALL_PROFILE=default
+# or: ./gradlew ... -P'datahub.dependencies.python.uvDockerProfile'=default
+```
+
+Precedence (highest first): explicit `-P` → `UV_DOCKER_PROFILE` / `UV_INSTALL_PROFILE` env → `gradle.properties`.
+
 ##### UV index profiles
 
-The `datahub.dependencies.python.uvProfile` property selects how uv resolves packages:
+`uvDockerProfile` / `uvInstallProfile` select how uv resolves packages:
 
-| Profile   | Behaviour                                                                                      |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `default` | Uses PyPI (`https://pypi.org/simple/`) as the sole index.                                      |
-| `custom`  | Uses `pipMirrorUrl` as the default index. Adds `pipExtraIndexUrl` as a secondary index if set. |
+| Profile   | Behaviour                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------- |
+| `default` | Uses PyPI as the sole index (`profiles/default.toml`).                                            |
+| `custom`  | From-scratch profile for Docker only. Requires `pipExtraIndexUrl`. Uses `pipMirrorUrl` (or PyPI). |
 
-Setting `pipExtraIndexUrl` without explicitly setting `uvProfile=custom` will **automatically
-activate the `custom` profile** — you do not need to set both.
+`custom` is an **explicit** choice (`uvDockerProfile=custom`). Setting `pipExtraIndexUrl` alone
+**does not** switch the profile — extras are layered on top of the selected existing profile
+(e.g. a wheels-build index added to `default`). A non-vanilla `pipMirrorUrl` on an existing
+profile is rejected (use `custom` for a from-scratch default index).
 
 Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/).
-Add a new `.toml` file there and pass its basename as `uvProfile` to use a fully custom static profile. For example create a `ci.toml` file and pass `datahub.dependencies.python.uvProfile=ci` as a gradle property to use the ci.toml file.
+Add a new `.toml` file there and pass its basename as `uvDockerProfile` / `uvInstallProfile`.
 
 ##### Configuring a private index
 
@@ -488,22 +501,21 @@ They are still honoured for backward compatibility but will be removed in a futu
 ##### Local Python installs (non-Docker)
 
 Local Gradle Python install tasks — `./gradlew :metadata-ingestion:installDev` and the equivalents
-in `datahub-actions`, the `metadata-ingestion-modules/*` plugins, and `smoke-test` — consume the
-same profile and netrc that Docker builds use, so a private index is picked up automatically with
-no per-developer shell wiring.
+in `datahub-actions`, the `metadata-ingestion-modules/*` plugins, and `smoke-test` — use
+`uvInstallProfile` (not the Docker profile) plus the same netrc path as Docker builds.
 
 Wiring:
 
 - `UV_CONFIG_FILE` is exported to every `uv pip` invocation, pointing at
-  `docker/snippets/uv/profiles/${uvProfile}.toml` (falling back to `profiles/default.toml` if the
-  selected profile file doesn't exist).
+  `docker/snippets/uv/profiles/${uvInstallProfile}.toml` (the profile file must exist).
+- `UV_INSTALL_PROFILE` is exported with the resolved profile name.
 - `NETRC` is exported when a netrc file is present at `docker/snippets/uv/.netrc` or at the path
   given by `DATAHUB_NETRC_PATH`.
 
-In the default OSS configuration this is a no-op: `default.toml` declares only PyPI, so uv resolves
-exactly as it does today. To opt in to a private index for local installs, either edit
-`profiles/default.toml` to declare your index, or set `datahub.dependencies.python.uvProfile` to a
-custom profile name and author the matching `profiles/<name>.toml`.
+In the default OSS configuration this is a no-op: `default.toml` declares only PyPI. To opt in to
+a private or alternate index for local installs, author `profiles/<name>.toml` and set
+`UV_INSTALL_PROFILE=<name>` (or the matching Gradle property). `custom` is not supported for
+runner-side installs (no generate-config step on the runner).
 
 For direct `uv pip install` calls inside an already-activated venv (no Gradle in the loop), export
 the same env vars in your shell, mise, or direnv config:
@@ -512,6 +524,10 @@ the same env vars in your shell, mise, or direnv config:
 export UV_CONFIG_FILE="$(git rev-parse --show-toplevel)/docker/snippets/uv/profiles/default.toml"
 export NETRC="$(git rev-parse --show-toplevel)/docker/snippets/uv/.netrc"
 ```
+
+`mise.toml` can set `NETRC` for the workspace; leave `UV_DOCKER_PROFILE` / `UV_INSTALL_PROFILE`
+unset (or set them in `.mise.local.toml`) so local builds stay on the `default`/PyPI gradle
+defaults unless you opt in.
 
 ## Deploying Local Versions
 
