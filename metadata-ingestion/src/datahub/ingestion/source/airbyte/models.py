@@ -225,7 +225,8 @@ class AirbyteConfigStreamRef(BaseModel):
 
 
 class AirbyteStreamsApiRow(BaseModel):
-    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
+    """One row from Airbyte `/streams`. Field names vary by version, and the
+    namespace is only present from Airbyte 1.7.0 onwards."""
 
     stream_name: Optional[str] = None
     namespace: str = ""
@@ -369,6 +370,7 @@ class SyncCatalogBuildResult(BaseModel):
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_namespaces_absent: bool = False
 
     model_config = ConfigDict(frozen=True)
 
@@ -486,6 +488,7 @@ class AirbyteConnectionPartial(BaseModel):
     ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_namespaces_absent: bool = False
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
@@ -541,6 +544,8 @@ class AirbytePipelineInfo(BaseModel):
 
 class AirbyteStreamDetails(BaseModel):
     stream_name: str = Field(alias=API_FIELD_STREAM_NAME)
+    # Airbyte's namespace when it reports one, otherwise the schema resolved
+    # from the connector configuration or the recipe. Empty when nothing does.
     namespace: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -586,6 +591,9 @@ class AirbyteStreamApiMetadata(BaseModel):
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
     unavailable: bool = False
+    # `/streams` answered, but with no namespace on any row: Airbyte only added
+    # the field in 1.7.0, so there is nothing to back-fill from.
+    namespaces_absent: bool = False
     skipped_rows: List[str] = Field(default_factory=list)
 
 

@@ -30,9 +30,24 @@ Verify that your OAuth2 client credentials are correct and have not expired. For
 #### Missing or Ambiguous Stream Namespaces
 
 A `Stream Metadata Unavailable` warning means the `/streams` endpoint answered 404, so stream
-namespaces and column-level lineage could not be read. On Airbyte older than 1.8 the endpoint
-does not exist; on 1.8+ the same status means the source is not accessible to the credentials
-in the recipe, so check permissions.
+namespaces and column-level lineage could not be read. Older Airbyte versions have no such
+endpoint; on versions that do, the same status means the source is not accessible to the
+credentials in the recipe, so check permissions.
+
+A `Stream Namespaces Not Reported` warning means `/streams` described the source's streams but
+gave no namespace for any of them, so dataset URNs carry no schema tier. Airbyte only reports
+stream namespaces from 1.7.0 onwards. Either upgrade Airbyte, or set the schema for that source
+in the recipe:
+
+```yaml
+sources_to_platform_instance:
+  <airbyte-source-id>:
+    platform: mssql
+    default_schema: dbo
+```
+
+`default_schema` is only used when neither Airbyte nor the connector's own configuration reveals
+a schema, so it is safe to leave in place after an upgrade.
 
 An `Ambiguous Stream Namespace` warning means several schemas expose a stream with the same
 name and Airbyte does not say which configured stream belongs to which schema. DataHub leaves

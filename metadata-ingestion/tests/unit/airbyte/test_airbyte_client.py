@@ -1418,6 +1418,30 @@ class TestFetchStreamApiMetadata:
         assert metadata.namespaces_by_name == {}
         # Flagged so the source can warn once per source instead of failing quietly.
         assert metadata.unavailable is True
+        assert metadata.namespaces_absent is False
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_flags_namespaceless_response(
+        self, mock_list_streams
+    ):
+        # Airbyte below 1.7.0 describes the streams but has no namespace field,
+        # which is indistinguishable from a namespace-free source at the URN
+        # level — so it gets flagged rather than silently producing no schema.
+        mock_list_streams.return_value = [
+            {"streamName": "users", "propertyFields": [["id"]]}
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is True
+        assert metadata.unavailable is False
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_caches_per_source(self, mock_list_streams):

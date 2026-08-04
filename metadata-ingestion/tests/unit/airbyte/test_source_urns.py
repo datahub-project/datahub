@@ -1,3 +1,4 @@
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +20,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteStream,
     AirbyteStreamConfig,
     AirbyteStreamDetails,
+    AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
     PlatformInfo,
     PropertyFieldPath,
@@ -661,3 +663,142 @@ def test_warning_deduplication(mock_create_client, mock_ctx):
     initial_warning_count = len(source.report.warnings)
     source._get_platform_for_source(source_obj)
     assert len(source.report.warnings) == initial_warning_count
+
+
+def _source_schema_pipeline(
+    source_configuration: Dict[str, Any],
+    stream_namespace: Optional[str] = None,
+) -> AirbytePipelineInfo:
+    return AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace"),
+        connection=AirbyteConnectionPartial(
+            connection_id="conn-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="dest-1",
+            status="active",
+            sync_catalog=AirbyteSyncCatalog(
+                streams=[
+                    AirbyteStreamConfig(
+                        stream=AirbyteStream(
+                            name="transfers", namespace=stream_namespace
+                        ),
+                        config={"selected": True},
+                    )
+                ]
+            ),
+        ),
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_type="mssql",
+            source_definition_id="def-1",
+            workspace_id="ws-1",
+            configuration=source_configuration,
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="dest-1",
+            name="Test Dest",
+            destination_type="Snowflake",
+            destination_definition_id="def-2",
+            workspace_id="ws-1",
+            configuration={"database": "raw"},
+        ),
+    )
+
+
+def _source_with_details(mock_ctx: MagicMock, details: PlatformDetail) -> AirbyteSource:
+    with patch(
+        "datahub.ingestion.source.airbyte.source.create_airbyte_client"
+    ) as mock_create_client:
+        mock_create_client.return_value = MagicMock()
+        return AirbyteSource(
+            AirbyteSourceConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+                host_port="http://localhost:8000",
+                sources_to_platform_instance={"source-1": details},
+            ),
+            mock_ctx,
+        )
+
+
+def test_per_table_schema_outranks_connector_wide_schema(mock_ctx):
+    # A connector-wide schema key can hold something that is not a schema (here
+    # the database name), which used to shadow the per-table schema and collapse
+    # the URN to two tiers because schema and database matched.
+    source = _source_with_details(
+        mock_ctx, PlatformDetail(platform="mssql", convert_urns_to_lowercase=True)
+    )
+    pipeline_info = _source_schema_pipeline(
+        {
+            "database": "wallet_db",
+            "schemas": ["wallet_db"],
+            "tables": [{"name": "transfers", "schema": "dbo"}],
+        }
+    )
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+
+
+def test_default_schema_fills_in_when_no_schema_is_discoverable(mock_ctx):
+    source = _source_with_details(
+        mock_ctx,
+        PlatformDetail(
+            platform="mssql", default_schema="dbo", convert_urns_to_lowercase=True
+        ),
+    )
+    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+
+
+def test_default_schema_yields_to_schemas_airbyte_and_the_connector_report(mock_ctx):
+    source = _source_with_details(
+        mock_ctx,
+        PlatformDetail(
+            platform="mssql", default_schema="dbo", convert_urns_to_lowercase=True
+        ),
+    )
+
+    from_airbyte = source._fetch_streams_for_source(
+        _source_schema_pipeline({"database": "wallet_db"}, stream_namespace="reporting")
+    )
+    assert from_airbyte[0].details.namespace == "reporting"
+
+    from_per_table = source._fetch_streams_for_source(
+        _source_schema_pipeline(
+            {
+                "database": "wallet_db",
+                "tables": [{"name": "transfers", "schema": "audit"}],
+            }
+        )
+    )
+    assert from_per_table[0].details.namespace == "audit"
+
+
+def test_warns_once_per_source_when_streams_api_reports_no_namespaces(mock_ctx):
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    matching = [
+        warning
+        for warning in source.report.warnings
+        if "Stream Namespaces Not Reported" in str(warning)
+    ]
+    assert len(matching) == 1
