@@ -387,6 +387,29 @@ def test_lineage_overrides_presto_to_athena():
     )
 
 
+def test_lineage_overrides_two_tier_to_three_tier_keeps_two_part_name():
+    # The reverse direction of the presto -> athena fix. A two-tier source has no
+    # catalog to promote into a three-tier target's first segment — its `database`
+    # names the same container as the schema — so the URN stays two-part and the
+    # catalog arrives via platform_instance.
+    assert (
+        TableauUpstreamReference(
+            "test-schema",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "hive",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"hive": "presto"},
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
 def test_database_id_to_platform_instance_map_routes_per_id():
     # Motivating case: multiple Athena workgroups (PROD/DEV/STG) share a
     # regional hostname, so hostname routing collapses them. Each connection

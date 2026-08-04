@@ -655,16 +655,20 @@ def get_platform(connection_type: str) -> str:
     return platform
 
 
+# Platforms whose GraphQL upstream reference carries no database segment worth
+# keeping: the schema already names the only container these systems have, so the
+# dataset identifier is `schema.table`.
+_TWO_TIER_DB_STRIP_PLATFORMS = ("athena", "hive", "mysql", "teradata")
+
 # Two-tier (database.table) platforms. Everything else is treated as three-tier
 # (database.schema.table). Used to decide how many trailing name segments make up a
 # DataHub dataset identifier when trimming over-qualified names.
 #
-# This must be a superset of the two-tier platforms that `get_overridden_info` nulls
-# `upstream_db` for: the GraphQL path drops the db there (yielding a 2-part name), so
-# the SQL-parsed path must trim to 2 parts as well, otherwise the two lineage paths
-# emit mismatched URNs for the same table (e.g. teradata: `db.schema.table` from SQL
-# parsing vs `schema.table` from GraphQL).
-_TWO_TIER_PLATFORMS = ("athena", "hive", "mysql", "clickhouse", "teradata")
+# This must be a superset of _TWO_TIER_DB_STRIP_PLATFORMS: the GraphQL path drops the
+# db for those (yielding a 2-part name), so the SQL-parsed path must trim to 2 parts as
+# well, otherwise the two lineage paths emit mismatched URNs for the same table
+# (e.g. teradata: `db.schema.table` from SQL parsing vs `schema.table` from GraphQL).
+_TWO_TIER_PLATFORMS = (*_TWO_TIER_DB_STRIP_PLATFORMS, "clickhouse")
 
 
 def _dataset_name_max_parts(platform: str) -> int:
@@ -892,15 +896,15 @@ def get_overridden_info(
     ):
         platform_instance = database_id_to_platform_instance_map[upstream_db_id]
 
-    # Two-tier check uses the overridden platform: when a three-tier source
-    # (e.g. presto) is remapped to a two-tier target (e.g. athena), the URN
-    # must drop the upstream database to match the target's shape.
-    if platform in (
-        "athena",
-        "hive",
-        "mysql",
-        "teradata",
-    ):  # Two tier databases
+    # Either side being two-tier means there is no database segment to emit. A
+    # two-tier target (e.g. presto -> athena) has no slot for one, and a two-tier
+    # source has no catalog to put in one — its database duplicates the schema, and
+    # remapping it to a three-tier target does not invent the target's catalog, so
+    # that case stays two-part and the catalog has to arrive via platform_instance.
+    if (
+        platform in _TWO_TIER_DB_STRIP_PLATFORMS
+        or original_platform in _TWO_TIER_DB_STRIP_PLATFORMS
+    ):
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
