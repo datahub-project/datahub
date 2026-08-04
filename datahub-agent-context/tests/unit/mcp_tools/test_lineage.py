@@ -330,20 +330,26 @@ class TestGetLineagePathsBetween:
 
     def test_column_level_path(self, mock_client):
         """Test finding column-level path."""
+        source_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.source,PROD)"
+        )
+        target_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.target,PROD)"
+        )
         mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {
                 "searchResults": [
                     {
-                        "entity": {"urn": "urn:li:dataset:source"},
+                        "entity": {"urn": source_urn},
                         "paths": [
                             {
                                 "path": [
                                     {
-                                        "urn": "urn:li:schemaField:(urn:li:dataset:target,customer_id)",
+                                        "urn": f"urn:li:schemaField:({target_urn},customer_id)",
                                         "type": "SCHEMA_FIELD",
                                     },
                                     {
-                                        "urn": "urn:li:schemaField:(urn:li:dataset:source,user_id)",
+                                        "urn": f"urn:li:schemaField:({source_urn},user_id)",
                                         "type": "SCHEMA_FIELD",
                                     },
                                 ]
@@ -356,8 +362,8 @@ class TestGetLineagePathsBetween:
 
         with DataHubContext(mock_client):
             result = get_lineage_paths_between(
-                source_urn="urn:li:dataset:source",
-                target_urn="urn:li:dataset:target",
+                source_urn=source_urn,
+                target_urn=target_urn,
                 source_column="user_id",
                 target_column="customer_id",
                 direction="downstream",
@@ -368,8 +374,12 @@ class TestGetLineagePathsBetween:
         assert result["target"]["column"] == "customer_id"
 
     def test_path_lookup_paginates_until_target(self, mock_client):
-        source_urn = "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.source,PROD)"
-        target_urn = "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.target,PROD)"
+        source_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.source,PROD)"
+        )
+        target_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.target,PROD)"
+        )
         unrelated = [
             {
                 "entity": {
