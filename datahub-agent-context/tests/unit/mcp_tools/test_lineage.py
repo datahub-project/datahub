@@ -218,6 +218,9 @@ class TestGetLineage:
 
     def test_lineage_with_pagination(self, mock_client, sample_lineage_response):
         """Test lineage pagination with offset."""
+        page = sample_lineage_response["searchAcrossLineage"]
+        page["start"] = 10
+        page["total"] = 40
         mock_client._graph.execute_graphql.return_value = sample_lineage_response
 
         with DataHubContext(mock_client):
@@ -228,12 +231,36 @@ class TestGetLineage:
                 max_results=20,
             )
 
-        assert "upstreams" in result
-        # Check pagination metadata
         upstreams = result["upstreams"]
-        assert "offset" in upstreams
-        assert "returned" in upstreams
-        assert "hasMore" in upstreams
+        variables = mock_client._graph.execute_graphql.call_args.kwargs["variables"]
+        assert variables["input"]["start"] == 10
+        assert variables["input"]["count"] == 20
+        assert upstreams["offset"] == 10
+        assert upstreams["returned"] == 2
+        assert upstreams["hasMore"] is True
+
+    def test_empty_last_page_has_complete_pagination_metadata(self, mock_client):
+        mock_client._graph.execute_graphql.return_value = {
+            "searchAcrossLineage": {
+                "start": 40,
+                "count": 0,
+                "total": 40,
+                "searchResults": [],
+                "facets": [],
+            }
+        }
+
+        with DataHubContext(mock_client):
+            result = get_lineage(
+                urn="urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.table,PROD)",
+                offset=40,
+                max_results=20,
+            )
+
+        upstreams = result["upstreams"]
+        assert upstreams["offset"] == 40
+        assert upstreams["returned"] == 0
+        assert upstreams["hasMore"] is False
 
     def test_column_normalization(self, mock_client, sample_lineage_response):
         """Test that column='null' is normalized to None."""
@@ -260,18 +287,18 @@ class TestGetLineagePathsBetween:
                 "searchResults": [
                     {
                         "entity": {
-                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)"
+                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)"
                         },
                         "paths": [
                             {
                                 "path": [
                                     {
-                                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)",
+                                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)",
                                         "type": "DATASET",
                                     },
                                     {"urn": "urn:li:query:transform1", "type": "QUERY"},
                                     {
-                                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.target,PROD)",
+                                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.source,PROD)",
                                         "type": "DATASET",
                                     },
                                 ]
@@ -282,9 +309,6 @@ class TestGetLineagePathsBetween:
             }
         }
 
-    @pytest.mark.xfail(
-        reason="Requires complex mocking of _find_lineage_path internal calls"
-    )
     def test_dataset_level_path_downstream(self, mock_client, sample_path_response):
         """Test finding dataset-level path downstream."""
         mock_client._graph.execute_graphql.return_value = sample_path_response
@@ -301,26 +325,25 @@ class TestGetLineagePathsBetween:
         assert result["pathCount"] > 0
         assert result["source"]["urn"]
         assert result["target"]["urn"]
+        assert result["paths"][0]["path"][0]["urn"] == result["source"]["urn"]
+        assert result["paths"][0]["path"][-1]["urn"] == result["target"]["urn"]
 
-    @pytest.mark.xfail(
-        reason="Requires complex mocking of URN parsing and _find_lineage_path"
-    )
     def test_column_level_path(self, mock_client):
         """Test finding column-level path."""
         mock_client._graph.execute_graphql.return_value = {
             "searchAcrossLineage": {
                 "searchResults": [
                     {
-                        "entity": {"urn": "urn:li:dataset:target"},
+                        "entity": {"urn": "urn:li:dataset:source"},
                         "paths": [
                             {
                                 "path": [
                                     {
-                                        "urn": "urn:li:schemaField:(urn:li:dataset:source,user_id)",
+                                        "urn": "urn:li:schemaField:(urn:li:dataset:target,customer_id)",
                                         "type": "SCHEMA_FIELD",
                                     },
                                     {
-                                        "urn": "urn:li:schemaField:(urn:li:dataset:target,customer_id)",
+                                        "urn": "urn:li:schemaField:(urn:li:dataset:source,user_id)",
                                         "type": "SCHEMA_FIELD",
                                     },
                                 ]
@@ -343,6 +366,63 @@ class TestGetLineagePathsBetween:
         assert result["metadata"]["pathType"] == "column-level"
         assert result["source"]["column"] == "user_id"
         assert result["target"]["column"] == "customer_id"
+
+    def test_path_lookup_paginates_until_target(self, mock_client):
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.source,PROD)"
+        target_urn = "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.target,PROD)"
+        unrelated = [
+            {
+                "entity": {
+                    "urn": f"urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_schema.other_{index},PROD)"
+                },
+                "paths": [],
+            }
+            for index in range(100)
+        ]
+        mock_client._graph.execute_graphql.side_effect = [
+            {
+                "searchAcrossLineage": {
+                    "start": 0,
+                    "count": 100,
+                    "total": 101,
+                    "searchResults": unrelated,
+                }
+            },
+            {
+                "searchAcrossLineage": {
+                    "start": 100,
+                    "count": 1,
+                    "total": 101,
+                    "searchResults": [
+                        {
+                            "entity": {"urn": source_urn},
+                            "paths": [
+                                {
+                                    "path": [
+                                        {"urn": target_urn, "type": "DATASET"},
+                                        {"urn": source_urn, "type": "DATASET"},
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+        ]
+
+        with DataHubContext(mock_client):
+            result = get_lineage_paths_between(
+                source_urn=source_urn,
+                target_urn=target_urn,
+                direction="downstream",
+            )
+
+        starts = [
+            call.kwargs["variables"]["input"]["start"]
+            for call in mock_client._graph.execute_graphql.call_args_list
+        ]
+        assert starts == [0, 100]
+        assert result["pathCount"] == 1
 
     def test_auto_discover_direction(self, mock_client, sample_path_response):
         """Test auto-discovery of lineage direction."""
@@ -403,9 +483,6 @@ class TestGetLineagePathsBetween:
                     target_column=None,  # Mismatch
                 )
 
-    @pytest.mark.xfail(
-        reason="Requires complex mocking of _find_lineage_path internal calls"
-    )
     def test_query_entities_in_path(self, mock_client, sample_path_response):
         """Test that QUERY entities in path trigger metadata note."""
         mock_client._graph.execute_graphql.return_value = sample_path_response
