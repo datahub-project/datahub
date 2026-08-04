@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Manuaalisesti valitut kokoelmat eivät tue ”Näytä kaikki” -linkkiä tällä hetkellä.",
     "assetCollection.viewAllUnsupportedHint": "Tämä kokoelma ei näytä ”Näytä kaikki” -linkkiä — tämäntyyppistä suodatinta ei tueta tällä hetkellä.",
     "assets.moduleName": "Kohteet",
+    "assets.relatedModuleName": "Liittyvät kohteet",
     "assets.moduleDescription": "Emoentiteetillä merkityt liittyvät kohteet",
     "assets.addTermError": "Sanaston termin lisääminen epäonnistui: \n {{error}}",
     "assets.addTermModalTitle": "Lisää sanaston termi kohteisiin",

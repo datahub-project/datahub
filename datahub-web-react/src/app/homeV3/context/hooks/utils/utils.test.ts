@@ -155,7 +155,7 @@ describe('getDefaultSummaryPageTemplate', () => {
     it.each([
         [EntityType.Application, 1, 1],
         [EntityType.Container, 1, 1],
-        [EntityType.Chart, 1, 2],
+        [EntityType.Chart, 1, 1],
         [EntityType.Dashboard, 1, 2],
     ])('should return correct template for %s entity type', (entityType, rowCount, moduleCount) => {
         const result = getDefaultSummaryPageTemplate(entityType);

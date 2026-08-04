@@ -78,6 +78,20 @@ export const ASSETS_MODULE: PageModuleFragment = {
     },
 };
 
+/** Same Assets module type; titled Related Assets for entities that used that legacy Summary label. */
+export const RELATED_ASSETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:assets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:assets.relatedModuleName');
+        },
+        type: DataHubPageModuleType.Assets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const OUTPUT_PORTS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:output_ports',
     type: EntityType.DatahubPageModule,
@@ -410,18 +424,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         };
 
         const assets = {
-            name: t('assets.moduleName'),
+            name: entityType === EntityType.Dashboard ? t('assets.relatedModuleName') : t('assets.moduleName'),
             key: 'assets',
             label: (
                 <MenuItem
                     description={t('assets.moduleDescription')}
-                    title={t('assets.moduleName')}
+                    title={entityType === EntityType.Dashboard ? t('assets.relatedModuleName') : t('assets.moduleName')}
                     icon={Database}
                     isSmallModule={false}
                 />
             ),
             onClick: () => {
-                handleAddExistingModule(ASSETS_MODULE);
+                handleAddExistingModule(entityType === EntityType.Dashboard ? RELATED_ASSETS_MODULE : ASSETS_MODULE);
             },
             'data-testid': 'add-assets-module',
         };
