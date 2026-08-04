@@ -217,11 +217,6 @@ public class EbeanRetentionServiceTest {
       insertAspect(u, "status", 2);
     }
 
-    // Force the poison context's DELETE to throw; the good one runs for real. Per-context
-    // savepoints
-    // must roll back only the poison delete and still commit the good one, and the batch must
-    // return
-    // only the committed (good) context so the drainer leaves the poison key for retry.
     EbeanRetentionService<?> svc = spy(retentionService);
     doAnswer(
             inv -> {
@@ -240,7 +235,7 @@ public class EbeanRetentionServiceTest {
 
     assertEquals(committed.size(), 1);
     assertEquals(committed.get(0).getUrn().toString(), good);
-    // Good pruned (v1 gone); poison untouched — its savepoint was rolled back.
+
     assertEquals(versionsFor(good, "status"), List.of(0L, 2L));
     assertEquals(versionsFor(poison, "status"), List.of(0L, 1L, 2L));
   }
