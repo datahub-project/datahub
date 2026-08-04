@@ -42,6 +42,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_freshness,
+    make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
@@ -51,8 +52,11 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -2114,6 +2118,63 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
+
+
+def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+    field_urn = f"urn:li:schemaField:({upstream_urn},id)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.datasetAssertion is None
+    assert mcp.aspect.customAssertion is not None
+    assert mcp.aspect.customAssertion.type == "dbt"
+    assert mcp.aspect.customAssertion.entity == upstream_urn
+    assert mcp.aspect.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert mcp.aspect.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert (
+        mcp.aspect.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    )
+    assert mcp.aspect.customAssertion.field == field_urn
+    assert mcp.aspect.customAssertion.fields == [field_urn]
+    assert mcp.aspect.customAssertion.nativeType == "not_null_id"
+    assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
 
 
 @pytest.mark.parametrize(
