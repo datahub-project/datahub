@@ -457,8 +457,8 @@ public class TimeseriesAspectServicePostgresIT {
     assertEquals(
         table.getRows(),
         new StringArrayArray(
-            new StringArray(String.valueOf(minute0), "10.0"),
-            new StringArray(String.valueOf(minute1), "20.0")));
+            new StringArray(String.valueOf(minute0), "10"),
+            new StringArray(String.valueOf(minute1), "20")));
   }
 
   /**
@@ -608,7 +608,7 @@ public class TimeseriesAspectServicePostgresIT {
             new GroupingBucket[] {timestampBucket});
 
     assertEquals(
-        table.getRows(), new StringArrayArray(new StringArray(startTime.toString(), "650.0")));
+        table.getRows(), new StringArrayArray(new StringArray(startTime.toString(), "650")));
   }
 
   @Test
