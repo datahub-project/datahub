@@ -1336,28 +1336,29 @@ Reference Links:
 
 #### Optional OIDC Configuration
 
-| Environment Variable                        | Default               | Description                                                              | Components |
-| ------------------------------------------- | --------------------- | ------------------------------------------------------------------------ | ---------- |
-| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                  | Frontend   |
-| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim    | Frontend   |
-| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                     | Frontend   |
-| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint              | Frontend   |
-| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
-| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
-| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
-| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
-| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
-| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
-| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
-| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |
-| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                        | Frontend   |
-| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                       | Frontend   |
-| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                        | Frontend   |
-| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                     | Frontend   |
-| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                          | Frontend   |
-| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                               | Frontend   |
-| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                          | Frontend   |
-| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                          | Frontend   |
+| Environment Variable                        | Default               | Description                                                                                                           | Components |
+| ------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                                                               | Frontend   |
+| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim                                                 | Frontend   |
+| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                                                                  | Frontend   |
+| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint                                                           | Frontend   |
+| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist                                              | Frontend   |
+| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                                                             | Frontend   |
+| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile                                                   | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.                                                  | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL`      | `null`                | URL to redirect denied users (required groups or IdP access_denied). Takes precedence over the access-denied message. | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.                                                | Frontend   |
+| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                                                                     | Frontend   |
+| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                                                                    | Frontend   |
+| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                                                                    | Frontend   |
+| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                                                                     | Frontend   |
+| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                                                                    | Frontend   |
+| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                                                                     | Frontend   |
+| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                                                                  | Frontend   |
+| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                                                                       | Frontend   |
+| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                                                                            | Frontend   |
+| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                                                                       | Frontend   |
+| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                                                                       | Frontend   |
 
 ### Authentication Methods Configuration
 

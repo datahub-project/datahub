@@ -10,7 +10,6 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
-import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
@@ -43,11 +42,8 @@ public class ObjectStorageClientFactoryTest {
     ReflectionTestUtils.setField(factory, "configurationProvider", configurationProvider);
 
     dataHubConfiguration = new DataHubConfiguration();
-    S3Configuration s3Configuration = new S3Configuration();
-    s3Configuration.setBucketName("");
-    dataHubConfiguration.setS3(s3Configuration);
-
     ObjectStorageConfiguration objectStorageConfiguration = new ObjectStorageConfiguration();
+    objectStorageConfiguration.setBucket("");
     dataHubConfiguration.setObjectStorage(objectStorageConfiguration);
 
     when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
@@ -107,7 +103,7 @@ public class ObjectStorageClientFactoryTest {
   @Test
   public void testCreatesS3ClientWithRoleArn() {
     dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket");
-    dataHubConfiguration.getS3().setRoleArn("arn:aws:iam::123456789012:role/test-role");
+    dataHubConfiguration.getObjectStorage().setRoleArn("arn:aws:iam::123456789012:role/test-role");
     System.setProperty("aws.region", "us-east-1");
 
     StsClient stsClient = mock(StsClient.class);
