@@ -38,6 +38,7 @@ import com.linkedin.datahub.graphql.generated.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
@@ -74,7 +75,7 @@ public class AssertionMapper {
     if (envelopedAssertionInfo != null) {
       final AssertionInfo assertionInfo =
           new AssertionInfo(envelopedAssertionInfo.getValue().data());
-      result.setInfo(mapAssertionInfo(context, assertionInfo));
+      result.setInfo(mapAssertionInfo(context, assertionInfo, entityUrn));
       try {
         final Urn datasetUrn =
             Optional.ofNullable(assertionInfo.getEntityUrn())
@@ -137,6 +138,13 @@ public class AssertionMapper {
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
       @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo) {
+    return mapAssertionInfo(context, gmsAssertionInfo, null);
+  }
+
+  public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
+      @Nullable QueryContext context,
+      final AssertionInfo gmsAssertionInfo,
+      @Nullable final Urn assertionUrn) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
@@ -146,6 +154,10 @@ public class AssertionMapper {
           new AuditStamp(
               gmsAssertionInfo.getLastUpdated().getTime(),
               gmsAssertionInfo.getLastUpdated().getActor().toString()));
+    }
+    if (gmsAssertionInfo.hasCustomProperties() && assertionUrn != null) {
+      assertionInfo.setCustomProperties(
+          CustomPropertiesMapper.map(gmsAssertionInfo.getCustomProperties(), assertionUrn));
     }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion =
