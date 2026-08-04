@@ -298,6 +298,10 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
@@ -327,7 +331,11 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -375,6 +383,10 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
@@ -404,7 +416,11 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -445,6 +461,10 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
@@ -467,7 +487,10 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove before strip_pip removes pip.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).
