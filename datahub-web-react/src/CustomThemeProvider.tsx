@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 
 import GlobalThemeStyles from '@app/theme/GlobalThemeStyles';
-import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { useCustomThemeId } from '@app/useSetAppTheme';
 import themes from '@conf/theme/themes';
 import { Theme } from '@conf/theme/types';
@@ -10,12 +9,12 @@ import { CustomThemeContext } from '@src/customThemeContext';
 
 interface Props {
     children: React.ReactNode;
+    isDarkMode?: boolean;
 }
 
-const CustomThemeProvider = ({ children }: Props) => {
+const CustomThemeProvider = ({ children, isDarkMode = false }: Props) => {
     // Note: AppConfigContext not provided yet, so this call relies on the DEFAULT_APP_CONFIG
     const customThemeId = useCustomThemeId();
-    const isDarkMode = loadIsDarkMode();
 
     // Note: If custom theme id is a json file, it will only be loaded later in useSetAppTheme
     let defaultTheme = themes.themeV2;
