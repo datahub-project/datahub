@@ -56,6 +56,12 @@ interface DocumentTreeProps {
      */
     sortSelection?: DocumentSidebarSortValue;
     /**
+     * When false, reuse roots already in DocumentTreeContext and only load children
+     * on expand. Use in pickers (move / link popovers) so remounting does not wipe
+     * the shared sidebar tree via initializeTree.
+     */
+    loadRoots?: boolean;
+    /**
      * Enables multi-select mode: each row renders a leading checkbox driven by
      * `checkedUrns`, and clicking a row fires `onSelectDocument` for the parent
      * to toggle the URN in its own set. Per-row actions (menu, create-child) are
@@ -86,6 +92,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     hideCreate = false,
     filterSelection = NO_FILTER_SELECTION,
     sortSelection = DEFAULT_DOCUMENT_SIDEBAR_SORT,
+    loadRoots = true,
     multiSelect = false,
     checkedUrns,
     suppressSelectionScroll = false,
@@ -103,7 +110,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         hasMoreRoots,
         hasMoreChildren,
         rootObserverRef,
-    } = useLoadDocumentTree(sortSelection);
+    } = useLoadDocumentTree(sortSelection, { paginateRoots: loadRoots });
 
     // Per-node expand + lazy child loading, and routing/selection glue.
     const { loadingUrns, loadingChildrenUrns, handleToggleExpand, handleLoadMoreChildren } = useNodeChildrenLoading({
