@@ -80,6 +80,60 @@ def _incident_health(dataset: Dict[str, Any]) -> Dict[str, Any]:
     return incident_entries[0]
 
 
+_SOFT_DELETE_MUTATION = """mutation batchUpdateSoftDeleted($urns: [String!]!, $deleted: Boolean!) {
+  batchUpdateSoftDeleted(input: {urns: $urns, deleted: $deleted})
+}"""
+
+_SINGLE_HEALTH_QUERY = f"""query health($urn: String!) {{
+  dataset(urn: $urn) {{ ...health }}
+}}
+
+{_FRAGMENT}"""
+
+
+def _set_soft_deleted(auth_session, urn: str, deleted: bool) -> None:
+    execute_graphql(
+        auth_session, _SOFT_DELETE_MUTATION, {"urns": [urn], "deleted": deleted}
+    )
+    wait_for_writes_to_sync()
+
+
+def test_incident_health_survives_soft_deleted_asset(auth_session):
+    """A soft-deleted asset still resolves the same incident health.
+
+    The batched aggregation queries the incident index, where an asset's own `removed` flag is not
+    present, so soft-deleting the asset must not change its active-incident count or latest-incident
+    urn. This asserts the batched path agrees with the unbatched one on that, since the two differ in
+    how they reach the incident documents.
+
+    Note on the inverse case: a soft-deleted *incident* is not reachable here, because the incident
+    entity declares no `status` aspect, so `removed` is never indexed on incident documents and the
+    aspect cannot be written. The soft-delete clause the query builds for that case is asserted in
+    ESSearchDAOIncidentStatsTest instead.
+    """
+    urn, expected_count, expected_latest = EXPECTATIONS["d2"]
+    _set_soft_deleted(auth_session, urn, True)
+    try:
+
+        @with_test_retry()
+        def check_soft_deleted():
+            data = execute_graphql(auth_session, _SINGLE_HEALTH_QUERY, {"urn": urn})[
+                "data"
+            ]
+            health = _incident_health(data["dataset"])
+            assert health["status"] == "FAIL", health
+            assert health["message"] == f"{expected_count} active incident", health
+            assert (
+                health["activeIncidentHealthDetails"]["latestIncidentUrn"]
+                == expected_latest
+            ), health
+
+        check_soft_deleted()
+    finally:
+        # Restore, so ordering against the other tests in this module does not matter.
+        _set_soft_deleted(auth_session, urn, False)
+
+
 def test_batched_incident_health(auth_session):
     wait_for_writes_to_sync()
     query, variables = _build_query()
