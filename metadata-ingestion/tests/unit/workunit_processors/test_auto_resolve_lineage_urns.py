@@ -610,7 +610,7 @@ def test_field_helpers_reject_non_schemafield_urns():
     # A dataset URN is not a schemaField URN -> both helpers return None. Previously
     # _field_path returned the dataset *name* as a bogus field path (positional
     # entity_ids[1]); SchemaFieldUrn parsing rejects it.
-    from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
+    from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns.processor import (
         _field_path,
         _parent_dataset_urn,
     )
@@ -757,6 +757,9 @@ def test_unresolved_refs_surface_one_aggregated_warning():
         patcher.stop()
 
     assert processor.report.num_refs_unresolved == 2
+    # The sample names *which* references look broken, so the warning is actionable —
+    # the count alone doesn't tell an operator where to look.
+    assert list(processor.report.unresolved_refs_sample) == [UPPER, LOWER]
     report = cast(mock.MagicMock, processor.ctx.source_report)
     report.warning.assert_called_once()
     kwargs = report.warning.call_args.kwargs
