@@ -888,6 +888,35 @@ def test_odbc_two_part_mysql_allows_database_table_fallback():
     ]
 
 
+def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
+    """Athena expression_lineage must strip catalog from three-part names
+    (same as query_lineage) so URNs match the standalone Athena connector.
+    Table-only nav + two-part dsn mapping yields catalog.database.table before
+    stripping → database.table after.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "awsdatacatalog.mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "accounts")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI

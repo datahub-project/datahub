@@ -1998,7 +1998,7 @@ class OdbcLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
+        result = Lineage(
             upstreams=[
                 DataPlatformTable(
                     data_platform_pair=platform_pair,
@@ -2007,6 +2007,18 @@ class OdbcLineage(AbstractLineage):
             ],
             column_lineage=column_lineage,
         )
+
+        # Match query_lineage: Athena hierarchical nav / DSN backfill can produce
+        # catalog.database.table; strip to database.table so URNs match the
+        # standalone Athena connector, then apply federated platform overrides.
+        if (
+            platform_pair.datahub_data_platform_name
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
+            result = self._strip_athena_catalog_from_lineage(result)
+            result = self._apply_table_platform_override(result, dsn)
+
+        return result
 
     @staticmethod
     def create_platform_pair(
