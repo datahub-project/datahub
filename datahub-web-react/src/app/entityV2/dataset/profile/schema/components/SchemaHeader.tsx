@@ -1,8 +1,8 @@
-import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
+import { Button, Icon, Tooltip } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
-import { Button as AntButton, Typography } from 'antd';
-import React, { useState } from 'react';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
@@ -12,8 +12,13 @@ import VersionSelector from '@app/entityV2/dataset/profile/schema/components/Ver
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import AddLogicalModelColumnButton from '@app/entityV2/shared/logicalModels/AddLogicalModelColumnButton';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
+import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
+import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 
 import { SemanticVersionStruct } from '@types';
+
+const SCHEMA_VIEW_TABULAR = 'tabular';
+const SCHEMA_VIEW_RAW = 'raw';
 
 const StyledTabToolbar = styled(TabToolbar)`
     height: unset;
@@ -33,24 +38,6 @@ const LeftButtonsGroup = styled.div`
         justify-content: left;
         width: 100%;
     }
-`;
-
-const RawButton = styled(AntButton)`
-    &&& {
-        display: flex;
-        margin-right: 10px;
-        justify-content: left;
-        align-items: center;
-    }
-`;
-
-const RawButtonTitleContainer = styled.span`
-    display: flex;
-    align-items: center;
-`;
-
-const RawButtonTitle = styled(Typography.Text)`
-    margin-left: 6px;
 `;
 
 const KeyButton = styled(Button)<{ $highlighted: boolean }>`
@@ -73,9 +60,25 @@ const RightButtonsGroup = styled.div`
     display: flex;
     align-items: center;
     justify-content: right;
-    gap: 15px;
+    gap: 8px;
 
     padding-left: 5px;
+`;
+
+const SchemaViewSwitch = styled.div`
+    flex-shrink: 0;
+
+    button {
+        width: auto;
+        min-width: 32px;
+        padding: 4px 8px;
+    }
+`;
+
+const SchemaViewIcon = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 type Props = {
@@ -125,6 +128,33 @@ export default function SchemaHeader({
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
     const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
+    const schemaViewActiveKey = showRaw ? SCHEMA_VIEW_RAW : SCHEMA_VIEW_TABULAR;
+
+    const schemaViewTabs: Tab[] = useMemo(
+        () => [
+            {
+                key: SCHEMA_VIEW_TABULAR,
+                label: (
+                    <SchemaViewIcon title={t('dataset.tabularView')}>
+                        <Icon icon={Table} size="lg" color="inherit" />
+                    </SchemaViewIcon>
+                ),
+                dataTestId: 'schema-tabular-view-button',
+                content: null,
+            },
+            {
+                key: SCHEMA_VIEW_RAW,
+                label: (
+                    <SchemaViewIcon title={t('dataset.rawView')}>
+                        <Icon icon={FileText} size="lg" color="inherit" />
+                    </SchemaViewIcon>
+                ),
+                dataTestId: 'schema-raw-view-button',
+                content: null,
+            },
+        ],
+        [t],
+    );
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
@@ -133,25 +163,6 @@ export default function SchemaHeader({
         <StyledTabToolbar>
             <SchemaHeaderContainer>
                 <LeftButtonsGroup>
-                    {hasRaw && (
-                        <RawButton
-                            type="text"
-                            data-testid="schema-raw-view-button"
-                            onClick={() => setShowRaw(!showRaw)}
-                        >
-                            {showRaw ? (
-                                <RawButtonTitleContainer>
-                                    <TableOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>{t('dataset.tabularView')}</RawButtonTitle>
-                                </RawButtonTitleContainer>
-                            ) : (
-                                <RawButtonTitleContainer>
-                                    <FileTextOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>{t('dataset.rawView')}</RawButtonTitle>
-                                </RawButtonTitleContainer>
-                            )}
-                        </RawButton>
-                    )}
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
                             <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
@@ -186,6 +197,15 @@ export default function SchemaHeader({
                             isSibling={false}
                             isPrimary
                         />
+                    )}
+                    {hasRaw && (
+                        <SchemaViewSwitch>
+                            <TabButtons
+                                tabs={schemaViewTabs}
+                                activeTab={schemaViewActiveKey}
+                                onTabClick={(key) => setShowRaw(key === SCHEMA_VIEW_RAW)}
+                            />
+                        </SchemaViewSwitch>
                     )}
                     <Tooltip title={schemaAuditToggleText} showArrow={false}>
                         <Button
