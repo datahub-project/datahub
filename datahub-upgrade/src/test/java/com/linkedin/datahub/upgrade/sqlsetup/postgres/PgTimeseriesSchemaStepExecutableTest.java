@@ -139,7 +139,7 @@ public class PgTimeseriesSchemaStepExecutableTest {
   }
 
   @Test
-  public void executable_succeedsWithoutCron_withRetentionUpdate() {
+  public void executable_succeedsWithoutCron_withRetentionUpdate() throws SQLException {
     when(postgresProperties.buildPgTimeseriesOptions()).thenReturn(sampleOptions(false, 604800));
     when(postgresProperties.normalizedPgCronSchema()).thenReturn("cron");
 
