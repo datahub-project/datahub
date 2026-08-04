@@ -303,14 +303,18 @@ public abstract class RetentionService<U extends ChangeMCP> {
 
   /**
    * Batch variant of {@link #applyRetentionWithPolicyDefaults} intended for the post-commit drain
-   * path. Wraps all per-pair DELETEs in a single database transaction where supported by the
-   * storage backend (see {@code EbeanRetentionService} for the tx + savepoint implementation).
+   * path. Applies each pair's DELETE with per-pair failure isolation where supported by the storage
+   * backend (see {@code EbeanRetentionService} for the per-context transaction implementation).
    * Returns the contexts that were durably committed — callers should clear only those keys from
    * the buffer.
    *
    * <p>Default implementation falls back to {@link #applyRetentionWithPolicyDefaults} and returns
-   * the full input list (treats all as committed). Storage-specific subclasses override to provide
-   * real transaction batching and per-pair failure isolation.
+   * the full input list — treating every pair as committed <b>with no per-pair failure
+   * isolation</b>. On a backend using this default (e.g. Cassandra) a partial failure that does not
+   * throw leaves those keys reported as committed, so the drainer clears them and they are silently
+   * under-pruned until the next enqueue re-adds them. Storage-specific subclasses (see {@code
+   * EbeanRetentionService}) override to apply each context in its own transaction (per-pair failure
+   * isolation).
    *
    * @param opContext operation context
    * @param retentionContexts urn, aspect name, and additional context to apply retention for

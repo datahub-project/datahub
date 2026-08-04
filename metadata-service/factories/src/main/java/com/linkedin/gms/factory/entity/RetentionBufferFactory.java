@@ -131,12 +131,14 @@ public class RetentionBufferFactory {
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
       @Nullable MetricUtils metricUtils) {
     if (!(retentionService instanceof EbeanRetentionService)) {
-      // Only EbeanRetentionService overrides applyRetentionBatchWithPolicyDefaults with per-context
-      // savepoint isolation. Other impls (e.g. Cassandra) inherit the default, which treats the
-      // whole batch as all-or-nothing success — weaker durability contract, still no data loss.
+      // Only EbeanRetentionService overrides applyRetentionBatchWithPolicyDefaults to apply each
+      // context in its own transaction (poison-pair isolation). Other impls (e.g. Cassandra)
+      // inherit
+      // the default, which treats the whole batch as all-or-nothing — weaker contract, no data
+      // loss.
       log.warn(
           "Coalesced retention drainer wired with non-Ebean RetentionService ({}); batch retention"
-              + " has no per-context savepoint isolation.",
+              + " has no per-context transaction isolation.",
           retentionService.getClass().getSimpleName());
     }
     RetentionBufferProperties props = effectiveProperties(configurationProvider);

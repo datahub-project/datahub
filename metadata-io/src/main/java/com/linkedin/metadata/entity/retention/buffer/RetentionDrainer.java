@@ -22,11 +22,11 @@ import org.springframework.scheduling.annotation.Scheduled;
  * Background drainer over a {@link CoalesceBuffer} of pending retention keys. With the Hazelcast
  * backend exactly one pod cluster-wide applies retention per tick (shared drain lock) and the rest
  * no-op; with the local Caffeine backend each pod drains its own buffer independently. The drained
- * batch is handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults} in a single
- * database transaction (one commit per tick); per-pair savepoint isolation inside that tx means a
- * poison (urn, aspect) pair rolls back only its own DELETE. Keys whose contexts are returned as
- * committed are cleared via {@code removeIfSame}; everything else stays for the next tick to retry
- * (no retention_dlq table in v1 — see plan Global Constraints).
+ * batch is handed to {@link RetentionService#applyRetentionBatchWithPolicyDefaults}, which applies
+ * each (urn, aspect) pair in its own transaction so a poison pair fails and retries on its own
+ * without blocking the rest of the batch. Keys whose contexts are returned as committed are cleared
+ * via {@code removeIfSame}; everything else stays for the next tick to retry (no retention_dlq
+ * table in v1 — see plan Global Constraints).
  *
  * <p>{@code tick()} is {@code @Scheduled}; scheduling is turned on by {@code
  * RetentionBufferSchedulingConfig} (a gated {@code @EnableScheduling}) in ANY process that wires

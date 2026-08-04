@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -25,17 +26,20 @@ import lombok.extern.slf4j.Slf4j;
  * over-capacity insert is accounted as an explicit "bloat, not loss" overflow drop — existing keys
  * are never evicted, only new keys are rejected once full.
  *
- * <p>Drain locks are local, non-reentrant, and lease-based: each holds an expiry timestamp keyed by
- * lock name, coordinating drainer threads within this JVM only (not cluster-wide). The {@code
- * lease} is enforced — a drainer that dies mid-drain without releasing cannot wedge the lock past
- * its lease (stuck-lock recovery, mirroring the Hazelcast backend's TTL lock).
+ * <p>Drain locks are local, non-reentrant, and lease-based: each is keyed by lock name and holds a
+ * lease (expiry + a unique fencing token), coordinating drainer threads within this JVM only (not
+ * cluster-wide). The {@code lease} is enforced (stuck-lock recovery) and release is token-fenced —
+ * a drainer whose lease expired cannot clear the lock a later drainer re-acquired (mirroring the
+ * Hazelcast backend's TTL lock).
  */
 @Slf4j
 public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
 
   private final ConcurrentMap<K, V> map;
-  // Value = lease-expiry epoch millis; 0 means free.
-  private final ConcurrentMap<String, AtomicLong> lockExpiries = new ConcurrentHashMap<>();
+  // Drain locks: name -> current lease (expiry for stuck-lock recovery + a globally-unique token so
+  // release is fenced and a stale holder can never clear a later holder's lock).
+  private final ConcurrentMap<String, AtomicReference<Lease>> locks = new ConcurrentHashMap<>();
+  private final AtomicLong tokenSeq = new AtomicLong();
   private final int maxPendingEntries;
   private final String name;
   @Nullable private final MetricUtils metricUtils;
@@ -95,32 +99,37 @@ public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   @Nullable
   public Object tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
     long now = System.currentTimeMillis();
-    long newExpiry = now + Math.max(1L, lease.toMillis());
-    AtomicLong holder = lockExpiries.computeIfAbsent(lockName, k -> new AtomicLong(0L));
+    AtomicReference<Lease> holder = locks.computeIfAbsent(lockName, k -> new AtomicReference<>());
     while (true) {
-      long current = holder.get();
+      Lease current = holder.get();
       // Held and not yet expired → fail (non-reentrant: same thread cannot re-acquire).
-      if (current != 0L && now < current) {
+      if (current != null && now < current.expiryMs()) {
         return null;
       }
-      // Free, or the prior holder's lease expired → steal it (stuck-lock recovery). The expiry is
-      // the fencing token: it strictly increases across steals, so a prior holder's release can
-      // never match a later holder's lease.
-      if (holder.compareAndSet(current, newExpiry)) {
-        return newExpiry;
+      // Free, or the prior holder's lease expired → steal it (stuck-lock recovery). The token is a
+      // globally-unique sequence, so a stale holder's release can never match a later holder's lock
+      // regardless of clock values.
+      Lease next = new Lease(now + Math.max(1L, lease.toMillis()), tokenSeq.incrementAndGet());
+      if (holder.compareAndSet(current, next)) {
+        return next.token();
       }
     }
   }
 
   @Override
   public void releaseDrainLock(@Nonnull String lockName, @Nonnull Object token) {
-    AtomicLong holder = lockExpiries.get(lockName);
-    // Clear only if we still hold our own lease. If it expired and another drainer stole the lock
-    // (a later, larger expiry), our token no longer matches — leave theirs intact.
-    if (holder == null || !holder.compareAndSet((Long) token, 0L)) {
+    AtomicReference<Lease> holder = locks.get(lockName);
+    Lease current = holder == null ? null : holder.get();
+    // Clear only if our token still owns the lock. If the lease expired and another drainer
+    // re-acquired (a new token), leave theirs intact.
+    if (current == null
+        || current.token() != (Long) token
+        || !holder.compareAndSet(current, null)) {
       log.warn(
           "Drain lock '{}' not released by owner — lease likely expired and it was re-acquired",
           lockName);
     }
   }
+
+  private record Lease(long expiryMs, long token) {}
 }

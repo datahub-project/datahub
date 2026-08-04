@@ -27,9 +27,6 @@ import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Savepoint;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -119,7 +116,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
    * transaction; this method issues one {@code DELETE} against the ambient/current tx.
    */
   // Package-private (not private) so a test subclass can override it to force a per-context DELETE
-  // failure and exercise the savepoint-isolation path in applyRetentionBatchWithPolicyDefaults.
+  // failure and exercise the per-context isolation path in applyRetentionBatchWithPolicyDefaults.
   int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
     // Callers resolve the policy before this point (batch path fills it from getRetention; legacy
     // path filters isPresent). Fail loudly with context if that invariant is ever violated.
@@ -169,18 +166,16 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   }
 
   /**
-   * Batch variant of {@link #applyRetentionWithPolicyDefaults} that wraps all per-pair DELETEs in a
-   * single database transaction (one commit / fsync per drain tick). Per-pair JDBC savepoints
-   * isolate failures: a poison (urn, aspect) pair rolls back only its own DELETE, so one bad pair
-   * no longer wedges the whole batch. Returns the contexts that were durably committed — the caller
-   * ({@link com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only
-   * those keys from the buffer via {@code removeIfSame}.
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} that applies each (urn, aspect) pair
+   * in its own independent transaction ({@code TxScope.requiresNew}). A poison pair fails and
+   * retries on its own without wedging the rest of the batch, and there is no per-engine savepoint
+   * behavior to reason about — the extra commits are negligible for low-volume background
+   * retention. Returns the contexts that were durably committed — the caller ({@link
+   * com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those keys
+   * from the buffer via {@code removeIfSame}.
    *
    * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
    * cleared rather than retried forever.
-   *
-   * <p>If the final commit fails, returns an empty list — nothing is durable and all keys stay for
-   * retry.
    */
   @Override
   @WithSpan
@@ -208,66 +203,31 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       return successes;
     }
 
-    // REQUIRES_NEW, not REQUIRED: retention is best-effort cleanup and must own an independent
-    // transaction. If this ever runs inside an ambient unit-of-work, joining it and calling
-    // tx.commit() below would prematurely commit the caller's work.
-    // Batch mode intentionally OFF: each context is a bulk ExpressionList delete (one immediate
-    // DELETE statement), so batching buys nothing here — and buffered DML would not be flushed to
-    // the JDBC connection before setSavepoint(), breaking per-context savepoint isolation below.
-    Transaction tx = _server.beginTransaction(TxScope.requiresNew());
-    try {
-      Connection connection = tx.connection();
-      for (RetentionContext context : withDefaults) {
-        Savepoint savepoint = connection.setSavepoint();
-        try {
-          int rowsDeleted = executeRetentionDeleteForContext(context);
-          connection.releaseSavepoint(savepoint);
-          successes.add(context);
-          if (rowsDeleted > 0) {
-            log.debug(
-                "Deleted {} rows for urn={} aspect={}",
-                rowsDeleted,
-                context.getUrn(),
-                context.getAspectName());
-          }
-        } catch (Exception e) {
-          try {
-            connection.rollback(savepoint);
-          } catch (SQLException sqle) {
-            // On PostgreSQL a failed savepoint rollback leaves the connection in an aborted state,
-            // so every subsequent context in this loop will also fail and tx.commit() will roll the
-            // whole batch back. Outcome is still safe (returns no successes -> all keys retried),
-            // just coarser than per-context isolation on that engine.
-            log.warn(
-                "Failed to rollback to savepoint for urn={} aspect={}",
-                context.getUrn(),
-                context.getAspectName(),
-                sqle);
-          }
-          log.warn(
-              "Retention delete failed for urn={} aspect={}; leaving key for retry",
+    // One independent transaction per context (TxScope.requiresNew): a poison (urn, aspect) fails
+    // and retries on its own without blocking the rest of the batch, and there is no per-engine
+    // savepoint behavior to reason about. Retention is low-volume background cleanup, so the extra
+    // commits are negligible. Each context is a single bulk DELETE.
+    for (RetentionContext context : withDefaults) {
+      try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        tx.commit();
+        successes.add(context);
+        if (rowsDeleted > 0) {
+          log.debug(
+              "Deleted {} rows for urn={} aspect={}",
+              rowsDeleted,
               context.getUrn(),
-              context.getAspectName(),
-              e);
+              context.getAspectName());
         }
+      } catch (Exception e) {
+        log.warn(
+            "Retention delete failed for urn={} aspect={}; leaving key for retry",
+            context.getUrn(),
+            context.getAspectName(),
+            e);
       }
-      tx.commit();
-      return successes;
-    } catch (Exception e) {
-      log.warn(
-          "Retention batch tx failed; {} of {} pairs applied before failure",
-          successes.size(),
-          withDefaults.size(),
-          e);
-      try {
-        tx.rollback();
-      } catch (Exception ignored) {
-        // Already logging the primary failure above.
-      }
-      return List.of();
-    } finally {
-      tx.end();
     }
+    return successes;
   }
 
   private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
