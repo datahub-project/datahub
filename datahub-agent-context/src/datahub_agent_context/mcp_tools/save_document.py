@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Tuple
 
+from datahub.errors import ItemNotFoundError
 from datahub.metadata import schema_classes as models
 from datahub.sdk import Document
 from datahub_agent_context.context import get_datahub_client
@@ -118,6 +119,9 @@ def _get_current_user_info() -> Optional[Dict]:
         )
         me_data = result.get("me", {})
         return me_data.get("corpUser") if me_data else None
+    except ItemNotFoundError:
+        logger.debug(f"Document {document_urn} does not exist, allowing creation")
+        return True, None
     except Exception as e:
         logger.warning(f"Failed to get current user info: {e}")
         return None
