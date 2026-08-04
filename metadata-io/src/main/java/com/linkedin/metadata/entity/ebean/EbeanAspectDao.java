@@ -1005,11 +1005,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   /**
-   * Not routed through {@link ScopedTransactionFactory}: the {@code AspectDao} contract marks this
-   * method {@code @OperationContextExempt}, so there is no {@link OperationContext} to scope
-   * against. It runs against the single configured primary. Wire it up once the interface threads
-   * an OperationContext through (see the TODO on {@code
-   * AspectDao#streamAspectBatchesForMigration}).
+   * TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
+   * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
+   * OperationContext} to scope against. It runs against the single configured primary regardless of
+   * which tenant is being processed. A downstream module routing per-tenant traffic must either
+   * block this path while its multi-tenant mode is active, or wait for it to be wired — thread an
+   * {@link OperationContext} through this method (and {@code
+   * AspectDao#streamAspectBatchesForMigration}) to close the gap.
    */
   @Override
   @Nonnull
@@ -1087,10 +1089,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   /**
    * Warning the stream must be closed
    *
-   * <p>Not routed through {@link ScopedTransactionFactory}: the {@code AspectDao} contract marks
-   * this method {@code @OperationContextExempt}, so there is no {@link OperationContext} to scope
-   * against. It runs against the single configured primary. Wire it up once the interface threads
-   * an OperationContext through (see the TODO on {@code AspectDao#streamAspects}).
+   * <p>TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
+   * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
+   * OperationContext} to scope against. It runs against the single configured primary regardless of
+   * which tenant is being processed. A downstream module routing per-tenant traffic must either
+   * block this path while its multi-tenant mode is active, or wait for it to be wired — thread an
+   * {@link OperationContext} through this method (and {@code
+   * AspectDao#streamAspectBatchesForMigration}) to close the gap.
    *
    * @param entityName
    * @param aspectName
