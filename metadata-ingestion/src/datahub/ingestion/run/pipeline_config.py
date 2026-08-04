@@ -321,5 +321,7 @@ class PipelineConfig(ConfigModel):
     def get_raw_dict(self) -> Dict:
         result = self._raw_dict
         if result is None:
-            result = self.model_dump()
+            # mode="json" so callers that serialize the recipe (e.g. run-summary
+            # reporting) don't trip over non-JSON-native values like config enums.
+            result = self.model_dump(mode="json")
         return result
