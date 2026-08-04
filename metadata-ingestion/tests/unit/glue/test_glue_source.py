@@ -531,6 +531,67 @@ def test_resource_link_upstream_merged_with_storage_lineage():
     assert any("dataPlatform:s3" in d for d in datasets)
 
 
+@pytest.mark.parametrize(
+    "platform_instance_map,expected_s3_urn",
+    [
+        (
+            None,
+            "urn:li:dataset:(urn:li:dataPlatform:s3,owner-bucket/transactions,PROD)",
+        ),
+        (
+            {"s3": "prod_s3"},
+            "urn:li:dataset:(urn:li:dataPlatform:s3,prod_s3.owner-bucket/transactions,PROD)",
+        ),
+    ],
+)
+def test_storage_lineage_applies_s3_platform_instance(
+    platform_instance_map, expected_s3_urn
+):
+    # The S3 upstream must carry the instance the *S3* recipe was ingested with. The two
+    # instance settings here are independent: `platform_instance` names this Glue catalog,
+    # `platform_instance_map["s3"]` names the S3 recipe that owns the bucket. Without the
+    # latter the URNs never join and the lineage silently does not appear.
+    config_args = dict(
+        aws_region="us-east-1",
+        platform_instance="glue_inst",
+        emit_storage_lineage=True,
+        include_column_lineage=False,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+    )
+    if platform_instance_map is not None:
+        config_args["platform_instance_map"] = platform_instance_map
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(**config_args),
+    )
+    table = {
+        "Name": "transactions",
+        "DatabaseName": "test-database",
+        "CatalogId": "123412341234",
+        "StorageDescriptor": {
+            "Columns": [{"Name": "txn_id", "Type": "bigint", "Comment": ""}],
+            "Location": "s3://owner-bucket/transactions",
+        },
+    }
+
+    wus = list(source._gen_table_wu(table))
+    upstream_aspects = [
+        wu.metadata.aspect
+        for wu in wus
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1
+    s3_urns = {
+        u.dataset
+        for u in upstream_aspects[0].upstreams
+        if "dataPlatform:s3" in u.dataset
+    }
+    assert s3_urns == {expected_s3_urn}
+
+
 def test_resource_link_no_self_lineage_when_owner_unresolved():
     # No catalog mapping -> the owner falls back to the source's own instance/env. If the link and
     # its target share a name, the owner URN equals the dataset's own URN; a self-upstream edge is

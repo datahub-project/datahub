@@ -15,6 +15,7 @@ from datahub.configuration.common import (
     HiddenFromDocs,
 )
 from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
@@ -45,6 +46,10 @@ from datahub.ingestion.source_config.operation_config import (
 from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
+
+# DataHub platforms Unity Catalog emits as external storage lineage, i.e. the only
+# keys `platform_instance_map` is read for.
+LINEAGE_PLATFORMS = frozenset({"s3"})
 
 # Configuration default constants
 INCLUDE_TAGS_DEFAULT = True
@@ -198,6 +203,7 @@ class UnityCatalogSourceConfig(
     StatefulIngestionConfigBase,
     BaseUsageConfig,
     DatasetSourceConfigMixin,
+    DatasetLineageProviderConfigBase,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     IncrementalOwnershipConfigMixin,
@@ -795,6 +801,23 @@ class UnityCatalogSourceConfig(
             logger.warning(msg)
             add_global_warning(msg)
         return self
+
+    @field_validator("platform_instance_map", mode="after")
+    @classmethod
+    def validate_lineage_platform_keys(
+        cls, platform_instance_map: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        # External locations are only resolved for `s3://` today, so `s3` is the only key
+        # read. Any other key would be accepted and then silently ignored, leaving the
+        # lineage unjoined with no error -- the failure this mapping exists to prevent.
+        unknown = sorted(set(platform_instance_map or {}) - LINEAGE_PLATFORMS)
+        if unknown:
+            raise ValueError(
+                f"platform_instance_map keys {unknown} are not read by the Unity Catalog "
+                f"source. It emits external storage lineage for "
+                f"{sorted(LINEAGE_PLATFORMS)} only, and keys are case-sensitive."
+            )
+        return platform_instance_map
 
     @field_validator("schema_pattern", mode="after")
     @classmethod
