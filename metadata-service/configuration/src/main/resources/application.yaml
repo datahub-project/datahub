@@ -384,7 +384,9 @@ datahub:
     # Every ingesting pod (GMS or MCE consumer) runs the drainer. hazelcast shares one map + a
     # cluster-wide drain lock (cross-pod coalescing, one drainer per tick); caffeine is per-pod
     # (each drains its own local buffer, no cross-pod coalescing).
-    implementation: ${DATAHUB_BUFFER_IMPLEMENTATION:${searchService.cacheImplementation:caffeine}}
+    # Defaults to caffeine and does NOT inherit searchService.cacheImplementation — hazelcast is an
+    # explicit opt-in so enabling the retention buffer never silently pulls in cluster-wide locks.
+    implementation: ${DATAHUB_BUFFER_IMPLEMENTATION:caffeine}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}

@@ -73,6 +73,9 @@ public class CaffeineCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   @Override
   @Nonnull
   public List<Map.Entry<K, V>> drain(int limit) {
+    // ConcurrentHashMap iteration order is unspecified, so the bounded batch a pod picks is
+    // non-deterministic (unlike the Hazelcast backend's ordered PagingPredicate). Fine: drain is
+    // best-effort and every pod drains its own local buffer, so batch composition doesn't matter.
     List<Map.Entry<K, V>> batch = new ArrayList<>(Math.min(limit, 64));
     for (Map.Entry<K, V> entry : map.entrySet()) {
       if (batch.size() >= limit) {

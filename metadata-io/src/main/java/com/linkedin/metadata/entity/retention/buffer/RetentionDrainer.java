@@ -90,7 +90,24 @@ public class RetentionDrainer {
       return;
     }
     try {
+      long startMs = System.currentTimeMillis();
       drainBatch();
+      long elapsedMs = System.currentTimeMillis() - startMs;
+      // Lease is not renewed mid-drain: if a drain outlasts the lease, another pod can acquire the
+      // lock and drain the same keys concurrently. That is safe (removeIfSame + idempotent
+      // version-range DELETEs), just wasted work — surface it so operators can raise
+      // drainLockLeaseMs or lower drainBatchSize.
+      if (elapsedMs > drainLockLease.toMillis()) {
+        log.warn(
+            "Retention drain took {}ms, exceeding the {}ms lock lease; another pod may drain"
+                + " concurrently (safe but wasteful). Raise datahub.retention.buffer.drainLockLeaseMs"
+                + " or lower drainBatchSize.",
+            elapsedMs,
+            drainLockLease.toMillis());
+        if (metricUtils != null) {
+          metricUtils.increment(RetentionDrainer.class, "retention_drain_exceeded_lease", 1);
+        }
+      }
     } finally {
       buffer.releaseDrainLock(DRAIN_LOCK_NAME);
     }

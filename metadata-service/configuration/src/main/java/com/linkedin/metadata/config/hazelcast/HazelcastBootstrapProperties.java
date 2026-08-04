@@ -28,18 +28,21 @@ public final class HazelcastBootstrapProperties {
   private HazelcastBootstrapProperties() {}
 
   /**
-   * Resolves the effective {@code datahub.buffer.implementation}, mirroring the YAML default chain
-   * ({@code DATAHUB_BUFFER_IMPLEMENTATION -> searchService.cacheImplementation -> "caffeine"})
-   * directly in Java as a safety net for early-lifecycle {@link
-   * org.springframework.context.annotation.Condition}s that run before the environment's nested
-   * placeholder resolution is guaranteed to have settled.
+   * Resolves the effective {@code datahub.buffer.implementation}: an explicit {@code
+   * DATAHUB_BUFFER_IMPLEMENTATION} / {@code datahub.buffer.implementation}, else {@code caffeine}.
+   * Deliberately does NOT inherit {@code searchService.cacheImplementation} — the buffer backend is
+   * an explicit opt-in, so flipping the retention flag never silently pulls in Hazelcast (cluster-
+   * wide drain locks + shared maps) just because the search cache happens to use it. Resolved in
+   * Java as a safety net for early-lifecycle {@link
+   * org.springframework.context.annotation.Condition}s that run before placeholder resolution has
+   * settled.
    */
   public static String resolveBufferImplementation(PropertyResolver environment) {
     String configured = environment.getProperty(BUFFER_IMPLEMENTATION);
     if (configured != null && !configured.isBlank()) {
       return configured;
     }
-    return environment.getProperty(SEARCH_CACHE_IMPLEMENTATION, "caffeine");
+    return "caffeine";
   }
 
   /**

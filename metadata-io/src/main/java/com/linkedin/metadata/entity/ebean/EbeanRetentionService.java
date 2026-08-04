@@ -121,7 +121,18 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   // Package-private (not private) so a test subclass can override it to force a per-context DELETE
   // failure and exercise the savepoint-isolation path in applyRetentionBatchWithPolicyDefaults.
   int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
-    Retention retentionPolicy = context.getRetentionPolicy().orElseThrow();
+    // Callers resolve the policy before this point (batch path fills it from getRetention; legacy
+    // path filters isPresent). Fail loudly with context if that invariant is ever violated.
+    Retention retentionPolicy =
+        context
+            .getRetentionPolicy()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Missing retention policy for "
+                            + context.getUrn()
+                            + " "
+                            + context.getAspectName()));
 
     ExpressionList<EbeanAspectV2> deleteQuery =
         _server
