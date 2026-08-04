@@ -1,4 +1,6 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
+import { useGetContainerAssets } from '@app/entityV2/summary/modules/assets/useGetContainerAssets';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
 import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
@@ -30,6 +32,20 @@ export function useGetAssets() {
         navigateToAssetsTab: navigateToTermAssetsTab,
     } = useGetTermAssets(NUMBER_OF_ASSETS_TO_FETCH);
 
+    const {
+        loading: applicationAssetsLoading,
+        fetchAssets: fetchApplicationAssets,
+        total: applicationAssetsTotal,
+        navigateToAssetsTab: navigateToApplicationAssetsTab,
+    } = useGetApplicationAssets(NUMBER_OF_ASSETS_TO_FETCH);
+
+    const {
+        loading: containerAssetsLoading,
+        fetchAssets: fetchContainerAssets,
+        total: containerAssetsTotal,
+        navigateToAssetsTab: navigateToContainerAssetsTab,
+    } = useGetContainerAssets(NUMBER_OF_ASSETS_TO_FETCH);
+
     let fetchAssets;
     let loading;
     let total;
@@ -53,6 +69,18 @@ export function useGetAssets() {
             loading = termAssetsLoading;
             total = termAssetsTotal;
             navigateToAssetsTab = navigateToTermAssetsTab;
+            break;
+        case EntityType.Application:
+            fetchAssets = fetchApplicationAssets;
+            loading = applicationAssetsLoading;
+            total = applicationAssetsTotal;
+            navigateToAssetsTab = navigateToApplicationAssetsTab;
+            break;
+        case EntityType.Container:
+            fetchAssets = fetchContainerAssets;
+            loading = containerAssetsLoading;
+            total = containerAssetsTotal;
+            navigateToAssetsTab = navigateToContainerAssetsTab;
             break;
         default:
             break;

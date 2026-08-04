@@ -152,8 +152,27 @@ describe('getDefaultSummaryPageTemplate', () => {
         expect(result.properties.rows[0].modules).toHaveLength(1);
     });
 
+    it.each([
+        [EntityType.Application, 1],
+        [EntityType.Container, 1],
+        [EntityType.Chart, 1],
+        [EntityType.Dashboard, 1],
+        [EntityType.Mlmodel, 1],
+    ])('should return correct template for %s entity type', (entityType, moduleCount) => {
+        const result = getDefaultSummaryPageTemplate(entityType);
+
+        expect(result.properties.rows[0].modules).toHaveLength(moduleCount);
+        expect(result.properties.assetSummary?.summaryElements).toEqual([
+            { elementType: SummaryElementType.Created },
+            { elementType: SummaryElementType.Owners },
+            { elementType: SummaryElementType.Domain },
+            { elementType: SummaryElementType.Tags },
+            { elementType: SummaryElementType.GlossaryTerms },
+        ]);
+    });
+
     it('should return template with empty arrays for unsupported entity types', () => {
-        const result = getDefaultSummaryPageTemplate(EntityType.Chart);
+        const result = getDefaultSummaryPageTemplate(EntityType.DataFlow);
 
         expect(result).toEqual({
             urn: 'urn:li:dataHubPageTemplate:asset_summary_default',

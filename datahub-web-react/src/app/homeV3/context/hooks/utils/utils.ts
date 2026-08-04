@@ -54,6 +54,26 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
+        case EntityType.Application:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Container:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Chart:
+            rows = [{ modules: [LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Dashboard:
+            rows = [{ modules: [LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Mlmodel:
+            rows = [{ modules: [LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
         case EntityType.SemanticModel:
             rows = [
                 { modules: [LINEAGE_MODULE] },
