@@ -227,6 +227,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
                             selectedUrn={selectedParentUrn || undefined}
                             onSelectDocument={handleSelectDocument}
                             hideActions
+                            loadRoots={false}
                         />
                     </>
                 )}
