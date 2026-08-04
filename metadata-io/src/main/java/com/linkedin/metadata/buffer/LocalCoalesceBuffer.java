@@ -120,8 +120,10 @@ public class LocalCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   public void releaseDrainLock(@Nonnull String lockName, @Nonnull Object token) {
     AtomicReference<Lease> holder = locks.get(lockName);
     Lease current = holder == null ? null : holder.get();
-    // Clear only if our token still owns the lock. If the lease expired and another drainer
-    // re-acquired (a new token), leave theirs intact.
+    // Contract: `token` is exactly the opaque value returned by THIS buffer's tryAcquireDrainLock,
+    // so it is always the Long fencing token minted above (a caller never fabricates or crosses
+    // tokens between backends). Clear only if our token still owns the lock; if the lease expired
+    // and another drainer re-acquired (a new token), leave theirs intact.
     if (current == null
         || current.token() != (Long) token
         || !holder.compareAndSet(current, null)) {

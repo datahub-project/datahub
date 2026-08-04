@@ -27,7 +27,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -39,6 +41,7 @@ public class RetentionDrainerTest {
   private static final Urn TEST_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
   private static final String ASPECT = "status";
+  private static final String FAILED_ASPECT = "ownership";
 
   private static final OperationContext SYSTEM_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -112,6 +115,39 @@ public class RetentionDrainerTest {
     assertTrue(buffer.drain(10).size() == 1);
     verify(mockMetricUtils, times(1))
         .increment(eq(RetentionDrainer.class), eq("retention_drain_failed"), eq(1.0d));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickRemovesOnlyCommittedKeysOnPartialSuccess() {
+    // Two pending keys; the service commits only one (the other's per-context tx failed). Only the
+    // committed key must be cleared via removeIfSame — the failed key stays for the next tick.
+    CoalesceBuffer<RetentionKey, Long> buffer = new LocalCoalesceBuffer<>(MAP_NAME, 100, null);
+    RetentionKey committedKey = new RetentionKey(TEST_URN.toString(), ASPECT);
+    RetentionKey failedKey = new RetentionKey(TEST_URN.toString(), FAILED_ASPECT);
+    buffer.merge(committedKey, 3L, CoalesceBuffers.KEEP_MAX_LONG);
+    buffer.merge(failedKey, 5L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    // Return only the committed context, dropping the failed one — mirrors EbeanRetentionService
+    // returning just the contexts whose own transaction committed.
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<RetentionService.RetentionContext> contexts = invocation.getArgument(1);
+              return contexts.stream()
+                  .filter(ctx -> ASPECT.equals(ctx.getAspectName()))
+                  .collect(Collectors.toList());
+            });
+    RetentionDrainer drainer =
+        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+
+    drainer.tick();
+
+    List<Map.Entry<RetentionKey, Long>> remaining = buffer.drain(10);
+    assertEquals(remaining.size(), 1);
+    assertEquals(remaining.get(0).getKey(), failedKey);
+    assertEquals(remaining.get(0).getValue(), Long.valueOf(5L));
   }
 
   @Test

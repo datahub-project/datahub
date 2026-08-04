@@ -120,7 +120,9 @@ public class RetentionDrainer {
       return;
     }
 
-    // Build retention contexts up front so the whole batch is applied in one tx (one fsync).
+    // Build retention contexts up front, then hand the whole batch to the service in one call.
+    // EbeanRetentionService applies each context in its OWN transaction (TxScope.requiresNew) so a
+    // poison pair fails and retries in isolation; only committed contexts come back as successes.
     List<RetentionService.RetentionContext> contexts = new ArrayList<>(batch.size());
     for (Map.Entry<RetentionKey, Long> entry : batch) {
       try {
