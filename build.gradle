@@ -558,6 +558,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
 
+    resolutionStrategy.force 'io.ebean:ebean-datasource:9.1'
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
