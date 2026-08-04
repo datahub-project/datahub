@@ -7,6 +7,7 @@ from sqlalchemy.engine import Inspector
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.doris.doris_dialect import DorisDialect
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
+from datahub.ingestion.source.sql.mysql import MySQLSource
 
 
 def test_doris_uses_native_dialect():
@@ -162,6 +163,55 @@ class TestDorisSourceMethods:
         result = _DORIS_CATALOG_PREFIX_PATTERN.sub("", input_view_def)
         assert result == expected_output
 
+    @pytest.mark.parametrize(
+        "catalog,view_definition,expected",
+        [
+            (
+                None,
+                "SELECT * FROM `internal`.`db_ods`.`orders`",
+                "SELECT * FROM `db_ods`.`orders`",
+            ),
+            (
+                "iceberg_catalog",
+                "SELECT * FROM `iceberg_catalog`.`db_ods`.`orders`",
+                "SELECT * FROM `db_ods`.`orders`",
+            ),
+        ],
+    )
+    def test_view_definition_strips_the_active_catalog(
+        self, catalog, view_definition, expected
+    ):
+        config = DorisConfig(host_port="localhost:9030", catalog=catalog)
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(
+            MySQLSource, "_get_view_definition", return_value=view_definition
+        ):
+            result = source._get_view_definition(MagicMock(), "db_ods", "v_orders")
+
+        assert result == expected
+        assert source.report.cross_catalog_views_skipped == 0
+
+    def test_view_definition_skips_lineage_across_catalogs(self):
+        # `internal`.`db_ods`.`orders` names a table in another catalog; stripping
+        # the prefix would resolve it against iceberg_catalog's db_ods instead.
+        config = DorisConfig(host_port="localhost:9030", catalog="iceberg_catalog")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        with patch.object(
+            MySQLSource,
+            "_get_view_definition",
+            return_value=(
+                "SELECT * FROM `iceberg_catalog`.`db_ods`.`orders` "
+                "JOIN `internal`.`db_ods`.`customers`"
+            ),
+        ):
+            result = source._get_view_definition(MagicMock(), "db_ods", "v_orders")
+
+        assert result == ""
+        assert source.report.cross_catalog_views_skipped == 1
+        assert any("internal" in str(warning) for warning in source.report.warnings)
+
     def test_get_database_list_with_config_database(self):
         config = DorisConfig(host_port="localhost:9030", database="my_database")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
@@ -217,7 +267,8 @@ class TestDorisSourceMethods:
             inspectors = list(source.get_inspectors())
 
             assert len(inspectors) == 2
-            assert mock_engine.dispose.call_count == 2
+            # The listing engine plus one per database, all disposed.
+            assert mock_engine.dispose.call_count == 3
             db_urls = [c.args[0] for c in mock_create.call_args_list[1:]]
             assert all("/db1" in url or "/db2" in url for url in db_urls)
             assert all("internal." not in url for url in db_urls)

@@ -1,9 +1,12 @@
+import functools
 import logging
 import re
-from typing import Any, Dict, Iterable, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
@@ -29,6 +32,7 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
 )
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -58,6 +62,7 @@ register_custom_type(DORIS_STRUCT, RecordTypeClass)
 register_custom_type(DORIS_JSONB, RecordTypeClass)
 
 
+@functools.lru_cache(maxsize=None)
 def _catalog_prefix_pattern(catalog: str) -> re.Pattern[str]:
     return re.compile(_DORIS_CATALOG_PREFIX_TEMPLATE.format(catalog=re.escape(catalog)))
 
@@ -134,6 +139,13 @@ class DorisConfig(MySQLConfig):
         return self
 
 
+@dataclass
+class DorisSourceReport(SQLSourceReport):
+    # Views whose lineage was dropped because they reference another Doris
+    # catalog, which this run does not ingest. Should be 0 on a clean run.
+    cross_catalog_views_skipped: int = 0
+
+
 @platform_name("Apache Doris", id="doris")
 @config_class(DorisConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -145,7 +157,14 @@ class DorisSource(MySQLSource):
 
     def __init__(self, config: DorisConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
+        self.report: DorisSourceReport = DorisSourceReport()
+        # The base class wired these against the report it built in
+        # super().__init__(), so re-point them at the report we actually use.
+        self.classification_handler.report = self.report
+        self.report.sql_aggregator = self.aggregator.report
+
         self._session_catalog: Optional[str] = config.catalog
+        self._catalog_detection_failed = False
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -168,11 +187,15 @@ class DorisSource(MySQLSource):
             return database[len(catalog) + 1 :]
         return database
 
-    def _detect_current_catalog(self, conn: Any) -> Optional[str]:
+    def _detect_current_catalog(self, conn: Connection) -> Optional[str]:
         try:
             row = conn.execute(text("SELECT CURRENT_CATALOG()")).fetchone()
         except Exception:
-            logger.debug("CURRENT_CATALOG() unavailable", exc_info=True)
+            # A session that really is in an external catalog then fails every
+            # per-database reconnect with `Unknown database`, so leave a trail
+            # that ties those failures back to detection.
+            self._catalog_detection_failed = True
+            logger.warning("CURRENT_CATALOG() unavailable", exc_info=True)
             return None
         if not row or row[0] is None:
             return None
@@ -181,7 +204,7 @@ class DorisSource(MySQLSource):
             return None
         return catalog
 
-    def _switch_catalog(self, conn: Any, catalog: str) -> None:
+    def _switch_catalog(self, conn: Connection, catalog: str) -> None:
         conn.execute(text(f"SWITCH `{catalog}`"))
 
     def _get_database_list(self, inspector: Inspector) -> List[str]:
@@ -200,42 +223,55 @@ class DorisSource(MySQLSource):
         logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, **self.config.options)
-
-        with engine.connect() as conn:
-            if self.config.catalog and not self.config.database:
-                self._switch_catalog(conn, self.config.catalog)
-                self._session_catalog = self.config.catalog
-            else:
-                detected = self.config.catalog or self._detect_current_catalog(conn)
-                self._session_catalog = detected
-
-            inspector = inspect(conn)
-            databases = self._get_database_list(inspector)
-
-            for db in databases:
-                short_db = self._short_database_name(db)
-                if not self.config.database_pattern.allowed(short_db):
-                    continue
-
-                db_engine = None
-                try:
-                    db_url = self.config.get_sql_alchemy_url(
-                        current_db=self._qualified_database(short_db)
+        try:
+            with engine.connect() as conn:
+                if self.config.catalog and not self.config.database:
+                    self._switch_catalog(conn, self.config.catalog)
+                    self._session_catalog = self.config.catalog
+                else:
+                    self._session_catalog = (
+                        self.config.catalog or self._detect_current_catalog(conn)
                     )
-                    db_engine = create_engine(db_url, **self.config.options)
 
-                    with db_engine.connect() as db_conn:
-                        yield inspect(db_conn)
-                except Exception as e:
-                    self.report.failure(
-                        title="Failed to connect to database",
-                        message="Skipping database due to connection error.",
-                        context=self._qualified_database(short_db),
-                        exc=e,
-                    )
-                finally:
-                    if db_engine is not None:
-                        db_engine.dispose()
+                databases = self._get_database_list(inspect(conn))
+        finally:
+            # Only used to list databases; dispose so it does not hold a pooled
+            # connection open for the whole reflection/profiling run.
+            engine.dispose()
+
+        for db in databases:
+            short_db = self._short_database_name(db)
+            if not self.config.database_pattern.allowed(short_db):
+                continue
+
+            qualified_db = self._qualified_database(short_db)
+            db_engine = None
+            try:
+                db_url = self.config.get_sql_alchemy_url(current_db=qualified_db)
+                db_engine = create_engine(db_url, **self.config.options)
+                db_conn = db_engine.connect()
+            except Exception as e:
+                if db_engine is not None:
+                    db_engine.dispose()
+                context = qualified_db
+                if self._catalog_detection_failed:
+                    context = f"{context} (catalog detection failed)"
+                self.report.failure(
+                    title="Failed to connect to database",
+                    message="Skipping database due to connection error.",
+                    context=context,
+                    exc=e,
+                )
+                continue
+
+            try:
+                # Invariant: the caller must finish reflection + profiling for this
+                # database before asking for the next inspector — the finally below
+                # tears the engine down on resume.
+                yield inspect(db_conn)
+            finally:
+                db_conn.close()
+                db_engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
         db_name = super().get_db_name(inspector)
@@ -257,17 +293,47 @@ class DorisSource(MySQLSource):
         )
         return []
 
-    def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
-        view_definition = super()._get_view_definition(inspector, schema, view)
-        if not view_definition:
-            return view_definition
-
+    def _known_catalogs(self) -> Set[str]:
         catalogs = {DORIS_INTERNAL_CATALOG}
         if self.config.catalog:
             catalogs.add(self.config.catalog)
         if self._session_catalog:
             catalogs.add(self._session_catalog)
+        return catalogs
 
-        for catalog in catalogs:
-            view_definition = _catalog_prefix_pattern(catalog).sub("", view_definition)
+    def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
+        view_definition = super()._get_view_definition(inspector, schema, view)
+        if not view_definition:
+            return view_definition
+
+        active_catalog = self._active_catalog() or DORIS_INTERNAL_CATALOG
+        view_definition = _catalog_prefix_pattern(active_catalog).sub(
+            "", view_definition
+        )
+
+        foreign_catalogs = sorted(
+            catalog
+            for catalog in self._known_catalogs() - {active_catalog}
+            if _catalog_prefix_pattern(catalog).search(view_definition)
+        )
+        if foreign_catalogs:
+            # Stripping another catalog's prefix would resolve its tables against
+            # the active catalog's databases, pointing the edge at whatever table
+            # shares that name here. No edge beats a wrong edge.
+            self.report.cross_catalog_views_skipped += 1
+            self.report.warning(
+                title="View lineage skipped for cross-catalog reference",
+                message=(
+                    "The view reads from another Doris catalog, which this run "
+                    "does not ingest, so its lineage is dropped rather than "
+                    "pointed at same-named tables in the ingested catalog. "
+                    "Ingest that catalog with its own recipe to get these edges"
+                ),
+                context=(
+                    f"{schema}.{view}, catalogs={foreign_catalogs}, "
+                    f"active_catalog={active_catalog}"
+                ),
+            )
+            return ""
+
         return view_definition
