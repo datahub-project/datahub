@@ -796,6 +796,14 @@ def _namespace_warnings(source: AirbyteSource) -> list:
     ]
 
 
+def _guessed_schema_warnings(source: AirbyteSource) -> list:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Schema Guessed" in str(warning)
+    ]
+
+
 def test_warns_once_per_source_when_streams_api_reports_no_namespaces(mock_ctx):
     source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
     pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
@@ -842,4 +850,86 @@ def test_no_namespace_warning_when_another_tier_supplies_the_schema(
         pipeline_info, streams[0].config, streams[0].details
     )
     assert "wallet_db.dbo.transfers" in urns.source_urn
+    assert _namespace_warnings(source) == []
+    assert _guessed_schema_warnings(source) == []
+
+
+def test_warns_when_a_multi_schema_list_forces_a_guessed_schema(mock_ctx):
+    # Reproduced against Airbyte 1.6.9: a Postgres source over two schemas
+    # reports no namespace on either surface, so both streams take schemas[0]
+    # and the one that lives elsewhere silently claims another table's URN.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(
+        {"database": "test", "schemas": ["source_schema", "audit_schema"]}
+    )
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "source_schema"
+    warnings = _guessed_schema_warnings(source)
+    assert len(warnings) == 1
+    assert "transfers" in str(warnings[0])
+    assert "audit_schema" in str(warnings[0])
+    # The schema tier is populated, just not trustworthy.
+    assert _namespace_warnings(source) == []
+
+
+def test_default_schema_on_a_multi_schema_source_still_warns(mock_ctx):
+    # default_schema is one name for the whole source, so on a source that
+    # replicates several schemas it is right for at most one of them.
+    source = _source_with_details(
+        mock_ctx, PlatformDetail(platform="postgres", default_schema="audit_schema")
+    )
+    pipeline_info = _source_schema_pipeline(
+        {"database": "test", "schemas": ["source_schema", "audit_schema"]}
+    )
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "audit_schema"
+    warnings = _guessed_schema_warnings(source)
+    assert len(warnings) == 1
+    assert "schema=audit_schema" in str(warnings[0])
+
+
+def test_per_table_schema_is_trusted_on_a_multi_schema_source(mock_ctx):
+    # A per-table schema is per-stream, so it stays authoritative even when the
+    # connector replicates several schemas.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(
+        {
+            "database": "test",
+            "schemas": ["source_schema", "audit_schema"],
+            "tables": [{"name": "transfers", "schema": "audit_schema"}],
+        }
+    )
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "audit_schema"
+    assert _guessed_schema_warnings(source) == []
+
+
+@pytest.mark.parametrize(
+    "source_configuration",
+    [
+        {"database": "test", "schemas": ["source_schema"]},
+        {"database": "test", "schema": "source_schema"},
+    ],
+)
+def test_no_guess_warning_when_the_configuration_names_one_schema(
+    mock_ctx, source_configuration
+):
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(source_configuration)
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "source_schema"
+    assert _guessed_schema_warnings(source) == []
     assert _namespace_warnings(source) == []

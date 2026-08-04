@@ -55,6 +55,7 @@ from datahub.ingestion.source.airbyte.models import (
     PlatformKind,
     PlatformResolutionRequest,
     PropertyFieldPath,
+    ResolvedSchema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -532,11 +533,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self,
         pipeline_info: AirbytePipelineInfo,
         streams_without_namespace: List[str],
+        streams_with_guessed_namespace: List[str],
+        guessed_schema: str,
     ) -> None:
         """A wrong or missing schema points a dataset URN at the wrong table
         rather than failing, so every cause of one gets a warning an operator
-        can act on. Called after resolution: a gap that a later tier filled in
-        needs no warning, and `streams_without_namespace` names the rest."""
+        can act on. Called after resolution, because only its outcome says
+        whether a gap was filled, left empty, or filled with a guess."""
         connection = pipeline_info.connection
         connection_context = (
             f"connection_id={connection.connection_id}, "
@@ -574,6 +577,32 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     context=(
                         f"source_id={source_id}, "
                         f"streams={streams_without_namespace}, {connection_context}"
+                    ),
+                )
+                self._warned_streams_namespace_source_ids.add(source_id)
+            elif (
+                connection.streams_api_namespaces_absent
+                and streams_with_guessed_namespace
+            ):
+                self.report.warning(
+                    title="Stream Schema Guessed",
+                    message=(
+                        "Airbyte /streams described this source's streams but "
+                        "reported no namespace for any of them, and this source "
+                        "replicates several schemas, so nothing says which "
+                        "stream belongs to which. Every stream below carries the "
+                        "same schema tier in its dataset URN, which can only be "
+                        "right for the streams that live in that one schema; the "
+                        "rest point at another table's URN. Airbyte exposes "
+                        "stream namespaces from 1.7.0 onwards, and upgrading is "
+                        "the only way to tell these streams apart. Ignore this "
+                        "if every stream really does share the schema shown"
+                    ),
+                    context=(
+                        f"source_id={source_id}, schema={guessed_schema}, "
+                        f"configured_schemas={pipeline_info.source.configured_schemas}, "
+                        f"streams={streams_with_guessed_namespace}, "
+                        f"{connection_context}"
                     ),
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
@@ -642,6 +671,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             return []
 
         streams_without_namespace: List[str] = []
+        streams_with_guessed_namespace: List[str] = []
+        guessed_schema = ""
 
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
@@ -650,14 +681,17 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 continue
 
             stream = stream_config.stream
-            namespace = self._resolve_source_schema(
+            schema = self._resolve_source_schema(
                 stream_namespace=stream.namespace,
                 source=source,
                 source_details=source_details,
                 stream_name=stream.name,
             )
-            if not namespace:
+            if not schema.name:
                 streams_without_namespace.append(stream.name)
+            elif schema.guessed:
+                streams_with_guessed_namespace.append(stream.name)
+                guessed_schema = schema.name
 
             properties = {}
             if stream.json_schema:
@@ -671,7 +705,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
             stream_details = AirbyteStreamDetails(
                 stream_name=stream.name,
-                namespace=namespace,
+                namespace=schema.name,
                 property_fields=property_fields,
             )
             streams.append(
@@ -680,7 +714,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         # Reported after resolution so the warnings describe what the URNs
         # actually ended up with, not what Airbyte alone could tell us.
-        self._report_namespace_backfill_gaps(pipeline_info, streams_without_namespace)
+        self._report_namespace_backfill_gaps(
+            pipeline_info,
+            streams_without_namespace,
+            streams_with_guessed_namespace,
+            guessed_schema,
+        )
 
         return streams
 
@@ -1046,19 +1085,27 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source: AirbyteSourcePartial,
         source_details: PlatformDetail,
         stream_name: Optional[str],
-    ) -> str:
+    ) -> ResolvedSchema:
         # Most specific wins. The connector-wide schema is last because it is
         # often the only schema-shaped key a connector config has and can hold
         # something that is not a schema at all (SQL Server sources sometimes
         # carry the database name there), which would then shadow the per-table
         # schema that is right.
-        candidates = (
+        # Only the first two tiers are per-stream, so only they can be trusted
+        # when the connector replicates several schemas. A single recipe-level
+        # or connector-level name is right for at most one of them.
+        per_stream = (
             stream_namespace,
             source.get_schema_for_table(stream_name) if stream_name else None,
-            source_details.default_schema,
-            source.get_schema,
         )
-        return next((candidate for candidate in candidates if candidate), "")
+        name = next((candidate for candidate in per_stream if candidate), None)
+        if name:
+            return ResolvedSchema(name=name)
+
+        return ResolvedSchema(
+            name=source_details.default_schema or source.get_schema or "",
+            guessed=source.schema_is_guess,
+        )
 
     def _resolve_destination_schema(
         self,

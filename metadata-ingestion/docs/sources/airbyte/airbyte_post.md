@@ -50,6 +50,13 @@ sources_to_platform_instance:
 a schema, so it is safe to leave in place after an upgrade — and once it applies, the warning
 stops for the streams it covers.
 
+A `Stream Schema Guessed` warning means the same thing happened on a source that replicates
+several schemas. One name cannot be right for all of them, so every stream gets the same schema
+tier and the streams living elsewhere point at another table's URN. `default_schema` cannot fix
+this — only Airbyte knows which stream came from which schema, and it only says so from 1.7.0
+onwards, so upgrading is the resolution. Ignore the warning if every stream really does live in
+the one schema named in the warning's context.
+
 An `Ambiguous Stream Namespace` warning means several schemas expose a stream with the same
 name and Airbyte does not say which configured stream belongs to which schema. DataHub leaves
 the namespace unset rather than guessing. Set the schema explicitly on the affected connection
