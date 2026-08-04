@@ -2,6 +2,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
+from datahub.errors import ItemNotFoundError
 
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.save_document import (
@@ -543,6 +544,18 @@ class TestDocumentInSharedFolder:
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
                 "urn:li:document:new-doc-123"
+            )
+
+        assert is_valid is True
+        assert error is None
+
+    def test_nonexistent_document_exception_allows_creation(self, mock_client):
+        """The SDK raises ItemNotFoundError instead of returning None on a live GMS."""
+        mock_client.entities.get.side_effect = ItemNotFoundError("document not found")
+
+        with DataHubContext(mock_client):
+            is_valid, error = _is_document_in_shared_folder(
+                "urn:li:document:caller-supplied-id"
             )
 
         assert is_valid is True
