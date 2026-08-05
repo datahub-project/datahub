@@ -183,8 +183,14 @@ def get_use_static_sleep() -> bool:
 
 
 def get_elasticsearch_refresh_interval_seconds() -> int:
-    """Elasticsearch refresh interval in seconds."""
-    return int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", "3"))
+    """Elasticsearch refresh interval in seconds.
+
+    EXPERIMENT: default lowered from 3 to 1 to match CI's actual GMS configuration
+    (1s bulk-flush period, 1s index refresh interval — see run-quickstart.sh),
+    testing whether the trailing wait in wait_for_writes_to_sync() can be shortened
+    accordingly.
+    """
+    return int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", "1"))
 
 
 def get_kafka_bootstrap_server() -> str:
