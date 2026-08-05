@@ -886,73 +886,68 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return txnFactory.runInScope(opContext, () -> buildExpressionList(args, true).findCount());
   }
 
-  /**
-   * Warning this inner Streams must be closed
-   *
-   * @param args
-   * @return
-   */
-  @Nonnull
+  @Nullable
   @Override
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext, final RestoreIndicesArgs args) {
-    // Use default for existing RestoreIndices operations
-    return streamAspectBatches(opContext, args, null);
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    // Use the database default isolation for existing RestoreIndices operations.
+    return streamAspectBatches(opContext, args, null, consumer);
   }
 
   /**
-   * Stream aspects ordered by URN/aspect for optimal Elasticsearch document batching. Supports
-   * configurable transaction isolation level to optimize for different use cases: - LoadIndices can
-   * use READ_UNCOMMITTED for faster scanning
+   * Consume-in-scope streaming of aspects ordered by URN/aspect for optimal Elasticsearch document
+   * batching, with an optional transaction isolation override (e.g. LoadIndices scans with {@link
+   * TxIsolation#READ_UNCOMMITTED}).
+   *
+   * <p>{@code findStream()} is lazy: its JDBC cursor pulls rows from the database as {@code
+   * consumer} iterates the returned stream, and it binds to the transaction that is current on this
+   * thread when it executes. The entire stream must therefore be consumed <b>before</b> the
+   * transaction commits/closes — otherwise a later lazy fetch would run on a connection already
+   * returned to the pool. That is why {@code consumer} runs here, inside the {@link
+   * ScopedTransactionFactory#begin} scope, rather than the stream being handed back to the caller.
    *
    * @param args Stream arguments and filters
    * @param isolationLevel Optional isolation level override (null = database default)
-   * @return PartitionedStream of aspects ordered by URN/aspect
+   * @param consumer processes the partitioned stream inside the scope and returns a result
+   * @return whatever {@code consumer} returns
    */
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext,
-      final RestoreIndicesArgs args,
-      final TxIsolation isolationLevel) {
-    // The scope only has to be open while the query is executed — findStream() acquires the
-    // connection synchronously — so it can close before the PartitionedStream is returned. The
-    // caller is responsible for closing the stream itself.
-    return txnFactory.runInScope(
-        opContext,
-        () -> {
-          ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
-          if (args.limit > 0) {
-            exp = exp.setMaxRows(args.limit);
-          }
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nullable final TxIsolation isolationLevel,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    final TxScope txScope =
+        isolationLevel == null
+            ? TxScope.requiresNew()
+            : TxScope.requiresNew().setIsolation(isolationLevel);
+    // begin() makes the transaction current on this thread, so buildStreamQuery()'s findStream()
+    // binds to it; the stream is closed (reverse resource order) before the transaction closes.
+    try (Transaction tx = txnFactory.begin(opContext, txScope);
+        PartitionedStream<EbeanAspectV2> partitioned =
+            PartitionedStream.<EbeanAspectV2>builder()
+                .delegateStream(buildStreamQuery(args))
+                .build()) {
+      final R result = consumer.apply(partitioned);
+      tx.commit();
+      return result;
+    }
+  }
 
-          int start = args.urnBasedPagination ? 0 : args.start;
-
-          // Execute with specific transaction isolation level
-          Stream<EbeanAspectV2> stream;
-          if (isolationLevel == TxIsolation.READ_UNCOMMITTED) {
-            // Use explicit transaction scope for READ_UNCOMMITTED to override default
-            try (Transaction transaction =
-                txnFactory.begin(opContext, TxScope.requiresNew().setIsolation(isolationLevel))) {
-              stream =
-                  exp.orderBy()
-                      .asc(EbeanAspectV2.URN_COLUMN)
-                      .orderBy()
-                      .asc(EbeanAspectV2.ASPECT_COLUMN)
-                      .setFirstRow(start)
-                      .findStream(); // Transaction auto-closes when stream completes
-            }
-          } else {
-            // For READ_COMMITTED and other levels, use standard approach
-            stream =
-                exp.orderBy()
-                    .asc(EbeanAspectV2.URN_COLUMN)
-                    .orderBy()
-                    .asc(EbeanAspectV2.ASPECT_COLUMN)
-                    .setFirstRow(start)
-                    .findStream();
-          }
-
-          return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
-        });
+  @Nonnull
+  private Stream<EbeanAspectV2> buildStreamQuery(@Nonnull final RestoreIndicesArgs args) {
+    ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
+    if (args.limit > 0) {
+      exp = exp.setMaxRows(args.limit);
+    }
+    final int start = args.urnBasedPagination ? 0 : args.start;
+    return exp.orderBy()
+        .asc(EbeanAspectV2.URN_COLUMN)
+        .orderBy()
+        .asc(EbeanAspectV2.ASPECT_COLUMN)
+        .setFirstRow(start)
+        .findStream();
   }
 
   private ExpressionList<EbeanAspectV2> buildExpressionList(
@@ -1008,9 +1003,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
    * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
    * OperationContext} to scope against. It runs against the single configured primary regardless of
-   * which tenant is being processed. A downstream module routing per-tenant traffic must either
-   * block this path while its multi-tenant mode is active, or wait for it to be wired — thread an
-   * {@link OperationContext} through this method (and {@code
+   * which routing context is in effect. A downstream module routing to different backend databases
+   * must either block this path while its routing mode is active, or wait for it to be wired —
+   * thread an {@link OperationContext} through this method (and {@code
    * AspectDao#streamAspectBatchesForMigration}) to close the gap.
    */
   @Override
@@ -1092,9 +1087,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * <p>TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
    * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
    * OperationContext} to scope against. It runs against the single configured primary regardless of
-   * which tenant is being processed. A downstream module routing per-tenant traffic must either
-   * block this path while its multi-tenant mode is active, or wait for it to be wired — thread an
-   * {@link OperationContext} through this method (and {@code
+   * which routing context is in effect. A downstream module routing to different backend databases
+   * must either block this path while its routing mode is active, or wait for it to be wired —
+   * thread an {@link OperationContext} through this method (and {@code
    * AspectDao#streamAspectBatchesForMigration}) to close the gap.
    *
    * @param entityName

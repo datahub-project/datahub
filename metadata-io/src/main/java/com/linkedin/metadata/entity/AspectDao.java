@@ -249,9 +249,26 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
-  @Nonnull
-  PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext, @Nonnull final RestoreIndicesArgs args);
+  /**
+   * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
+   * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
+   *
+   * <p>The stream is <b>consume-in-scope</b>: {@code consumer} runs inside the same
+   * transaction/scope that opened the underlying cursor, and the stream is closed when it returns.
+   * This is load-bearing because {@code findStream()} pulls rows lazily as the stream is consumed;
+   * returning a live stream to the caller (as the previous signature did) let the scope close
+   * before the rows were fetched, so a later lazy fetch could run on a connection already returned
+   * to the pool. Do not stash the {@link PartitionedStream} for use after {@code consumer} returns.
+   *
+   * @param consumer processes the partitioned stream and returns a result; must fully consume it
+   *     before returning
+   * @return whatever {@code consumer} returns
+   */
+  @Nullable
+  <R> R streamAspectBatches(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer);
 
   /**
    * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
