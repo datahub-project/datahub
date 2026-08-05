@@ -71,6 +71,12 @@ class BigQueryTestConnection:
                 if SourceCapability.USAGE_STATS not in _report:
                     _report[SourceCapability.USAGE_STATS] = usage_capability
 
+            if connection_conf.include_linked_datasets:
+                linked_datasets_capability = (
+                    BigQueryTestConnection.linked_datasets_capability_test(project_ids)
+                )
+                _report["LINKED_DATASETS"] = linked_datasets_capability
+
             test_report.capability_report = _report
             return test_report
 
@@ -157,6 +163,42 @@ class BigQueryTestConnection:
                     failure_reason=f"Lineage capability test failed with: {e}",
                 )
 
+        return CapabilityReport(capable=True)
+
+    @staticmethod
+    def linked_datasets_capability_test(
+        project_ids: List[str],
+    ) -> CapabilityReport:
+        """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
+        from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+        from google.cloud import bigquery_analyticshub_v1
+
+        ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
+        for project_id in project_ids:
+            try:
+                logger.info(f"Linked datasets capability test for project {project_id}")
+                iterator = ah_client.list_subscriptions(
+                    parent=f"projects/{project_id}/locations/us"
+                )
+                next(iter(iterator), None)
+            except PermissionDenied as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=(
+                        "Analytics Hub `subscriptions.list` permission missing on "
+                        f"project {project_id}. Grant `analyticshub.subscriptions.list` "
+                        "and `analyticshub.subscriptions.get` (e.g. via "
+                        f"`roles/analyticshub.subscriptionOwner`). Error: {e}"
+                    ),
+                )
+            except GoogleAPIError as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=(
+                        "Analytics Hub API error while testing linked dataset "
+                        f"capability for project {project_id}: {e}"
+                    ),
+                )
         return CapabilityReport(capable=True)
 
     @staticmethod
