@@ -385,9 +385,6 @@
                     "tag": "urn:li:tag:PII"
                 },
                 {
-                    "tag": "urn:li:tag:PII"
-                },
-                {
                     "tag": "urn:li:tag:Tier1"
                 }
             ]

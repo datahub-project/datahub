@@ -8,11 +8,7 @@ from pydantic import Field
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
-from datahub.ingestion.source.confluent.models import (
-    CatalogEntity,
-    index_by_name,
-    lookup_by_name,
-)
+from datahub.ingestion.source.confluent.models import CatalogEntity, index_by_name
 
 ROOT_KEY = "kafka_topic"
 # Live endpoint 500s on a variables map — pagination must be inlined.
@@ -100,7 +96,22 @@ class TestConfluentStreamCatalogConfig:
         assert "confluent_catalog.schema_registry_url" not in message
 
     def test_validate_connection_passes_when_complete(self) -> None:
-        make_config().validate_connection("confluent_catalog")
+        make_config().validate_connection()
+
+    @pytest.mark.parametrize(
+        "schema_registry_url,expected",
+        [
+            ("https://psrc-abc123.us-east-1.aws.confluent.cloud", True),
+            ("https://schema-registry.internal.example.com", False),
+            ("http://localhost:8081", False),
+        ],
+    )
+    def test_confluent_cloud_endpoints_are_recognised(
+        self, schema_registry_url: str, expected: bool
+    ) -> None:
+        config = make_config(schema_registry_url=schema_registry_url)
+
+        assert config.is_confluent_cloud_endpoint() is expected
 
 
 class TestConfluentStreamCatalogClient:
@@ -224,6 +235,38 @@ class TestConfluentStreamCatalogClient:
 
         assert fetch(make_client([response])) == []
 
+    def test_missing_queried_field_is_a_failure(self) -> None:
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"data": {"some_other_entity": []}}
+        client = make_client([response])
+
+        assert fetch(client) == []
+        assert len(client.report.failures) == 1
+
+    def test_failure_part_way_through_pagination_is_reported_as_partial(self) -> None:
+        broken = Mock()
+        broken.raise_for_status.side_effect = requests.ConnectionError("reset by peer")
+        client = make_client(
+            [make_response([{"name": "topic_0"}, {"name": "topic_1"}]), broken],
+            page_size=2,
+        )
+
+        assert [entity.name for entity in fetch(client)] == ["topic_0", "topic_1"]
+        messages = [warning.message for warning in client.report.warnings]
+        assert any("partial" in message for message in messages)
+
+    def test_failure_on_the_first_page_is_not_reported_as_partial(self) -> None:
+        broken = Mock()
+        broken.raise_for_status.side_effect = requests.ConnectionError("reset by peer")
+
+        client = make_client([broken])
+
+        assert fetch(client) == []
+        # Nothing was retrieved, so this is the routine "catalog unavailable" case that
+        # the underlying warning already covers.
+        assert len(client.report.warnings) == 1
+
 
 class TestCatalogEntityHelpers:
     def test_business_metadata_values_are_stringified_and_blanks_dropped(self) -> None:
@@ -249,5 +292,25 @@ class TestCatalogEntityHelpers:
     def test_lookup_tolerates_case_differences(self) -> None:
         index = index_by_name([SampleEntity(name="Orders")])
 
-        assert lookup_by_name(index, "orders") is not None
-        assert lookup_by_name(index, "payments") is None
+        assert index.get("orders") is not None
+        assert index.get("payments") is None
+
+    def test_repeated_names_are_held_back_as_ambiguous(self) -> None:
+        index = index_by_name(
+            [
+                SampleEntity(name="orders", logical_cluster_id="lkc-1"),
+                SampleEntity(name="orders", logical_cluster_id="lkc-2"),
+                SampleEntity(name="payments", logical_cluster_id="lkc-1"),
+            ]
+        )
+
+        assert index.get("orders") is None
+        assert index.get("ORDERS") is None
+        assert sorted(index.ambiguous) == ["orders"]
+        assert index.get("payments") is not None
+
+    def test_index_keeps_subclass_fields(self) -> None:
+        index = index_by_name([SampleEntity(name="orders", logical_cluster_id="lkc-1")])
+
+        entity = index.get("orders")
+        assert entity is not None and entity.cluster_id == "lkc-1"

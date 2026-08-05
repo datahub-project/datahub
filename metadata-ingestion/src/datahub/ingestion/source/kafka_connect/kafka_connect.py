@@ -237,40 +237,30 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, catalog_connector
         )
 
-        if not connector:
-            # No handler found for this connector class. The catalog still knows which
-            # topics the connector writes to, so it can carry lineage on its own.
-            if catalog_lineages:
-                connector_manifest.lineages = catalog_lineages
-                connector_manifest.flow_property_bag = {}
-                self._apply_catalog_flow_properties(
-                    connector_manifest, catalog_connector
-                )
-                return True
-
+        if not connector and not catalog_lineages:
+            self._handle_unsupported_connector(connector_manifest)
             if connector_manifest.type == SOURCE:
                 # Source connectors without handlers are skipped (master's behavior with 'continue')
-                self._handle_unsupported_connector(connector_manifest)
-                return False  # Skip unsupported source connector
-            else:
-                # Sink connectors without handlers are still included (master's BaseConnector behavior)
-                self._handle_unsupported_connector(connector_manifest)
-                connector_manifest.lineages = []
-                connector_manifest.flow_property_bag = {}
-                return True  # Include unsupported sink connector
+                return False
+            # Sink connectors without handlers are still included (master's BaseConnector behavior)
+            connector_manifest.lineages = []
+            connector_manifest.flow_property_bag = {}
+            return True
 
-        # Handler found - extract lineages and flow_property_bag
-        # Master always extracts and yields, regardless of whether they're empty
+        # A connector with no handler still gets lineage when the catalog knows which
+        # topics it writes to.
         if catalog_lineages:
             connector_manifest.lineages = catalog_lineages
-        else:
+        elif connector:
             connector_manifest.lineages = connector.extract_lineages()
             if self._catalog_lineage_expected(connector_manifest):
                 self.report.report_catalog_lineage_fallback(connector_manifest.name)
 
-        connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
+        connector_manifest.flow_property_bag = (
+            connector.extract_flow_property_bag() if connector else {}
+        )
         self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
-        return True  # Always include connectors with handlers
+        return True
 
     def _get_catalog_connector(
         self, connector_manifest: ConnectorManifest

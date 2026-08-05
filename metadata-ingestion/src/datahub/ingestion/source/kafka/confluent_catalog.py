@@ -1,11 +1,14 @@
 import logging
-from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Optional
 
 from pydantic import Field
 
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
-from datahub.ingestion.source.confluent.models import CatalogEntity, lookup_by_name
+from datahub.ingestion.source.confluent.models import (
+    CatalogEntity,
+    NameIndex,
+    index_by_name,
+)
 from datahub.ingestion.source.kafka.confluent_catalog_constants import (
     TOPIC_CATALOG_QUERY,
     TOPIC_ROOT_KEY,
@@ -39,14 +42,14 @@ class KafkaTopicCatalog:
         self.config = config
         self.report = report
         self.client = client or ConfluentStreamCatalogClient(config, report)
-        self._topics: Optional[Dict[str, CatalogKafkaTopic]] = None
+        self._topics: Optional[NameIndex[CatalogKafkaTopic]] = None
 
     def get_topic(self, topic_name: str) -> Optional[CatalogKafkaTopic]:
         if self._topics is None:
             self._topics = self._fetch_topics()
-        return lookup_by_name(self._topics, topic_name)
+        return self._topics.get(topic_name)
 
-    def _fetch_topics(self) -> Dict[str, CatalogKafkaTopic]:
+    def _fetch_topics(self) -> NameIndex[CatalogKafkaTopic]:
         topics = self.client.fetch_entities(
             TOPIC_CATALOG_QUERY, TOPIC_ROOT_KEY, CatalogKafkaTopic
         )
@@ -65,23 +68,15 @@ class KafkaTopicCatalog:
             topics = in_cluster
         self.report.catalog_topics_fetched = len(topics)
 
-        by_name: Dict[str, List[CatalogKafkaTopic]] = defaultdict(list)
-        for topic in topics:
-            by_name[topic.name].append(topic)
-
-        resolved: Dict[str, CatalogKafkaTopic] = {}
-        for name, candidates in by_name.items():
-            if len(candidates) > 1:
-                self.report.warning(
-                    message="Skipping Stream Catalog metadata for a topic name that exists in "
-                    "more than one Kafka cluster in this environment. Set "
-                    "`confluent_catalog.cluster_id` to pick the right cluster.",
-                    context=f"topic={name}, clusters={sorted(str(c.cluster_id) for c in candidates)}",
-                )
-                continue
-            resolved[name] = candidates[0]
-
-        return resolved
+        index = index_by_name(topics)
+        for name, candidates in index.ambiguous.items():
+            self.report.warning(
+                message="Skipping Stream Catalog metadata for a topic name that exists in "
+                "more than one Kafka cluster in this environment. Set "
+                "`confluent_catalog.cluster_id` to pick the right cluster.",
+                context=f"topic={name}, clusters={sorted(str(c.cluster_id) for c in candidates)}",
+            )
+        return index
 
     def close(self) -> None:
         self.client.close()

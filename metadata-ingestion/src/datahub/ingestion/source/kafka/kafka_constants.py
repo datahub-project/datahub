@@ -33,9 +33,6 @@ DEFAULT_MAX_FIELDS_TO_PROFILE = 10
 # "<api-key>:<api-secret>". The Stream Catalog authenticates with the same pair.
 SCHEMA_REGISTRY_BASIC_AUTH_KEY = "basic.auth.user.info"
 
-# Recipe path of the Stream Catalog block, used to point config errors at the right place.
-CONFLUENT_CATALOG_CONFIG_PATH = "confluent_catalog"
-
 # Schema types
 SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"

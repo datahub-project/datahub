@@ -11,7 +11,6 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
-    CONFLUENT_CATALOG_CONFIG_PATH,
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
     DEFAULT_MAX_SAMPLE_TIME_SECONDS,
@@ -186,7 +185,7 @@ class KafkaSourceConfig(
                 catalog.api_key = key
                 catalog.api_secret = SecretStr(secret)
 
-        catalog.validate_connection(CONFLUENT_CATALOG_CONFIG_PATH)
+        catalog.validate_connection()
         return self
 
     def is_profiling_enabled(self) -> bool:

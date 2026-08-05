@@ -202,10 +202,11 @@ class TestCatalogMetadataOnTopics:
         self,
         mock_kafka: Mock,
         topics: List[CatalogKafkaTopic],
+        topic_detail: Optional[object] = None,
         **catalog_overrides: object,
     ) -> KafkaSource:
         cluster_metadata = MagicMock()
-        cluster_metadata.topics = {TOPIC: None}
+        cluster_metadata.topics = {TOPIC: topic_detail}
         mock_kafka.return_value.list_topics.return_value = cluster_metadata
 
         source = KafkaSource(
@@ -287,3 +288,83 @@ class TestCatalogMetadataOnTopics:
 
         assert not aspects_of(workunits, "globalTags")
         assert source.report.catalog_tagged_topics == 0
+
+    def test_a_repeated_tag_is_emitted_once(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        # Schema tags, meta mapping and the catalog can each contribute the same tag;
+        # the catalog-plus-schema case is covered by the integration golden file.
+        source = self.build_source(
+            mock_kafka, [CatalogKafkaTopic(name=TOPIC, tags=["PII", "PII", "Tier1"])]
+        )
+
+        workunits = list(source.get_workunits())
+
+        tags = aspects_of(workunits, "globalTags")
+        assert any(
+            isinstance(aspect, GlobalTagsClass)
+            and [tag.tag for tag in aspect.tags]
+            == ["urn:li:tag:PII", "urn:li:tag:Tier1"]
+            for aspect in tags
+        )
+
+    def test_business_metadata_never_overwrites_a_broker_property(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        partition = MagicMock()
+        partition.replicas = [0, 1]
+        topic_detail = MagicMock()
+        topic_detail.partitions = {0: partition}
+
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic(
+                    name=TOPIC,
+                    business_metadata=[  # type: ignore[list-item]
+                        {"name": "Partitions", "value": "999"},
+                        {"name": "Governance.owning_team", "value": "payments"},
+                    ],
+                )
+            ],
+            topic_detail=topic_detail,
+        )
+
+        workunits = list(source.get_workunits())
+
+        properties = [
+            aspect
+            for aspect in aspects_of(workunits, "datasetProperties")
+            if isinstance(aspect, DatasetPropertiesClass)
+        ]
+        assert any(
+            aspect.customProperties.get("Partitions") == "1"
+            and aspect.customProperties.get("Governance.owning_team") == "payments"
+            for aspect in properties
+        )
+        assert any(
+            "Partitions" in warning.context[0] for warning in source.report.warnings
+        )
+
+    def test_non_confluent_cloud_endpoint_skips_the_catalog(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(
+                catalog=enabled_catalog_config(
+                    schema_registry_url="http://schema-registry.internal:8081"
+                ),
+                schema_registry_url=SCHEMA_REGISTRY_URL,
+            ),
+            PipelineContext(run_id="test"),
+        )
+
+        assert source.topic_catalog is None
+        assert any(
+            "Confluent Cloud only" in warning.message
+            for warning in source.report.warnings
+        )

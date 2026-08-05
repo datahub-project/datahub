@@ -117,7 +117,7 @@ source:
       include_lineage: false
 ```
 
-**Requirements**: Confluent Cloud with Stream Governance enabled, and a Schema Registry API key whose role grants catalog read access. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when the `connect_uri` is not a Confluent Cloud endpoint.
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants catalog read access, in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when the `connect_uri` is not a Confluent Cloud endpoint.
 
 **What each option changes:**
 

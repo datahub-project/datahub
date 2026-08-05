@@ -384,10 +384,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 match_nested_props=True,
             )
 
-            if self.source_config.confluent_catalog.enabled:
-                self.topic_catalog = KafkaTopicCatalog(
-                    self.source_config.confluent_catalog, self.report
-                )
+            catalog_config = self.source_config.confluent_catalog
+            if catalog_config.enabled:
+                if catalog_config.is_confluent_cloud_endpoint():
+                    self.topic_catalog = KafkaTopicCatalog(catalog_config, self.report)
+                else:
+                    self.report.warning(
+                        message="'confluent_catalog' is enabled but the Schema Registry endpoint is "
+                        "not a Confluent Cloud one — the Stream Catalog is Confluent Cloud only and "
+                        "will be skipped",
+                        context=f"schema_registry_url={catalog_config.schema_registry_url}",
+                    )
         except Exception:
             try:
                 self.consumer.close()
@@ -1276,7 +1283,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         subtype = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
-        tag_urns = [make_tag_urn(tag) for tag in all_tags] if all_tags else None
+        # Schema tags, meta mapping and the Stream Catalog can each contribute the same
+        # tag; dict.fromkeys drops the repeats without reordering.
+        tag_urns = (
+            [make_tag_urn(tag) for tag in dict.fromkeys(all_tags)] if all_tags else None
+        )
         yield Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -1311,6 +1322,22 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if config.include_business_metadata:
             properties = catalog_topic.properties_from_business_metadata()
+            # Business metadata attribute names are chosen by the organisation, so one
+            # can collide with a topic property read from the broker. Keep the broker's
+            # value: it describes the topic that is actually being ingested.
+            collisions = sorted(properties.keys() & custom_props.keys())
+            if collisions:
+                self.report.warning(
+                    message="Ignoring Stream Catalog business metadata attributes whose names "
+                    "collide with topic properties read from the broker. Rename the attributes "
+                    "in Confluent to emit them.",
+                    context=f"topic={topic}, attributes={collisions}",
+                )
+                properties = {
+                    name: value
+                    for name, value in properties.items()
+                    if name not in custom_props
+                }
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1

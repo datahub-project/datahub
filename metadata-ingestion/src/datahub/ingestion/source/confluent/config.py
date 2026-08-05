@@ -1,10 +1,13 @@
 from typing import List, Optional, Tuple
+from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.ingestion.source.confluent.constants import (
+    CATALOG_CONFIG_PATH,
     CATALOG_GRAPHQL_PATH,
+    CONFLUENT_CLOUD_DOMAIN_SUFFIX,
     DEFAULT_PAGE_SIZE,
     DEFAULT_TIMEOUT_SECONDS,
     MAX_PAGE_SIZE,
@@ -73,11 +76,11 @@ class ConfluentStreamCatalogConfig(ConfigModel):
 
         return self
 
-    def validate_connection(self, config_path: str) -> None:
+    def validate_connection(self, config_path: str = CATALOG_CONFIG_PATH) -> None:
         """
         Sources call this once any inherited defaults have been applied. `config_path`
         names the recipe block the fields live under, so the error points at the right
-        place (e.g. `confluent_catalog`).
+        place when a source nests the block somewhere other than the default.
         """
         missing: List[str] = [
             name
@@ -97,6 +100,10 @@ class ConfluentStreamCatalogConfig(ConfigModel):
             f"{'is' if len(missing) == 1 else 'are'} not set. "
             "The Stream Catalog requires a Schema Registry endpoint and API key/secret."
         )
+
+    def is_confluent_cloud_endpoint(self) -> bool:
+        host = urlparse(self.schema_registry_url or "").hostname or ""
+        return host.endswith(CONFLUENT_CLOUD_DOMAIN_SUFFIX)
 
     def get_graphql_endpoint(self) -> str:
         assert self.schema_registry_url is not None, (

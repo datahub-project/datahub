@@ -71,7 +71,16 @@ class ConfluentStreamCatalogClient:
         while True:
             page = self._fetch_page(query, root_key, offset)
             if page is None:
-                # Already reported; keep whatever paged in successfully so far.
+                if entities:
+                    # The cause is already reported, but a failure part way through
+                    # pagination is otherwise indistinguishable from reaching the last
+                    # page — say that what was kept is partial.
+                    self.report.warning(
+                        message="Kept a partial Confluent Stream Catalog result after a page "
+                        "failed to load, so some entities will be missing their catalog metadata",
+                        context=f"entity={root_key}, entities_retrieved={len(entities)}, "
+                        f"failed_at_offset={offset}",
+                    )
                 break
 
             for payload in page:
@@ -140,6 +149,15 @@ class ConfluentStreamCatalogClient:
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
             return []
+
+        if root_key not in data:
+            # The query asked for a field the response does not carry, so every page
+            # would come back empty. Client bug, not a catalog outage.
+            self.report.failure(
+                message="The Confluent Stream Catalog response is missing the queried field",
+                context=f"{context}, fields_returned={sorted(data)}",
+            )
+            return None
 
         entities = data.get(root_key)
         if not isinstance(entities, list):

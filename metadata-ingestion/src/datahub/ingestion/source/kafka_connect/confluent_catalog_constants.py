@@ -1,8 +1,5 @@
 from typing import Final
 
-# Recipe path of the Stream Catalog block, used to point config errors at the right place.
-CONFLUENT_CATALOG_CONFIG_PATH: Final[str] = "confluent_catalog"
-
 # GraphQL field the Stream Catalog exposes Kafka Connect connectors under.
 CONNECTOR_ROOT_KEY: Final[str] = "cn_connector"
 

@@ -24,9 +24,6 @@ from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
 )
-from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
-    CONFLUENT_CATALOG_CONFIG_PATH,
-)
 from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -164,7 +161,7 @@ class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
     @model_validator(mode="after")
     def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
         if self.enabled:
-            self.validate_connection(CONFLUENT_CATALOG_CONFIG_PATH)
+            self.validate_connection()
         return self
 
 
@@ -524,6 +521,12 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
 
     def report_catalog_lineage_fallback(self, connector: str) -> None:
         self.catalog_lineage_fallbacks.append(connector)
+        self.warning(
+            message="The Stream Catalog returned no topics for this connector, so its lineage "
+            "was inferred from the connector config instead. Topic names produced by a "
+            "topic-routing SMT may not be reflected.",
+            context=f"connector={connector}",
+        )
 
 
 @dataclass

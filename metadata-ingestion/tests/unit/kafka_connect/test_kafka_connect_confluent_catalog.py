@@ -1,4 +1,4 @@
-from typing import Dict, Mapping, Optional, Sequence
+from typing import Dict, Mapping, Optional, Sequence, Set, Type
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,6 +6,8 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
+from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
+from datahub.ingestion.source.kafka.kafka_config import KafkaConfluentCatalogConfig
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     ConfluentCatalogConfig,
@@ -156,6 +158,17 @@ class TestConfluentCatalogConfig:
         config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
         assert not config.confluent_catalog.enabled
 
+    def test_known_catalog_config_subclasses_have_not_changed(self) -> None:
+        # Credentials are validated per source, because a source may inherit them from a
+        # connection block rather than have them set on the catalog config. A subclass
+        # added without that wiring fails as an AssertionError inside the client instead
+        # of a config error, so adding one has to be deliberate.
+        known: Set[Type[ConfluentStreamCatalogConfig]] = {
+            ConfluentCatalogConfig,
+            KafkaConfluentCatalogConfig,
+        }
+        assert set(ConfluentStreamCatalogConfig.__subclasses__()) == known
+
 
 class TestConnectorCatalog:
     def test_parses_connector_with_null_collections(self) -> None:
@@ -215,6 +228,20 @@ class TestConnectorCatalog:
         catalog = make_catalog([{"name": "Source_Postgres_01"}])
 
         assert catalog.get_connector("source_postgres_01") is not None
+
+    def test_repeated_connector_name_is_skipped_and_reported(self) -> None:
+        # `cn_connector` covers the whole environment and is matched by name alone, so
+        # picking either one risks writing another connector's tags and lineage.
+        catalog = make_catalog(
+            [
+                {"name": "source_postgres_01", "topics": [{"name": "orders"}]},
+                {"name": "source_postgres_01", "topics": [{"name": "payments"}]},
+            ]
+        )
+
+        assert catalog.get_connector("source_postgres_01") is None
+        assert catalog.report.catalog_connectors_fetched == 0
+        assert len(catalog.report.warnings) == 1
 
     def test_connectors_are_fetched_once_per_run(self) -> None:
         catalog = make_catalog([{"name": "c1"}])
@@ -292,6 +319,8 @@ class TestCatalogLineage:
 
         registry_connector.extract_lineages.assert_called_once()
         assert list(source.report.catalog_lineage_fallbacks) == [manifest.name]
+        # A silent downgrade to heuristic lineage is the thing operators need to see.
+        assert len(source.report.warnings) == 1
 
     def test_include_lineage_disabled_leaves_existing_path_alone(self) -> None:
         source = make_cloud_source(

@@ -67,7 +67,7 @@ CATALOG_TOPICS = [
 INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
 
 
-def _pagination_is_inlined(request) -> bool:
+def _pagination_is_inlined(request: requests_mock.request._RequestObjectProxy) -> bool:
     body = request.json()
     return "variables" not in body and bool(
         INLINED_PAGINATION_RE.search(body.get("query", ""))
