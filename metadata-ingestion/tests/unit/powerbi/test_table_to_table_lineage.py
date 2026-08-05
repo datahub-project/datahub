@@ -137,6 +137,30 @@ def test_unsupported_function_call_without_let_is_not_a_reference() -> None:
     assert resolve_to_table_references(node_map) == []
 
 
+def test_nested_let_outer_variable_is_not_a_reference() -> None:
+    # A variable bound in an outer `let` must not be captured as a sibling table
+    # when the walk descends into a nested `let`.
+    node_map = _parse("let tblX = 1,\n    outer = let y = tblX in y\nin\n    outer")
+    assert resolve_to_table_references(node_map) == []
+
+
+def test_join_with_shared_ancestor_has_no_circular_warning(caplog) -> None:
+    import logging
+
+    node_map = _parse(
+        'let Base = SomeSiblingTbl,'
+        ' Joined = Table.NestedJoin(Base, {"k"}, Base, {"k"}, "n", JoinKind.Inner)'
+        " in Joined"
+    )
+    with caplog.at_level(logging.WARNING):
+        refs = resolve_to_table_references(node_map)
+
+    # The shared ancestor `Base` is walked once per join argument; that must not
+    # be mistaken for a circular reference.
+    assert not any("Circular reference" in rec.message for rec in caplog.records)
+    assert refs == ["SomeSiblingTbl"]
+
+
 def test_get_upstream_tables_captures_sibling_reference() -> None:
     config = _config()
     table = Table(

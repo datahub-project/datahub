@@ -118,7 +118,42 @@ def resolve_to_table_references(node_map: NodeIdMap) -> List[str]:
         parameters={},
         unresolved=unresolved,
     )
-    return sorted(unresolved)
+    # The walk threads only the innermost `let` scope, so a variable bound in an
+    # enclosing `let` (e.g. the default Power Query step name `Source`) looks
+    # unresolved once the walk descends into a nested `let`. Exclude every name
+    # bound as a `let` variable anywhere in the expression to avoid fabricating a
+    # sibling reference from such a step name.
+    let_bound_names = _collect_let_bound_names(node_map)
+    return sorted(name for name in unresolved if name.casefold() not in let_bound_names)
+
+
+def _collect_let_bound_names(node_map: NodeIdMap) -> Set[str]:
+    """Return the casefolded names of all `let`-bound variables in the map."""
+    names: Set[str] = set()
+    for node in node_map.values():
+        if node.get("kind") != "LetExpression":
+            continue
+        var_list = node.get("variableList", {})
+        if not isinstance(var_list, dict):
+            continue
+        for elem in var_list.get("elements", []):
+            inner = (
+                elem.get("node")
+                if isinstance(elem, dict) and elem.get("kind") == "Csv"
+                else elem
+            )
+            if not isinstance(inner, dict) or inner.get("kind") not in (
+                "IdentifierPairedExpression",
+                "GeneralizedIdentifierPairedExpression",
+            ):
+                continue
+            key = inner.get("key", {})
+            literal = key.get("literal", "") if isinstance(key, dict) else ""
+            if literal.startswith('#"') and literal.endswith('"'):
+                literal = literal[2:-1]
+            if literal:
+                names.add(literal.casefold())
+    return names
 
 
 def _walk(
@@ -396,6 +431,9 @@ def _walk_invoke(
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
             for elem in content.get("elements", []):
                 inner = _unwrap_csv(elem)
+                # Use a fresh copy of `seen` per argument so sibling arguments
+                # that share a common ancestor don't trigger false circular-ref
+                # warnings (same rationale as the ListExpression branch).
                 _walk(
                     node_map,
                     inner,
@@ -403,7 +441,7 @@ def _walk_invoke(
                     current_let_id,
                     accessor_chain,
                     results,
-                    seen,
+                    seen.copy(),
                     parameters,
                     unresolved,
                 )
