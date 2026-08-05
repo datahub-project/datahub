@@ -137,9 +137,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.kafka_session, self.config, self.report
         )
 
-        # Cache for all Kafka topics (single ingestion run).
-        # `_all_kafka_topics_resolved` distinguishes "not fetched yet" from
-        # "fetched and failed" (cached as None).
+        # None = fetch failed; True once resolved (cache may still be None).
         self._all_kafka_topics_cache: Optional[List[str]] = None
         self._all_kafka_topics_resolved: bool = False
 
@@ -152,8 +150,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not self.config.confluent_catalog.enabled:
             return None
 
-        # Gate on the catalog endpoint itself (same as the kafka source), not
-        # connect_uri — those are independently configurable.
+        # Gate on the catalog SR URL, not connect_uri — independently configurable.
         if not self.config.confluent_catalog.is_confluent_cloud_endpoint():
             self.report.warning(
                 message="'confluent_catalog' is enabled but the Schema Registry endpoint is "
@@ -209,7 +206,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             yield connector_manifest
 
     def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> bool:
-        # True = include connector in output; False = skip (unsupported source).
         from datahub.ingestion.source.kafka_connect.connector_registry import (
             ConnectorRegistry,
         )
@@ -220,8 +216,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         catalog_connector = self._get_catalog_connector(connector_manifest)
 
-        # Cross-check catalog lineage against the live cluster so stale catalog
-        # topic names cannot invent edges.
         all_cluster_topics: Optional[List[str]] = None
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
@@ -283,8 +277,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         catalog_connector: Optional[CatalogConnector],
         all_cluster_topics: Optional[List[str]] = None,
     ) -> List[KafkaConnectLineage]:
-        # Catalog topic names are post-SMT (exact); config matching is a prediction.
-        # Sources only — sinks stay on the connector-config path.
+        # Catalog names are post-SMT; sources only.
         if not catalog_connector or not self.config.confluent_catalog.include_lineage:
             return []
 
@@ -295,7 +288,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not topics:
             return []
 
-        # None means the live list was unavailable — keep catalog topics.
+        # None = list unavailable (keep catalog topics); [] = empty cluster.
         if all_cluster_topics is not None:
             cluster_topic_set = set(all_cluster_topics)
             missing = [topic for topic in topics if topic not in cluster_topic_set]
@@ -339,7 +332,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not properties:
             return
 
-        # Connector config wins on name collision (same as kafka broker props).
+        # Connector config wins on name collision.
         existing = connector_manifest.flow_property_bag or {}
         collisions = sorted(properties.keys() & existing.keys())
         if collisions:
@@ -574,7 +567,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             return self._get_topics_from_connector_config(connector_manifest)
 
     def _get_all_topics_from_kafka_api(self) -> Optional[List[str]]:
-        # None = unavailable (do not treat as an empty cluster); [] = empty cluster.
+        # None = unavailable; [] = empty cluster.
         if self._all_kafka_topics_resolved:
             return self._all_kafka_topics_cache
 

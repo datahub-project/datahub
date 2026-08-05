@@ -58,15 +58,13 @@ CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
 @dataclass(frozen=True)
 class NameIndex(Generic[CatalogEntityType]):
-    # Case-only collisions stay out of `_by_lowered_name` so insensitive lookup
-    # cannot pick a winner; exact matches still use `by_name`.
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
     case_ambiguous: Dict[str, List[CatalogEntityType]] = field(default_factory=dict)
     empty_name_count: int = 0
     _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False, repr=False)
 
-    # frozen=True would otherwise auto-generate a __hash__ that crashes on the dict fields.
+    # frozen would otherwise generate a __hash__ that crashes on the dict fields.
     __hash__ = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -120,9 +118,8 @@ def index_by_name(
         name: candidates for name, candidates in grouped.items() if len(candidates) > 1
     }
 
-    # Distinct exact names under the same lowercased key — including names held
-    # in `ambiguous` — so a unique sibling cannot win a case-insensitive lookup
-    # for an exact-duplicate name.
+    # Distinct casings under one lowered key — including ambiguous exact-names —
+    # so a unique sibling cannot win case-insensitive get() for a duplicate.
     exact_names_by_lowered: Dict[str, Set[str]] = defaultdict(set)
     for name in grouped:
         exact_names_by_lowered[name.lower()].add(name)

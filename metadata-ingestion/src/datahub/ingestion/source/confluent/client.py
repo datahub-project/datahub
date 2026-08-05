@@ -27,11 +27,8 @@ class _CatalogPage:
 
 
 class ConfluentStreamCatalogClient:
-    """
-    Every failure is downgraded to a report warning rather than raised: the catalog
-    needs Stream Governance and a role that grants catalog access, neither of which is
-    guaranteed, and no source should fail its whole run over supplementary metadata.
-    """
+    # Failures become report warnings: Stream Governance / catalog access aren't
+    # guaranteed, and supplementary metadata must not fail the whole run.
 
     def __init__(
         self,
