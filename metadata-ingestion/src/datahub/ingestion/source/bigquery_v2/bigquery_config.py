@@ -475,7 +475,7 @@ class BigQueryV2Config(
         description=(
             "When `include_linked_datasets` is enabled, also emit `Siblings` and column-level "
             "`UpstreamLineage` (type `COPY`) from each linked dataset's tables and views to the "
-            "publisher's source dataset. Requires `resourcemanager.projects.get` permission on each"
+            "publisher's source dataset. Requires `resourcemanager.projects.get` permission on each "
             "publisher project."
         ),
     )
