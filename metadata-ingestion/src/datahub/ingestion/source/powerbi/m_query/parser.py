@@ -25,7 +25,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Table,
+    matching_sibling_tables as match_sibling_tables,
+)
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
@@ -215,26 +218,39 @@ def get_upstream_tables(
         data_source_found = bool(lineages)
 
         # The expression may also reference another table in the same dataset by
-        # name (table-to-table lineage). This is collected regardless of whether
-        # an external data source was found, since an M-Query can combine both
-        # (e.g. Table.Combine({Sql.Database(...), SiblingTable})). The mapper does
-        # the authoritative matching + reporting; here we only check (cheaply)
-        # whether any candidate is a real sibling so that stray identifiers in
-        # unsupported sources don't inflate resolver_successes or hide the
-        # unsupported-source debug below.
-        table_refs = (
-            mquery_resolver.resolve_to_table_references(node_map, parameters=parameters)
-            if config.extract_table_to_table_lineage
-            else []
-        )
-        sibling_names = (
-            {t.name.casefold() for t in table.dataset.tables}
-            if table.dataset
-            else set()
-        )
-        matched_sibling_ref = any(ref.casefold() in sibling_names for ref in table_refs)
-        if table_refs:
-            lineages.append(Lineage(powerbi_table_upstreams=table_refs))
+        # name (table-to-table lineage), collected regardless of whether an
+        # external data source was found since an M-Query can combine both
+        # (e.g. Table.Combine({Sql.Database(...), SiblingTable})). Only names that
+        # match a real sibling count, so stray identifiers in unsupported sources
+        # don't inflate resolver_successes or hide the debug below.
+        #
+        # Contained separately: a defect here must not discard the external
+        # data-source lineage already collected above.
+        matched_siblings: List[str] = []
+        if config.extract_table_to_table_lineage:
+            try:
+                candidates = mquery_resolver.resolve_to_table_references(
+                    node_map, parameters=parameters
+                )
+                matched_siblings = [
+                    sibling.name for sibling in match_sibling_tables(table, candidates)
+                ]
+            except Exception as e:
+                reporter.m_query_table_reference_errors += 1
+                reporter.warning(
+                    title="Table-to-table reference extraction failed",
+                    message="Sibling-table lineage will be missing for this table; "
+                    "external data-source lineage is unaffected. This is likely a "
+                    "connector defect rather than a bad expression.",
+                    context=f"table-full-name={table.full_name}",
+                    exc=e,
+                )
+        else:
+            reporter.m_query_table_to_table_disabled += 1
+
+        matched_sibling_ref = bool(matched_siblings)
+        if matched_siblings:
+            lineages.append(Lineage(powerbi_table_upstreams=matched_siblings))
 
         if data_source_found or matched_sibling_ref:
             reporter.m_query_resolver_successes += 1

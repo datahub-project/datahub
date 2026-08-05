@@ -278,6 +278,16 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_table_to_table_unmatched_samples: LossyList[str] = dataclass_field(
         default_factory=LossyList
     )
+    # References dropped as self-references, and candidates that could not be
+    # resolved because the table had no parent dataset. Counted so the report
+    # accounts for every candidate rather than dropping some silently.
+    m_query_table_to_table_self_reference: int = 0
+    m_query_table_to_table_no_dataset: int = 0
+    # Tables skipped because extract_table_to_table_lineage is disabled, kept
+    # distinct from genuinely unsupported expressions.
+    m_query_table_to_table_disabled: int = 0
+    # Reference collection raised — contained so external lineage still emits.
+    m_query_table_reference_errors: int = 0
     # DAX calculated-table expressions that yielded sibling-table references.
     m_query_dax_table_lineage: int = 0
     # DAX reference extraction failed — almost always a PyDAXLexer API change.

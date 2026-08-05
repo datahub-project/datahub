@@ -433,12 +433,13 @@ class Mapper:
         table_references: List[str],
         current_table: powerbi_data_classes.Table,
     ) -> List[str]:
-        """Resolve M-Query references to sibling tables in the same dataset to URNs.
+        """Resolve sibling-table reference names to dataset URNs.
 
-        Candidate names come from the M-Query parser. They are matched
-        case-insensitively against the dataset's real tables, so an unresolved
-        identifier that is not an actual sibling table produces no edge. A table
-        referencing itself is skipped.
+        Names come from the M-Query/DAX parser and are matched case-insensitively
+        against the dataset's real tables, so a name that is not an actual sibling
+        produces no edge. Self-references are skipped. Emitted, unmatched,
+        self-referencing and unresolvable references are each counted so the report
+        accounts for every candidate.
         """
         if not table_references:
             return []
@@ -447,6 +448,7 @@ class Mapper:
         if dataset is None:
             # Candidates were found but there's no parent dataset to resolve them
             # against — surface it rather than dropping them silently.
+            self.__reporter.m_query_table_to_table_no_dataset += 1
             self.__reporter.warning(
                 title="Table-to-table lineage skipped",
                 message="Table has sibling-table references but no parent dataset; "
@@ -455,18 +457,26 @@ class Mapper:
             )
             return []
 
-        siblings_by_name = {table.name.lower(): table for table in dataset.tables}
-        upstream_urns: List[str] = []
+        matched = powerbi_data_classes.matching_sibling_tables(
+            current_table, table_references
+        )
+        matched_names = {sibling.name.casefold() for sibling in matched}
         for reference in table_references:
-            sibling = siblings_by_name.get(reference.lower())
-            if sibling is None:
-                self.__reporter.m_query_table_to_table_unmatched += 1
-                self.__reporter.m_query_table_to_table_unmatched_samples.append(
-                    f"{current_table.full_name} -> {reference}"
-                )
+            if reference.casefold() in matched_names:
                 continue
-            if sibling.full_name == current_table.full_name:
+            if reference.casefold() == current_table.name.casefold():
+                # Suppressing a self-loop is correct, but it is also how a leaked
+                # step name that equals the table name would look — count it so a
+                # resolver regression is visible rather than silently benign.
+                self.__reporter.m_query_table_to_table_self_reference += 1
                 continue
+            self.__reporter.m_query_table_to_table_unmatched += 1
+            self.__reporter.m_query_table_to_table_unmatched_samples.append(
+                f"{current_table.full_name} -> {reference}"
+            )
+
+        upstream_urns: List[str] = []
+        for sibling in matched:
             self.__reporter.m_query_table_to_table_lineage += 1
             self.__reporter.m_query_table_to_table_lineage_samples.append(
                 f"{current_table.full_name} -> {sibling.full_name}"

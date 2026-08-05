@@ -227,6 +227,9 @@ def test_get_upstream_tables_captures_sibling_reference() -> None:
         full_name="d1.New Names",
         expression='let\n    Source = #"factNewNames"\nin\n    Source',
     )
+    _dataset_with_tables(
+        [table, Table(name="factNewNames", full_name="d1.factNewNames")]
+    )
     lineages = parser.get_upstream_tables(
         table=table,
         reporter=PowerBiDashboardSourceReport(),
@@ -253,6 +256,9 @@ def test_sibling_reference_alongside_data_source() -> None:
             'let Source = Sql.Database("srv", "db"),'
             " Combined = Table.Combine({Source, SiblingTable}) in Combined"
         ),
+    )
+    _dataset_with_tables(
+        [table, Table(name="SiblingTable", full_name="d1.SiblingTable")]
     )
     lineages = parser.get_upstream_tables(
         table=table,
