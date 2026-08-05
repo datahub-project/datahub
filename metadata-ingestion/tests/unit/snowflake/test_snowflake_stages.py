@@ -1,7 +1,11 @@
 from datetime import datetime
-from typing import List
+from typing import Any, List, Optional
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.data_lake_common.config import (
+    DataLakeLineageProviderConfig,
+)
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -21,12 +25,13 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _make_config() -> SnowflakeV2Config:
+def _make_config(**kwargs: Any) -> SnowflakeV2Config:
     return SnowflakeV2Config(
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
         include_stages=True,
+        **kwargs,
     )
 
 
@@ -44,7 +49,7 @@ def _make_internal_stage(name: str = "int_stage") -> SnowflakeStage:
 
 def _make_external_stage(
     name: str = "ext_stage",
-    url: str = "s3://my-bucket/data/",
+    url: Optional[str] = "s3://my-bucket/data/",
 ) -> SnowflakeStage:
     return SnowflakeStage(
         name=name,
@@ -63,9 +68,11 @@ def _make_external_stage(
 
 def _collect_workunits(
     stages: List[SnowflakeStage],
+    config: Optional[SnowflakeV2Config] = None,
 ) -> tuple:
     """Returns (workunits, extractor) so tests can inspect the stage_lookup."""
-    config = _make_config()
+    if config is None:
+        config = _make_config()
     report = SnowflakeV2Report()
     identifiers = SnowflakeIdentifierBuilder(
         identifier_config=config, structured_reporter=report
@@ -227,6 +234,96 @@ class TestSnowflakeStagesExtractor:
         assert report.stages_scanned == 1
         assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.INT_STAGE") is None
         assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE") is not None
+
+    def test_external_stage_prefix_folded_via_path_spec(self) -> None:
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[PathSpec(include="s3://my-bucket/{table}/*/*/*.csv")],
+                ignore_non_path_spec_path=True,
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/events/year=2024/month=01/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert (
+            entry.dataset_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
+        )
+        assert report.num_stage_external_lineage_resolved == 1
+        assert report.num_stage_external_lineage_dropped == 0
+
+    def test_external_stage_dropped_when_not_matching_path_spec(self) -> None:
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[PathSpec(include="s3://other-bucket/{table}/*.csv")],
+                ignore_non_path_spec_path=True,
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/data/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
+        assert report.num_stage_external_lineage_resolved == 0
+
+    def test_unsupported_azure_host_does_not_abort_extraction(self) -> None:
+        """Regression: an ADLS Gen2 stage URL raised ValueError out of the stage loop,
+        aborting stages, tasks and pipes for the whole run."""
+        stages = [
+            _make_external_stage(
+                name="ADLS_STAGE",
+                url="azure://acct.dfs.core.windows.net/container/events/",
+            ),
+            _make_external_stage(name="GOOD_STAGE", url="s3://my-bucket/events/"),
+        ]
+        _, extractor, report = _collect_workunits(stages)
+
+        # The bad stage is reported, not raised, and the following stage still lands.
+        bad = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ADLS_STAGE")
+        assert bad is not None
+        assert bad.dataset_urn is None
+        good = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.GOOD_STAGE")
+        assert good is not None
+        assert (
+            good.dataset_urn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)"
+        )
+        assert report.num_stage_external_lineage_dropped == 1
+        assert report.num_stage_external_lineage_resolved == 1
+
+    def test_external_stage_without_url_is_counted_and_reported(self) -> None:
+        stage = _make_external_stage(url=None)
+        _, extractor, report = _collect_workunits([stage])
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
+
+    def test_excluded_stage_prefix_emits_no_lineage(self) -> None:
+        """An explicit `exclude` must not be overridden by the fallback, even with
+        the default ignore_non_path_spec_path=False."""
+        config = _make_config(
+            datalake_lineage_config=DataLakeLineageProviderConfig(
+                path_specs=[
+                    PathSpec(
+                        include="s3://my-bucket/{table}/*/*.csv",
+                        exclude=["s3://my-bucket/internal/**"],
+                    )
+                ],
+            )
+        )
+        stage = _make_external_stage(url="s3://my-bucket/internal/year=2024/")
+        _, extractor, report = _collect_workunits([stage], config=config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn is None
+        assert report.num_stage_external_lineage_dropped == 1
 
     def test_lookup_is_case_insensitive(self) -> None:
         stage = _make_internal_stage("My_Stage")

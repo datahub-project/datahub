@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
@@ -38,6 +38,24 @@ java_to_python_mapping = {
     "mm": "M",
     "ss": "S",
 }
+
+
+class DirFoldResult(NamedTuple):
+    """Outcome of folding a directory prefix to a spec's ``{table}`` boundary.
+
+    ``table_path`` is the folded dataset path, or ``None`` when this spec does not
+    cover the prefix at all. ``denied`` means the prefix *does* lie under the spec
+    but the user's ``exclude`` or ``tables_filter_pattern`` rejects it — callers
+    must then emit nothing rather than trying another spec or falling back to the
+    raw path, otherwise an explicit denial gets silently overridden.
+    """
+
+    table_path: Optional[str] = None
+    denied: bool = False
+
+
+_NO_FOLD = DirFoldResult()
+_FOLD_DENIED = DirFoldResult(denied=True)
 
 
 class SortKeyType(Enum):
@@ -260,6 +278,63 @@ class PathSpec(ConfigModel):
                 ):
                     return False
         return True
+
+    def fold_dir_to_table(self, path: str) -> DirFoldResult:
+        """Fold a directory prefix up to this spec's ``{table}`` component.
+
+        A directory prefix does not satisfy the file-oriented `allowed()` check, so
+        the boundary is first located structurally, then resolved through the same
+        parse that `allowed()` and `extract_table_name_and_path()` use. Going through
+        that parse is what keeps the folded dataset path and the table name identical
+        to the ones file mode produces, even when `{table}` covers only part of a path
+        segment (`tbl_{table}`) or `table_name` composes several variables.
+        """
+        if "{table}" not in self.include:
+            return _NO_FOLD
+        parts = path.rstrip("/").split("/")
+        if len(parts) <= self.table_depth:
+            return _NO_FOLD
+        table_prefix = "/".join(parts[: self.table_depth + 1])
+        table_glob = "/".join(self.glob_include.split("/")[: self.table_depth + 1])
+        if not pathlib.PurePath(table_prefix).globmatch(
+            table_glob, flags=pathlib.GLOBSTAR
+        ):
+            return _NO_FOLD
+        # Hidden folders never become datasets, matching `allowed`/`folder_allowed`.
+        if self.is_path_hidden(table_prefix) and not self.include_hidden_folders:
+            return _NO_FOLD
+        if self._dir_excluded(path, table_prefix):
+            return _FOLD_DENIED
+
+        # Rebuild a synthetic file path that satisfies this spec's glob so the
+        # spec's own parse can extract `{table}`. Same trick as `dir_allowed`.
+        probe_path = table_prefix + "/" + self.get_remaining_glob_include(table_prefix)
+        if self.get_named_vars(probe_path) is None:
+            return _NO_FOLD
+        table_name, table_path = self.extract_table_name_and_path(probe_path)
+        if not self.tables_filter_pattern.allowed(table_name):
+            return _FOLD_DENIED
+        return DirFoldResult(table_path=table_path)
+
+    def _dir_excluded(self, path: str, table_prefix: str) -> bool:
+        """Whether `exclude` rejects this directory prefix.
+
+        Excludes are matched against the original input path, because folding to
+        `table_prefix` strips the very segments a `**` suffix needs to match. That
+        alone misses the table root itself — `s3://lake/internal` does not glob-match
+        `s3://lake/internal/**` — so a `/**` suffix is also tested against the root.
+        """
+        for exclude_path in self.exclude or []:
+            excl = exclude_path.rstrip("/")
+            if pathlib.PurePath(path.rstrip("/")).globmatch(
+                excl, flags=pathlib.GLOBSTAR
+            ):
+                return True
+            if excl.endswith("/**") and pathlib.PurePath(table_prefix).globmatch(
+                excl[: -len("/**")], flags=pathlib.GLOBSTAR
+            ):
+                return True
+        return False
 
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
@@ -577,6 +652,14 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
+    @cached_property
+    def table_depth(self):
+        """Number of ``/`` preceding the ``{table}`` component of ``include``.
+
+        Only meaningful when ``include`` contains ``{table}``; callers check first.
+        """
+        return self.include.count("/", 0, self.include.find("{table}"))
+
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
             raise ValueError("path_spec.table_name is not set")
@@ -626,10 +709,10 @@ class PathSpec(ConfigModel):
         if parsed_vars is None or "table" not in parsed_vars.named:
             return os.path.basename(path.removesuffix("/")), path
         else:
-            include = self.include
-            depth = include.count("/", 0, include.find("{table}"))
             table_path = (
-                "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
+                "/".join(path.split("/")[: self.table_depth])
+                + "/"
+                + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
 
