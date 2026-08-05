@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
 from pydantic import BaseModel
 from pydantic.fields import Field
@@ -817,7 +817,7 @@ class TableauUpstreamReference:
             upstream_db,
             platform_instance,
             platform,
-            original_platform,
+            _,
         ) = get_overridden_info(
             connection_type=self.connection_type,
             upstream_db=self.database,
@@ -841,6 +841,22 @@ class TableauUpstreamReference:
         return builder.make_dataset_urn_with_platform_instance(
             platform, table_name, platform_instance, env
         )
+
+
+class OverriddenInfoFn(Protocol):
+    # A Protocol rather than a Callable alias so callers can (and must) pass the
+    # trailing run of same-typed Optional[Dict[str, str]] maps by keyword.
+    def __call__(
+        self,
+        connection_type: str,
+        upstream_db: Optional[str],
+        upstream_db_id: Optional[str],
+        platform_instance_map: Optional[Dict[str, str]],
+        lineage_overrides: Optional[TableauLineageOverrides] = None,
+        database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
+        database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Optional[str], Optional[str], str, str]: ...
 
 
 def get_overridden_info(

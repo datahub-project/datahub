@@ -54,6 +54,8 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 - `lineage_overrides.platform_override_map` builds the upstream URN in the target platform's shape. Remapping a three-tier platform (e.g. `presto`) to a two-tier one (e.g. `athena`, `hive`, `mysql`, `teradata`) drops the database segment, giving `schema.table`. Remapping in the other direction — two-tier to three-tier — cannot supply the target's catalog, because a two-tier connection has no catalog to give: the URN stays `schema.table`. If the target platform's own ingestion emits three-part names, set `platform_instance_map` so the catalog is prefixed as a platform instance (e.g. `{ hive: "my_presto_instance.presto_catalog" }`).
 
+- `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are both keyed off the Tableau database `id`. Upstreams discovered by parsing Initial SQL (`ingest_initial_sql`) come from the workbook/data source definition XML, which does not carry that id, so those upstreams fall back to `platform_instance_map`. If a table is reachable through both paths and only the id- or hostname-keyed maps assign it an instance, the two paths will emit different URNs for it; set `platform_instance_map` as well to keep them aligned.
+
 ### Troubleshooting
 
 #### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
