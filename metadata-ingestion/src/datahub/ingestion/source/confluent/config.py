@@ -15,13 +15,8 @@ from datahub.ingestion.source.confluent.constants import (
 
 
 class ConfluentStreamCatalogConfig(ConfigModel):
-    """
-    Sources subclass this to add their own `include_*` toggles. Credentials are only
-    validated for presence when a source calls `validate_connection`, because some
-    sources can inherit the endpoint and key from an existing Schema Registry
-    connection rather than having them set here.
-    """
-
+    # Subclasses add include_* toggles. Credentials are validated only when a
+    # source calls validate_connection — some inherit them from Schema Registry.
     enabled: bool = Field(
         default=False,
         description="Query the Confluent Cloud Stream Catalog GraphQL API. "
@@ -77,11 +72,6 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         return self
 
     def validate_connection(self, config_path: str = CATALOG_CONFIG_PATH) -> None:
-        """
-        Sources call this once any inherited defaults have been applied. `config_path`
-        names the recipe block the fields live under, so the error points at the right
-        place when a source nests the block somewhere other than the default.
-        """
         missing: List[str] = [
             name
             for name, value in (

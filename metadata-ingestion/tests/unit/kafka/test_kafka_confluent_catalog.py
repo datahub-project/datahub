@@ -59,7 +59,6 @@ def enabled_catalog_config(**overrides: object) -> Dict[str, object]:
 def attach_catalog(
     source: KafkaSource, topics: List[CatalogKafkaTopic]
 ) -> KafkaTopicCatalog:
-    """Give the source a catalog that serves `topics` without any network calls."""
     client = Mock(spec=ConfluentStreamCatalogClient)
     client.fetch_entities.return_value = topics
     catalog = KafkaTopicCatalog(
@@ -292,8 +291,6 @@ class TestCatalogMetadataOnTopics:
     def test_a_repeated_tag_is_emitted_once(
         self, mock_kafka: Mock, mock_admin_client: Mock
     ) -> None:
-        # Schema tags, meta mapping and the catalog can each contribute the same tag;
-        # the catalog-plus-schema case is covered by the integration golden file.
         source = self.build_source(
             mock_kafka, [CatalogKafkaTopic(name=TOPIC, tags=["PII", "PII", "Tier1"])]
         )

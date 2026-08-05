@@ -51,7 +51,6 @@ def make_catalog_config(**overrides: object) -> ConfluentCatalogConfig:
         "schema_registry_url": "https://psrc-abc123.us-east-1.aws.confluent.cloud",
         "api_key": "sr-key",
         "api_secret": "sr-secret",
-        # Opt-in in production; on here so the lineage tests exercise the catalog path.
         "include_lineage": True,
     }
     defaults.update(overrides)
@@ -61,7 +60,6 @@ def make_catalog_config(**overrides: object) -> ConfluentCatalogConfig:
 def make_catalog(
     connectors: Sequence[Mapping[str, object]], **config_overrides: object
 ) -> ConnectorCatalog:
-    """A catalog whose GraphQL client is stubbed out."""
     client = Mock(spec=ConfluentStreamCatalogClient)
     client.fetch_entities.return_value = [
         CatalogConnector.model_validate(payload) for payload in connectors
@@ -83,7 +81,6 @@ def make_cloud_source(
     catalog_connectors: Sequence[Mapping[str, object]] = (),
     **catalog_overrides: object,
 ) -> KafkaConnectSource:
-    """Build a Confluent Cloud source whose catalog is served from memory."""
     with patch("requests.Session.get") as mock_get:
         response = Mock()
         response.raise_for_status.return_value = None
@@ -125,8 +122,6 @@ class TestConfluentCatalogConfig:
         assert not config.enabled
 
     def test_catalog_lineage_is_opt_in(self) -> None:
-        # Catalog lineage drops a source connector's table-level lineage, so enabling
-        # the catalog for tags alone must not silently change lineage.
         config = ConfluentCatalogConfig(
             enabled=True,
             schema_registry_url="https://psrc-abc123.aws.confluent.cloud",
@@ -159,10 +154,8 @@ class TestConfluentCatalogConfig:
         assert not config.confluent_catalog.enabled
 
     def test_known_catalog_config_subclasses_have_not_changed(self) -> None:
-        # Credentials are validated per source, because a source may inherit them from a
-        # connection block rather than have them set on the catalog config. A subclass
-        # added without that wiring fails as an AssertionError inside the client instead
-        # of a config error, so adding one has to be deliberate.
+        # Subclasses that skip validate_connection fail as AssertionError in the
+        # client instead of a config error — adding one has to be deliberate.
         known: Set[Type[ConfluentStreamCatalogConfig]] = {
             ConfluentCatalogConfig,
             KafkaConfluentCatalogConfig,
@@ -230,8 +223,6 @@ class TestConnectorCatalog:
         assert catalog.get_connector("source_postgres_01") is not None
 
     def test_repeated_connector_name_is_skipped_and_reported(self) -> None:
-        # `cn_connector` covers the whole environment and is matched by name alone, so
-        # picking either one risks writing another connector's tags and lineage.
         catalog = make_catalog(
             [
                 {"name": "source_postgres_01", "topics": [{"name": "orders"}]},
@@ -319,7 +310,6 @@ class TestCatalogLineage:
 
         registry_connector.extract_lineages.assert_called_once()
         assert list(source.report.catalog_lineage_fallbacks) == [manifest.name]
-        # A silent downgrade to heuristic lineage is the thing operators need to see.
         assert len(source.report.warnings) == 1
 
     def test_include_lineage_disabled_leaves_existing_path_alone(self) -> None:
@@ -378,8 +368,6 @@ class TestCatalogLineage:
         ):
             source.extract_connector_lineages(manifest)
 
-        # A catalog that is stale or partial must not narrow the candidate set and drop
-        # sink lineage, so sinks keep the connector-config path against all topics.
         assert registry_connector.all_cluster_topics == ["orders", "payments"]
         assert manifest.lineages == [sink_lineage]
         registry_connector.extract_lineages.assert_called_once()
@@ -431,8 +419,6 @@ class TestCatalogTags:
         assert source.report.catalog_tagged_flows == 1
 
     def test_topic_tags_are_left_to_the_kafka_source(self) -> None:
-        # Kafka topic datasets belong to the `kafka` source, which reads the same
-        # catalog; tagging them here would mean two sources writing one entity.
         source = make_cloud_source(
             [
                 {

@@ -198,7 +198,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Extract lineages for this connector and check if it should be included
             should_include = self.extract_connector_lineages(connector_manifest)
             if not should_include:
-                # Skip unsupported connector (matches master's behavior)
                 continue
 
             yield connector_manifest
@@ -221,10 +220,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         catalog_connector = self._get_catalog_connector(connector_manifest)
 
-        # For Confluent Cloud, populate all_cluster_topics for validation purposes
-        # This stays on the cluster-wide topic list even when the catalog is enabled: a
-        # catalog that is stale or scoped to a subset of topics would otherwise silently
-        # narrow the candidate set and drop sink lineage.
+        # Keep the full cluster topic list even with the catalog enabled — a
+        # stale/partial catalog must not silently drop sink lineage.
         if connector and self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
             if all_cluster_topics:
@@ -240,15 +237,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not connector and not catalog_lineages:
             self._handle_unsupported_connector(connector_manifest)
             if connector_manifest.type == SOURCE:
-                # Source connectors without handlers are skipped (master's behavior with 'continue')
                 return False
-            # Sink connectors without handlers are still included (master's BaseConnector behavior)
             connector_manifest.lineages = []
             connector_manifest.flow_property_bag = {}
             return True
 
-        # A connector with no handler still gets lineage when the catalog knows which
-        # topics it writes to.
         if catalog_lineages:
             connector_manifest.lineages = catalog_lineages
         elif connector:
@@ -328,8 +321,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not properties:
             return
 
-        # Catalog attributes win: they are curated in Stream Governance, whereas the
-        # existing bag is derived from raw connector config.
+        # Catalog attributes win over raw connector-config properties.
         connector_manifest.flow_property_bag = {
             **(connector_manifest.flow_property_bag or {}),
             **properties,

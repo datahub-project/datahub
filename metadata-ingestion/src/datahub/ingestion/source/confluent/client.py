@@ -58,7 +58,6 @@ class ConfluentStreamCatalogClient:
         ]
         if missing:
             # Missing {offset} loops forever; missing {limit} silently truncates.
-            # Client bug, not a catalog outage — report as failure.
             self.report.failure(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
@@ -72,9 +71,6 @@ class ConfluentStreamCatalogClient:
             page = self._fetch_page(query, root_key, offset)
             if page is None:
                 if entities:
-                    # The cause is already reported, but a failure part way through
-                    # pagination is otherwise indistinguishable from reaching the last
-                    # page — say that what was kept is partial.
                     self.report.warning(
                         message="Kept a partial Confluent Stream Catalog result after a page "
                         "failed to load, so some entities will be missing their catalog metadata",
@@ -100,7 +96,6 @@ class ConfluentStreamCatalogClient:
     def _fetch_page(
         self, query: str, root_key: str, offset: int
     ) -> Optional[List[Dict[str, object]]]:
-        # Integers only — no escaping needed. Placeholder presence checked above.
         inline_query = query.replace(
             LIMIT_PLACEHOLDER, str(self.config.page_size)
         ).replace(OFFSET_PLACEHOLDER, str(offset))
@@ -115,8 +110,6 @@ class ConfluentStreamCatalogClient:
             response.raise_for_status()
             payload = response.json()
         except requests.HTTPError as e:
-            # Include response body so a rejected query is distinguishable from
-            # "catalog not provisioned".
             self.report.warning(
                 message="The Confluent Stream Catalog rejected the request",
                 context=f"{context}, response={_response_body(e)}",
@@ -151,8 +144,6 @@ class ConfluentStreamCatalogClient:
             return []
 
         if root_key not in data:
-            # The query asked for a field the response does not carry, so every page
-            # would come back empty. Client bug, not a catalog outage.
             self.report.failure(
                 message="The Confluent Stream Catalog response is missing the queried field",
                 context=f"{context}, fields_returned={sorted(data)}",

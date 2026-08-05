@@ -24,15 +24,7 @@ class CatalogKafkaTopic(CatalogEntity):
 
 
 class KafkaTopicCatalog:
-    """
-    Topic-level tags and business metadata from the Confluent Cloud Stream Catalog.
-
-    The catalog is scoped to the Schema Registry endpoint, which covers a whole
-    environment. An environment can hold more than one Kafka cluster, so topic names are
-    not guaranteed unique; ambiguous names are dropped rather than risk tagging a topic
-    with another cluster's metadata. Set `cluster_id` to resolve that.
-    """
-
+    # Environment-scoped; ambiguous topic names are dropped unless cluster_id is set.
     def __init__(
         self,
         config: KafkaConfluentCatalogConfig,

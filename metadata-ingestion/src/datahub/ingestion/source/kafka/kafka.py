@@ -1283,8 +1283,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         subtype = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
-        # Schema tags, meta mapping and the Stream Catalog can each contribute the same
-        # tag; dict.fromkeys drops the repeats without reordering.
         tag_urns = (
             [make_tag_urn(tag) for tag in dict.fromkeys(all_tags)] if all_tags else None
         )
@@ -1322,9 +1320,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if config.include_business_metadata:
             properties = catalog_topic.properties_from_business_metadata()
-            # Business metadata attribute names are chosen by the organisation, so one
-            # can collide with a topic property read from the broker. Keep the broker's
-            # value: it describes the topic that is actually being ingested.
+            # Org-defined attribute names can collide with broker topic properties;
+            # keep the broker value.
             collisions = sorted(properties.keys() & custom_props.keys())
             if collisions:
                 self.report.warning(

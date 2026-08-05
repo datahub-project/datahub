@@ -35,8 +35,6 @@ class CatalogConnector(CatalogEntity):
 
 
 class ConnectorCatalog:
-    """Every connector in the environment, fetched once per ingestion run."""
-
     def __init__(
         self,
         config: ConfluentCatalogConfig,
@@ -55,8 +53,6 @@ class ConnectorCatalog:
             )
             index = index_by_name(connectors)
             for name in index.ambiguous:
-                # `cn_connector` spans the environment and is matched by name alone, so
-                # inheriting the wrong connector's tags and lineage is a real risk.
                 self.report.warning(
                     message="Skipping Stream Catalog metadata for a connector name that the "
                     "catalog reports more than once in this environment.",

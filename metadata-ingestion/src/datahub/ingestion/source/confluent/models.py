@@ -9,7 +9,7 @@ BusinessMetadataValue = Union[str, bool, int, float]
 
 
 def empty_if_null(value: object) -> object:
-    # The catalog returns `null` rather than `[]` for unset collections.
+    # Catalog returns null rather than [] for unset collections.
     return value or []
 
 
@@ -46,23 +46,17 @@ class CatalogEntity(CatalogModel):
 CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
 
-# A plain dataclass rather than a pydantic model: a generic BaseModel would re-validate
-# the entities against the TypeVar's bound and strip subclass fields.
+# Dataclass, not pydantic: a generic BaseModel re-validates against the TypeVar
+# bound and strips subclass fields.
 @dataclass
 class NameIndex(Generic[CatalogEntityType]):
-    """
-    Catalog names are not guaranteed unique, so a name the catalog reports more than
-    once is held back in `ambiguous` instead of resolving last-write-wins to whichever
-    entity happened to be paged in last.
-    """
-
+    # Names the catalog reports more than once go in `ambiguous` rather than
+    # last-write-wins.
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
     _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False)
 
     def __post_init__(self) -> None:
-        # The catalog's copy of a name can differ in case from the source's. Index once
-        # rather than scanning every entity on each miss.
         self._by_lowered_name = {
             name.lower(): entity for name, entity in self.by_name.items()
         }

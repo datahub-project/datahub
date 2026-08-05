@@ -161,8 +161,6 @@ class TestConfluentStreamCatalogClient:
         ]
         session = client.session
         assert isinstance(session, Mock)
-        # Check every body: offset 0 (not skipped as falsy) and a page where
-        # offset != limit (so a swapped substitution cannot pass).
         assert [call.kwargs["json"] for call in session.post.call_args_list] == [
             {"query": "{ kafka_topic(limit: 2, offset: 0) { name } }"},
             {"query": "{ kafka_topic(limit: 2, offset: 2) { name } }"},
@@ -263,8 +261,6 @@ class TestConfluentStreamCatalogClient:
         client = make_client([broken])
 
         assert fetch(client) == []
-        # Nothing was retrieved, so this is the routine "catalog unavailable" case that
-        # the underlying warning already covers.
         assert len(client.report.warnings) == 1
 
 
@@ -274,7 +270,6 @@ class TestCatalogEntityHelpers:
             {
                 "name": "orders",
                 "business_metadata": [
-                    # Live catalog uses `<definition>.<attribute>` names.
                     {"name": "Governance.owner_team", "value": "core"},
                     {"name": "critical", "value": True},
                     {"name": "tier", "value": 1},
