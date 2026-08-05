@@ -572,6 +572,40 @@ class BigQuerySchemaGenerator:
         except Exception as e:
             logger.warning(f"Could not create table ref for {table_item.path}: {e}")
 
+    def _gen_dataset_container_workunits(
+        self, project_id: str, bigquery_dataset: BigqueryDataset
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_schema_metadata:
+            return
+
+        dataset_name = bigquery_dataset.name
+        linked_dataset_info = (
+            self.linked_datasets_handler.get_info(project_id, dataset_name)
+            if self.linked_datasets_handler is not None
+            else None
+        )
+
+        extra_properties: Dict[str, str] = {}
+        if bigquery_dataset.location:
+            extra_properties["location"] = bigquery_dataset.location
+        if linked_dataset_info is not None:
+            extra_properties.update(linked_dataset_info.to_extra_properties())
+
+        yield from self.gen_dataset_containers(
+            dataset=dataset_name,
+            project_id=project_id,
+            tags=bigquery_dataset.labels,
+            extra_properties=extra_properties or None,
+            description=bigquery_dataset.comment,
+            created=make_ts_millis(bigquery_dataset.created)
+            if bigquery_dataset.created
+            else None,
+            last_modified=make_ts_millis(bigquery_dataset.last_altered)
+            if bigquery_dataset.last_altered
+            else None,
+            is_linked_dataset=linked_dataset_info is not None,
+        )
+
     def _process_schema(
         self,
         project_id: str,
@@ -590,33 +624,7 @@ class BigQuerySchemaGenerator:
             else:
                 self.discovered_locations.add(bigquery_dataset.location)
 
-        linked_dataset_info = (
-            self.linked_datasets_handler.get_info(project_id, dataset_name)
-            if self.linked_datasets_handler is not None
-            else None
-        )
-
-        extra_properties: Dict[str, str] = {}
-        if bigquery_dataset.location:
-            extra_properties["location"] = bigquery_dataset.location
-        if linked_dataset_info is not None:
-            extra_properties.update(linked_dataset_info.to_extra_properties())
-
-        if self.config.include_schema_metadata:
-            yield from self.gen_dataset_containers(
-                dataset=dataset_name,
-                project_id=project_id,
-                tags=bigquery_dataset.labels,
-                extra_properties=extra_properties or None,
-                description=bigquery_dataset.comment,
-                created=make_ts_millis(bigquery_dataset.created)
-                if bigquery_dataset.created
-                else None,
-                last_modified=make_ts_millis(bigquery_dataset.last_altered)
-                if bigquery_dataset.last_altered
-                else None,
-                is_linked_dataset=linked_dataset_info is not None,
-            )
+        yield from self._gen_dataset_container_workunits(project_id, bigquery_dataset)
 
         columns = None
         constraints: Optional[Dict[str, List[BigqueryTableConstraint]]] = None
