@@ -119,9 +119,6 @@ def _get_current_user_info() -> Optional[Dict]:
         )
         me_data = result.get("me", {})
         return me_data.get("corpUser") if me_data else None
-    except ItemNotFoundError:
-        logger.debug(f"Document {document_urn} does not exist, allowing creation")
-        return True, None
     except Exception as e:
         logger.warning(f"Failed to get current user info: {e}")
         return None
@@ -253,6 +250,9 @@ def _is_document_in_shared_folder(document_urn: str) -> Tuple[bool, Optional[str
             "Only documents in this folder can be updated."
         )
 
+    except ItemNotFoundError:
+        logger.debug(f"Document {document_urn} does not exist, allowing creation")
+        return True, None
     except Exception as e:
         logger.error(f"Failed to validate document hierarchy: {e}", exc_info=True)
         # Fail closed - if we can't validate, don't allow the update
