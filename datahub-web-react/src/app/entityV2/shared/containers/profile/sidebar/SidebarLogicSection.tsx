@@ -46,9 +46,10 @@ export function SidebarDatasetViewDefinitionSection() {
     const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const statement = baseEntity?.dataset?.viewProperties?.logic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Dataset, baseEntity?.dataset?.urn || '');
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection
@@ -63,9 +64,10 @@ export function SidebarDataJobTransformationLogicSection() {
     const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDataJobQuery>();
     const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const canViewQueries = baseEntity?.dataJob?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection title={t('sidebar.logic.logicTitle')} statement={statement} externalUrl={externalUrl} />

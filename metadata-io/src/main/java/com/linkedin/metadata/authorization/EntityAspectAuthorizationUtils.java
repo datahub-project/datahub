@@ -53,6 +53,17 @@ public final class EntityAspectAuthorizationUtils {
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
 
+  // Mirrors the GraphQL-side canViewEntityQueries check: viewing a query requires the explicit
+  // view privilege (or the ability to edit queries, which implies viewing them).
+  private static final DisjunctivePrivilegeGroup VIEW_ENTITY_QUERIES_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType())),
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
+
   private static final DisjunctivePrivilegeGroup EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGES =
       new DisjunctivePrivilegeGroup(
           ImmutableList.of(
@@ -387,9 +398,9 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Returns Query entity URNs viewable by the actor: every subject dataset must be readable via
-   * {@code VIEW_ENTITY_PAGE} or editable via {@code EDIT_ENTITY_QUERIES} (or {@code EDIT_ENTITY}).
-   * Query entities with no subjects are denied (fail-closed).
+   * Returns Query entity URNs viewable by the actor: every subject dataset must grant {@code
+   * VIEW_ENTITY_QUERIES} (or {@code EDIT_QUERIES} / all privileges, which imply it). Query entities
+   * with no subjects are denied (fail-closed).
    */
   @Nonnull
   public static Set<Urn> filterViewableQueryEntities(
@@ -481,12 +492,9 @@ public final class EntityAspectAuthorizationUtils {
 
   private static boolean canReadQueryViaSubjectDataset(
       @Nonnull AuthorizationSession session, @Nonnull Urn datasetUrn) {
-    if (com.datahub.authorization.AuthUtil.canViewEntity(session, datasetUrn)) {
-      return true;
-    }
     EntitySpec datasetSpec = new EntitySpec(datasetUrn.getEntityType(), datasetUrn.toString());
     return com.datahub.authorization.AuthUtil.isAuthorized(
-        session, EDIT_ENTITY_QUERIES_PRIVILEGES, datasetSpec);
+        session, VIEW_ENTITY_QUERIES_PRIVILEGES, datasetSpec);
   }
 
   public static boolean isQueryEntity(@Nonnull Urn urn) {
