@@ -1680,7 +1680,7 @@ class OdbcLineage(AbstractLineage):
         level of a table's qualified name (e.g. a BigQuery ODBC source commonly
         surfaces dataset.table but omits the project). dsn_to_database_schema
         supplies those missing high-order levels so a fully-qualified upstream
-        URN can still be built. 
+        URN can still be built.
         """
         value = self.config.dsn_to_database_schema.get(dsn)
         if not value:
