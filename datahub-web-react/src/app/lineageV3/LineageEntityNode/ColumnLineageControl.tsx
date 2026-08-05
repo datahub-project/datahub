@@ -61,6 +61,9 @@ export function ColumnLineageControl({ direction, lineageAsset, shownRelated }: 
         // graph. Nothing was hidden to begin with, so there is no count worth showing.
         return null;
     }
+    if (total === 0) {
+        return null; // The column has no lineage this way at all, so there is nothing to count
+    }
     return (
         <ControlWrapper direction={direction} data-testid={`column-lineage-control-${lineageAsset.name}-${direction}`}>
             <Counts>
