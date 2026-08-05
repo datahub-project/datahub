@@ -122,21 +122,30 @@ def rate_limited_paged_call(
     return pager
 
 
-def rate_limited_gapic_list(
+def rate_limited_gapic_iter(
     cls: Type[T],
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
     order_by: Optional[str] = None,
     filter_str: Optional[str] = None,
     parent: Optional[str] = None,
-) -> List[T]:
-    """List SDK resources via GAPIC with one rate-limit token per page fetch."""
+) -> Iterator[T]:
+    """Stream SDK resources via GAPIC, one rate-limit token per page fetch.
+
+    Yields resources lazily so peak memory holds only a single page (plus the
+    resource being constructed), not the whole listing. Use this for large,
+    uncapped listings such as pipeline jobs and training jobs, whose SDK objects
+    each carry a full resource proto. For bounded collections that are sorted,
+    sliced, len()-ed, or iterated more than once, use rate_limited_gapic_list.
+    """
     # sdk_cls typed as Any to access SDK private class attributes (_empty_constructor,
     # _list_method, _construct_sdk_resource_from_gapic) that are not in the public type.
     sdk_cls: Any = cls
 
     if not hasattr(sdk_cls, "_list_method"):
         with rate_limiter:
-            return sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+            fallback = sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+        yield from fallback
+        return
 
     supported_schemas = getattr(sdk_cls, "_supported_training_schemas", None)
     supported_uris = getattr(sdk_cls, "_supported_metadata_schema_uris", None)
@@ -148,6 +157,9 @@ def rate_limited_gapic_list(
             return p.metadata_schema_uri in supported_uris
         return True
 
+    # Pager setup runs before any yield so a class that lacks per-page GAPIC
+    # listing falls back cleanly to the high-level list(). The fallback must not
+    # happen mid-iteration, which would re-yield already-emitted resources.
     try:
         resource = sdk_cls._empty_constructor()
         creds = resource.credentials
@@ -172,18 +184,42 @@ def rate_limited_gapic_list(
                 ),
                 rate_limiter,
             )
-
-        return [
-            sdk_cls._construct_sdk_resource_from_gapic(proto, credentials=creds)
-            for proto in pager
-            if proto_filter(proto)
-        ]
     except (AttributeError, TypeError):
         logger.debug(
             f"Per-page rate limiting unavailable for {cls.__name__}, falling back"
         )
         with rate_limiter:
-            return sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+            fallback = sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+        yield from fallback
+        return
+
+    for proto in pager:
+        if proto_filter(proto):
+            yield sdk_cls._construct_sdk_resource_from_gapic(proto, credentials=creds)
+
+
+def rate_limited_gapic_list(
+    cls: Type[T],
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    order_by: Optional[str] = None,
+    filter_str: Optional[str] = None,
+    parent: Optional[str] = None,
+) -> List[T]:
+    """Materialize rate_limited_gapic_iter into a list.
+
+    Prefer rate_limited_gapic_iter for large listings. Use this only when the
+    caller needs list semantics: iterating more than once, sorting, slicing, or
+    len(). Peak memory holds every resource at once.
+    """
+    return list(
+        rate_limited_gapic_iter(
+            cls,
+            rate_limiter,
+            order_by=order_by,
+            filter_str=filter_str,
+            parent=parent,
+        )
+    )
 
 
 def log_progress(

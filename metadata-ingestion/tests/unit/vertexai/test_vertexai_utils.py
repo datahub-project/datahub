@@ -2,6 +2,7 @@ from contextlib import nullcontext
 from typing import Any, List, cast
 from unittest.mock import MagicMock, patch
 
+import pytest
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 
 from datahub.ingestion.source.vertexai.vertexai_builder import (
@@ -10,6 +11,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
     create_vertex_retry_without_429,
+    rate_limited_gapic_iter,
     rate_limited_gapic_list,
     rate_limited_paged_call,
 )
@@ -106,12 +108,13 @@ def test_rate_limited_paged_call_patches_method_for_subsequent_pages() -> None:
 
 
 # ---------------------------------------------------------------------------
-# rate_limited_gapic_list
+# rate_limited_gapic_iter (rate_limited_gapic_list is a thin list() wrapper, so
+# behavior is asserted once here on the real generator implementation)
 # ---------------------------------------------------------------------------
 
 
 def _make_cls(*, supported_schemas=None, supported_uris=None):
-    """Build a minimal mock SDK class for rate_limited_gapic_list."""
+    """Build a minimal mock SDK class for rate_limited_gapic_iter."""
     cls = MagicMock()
     cls.__name__ = "MockCls"
     cls._list_method = "list_things"
@@ -122,38 +125,58 @@ def _make_cls(*, supported_schemas=None, supported_uris=None):
     return cls
 
 
-def test_rate_limited_gapic_list_no_list_method_falls_back() -> None:
-    cls = MagicMock()
-    del cls._list_method
-    cls.list.return_value = ["a", "b"]
+def test_rate_limited_gapic_iter_streams_lazily() -> None:
+    """The streaming variant must pull at most one page item before the first
+    yield, so peak memory does not hold the whole listing."""
+    cls = _make_cls()
+    pulled: List[int] = []
 
-    result: List[Any] = rate_limited_gapic_list(cls, nullcontext())
+    def counting_pager():
+        for i in range(5):
+            pulled.append(i)
+            yield i
 
-    cls.list.assert_called_once()
-    assert result == ["a", "b"]
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.vertex_initializer"
+        ) as mock_init,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.rate_limited_paged_call",
+            return_value=counting_pager(),
+        ),
+    ):
+        mock_init.global_config.common_location_path.return_value = (
+            "projects/p/locations/l"
+        )
+        stream = rate_limited_gapic_iter(cls, nullcontext())
+        first = next(stream)
+
+    assert first == 0
+    assert pulled == [0]  # only the first proto was materialized
 
 
-def test_rate_limited_gapic_list_passes_filter_str() -> None:
+def test_rate_limited_gapic_iter_matches_list() -> None:
     cls = _make_cls()
     with (
         patch(
             "datahub.ingestion.source.vertexai.vertexai_utils.vertex_initializer"
         ) as mock_init,
         patch(
-            "datahub.ingestion.source.vertexai.vertexai_utils.rate_limited_paged_call"
-        ) as mock_paged,
+            "datahub.ingestion.source.vertexai.vertexai_utils.rate_limited_paged_call",
+            side_effect=lambda *a, **k: iter(["a", "b", "c"]),
+        ),
     ):
         mock_init.global_config.common_location_path.return_value = (
             "projects/p/locations/l"
         )
-        mock_paged.return_value = iter([])
-        rate_limited_gapic_list(cls, nullcontext(), filter_str="my_filter")
+        iter_result = list(rate_limited_gapic_iter(cls, nullcontext()))
+        list_result = rate_limited_gapic_list(cls, nullcontext())
 
-    request = mock_paged.call_args[0][1]
-    assert request["filter"] == "my_filter"
+    assert iter_result == ["a", "b", "c"]
+    assert list_result == iter_result
 
 
-def test_rate_limited_gapic_list_training_schema_filter() -> None:
+def test_rate_limited_gapic_iter_applies_proto_filter() -> None:
     wanted = MagicMock(training_task_definition="gs://schema/custom")
     unwanted = MagicMock(training_task_definition="gs://schema/other")
 
@@ -170,12 +193,86 @@ def test_rate_limited_gapic_list_training_schema_filter() -> None:
             "projects/p/locations/l"
         )
         mock_paged.return_value = iter([wanted, unwanted])
-        result = rate_limited_gapic_list(cls, nullcontext())
+        result = list(rate_limited_gapic_iter(cls, nullcontext()))
 
     assert result == [wanted]
 
 
-def test_rate_limited_gapic_list_metadata_schema_uri_filter() -> None:
+def test_rate_limited_gapic_iter_no_list_method_falls_back() -> None:
+    cls = MagicMock()
+    del cls._list_method
+    cls.list.return_value = ["a", "b"]
+
+    result: List[Any] = list(rate_limited_gapic_iter(cls, nullcontext()))
+
+    cls.list.assert_called_once()
+    assert result == ["a", "b"]
+
+
+def test_rate_limited_gapic_iter_attribute_error_falls_back() -> None:
+    """Setup errors fall back to list(); the fallback must not fire mid-stream."""
+    cls = _make_cls()
+    cls._empty_constructor.side_effect = AttributeError("no constructor")
+    cls.list.return_value = ["fallback"]
+
+    result = list(rate_limited_gapic_iter(cls, nullcontext()))
+
+    cls.list.assert_called_once()
+    assert result == ["fallback"]
+
+
+def test_rate_limited_gapic_iter_does_not_refetch_on_mid_stream_error() -> None:
+    """A failure after streaming has started must propagate, not fall back to
+    list() and re-emit already-yielded resources (the fallback is setup-only)."""
+    cls = _make_cls()
+
+    def pager_then_raise():
+        yield "a"
+        yield "b"
+        raise AttributeError("boom mid-stream")
+
+    emitted = []
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.vertex_initializer"
+        ) as mock_init,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.rate_limited_paged_call",
+            return_value=pager_then_raise(),
+        ),
+    ):
+        mock_init.global_config.common_location_path.return_value = (
+            "projects/p/locations/l"
+        )
+        with pytest.raises(AttributeError):
+            for item in rate_limited_gapic_iter(cls, nullcontext()):
+                emitted.append(item)
+
+    assert emitted == ["a", "b"]  # no duplicates from a re-run
+    cls.list.assert_not_called()  # did not fall back to the high-level list()
+
+
+def test_rate_limited_gapic_iter_passes_filter_str() -> None:
+    cls = _make_cls()
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.vertex_initializer"
+        ) as mock_init,
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_utils.rate_limited_paged_call"
+        ) as mock_paged,
+    ):
+        mock_init.global_config.common_location_path.return_value = (
+            "projects/p/locations/l"
+        )
+        mock_paged.return_value = iter([])
+        list(rate_limited_gapic_iter(cls, nullcontext(), filter_str="my_filter"))
+
+    request = mock_paged.call_args[0][1]
+    assert request["filter"] == "my_filter"
+
+
+def test_rate_limited_gapic_iter_applies_metadata_schema_uri_filter() -> None:
     wanted = MagicMock(metadata_schema_uri="gs://meta/tabular")
     unwanted = MagicMock(metadata_schema_uri="gs://meta/image")
 
@@ -192,12 +289,12 @@ def test_rate_limited_gapic_list_metadata_schema_uri_filter() -> None:
             "projects/p/locations/l"
         )
         mock_paged.return_value = iter([wanted, unwanted])
-        result = rate_limited_gapic_list(cls, nullcontext())
+        result = list(rate_limited_gapic_iter(cls, nullcontext()))
 
     assert result == [wanted]
 
 
-def test_rate_limited_gapic_list_order_by_value_error_retried_without_it() -> None:
+def test_rate_limited_gapic_iter_order_by_value_error_retried_without_it() -> None:
     cls = _make_cls()
     call_count = [0]
 
@@ -222,18 +319,9 @@ def test_rate_limited_gapic_list_order_by_value_error_retried_without_it() -> No
         mock_init.global_config.common_location_path.return_value = (
             "projects/p/locations/l"
         )
-        result = rate_limited_gapic_list(cls, nullcontext(), order_by="update_time")
+        result = list(
+            rate_limited_gapic_iter(cls, nullcontext(), order_by="update_time")
+        )
 
     assert call_count[0] == 2
     assert result == ["item"]
-
-
-def test_rate_limited_gapic_list_attribute_error_falls_back() -> None:
-    cls = _make_cls()
-    cls._empty_constructor.side_effect = AttributeError("no constructor")
-    cls.list.return_value = ["fallback"]
-
-    result = rate_limited_gapic_list(cls, nullcontext())
-
-    cls.list.assert_called_once()
-    assert result == ["fallback"]
