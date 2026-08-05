@@ -111,6 +111,8 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- #16319: Added a new `VIEW_ENTITY_QUERIES` privilege that controls whether a user can view the Queries tab and view definitions (SQL logic) for Datasets, Charts, and Data Jobs. **Existing installs are not affected**: a one-time system-update step automatically grants the new privilege to every existing policy that grants `View Entity Page`, preserving pre-upgrade behavior, and the default policies grant it out of the box. The privilege is enforced in the UI and at the API layer (Query entity reads now require it on all subject datasets, where entity-page visibility used to suffice). Administrators who want to restrict query visibility can remove the privilege from the relevant policies after upgrading. The backfill can be re-run with `REPROCESS_VIEW_ENTITY_QUERIES_PRIVILEGE=true` or disabled with `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED=false`.
+
 ## v1.7.0
 
 Requirements:
