@@ -5,6 +5,7 @@ tests/unit/test_ast_utils.py. No static fixtures.
 """
 
 import logging
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -168,6 +169,28 @@ def test_join_with_shared_ancestor_has_no_circular_warning(
     # be mistaken for a circular reference.
     assert not any("Circular reference" in rec.message for rec in caplog.records)
     assert refs == ["SomeSiblingTbl"]
+
+
+def test_merge_chain_resolves_in_linear_time() -> None:
+    # Regression guard: collecting table references must not re-walk shared
+    # subtrees per argument. A merge chain where each step joins two earlier
+    # steps (an ordinary Power Query shape) previously blew up exponentially
+    # (~1.6^n), hanging ingestion on real 30-80 step queries.
+    steps = ["S0 = SrcTbl", "S1 = SrcTbl2"]
+    for i in range(2, 30):
+        steps.append(
+            f'S{i} = Table.NestedJoin(S{i - 1}, {{"k"}}, S{i - 2}, {{"k"}},'
+            f' "n{i}", JoinKind.Inner)'
+        )
+    node_map = _parse("let " + ", ".join(steps) + " in S29")
+
+    start = time.perf_counter()
+    refs = resolve_to_table_references(node_map)
+    elapsed = time.perf_counter() - start
+
+    # Linear resolution is ~1ms; the exponential version took >30s at this size.
+    assert elapsed < 5.0, f"table-reference walk took {elapsed:.1f}s"
+    assert refs == ["SrcTbl", "SrcTbl2"]
 
 
 def test_query_parameter_is_not_a_reference() -> None:

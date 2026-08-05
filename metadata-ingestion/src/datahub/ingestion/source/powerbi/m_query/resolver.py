@@ -265,7 +265,7 @@ def _walk(
                     current_let_id,
                     accessor_chain,
                     results,
-                    seen.copy(),
+                    _fork_seen(seen, unresolved),
                     parameters,
                     unresolved,
                 )
@@ -308,7 +308,7 @@ def _walk(
             current_let_id,
             accessor_chain,
             results,
-            seen.copy(),
+            _fork_seen(seen, unresolved),
             parameters,
             unresolved,
         )
@@ -447,7 +447,7 @@ def _walk_invoke(
                     current_let_id,
                     accessor_chain,
                     results,
-                    seen.copy(),
+                    _fork_seen(seen, unresolved),
                     parameters,
                     unresolved,
                 )
@@ -457,6 +457,20 @@ def _walk_invoke(
                 # sibling tables in later arguments too.
                 if unresolved is None:
                     return
+
+
+def _fork_seen(
+    seen: Set[Tuple[int, str]], unresolved: Optional[Set[str]]
+) -> Set[Tuple[int, str]]:
+    """Per-branch visited set for the data-access walk; shared for collection.
+
+    The data-access walk builds a path-dependent accessor chain, so each branch
+    needs its own visited set. Table-reference collection has no path-dependent
+    state, so it shares one set — memoizing subtrees that are reachable from
+    several arguments. Copying there instead made a merge chain (each step
+    joining two earlier steps) re-walk shared subtrees exponentially.
+    """
+    return seen if unresolved is not None else seen.copy()
 
 
 def _unwrap_csv(elem: object) -> Optional[dict]:
@@ -482,10 +496,15 @@ def _walk_identifier_name(
     """Resolve a variable name in the current let scope and continue walking."""
     if not name:
         return
-    # Circular reference guard: (let_id, variable_name) pair
+    # Circular reference guard: (let_id, variable_name) pair. During table-reference
+    # collection the set is shared across branches (see _fork_seen), so a repeat
+    # visit means "already resolved this name" rather than a cycle — skip quietly.
     guard_key = (current_let_id, name)
     if guard_key in seen:
-        logger.warning("Circular reference detected for variable '%s', stopping", name)
+        if unresolved is None:
+            logger.warning(
+                "Circular reference detected for variable '%s', stopping", name
+            )
         return
     seen.add(guard_key)
 
