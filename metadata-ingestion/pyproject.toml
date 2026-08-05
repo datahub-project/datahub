@@ -2066,7 +2066,6 @@ ban-relative-imports = "all"
 "freezegun.api" = { msg = "Use time-machine instead: @time_machine.travel(TIME, tick=False). See https://github.com/spulec/freezegun/issues/480" }
 
 [tool.ruff.lint.isort]
-known-first-party = ["datahub"]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
 combine-as-imports = true
