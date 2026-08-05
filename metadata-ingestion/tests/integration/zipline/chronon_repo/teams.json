@@ -1,0 +1,22 @@
+{
+  "default": {
+    "namespace": "chronon_data",
+    "user": "chronon",
+    "table_properties": {},
+    "production": {
+      "backfill": {
+        "EXECUTOR_CORES": "1"
+      }
+    }
+  },
+  "my_team": {
+    "namespace": "my_team_features",
+    "user": "my_team",
+    "description": "Example team for the Zipline connector fixtures"
+  },
+  "risk_team": {
+    "namespace": "risk_features",
+    "user": "risk_team",
+    "description": "Second team exercising entities sources and cross-platform lineage"
+  }
+}
