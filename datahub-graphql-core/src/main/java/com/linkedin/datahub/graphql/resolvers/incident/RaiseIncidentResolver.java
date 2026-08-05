@@ -13,18 +13,24 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.RaiseIncidentInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.IncidentKey;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,6 +38,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -74,22 +81,37 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
             }
           }
 
-          try {
-            // Create the Domain Key
-            final IncidentKey key = new IncidentKey();
+          // A caller-provided id makes creation retry-safe: reusing it is a conflict, not an
+          // update, so raiseIncident stays create-only. Omitting it preserves the original
+          // random-UUID, upsert-based behavior exactly.
+          final boolean callerProvidedId = input.getId() != null;
+          final String id = callerProvidedId ? input.getId() : UUID.randomUUID().toString();
 
-            // Generate a random UUID for the incident
-            final String id = UUID.randomUUID().toString();
+          try {
+            final IncidentKey key = new IncidentKey();
             key.setId(id);
 
-            // Create the MCP
+            final IncidentInfo incidentInfo = mapIncidentInfo(input, resourceUrns, context);
             final MetadataChangeProposal proposal =
-                buildMetadataChangeProposalWithKey(
-                    key,
-                    INCIDENT_ENTITY_NAME,
-                    INCIDENT_INFO_ASPECT_NAME,
-                    mapIncidentInfo(input, resourceUrns, context));
-            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+                callerProvidedId
+                    ? buildCreateIfNotExistsProposal(key, incidentInfo)
+                    : buildMetadataChangeProposalWithKey(
+                        key, INCIDENT_ENTITY_NAME, INCIDENT_INFO_ASPECT_NAME, incidentInfo);
+
+            final String resultUrn =
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+
+            if (callerProvidedId && resultUrn == null) {
+              // CreateIfNotExistsValidator filtered the CREATE_ENTITY write because an Incident
+              // already exists at this id. Surface that as a conflict rather than treating the
+              // filtered write as a silent success.
+              throw new DataHubGraphQLException(
+                  String.format("Incident with id %s already exists.", id),
+                  DataHubGraphQLErrorCode.CONFLICT);
+            }
+            return resultUrn;
+          } catch (DataHubGraphQLException e) {
+            throw e;
           } catch (Exception e) {
             log.error("Failed to create incident. {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
@@ -97,6 +119,28 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Builds a CREATE_ENTITY proposal carrying the If-None-Match: * precondition header, so {@link
+   * CreateIfNotExistsValidator} filters (rather than applies) the write when an Incident already
+   * exists at this key. {@link #get} treats a filtered write, seen as a null urn back from
+   * ingestProposal, as a conflict rather than a silent success.
+   */
+  private MetadataChangeProposal buildCreateIfNotExistsProposal(
+      final IncidentKey key, final IncidentInfo incidentInfo) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+    proposal.setEntityType(INCIDENT_ENTITY_NAME);
+    proposal.setAspectName(INCIDENT_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(incidentInfo));
+    proposal.setChangeType(ChangeType.CREATE_ENTITY);
+    proposal.setHeaders(
+        new StringMap(
+            Map.of(
+                CreateIfNotExistsValidator.FILTER_EXCEPTION_HEADER,
+                CreateIfNotExistsValidator.FILTER_EXCEPTION_VALUE)));
+    return applyProposalUiSource(proposal);
   }
 
   private IncidentInfo mapIncidentInfo(
