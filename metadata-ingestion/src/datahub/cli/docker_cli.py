@@ -76,7 +76,7 @@ WARNING_SIGN = "⚠️" if _console_can_encode("⚠️") else "WARNING:"
 
 MIGRATION_REQUIRED_INSTRUCTIONS = f"""
 Your existing DataHub server was installed with an \
-older CLI and is incompatible with the current CLI (version {nice_version_name}).
+older CLI and is incompatible with the current CLI (version {nice_version_name()}).
 
 Required steps to upgrade:
 1. Backup your data (recommended): datahub docker quickstart --backup

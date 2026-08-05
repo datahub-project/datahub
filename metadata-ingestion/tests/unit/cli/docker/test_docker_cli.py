@@ -8,6 +8,7 @@ from docker import DockerClient
 
 from datahub.cli.docker_check import DockerComposeVersionError
 from datahub.cli.docker_cli import (
+    CHECK_MARK,
     _check_upgrade_and_show_instructions,
     _docker_compose_v2,
     _resolve_token_service_secrets,
@@ -91,7 +92,9 @@ def test_check_healthy(mock_click, mock_docker_client, click_context):
         click_context.invoke(check)
 
         # Verify
-        mock_click.secho.assert_called_once_with("✔ No issues detected", fg="green")
+        mock_click.secho.assert_called_once_with(
+            f"{CHECK_MARK} No issues detected", fg="green"
+        )
 
 
 def test_check_unhealthy(mock_click, mock_docker_client, click_context):
