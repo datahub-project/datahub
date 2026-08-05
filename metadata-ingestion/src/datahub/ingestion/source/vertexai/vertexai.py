@@ -31,6 +31,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.gcp_errors import is_service_disabled
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
     resolve_gcp_projects,
@@ -338,122 +339,148 @@ class VertexAISource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for project_id in self._projects:
             self._current_project_id = project_id
+            try:
+                yield from self._gen_workunits_for_project(project_id)
+            except PermissionDenied as e:
+                if not is_service_disabled(e):
+                    raise
+                self.report.warning(
+                    title="Agent Platform API not enabled for project",
+                    message="The Agent Platform (formerly Vertex AI) API is disabled for this project; skipping it entirely.",
+                    context=f"project={project_id}",
+                    exc=e,
+                )
 
-            yield from self._gen_project_workunits()
+    def _gen_workunits_for_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        """Emit all workunits for a single project across its configured regions.
 
-            regions = self._project_to_regions.get(project_id, [self._get_region()])
-            # Experiments are project-scoped, so extract them only for the first region
-            first_region = True
-            for region in regions:
+        The first resource is fetched before any container is emitted, so a project
+        with a disabled API fails before emitting orphan containers.
+        """
+        resources = iter(self._gen_project_resource_workunits(project_id))
+        first = next(resources, None)
+        yield from self._gen_project_workunits()
+        if first is not None:
+            yield first
+            yield from resources
+
+    def _gen_project_resource_workunits(
+        self, project_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Fetch resource workunits for a project across its configured regions."""
+        regions = self._project_to_regions.get(project_id, [self._get_region()])
+        # Experiments are project-scoped, so extract them only for the first region
+        first_region = True
+        for region in regions:
+            logger.info(
+                f"Initializing Vertex AI client for project={project_id} region={region}"
+            )
+            aiplatform.init(
+                project=project_id,
+                location=region,
+                credentials=self._credentials,
+            )
+            self._current_region = region
+
+            if (
+                self.config.use_ml_metadata_for_lineage
+                or self.config.extract_execution_metrics
+            ):
+                try:
+                    self._metadata_client = MetadataServiceClient(
+                        client_options={
+                            "api_endpoint": f"{region}-aiplatform.googleapis.com"
+                        },
+                        credentials=self._credentials,
+                    )
+
+                    ml_metadata_config = MLMetadataConfig(
+                        project_id=project_id,
+                        region=region,
+                        metadata_store=MLMetadataDefaults.DEFAULT_METADATA_STORE,
+                        enable_lineage_extraction=self.config.use_ml_metadata_for_lineage,
+                        enable_metrics_extraction=self.config.extract_execution_metrics,
+                        max_execution_search_limit=self.config.ml_metadata_max_execution_search_limit,
+                    )
+
+                    self._ml_metadata_helper = MLMetadataHelper(
+                        metadata_client=self._metadata_client,
+                        config=ml_metadata_config,
+                        uri_parser=self.uri_parser,
+                        rate_limiter=self._rate_limiter,
+                    )
+                except (
+                    PermissionDenied,
+                    Unauthenticated,
+                    DeadlineExceeded,
+                    ServiceUnavailable,
+                    InvalidArgument,
+                    ValueError,
+                    GoogleAPICallError,
+                ) as e:
+                    error_type = type(e).__name__
+                    if isinstance(e, (PermissionDenied, Unauthenticated)):
+                        reason = "permission issue"
+                    elif isinstance(e, (DeadlineExceeded, ServiceUnavailable)):
+                        reason = "timeout or service unavailable"
+                    elif isinstance(e, InvalidArgument):
+                        reason = "invalid configuration"
+                    elif isinstance(e, ValueError):
+                        reason = "configuration error"
+                    else:
+                        reason = "API error"
+                    logger.warning(
+                        f"Failed to initialize ML Metadata client for project {project_id} region {region} due to {reason} | cause={error_type}: {e}"
+                    )
+                    self._metadata_client = None
+                    self._ml_metadata_helper = None
+
+            # Phase 1: Fetch training jobs, pipelines, and experiments first.
+            # These write to model_usage_tracker; models read from it in Phase 2.
+            phase1_resources = []
+            if self.config.include_training_jobs:
+                phase1_resources.append(("training_jobs",))
+            # experiments/experiment_runs are project-scoped, only extract once
+            if first_region and self.config.include_experiments:
+                phase1_resources.append(("experiments",))
+            if self.config.include_pipelines:
+                phase1_resources.append(("pipelines",))
+
+            if not get_vertexai_disable_parallelism() and len(phase1_resources) > 1:
+                max_workers = len(phase1_resources)
                 logger.info(
-                    f"Initializing Vertex AI client for project={project_id} region={region}"
+                    "Fetching resources for project=%s region=%s with %d threads",
+                    project_id,
+                    region,
+                    max_workers,
                 )
-                aiplatform.init(
-                    project=project_id,
-                    location=region,
-                    credentials=self._credentials,
+                yield from ThreadedIteratorExecutor.process(
+                    worker_func=self._fetch_phase1_resource,
+                    args_list=phase1_resources,
+                    max_workers=max_workers,
                 )
-                self._current_region = region
+            else:
+                for (resource_type,) in phase1_resources:
+                    yield from self._fetch_phase1_resource(resource_type)
 
-                if (
-                    self.config.use_ml_metadata_for_lineage
-                    or self.config.extract_execution_metrics
-                ):
-                    try:
-                        self._metadata_client = MetadataServiceClient(
-                            client_options={
-                                "api_endpoint": f"{region}-aiplatform.googleapis.com"
-                            },
-                            credentials=self._credentials,
-                        )
+            # Phase 2: Models must come AFTER Phase 1 (reads model_usage_tracker).
+            if self.config.include_models:
+                yield from auto_workunit(self.model_extractor.get_model_workunits())
 
-                        ml_metadata_config = MLMetadataConfig(
-                            project_id=project_id,
-                            region=region,
-                            metadata_store=MLMetadataDefaults.DEFAULT_METADATA_STORE,
-                            enable_lineage_extraction=self.config.use_ml_metadata_for_lineage,
-                            enable_metrics_extraction=self.config.extract_execution_metrics,
-                            max_execution_search_limit=self.config.ml_metadata_max_execution_search_limit,
-                        )
+                # Emit lineage updates for models that have tracked lineage but
+                # weren't re-processed (e.g., in incremental mode when a new pipeline
+                # references an existing model that hasn't changed)
+                yield from auto_workunit(
+                    self.model_extractor.emit_pending_lineage_updates()
+                )
 
-                        self._ml_metadata_helper = MLMetadataHelper(
-                            metadata_client=self._metadata_client,
-                            config=ml_metadata_config,
-                            uri_parser=self.uri_parser,
-                            rate_limiter=self._rate_limiter,
-                        )
-                    except (
-                        PermissionDenied,
-                        Unauthenticated,
-                        DeadlineExceeded,
-                        ServiceUnavailable,
-                        InvalidArgument,
-                        ValueError,
-                        GoogleAPICallError,
-                    ) as e:
-                        error_type = type(e).__name__
-                        if isinstance(e, (PermissionDenied, Unauthenticated)):
-                            reason = "permission issue"
-                        elif isinstance(e, (DeadlineExceeded, ServiceUnavailable)):
-                            reason = "timeout or service unavailable"
-                        elif isinstance(e, InvalidArgument):
-                            reason = "invalid configuration"
-                        elif isinstance(e, ValueError):
-                            reason = "configuration error"
-                        else:
-                            reason = "API error"
-                        logger.warning(
-                            f"Failed to initialize ML Metadata client for project {project_id} region {region} due to {reason} | cause={error_type}: {e}"
-                        )
-                        self._metadata_client = None
-                        self._ml_metadata_helper = None
+            if self.config.include_evaluations:
+                yield from auto_workunit(
+                    self.model_extractor.get_evaluation_workunits()
+                )
 
-                # Phase 1: Fetch training jobs, pipelines, and experiments first.
-                # These write to model_usage_tracker; models read from it in Phase 2.
-                phase1_resources = []
-                if self.config.include_training_jobs:
-                    phase1_resources.append(("training_jobs",))
-                # experiments/experiment_runs are project-scoped, only extract once
-                if first_region and self.config.include_experiments:
-                    phase1_resources.append(("experiments",))
-                if self.config.include_pipelines:
-                    phase1_resources.append(("pipelines",))
-
-                if not get_vertexai_disable_parallelism() and len(phase1_resources) > 1:
-                    max_workers = len(phase1_resources)
-                    logger.info(
-                        "Fetching resources for project=%s region=%s with %d threads",
-                        project_id,
-                        region,
-                        max_workers,
-                    )
-                    yield from ThreadedIteratorExecutor.process(
-                        worker_func=self._fetch_phase1_resource,
-                        args_list=phase1_resources,
-                        max_workers=max_workers,
-                    )
-                else:
-                    for (resource_type,) in phase1_resources:
-                        yield from self._fetch_phase1_resource(resource_type)
-
-                # Phase 2: Models must come AFTER Phase 1 (reads model_usage_tracker).
-                if self.config.include_models:
-                    yield from auto_workunit(self.model_extractor.get_model_workunits())
-
-                    # Emit lineage updates for models that have tracked lineage but
-                    # weren't re-processed (e.g., in incremental mode when a new pipeline
-                    # references an existing model that hasn't changed)
-                    yield from auto_workunit(
-                        self.model_extractor.emit_pending_lineage_updates()
-                    )
-
-                if self.config.include_evaluations:
-                    yield from auto_workunit(
-                        self.model_extractor.get_evaluation_workunits()
-                    )
-
-                # Mark that we've processed the first region
-                first_region = False
+            # Mark that we've processed the first region
+            first_region = False
 
     def _fetch_phase1_resource(self, resource_type: str) -> Iterable[MetadataWorkUnit]:
         """Fetch a single Phase 1 resource type (training jobs, experiments, or pipelines).

@@ -535,6 +535,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
           "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           "datahub.usage.aggregation.flush.includeAgentNameDimension",
+          // Post-commit retention buffer (coalesce + drain)
+          "datahub.retention.buffer.mapName",
+          "datahub.retention.buffer.lockMapName",
+          "datahub.retention.buffer.maxPendingEntries",
+          "datahub.retention.buffer.drainBatchSize",
+          "datahub.retention.buffer.drainIntervalMs",
+          "datahub.retention.buffer.drainLockLeaseMs",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
@@ -544,6 +551,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.datasetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
+          "featureFlags.postCommitRetentionEnabled",
+          "featureFlags.retentionBufferEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
