@@ -51,9 +51,20 @@ class KafkaTopicCatalog:
             TOPIC_CATALOG_QUERY, TOPIC_ROOT_KEY, CatalogKafkaTopic
         )
         if self.config.cluster_id:
-            topics = [
+            in_cluster = [
                 topic for topic in topics if topic.cluster_id == self.config.cluster_id
             ]
+            if topics and not in_cluster:
+                # Without this the whole enrichment goes dark on a typo, or on a tier
+                # that leaves `logical_cluster_id` unset, showing up only as a zero in
+                # the report.
+                self.report.warning(
+                    message="No Stream Catalog topic carries the configured Kafka cluster id, so no "
+                    "catalog metadata will be applied. Check `confluent_catalog.cluster_id`.",
+                    context=f"cluster_id={self.config.cluster_id}, topics_in_catalog={len(topics)}, "
+                    f"cluster_ids_seen={sorted({str(topic.cluster_id) for topic in topics})}",
+                )
+            topics = in_cluster
         self.report.catalog_topics_fetched = len(topics)
 
         by_name: Dict[str, List[CatalogKafkaTopic]] = defaultdict(list)

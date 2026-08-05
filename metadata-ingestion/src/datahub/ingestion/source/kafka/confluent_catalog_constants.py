@@ -7,10 +7,10 @@ TOPIC_ROOT_KEY: Final[str] = "kafka_topic"
 # belongs to. Kept to fields the catalog has carried since Stream Governance shipped,
 # because an unknown field fails the whole query rather than returning null.
 #
-# Pagination is inlined as {limit}/{offset} placeholders (substituted by the client)
-# rather than GraphQL variables: the live Confluent Cloud catalog endpoint returns
-# HTTP 500 for any operation that carries a variables map, and names the topic's
-# cluster field `logical_cluster_id`, not `clusterId` (verified 2026-08-05).
+# The topic's cluster field is named `logical_cluster_id`, not `clusterId`
+# (verified against the live API 2026-08-05). Pagination placeholders are substituted
+# by the client; see LIMIT_PLACEHOLDER in `datahub.ingestion.source.confluent.constants`
+# for why they are not GraphQL variables.
 TOPIC_CATALOG_QUERY: Final[str] = """
 {
   kafka_topic(limit: {limit}, offset: {offset}) {

@@ -15,7 +15,6 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
     CONNECTOR_CATALOG_QUERY,
-    CONNECTOR_CLASS_FIELD,
     CONNECTOR_ROOT_KEY,
 )
 
@@ -27,10 +26,6 @@ class CatalogTopic(CatalogEntity):
 
 
 class CatalogConnector(CatalogEntity):
-    connector_class: Optional[str] = Field(default=None, alias=CONNECTOR_CLASS_FIELD)
-    type: Optional[str] = None
-    status: Optional[str] = None
-    description: Optional[str] = None
     topics: List[CatalogTopic] = Field(default_factory=list)
 
     @field_validator("topics", mode="before")

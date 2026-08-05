@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -60,6 +61,18 @@ CATALOG_TOPICS = [
         "business_metadata": None,
     },
 ]
+
+
+# The live catalog endpoint 500s on a GraphQL variables map, so pagination has to
+# arrive substituted into the query text.
+INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
+
+
+def _pagination_is_inlined(request) -> bool:
+    body = request.json()
+    return "variables" not in body and bool(
+        INLINED_PAGINATION_RE.search(body.get("query", ""))
+    )
 
 
 @pytest.fixture(scope="module")
@@ -153,6 +166,7 @@ def test_kafka_confluent_catalog_ingest(
     with requests_mock.Mocker(real_http=True) as catalog_api:
         catalog_api.post(
             f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_pagination_is_inlined,
             json={"data": {"kafka_topic": CATALOG_TOPICS}},
         )
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)

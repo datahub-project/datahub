@@ -21,6 +21,10 @@ def log_request_info():
     logger.info(f"Request - {request.method} {request.path} from {client_ip}")
 
 
+# Pagination reaches the catalog inlined in the query text, never as GraphQL variables.
+OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
+LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
+
 VALID_AUTH = {
     "DEV_CONFLUENT_AUTH": "YWRtaW46YWRtaW4=",  # admin:admin in base64
     "test_user": "dGVzdDp0ZXN0",  # test:test in base64
@@ -293,10 +297,6 @@ CATALOG_CONNECTORS_DATA = [
     {
         "name": "source_postgres_cdc_01",
         "qualifiedName": "lcc-source01",
-        "class": "PostgresCdcSource",
-        "type": "SOURCE",
-        "status": "RUNNING",
-        "description": "Postgres CDC into Kafka",
         "tags": ["cdc", "production"],
         "business_metadata": [
             {"name": "team", "value": "data-platform"},
@@ -320,9 +320,6 @@ CATALOG_CONNECTORS_DATA = [
     {
         "name": "sink_postgres_01",
         "qualifiedName": "lcc-sink01",
-        "class": "PostgresSink",
-        "type": "SINK",
-        "status": "RUNNING",
         "tags": ["production"],
         "business_metadata": [],
         "topics": [
@@ -470,10 +467,18 @@ def catalog_graphql():
         return jsonify({"error": "Internal server error"}), 500
 
     query = body.get("query") or ""
-    offset_match = re.search(r"offset:\s*(\d+)", query)
-    limit_match = re.search(r"limit:\s*(\d+)", query)
-    offset = int(offset_match.group(1)) if offset_match else 0
-    limit = int(limit_match.group(1)) if limit_match else len(CATALOG_CONNECTORS_DATA)
+    offset_match = OFFSET_ARGUMENT_RE.search(query)
+    limit_match = LIMIT_ARGUMENT_RE.search(query)
+    if not offset_match or not limit_match:
+        # A real GraphQL server rejects a non-integer argument - an unsubstituted
+        # `{limit}` placeholder included - rather than quietly applying a default
+        # page size, which would hide a broken client from this test.
+        return jsonify(
+            {"errors": [{"message": "Invalid syntax in pagination arguments"}]}
+        ), 400
+
+    offset = int(offset_match.group(1))
+    limit = int(limit_match.group(1))
 
     page = CATALOG_CONNECTORS_DATA[offset : offset + limit]
     return jsonify({"data": {"cn_connector": page}})

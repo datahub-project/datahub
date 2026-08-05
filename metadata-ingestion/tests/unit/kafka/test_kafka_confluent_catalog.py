@@ -183,6 +183,18 @@ class TestTopicLookup:
         assert topic.tags == ["public"]
         assert not report.warnings
 
+    def test_cluster_id_matching_nothing_is_reported(self) -> None:
+        report = KafkaSourceReport()
+        catalog = make_catalog(
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id="lkc-111")],
+            report,
+            cluster_id="lkc-999",
+        )
+
+        assert catalog.get_topic(TOPIC) is None
+        assert report.catalog_topics_fetched == 0
+        assert len(report.warnings) == 1
+
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 class TestCatalogMetadataOnTopics:

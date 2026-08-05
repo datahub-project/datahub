@@ -158,15 +158,12 @@ class TestConfluentCatalogConfig:
 
 
 class TestConnectorCatalog:
-    def test_parses_connector_with_aliased_class_and_null_collections(self) -> None:
+    def test_parses_connector_with_null_collections(self) -> None:
         catalog = make_catalog(
             [
                 {
                     "name": "source_postgres_cdc_01",
                     "qualifiedName": "lcc-111",
-                    "class": "PostgresCdcSource",
-                    "type": "SOURCE",
-                    "status": "RUNNING",
                     "tags": None,
                     "business_metadata": None,
                     "topics": [
@@ -184,7 +181,6 @@ class TestConnectorCatalog:
         connector = catalog.get_connector("source_postgres_cdc_01")
 
         assert connector is not None
-        assert connector.connector_class == "PostgresCdcSource"
         assert connector.tags == []
         assert connector.business_metadata == []
         assert connector.get_topic_names() == ["orders"]

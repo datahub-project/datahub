@@ -11,15 +11,16 @@ CONNECTOR_ROOT_KEY: Final[str] = "cn_connector"
 LINEAGE_SOURCE_PROPERTY: Final[str] = "lineage_source"
 LINEAGE_SOURCE_CATALOG: Final[str] = "confluent_stream_catalog"
 
-# `class` is a reserved word in Python, so the model aliases it.
-CONNECTOR_CLASS_FIELD: Final[str] = "class"
-
 # Read-only query against the Stream Catalog. `cn_connector.topics` already reflects
 # post-SMT topic names, which is why it can replace the transform-matching heuristic.
 #
-# Pagination is inlined as {limit}/{offset} placeholders (substituted by the client)
-# rather than GraphQL variables: the live Confluent Cloud catalog endpoint returns
-# HTTP 500 for any operation that carries a variables map (verified 2026-08-05).
+# Selects only fields this source actually consumes. An unknown field fails the whole
+# query, taking tags, business metadata and topics down with it, so a field earns its
+# place here by being both verified against the live API and read downstream — the
+# connector's class, type, status and description are neither.
+#
+# Pagination placeholders are substituted by the client; see LIMIT_PLACEHOLDER in
+# `datahub.ingestion.source.confluent.constants` for why they are not GraphQL variables.
 #
 # Deliberately not filtered by a cluster-id field: on `cn_connector` that field holds
 # the logical *Connect* cluster id (lcc-*), whereas the Connect REST URI only gives us
@@ -30,10 +31,6 @@ CONNECTOR_CATALOG_QUERY: Final[str] = """
   cn_connector(limit: {limit}, offset: {offset}) {
     name
     qualifiedName
-    class
-    type
-    status
-    description
     tags
     business_metadata {
       name

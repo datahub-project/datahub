@@ -8,7 +8,10 @@ from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConf
 from datahub.ingestion.source.confluent.constants import (
     DATA_KEY,
     ERRORS_KEY,
+    LIMIT_PLACEHOLDER,
+    MAX_ERROR_BODY_CHARS,
     MESSAGE_KEY,
+    OFFSET_PLACEHOLDER,
 )
 from datahub.ingestion.source.confluent.models import CatalogEntityType
 
@@ -48,6 +51,22 @@ class ConfluentStreamCatalogClient:
         Entities that fail to parse are skipped so one malformed record cannot cost
         the caller the whole page.
         """
+        missing = [
+            placeholder
+            for placeholder in (LIMIT_PLACEHOLDER, OFFSET_PLACEHOLDER)
+            if placeholder not in query
+        ]
+        if missing:
+            # A query that cannot be paginated would otherwise repeat the same
+            # request forever, or silently stop after whatever the server's default
+            # page size is. This is a bug in the query constant, not a catalog
+            # problem, so it is a failure rather than a warning.
+            self.report.failure(
+                message="Confluent Stream Catalog query is missing its pagination placeholders",
+                context=f"entity={root_key}, missing={sorted(missing)}",
+            )
+            return []
+
         entities: List[CatalogEntityType] = []
         offset = 0
 
@@ -74,14 +93,11 @@ class ConfluentStreamCatalogClient:
     def _fetch_page(
         self, query: str, root_key: str, offset: int
     ) -> Optional[List[Dict[str, object]]]:
-        # The live Confluent Cloud catalog endpoint returns HTTP 500 for any
-        # operation that carries a GraphQL variables map (verified 2026-08-05),
-        # so pagination arguments are inlined into the query text instead. Only
-        # the {limit}/{offset} placeholders are substituted; both values are
+        # Presence of both placeholders is checked in fetch_entities; both values are
         # integers, so no escaping is needed.
-        inline_query = query.replace("{limit}", str(self.config.page_size)).replace(
-            "{offset}", str(offset)
-        )
+        inline_query = query.replace(
+            LIMIT_PLACEHOLDER, str(self.config.page_size)
+        ).replace(OFFSET_PLACEHOLDER, str(offset))
         context = f"endpoint={self.endpoint}, entity={root_key}, offset={offset}"
 
         try:
@@ -92,6 +108,15 @@ class ConfluentStreamCatalogClient:
             )
             response.raise_for_status()
             payload = response.json()
+        except requests.HTTPError as e:
+            # Carries the server's own explanation, which separates a rejected query
+            # from the routine "catalog not provisioned" case.
+            self.report.warning(
+                message="The Confluent Stream Catalog rejected the request",
+                context=f"{context}, response={_response_body(e)}",
+                exc=e,
+            )
+            return None
         except Exception as e:
             self.report.warning(
                 message="Failed to query the Confluent Stream Catalog",
@@ -143,6 +168,12 @@ class ConfluentStreamCatalogClient:
 
     def close(self) -> None:
         self.session.close()
+
+
+def _response_body(error: requests.HTTPError) -> str:
+    if error.response is None:
+        return ""
+    return error.response.text[:MAX_ERROR_BODY_CHARS]
 
 
 def _summarise_errors(errors: object) -> str:

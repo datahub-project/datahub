@@ -2,6 +2,7 @@ from typing import Dict, List, Mapping, Optional, Sequence
 from unittest.mock import Mock
 
 import pytest
+import requests
 from pydantic import Field
 
 from datahub.ingestion.api.source import SourceReport
@@ -133,21 +134,61 @@ class TestConfluentStreamCatalogClient:
         client = make_client(
             [
                 make_response([{"name": "topic_0"}, {"name": "topic_1"}]),
-                make_response([{"name": "topic_2"}]),
+                make_response([{"name": "topic_2"}, {"name": "topic_3"}]),
+                make_response([{"name": "topic_4"}]),
             ],
             page_size=2,
         )
 
         entities = fetch(client)
 
-        assert [entity.name for entity in entities] == ["topic_0", "topic_1", "topic_2"]
+        assert [entity.name for entity in entities] == [
+            "topic_0",
+            "topic_1",
+            "topic_2",
+            "topic_3",
+            "topic_4",
+        ]
         session = client.session
         assert isinstance(session, Mock)
-        assert session.post.call_count == 2
-        # Pagination must be inlined into the query text; a variables map makes
-        # the live catalog endpoint return HTTP 500.
-        second_body = session.post.call_args_list[1].kwargs["json"]
-        assert second_body == {"query": "{ kafka_topic(limit: 2, offset: 2) { name } }"}
+        # Pagination must be inlined into the query text with no variables map, which
+        # the live catalog endpoint answers with an HTTP 500. Every request is checked:
+        # the first proves offset 0 is substituted rather than skipped as falsy, and
+        # the last has an offset that differs from the limit, so a swapped substitution
+        # cannot pass.
+        assert [call.kwargs["json"] for call in session.post.call_args_list] == [
+            {"query": "{ kafka_topic(limit: 2, offset: 0) { name } }"},
+            {"query": "{ kafka_topic(limit: 2, offset: 2) { name } }"},
+            {"query": "{ kafka_topic(limit: 2, offset: 4) { name } }"},
+        ]
+
+    def test_query_without_pagination_placeholders_is_a_failure(self) -> None:
+        client = make_client([])
+
+        assert (
+            client.fetch_entities(
+                "{ kafka_topic(limit: 10) { name } }", ROOT_KEY, SampleEntity
+            )
+            == []
+        )
+        session = client.session
+        assert isinstance(session, Mock)
+        assert session.post.call_count == 0
+        assert len(client.report.failures) == 1
+
+    def test_rejected_request_reports_the_server_response(self) -> None:
+        response = Mock()
+        response.text = "Validation error: Field 'clusterId' is undefined"
+        response.raise_for_status.side_effect = requests.HTTPError(
+            "400 Client Error", response=response
+        )
+        client = make_client([response])
+
+        assert fetch(client) == []
+        contexts = [
+            context for warning in client.report.warnings for context in warning.context
+        ]
+        assert any("Field 'clusterId' is undefined" in context for context in contexts)
 
     def test_graphql_errors_are_reported_and_yield_nothing(self) -> None:
         response = Mock()
@@ -162,7 +203,7 @@ class TestConfluentStreamCatalogClient:
 
     def test_http_failure_is_reported_and_yields_nothing(self) -> None:
         session = Mock()
-        session.post.side_effect = Exception("connection refused")
+        session.post.side_effect = requests.ConnectionError("connection refused")
         client = ConfluentStreamCatalogClient(
             make_config(), SourceReport(), session=session
         )
@@ -194,7 +235,8 @@ class TestCatalogEntityHelpers:
             {
                 "name": "orders",
                 "business_metadata": [
-                    {"name": "team", "value": "core"},
+                    # The live catalog names attributes `<definition>.<attribute>`.
+                    {"name": "Governance.owner_team", "value": "core"},
                     {"name": "critical", "value": True},
                     {"name": "tier", "value": 1},
                     {"name": "unset", "value": None},
@@ -203,7 +245,7 @@ class TestCatalogEntityHelpers:
         )
 
         assert entity.properties_from_business_metadata() == {
-            "team": "core",
+            "Governance.owner_team": "core",
             "critical": "True",
             "tier": "1",
         }
