@@ -28,6 +28,17 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <!-- MySQL / PostgreSQL OL Testcontainers ITs; run in testng-mysql.xml / testng-postgresql.xml -->
+            <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingMysqlIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.search.embedding.LocalEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>

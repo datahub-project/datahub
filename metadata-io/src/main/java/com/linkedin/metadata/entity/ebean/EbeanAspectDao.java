@@ -464,6 +464,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         switch (sqlDialect) {
           case POSTGRES -> "(systemmetadata::jsonb ->> 'version') = :expectedVersion";
           case MYSQL -> "systemmetadata->>'$.version' = :expectedVersion";
+            // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring
+            // match is a TEST-ONLY approximation and can false-positive/negative vs real JSON
+            // path equality — do not treat H2 CAS results as production dialect coverage.
           case H2_OR_OTHER -> "INSTR(CAST(systemmetadata AS VARCHAR), "
               + "CONCAT('\"version\":\"', :expectedVersion, '\"')) > 0";
         };
@@ -513,6 +516,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         });
   }
 
+  /**
+   * Concurrent version-0 inserts race on the unique key. PostgreSQL aborts the open transaction on
+   * DuplicateKey (SQLState {@code 25P02} in-failed-sql-transaction), so in-transaction CAS recovery
+   * is not viable — convert to {@link OptimisticLockConflictException} and let the outer retry loop
+   * re-read and re-apply in a fresh transaction.
+   */
   private void throwOnDuplicateKeyInsertConflict(
       @Nonnull SystemAspect aspect, @Nonnull PersistenceException original) {
     incrementOptimisticMetric("optimistic_lock_insert_fallback");
