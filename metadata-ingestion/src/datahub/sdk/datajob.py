@@ -310,12 +310,8 @@ class DataJob(
                 browse_path.append(
                     models.BrowsePathEntryClass(id=entry.id, urn=entry.urn)
                 )
-        # Browse indexes and resolves folders by `id`. When the entry points at
-        # an entity, id must be the URN (same as urn) so the UI can show the
-        # flow display name instead of the raw flow_id (often a UUID).
         flow_urn = str(flow.urn)
         browse_path.append(models.BrowsePathEntryClass(id=flow_urn, urn=flow_urn))
-        # Set the browse path aspect
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
 
     # TODO: support datajob input/output

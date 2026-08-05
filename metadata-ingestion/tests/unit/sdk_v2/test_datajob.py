@@ -274,11 +274,6 @@ def test_datajob_browse_path_without_container() -> None:
 
 
 def test_datajob_browse_path_entry_uses_flow_urn_as_id() -> None:
-    """Browse folders resolve entity names only when entry.id is a URN.
-
-    Using flow.name (often a UUID for Airbyte connections) as id leaves the
-    raw id in the ES browse index, so Navigate shows UUID folders.
-    """
     connection_id = "ede922d9-70ff-411b-a77d-27538f0d4da4"
     flow = DataFlow(
         platform="airbyte",
