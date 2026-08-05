@@ -87,14 +87,22 @@ def test_search_works(auth_session):
     )
 
 
+class _OpenApiTransientSkip(AssertionError):
+    """Empty search page or stale 404 — skip after retries in read-only tests."""
+
+
 @with_test_retry(max_attempts=3)
 def _openapi_v3_entity_once(auth_session, entity_type: str) -> None:
-    """One attempt: search → OpenAPI GET. Raises to retry on empty/404 races."""
+    """One attempt: search → OpenAPI GET.
+
+    Raises ``_OpenApiTransientSkip`` for empty/404 races (retry then skip).
+    Raises plain ``AssertionError`` on URN mismatch (must fail the test).
+    """
     search_result = get_search_results(auth_session, entity_type)
     num_entities = search_result["total"]
     entities = search_result["searchResults"]
     if not entities:
-        raise AssertionError(
+        raise _OpenApiTransientSkip(
             f"No searchResults for {entity_type} (total={num_entities})"
         )
 
@@ -103,7 +111,7 @@ def _openapi_v3_entity_once(auth_session, entity_type: str) -> None:
     url = f"{BASE_URL_V3}/entity/{entity_type}/{encoded_urn}"
     response = auth_session.get(url, headers=default_headers)
     if response.status_code == 404:
-        raise AssertionError(
+        raise _OpenApiTransientSkip(
             f"Entity {first_urn} 404 after search for {entity_type} (stale hit)"
         )
     response.raise_for_status()
@@ -138,8 +146,9 @@ def test_openapi_v3_entity(auth_session):
     def test_entity(entity_type: str) -> None:
         try:
             _openapi_v3_entity_once(auth_session, entity_type)
-        except AssertionError as exc:
-            # Read-only: after retries, empty index / deleted entity is skip, not fail.
+        except _OpenApiTransientSkip as exc:
+            # Read-only: empty index / concurrent delete after retries → skip.
+            # URN mismatch and other AssertionErrors still fail the test.
             logger.warning("Skipping OpenAPI v3 check for %s: %s", entity_type, exc)
 
     run_concurrent_tests(entity_types, test_entity, test_name="test_openapi_v3_entity")
