@@ -39,6 +39,9 @@ base_requirements = {
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
     # setuptools 82.0.0 deprecated pkg_resource
+    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
+    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
+    # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
 }
 
@@ -171,43 +174,6 @@ pyarrow_common = {
     "pyarrow>14.0.0,<24.0.0",
 }
 
-great_expectations_lib = {
-    # 1. Our original dep was this:
-    # "great-expectations>=0.15.12, <=0.15.50",
-    # 2. For hive, we had additional restrictions:
-    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
-    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-    #    https://github.com/great-expectations/great_expectations/pull/6149.
-    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
-    # 3. Since then, we've ended up forking great-expectations in order to
-    #    add pydantic 2.x support. The fork is pretty simple
-    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
-    #    This was derived from work done by @jskrzypek in
-    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
-    "acryl-great-expectations==0.15.50.1",
-    "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
-}
-
-profiling_ge = {
-    *great_expectations_lib,
-    # scipy version restricted to reduce backtracking, used by great-expectations.
-    "scipy>=1.7.2,<2.0.0",
-    # GE added handling for higher version of jinja2.
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # datahub does not depend on traitlets directly but great-expectations does.
-    # https://github.com/ipython/traitlets/issues/741
-    "traitlets!=5.2.2,<6.0.0",
-    # GE depends on IPython - we have no direct dependency on it.
-    # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
-    # version requirement of traitlets>5.
-    # See https://github.com/ipython/ipython/issues/14352.
-    # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
-    # which first appeared in IPython 8.22.1.
-    # As such, we just need to avoid that version in order to get the
-    # dependencies that we need. IPython probably should've yanked 8.22.0.
-    "IPython!=8.22.0,<9.0.0",
-}
-
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
@@ -330,7 +296,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
+    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
+    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
+    "cryptography>=49.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -517,6 +485,18 @@ unstructured_lib = {
     "unstructured-ingest==0.7.2",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
+    # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
+    # import hook that blocks any nltk-initiated import resolving under the CWD,
+    # which includes site-packages whenever the venv lives in the project dir --
+    # the standard `python -m venv .venv` / uv / Poetry in-project layout. That
+    # breaks text partitioning, so document chunking silently produces nothing.
+    # Capped rather than excluding only 3.10.1: there is no fix upstream to
+    # forward-allow. https://github.com/nltk/nltk/issues/3730 is open and the
+    # proposed fix (nltk/nltk#3731) was closed unmerged, with the hook's own
+    # author questioning whether it should exist at all -- so a 3.10.2 may well
+    # still carry it. Given the failure is silent (zero documents indexed, exit
+    # 0), fail closed and lift the cap deliberately once upstream settles.
+    "nltk<3.10.1",
     # Embedding support for semantic search
     *embedding_common,
 }
@@ -576,9 +556,6 @@ plugins: Dict[str, Set[str]] = {
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
-    # Opt-in extra for the legacy Great Expectations SQL profiler.
-    # Without this extra, SQL connectors fall back to the SQLAlchemy profiler.
-    "profiling-ge": profiling_ge,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins

@@ -222,8 +222,7 @@ describe('useInfiniteScroll hook', () => {
     });
 
     it('resets items and startIndex on resetTrigger', async () => {
-        const dataBatches = [[1, 2, 3]];
-        const fetchData = createFetchDataMock(dataBatches);
+        const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
 
         let trigger = 1;
         const { result, waitForNextUpdate, rerender } = renderHook(
@@ -234,11 +233,15 @@ describe('useInfiniteScroll hook', () => {
         await waitForNextUpdate();
         expect(result.current.items).toEqual([1, 2, 3]);
 
-        // Trigger reset
+        // Trigger reset — clears list then kicks off a fresh fetch
         trigger = 2;
         rerender({ resetTrigger: trigger });
         expect(result.current.items).toEqual([]);
         expect(result.current.hasMore).toBe(true);
+
+        await waitForNextUpdate();
+        expect(result.current.items).toEqual([1, 2, 3]);
         expect(result.current.loading).toBe(false);
+        expect(fetchData).toHaveBeenCalledTimes(2);
     });
 });

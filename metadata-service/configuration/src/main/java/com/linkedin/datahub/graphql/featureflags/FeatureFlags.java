@@ -9,6 +9,20 @@ public class FeatureFlags {
   private boolean lineageSearchCacheEnabled = false;
   private boolean alwaysEmitChangeLog = false;
   private boolean cdcModeChangeLog = false;
+  // Moves aspect retention out of the ingest retry loop to a best-effort post-commit path.
+  // When false, retention runs inside the retry loop (legacy behavior). When true, retention
+  // runs after the upsert transaction commits and never triggers a retry on failure.
+  // Lifecycle: introduced for scale. Default OFF. Sunset target: remove in-tx retention block
+  // + this flag once post-commit path is validated in prod.
+  private boolean postCommitRetentionEnabled = false;
+  // When true (and postCommitRetentionEnabled), coalesce post-commit retention into a Hazelcast-
+  // backed buffer drained by RetentionDrainer off the ingest thread. When false, post-commit path
+  // (if on) applies retention synchronously. Enabling this boots the shared embedded Hazelcast node
+  // (HazelcastInstanceBootstrapCondition). Every ingesting pod (GMS or MCE consumer) runs the
+  // drainer — RetentionBufferSchedulingConfig enables scheduling wherever the buffer is wired — and
+  // all pods share one map + one cluster-wide drain lock, so exactly one drains per tick.
+  // Lifecycle: introduced for scale. Default OFF.
+  private boolean retentionBufferEnabled = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;

@@ -37,23 +37,14 @@ from sqlalchemy.engine.base import Connection, Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
-    AssertionInfo,
-    BatchSpec,
-)
-from datahub.metadata.schema_classes import (
-    MetadataChangeProposalClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import BatchSpec
+from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -62,7 +53,6 @@ from datahub_gx_plugin.common import (  # noqa: F401
     DataHubStdAssertion,
     DecimalEncoder,
     build_assertion_info,
-    build_assertion_info_mcp,
     build_assertions_with_results,
     coerce_emit_mode,
     convert_to_string,
@@ -204,14 +194,6 @@ class DataHubValidationAction(ValidationAction):
                 raise
 
         return {"datahub_notification_result": result}
-
-    def _build_assertion_info_mcp(
-        self,
-        graph: DataHubGraph,
-        assertion_urn: str,
-        assertion_info: AssertionInfo,
-    ) -> Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]:
-        return build_assertion_info_mcp(graph, assertion_urn, assertion_info)
 
     def get_assertions_with_results(
         self,
