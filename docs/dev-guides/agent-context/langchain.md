@@ -62,6 +62,75 @@ llm = ChatBedrock(
 
 Full working example: [simple_search.py](https://github.com/datahub-project/datahub/blob/master/datahub-agent-context/examples/langchain/simple_search.py)
 
+## Metadata-aware Code Generation Workflow
+
+Many AI-powered data engineering workflows use DataHub as the source of truth before generating production-ready artifacts. Rather than generating code solely from user prompts, applications can first retrieve metadata from DataHub to provide richer context to the LLM.
+
+A typical workflow looks like this:
+
+```text
+Developer Request
+        │
+        ▼
+Search DataHub
+        │
+        ▼
+Retrieve Metadata
+(schema, lineage,
+owners, glossary)
+        │
+        ▼
+Build LLM Prompt
+        │
+        ▼
+Generate Code
+        │
+        ▼
+Validate Output
+        │
+        ▼
+Git Pull Request
+```
+
+Typical metadata retrieved from DataHub includes:
+
+- Dataset schema
+- Ownership
+- Lineage
+- Tags
+- Glossary terms
+- Documentation
+- Sample queries
+
+For example, a LangChain agent can retrieve metadata before generating code:
+
+```python
+response = agent.invoke(
+    {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Find the orders dataset, inspect its schema and lineage, "
+                    "then generate a dbt model using that metadata."
+                ),
+            }
+        ]
+    }
+)
+```
+
+Grounding prompts with DataHub metadata helps AI assistants generate artifacts that align with existing schemas, governance policies, and organizational standards instead of relying on assumptions.
+
+Common generated artifacts include:
+
+- SQL transformations
+- Apache Airflow DAGs
+- dbt models
+- Pipeline configuration files
+- Data ingestion scripts
+
+
 ## Troubleshooting
 
 - **Tool execution errors?** Verify your DataHub connection with `client.test_connection()` and check token permissions.
