@@ -864,7 +864,7 @@ def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
 
 
 def test_odbc_two_part_mysql_allows_database_table_fallback():
-    """MySQL is allowlisted for the database.table fallback when schema is absent."""
+    """MySQL is not in ODBC_THREE_TIER_PLATFORMS, so database.table is allowed."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -885,6 +885,35 @@ def test_odbc_two_part_mysql_allows_database_table_fallback():
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    ]
+
+
+def test_odbc_two_part_teradata_allows_database_table_fallback():
+    """TeradataSource is TwoTierSQLAlchemySource — database.table is the correct
+    URN. The three-tier denylist must not drop this lineage (regression against
+    the allowlist inversion that only kept MySQL/Athena).
+    """
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,finance.accounts,PROD)"
     ]
 
 

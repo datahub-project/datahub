@@ -1583,15 +1583,17 @@ class NativeQueryLineage(AbstractLineage):
 # the enum so a platform-name rename can't silently disable the catalog drop.
 ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
 
-# Platforms whose connector URNs are genuinely database.table (no schema tier).
-# Only these may use the two-part database.table fallback when ODBC navigation
-# (plus optional dsn_to_database_schema backfill) yields database + table but no
-# schema. Everyone else — BigQuery, Snowflake, Postgres, MSSQL, Redshift,
-# Databricks, Oracle, … — needs three parts; emitting database.table would be a
-# truncated URN. Fail closed for unknown platforms.
-ODBC_TWO_PART_DATASET_PLATFORMS = {
-    SupportedDataPlatform.MYSQL.value.datahub_data_platform_name,
-    SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name,
+# Platforms whose standalone connectors emit database.schema.table (or the
+# BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
+# dsn_to_database_schema backfill) yields database + table but no schema, these
+# must warn-and-skip rather than emit a truncated database.table URN.
+ODBC_THREE_TIER_PLATFORMS = {
+    SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
+    SupportedDataPlatform.SNOWFLAKE.value.datahub_data_platform_name,
+    SupportedDataPlatform.POSTGRES_SQL.value.datahub_data_platform_name,
+    SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
+    SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
+    SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
 }
 
 
@@ -1963,11 +1965,8 @@ class OdbcLineage(AbstractLineage):
         elif (
             database_name is not None
             and table_name is not None
-            and data_platform in ODBC_TWO_PART_DATASET_PLATFORMS
+            and data_platform not in ODBC_THREE_TIER_PLATFORMS
         ):
-            # Allowlist only: MySQL/Athena URNs are database.table. Three-tier
-            # platforms with a missing schema fall through to the warning below
-            # rather than emit a truncated URN.
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
