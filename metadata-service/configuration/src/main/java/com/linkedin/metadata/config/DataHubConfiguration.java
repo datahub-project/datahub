@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.retention.RetentionConfiguration;
 import lombok.Data;
 
 /** POJO representing the "datahub" configuration block in application.yaml. */
@@ -31,14 +32,15 @@ public class DataHubConfiguration {
 
   private PoliciesConfiguration policies;
 
-  private S3Configuration s3;
-
   private ObjectStorageConfiguration objectStorage;
 
   /** Neutral API usage aggregation (OSS). */
   private UsageConfiguration usage;
 
   private ValidationConfiguration validation;
+
+  /** Post-commit aspect retention buffering (coalesce + drain). */
+  private RetentionConfiguration retention;
 
   @Data
   public static class DataHubMetrics {

@@ -1,4 +1,6 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -93,6 +95,14 @@ const PlatformRow = styled.div``;
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
     margin-right: 4px;
     font-size: 12px;
+`;
+
+const PartitionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ThinDivider = styled(Divider)`
@@ -196,6 +206,23 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
                 <SecondaryHeader>{t('resultPopover.severity')}</SecondaryHeader>
                 <ExpectedText>{severityDisplay.label}</ExpectedText>
             </ContextRow>
+        </>
+    );
+};
+
+const PartitionSection = ({ partition }: { partition?: string | null }) => {
+    const { t } = useTranslation('entity.profile.validations');
+    if (!partition) return null;
+
+    return (
+        <>
+            <ThinDivider />
+            <PartitionRow>
+                <Icon icon={TreeStructure} size="md" />
+                <span>
+                    <strong>{t('resultPopover.partition')}:</strong> {partition}
+                </span>
+            </PartitionRow>
         </>
     );
 };
@@ -342,6 +369,7 @@ export const AssertionResultPopoverContent = ({
                 showProfileButton={showProfileButton}
                 onClickProfileButton={onClickProfileButton}
             />
+            <PartitionSection partition={run?.partitionSpec?.partition} />
             {hasReason && <ReasonSection reasonText={reasonText} />}
             <SeveritySection result={result} />
             <ExpectedSection expectedText={expectedText} />

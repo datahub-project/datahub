@@ -45,9 +45,12 @@ You'll need to have an Airbyte instance running with configured sources and dest
 #### Airbyte Version for Stream Namespaces
 
 Airbyte's Public API returns a connection's stream list without the schema (namespace) each
-stream is read from. DataHub recovers it from the `/streams` endpoint, which requires
-**Airbyte 1.8 or newer**. Two things depend on it:
+stream is read from. DataHub recovers it from the `/streams` endpoint. Two things depend on it:
 
 - **Dataset URNs.** Without a namespace, every stream falls back to the source connector's
   configured default schema, so streams living in other schemas resolve to the wrong table.
-- **Column-level lineage**, which is built from the field list `/streams` returns.
+  Namespaces are only reported from **Airbyte 1.7.0 onwards** — older deployments answer
+  `/streams` without any namespace field, and the run warns that namespaces were not reported.
+  Set `default_schema` per source under `sources_to_platform_instance` to supply one manually.
+- **Column-level lineage**, which is built from the field list `/streams` returns. This works on
+  older versions too, since the field list does not depend on namespace support.
