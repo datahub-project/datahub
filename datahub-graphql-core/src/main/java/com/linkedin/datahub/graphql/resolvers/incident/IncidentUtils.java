@@ -20,7 +20,8 @@ import com.linkedin.incident.IncidentStage;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.service.IncidentInfoUpdate;
+import com.linkedin.metadata.service.IncidentInfoPatch;
+import com.linkedin.metadata.service.IncidentInfoUpsert;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -108,12 +109,12 @@ public class IncidentUtils {
     return status;
   }
 
-  /** Maps the GraphQL PATCH input into the service's GraphQL-independent update object. */
+  /** Maps the GraphQL PATCH input into the service's GraphQL-independent patch object. */
   @Nonnull
-  public static IncidentInfoUpdate mapIncidentUpdate(
+  public static IncidentInfoPatch mapIncidentUpdate(
       @Nonnull final UpdateIncidentInput input, @Nonnull final AuditStamp auditStamp) {
-    IncidentInfoUpdate.Builder builder =
-        IncidentInfoUpdate.builder()
+    IncidentInfoPatch.Builder builder =
+        IncidentInfoPatch.builder()
             .title(input.getTitle())
             .description(input.getDescription())
             .startedAt(input.getStartedAt())
@@ -127,12 +128,12 @@ public class IncidentUtils {
     return builder.build();
   }
 
-  /** Maps the complete editor input into the service's GraphQL-independent update object. */
+  /** Maps the complete editor input into the service's GraphQL-independent upsert object. */
   @Nonnull
-  public static IncidentInfoUpdate mapIncidentUpsert(
+  public static IncidentInfoUpsert mapIncidentUpsert(
       @Nonnull final UpsertIncidentInput input, @Nonnull final AuditStamp auditStamp) {
-    IncidentInfoUpdate.Builder builder =
-        IncidentInfoUpdate.builder()
+    IncidentInfoUpsert.Builder builder =
+        IncidentInfoUpsert.builder()
             .title(input.getTitle())
             .description(input.getDescription())
             .priority(mapIncidentPriority(input.getPriority()))

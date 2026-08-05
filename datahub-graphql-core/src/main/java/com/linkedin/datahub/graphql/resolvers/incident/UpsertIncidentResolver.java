@@ -14,7 +14,7 @@ import com.linkedin.datahub.graphql.generated.UpsertIncidentInput;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.service.IncidentInfoUpdate;
+import com.linkedin.metadata.service.IncidentInfoUpsert;
 import com.linkedin.metadata.service.IncidentService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -57,7 +57,7 @@ public class UpsertIncidentResolver implements DataFetcher<CompletableFuture<Boo
               new AuditStamp()
                   .setActor(UrnUtils.getUrn(context.getActorUrn()))
                   .setTime(System.currentTimeMillis());
-          IncidentInfoUpdate upsert = IncidentUtils.mapIncidentUpsert(input, actorStamp);
+          IncidentInfoUpsert upsert = IncidentUtils.mapIncidentUpsert(input, actorStamp);
           try {
             _incidentService.upsertIncident(context.getOperationContext(), incidentUrn, upsert);
             return true;

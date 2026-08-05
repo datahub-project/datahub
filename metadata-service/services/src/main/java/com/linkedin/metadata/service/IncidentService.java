@@ -104,7 +104,7 @@ public class IncidentService extends BaseService {
   public void updateIncident(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn incidentUrn,
-      @Nonnull final IncidentInfoUpdate update)
+      @Nonnull final IncidentInfoPatch update)
       throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
     Objects.requireNonNull(update, "update must not be null");
@@ -155,7 +155,7 @@ public class IncidentService extends BaseService {
   public void upsertIncident(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn incidentUrn,
-      @Nonnull final IncidentInfoUpdate upsert)
+      @Nonnull final IncidentInfoUpsert upsert)
       throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
     Objects.requireNonNull(upsert, "upsert must not be null");

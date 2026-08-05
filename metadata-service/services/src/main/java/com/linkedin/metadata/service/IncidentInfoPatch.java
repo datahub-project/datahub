@@ -7,14 +7,13 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Values that may be changed on an incident.
+ * A partial update to an incident, for {@link IncidentService#updateIncident}.
  *
- * <p>A null value means "not supplied" for a patch. The upsert operation deliberately treats null
- * values for nullable fields as clears instead. {@code startedAt} is only consulted by {@link
- * IncidentService#updateIncident}; {@link IncidentService#upsertIncident} never targets it, since
- * the editor does not own that field.
+ * <p>A null field means "not supplied": the corresponding aspect field is left unchanged. Use
+ * {@link IncidentInfoUpsert} for the editor's full-snapshot replace, where a null nullable field
+ * instead clears it.
  */
-public final class IncidentInfoUpdate {
+public final class IncidentInfoPatch {
   @Nullable private final String title;
   @Nullable private final String description;
   @Nullable private final Long startedAt;
@@ -23,7 +22,7 @@ public final class IncidentInfoUpdate {
   @Nullable private final List<Urn> entities;
   @Nullable private final IncidentAssigneeArray assignees;
 
-  private IncidentInfoUpdate(Builder builder) {
+  private IncidentInfoPatch(Builder builder) {
     this.title = builder.title;
     this.description = builder.description;
     this.startedAt = builder.startedAt;
@@ -128,8 +127,8 @@ public final class IncidentInfoUpdate {
       return this;
     }
 
-    public IncidentInfoUpdate build() {
-      return new IncidentInfoUpdate(this);
+    public IncidentInfoPatch build() {
+      return new IncidentInfoPatch(this);
     }
   }
 }

@@ -16,7 +16,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.IncidentInfoUpdate;
+import com.linkedin.metadata.service.IncidentInfoPatch;
 import com.linkedin.metadata.service.IncidentService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -59,12 +59,12 @@ public class UpdateIncidentResolverTest {
     Boolean result = newResolver(mockIncidentService, mockEntityService).get(environment).get();
 
     Assert.assertTrue(result);
-    ArgumentCaptor<IncidentInfoUpdate> updateCaptor =
-        ArgumentCaptor.forClass(IncidentInfoUpdate.class);
+    ArgumentCaptor<IncidentInfoPatch> updateCaptor =
+        ArgumentCaptor.forClass(IncidentInfoPatch.class);
     Mockito.verify(mockIncidentService)
         .updateIncident(
             any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN), updateCaptor.capture());
-    IncidentInfoUpdate update = updateCaptor.getValue();
+    IncidentInfoPatch update = updateCaptor.getValue();
     Assert.assertEquals(update.getTitle(), "New Title");
     Assert.assertEquals(update.getDescription(), "New Description");
     Assert.assertEquals(update.getStartedAt(), Long.valueOf(10L));
@@ -93,12 +93,12 @@ public class UpdateIncidentResolverTest {
     Boolean result = newResolver(mockIncidentService, mockEntityService).get(environment).get();
 
     Assert.assertTrue(result);
-    ArgumentCaptor<IncidentInfoUpdate> updateCaptor =
-        ArgumentCaptor.forClass(IncidentInfoUpdate.class);
+    ArgumentCaptor<IncidentInfoPatch> updateCaptor =
+        ArgumentCaptor.forClass(IncidentInfoPatch.class);
     Mockito.verify(mockIncidentService)
         .updateIncident(
             any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN), updateCaptor.capture());
-    IncidentInfoUpdate update = updateCaptor.getValue();
+    IncidentInfoPatch update = updateCaptor.getValue();
     Assert.assertEquals(update.getTitle(), "Only title changes");
     Assert.assertNull(update.getDescription());
     Assert.assertNull(update.getStartedAt());

@@ -36,7 +36,7 @@ public class IncidentServiceUpdateTest {
     service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder().title("new title").priority(1).build());
+        IncidentInfoPatch.builder().title("new title").priority(1).build());
 
     MetadataChangeProposal proposal = captureProposal(client);
     Assert.assertEquals(proposal.getChangeType(), ChangeType.PATCH);
@@ -54,7 +54,7 @@ public class IncidentServiceUpdateTest {
     service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder().title("new title").build());
+        IncidentInfoPatch.builder().title("new title").build());
 
     JsonNode envelope = envelopeNode(captureProposal(client));
     Assert.assertTrue(envelope.isObject());
@@ -72,7 +72,7 @@ public class IncidentServiceUpdateTest {
     service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder()
+        IncidentInfoPatch.builder()
             .status(
                 new IncidentStatus().setState(IncidentState.RESOLVED).setLastUpdated(lastUpdated))
             .build());
@@ -89,7 +89,7 @@ public class IncidentServiceUpdateTest {
     service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder().startedAt(10L).build());
+        IncidentInfoPatch.builder().startedAt(10L).build());
 
     Map<String, JsonNode> opsByPath = patchOpsByPath(captureProposal(client));
     Assert.assertEquals(opsByPath.get("/startedAt").get("op").asText(), "add");
@@ -104,7 +104,7 @@ public class IncidentServiceUpdateTest {
     service.upsertIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder()
+        IncidentInfoUpsert.builder()
             .title("new title")
             .description(null)
             .status(new IncidentStatus().setState(IncidentState.RESOLVED))
@@ -140,7 +140,7 @@ public class IncidentServiceUpdateTest {
     service.upsertIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder()
+        IncidentInfoUpsert.builder()
             .title("t")
             .status(new IncidentStatus().setState(IncidentState.ACTIVE))
             .entities(List.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)")))
@@ -164,7 +164,7 @@ public class IncidentServiceUpdateTest {
             service.upsertIncident(
                 mock(OperationContext.class),
                 INCIDENT_URN,
-                IncidentInfoUpdate.builder()
+                IncidentInfoUpsert.builder()
                     .entities(List.of(UrnUtils.getUrn("urn:li:dataset:(test,test,test)")))
                     .build()));
 
@@ -174,7 +174,7 @@ public class IncidentServiceUpdateTest {
             service.upsertIncident(
                 mock(OperationContext.class),
                 INCIDENT_URN,
-                IncidentInfoUpdate.builder()
+                IncidentInfoUpsert.builder()
                     .status(new IncidentStatus().setState(IncidentState.ACTIVE))
                     .entities(List.of())
                     .build()));

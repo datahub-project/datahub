@@ -15,7 +15,7 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.IncidentInfoUpdate;
+import com.linkedin.metadata.service.IncidentInfoUpsert;
 import com.linkedin.metadata.service.IncidentService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -65,12 +65,12 @@ public class UpsertIncidentResolverTest {
         new UpsertIncidentResolver(mockIncidentService, mockEntityService).get(environment).get();
 
     Assert.assertTrue(result);
-    ArgumentCaptor<IncidentInfoUpdate> upsertCaptor =
-        ArgumentCaptor.forClass(IncidentInfoUpdate.class);
+    ArgumentCaptor<IncidentInfoUpsert> upsertCaptor =
+        ArgumentCaptor.forClass(IncidentInfoUpsert.class);
     Mockito.verify(mockIncidentService)
         .upsertIncident(
             any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN), upsertCaptor.capture());
-    IncidentInfoUpdate upsert = upsertCaptor.getValue();
+    IncidentInfoUpsert upsert = upsertCaptor.getValue();
     Assert.assertNull(upsert.getTitle());
     Assert.assertNull(upsert.getDescription());
     Assert.assertNull(upsert.getPriority());
