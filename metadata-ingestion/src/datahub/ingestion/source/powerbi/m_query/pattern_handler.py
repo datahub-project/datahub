@@ -503,9 +503,19 @@ class AbstractLineage(ABC):
                 )
                 continue
 
+            # T-SQL cleanup belongs on the federated SQL after extraction, not on the
+            # outer BigQuery text (regex ignores string boundaries and would rewrite
+            # USE/GO/SET/DROP inside the EXTERNAL_QUERY literal before we extract it).
+            inner_sql = reference.inner_sql
+            if (
+                connection_detail.platform
+                == SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name
+            ):
+                inner_sql = native_sql_parser.remove_drop_statement(inner_sql)
+
             parsed_result = native_sql_parser.parse_custom_sql(
                 ctx=self.ctx,
-                query=reference.inner_sql,
+                query=inner_sql,
                 platform=connection_detail.platform,
                 platform_instance=connection_detail.platform_instance,
                 env=connection_detail.env,
@@ -576,9 +586,7 @@ class AbstractLineage(ABC):
             )
 
         # remove_special_characters must run first to expand #(lf) → \n before
-        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
-        query = native_sql_parser.remove_drop_statement(query)
 
         # BigQuery EXTERNAL_QUERY federation cannot be resolved by the generic parser
         # (its args are string literals, not table identifiers). Resolve those upstreams
@@ -597,6 +605,9 @@ class AbstractLineage(ABC):
             # this case (parse_failed => no references), so nothing partial to return.
             if resolution.outer_parse_failed:
                 return Lineage.empty()
+
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
+        query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(

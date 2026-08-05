@@ -1018,6 +1018,55 @@ def test_bigquery_external_query_resolves_to_external_platform():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_tsql_control_statements_not_corrupted():
+    # remove_drop_statement must not run on the outer BigQuery text before
+    # EXTERNAL_QUERY extraction: its USE/GO/SET/DROP regexes ignore string
+    # boundaries and would rewrite the federated SQL literal. Cloud SQL Server
+    # federations commonly embed those control statements; lineage must still
+    # resolve to the real mssql table after extraction + mssql-only cleanup.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""USE Reports#(lf)GO#(lf)DROP TABLE IF EXISTS #tmp;#(lf)SELECT account_name FROM dbo.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "mssql",
+                    "default_database": "Reports",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,reports.dbo.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_unmapped_connection_skips_with_info():
     # An unmapped EXTERNAL_QUERY connection must not emit a bogus BigQuery URN; it should
     # skip lineage and record an actionable (non-warning) signal telling the operator to

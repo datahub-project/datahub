@@ -493,3 +493,30 @@ def test_extract_external_queries_multi_statement_preserves_all_statements():
     # The federation is stripped, but the native statement must not be discarded.
     assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
     assert "native_table" in extraction.rewritten_query
+
+
+def test_extract_external_queries_preserves_tsql_control_statements_in_literal():
+    # Federation extract must see the raw EXTERNAL_QUERY literal. Running
+    # remove_tsql_control_statements first rewrites USE/GO inside the string
+    # (regex ignores quote boundaries); callers must extract before that cleanup.
+    query = """SELECT * FROM EXTERNAL_QUERY(
+  'proj.us.conn',
+  '
+USE Reports
+GO
+SELECT id FROM dbo.Orders
+'
+)"""
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert "USE Reports" in extraction.references[0].inner_sql
+    assert "GO" in extraction.references[0].inner_sql
+
+    corrupted = native_sql_parser.remove_tsql_control_statements(query)
+    corrupted_extraction = native_sql_parser.extract_external_queries(
+        corrupted, "bigquery"
+    )
+    assert len(corrupted_extraction.references) == 1
+    assert "USE Reports" not in corrupted_extraction.references[0].inner_sql
+    assert "GO" not in corrupted_extraction.references[0].inner_sql
