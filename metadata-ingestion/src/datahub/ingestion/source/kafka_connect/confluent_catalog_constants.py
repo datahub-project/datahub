@@ -17,13 +17,17 @@ CONNECTOR_CLASS_FIELD: Final[str] = "class"
 # Read-only query against the Stream Catalog. `cn_connector.topics` already reflects
 # post-SMT topic names, which is why it can replace the transform-matching heuristic.
 #
-# Deliberately not filtered by `clusterId`: on `cn_connector` that field holds the
-# logical *Connect* cluster id (lcc-*), whereas the Connect REST URI only gives us the
-# Kafka cluster id (lkc-*). The Schema Registry endpoint is already environment-scoped,
-# so connectors are matched by name instead.
+# Pagination is inlined as {limit}/{offset} placeholders (substituted by the client)
+# rather than GraphQL variables: the live Confluent Cloud catalog endpoint returns
+# HTTP 500 for any operation that carries a variables map (verified 2026-08-05).
+#
+# Deliberately not filtered by a cluster-id field: on `cn_connector` that field holds
+# the logical *Connect* cluster id (lcc-*), whereas the Connect REST URI only gives us
+# the Kafka cluster id (lkc-*). The Schema Registry endpoint is already
+# environment-scoped, so connectors are matched by name instead.
 CONNECTOR_CATALOG_QUERY: Final[str] = """
-query DataHubKafkaConnectCatalog($limit: Int, $offset: Int) {
-  cn_connector(limit: $limit, offset: $offset) {
+{
+  cn_connector(limit: {limit}, offset: {offset}) {
     name
     qualifiedName
     class

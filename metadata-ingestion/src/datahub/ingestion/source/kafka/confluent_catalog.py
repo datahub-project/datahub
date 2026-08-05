@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogKafkaTopic(CatalogEntity):
-    cluster_id: Optional[str] = Field(default=None, alias="clusterId")
+    cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
 
 
 class KafkaTopicCatalog:

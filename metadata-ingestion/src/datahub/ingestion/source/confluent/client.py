@@ -8,9 +8,7 @@ from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConf
 from datahub.ingestion.source.confluent.constants import (
     DATA_KEY,
     ERRORS_KEY,
-    LIMIT_VARIABLE,
     MESSAGE_KEY,
-    OFFSET_VARIABLE,
 )
 from datahub.ingestion.source.confluent.models import CatalogEntityType
 
@@ -76,16 +74,20 @@ class ConfluentStreamCatalogClient:
     def _fetch_page(
         self, query: str, root_key: str, offset: int
     ) -> Optional[List[Dict[str, object]]]:
-        variables = {
-            LIMIT_VARIABLE: self.config.page_size,
-            OFFSET_VARIABLE: offset,
-        }
+        # The live Confluent Cloud catalog endpoint returns HTTP 500 for any
+        # operation that carries a GraphQL variables map (verified 2026-08-05),
+        # so pagination arguments are inlined into the query text instead. Only
+        # the {limit}/{offset} placeholders are substituted; both values are
+        # integers, so no escaping is needed.
+        inline_query = query.replace("{limit}", str(self.config.page_size)).replace(
+            "{offset}", str(offset)
+        )
         context = f"endpoint={self.endpoint}, entity={root_key}, offset={offset}"
 
         try:
             response = self.session.post(
                 self.endpoint,
-                json={"query": query, "variables": variables},
+                json={"query": inline_query},
                 timeout=self.config.timeout_seconds,
             )
             response.raise_for_status()

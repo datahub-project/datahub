@@ -14,11 +14,13 @@ from datahub.ingestion.source.confluent.models import (
 )
 
 ROOT_KEY = "kafka_topic"
-QUERY = "query Example($limit: Int, $offset: Int) { kafka_topic { name } }"
+# Pagination placeholders are inlined by the client; the live catalog endpoint
+# rejects GraphQL variables with an HTTP 500.
+QUERY = "{ kafka_topic(limit: {limit}, offset: {offset}) { name } }"
 
 
 class SampleEntity(CatalogEntity):
-    cluster_id: Optional[str] = Field(default=None, alias="clusterId")
+    cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
 
 
 def make_config(**overrides: object) -> ConfluentStreamCatalogConfig:
@@ -110,7 +112,7 @@ class TestConfluentStreamCatalogClient:
                         {
                             "name": "orders",
                             "qualifiedName": "lkc-123:orders",
-                            "clusterId": "lkc-123",
+                            "logical_cluster_id": "lkc-123",
                             "tags": None,
                             "business_metadata": None,
                         }
@@ -142,10 +144,10 @@ class TestConfluentStreamCatalogClient:
         session = client.session
         assert isinstance(session, Mock)
         assert session.post.call_count == 2
-        assert session.post.call_args_list[1].kwargs["json"]["variables"] == {
-            "limit": 2,
-            "offset": 2,
-        }
+        # Pagination must be inlined into the query text; a variables map makes
+        # the live catalog endpoint return HTTP 500.
+        second_body = session.post.call_args_list[1].kwargs["json"]
+        assert second_body == {"query": "{ kafka_topic(limit: 2, offset: 2) { name } }"}
 
     def test_graphql_errors_are_reported_and_yield_nothing(self) -> None:
         response = Mock()

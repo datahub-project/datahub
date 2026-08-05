@@ -13,6 +13,3 @@ MAX_PAGE_SIZE: Final[int] = 1000
 DATA_KEY: Final[str] = "data"
 ERRORS_KEY: Final[str] = "errors"
 MESSAGE_KEY: Final[str] = "message"
-
-LIMIT_VARIABLE: Final[str] = "limit"
-OFFSET_VARIABLE: Final[str] = "offset"

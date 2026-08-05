@@ -38,7 +38,7 @@ CATALOG_TOPICS = [
     {
         "name": "key_value_topic",
         "qualifiedName": "lkc-stub:key_value_topic",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": ["PII", "Tier1"],
         "business_metadata": [
             {"name": "owning_team", "value": "payments"},
@@ -48,14 +48,14 @@ CATALOG_TOPICS = [
     {
         "name": "value_topic",
         "qualifiedName": "lkc-stub:value_topic",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": None,
         "business_metadata": [{"name": "owning_team", "value": "analytics"}],
     },
     {
         "name": "topic_not_on_this_broker",
         "qualifiedName": "lkc-stub:topic_not_on_this_broker",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": ["Deprecated"],
         "business_metadata": None,
     },

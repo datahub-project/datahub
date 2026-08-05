@@ -154,8 +154,8 @@ class TestTopicLookup:
         report = KafkaSourceReport()
         catalog = make_catalog(
             [
-                CatalogKafkaTopic(name=TOPIC, clusterId="lkc-111"),
-                CatalogKafkaTopic(name=TOPIC, clusterId="lkc-222"),
+                CatalogKafkaTopic(name=TOPIC, logical_cluster_id="lkc-111"),
+                CatalogKafkaTopic(name=TOPIC, logical_cluster_id="lkc-222"),
             ],
             report,
         )
@@ -167,8 +167,12 @@ class TestTopicLookup:
         report = KafkaSourceReport()
         catalog = make_catalog(
             [
-                CatalogKafkaTopic(name=TOPIC, clusterId="lkc-111", tags=["pii"]),
-                CatalogKafkaTopic(name=TOPIC, clusterId="lkc-222", tags=["public"]),
+                CatalogKafkaTopic(
+                    name=TOPIC, logical_cluster_id="lkc-111", tags=["pii"]
+                ),
+                CatalogKafkaTopic(
+                    name=TOPIC, logical_cluster_id="lkc-222", tags=["public"]
+                ),
             ],
             report,
             cluster_id="lkc-222",
