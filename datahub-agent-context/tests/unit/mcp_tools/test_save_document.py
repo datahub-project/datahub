@@ -1,8 +1,8 @@
 import os
 from unittest.mock import Mock, patch
 
-import pytest
 from datahub.errors import ItemNotFoundError
+import pytest
 
 from datahub.metadata import schema_classes as models
 from datahub_agent_context.context import DataHubContext
