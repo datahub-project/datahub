@@ -77,6 +77,10 @@ public class AuthUtil {
     AuthUtil.isRestApiAuthorizationEnabled = this.restApiAuthorizationEnabled;
   }
 
+  public static boolean isRestApiAuthorizationEnabled() {
+    return isRestApiAuthorizationEnabled;
+  }
+
   /**
    * Effective view-unrestricted entity types for a request. Resolved once onto {@link
    * com.datahub.authorization.config.ViewAuthorizationConfiguration#getEffectiveUnrestrictedEntityTypes()}

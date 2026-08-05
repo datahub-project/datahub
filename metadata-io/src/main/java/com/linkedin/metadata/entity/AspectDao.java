@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -298,10 +299,27 @@ public interface AspectDao {
           "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
+  /**
+   * Hard-delete all aspects for a urn. Must be called within an enclosing transaction: the ordered
+   * {@code FOR UPDATE} lock (and any advisory lock) rely on the thread's active transaction, so
+   * invoking this outside one would run them in short-lived auto-commit transactions and defeat the
+   * lock ordering. All current call sites route through {@code runInTransactionWithRetry}.
+   */
   int deleteUrn(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
+   * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
+   * lock per urn when enabled. Used to prevent lock-order deadlocks between multi-row writes (e.g.
+   * logical-model linking) and concurrent hard-deletes touching the same rows.
+   */
+  default void lockUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    // no-op by default
+  }
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(

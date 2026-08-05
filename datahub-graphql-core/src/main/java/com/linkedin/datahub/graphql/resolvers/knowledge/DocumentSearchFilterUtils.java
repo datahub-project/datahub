@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Utility class for building document search filters with ownership constraints. Shared logic for
@@ -54,67 +55,97 @@ public class DocumentSearchFilterUtils {
       @Nonnull List<String> userAndGroupUrns,
       boolean applyShowInGlobalContext,
       boolean canManageDocuments) {
+    return buildCombinedFilter(
+        baseCriteria, userAndGroupUrns, applyShowInGlobalContext, canManageDocuments, null);
+  }
+
+  /**
+   * Same as {@link #buildCombinedFilter(List, List, boolean, boolean)} with an optional state
+   * narrow. When {@code requestedStates} is null/empty or contains both PUBLISHED and UNPUBLISHED,
+   * all visibility clauses are included. A single state keeps only the matching published or
+   * unpublished clauses (ownership still applies to unpublished).
+   */
+  @Nonnull
+  public static Filter buildCombinedFilter(
+      @Nonnull List<Criterion> baseCriteria,
+      @Nonnull List<String> userAndGroupUrns,
+      boolean applyShowInGlobalContext,
+      boolean canManageDocuments,
+      @Nullable List<String> requestedStates) {
+
+    final boolean includePublished =
+        requestedStates == null
+            || requestedStates.isEmpty()
+            || requestedStates.contains("PUBLISHED");
+    final boolean includeUnpublished =
+        requestedStates == null
+            || requestedStates.isEmpty()
+            || requestedStates.contains("UNPUBLISHED");
 
     List<ConjunctiveCriterion> orClauses = new ArrayList<>();
 
     // --- New lifecycleStage-based clauses (take priority when field is present) ---
 
-    // Clause 1: lifecycleStage = PUBLISHED → visible to all
-    List<Criterion> lifecyclePublishedCriteria = new ArrayList<>(baseCriteria);
-    lifecyclePublishedCriteria.add(
-        CriterionUtils.buildCriterion(
-            "lifecycleStage", Condition.EQUAL, PUBLISHED_LIFECYCLE_STAGE_URN));
-    if (applyShowInGlobalContext) {
-      lifecyclePublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+    if (includePublished) {
+      // Clause 1: lifecycleStage = PUBLISHED → visible to all
+      List<Criterion> lifecyclePublishedCriteria = new ArrayList<>(baseCriteria);
+      lifecyclePublishedCriteria.add(
+          CriterionUtils.buildCriterion(
+              "lifecycleStage", Condition.EQUAL, PUBLISHED_LIFECYCLE_STAGE_URN));
+      if (applyShowInGlobalContext) {
+        lifecyclePublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+      }
+      orClauses.add(
+          new ConjunctiveCriterion().setAnd(new CriterionArray(lifecyclePublishedCriteria)));
     }
-    orClauses.add(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(lifecyclePublishedCriteria)));
 
-    // Clause 2: lifecycleStage != PUBLISHED AND lifecycleStage != DRAFT AND lifecycleStage EXISTS
-    // AND (owned OR canManageDocuments) → non-published, non-draft stages (UNPUBLISHED, IN_REVIEW,
-    // REJECTED, etc.) visible to owners or users with MANAGE_DOCUMENTS privilege.
-    // DRAFT is excluded entirely — it is never surfaced in the UI.
-    List<Criterion> lifecycleNonPublishedCriteria = new ArrayList<>(baseCriteria);
-    lifecycleNonPublishedCriteria.add(
-        buildNegatedCriterion("lifecycleStage", PUBLISHED_LIFECYCLE_STAGE_URN));
-    lifecycleNonPublishedCriteria.add(
-        buildNegatedCriterion("lifecycleStage", DRAFT_LIFECYCLE_STAGE_URN));
-    lifecycleNonPublishedCriteria.add(buildExistsCriterion("lifecycleStage"));
-    if (!canManageDocuments) {
+    if (includeUnpublished) {
+      // Clause 2: non-published, non-draft lifecycle stages + ownership / MANAGE_DOCUMENTS
+      List<Criterion> lifecycleNonPublishedCriteria = new ArrayList<>(baseCriteria);
       lifecycleNonPublishedCriteria.add(
-          CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
+          buildNegatedCriterion("lifecycleStage", PUBLISHED_LIFECYCLE_STAGE_URN));
+      lifecycleNonPublishedCriteria.add(
+          buildNegatedCriterion("lifecycleStage", DRAFT_LIFECYCLE_STAGE_URN));
+      lifecycleNonPublishedCriteria.add(buildExistsCriterion("lifecycleStage"));
+      if (!canManageDocuments) {
+        lifecycleNonPublishedCriteria.add(
+            CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
+      }
+      if (applyShowInGlobalContext) {
+        lifecycleNonPublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+      }
+      orClauses.add(
+          new ConjunctiveCriterion().setAnd(new CriterionArray(lifecycleNonPublishedCriteria)));
     }
-    if (applyShowInGlobalContext) {
-      lifecycleNonPublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
-    }
-    orClauses.add(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(lifecycleNonPublishedCriteria)));
 
     // --- Legacy state-based clauses (fallback when lifecycleStage is not set) ---
 
-    // Clause 3: lifecycleStage IS_NULL AND state = PUBLISHED → visible to all
-    List<Criterion> legacyPublishedCriteria = new ArrayList<>(baseCriteria);
-    legacyPublishedCriteria.add(buildIsNullCriterion("lifecycleStage"));
-    legacyPublishedCriteria.add(
-        CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
-    if (applyShowInGlobalContext) {
-      legacyPublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+    if (includePublished) {
+      List<Criterion> legacyPublishedCriteria = new ArrayList<>(baseCriteria);
+      legacyPublishedCriteria.add(buildIsNullCriterion("lifecycleStage"));
+      legacyPublishedCriteria.add(
+          CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
+      if (applyShowInGlobalContext) {
+        legacyPublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+      }
+      orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(legacyPublishedCriteria)));
     }
-    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(legacyPublishedCriteria)));
 
-    // Clause 4: lifecycleStage IS_NULL AND state = UNPUBLISHED AND (owned OR canManageDocuments)
-    List<Criterion> legacyUnpublishedCriteria = new ArrayList<>(baseCriteria);
-    legacyUnpublishedCriteria.add(buildIsNullCriterion("lifecycleStage"));
-    legacyUnpublishedCriteria.add(
-        CriterionUtils.buildCriterion("state", Condition.EQUAL, "UNPUBLISHED"));
-    if (!canManageDocuments) {
+    if (includeUnpublished) {
+      List<Criterion> legacyUnpublishedCriteria = new ArrayList<>(baseCriteria);
+      legacyUnpublishedCriteria.add(buildIsNullCriterion("lifecycleStage"));
       legacyUnpublishedCriteria.add(
-          CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
+          CriterionUtils.buildCriterion("state", Condition.EQUAL, "UNPUBLISHED"));
+      if (!canManageDocuments) {
+        legacyUnpublishedCriteria.add(
+            CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
+      }
+      if (applyShowInGlobalContext) {
+        legacyUnpublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+      }
+      orClauses.add(
+          new ConjunctiveCriterion().setAnd(new CriterionArray(legacyUnpublishedCriteria)));
     }
-    if (applyShowInGlobalContext) {
-      legacyUnpublishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
-    }
-    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(legacyUnpublishedCriteria)));
 
     return new Filter().setOr(new ConjunctiveCriterionArray(orClauses));
   }

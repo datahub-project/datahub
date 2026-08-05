@@ -22,8 +22,10 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -49,6 +51,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -122,6 +126,26 @@ public class EntityRelationshipsResultResolverTest {
     softDeletedEntity = new CorpUser();
     softDeletedEntity.setUrn(softDeletedUser.toString());
     softDeletedEntity.setType(EntityType.CORP_USER);
+  }
+
+  @Test
+  public void testUnauthorizedDocumentDoesNotLoadRelationships()
+      throws ExecutionException, InterruptedException {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
+    Document source = new Document();
+    source.setUrn(documentUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+    QueryContext context = mockEnv.getContext();
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(context.getOperationContext(), documentUrn))
+          .thenReturn(false);
+
+      assertTrue(resolver.get(mockEnv).get().getRelationships().isEmpty());
+      Mockito.verifyNoInteractions(_graphClient);
+    }
   }
 
   @Test

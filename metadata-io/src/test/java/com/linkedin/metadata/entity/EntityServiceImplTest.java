@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -52,6 +53,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -116,6 +118,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create test aspects
@@ -524,6 +527,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
@@ -947,6 +951,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create RestoreIndicesArgs
@@ -995,6 +1000,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create test inputs
@@ -1073,6 +1079,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
@@ -1404,6 +1411,7 @@ public class EntityServiceImplTest {
                 mock(PreProcessHooks.class),
                 0,
                 true,
+                false,
                 null));
 
     // Create test data
@@ -1480,6 +1488,7 @@ public class EntityServiceImplTest {
                 mock(PreProcessHooks.class),
                 0,
                 true,
+                false,
                 null));
     doReturn(Stream.empty())
         .when(service)
@@ -1596,5 +1605,141 @@ public class EntityServiceImplTest {
     inOrder
         .verify(mockAspectDao)
         .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
+  }
+
+  // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the
+  // only ctor difference between them; the upsert result and metric-bearing context are identical.
+  private EntityServiceImpl newPostCommitService(boolean postCommitEnabled) {
+    return new EntityServiceImpl(
+        mock(AspectDao.class),
+        mock(EventProducer.class),
+        false,
+        false,
+        mock(PreProcessHooks.class),
+        0,
+        true,
+        postCommitEnabled,
+        null);
+  }
+
+  private UpdateAspectResult postCommitUpsertResult() {
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+    return UpdateAspectResult.builder()
+        .urn(TEST_URN)
+        .request(request)
+        .oldValue(oldAspect)
+        .newValue(newAspect)
+        .maxVersion(2L)
+        .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+        .auditStamp(TEST_AUDIT_STAMP)
+        .build();
+  }
+
+  private OperationContext contextWithMetrics(MetricUtils metricUtils) {
+    return opContext.toBuilder()
+        .systemTelemetryContext(
+            SystemTelemetryContext.builder()
+                .tracer(SystemTelemetryContext.TEST.getTracer())
+                .metricUtils(metricUtils)
+                .build())
+        .build(opContext.getSystemActorContext().getAuthentication(), false);
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitFailureDoesNotPropagate() {
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    doThrow(new RuntimeException("retention delete failed"))
+        .when(retentionService)
+        .applyRetentionWithPolicyDefaults(any(), any());
+    entityService.setRetentionService(retentionService);
+
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext = contextWithMetrics(mockMetricUtils);
+
+    entityService.applyRetentionPostCommit(testContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitSkippedWhenFlagDisabled() {
+    EntityServiceImpl entityService = newPostCommitService(false);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitDefersToBufferWhenPresent() {
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionBuffer, times(1)).enqueue(eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitNullBufferFallsBackToSync() {
+    // Mirrors EntityServiceFactory: setRetentionBuffer(getIfAvailable()) when no bean → null.
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+    entityService.setRetentionBuffer(null);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitBufferThrowDoesNotPropagate() {
+    // Outer safety net: a throw from the deferred-buffer path (now the primary prod path) must be
+    // swallowed. The upsert + MCL emit already happened, so an escaping exception here would fail
+    // the ingest call and trigger a full retry -> duplicate MCL emission.
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    doThrow(new RuntimeException("enqueue exploded"))
+        .when(retentionBuffer)
+        .enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext = contextWithMetrics(mockMetricUtils);
+
+    // Must not throw.
+    entityService.applyRetentionPostCommit(testContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionBuffer, times(1)).enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
   }
 }
