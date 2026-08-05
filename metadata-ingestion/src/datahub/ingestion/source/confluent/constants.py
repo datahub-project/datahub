@@ -13,6 +13,9 @@ CONFLUENT_CLOUD_DOMAIN_SUFFIX: Final[str] = ".confluent.cloud"
 # Confluent Cloud rejects page sizes above this.
 MAX_PAGE_SIZE: Final[int] = 1000
 
+# Hard stop if the catalog ignores {offset} and keeps returning full pages.
+MAX_CATALOG_PAGES: Final[int] = 10_000
+
 DATA_KEY: Final[str] = "data"
 ERRORS_KEY: Final[str] = "errors"
 MESSAGE_KEY: Final[str] = "message"

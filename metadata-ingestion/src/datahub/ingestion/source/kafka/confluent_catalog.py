@@ -58,9 +58,19 @@ class KafkaTopicCatalog:
                     f"cluster_ids_seen={sorted({str(topic.cluster_id) for topic in topics})}",
                 )
             topics = in_cluster
-        self.report.catalog_topics_fetched = len(topics)
 
         index = index_by_name(topics)
+        self._report_index_issues(index)
+        # Count after ambiguity filtering so the metric matches connector catalog.
+        self.report.catalog_topics_fetched = len(index.by_name)
+        return index
+
+    def _report_index_issues(self, index: NameIndex[CatalogKafkaTopic]) -> None:
+        if index.empty_name_count:
+            self.report.warning(
+                message="Skipped Stream Catalog topics that had an empty name",
+                context=f"count={index.empty_name_count}",
+            )
         for name, candidates in index.ambiguous.items():
             self.report.warning(
                 message="Skipping Stream Catalog metadata for a topic name that exists in "
@@ -68,7 +78,12 @@ class KafkaTopicCatalog:
                 "`confluent_catalog.cluster_id` to pick the right cluster.",
                 context=f"topic={name}, clusters={sorted(str(c.cluster_id) for c in candidates)}",
             )
-        return index
+        for lowered, candidates in index.case_ambiguous.items():
+            self.report.warning(
+                message="Case-insensitive Stream Catalog topic lookup is disabled for a name "
+                "that matches more than one catalog entity; exact-case lookups still work",
+                context=f"name={lowered}, variants={sorted(c.name for c in candidates)}",
+            )
 
     def close(self) -> None:
         self.client.close()

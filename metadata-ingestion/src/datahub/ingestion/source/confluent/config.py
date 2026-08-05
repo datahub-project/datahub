@@ -96,13 +96,15 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         return host.endswith(CONFLUENT_CLOUD_DOMAIN_SUFFIX)
 
     def get_graphql_endpoint(self) -> str:
-        assert self.schema_registry_url is not None, (
-            "schema_registry_url is required when the Stream Catalog is enabled"
-        )
+        if not self.schema_registry_url:
+            raise ValueError(
+                "schema_registry_url is required when the Stream Catalog is enabled"
+            )
         return f"{self.schema_registry_url}{CATALOG_GRAPHQL_PATH}"
 
     def get_credentials(self) -> Tuple[str, str]:
-        assert self.api_key is not None and self.api_secret is not None, (
-            "api_key and api_secret are required when the Stream Catalog is enabled"
-        )
+        if not self.api_key or self.api_secret is None:
+            raise ValueError(
+                "api_key and api_secret are required when the Stream Catalog is enabled"
+            )
         return self.api_key, self.api_secret.get_secret_value()

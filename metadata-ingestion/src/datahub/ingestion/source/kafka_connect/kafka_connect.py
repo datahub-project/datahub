@@ -221,17 +221,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         catalog_connector = self._get_catalog_connector(connector_manifest)
 
         # Keep the full cluster topic list even with the catalog enabled — a
-        # stale/partial catalog must not silently drop sink lineage.
-        if connector and self._is_confluent_cloud:
+        # stale/partial catalog must not silently invent lineage to missing topics.
+        all_cluster_topics: Optional[List[str]] = None
+        if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
-            if all_cluster_topics:
+            if connector and all_cluster_topics:
                 connector.all_cluster_topics = all_cluster_topics
                 logger.debug(
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
                 )
 
         catalog_lineages = self._build_catalog_lineages(
-            connector_manifest, catalog_connector
+            connector_manifest, catalog_connector, all_cluster_topics
         )
 
         if not connector and not catalog_lineages:
@@ -240,6 +241,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 return False
             connector_manifest.lineages = []
             connector_manifest.flow_property_bag = {}
+            # Still attach catalog business metadata for sinks without a registry handler.
+            self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
             return True
 
         if catalog_lineages:
@@ -273,13 +276,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         self,
         connector_manifest: ConnectorManifest,
         catalog_connector: Optional[CatalogConnector],
+        all_cluster_topics: Optional[List[str]] = None,
     ) -> List[KafkaConnectLineage]:
         """
         The catalog reports topic names after any topic-routing SMT has been applied, so
-        this is exact where the config-matching path is a prediction. It only knows about
-        the Kafka side though: for sink connectors the destination table is absent, so
-        those keep using the connector-config path (with the catalog's topic list
-        narrowing the candidate set).
+        this is exact where the config-matching path is a prediction. Source connectors
+        only: sink connectors keep using the connector-config path. When the live cluster
+        topic list is available, catalog topics absent from that list are dropped.
         """
         if not catalog_connector or not self.config.confluent_catalog.include_lineage:
             return []
@@ -290,6 +293,22 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         topics = catalog_connector.get_topic_names()
         if not topics:
             return []
+
+        # Only cross-check when the live list was retrieved. An empty list is
+        # also what `_get_all_topics_from_kafka_api` returns on API failure, so
+        # treating [] as authoritative would silently drop all catalog lineage.
+        if all_cluster_topics:
+            cluster_topic_set = set(all_cluster_topics)
+            missing = [topic for topic in topics if topic not in cluster_topic_set]
+            if missing:
+                self.report.warning(
+                    message="Ignoring Stream Catalog lineage topics that are not present on "
+                    "the live Kafka cluster",
+                    context=f"connector={connector_manifest.name}, topics={missing}",
+                )
+                topics = [topic for topic in topics if topic in cluster_topic_set]
+            if not topics:
+                return []
 
         self.report.catalog_lineage_connectors += 1
         logger.debug(
@@ -321,11 +340,24 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not properties:
             return
 
-        # Catalog attributes win over raw connector-config properties.
-        connector_manifest.flow_property_bag = {
-            **(connector_manifest.flow_property_bag or {}),
-            **properties,
-        }
+        # Same policy as the Kafka source: connector-config properties win over
+        # catalog attributes when names collide.
+        existing = connector_manifest.flow_property_bag or {}
+        collisions = sorted(properties.keys() & existing.keys())
+        if collisions:
+            self.report.warning(
+                message="Ignoring Stream Catalog business metadata attributes whose names "
+                "collide with connector config properties. Rename the attributes in "
+                "Confluent to emit them.",
+                context=f"connector={connector_manifest.name}, attributes={collisions}",
+            )
+            properties = {
+                name: value
+                for name, value in properties.items()
+                if name not in existing
+            }
+        if properties:
+            connector_manifest.flow_property_bag = {**existing, **properties}
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest

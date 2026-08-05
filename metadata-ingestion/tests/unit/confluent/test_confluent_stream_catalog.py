@@ -1,5 +1,5 @@
 from typing import Dict, List, Mapping, Optional, Sequence
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
@@ -263,6 +263,33 @@ class TestConfluentStreamCatalogClient:
         assert fetch(client) == []
         assert len(client.report.warnings) == 1
 
+    def test_non_object_page_items_do_not_end_pagination_early(self) -> None:
+        client = make_client(
+            [
+                make_response([{"name": "topic_0"}, "not-an-object"]),
+                make_response([{"name": "topic_1"}]),
+            ],
+            page_size=2,
+        )
+
+        assert [entity.name for entity in fetch(client)] == ["topic_0", "topic_1"]
+        assert any(
+            "non-object" in warning.message for warning in client.report.warnings
+        )
+
+    def test_pagination_stops_at_the_page_safety_limit(self) -> None:
+        full_page = make_response([{"name": f"topic_{i}"} for i in range(2)])
+        client = make_client([full_page] * 3, page_size=2)
+
+        with patch(
+            "datahub.ingestion.source.confluent.client.MAX_CATALOG_PAGES",
+            2,
+        ):
+            entities = fetch(client)
+
+        assert len(entities) == 4
+        assert len(client.report.failures) == 1
+
 
 class TestCatalogEntityHelpers:
     def test_business_metadata_values_are_stringified_and_blanks_dropped(self) -> None:
@@ -303,6 +330,28 @@ class TestCatalogEntityHelpers:
         assert index.get("ORDERS") is None
         assert sorted(index.ambiguous) == ["orders"]
         assert index.get("payments") is not None
+
+    def test_case_variant_names_stay_exact_but_block_insensitive_lookup(self) -> None:
+        index = index_by_name(
+            [
+                SampleEntity(name="Orders", logical_cluster_id="lkc-1"),
+                SampleEntity(name="orders", logical_cluster_id="lkc-2"),
+            ]
+        )
+
+        assert index.get("Orders") is not None
+        assert index.get("orders") is not None
+        assert index.get("ORDERS") is None
+        assert sorted(index.case_ambiguous) == ["orders"]
+        assert index.ambiguous == {}
+
+    def test_empty_names_are_counted(self) -> None:
+        index = index_by_name(
+            [SampleEntity(name=""), SampleEntity(name="orders"), SampleEntity(name="")]
+        )
+
+        assert index.empty_name_count == 2
+        assert index.get("orders") is not None
 
     def test_index_keeps_subclass_fields(self) -> None:
         index = index_by_name([SampleEntity(name="orders", logical_cluster_id="lkc-1")])

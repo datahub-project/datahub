@@ -9,6 +9,7 @@ from datahub.ingestion.source.confluent.constants import (
     DATA_KEY,
     ERRORS_KEY,
     LIMIT_PLACEHOLDER,
+    MAX_CATALOG_PAGES,
     MAX_ERROR_BODY_CHARS,
     MESSAGE_KEY,
     OFFSET_PLACEHOLDER,
@@ -16,6 +17,12 @@ from datahub.ingestion.source.confluent.constants import (
 from datahub.ingestion.source.confluent.models import CatalogEntityType
 
 logger = logging.getLogger(__name__)
+
+
+class _CatalogPage:
+    def __init__(self, items: List[Dict[str, object]], raw_count: int) -> None:
+        self.items = items
+        self.raw_count = raw_count
 
 
 class ConfluentStreamCatalogClient:
@@ -66,9 +73,20 @@ class ConfluentStreamCatalogClient:
 
         entities: List[CatalogEntityType] = []
         offset = 0
+        pages = 0
 
         while True:
+            if pages >= MAX_CATALOG_PAGES:
+                self.report.failure(
+                    message="Stopped Confluent Stream Catalog pagination after hitting the "
+                    "page safety limit; the catalog may be ignoring the offset parameter",
+                    context=f"entity={root_key}, pages={pages}, entities_retrieved={len(entities)}, "
+                    f"page_size={self.config.page_size}",
+                )
+                break
+
             page = self._fetch_page(query, root_key, offset)
+            pages += 1
             if page is None:
                 if entities:
                     self.report.warning(
@@ -79,12 +97,21 @@ class ConfluentStreamCatalogClient:
                     )
                 break
 
-            for payload in page:
+            if page.raw_count > len(page.items):
+                self.report.warning(
+                    message="Skipped non-object entries in a Confluent Stream Catalog page",
+                    context=f"entity={root_key}, offset={offset}, "
+                    f"raw_count={page.raw_count}, object_count={len(page.items)}",
+                )
+
+            for payload in page.items:
                 entity = self._parse_entity(payload, root_key, model)
                 if entity is not None:
                     entities.append(entity)
 
-            if len(page) < self.config.page_size:
+            # Use the unfiltered API page length so a malformed item cannot look
+            # like the final short page and truncate remaining results.
+            if page.raw_count < self.config.page_size:
                 break
             offset += self.config.page_size
 
@@ -95,7 +122,7 @@ class ConfluentStreamCatalogClient:
 
     def _fetch_page(
         self, query: str, root_key: str, offset: int
-    ) -> Optional[List[Dict[str, object]]]:
+    ) -> Optional[_CatalogPage]:
         inline_query = query.replace(
             LIMIT_PLACEHOLDER, str(self.config.page_size)
         ).replace(OFFSET_PLACEHOLDER, str(offset))
@@ -141,7 +168,7 @@ class ConfluentStreamCatalogClient:
 
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
-            return []
+            return _CatalogPage([], 0)
 
         if root_key not in data:
             self.report.failure(
@@ -152,9 +179,10 @@ class ConfluentStreamCatalogClient:
 
         entities = data.get(root_key)
         if not isinstance(entities, list):
-            return []
+            return _CatalogPage([], 0)
 
-        return [item for item in entities if isinstance(item, dict)]
+        items = [item for item in entities if isinstance(item, dict)]
+        return _CatalogPage(items, len(entities))
 
     def _parse_entity(
         self,

@@ -46,20 +46,27 @@ class CatalogEntity(CatalogModel):
 CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
 
-# Dataclass, not pydantic: a generic BaseModel re-validates against the TypeVar
-# bound and strips subclass fields.
-@dataclass
+@dataclass(frozen=True)
 class NameIndex(Generic[CatalogEntityType]):
-    # Names the catalog reports more than once go in `ambiguous` rather than
-    # last-write-wins.
+    # Exact-name duplicates go in `ambiguous`. Names that only collide when
+    # lowercased go in `case_ambiguous` so case-insensitive lookup cannot pick
+    # a winner silently; exact-case lookups still use `by_name`.
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
-    _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False)
+    case_ambiguous: Dict[str, List[CatalogEntityType]] = field(default_factory=dict)
+    empty_name_count: int = 0
+    _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._by_lowered_name = {
-            name.lower(): entity for name, entity in self.by_name.items()
-        }
+        object.__setattr__(
+            self,
+            "_by_lowered_name",
+            {
+                name.lower(): entity
+                for name, entity in self.by_name.items()
+                if name.lower() not in self.case_ambiguous
+            },
+        )
 
     def get(self, name: str) -> Optional[CatalogEntityType]:
         entity = self.by_name.get(name)
@@ -72,19 +79,34 @@ def index_by_name(
     entities: Sequence[CatalogEntityType],
 ) -> NameIndex[CatalogEntityType]:
     grouped: Dict[str, List[CatalogEntityType]] = defaultdict(list)
+    empty_name_count = 0
     for entity in entities:
         if entity.name:
             grouped[entity.name].append(entity)
+        else:
+            empty_name_count += 1
+
+    by_name = {
+        name: candidates[0]
+        for name, candidates in grouped.items()
+        if len(candidates) == 1
+    }
+    ambiguous = {
+        name: candidates for name, candidates in grouped.items() if len(candidates) > 1
+    }
+
+    lowered_groups: Dict[str, List[CatalogEntityType]] = defaultdict(list)
+    for entity in by_name.values():
+        lowered_groups[entity.name.lower()].append(entity)
+    case_ambiguous = {
+        lowered: candidates
+        for lowered, candidates in lowered_groups.items()
+        if len(candidates) > 1
+    }
 
     return NameIndex(
-        by_name={
-            name: candidates[0]
-            for name, candidates in grouped.items()
-            if len(candidates) == 1
-        },
-        ambiguous={
-            name: candidates
-            for name, candidates in grouped.items()
-            if len(candidates) > 1
-        },
+        by_name=by_name,
+        ambiguous=ambiguous,
+        case_ambiguous=case_ambiguous,
+        empty_name_count=empty_name_count,
     )

@@ -52,18 +52,32 @@ class ConnectorCatalog:
                 CONNECTOR_CATALOG_QUERY, CONNECTOR_ROOT_KEY, CatalogConnector
             )
             index = index_by_name(connectors)
-            for name in index.ambiguous:
-                self.report.warning(
-                    message="Skipping Stream Catalog metadata for a connector name that the "
-                    "catalog reports more than once in this environment.",
-                    context=f"connector={name}",
-                )
+            self._report_index_issues(index)
             self._connectors = index
             self.report.catalog_connectors_fetched = len(index.by_name)
         return self._connectors
 
     def get_connector(self, connector_name: str) -> Optional[CatalogConnector]:
         return self.get_connectors().get(connector_name)
+
+    def _report_index_issues(self, index: NameIndex[CatalogConnector]) -> None:
+        if index.empty_name_count:
+            self.report.warning(
+                message="Skipped Stream Catalog connectors that had an empty name",
+                context=f"count={index.empty_name_count}",
+            )
+        for name in index.ambiguous:
+            self.report.warning(
+                message="Skipping Stream Catalog metadata for a connector name that the "
+                "catalog reports more than once in this environment.",
+                context=f"connector={name}",
+            )
+        for lowered, candidates in index.case_ambiguous.items():
+            self.report.warning(
+                message="Case-insensitive Stream Catalog connector lookup is disabled for a "
+                "name that matches more than one catalog entity; exact-case lookups still work",
+                context=f"name={lowered}, variants={sorted(c.name for c in candidates)}",
+            )
 
     def close(self) -> None:
         self.client.close()
