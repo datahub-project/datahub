@@ -17,6 +17,9 @@ source:
     profiling:
       enabled: true
       profile_table_level_only: true
+    # BigQuery Sharing (Analytics Hub linked datasets)
+    # include_linked_datasets: false             # Detect Analytics Hub linked datasets and emit them with subtype "Linked Dataset"
+    # include_linked_dataset_lineage: true       # Emit Siblings + UpstreamLineage from each linked dataset's tables to the publisher's tables. Only takes effect when include_linked_datasets is true.
 
 sink:
   # sink configs

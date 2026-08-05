@@ -65,6 +65,25 @@ Without this permission, you'll encounter errors when the connector tries to acc
 
 :::
 
+##### BigQuery Sharing (Linked Datasets) Requirements
+
+These permissions are only required when you enable `include_linked_datasets`. They let DataHub identify Analytics Hub linked datasets in your subscriber projects and resolve the publisher's source dataset for lineage.
+
+**1. Grant the following permissions on every subscriber project that holds linked dataset subscriptions:**
+
+| Permission                        | Description                                                                          | Default GCP role containing this permission                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `analyticshub.subscriptions.list` | List Analytics Hub subscriptions held by the subscriber project at a given location. | [roles/analyticshub.subscriptionOwner](https://cloud.google.com/bigquery/docs/access-control#analyticshub.subscriptionOwner) |
+| `analyticshub.subscriptions.get`  | Read each subscription's listing, state, and destination dataset reference.          | [roles/analyticshub.subscriptionOwner](https://cloud.google.com/bigquery/docs/access-control#analyticshub.subscriptionOwner) |
+
+For least privilege, you can create a custom role containing only these two permissions instead of granting `roles/analyticshub.subscriptionOwner`. Neither `roles/analyticshub.viewer` nor `roles/analyticshub.subscriber` includes `subscriptions.list`.
+
+**2. Grant `resourcemanager.projects.get` on each publisher project:**
+
+DataHub resolves the publisher's project number to a project ID via Cloud Resource Manager so that lineage URNs match the publisher project's other DataHub entities. The connector's basic requirements already grant this permission on the projects you extract metadata from — but for linked dataset lineage you also need it on **publisher** projects, even if those projects are not in your `project_ids` list and you have no other read access to them.
+
+If `resourcemanager.projects.get` is not granted on a publisher project, lineage emission is skipped for subscriptions referencing that publisher and a structured warning is reported. The linked dataset itself is still ingested with its governance metadata; only the cross-project Sibling and UpstreamLineage edges are omitted.
+
 #### Create a service account in the Extractor Project
 
 1. Create a service account following [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the custom role created above

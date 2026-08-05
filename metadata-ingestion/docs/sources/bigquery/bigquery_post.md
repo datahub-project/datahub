@@ -152,9 +152,43 @@ You can set partition explicitly with `partition.partition_datetime` property if
 
 - For materialized views, lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.
 
+#### BigQuery Sharing (Linked Datasets)
+
+When you enable `include_linked_datasets`, DataHub identifies datasets in your subscriber projects that are Analytics Hub linked datasets — read-only mirrors of a publisher's source dataset — and surfaces them as a distinct subtype with cross-project lineage to the publisher.
+
+For each linked dataset, the connector emits:
+
+- A container with subtype `Linked Dataset` instead of `Dataset`.
+- Governance metadata captured from Analytics Hub on the container's custom properties: source publisher project and dataset, listing or data exchange the subscription is bound to, subscription state (`STATE_ACTIVE`, `STATE_STALE`, `STATE_INACTIVE`), publisher organization, and timestamps.
+
+For each table or view inside a linked dataset (when `include_linked_dataset_lineage` is also enabled, the default):
+
+- A `Siblings` aspect linking the consumer table or view to the publisher's table or view as siblings. The consumer side is marked non-primary so that, when the publisher project is also ingested, its native emission becomes the primary sibling automatically.
+- An `UpstreamLineage` aspect with a `COPY`-type edge from the publisher to the consumer, plus per-column `FineGrainedLineage` entries. Linked datasets mirror the publisher byte-identically, so column lineage is 1:1 by name and respects `convert_column_urns_to_lowercase`.
+
+If the publisher project has not been ingested into DataHub, lineage edges still emit and the publisher entity appears as a placeholder until the publisher project is ingested.
+
+Subscriptions in `STATE_STALE` or `STATE_INACTIVE` are still ingested. The state lands in custom properties so you can filter on it downstream.
+
+**Configuration:**
+
+```yaml
+source:
+  type: bigquery
+  config:
+    include_linked_datasets: true # Default false. Detect linked datasets and override their subtype.
+    include_linked_dataset_lineage: true # Default true. Only takes effect when include_linked_datasets is true.
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+The BigQuery Sharing integration in particular has the following limitations:
+
+- **Pub/Sub linked resources are not handled.** Only Analytics Hub subscriptions whose `resource_type` is `BIGQUERY_DATASET` are processed.
+- **Lineage is skipped when `resourcemanager.projects.get` is denied on a publisher project.** The linked dataset is still ingested, but no Sibling or UpstreamLineage edges are emitted for that subscription. See the prerequisites section for details.
+- **Subtype reclassification happens on the next run.** If a dataset was previously ingested as a regular `Dataset` and you later enable `include_linked_datasets`, the next ingestion run reclassifies it to `Linked Dataset` via standard UPSERT semantics. No manual migration is needed.
 
 ### Troubleshooting
 
