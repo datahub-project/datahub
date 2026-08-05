@@ -108,4 +108,45 @@ public class LocalObjectStorageClientTest {
     assertThrows(
         IllegalStateException.class, () -> client.putObject("exports/out.bin", new byte[] {1}));
   }
+
+  @Test
+  public void testGetObjectAsStringReadsWhatWasWritten() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+    client.putObject("matrix.json", "{\"1.5.0\":{}}".getBytes());
+
+    assertEquals(client.getObjectAsString("matrix.json"), "{\"1.5.0\":{}}");
+  }
+
+  @Test
+  public void testGetObjectAsStringMissingFileThrowsNoSuchFile() throws Exception {
+    // ObjectStorageMatrixDocumentReader.classify() matches on
+    // java.nio.file.NoSuchFileException specifically, so the wrapped read must surface it as the
+    // cause rather than a generic IOException.
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    try {
+      client.getObjectAsString("missing.json");
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertTrue(e.getCause() instanceof java.nio.file.NoSuchFileException);
+    }
+  }
+
+  @Test
+  public void testGetObjectAsStringRejectsTraversal() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertThrows(
+        ObjectStoragePathException.class,
+        () -> client.getObjectAsString("exports/../outside.json"));
+  }
+
+  @Test
+  public void testGetObjectAsStringRejectsUnconfiguredRoot() {
+    LocalObjectStorageClient client = new LocalObjectStorageClient(null);
+    assertThrows(IllegalStateException.class, () -> client.getObjectAsString("matrix.json"));
+  }
 }

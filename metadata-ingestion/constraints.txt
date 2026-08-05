@@ -284,7 +284,7 @@ cramjam==2.11.0
     #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==48.0.1
+cryptography==50.0.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -852,7 +852,7 @@ more-itertools==10.8.0
     #   simple-salesforce
 moto==5.1.22
     # via acryl-datahub
-msal==1.35.1
+msal==1.37.0
     # via
     #   acryl-datahub
     #   azure-datalake-store
@@ -1200,7 +1200,7 @@ pymysql==1.1.2
     #   starrocks
 pyodbc==5.3.0
     # via acryl-datahub
-pyopenssl==26.2.0
+pyopenssl==26.4.0
     # via
     #   acryl-datahub
     #   snowflake-connector-python

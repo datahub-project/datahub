@@ -81,6 +81,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     dataTestId,
     visibilityDeps,
     placement = 'bottomLeft',
+    defaultOpen = false,
     renderSelectBase,
     renderOptionsFooter,
     emptyState,
@@ -98,7 +99,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
         isVisible,
         close: closeDropdown,
         toggle: toggleDropdown,
-    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
+    } = useSelectDropdown(defaultOpen, selectRef, dropdownRef, visibilityDeps);
     const [areAllSelected, setAreAllSelected] = useState(false);
     const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
 
