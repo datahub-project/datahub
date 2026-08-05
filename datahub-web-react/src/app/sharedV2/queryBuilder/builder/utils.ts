@@ -19,6 +19,8 @@ function mapOperator(operator: string): FilterOperator {
         equals: FilterOperator.Equal,
         equal: FilterOperator.Equal,
         exists: FilterOperator.Exists,
+        within: FilterOperator.DescendantsIncl,
+        descendantsincl: FilterOperator.DescendantsIncl,
         greaterthan: FilterOperator.GreaterThan,
         greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
         in: FilterOperator.In,

@@ -340,5 +340,72 @@
         ]
       }
     }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightGlossaryTermProfileTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightGlossaryTermProfileTag",
+              "description": "Tag used to assign/unassign on a glossary term profile in Playwright"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightGlossaryTermTests.PlaywrightTaggableTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Term used to verify tagging on glossary term profile",
+              "name": "PlaywrightTaggableTerm",
+              "parentNode": "urn:li:glossaryNode:PlaywrightGlossaryTermTests",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:PlaywrightGlossaryNodeProfileTag",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "PlaywrightGlossaryNodeProfileTag",
+              "description": "Tag used to assign/unassign on a glossary node profile in Playwright"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightGlossaryTermTests.PlaywrightTaggableTermGroup",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Term group used to verify tagging on glossary node profile",
+              "name": "PlaywrightTaggableTermGroup",
+              "parentNode": "urn:li:glossaryNode:PlaywrightGlossaryTermTests"
+            }
+          }
+        ]
+      }
+    }
   }
 ]

@@ -49,7 +49,7 @@ dependencies = [
     "docker<8.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "humanfriendly<11.0.0",
-    "ijson<4.0.0",
+    "ijson>=3.2.0,<4.0.0",
     "jsonref<2.0.0",
     "jsonschema<5.0.0",
     "mixpanel>=4.9.0,<6.0.0",
@@ -253,6 +253,7 @@ confluence = [
     "graphql-core>=3.0.0,<4.0.0",
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
+    "nltk<3.10.1",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -298,6 +299,7 @@ datahub-documents = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
+    "nltk<3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -481,7 +483,7 @@ feast = [
 
 fivetran = [
     "cachetools<6.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "google-cloud-bigquery<4.0.0",
@@ -764,6 +766,7 @@ notion = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
+    "nltk<3.10.1",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -855,14 +858,6 @@ presto-on-hive = [
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
-]
-
-profiling-ge = [
-    "acryl-great-expectations==0.15.50.1",
-    "IPython!=8.22.0,<9.0.0",
-    "jupyter_server>=2.14.1,<3.0.0",
-    "scipy>=1.7.2,<2.0.0",
-    "traitlets!=5.2.2,<6.0.0",
 ]
 
 pulsar = [
@@ -987,7 +982,7 @@ snaplogic = []
 
 snowflake = [
     "cachetools<6.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
@@ -1001,7 +996,7 @@ snowflake = [
 
 snowflake-queries = [
     "cachetools<6.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
@@ -1015,7 +1010,7 @@ snowflake-queries = [
 
 snowflake-slim = [
     "cachetools<6.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
@@ -1025,7 +1020,7 @@ snowflake-slim = [
 
 snowflake-summary = [
     "cachetools<6.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
@@ -1160,6 +1155,7 @@ unstructured = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
+    "nltk<3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1180,7 +1176,6 @@ vertica = [
 
 # All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
 all = [
-    "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
@@ -1196,7 +1191,7 @@ all = [
     "cassandra-driver>=3.28.0,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
@@ -1230,11 +1225,9 @@ all = [
     "grpcio>=1.44.0,<2.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
-    "IPython!=8.22.0,<9.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
-    "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "lkml>=1.3.4,<2.0.0",
@@ -1247,6 +1240,7 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "nltk<3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
@@ -1275,7 +1269,6 @@ all = [
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
-    "scipy>=1.7.2,<2.0.0",
     "setuptools<82",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
@@ -1299,7 +1292,6 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
-    "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
@@ -1339,7 +1331,7 @@ dev = [
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1380,7 +1372,7 @@ dev = [
     "grpcio>=1.44.0,<2.0.0",
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
-    "ijson<4.0.0",
+    "ijson>=3.2.0,<4.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1401,6 +1393,7 @@ dev = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "nltk<3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "oracledb<4.0.0",
@@ -1530,7 +1523,7 @@ docs = [
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
     "cramjam>=2.8.0,<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",
+    "cryptography>=49.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1571,7 +1564,7 @@ docs = [
     "grpcio>=1.44.0,<2.0.0",
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
-    "ijson<4.0.0",
+    "ijson>=3.2.0,<4.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1592,6 +1585,7 @@ docs = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "nltk<3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "oracledb<4.0.0",

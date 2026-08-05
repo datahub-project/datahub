@@ -69,6 +69,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -173,6 +174,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @VisibleForTesting @Getter private final EventProducer producer;
   private RetentionService<ChangeItemImpl> retentionService;
+  // Post-commit retention path only; NO_OP keeps the existing sync-DELETE behavior unchanged.
+  private RetentionBuffer retentionBuffer = RetentionBuffer.NO_OP;
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
@@ -182,6 +185,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  // When true, retention runs after upsert commit (best-effort). When false, legacy in-tx path.
+  private final boolean postCommitRetentionEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
 
   @Getter
@@ -201,6 +206,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -219,6 +225,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -237,6 +244,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -248,6 +256,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
       final boolean enableBrowseV2,
+      final boolean postCommitRetentionEnabled,
       @javax.annotation.Nullable
           final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
@@ -258,6 +267,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+    this.postCommitRetentionEnabled = postCommitRetentionEnabled;
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
@@ -972,45 +982,54 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     List<UpdateAspectResult> updateAspectResults;
 
     List<MCLEmitResult> mclEmitResults;
-    if (!cdcModeChangeLog && emitMCL) {
-      mclEmitResults = produceMCLAsync(opContext, mcls);
-    } else {
-      // This results in pre-process being called here that may be potentially out-of-order.
-      // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
-      // will result in pre-process being called again potentially overwriting this first
-      // preprocess result.
-      mclEmitResults =
-          mcls.stream()
-              .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
-              .map(
-                  preprocessResult ->
-                      MCLEmitResult.builder()
-                          .emitted(false)
-                          .processedMCL(preprocessResult.getFirst())
-                          .mclFuture(null)
-                          .metadataChangeLog(preprocessResult.getSecond())
-                          .build())
+    try {
+      if (!cdcModeChangeLog && emitMCL) {
+        mclEmitResults = produceMCLAsync(opContext, mcls);
+      } else {
+        // This results in pre-process being called here that may be potentially out-of-order.
+        // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
+        // will result in pre-process being called again potentially overwriting this first
+        // preprocess result.
+        mclEmitResults =
+            mcls.stream()
+                .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
+                .map(
+                    preprocessResult ->
+                        MCLEmitResult.builder()
+                            .emitted(false)
+                            .processedMCL(preprocessResult.getFirst())
+                            .mclFuture(null)
+                            .metadataChangeLog(preprocessResult.getSecond())
+                            .build())
+                .collect(Collectors.toList());
+      }
+      updateAspectResults =
+          IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+              .mapToObj(
+                  i -> {
+                    UpdateAspectResult updateAspectResult =
+                        ingestResults.getUpdateAspectResults().get(i);
+                    MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                    return updateAspectResult.toBuilder()
+                        .mclFuture(mclEmitResult.getMclFuture())
+                        .processedMCL(mclEmitResult.isProcessedMCL())
+                        .build();
+                  })
               .collect(Collectors.toList());
+
+      // Produce FailedMCPs for tracing
+      produceFailedMCPs(opContext, ingestResults);
+
+      invalidateEntityGraphCacheOnSyncIngest(
+          opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
+    } finally {
+      // Retention is best-effort cleanup keyed only on the committed upsert results, not on MCL
+      // output. Run it in a finally so a failure emitting MCLs / running side effects — all of
+      // which happen after the upsert has already committed — cannot skip the prune (legacy in-tx
+      // retention ran before MCL work; post-commit must not regress that). applyRetentionPostCommit
+      // never throws (its own outer try/catch), so it cannot mask an in-flight exception here.
+      applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
     }
-    updateAspectResults =
-        IntStream.range(0, ingestResults.getUpdateAspectResults().size())
-            .mapToObj(
-                i -> {
-                  UpdateAspectResult updateAspectResult =
-                      ingestResults.getUpdateAspectResults().get(i);
-                  MCLEmitResult mclEmitResult = mclEmitResults.get(i);
-                  return updateAspectResult.toBuilder()
-                      .mclFuture(mclEmitResult.getMclFuture())
-                      .processedMCL(mclEmitResult.isProcessedMCL())
-                      .build();
-                })
-            .collect(Collectors.toList());
-
-    // Produce FailedMCPs for tracing
-    produceFailedMCPs(opContext, ingestResults);
-
-    invalidateEntityGraphCacheOnSyncIngest(
-        opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
 
     return updateAspectResults;
   }
@@ -1024,6 +1043,118 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             opContext, preProcessHooks, aspectsBatch, updateResults);
     if (!batch.isEmpty()) {
       opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
+    }
+  }
+
+  /**
+   * Builds retention contexts from upsert results. Previous version existence is implied by
+   * oldValue != null.
+   *
+   * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
+   *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
+   *     (post-commit path), no such restriction is applied since that snapshot isn't available
+   *     outside the transaction.
+   */
+  private List<RetentionService.RetentionContext> buildRetentionContexts(
+      List<UpdateAspectResult> upsertResults,
+      @Nullable Map<String, Map<String, SystemAspect>> updatedLatestAspects) {
+    return upsertResults.stream()
+        .filter(
+            r ->
+                updatedLatestAspects == null
+                    || (updatedLatestAspects.containsKey(r.getUrn().toString())
+                        && updatedLatestAspects
+                            .get(r.getUrn().toString())
+                            .containsKey(r.getRequest().getAspectName())))
+        .filter(
+            r -> {
+              RecordTemplate oldAspect = r.getOldValue();
+              return oldAspect != r.getNewValue() && oldAspect != null;
+            })
+        .map(
+            r ->
+                RetentionService.RetentionContext.builder()
+                    .urn(r.getUrn())
+                    .aspectName(r.getRequest().getAspectName())
+                    .maxVersion(Optional.of(r.getMaxVersion()))
+                    .build())
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Best-effort retention applied AFTER the upsert transaction commits. Failures are logged and
+   * metric'd; they never throw, never retry, never poison the ingest batch. Only runs when
+   * postCommitRetentionEnabled is true.
+   *
+   * <p>When a {@link RetentionBuffer} is wired and {@link RetentionBuffer#defersApply()} returns
+   * true, retention keys are coalesced into the buffer for a background {@code RetentionDrainer} to
+   * apply asynchronously. Otherwise (no buffer, i.e. {@link RetentionBuffer#NO_OP}), this falls
+   * back to the original synchronous DELETE loop below.
+   */
+  @VisibleForTesting
+  void applyRetentionPostCommit(
+      @Nonnull OperationContext opContext, @Nonnull List<UpdateAspectResult> upsertResults) {
+    if (!postCommitRetentionEnabled) {
+      return;
+    }
+    if (retentionService == null) {
+      log.warn("Retention service is missing!");
+      return;
+    }
+    // Outer safety net: nothing in this method may propagate. The upsert has already committed,
+    // so a retention bug must never fail the ingest call.
+    try {
+      List<RetentionService.RetentionContext> retentionBatch =
+          // null updatedLatestAspects: post-commit has no in-tx snapshot; oldValue!=null filter
+          // below is the sole eligibility gate (intentional — see buildRetentionContexts javadoc).
+          buildRetentionContexts(upsertResults, null);
+      if (retentionBatch.isEmpty()) {
+        return;
+      }
+
+      if (retentionBuffer.defersApply()) {
+        for (RetentionService.RetentionContext ctx : retentionBatch) {
+          retentionBuffer.enqueue(
+              ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
+        }
+        return;
+      }
+
+      opContext.withSpan(
+          "retentionPostCommit",
+          () -> {
+            // Per-context try/catch: one bad DELETE must not abort the rest of the cleanup.
+            for (RetentionService.RetentionContext ctx : retentionBatch) {
+              try {
+                retentionService.applyRetentionWithPolicyDefaults(opContext, List.of(ctx));
+              } catch (Exception e) {
+                // TODO: no retention_dlq table yet; do not claim DLQ. FMCP is for failed MCPs
+                // only, not retention prune. For now: log + metric only.
+                log.warn(
+                    "Post-commit retention failed for urn={} aspect={}; recorded metric only (no"
+                        + " DLQ yet). Upsert already committed; no data loss.",
+                    ctx.getUrn(),
+                    ctx.getAspectName(),
+                    e);
+                opContext
+                    .getMetricUtils()
+                    .ifPresent(
+                        m ->
+                            m.increment(
+                                EntityServiceImpl.class, "post_commit_retention_failed", 1));
+              }
+            }
+          },
+          BATCH_SIZE_ATTR,
+          String.valueOf(retentionBatch.size()));
+    } catch (Exception e) {
+      log.warn(
+          "Post-commit retention batch failed unexpectedly; upsert already committed; no data"
+              + " loss.",
+          e);
+      opContext
+          .getMetricUtils()
+          .ifPresent(m -> m.increment(EntityServiceImpl.class, "post_commit_retention_failed", 1));
     }
   }
 
@@ -1107,6 +1238,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                           final Map<String, Set<String>> urnAspects =
                               batchWithDefaults.getUrnAspectsMap();
+
+                          // Opt-in Postgres per-entity write serialization (advisory lock), taken
+                          // before any row locks so this write serializes against a concurrent
+                          // hard-delete on the same entity. No-op unless enabled on a Postgres
+                          // store.
+                          aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
 
                           // read #1
                           // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
@@ -1384,59 +1521,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               }
                             }
 
-                            // Retention optimization and tx
-                            if (retentionService != null) {
+                            // Retention optimization and tx (legacy path when flag OFF)
+                            if (!postCommitRetentionEnabled && retentionService != null) {
                               opContext.withSpan(
                                   "retentionService",
                                   () -> {
                                     List<RetentionService.RetentionContext> retentionBatch =
-                                        upsertResults.stream()
-                                            // Only consider retention when there was a previous
-                                            // version
-                                            .filter(
-                                                upsertResult ->
-                                                    updatedLatestAspects.containsKey(
-                                                            upsertResult.getUrn().toString())
-                                                        && updatedLatestAspects
-                                                            .get(upsertResult.getUrn().toString())
-                                                            .containsKey(
-                                                                upsertResult
-                                                                    .getRequest()
-                                                                    .getAspectName()))
-                                            .filter(
-                                                upsertResult -> {
-                                                  RecordTemplate oldAspect =
-                                                      upsertResult.getOldValue();
-                                                  RecordTemplate newAspect =
-                                                      upsertResult.getNewValue();
-                                                  // Apply retention policies if there was an update
-                                                  // to
-                                                  // existing
-                                                  // aspect
-                                                  // value
-                                                  return oldAspect != newAspect
-                                                      && oldAspect != null
-                                                      && retentionService != null;
-                                                })
-                                            .map(
-                                                upsertResult ->
-                                                    RetentionService.RetentionContext.builder()
-                                                        .urn(upsertResult.getUrn())
-                                                        .aspectName(
-                                                            upsertResult
-                                                                .getRequest()
-                                                                .getAspectName())
-                                                        .maxVersion(
-                                                            Optional.of(
-                                                                upsertResult.getMaxVersion()))
-                                                        .build())
-                                            .collect(Collectors.toList());
+                                        buildRetentionContexts(upsertResults, updatedLatestAspects);
                                     retentionService.applyRetentionWithPolicyDefaults(
                                         opContext, retentionBatch);
                                   },
                                   BATCH_SIZE_ATTR,
                                   String.valueOf(upsertResults.size()));
-                            } else {
+                            } else if (!postCommitRetentionEnabled) {
                               log.warn("Retention service is missing!");
                             }
                           } else {
@@ -2775,6 +2872,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public void setRetentionService(RetentionService<ChangeItemImpl> retentionService) {
     this.retentionService = retentionService;
+  }
+
+  /**
+   * Not part of the {@link EntityService} interface (avoids a circular dependency between
+   * metadata-service/services and metadata-io, where {@link RetentionBuffer} lives). Wired by
+   * {@code EntityServiceFactory} via {@code ObjectProvider.getIfAvailable()}; a null (no buffer
+   * bean) is normalized to {@link RetentionBuffer#NO_OP} so callers never see null.
+   */
+  public void setRetentionBuffer(@Nullable RetentionBuffer retentionBuffer) {
+    this.retentionBuffer = retentionBuffer != null ? retentionBuffer : RetentionBuffer.NO_OP;
   }
 
   @Override

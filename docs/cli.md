@@ -1063,11 +1063,22 @@ Telemetry is enabled by default, and the `telemetry` command lets you toggle the
 
 The `migrate` group of commands allows you to perform certain kinds of migrations.
 
+All migration commands share the same engine, so they behave consistently:
+
+- **All aspects are migrated.** The set of aspects carried to the new URN is sourced from the
+  entity registry, so every user-authored aspect (ownership, tags, glossary terms, documentation,
+  structured properties, and so on) is transferred — not a fixed subset. Timeseries aspects (usage
+  statistics, profiles) and system-managed aspects (browse paths, incidents summary) are not
+  migrated.
+- **All incoming references are repointed.** Every entity that references a migrated URN via a
+  modeled relationship — lineage, dashboard/chart references, **assertions**, etc. — is updated to
+  point at the new URN, table- and column-level.
+
 #### dataplatform2instance
 
 The `dataplatform2instance` migration command allows you to migrate your entities from an instance-agnostic platform identifier to an instance-specific platform identifier. If you have ingested metadata in the past for this platform and would like to transfer any important metadata over to the new instance-specific entities, then you should use this command. For example, if your users have added documentation or added tags or terms to your datasets, then you should run this command to transfer this metadata over to the new entities. For further context, read the Platform Instance Guide [here](./platform-instances.md).
 
-This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers.
+This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers — together with all of their (registry-defined) aspects.
 
 Options:
 
@@ -1078,9 +1089,10 @@ Options:
 - `--keep`: Preserve old entities instead of soft-deleting them.
 - `--hard`: Hard-delete old entities instead of soft-delete.
 - `--env`: The environment/fabric to filter on (default: `PROD`).
-- `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, or `prompt`.
+- `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations. Already-migrated source URNs are read from this file and skipped; newly migrated URNs are appended on success. The file is created automatically on first write. Not written during `--dry-run`; errored pairs (under `--skip-on-error`) are not checkpointed, so they retry on resume.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
@@ -1128,13 +1140,31 @@ The `instance2instance` migration command allows you to migrate entities from on
 
 Like `dataplatform2instance`, this command migrates datasets, charts, dashboards, dataflows, datajobs, and containers. It rewrites URNs by replacing the old instance prefix with the new one and updates all incoming relationships (lineage, dashboard references, etc.) to point to the new entities.
 
-When the target entity already exists, the command uses a merge strategy controlled by `--on-conflict`:
-
-- `patch` (default): Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
-- `overwrite`: Replace all target aspects with source values.
-- `prompt`: Ask interactively for each conflict.
+When the target entity already exists, the command uses a strategy controlled by `--on-conflict`
+(see [Conflict strategies](#conflict-strategies) below).
 
 **Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
+
+**Container limitation**: Containers are migrated via a separate legacy code path that always overwrites the target. `--on-conflict`, `--skip-on-error`, and `--checkpoint-file` apply only to the entity migration (datasets, charts, dashboards, dataflows, datajobs) — not to containers. In practice this is rarely an issue: containers are a small bounded set per migration and are typically re-created by ingestion.
+
+##### Conflict strategies
+
+`--on-conflict` controls what happens when the target URN already exists. It is available on all
+`migrate` commands.
+
+- `patch`: Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
+- `overwrite`: Replace conflicting target aspects with source values.
+- `prompt`: Ask interactively for each conflict.
+- `preserve`: Leave the existing target **completely untouched** (no additive merge, no overwrite). Incoming references are still repointed to the existing target and the source is still deleted (unless `--keep`) — i.e. the existing target is _adopted_ in place of the source. Use this when the target is authoritative and you only want to redirect references and retire the source.
+
+Defaults differ by command: `overwrite` for `dataplatform2instance`, `patch` for `instance2instance`, `overwrite` for `urns-mapping`.
+
+Regardless of the chosen strategy, the following aspects are **never overwritten** during a merge (i.e. when the target already exists):
+
+- **`status`**: The target's soft-delete state is authoritative. A soft-deleted source must not remove a live target.
+- **`container`**: The target's parent container is preserved. For `urns-mapping`, containers are not migrated, so the source's container reference may point at an entity that is about to be deleted. For `dataplatform2instance` / `instance2instance`, the separate container migration step repoints container references via incoming-relationship rewriting.
+
+These aspects are still cloned normally when the target does not exist (the clone path).
 
 Options:
 
@@ -1146,9 +1176,10 @@ Options:
 - `--keep`: Preserve old entities instead of soft-deleting them.
 - `--hard`: Hard-delete old entities instead of soft-delete.
 - `--env`: The environment/fabric to filter on (default: `PROD`).
-- `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, or `prompt`.
+- `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations (see `dataplatform2instance` above).
 
 **⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
 
@@ -1214,6 +1245,112 @@ When migrating between instances, a safe approach is:
    ```
 3. **Verify** the new entities look correct in the DataHub UI.
 4. **Clean up** old entities manually with `datahub delete` if everything looks good.
+
+#### urns-mapping
+
+The `urns-mapping` command migrates entities using an **explicit source → target URN mapping** that
+you supply, rather than deriving targets from a platform-instance strategy. Use it for arbitrary URN
+moves that `dataplatform2instance` / `instance2instance` can't express — for example a bulk rename
+computed by an external process. It runs the same engine (clone all aspects, rewrite self- and
+incoming references, delete the source), so behavior matches the other commands.
+
+Options:
+
+- `--mapping-file` (required): Path to a JSON file of source → target pairs. Either a list of
+  objects, `[{"source": "urn:...", "target": "urn:..."}, ...]`, or a flat object,
+  `{"urn:src": "urn:tgt", ...}`.
+- `--dry-run` / `-n`, `--force` / `-F`, `--keep`, `--hard`, `--skip-on-error`, `--checkpoint-file`: as for the other commands.
+- `--on-conflict`: `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
+
+Each pair's source and target must be the **same entity type**. Unlike the instance-migration
+commands, `urns-mapping` does **not** stamp a `dataPlatformInstance` (a platform instance cannot be
+recovered from a target URN), does not migrate containers (see note below), and does not enforce
+dataFlow/dataJob parent-URN consistency — you own the exact mapping.
+
+**Containers are not migrated.** Container URNs are GUID-based (derived from a container key), so
+they cannot be included in a simple source → target mapping. The next ingestion run against the new
+names will re-create the containers automatically, but any user-authored governance metadata on the
+old containers (tags, terms, documentation, ownership) will be lost. `dataplatform2instance` and
+`instance2instance` handle container migration via a dedicated code path; adding container support
+to `urns-mapping` is a potential future enhancement.
+
+**Ordering across cross-referenced entities**: when a single mapping migrates entities that
+reference one another (e.g. a dashboard that consumes a dataset you are also migrating), list the
+**referenced** entity before the **referrer**. Incoming references are repointed using the
+relationship index, which only reflects references that existed before the run — so migrating the
+referenced entity first ensures the referrer is repointed and then carries the updated reference
+into its own migrated copy.
+
+**Large or complex migrations**: for big migrations, or reference graphs where clean
+referenced-before-referrer ordering isn't possible (bidirectional references, cycles), migrate in
+stages — e.g. one entity type at a time — with `--keep`, verifying (in the UI or via the graph API)
+that references have settled before running the next stage. Because a later stage's
+incoming-reference rewrite reads the relationship index, letting it catch up between stages lets that
+stage see the entities migrated earlier. Note this only helps references _across_ stages; references
+between two entities migrated in the **same** stage still rely on the ordering above, so keep
+mutually-referencing entities dependency-ordered within a stage.
+
+**Nested URNs — user responsibility**: some entity URNs embed another entity's URN as part of their
+identity. The migration engine does **not** automatically derive child mappings from parent mappings:
+
+- **dataFlow / dataJob**: a `dataJob` URN embeds its parent `dataFlow` URN
+  (`urn:li:dataJob:(urn:li:dataFlow:(...), jobId)`). When migrating a dataFlow, you **must** also
+  include mappings for its child dataJob URNs; otherwise the dataJob key aspects become inconsistent
+  with the entity URN. Automatic derivation of child URN mappings may be added in a future release.
+- **schemaField**: column-level metadata stored on the dataset's `editableSchemaMetadata` aspect
+  (tags, terms, descriptions applied via the UI) **is** migrated along with the dataset. However,
+  `schemaField` entities — which carry their own `globalTags`, `glossaryTerms`, and `documentation`
+  aspects — are **not** migrated by any migration command. These are typically re-created by the next
+  ingestion run against the new dataset name.
+
+Example `mapping.json` (list form):
+
+```json
+[
+  {
+    "source": "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)",
+    "target": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+  },
+  {
+    "source": "urn:li:dashboard:(looker,old.sales)",
+    "target": "urn:li:dashboard:(looker,new.sales)"
+  }
+]
+```
+
+The equivalent flat-object form maps each source URN directly to its target:
+
+```json
+{
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+}
+```
+
+```console
+datahub migrate urns-mapping --mapping-file ./mapping.json --dry-run
+```
+
+#### Known limitations
+
+These apply to all `migrate` commands.
+
+- **Non-relationship references are not repointed.** URN values stored in non-relationship fields
+  (e.g. a URN _value_ of a structured property on another entity) are not graph-indexed and
+  therefore not discovered or rewritten by the migration engine.
+
+- **Optimistic cross-pair rewriting under `--skip-on-error`.** The batch URN rewriter is built from
+  _all_ pairs before the migration loop starts. If pair A fails and a later pair B's aspects
+  reference A's source URN, that reference is still rewritten to A's (never-created) target URN.
+  This is intentional: when the user retries failed pairs via `--checkpoint-file`, A's target is
+  created and B's reference becomes correct. Removing failed pairs from the map would leave B
+  pointing at A's source (which may be deleted), making retry harder.
+
+- **`--on-conflict patch` and multi-downstream fine-grained lineage.** The Patch API keys
+  fine-grained lineage entries on `(transformOperation, downstream, query)` and requires exactly one
+  downstream per entry. FGL entries with 0 or 2+ downstreams will raise an error during merge. This
+  is a pre-existing constraint of the Patch API, not specific to migration. In practice, field-level
+  lineage is almost always N upstreams → 1 downstream, so this is unlikely to trigger. Use
+  `--on-conflict overwrite` instead of `patch` if your data contains multi-downstream FGL entries.
 
 ## Alternate Installation Options
 

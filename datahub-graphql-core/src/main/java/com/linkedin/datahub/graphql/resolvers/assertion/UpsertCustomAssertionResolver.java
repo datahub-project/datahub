@@ -3,16 +3,27 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.assertion.AssertionStdAggregation;
+import com.linkedin.assertion.AssertionStdOperator;
+import com.linkedin.assertion.AssertionStdParameter;
+import com.linkedin.assertion.AssertionStdParameterType;
+import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.CustomAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
+import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
 import com.linkedin.datahub.graphql.generated.PlatformInput;
+import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpsertCustomAssertionInput;
 import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
 import com.linkedin.metadata.key.DataPlatformKey;
@@ -21,9 +32,11 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -102,10 +115,80 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
     customAssertionInfo.setEntity(entityUrn);
     customAssertionInfo.setLogic(input.getLogic(), SetMode.IGNORE_NULL);
 
-    if (input.getFieldPath() != null) {
-      customAssertionInfo.setField(
-          SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()));
+    List<String> fieldPaths = input.getFieldPaths();
+    if (fieldPaths != null && !fieldPaths.isEmpty()) {
+      UrnArray fieldUrns = new UrnArray();
+      for (String fieldPath : fieldPaths) {
+        if (fieldPath == null || fieldPath.isBlank()) {
+          throw new IllegalArgumentException(
+              "Failed to upsert Custom Assertion. fieldPaths must not contain blank entries;"
+                  + " omit fieldPaths for dataset-level assertions.");
+        }
+        fieldUrns.add(SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath));
+      }
+      customAssertionInfo.setFields(fieldUrns);
+      // Keep singular field populated for backward compatibility
+      customAssertionInfo.setField(fieldUrns.get(0));
+    } else if (input.getFieldPath() != null) {
+      if (input.getFieldPath().isBlank()) {
+        throw new IllegalArgumentException(
+            "Failed to upsert Custom Assertion. fieldPath must not be blank when provided;"
+                + " omit fieldPath for dataset-level assertions.");
+      }
+      Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath());
+      customAssertionInfo.setField(fieldUrn);
+      customAssertionInfo.setFields(new UrnArray(fieldUrn));
+    }
+
+    if (input.getScope() != null) {
+      customAssertionInfo.setScope(DatasetAssertionScope.valueOf(input.getScope().name()));
+    }
+    if (input.getAggregation() != null) {
+      customAssertionInfo.setAggregation(
+          AssertionStdAggregation.valueOf(input.getAggregation().name()));
+    }
+    if (input.getOperator() != null) {
+      customAssertionInfo.setOperator(AssertionStdOperator.valueOf(input.getOperator().name()));
+    }
+    if (input.getParameters() != null) {
+      customAssertionInfo.setParameters(mapParameters(input.getParameters()));
+    }
+    customAssertionInfo.setNativeType(input.getNativeType(), SetMode.IGNORE_NULL);
+    if (input.getNativeParameters() != null && !input.getNativeParameters().isEmpty()) {
+      customAssertionInfo.setNativeParameters(mapNativeParameters(input.getNativeParameters()));
     }
     return customAssertionInfo;
+  }
+
+  @Nullable
+  private AssertionStdParameters mapParameters(
+      @Nonnull AssertionStdParametersInput parametersInput) {
+    AssertionStdParameters parameters = new AssertionStdParameters();
+    if (parametersInput.getValue() != null) {
+      parameters.setValue(mapParameter(parametersInput.getValue()));
+    }
+    if (parametersInput.getMinValue() != null) {
+      parameters.setMinValue(mapParameter(parametersInput.getMinValue()));
+    }
+    if (parametersInput.getMaxValue() != null) {
+      parameters.setMaxValue(mapParameter(parametersInput.getMaxValue()));
+    }
+    return parameters;
+  }
+
+  private AssertionStdParameter mapParameter(@Nonnull AssertionStdParameterInput parameterInput) {
+    return new AssertionStdParameter()
+        .setType(AssertionStdParameterType.valueOf(parameterInput.getType().name()))
+        .setValue(parameterInput.getValue());
+  }
+
+  private StringMap mapNativeParameters(@Nonnull List<StringMapEntryInput> entries) {
+    StringMap map = new StringMap();
+    for (StringMapEntryInput entry : entries) {
+      if (entry.getKey() != null && entry.getValue() != null) {
+        map.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return map;
   }
 }

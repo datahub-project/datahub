@@ -89,7 +89,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
           // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
           // catches it without needing a new keyword in SENSITIVE_PATTERNS.
-          "ingestion.cliVersionMatrix.http.authToken");
+          "ingestion.cliVersionMatrix.authToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -515,14 +515,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.plugin.retention.path",
           "datahub.serverEnv",
           "datahub.serverType",
-          "datahub.s3.bucketName",
-          "datahub.s3.roleArn",
-          "datahub.s3.presignedUploadUrlExpirationSeconds",
-          "datahub.s3.presignedDownloadUrlExpirationSeconds",
-          "datahub.s3.assetPathPrefix",
           "datahub.objectStorage.uri",
+          "datahub.objectStorage.bucket",
           "datahub.objectStorage.path",
           "datahub.objectStorage.provider",
+          "datahub.objectStorage.roleArn",
+          "datahub.objectStorage.presignedUploadUrlExpirationSeconds",
+          "datahub.objectStorage.presignedDownloadUrlExpirationSeconds",
+          "datahub.objectStorage.assetPathPrefix",
           "datahub.objectStorage.multipartThresholdBytes",
           "datahub.objectStorage.multipartPartSizeBytes",
           "datahub.readOnly",
@@ -535,6 +535,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
           "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           "datahub.usage.aggregation.flush.includeAgentNameDimension",
+          // Post-commit retention buffer (coalesce + drain)
+          "datahub.retention.buffer.mapName",
+          "datahub.retention.buffer.lockMapName",
+          "datahub.retention.buffer.maxPendingEntries",
+          "datahub.retention.buffer.drainBatchSize",
+          "datahub.retention.buffer.drainIntervalMs",
+          "datahub.retention.buffer.drainLockLeaseMs",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
@@ -544,6 +551,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.datasetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
+          "featureFlags.postCommitRetentionEnabled",
+          "featureFlags.retentionBufferEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
@@ -612,6 +621,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.autoCreateDdl",
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
+          "ebean.entityWriteAdvisoryLockEnabled",
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",
@@ -627,6 +637,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.readPool.minConnections",
           "ebean.readPool.url",
           "ebean.readPool.waitTimeoutMillis",
+          "ebean.transactionRetry.backoffSqlStates",
+          "ebean.transactionRetry.backoffVendorCodes",
+          "ebean.transactionRetry.initialBackoffMs",
+          "ebean.transactionRetry.maxBackoffMs",
+          "ebean.transactionRetry.retryAfterSeconds",
           "ebean.url",
           "ebean.useIamAuth",
           "ebean.username",
@@ -645,6 +660,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.reindexBatchSize",
           "elasticsearch.buildIndices.reindexMaxSlices",
           "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
+          "elasticsearch.buildIndices.reconcileInPlaceMappingUpdates",
           "elasticsearch.buildIndices.clusterHealthCheckIntervalSeconds",
           "elasticsearch.buildIndices.clusterHeapThresholdPercent",
           "elasticsearch.buildIndices.enableIndexThrottling",
@@ -687,6 +703,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.bulkProcessor.threadCount",
           "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
+          "elasticsearch.bulkProcessor.itemRequeueEnabled",
+          "elasticsearch.bulkProcessor.itemRequeueMaxAttempts",
+          "elasticsearch.bulkProcessor.ackAfterTransfer",
+          "elasticsearch.bulkProcessor.ackAfterTransferTimeoutSeconds",
           "elasticsearch.connectionRequestTimeout",
           "elasticsearch.socketTimeout",
           "elasticsearch.host",
@@ -843,9 +863,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.deploymentId",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
-          "ingestion.cliVersionMatrix.http.refreshSeconds",
-          "ingestion.cliVersionMatrix.http.url",
-          "ingestion.cliVersionMatrix.source",
+          "ingestion.cliVersionMatrix.refreshSeconds",
+          // Storage location of the matrix document (s3://, gs://, file://, http(s)://).
+          // Non-sensitive,
+          // matching the existing datahub.objectStorage.uri classification.
+          "ingestion.cliVersionMatrix.uri",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
@@ -985,6 +1007,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.queryFilterRewriter.containerExpansion.enabled",
           "searchService.queryFilterRewriter.containerExpansion.limit",
           "searchService.queryFilterRewriter.containerExpansion.pageSize",
+          "searchService.queryFilterRewriter.documentExpansion.enabled",
+          "searchService.queryFilterRewriter.documentExpansion.limit",
+          "searchService.queryFilterRewriter.documentExpansion.pageSize",
           "searchService.queryFilterRewriter.domainExpansion.enabled",
           "searchService.queryFilterRewriter.domainExpansion.limit",
           "searchService.queryFilterRewriter.domainExpansion.pageSize",

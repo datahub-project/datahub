@@ -333,6 +333,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -349,6 +350,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey
@@ -394,6 +396,7 @@ entities:
     keyAspect: assertionKey
     aspects:
       - assertionInfo
+      - assertionNote
       - dataPlatformInstance
       - assertionRunEvent
       - assertionRunSummary
