@@ -114,10 +114,24 @@ def get_upstream_tables(
         )
         return []
     except MQueryParseError as e:
-        # A failed M parse is often a DAX calculated-table expression (DAX is not
-        # M-Query, e.g. summarize('T', ...)). Try extracting sibling-table
-        # references from it regardless of the M-vs-DAX heuristic below; the
-        # mapper validates the names against the dataset's actual tables.
+        # An expression containing the `let` keyword is genuine M-Query, so a
+        # parse failure is a real failure — never reinterpret it as DAX. DAX's
+        # `Table[Column]` is lexically identical to M record access `id[Field]`,
+        # so the DAX extractor would otherwise fabricate references from a broken
+        # M-Query and hide the parse error.
+        if _M_LET_KEYWORD.search(expression):
+            reporter.m_query_parse_unknown_errors += 1
+            reporter.warning(
+                title="Unable to parse M-Query expression",
+                message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
+                context=f"table-full-name={table.full_name}, expression={expression}",
+                exc=e,
+            )
+            return []
+
+        # No `let` keyword — most often a DAX calculated-table expression (e.g.
+        # summarize('T', ...)). Try to extract sibling-table references before
+        # treating it as an unsupported non-M expression.
         table_refs = dax_resolver.extract_dax_table_references(expression)
         if table_refs:
             reporter.m_query_dax_table_lineage += 1
@@ -129,26 +143,14 @@ def get_upstream_tables(
                 )
             ]
 
-        # No table references. An expression without the `let` keyword is almost
-        # certainly not M-Query (the old Lark parser logged INFO "Non-Data
-        # Platform Expression" for these); only warn when it looks like M-Query.
-        if _M_LET_KEYWORD.search(expression):
-            reporter.m_query_parse_unknown_errors += 1
-            reporter.warning(
-                title="Unable to parse M-Query expression",
-                message="Got a parse error while parsing the expression. Lineage will be missing for this table.",
-                context=f"table-full-name={table.full_name}, expression={expression}",
-                exc=e,
-            )
-        else:
-            reporter.m_query_non_mquery_expressions += 1
-            logger.info(
-                "Non-M-Query expression in table %s — skipping lineage extraction "
-                "(no 'let' keyword). Expression: %s. Error: %s",
-                table.full_name,
-                expression,
-                e,
-            )
+        reporter.m_query_non_mquery_expressions += 1
+        logger.info(
+            "Non-M-Query expression in table %s — skipping lineage extraction "
+            "(no 'let' keyword). Expression: %s. Error: %s",
+            table.full_name,
+            expression,
+            e,
+        )
         return []
     except MQueryBridgeError as e:
         reporter.m_query_parse_unknown_errors += 1

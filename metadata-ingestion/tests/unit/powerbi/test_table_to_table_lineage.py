@@ -310,3 +310,22 @@ def test_stray_reference_does_not_inflate_resolver_success() -> None:
 
     assert reporter.m_query_resolver_successes == 0
     assert reporter.m_query_resolver_no_lineage == 1
+
+
+def test_let_bearing_parse_failure_is_not_treated_as_dax() -> None:
+    # A genuine M-Query (contains `let`) that fails to parse must be reported as
+    # a parse failure, not silently reinterpreted as DAX — M record access
+    # `id[Field]` is lexically identical to DAX `Table[Column]`.
+    config = _config()
+    reporter = PowerBiDashboardSourceReport()
+    table = Table(name="x", full_name="d1.x", expression="let Source = Foo[Bar] in")
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(config),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    assert lineages == []
+    assert reporter.m_query_parse_unknown_errors == 1
+    assert reporter.m_query_dax_table_lineage == 0
