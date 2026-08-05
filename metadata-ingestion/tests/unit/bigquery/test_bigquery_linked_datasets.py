@@ -3,8 +3,9 @@ from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
-from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+from google.api_core.exceptions import GoogleAPIError, NotFound, PermissionDenied
 from google.cloud import bigquery_analyticshub_v1
+from google.rpc.error_details_pb2 import ErrorInfo
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -400,6 +401,22 @@ class TestPopulateForProject:
         assert handler.get_info("consumer-project", "shared_a") is None
         assert handler.report.num_linked_dataset_get_dataset_errors == 1
 
+    def test_get_dataset_not_found_skips_dataset(self):
+        handler = _make_handler()
+        sub = _make_subscription(dataset_id="shared_a")
+        ah = _ah_client_returning({"us": [sub]})
+        # A subscription can outlive its linked dataset; get_dataset then 404s.
+        bq = _bq_client_returning(
+            {"consumer-project.shared_a": NotFound("dataset deleted")}
+        )
+        _install_clients(handler, ah=ah, bq=bq)
+
+        datasets = [BigqueryDataset(name="shared_a", location="US")]
+        handler.populate_for_project("consumer-project", datasets)
+
+        assert handler.get_info("consumer-project", "shared_a") is None
+        assert handler.report.num_linked_dataset_get_dataset_errors == 1
+
     def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage(self):
         handler = _make_handler()
         sub = _make_subscription(dataset_id="shared_a")
@@ -514,11 +531,12 @@ class TestPopulateForProject:
         # Failure is cached as None — second subscription must not retry.
         assert rm_call_count["n"] == 1
 
-    def test_list_subscriptions_permission_denied_is_warned_not_fatal(self):
+    def test_list_subscriptions_api_disabled_is_warned_not_fatal(self):
         handler = _make_handler()
         ah = MagicMock()
         ah.list_subscriptions.side_effect = PermissionDenied(
-            "analyticshub.subscriptions.list denied"
+            "Analytics Hub API has not been used in project ... or it is disabled.",
+            error_info=ErrorInfo(reason="SERVICE_DISABLED", domain="googleapis.com"),
         )
         _install_clients(handler, ah=ah)
 
@@ -526,12 +544,41 @@ class TestPopulateForProject:
         handler.populate_for_project("consumer-project", datasets)
 
         assert handler.get_info("consumer-project", "shared_a") is None
-        warnings = [w for w in handler.report.warnings]
-        assert any(
-            "analyticshub.subscriptions.list" in str(w)
-            or "Cannot list Analytics Hub" in str(w)
-            for w in warnings
+        assert any("not enabled" in str(w) for w in handler.report.warnings)
+        assert list(handler.report.failures) == []
+
+    def test_list_subscriptions_iam_denied_is_reported_as_failure(self):
+        handler = _make_handler()
+        ah = MagicMock()
+        ah.list_subscriptions.side_effect = PermissionDenied(
+            "Permission analyticshub.subscriptions.list denied.",
+            error_info=ErrorInfo(
+                reason="IAM_PERMISSION_DENIED", domain="analyticshub.googleapis.com"
+            ),
         )
+        _install_clients(handler, ah=ah)
+
+        datasets = [BigqueryDataset(name="shared_a", location="US")]
+        # A missing grant on an explicitly-enabled feature is a failure, but must
+        # not raise — core dataset ingestion continues.
+        handler.populate_for_project("consumer-project", datasets)
+
+        assert handler.get_info("consumer-project", "shared_a") is None
+        assert any(
+            "analyticshub.subscriptions.list" in str(f) for f in handler.report.failures
+        )
+
+    def test_list_subscriptions_unclassified_permission_denied_propagates(self):
+        handler = _make_handler()
+        ah = MagicMock()
+        # A PermissionDenied we cannot classify (no ErrorInfo reason) is not
+        # swallowed; it propagates to the schema-gen call-site guard.
+        ah.list_subscriptions.side_effect = PermissionDenied("denied")
+        _install_clients(handler, ah=ah)
+
+        datasets = [BigqueryDataset(name="shared_a", location="US")]
+        with pytest.raises(PermissionDenied):
+            handler.populate_for_project("consumer-project", datasets)
 
     def test_data_exchange_only_subscription_uses_data_exchange_segment(self):
         handler = _make_handler()
@@ -730,17 +777,17 @@ class TestLineageEmission:
 
 
 class TestApiErrorHandling:
-    def test_list_subscriptions_generic_api_error_logged(self):
+    def test_list_subscriptions_generic_api_error_propagates(self):
         handler = _make_handler()
         ah = MagicMock()
         ah.list_subscriptions.side_effect = GoogleAPIError("boom")
         _install_clients(handler, ah=ah)
 
         datasets = [BigqueryDataset(name="shared_a", location="US")]
-        # Generic API errors are caught — the call returns cleanly even if
-        # detection couldn't run.
-        handler.populate_for_project("consumer-project", datasets)
-        assert handler.get_info("consumer-project", "shared_a") is None
+        # Unexpected API errors are not swallowed here; they propagate to the
+        # schema-gen call site, which scopes the failure to the project.
+        with pytest.raises(GoogleAPIError):
+            handler.populate_for_project("consumer-project", datasets)
 
 
 # --- Smoke test on the dataclass + property accessors ---------------------

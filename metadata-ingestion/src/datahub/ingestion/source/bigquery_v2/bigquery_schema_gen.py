@@ -479,11 +479,24 @@ class BigQuerySchemaGenerator:
             yield from self.gen_project_id_containers(project_id)
 
         # Populate before the parallel dataset workers start; they read the
-        # lookup concurrently in `_process_schema`.
+        # lookup concurrently in `_process_schema`. Scope any unexpected failure
+        # to this project so an opt-in enrichment can never abort the run.
         if self.linked_datasets_handler is not None:
-            self.linked_datasets_handler.populate_for_project(
-                project_id, bigquery_project.datasets
-            )
+            try:
+                self.linked_datasets_handler.populate_for_project(
+                    project_id, bigquery_project.datasets
+                )
+            except Exception as e:
+                self.report.failure(
+                    title="Unable to detect BigQuery Sharing linked datasets",
+                    message=(
+                        "Skipping linked dataset detection for this project; its "
+                        "datasets are still ingested without BigQuery Sharing "
+                        "enrichment."
+                    ),
+                    context=project_id,
+                    exc=e,
+                )
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets

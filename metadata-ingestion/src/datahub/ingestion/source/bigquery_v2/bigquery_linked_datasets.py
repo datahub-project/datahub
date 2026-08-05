@@ -18,6 +18,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
 )
+from datahub.ingestion.source.common.gcp_errors import (
+    is_iam_permission_denied,
+    is_service_disabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -151,7 +155,8 @@ class BigQueryLinkedDatasetsHandler:
     ) -> None:
         """Detect linked datasets in a project and populate the lookup.
 
-        Errors are reported as structured warnings; the method never raises.
+        A disabled Analytics Hub API is warned and a missing `subscriptions.list`
+        grant is failed; both continue. Any other error propagates to the caller.
         """
         if not datasets:
             return
@@ -169,28 +174,36 @@ class BigQueryLinkedDatasetsHandler:
             try:
                 subscriptions = list(ah_client.list_subscriptions(parent=parent))
             except PermissionDenied as e:
-                self.report.warning(
-                    title="Cannot list BigQuery Sharing subscriptions",
-                    message=(
-                        "Skipping linked dataset detection for this location. "
-                        "Grant `analyticshub.subscriptions.list` on the subscriber "
-                        "project to enable detection."
-                    ),
-                    context=f"project={project_id}, location={location}",
-                    exc=e,
-                )
-                continue
-            except GoogleAPIError as e:
-                self.report.warning(
-                    title="Failed to list BigQuery Sharing subscriptions",
-                    message=(
-                        "Skipping linked dataset detection for this location due "
-                        "to an Analytics Hub API error."
-                    ),
-                    context=f"project={project_id}, location={location}",
-                    exc=e,
-                )
-                continue
+                # Opt-in feature: a disabled API wasn't wanted (warn); a missing
+                # grant on a feature the operator enabled is a failure. Any other
+                # reason is unexpected, so let it propagate.
+                if is_service_disabled(e):
+                    self.report.warning(
+                        title="BigQuery Sharing (Analytics Hub) API not enabled",
+                        message=(
+                            "The Analytics Hub API is not enabled on this project, "
+                            "so linked dataset detection is skipped. Enable it to "
+                            "ingest BigQuery Sharing metadata, or unset "
+                            "`include_linked_datasets`."
+                        ),
+                        context=f"project={project_id}, location={location}",
+                        exc=e,
+                    )
+                    continue
+                if is_iam_permission_denied(e):
+                    self.report.failure(
+                        title="Missing permission to list BigQuery Sharing subscriptions",
+                        message=(
+                            "`include_linked_datasets` is enabled but the service "
+                            "account lacks `analyticshub.subscriptions.list`. Grant "
+                            "it (e.g. `roles/analyticshub.subscriptionOwner`) or "
+                            "unset `include_linked_datasets`."
+                        ),
+                        context=f"project={project_id}, location={location}",
+                        exc=e,
+                    )
+                    continue
+                raise
 
             for sub in subscriptions:
                 # Skip non-BigQuery shared resources (e.g. Pub/Sub topics).
@@ -295,8 +308,9 @@ class BigQueryLinkedDatasetsHandler:
     ) -> Optional[LinkedDatasetInfo]:
         """Resolve publisher refs and build a LinkedDatasetInfo.
 
-        Returns None only when the consumer dataset cannot be read (e.g.
-        `get_dataset` permission denied), leaving it to ingest as a plain dataset.
+        Returns None only when the consumer dataset cannot be read (deleted
+        after listing, or `get_dataset` otherwise failing), leaving it to
+        ingest as a plain dataset.
         """
         try:
             state_name = bigquery_analyticshub_v1.Subscription.State(sub.state).name
@@ -326,14 +340,14 @@ class BigQueryLinkedDatasetsHandler:
         bq = self._get_bq_client()
         try:
             ds = bq.get_dataset(f"{project_id}.{consumer_dataset}")
-        except (PermissionDenied, GoogleAPIError) as e:
+        except GoogleAPIError as e:
             self.report.num_linked_dataset_get_dataset_errors += 1
             self.report.warning(
                 title="Cannot read linked dataset metadata",
                 message=(
-                    "Failed to call `bq_client.get_dataset` on a linked dataset. "
-                    "The dataset will be ingested without linked dataset enrichment. "
-                    "Verify `bigquery.datasets.get` is granted."
+                    "`get_dataset` failed on a linked dataset, so it is ingested "
+                    "without BigQuery Sharing enrichment. The dataset may have been "
+                    "deleted after listing, or `bigquery.datasets.get` may be missing."
                 ),
                 context=f"{project_id}.{consumer_dataset}",
                 exc=e,
@@ -373,7 +387,7 @@ class BigQueryLinkedDatasetsHandler:
         try:
             project = rm_client.get_project(name=f"projects/{project_number}")
             resolved: Optional[str] = project.project_id
-        except (PermissionDenied, GoogleAPIError) as e:
+        except GoogleAPIError as e:
             self.report.num_linked_dataset_project_resolve_errors += 1
             self.report.warning(
                 title="Cannot resolve publisher project ID",
