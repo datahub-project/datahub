@@ -88,10 +88,7 @@ def test_action_v1_emits_assertions(mock_validation_result):
     ):
         emitter = mock.Mock()
         mock_emitter_cls.return_value = emitter
-        graph = mock.Mock()
-        graph.get_aspect.return_value = None
-        emitter.to_graph.return_value = graph
-        mock_build_info.side_effect = lambda graph, urn, info: mock.Mock(
+        mock_build_info.side_effect = lambda urn, info: mock.Mock(
             entityUrn=urn, aspect=info
         )
 
@@ -102,7 +99,7 @@ def test_action_v1_emits_assertions(mock_validation_result):
     # assertionInfo MCP should carry checkpoint custom properties
     info_calls = [call for call in mock_build_info.call_args_list]
     assert info_calls
-    assertion_info = info_calls[0].args[2]
+    assertion_info = info_calls[0].args[1]
     assert assertion_info.customProperties["checkpoint_name"] == "orders_checkpoint"
     assert assertion_info.customProperties["checkpoint_id"] == "cp-123"
     assert assertion_info.customProperties["validation_id"] == "val-456"
@@ -145,14 +142,11 @@ def test_action_v1_resolves_config_str_token(mock_validation_result):
         ) as mock_sub,
         mock.patch(
             "datahub_gx_plugin.common.build_assertion_info_mcp",
-            side_effect=lambda graph, urn, info: mock.Mock(entityUrn=urn, aspect=info),
+            side_effect=lambda urn, info: mock.Mock(entityUrn=urn, aspect=info),
         ),
     ):
         emitter = mock.Mock()
         mock_emitter_cls.return_value = emitter
-        graph = mock.Mock()
-        graph.get_aspect.return_value = None
-        emitter.to_graph.return_value = graph
 
         action.run(checkpoint_result, action_context=None)
 

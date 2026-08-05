@@ -13,6 +13,7 @@ import static org.testng.Assert.assertThrows;
 import java.net.URL;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.SdkHttpResponse;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -23,6 +24,9 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -137,6 +141,53 @@ public class S3ObjectStorageClientTest {
   public void testPutObjectRejectsUnconfiguredBucket() {
     S3ObjectStorageClient client = newClient(mock(S3Client.class), " ", null, 1024, 1024);
     client.putObject("key", new byte[] {1});
+  }
+
+  @Test
+  public void testGetObjectAsStringReadsThroughPrefix() {
+    S3Client s3Client = mock(S3Client.class);
+    when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
+        .thenReturn(
+            ResponseBytes.fromByteArray(
+                GetObjectResponse.builder().build(), "matrix-body".getBytes()));
+
+    S3ObjectStorageClient client = newClient(s3Client, "my-bucket", "prefix", 1024, 1024);
+    String body = client.getObjectAsString("matrix.json");
+
+    assertEquals(body, "matrix-body");
+    ArgumentCaptor<GetObjectRequest> requestCaptor =
+        ArgumentCaptor.forClass(GetObjectRequest.class);
+    verify(s3Client).getObjectAsBytes(requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().bucket(), "my-bucket");
+    assertEquals(requestCaptor.getValue().key(), "prefix/matrix.json");
+  }
+
+  @Test
+  public void testGetObjectAsStringWrapsProviderErrors() {
+    // ObjectStorageMatrixDocumentReader.classify() unwraps this RuntimeException to tell
+    // a missing object apart from other failures, so the cause must be preserved, not swallowed.
+    S3Client s3Client = mock(S3Client.class);
+    NoSuchKeyException notFound =
+        (NoSuchKeyException)
+            NoSuchKeyException.builder()
+                .statusCode(404)
+                .message("The specified key does not exist")
+                .build();
+    when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenThrow(notFound);
+
+    S3ObjectStorageClient client = newClient(s3Client, "my-bucket", null, 1024, 1024);
+    try {
+      client.getObjectAsString("missing.json");
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertEquals(e.getCause(), notFound);
+    }
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetObjectAsStringRejectsUnconfiguredBucket() {
+    S3ObjectStorageClient client = newClient(mock(S3Client.class), " ", null, 1024, 1024);
+    client.getObjectAsString("key");
   }
 
   @Test
