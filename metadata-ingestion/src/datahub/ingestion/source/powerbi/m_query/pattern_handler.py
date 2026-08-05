@@ -1930,10 +1930,7 @@ class OdbcLineage(AbstractLineage):
         # standalone connector's default schema.table shape.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
         if database_name is None:
-            if (
-                data_platform not in ODBC_TWO_TIER_PLATFORMS
-                or schema_name is None
-            ):
+            if data_platform not in ODBC_TWO_TIER_PLATFORMS or schema_name is None:
                 database_name = config_database
             if schema_name is None:
                 schema_name = config_schema
