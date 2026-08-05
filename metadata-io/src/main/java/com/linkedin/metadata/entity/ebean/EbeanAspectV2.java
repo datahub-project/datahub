@@ -28,6 +28,8 @@ import lombok.Setter;
 @Table(name = "metadata_aspect_v2")
 public class EbeanAspectV2 extends Model {
 
+  public static final String TABLE_NAME = "metadata_aspect_v2";
+
   public static final String ALL_COLUMNS = "*";
   public static final String KEY_ID = "key";
   public static final String URN_COLUMN = "urn";

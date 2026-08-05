@@ -165,7 +165,7 @@ public class EbeanAspectDaoSeamRoutingTest {
     assertEquals(found.get(keyB).getMetadata(), "batch-b");
 
     ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
-    verify(tableResolverSpy, atLeastOnce()).aspectTable(resolved.capture());
+    verify(tableResolverSpy, atLeastOnce()).aspectTable(resolved.capture(), any());
     assertTrue(
         resolved.getAllValues().stream().allMatch(ctx -> ctx == rawSqlContext),
         "every table-name resolution in the raw SQL must use the caller's context");
@@ -182,7 +182,7 @@ public class EbeanAspectDaoSeamRoutingTest {
     assertEquals(range.getSecond().longValue(), 7L);
 
     ArgumentCaptor<OperationContext> resolved = ArgumentCaptor.forClass(OperationContext.class);
-    verify(tableResolverSpy).aspectTable(resolved.capture());
+    verify(tableResolverSpy).aspectTable(resolved.capture(), any());
     assertSame(resolved.getValue(), rawSqlContext);
 
     ArgumentCaptor<OperationContext> scoped = ArgumentCaptor.forClass(OperationContext.class);
