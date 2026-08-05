@@ -51,8 +51,7 @@ public class DataProductParentHierarchySearchTest {
     assertTrue(rootDoc.isPresent());
     assertFalse(rootDoc.get().path("hasParentDataProduct").asBoolean(false));
     assertTrue(
-        !rootDoc.get().has("parentDataProduct")
-            || rootDoc.get().get("parentDataProduct").isNull());
+        !rootDoc.get().has("parentDataProduct") || rootDoc.get().get("parentDataProduct").isNull());
 
     // Create: mid under root
     DataProductProperties midProps =
