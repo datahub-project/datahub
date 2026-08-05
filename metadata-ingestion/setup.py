@@ -796,7 +796,9 @@ plugins: Dict[str, Set[str]] = {
             "sqlparse<1.0.0",
             "more-itertools<11.0.0",
             "mini-racer==0.14.1",
-            "PyDAXLexer==0.3.0",
+            # v0.x: allow patch releases but pin below the next minor, which may
+            # break the DAX reference API we depend on.
+            "PyDAXLexer>=0.3.0,<0.4.0",
         }
         | sqlglot_lib
         | threading_timeout_common
