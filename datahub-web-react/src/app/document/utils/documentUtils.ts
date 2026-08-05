@@ -5,6 +5,7 @@ import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
 import i18next from 'i18next';
 
 import { DocumentCreator, DocumentTreeNode } from '@app/document/DocumentTreeContext';
+import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
@@ -93,6 +94,10 @@ type ActorDisplayShape = {
  */
 export function resolveActorDisplayName(actor: ActorDisplayShape | null | undefined): string {
     if (!actor) return '';
+    // Python SDK default writer — username is literally "__ingestion".
+    if (actor.urn === INGESTION_ACTOR_URN || actor.username === '__ingestion') {
+        return i18next.t('entity.types:user.ingestionActor');
+    }
     const { editableProperties, properties, info, username, name, urn } = actor;
     const firstLast = [properties?.firstName, properties?.lastName].filter(Boolean).join(' ').trim();
     return (
@@ -166,6 +171,7 @@ export function documentToTreeNode(doc: Document, hasChildren: boolean, childCou
         isExternal: isExternalDocument(doc),
         platform: doc.platform ?? null,
         creator: extractDocumentCreator(doc),
+        lastModifiedAt: doc.info?.lastModified?.time ?? 0,
     };
 }
 

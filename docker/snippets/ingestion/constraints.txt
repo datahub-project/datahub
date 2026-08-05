@@ -25,7 +25,12 @@ protobuf>=6.33.5,<7.0.0
 # Airflow's pinned dependencies.
 aiohttp>=3.13.4
 pillow>=12.1.1
-setuptools>=80.10.1
+# CVE-2025-47273: PackageIndex path traversal; fixed in 78.1.1. Cap <82 for pkg_resources.
+setuptools>=80.10.1,<82.0.0
+# CVE-2026-69249: exponential path-building DoS on duplicate self-signed intermediates.
+cryptography>=49.0.0,<51.0.0
+# GHSA-6v7p-g79w-8964: Unpacker reuse after error can SEGV / DoS; fixed in 1.2.1.
+msgpack>=1.2.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
 # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
 # Previous Docker minimum: authlib>=1.6.9

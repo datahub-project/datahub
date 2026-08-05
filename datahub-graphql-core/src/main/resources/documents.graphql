@@ -653,6 +653,39 @@ input SearchDocumentsInput {
   scoped to the active View (mirrors searchAcrossEntities view scoping).
   """
   viewUrn: String
+
+  """
+  Optional list of tag URNs to filter by (ANDed with other filters)
+  """
+  tags: [String!]
+
+  """
+  Optional list of glossary term URNs to filter by (ANDed with other filters)
+  """
+  glossaryTerms: [String!]
+
+  """
+  Optional list of creator actor URNs to filter by (ANDed with other filters)
+  """
+  creators: [String!]
+
+  """
+  Optional list of data platform URNs to filter by (ANDed with other filters)
+  """
+  platforms: [String!]
+
+  """
+  Optional document states to include. Narrows the default visibility filter:
+  - omit / empty / both → published for everyone + unpublished for owners (or MANAGE_DOCUMENTS)
+  - [PUBLISHED] → published only
+  - [UNPUBLISHED] → unpublished only (still ownership / MANAGE_DOCUMENTS constrained)
+  """
+  states: [DocumentState!]
+
+  """
+  Optional sort. When omitted, defaults to createdAt descending.
+  """
+  sortInput: SearchSortInput
 }
 
 """

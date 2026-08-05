@@ -90,6 +90,23 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
   }
 
   @Override
+  @Nonnull
+  public String getObjectAsString(@Nonnull String objectKey) {
+    if (!isConfigured()) {
+      throw new IllegalStateException("S3 bucket name is not configured");
+    }
+    String key = ObjectStorageKeyResolver.joinKey(pathPrefix, objectKey, ObjectStorageProvider.S3);
+    try {
+      return s3Client
+          .getObjectAsBytes(GetObjectRequest.builder().bucket(bucketName).key(key).build())
+          .asUtf8String();
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to read s3://" + bucketName + "/" + key + ": " + e.getMessage(), e);
+    }
+  }
+
+  @Override
   public boolean supportsPresignedUrls() {
     return true;
   }
