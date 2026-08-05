@@ -146,16 +146,16 @@ def test_model_reset_regional_caches_refetches_endpoints(
     """Test that endpoints are refetched per region."""
     ext = source.model_extractor
     region1_model = MagicMock()
-    region1_model.resource_name = "projects/x/locations/r1/models/m1"
+    region1_model.resource_name = "projects/p/locations/r1/models/m1"
     ext.endpoints = {region1_model.resource_name: [MagicMock()]}
 
     ext.reset_regional_caches()
 
     region2_model = MagicMock()
-    region2_model.resource_name = "projects/y/locations/r2/models/m2"
+    region2_model.resource_name = "projects/p/locations/r2/models/m2"
     region2_endpoint = MagicMock()
     region2_endpoint.list_models.return_value = [
-        MagicMock(model="projects/y/locations/r2/models/m2")
+        MagicMock(model="projects/p/locations/r2/models/m2")
     ]
     with patch(
         "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
@@ -165,24 +165,62 @@ def test_model_reset_regional_caches_refetches_endpoints(
         assert ext._search_endpoint(region1_model) == []
 
 
+def test_model_reset_regional_caches_refetches_models(
+    source: VertexAISource,
+) -> None:
+    """Test that models are refetched per region."""
+    ext = source.model_extractor
+    ext._models_cache = [MagicMock()]  # cache from a prior region
+
+    ext.reset_regional_caches()
+
+    region2_model = MagicMock()
+    with patch(
+        "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+        return_value=[region2_model],
+    ):
+        assert ext._list_models() == [region2_model]
+
+
 def test_evaluation_reuses_models_cache_within_region(
     source: VertexAISource,
 ) -> None:
-    """Test that the model listing is reused within a region."""
+    """Test that evaluations are produced from a model listing reused within a region."""
     ext = source.model_extractor
     ext.reset_regional_caches()
 
-    with patch(
-        "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
-        return_value=[],
-    ) as mock_list:
+    model = MagicMock()
+    model.display_name = "m"
+    model.name = "m"
+    model.resource_name = "projects/p/locations/r/models/m"
+    evaluation = MagicMock()
+    evaluation.name = "eval-1"
+    evaluation.create_time = None
+
+    def gapic_side_effect(cls: object, *args: object, **kwargs: object) -> list:
+        # Model registry listing vs per-model evaluation listing share one patch.
+        return [model] if cls is ext.client.Model else [evaluation]
+
+    evaluation_wu = MagicMock()
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+            side_effect=gapic_side_effect,
+        ) as mock_list,
+        patch.object(ext, "_list_versions", return_value=[]),
+        patch.object(
+            ext, "_gen_model_evaluation_mcps", return_value=iter([evaluation_wu])
+        ) as gen_eval,
+    ):
         list(ext.get_model_workunits())
-        list(ext.get_evaluation_workunits())
+        eval_wus = list(ext.get_evaluation_workunits())
 
     model_list_calls = [
         c for c in mock_list.call_args_list if c.args and c.args[0] is ext.client.Model
     ]
     assert len(model_list_calls) == 1
+    gen_eval.assert_called_once_with(model, evaluation)
+    assert eval_wus == [evaluation_wu]
 
 
 def test_region_loop_resets_caches_each_region() -> None:
@@ -195,6 +233,8 @@ def test_region_loop_resets_caches_each_region() -> None:
             regions=["us-west1", "europe-west4"],
             use_ml_metadata_for_lineage=False,
             extract_execution_metrics=False,
+            # Reduce phase 1 to a single training-jobs fetch per region, so the
+            # side effect below fires exactly once per region deterministically.
             include_pipelines=False,
             include_experiments=False,
             include_models=False,
