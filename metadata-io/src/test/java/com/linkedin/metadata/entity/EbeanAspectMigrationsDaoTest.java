@@ -14,6 +14,8 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -45,7 +47,9 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     dao.setConnectionValidated(true);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

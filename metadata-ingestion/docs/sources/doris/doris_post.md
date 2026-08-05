@@ -17,6 +17,14 @@ If you were previously ingesting Doris using the MySQL connector, switch to the 
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Cross-catalog view lineage
+
+One run ingests one catalog, so a view that reads from a table in a different Doris catalog gets no lineage for that view — the reference cannot be resolved without pointing the edge at a same-named table in the ingested catalog. Those views are counted in the ingestion report under a `View lineage skipped for cross-catalog reference` warning. Ingest each catalog with its own recipe to catalog both sides.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Unknown database when using an Iceberg (or other external) catalog
+
+If logs show `Unknown database 'db_ods'` (or similar) after databases were discovered, the source is reconnecting without the catalog name. Set `catalog: your_catalog` (or `database: your_catalog.db_ods`) so connections use `catalog.database`. See **Multi-Catalog** under Prerequisites.

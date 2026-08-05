@@ -69,7 +69,9 @@ public class EbeanAspectDaoTest {
             EbeanConfiguration.testDefault,
             mock(MetricUtils.class),
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
   }
 
   @AfterMethod

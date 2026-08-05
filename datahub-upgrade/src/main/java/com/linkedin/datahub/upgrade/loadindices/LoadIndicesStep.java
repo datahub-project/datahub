@@ -15,6 +15,8 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -183,7 +185,9 @@ public class LoadIndicesStep implements UpgradeStep {
               EbeanConfiguration.testDefault,
               null,
               java.util.Collections.emptyList(),
-              null);
+              null,
+              new PlainAspectTableResolver(),
+              new PassThroughScopedTransactionFactory(server));
       aspectDao.setConnectionValidated(true);
 
       // Process data using streaming approach (no cursor pagination needed!)

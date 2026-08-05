@@ -380,10 +380,6 @@
     "duration": "1.467s"
   },
   {
-    "testId": "com.linkedin.metadata.utils.aws.S3UtilTest",
-    "duration": "1.420s"
-  },
-  {
     "testId": "com.linkedin.gms.CommonApplicationConfigTest",
     "duration": "1.394s"
   },
@@ -1684,7 +1680,7 @@
     "duration": "0.057s"
   },
   {
-    "testId": "com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSourceValidationTest",
+    "testId": "com.linkedin.metadata.ingestion.IngestionCliVersionMatrixParserTest",
     "duration": "0.056s"
   },
   {
@@ -2888,10 +2884,6 @@
     "duration": "0.007s"
   },
   {
-    "testId": "com.linkedin.gms.factory.s3.S3UtilFactoryTest",
-    "duration": "0.007s"
-  },
-  {
     "testId": "com.linkedin.metadata.utils.objectstorage.ObjectStoragePathValidatorTest",
     "duration": "0.007s"
   },
@@ -3364,10 +3356,6 @@
     "duration": "0.001s"
   },
   {
-    "testId": "com.linkedin.gms.factory.s3.S3UtilFactoryNoAwsConfigTest",
-    "duration": "0.001s"
-  },
-  {
     "testId": "com.linkedin.gms.factory.s3.StsClientFactoryExceptionTest",
     "duration": "0.001s"
   },
@@ -3377,10 +3365,6 @@
   },
   {
     "testId": "com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactoryDefaultsTest",
-    "duration": "0.001s"
-  },
-  {
-    "testId": "com.linkedin.gms.factory.s3.S3UtilFactoryEndpointOnlyTest",
     "duration": "0.001s"
   },
   {
