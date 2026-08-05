@@ -5,12 +5,7 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_unique_dataset_impl
-from tests.utils import (
-    delete_entity,
-    execute_graphql,
-    unique_suffix,
-    with_test_retry,
-)
+from tests.utils import delete_entity, execute_graphql, unique_suffix, with_test_retry
 
 logger = logging.getLogger(__name__)
 
