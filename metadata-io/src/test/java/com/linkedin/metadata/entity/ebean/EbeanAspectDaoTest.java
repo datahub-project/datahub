@@ -69,13 +69,38 @@ public class EbeanAspectDaoTest {
             EbeanConfiguration.testDefault,
             mock(MetricUtils.class),
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
   }
 
   @AfterMethod
   public void cleanup() {
     // Shutdown Database instance to prevent thread pool and connection leaks
     EbeanTestUtils.shutdownDatabase(server);
+  }
+
+  @Test
+  public void embeddedIdOrderByResolvesToColumns() {
+    // The PostgreSQL lock-ordering fix (deleteUrn / getNextVersions FOR UPDATE) orders by the
+    // embedded-id property path EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH ("key.urn, key.aspect,
+    // key.version"). Ebean must resolve that to real columns; a literal "key.urn" in the SQL would
+    // fail on PostgreSQL. Property→column resolution is dialect-independent, so H2 exercises it
+    // without Testcontainers and this guards against a future Ebean regression silently dropping or
+    // mangling the clause.
+    LoggedSql.start();
+    server
+        .find(EbeanAspectV2.class)
+        .where()
+        .idIn(
+            List.of(
+                new EbeanAspectV2.PrimaryKey(
+                    "urn:li:corpuser:orderby", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)))
+        .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
+        .findList();
+    final String sql = String.join(" ", LoggedSql.stop()).toLowerCase();
+    assertTrue(sql.contains("order by"), "embedded-id orderBy must emit a SQL ORDER BY clause");
+    assertFalse(sql.contains("key.urn"), "embedded-id path must resolve to columns, not 'key.urn'");
   }
 
   @DataProvider(name = "writabilityConfig")

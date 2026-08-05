@@ -129,7 +129,7 @@ describe('DatasetAssertionDescription', () => {
             parameters,
             nativeType: 'MY_NATIVE',
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     // Each aggregation rendered against a fixed (greater than 5) operator suffix.
@@ -240,13 +240,26 @@ describe('DatasetAssertionDescription', () => {
             operator: AssertionStdOperator.GreaterThan,
             parameters: { value: numberParam(5) },
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     it('renders an explicit description verbatim', () => {
-        expect(
-            renderText(<DatasetAssertionDescription description="My custom description" assertionInfo={{} as any} />),
-        ).toBe('My custom description');
+        expect(renderText(<DatasetAssertionDescription description="My custom description" />)).toBe(
+            'My custom description',
+        );
+    });
+
+    it('joins multiple columns for DatasetColumn scope', () => {
+        const info = {
+            scope: DatasetAssertionScope.DatasetColumn,
+            aggregation: AssertionStdAggregation.Identity,
+            fields: [{ path: 'profile_id' }, { path: 'email' }],
+            operator: AssertionStdOperator.EqualTo,
+            parameters: { value: numberParam(1) },
+        } as any;
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(
+            'Column profile_id, email values are equal to 1',
+        );
     });
 });
 
@@ -286,6 +299,17 @@ describe('VolumeAssertionDescription', () => {
             'Table has between 5 and 10 rows',
         ],
         [
+            'rowCountTotal + equalTo',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has exactly 100 rows',
+        ],
+        [
             'rowCountChange absolute + atLeast',
             {
                 type: VolumeAssertionType.RowCountChange,
@@ -296,6 +320,18 @@ describe('VolumeAssertionDescription', () => {
                 },
             },
             'Table should grow by at least 100 rows',
+        ],
+        [
+            'rowCountChange absolute + equalTo',
+            {
+                type: VolumeAssertionType.RowCountChange,
+                rowCountChange: {
+                    type: AssertionValueChangeType.Absolute,
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table should grow by exactly 100 rows',
         ],
         [
             'rowCountChange percentage + atMost',
@@ -333,14 +369,11 @@ describe('VolumeAssertionDescription', () => {
             'Table should grow by between 5 and 10 %',
         ],
         [
-            // Volume assertions only ever use GreaterThanOrEqualTo/LessThanOrEqualTo/Between, but the
-            // operator type allows any AssertionStdOperator. An out-of-range operator must degrade to
-            // a generic description rather than throw and crash the Validation tab.
             'unexpected operator falls back',
             {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.EqualTo,
+                    operator: AssertionStdOperator.NotEqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
@@ -393,63 +426,42 @@ describe('SchemaAssertionDescription', () => {
 describe('FreshnessAssertionDescription', () => {
     const cron = { cron: '0 0 * * *', timezone: 'UTC' } as any;
 
-    const cases: Array<[string, FreshnessAssertionType, any, any, string]> = [
+    const cases: Array<[string, FreshnessAssertionType, any, string]> = [
         [
-            'datasetChange fixedInterval no monitor',
+            'datasetChange fixedInterval',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            undefined,
             'Table was updated in the past 5 hours',
-        ],
-        [
-            'datasetChange fixedInterval with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            cron,
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
         ],
         [
             'datasetChange cron',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Table was updated between cron windows scheduled at 12:00 am (UTC)',
         ],
         [
-            'datasetChange sinceLastCheck no monitor',
+            'datasetChange sinceLastCheck',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            undefined,
             'Table was updated since the previous check.',
         ],
         [
-            'datasetChange sinceLastCheck with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            cron,
-            'Table was updated since the previous check, as of 12:00 am (UTC).',
-        ],
-        [
-            'dataJobRun fixedInterval no monitor',
+            'dataJobRun fixedInterval',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 1, unit: 'DAY' } },
-            undefined,
             'Data Task is run successfully in the past 1 days',
         ],
         [
             'dataJobRun cron',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Data Task is run successfully between cron windows scheduled at 12:00 am (UTC)',
         ],
     ];
 
-    it.each(cases)('%s', (_name, type, schedule, monitorSchedule, expected) => {
+    it.each(cases)('%s', (_name, type, schedule, expected) => {
         const info = { type, schedule } as any;
-        expect(
-            renderText(<FreshnessAssertionDescription assertionInfo={info} monitorSchedule={monitorSchedule} />),
-        ).toBe(expected);
+        expect(renderText(<FreshnessAssertionDescription assertionInfo={info} />)).toBe(expected);
     });
 });
 
@@ -620,12 +632,12 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             volumeAssertion: {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.GreaterThanOrEqualTo,
+                    operator: AssertionStdOperator.EqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has at least 100 rows');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has exactly 100 rows');
     });
     it('schema', () => {
         const info = {
@@ -678,9 +690,34 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info, { cron: '0 0 * * *', timezone: 'UTC' } as any)).toBe(
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table was updated in the past 5 hours');
+    });
+    it('structured custom matches dataset description quality', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'great_expectations',
+                entityUrn: 'urn:li:dataset:1',
+                scope: DatasetAssertionScope.DatasetColumn,
+                aggregation: AssertionStdAggregation.UniqueCount,
+                fields: [{ path: 'profileId' }],
+                operator: AssertionStdOperator.GreaterThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe(
+            'Unique value count for column profileId is greater than 5',
         );
+    });
+    it('unstructured custom falls back to customType', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'dbt Freshness',
+                entityUrn: 'urn:li:dataset:1',
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('dbt Freshness');
     });
 });
 

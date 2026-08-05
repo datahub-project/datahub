@@ -73,6 +73,41 @@ public class UsageServiceUtil {
   public static final String USAGE_STATS_ENTITY_NAME = "dataset";
   public static final String USAGE_STATS_ASPECT_NAME = "datasetUsageStatistics";
 
+  // Field paths of the datasetUsageStatistics aspect used in aggregations. Shared so the per-URN
+  // path here and the batched DataLoader (DatasetStatsSummaryBatchLoader) stay in lockstep.
+  public static final String FIELD_UNIQUE_USER_COUNT = "uniqueUserCount";
+  public static final String FIELD_TOTAL_SQL_QUERIES = "totalSqlQueries";
+  public static final String FIELD_TOP_SQL_QUERIES = "topSqlQueries";
+  public static final String FIELD_USER_COUNTS_USER = "userCounts.user";
+  public static final String FIELD_USER_COUNTS_COUNT = "userCounts.count";
+  public static final String FIELD_USER_COUNTS_EMAIL = "userCounts.userEmail";
+
+  public static AggregationSpec latestAggSpec(@Nonnull String fieldPath) {
+    return new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath(fieldPath);
+  }
+
+  public static AggregationSpec sumAggSpec(@Nonnull String fieldPath) {
+    return new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath(fieldPath);
+  }
+
+  /** DATE grouping bucket on {@code @timestamp} at the given window interval / time zone. */
+  public static GroupingBucket usageTimestampBucket(
+      @Nonnull WindowDuration duration, @Nullable String timeZone) {
+    return new GroupingBucket()
+        .setKey(Constants.ES_FIELD_TIMESTAMP)
+        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeWindowSize(
+            new TimeWindowSize().setMultiple(1).setUnit(TimeseriesUtils.windowToInterval(duration)))
+        .setTimeZone(timeZone, SetMode.IGNORE_NULL);
+  }
+
+  /** STRING grouping bucket on {@code userCounts.user}. */
+  public static GroupingBucket userCountsGroupingBucket() {
+    return new GroupingBucket()
+        .setKey(FIELD_USER_COUNTS_USER)
+        .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+  }
+
   public static UsageQueryResult queryRange(
       @Nonnull OperationContext opContext,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
@@ -171,31 +206,16 @@ public class UsageServiceUtil {
 
     // 1. Construct the aggregation specs for latest value of uniqueUserCount, totalSqlQueries &
     // topSqlQueries.
-    AggregationSpec uniqueUserCountAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec totalSqlQueriesAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("totalSqlQueries");
-    AggregationSpec topSqlQueriesAgg =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("topSqlQueries");
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
+        new AggregationSpec[] {
+          latestAggSpec(FIELD_UNIQUE_USER_COUNT),
+          latestAggSpec(FIELD_TOTAL_SQL_QUERIES),
+          latestAggSpec(FIELD_TOP_SQL_QUERIES)
+        };
 
     // 2. Construct the Grouping buckets with just the ts bucket.
-
-    GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket
-        .setKey(Constants.ES_FIELD_TIMESTAMP)
-        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
-        .setTimeWindowSize(
-            new TimeWindowSize().setMultiple(1).setUnit(TimeseriesUtils.windowToInterval(duration)))
-        .setTimeZone(timeZone, SetMode.IGNORE_NULL);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[] {timestampBucket};
+    GroupingBucket[] groupingBuckets =
+        new GroupingBucket[] {usageTimestampBucket(duration, timeZone)};
 
     // 3. Query
     GenericTable result =
@@ -270,24 +290,12 @@ public class UsageServiceUtil {
       @Nonnull OperationContext opContext,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       Filter filter) {
-    // Sum aggregation on userCounts.count
-    AggregationSpec sumUserCountsCountAggSpec =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("userCounts.count");
-    AggregationSpec latestUserEmailAggSpec =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("userCounts.userEmail");
+    // Sum aggregation on userCounts.count + latest userCounts.userEmail, grouped by userCounts.user
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {sumUserCountsCountAggSpec, latestUserEmailAggSpec};
-
-    // String grouping bucket on userCounts.user
-    GroupingBucket userGroupingBucket =
-        new GroupingBucket()
-            .setKey("userCounts.user")
-            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userGroupingBucket};
+        new AggregationSpec[] {
+          sumAggSpec(FIELD_USER_COUNTS_COUNT), latestAggSpec(FIELD_USER_COUNTS_EMAIL)
+        };
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userCountsGroupingBucket()};
 
     // Query backend
     GenericTable result =

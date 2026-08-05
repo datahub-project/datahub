@@ -6,11 +6,11 @@ import {
     getIsRowCountChange,
     getParameterDescription,
     getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 
 import {
-    AssertionStdOperator,
     AssertionValueChangeType,
     IncrementingSegmentRowCountChange,
     RowCountChange,
@@ -19,23 +19,6 @@ import {
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
-};
-
-// Maps the assertion operator to the operator portion of the description translation key. Returns a
-// literal union (not `string`) so the composed `volumeDescription.*` key stays statically checkable
-// once i18next typed resources are re-enabled. Returns null for operators outside the three that
-// volume assertions are built with, so the caller renders a generic fallback rather than throwing.
-const getOperatorKeyPart = (operator: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' | null => {
-    switch (operator) {
-        case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'AtLeast';
-        case AssertionStdOperator.LessThanOrEqualTo:
-            return 'AtMost';
-        case AssertionStdOperator.Between:
-            return 'Between';
-        default:
-            return null;
-    }
 };
 
 /**
@@ -47,7 +30,7 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const isChange = getIsRowCountChange(volumeType);
     const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
-    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : null;
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
     const interpolation = getParameterInterpolation(parameterDescription);
 
     let key: string;

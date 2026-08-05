@@ -5,12 +5,37 @@ jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
   # OpenLineage must be shaded under io.acryl.shaded so this agent can coexist with environments
-  # that ship their own io.openlineage.* (e.g. EMR/DataZone). The only OpenLineage classes allowed
-  # to remain unrelocated are the extension SPI, which connectors implement at its canonical name.
-  unrelocatedOl=$(jar -tf "$jarFile" | grep '^io/openlineage/' | grep -v '^io/openlineage/spark/extension/' | grep -E '\.class$')
+  # that ship their own io.openlineage.* (e.g. EMR/DataZone). Two packages MUST stay unrelocated:
+  #  - io.openlineage.spark.extension: the SPI connectors implement at its canonical name.
+  #  - io.openlineage.sql: JNI-backed; its native symbols are baked into the Rust .so/.dylib as
+  #    Java_io_openlineage_sql_*, which shading can't rewrite. Relocating it → UnsatisfiedLinkError
+  #    on JDBC/SQL parsing (issue #18558), so it must remain at its canonical name.
+  unrelocatedOl=$(jar -tf "$jarFile" | grep '^io/openlineage/' | grep -v '^io/openlineage/spark/extension/' | grep -v '^io/openlineage/sql/' | grep -E '\.class$')
   if [ -n "$unrelocatedOl" ]; then
     echo "💥 Found unrelocated OpenLineage classes in ${jarFile}:"
     echo "$unrelocatedOl"
+    exit 1
+  fi
+
+  # Positive guard for the JNI package (issue #18558): the Java class and its native libraries MUST
+  # live at the canonical io/openlineage/sql/ path so the Rust-compiled Java_io_openlineage_sql_*
+  # symbols resolve. If a future relocation change moves them under io/acryl/shaded/, JDBC/SQL
+  # parsing crashes with UnsatisfiedLinkError — fail the build here instead of shipping it.
+  sqlClass=$(jar -tf "$jarFile" | grep -E '^io/openlineage/sql/OpenLineageSql\.class$')
+  sqlNativeLibs=$(jar -tf "$jarFile" | grep -E '^io/openlineage/sql/libopenlineage_sql_java.*\.(so|dylib|dll)$')
+  if [ -z "$sqlClass" ] || [ -z "$sqlNativeLibs" ]; then
+    echo "💥 JNI SQL parser missing at canonical io/openlineage/sql/ in ${jarFile}"
+    echo "   OpenLineageSql.class present: ${sqlClass:-NO}"
+    echo "   native libs present: ${sqlNativeLibs:-NO}"
+    echo "   (io.openlineage.sql must be excluded from relocation — see build.gradle)"
+    exit 1
+  fi
+
+  # Positive guard: the extension SPI must stay canonical so connectors implement it at its
+  # canonical name — same "must not be relocated" reason as io.openlineage.sql above.
+  extClasses=$(jar -tf "$jarFile" | grep -E '^io/openlineage/spark/extension/.*\.class$')
+  if [ -z "$extClasses" ]; then
+    echo "💥 Extension SPI missing at canonical io/openlineage/spark/extension/ in ${jarFile}"
     exit 1
   fi
 

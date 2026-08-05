@@ -39,7 +39,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
-from datahub.ingestion.source.sql.stored_procedures.base import (
+from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -376,8 +376,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
-            # MySQL upper-cases information_schema labels; MariaDB keeps the
-            # selected case. Unpack positionally so access is case-independent.
+            # MySQL upper-cases information_schema labels; MariaDB/Doris/TiDB keep
+            # the selected case — unpack positionally so access is case-independent.
             for table_schema, table_name, data_length in conn.execute(
                 text(
                     "SELECT table_schema, table_name, data_length "

@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -381,6 +382,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "testProp");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -388,6 +392,8 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH),
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -532,6 +538,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testProp.00000000000001.string");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -539,6 +548,8 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH),
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -563,6 +574,66 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testPropNumber.00000000000001.number");
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertySameTypeCollisionKeepsLowestUrn()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    // urnDot < urnUnderscore lexicographically
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot)));
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyDifferentTypeCollisionOmitsField()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defString =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defNumber =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
+
+    assertFalse(mappings.containsKey("certification_status"));
   }
 
   @Test
@@ -733,6 +804,51 @@ public class V2MappingsBuilderTest {
           e instanceof NullPointerException || e instanceof IllegalArgumentException,
           "Should throw appropriate exception for null OperationContext");
     }
+  }
+
+  @Test
+  public void testUrnStructuredPropertyMapsToKeywordParent() throws URISyntaxException {
+    // URN SPs use the shared URN mapping (parent keyword + delimited/ngram). Facets/filters
+    // target the parent via query-time logic (usesKeywordSubfield), not a .keyword subfield.
+    StructuredPropertyDefinition urnProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("steward")
+            .setDisplayName("Steward")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, urnProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a URN prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+
+    assertTrue(spFields.containsKey("steward"), "Should contain the steward field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stewardMapping = (Map<String, Object>) spFields.get("steward");
+    assertEquals(stewardMapping.get("type"), "keyword", "Top-level type should be keyword");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) stewardMapping.get("fields");
+    assertNotNull(subFields, "URN structured property must have subfields");
+    assertFalse(
+        subFields.containsKey("keyword"),
+        "URN structured property must not require .keyword; query time targets the parent");
+    assertTrue(
+        subFields.containsKey("delimited"),
+        "URN structured property must have .delimited subfield for URN component search");
   }
 
   private EntityRegistry getTestEntityRegistry() {

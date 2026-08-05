@@ -4,16 +4,21 @@ from typing import Any, Dict
 
 import pytest
 
-from conftest import _ingest_cleanup_data_impl
+from conftest import _ingest_cleanup_unique_dataset_impl
 from tests.utils import delete_entity, execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client):
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/domains/data.json", "domains"
+def dataset_urn(auth_session, graph_client, tmp_path_factory):
+    yield from _ingest_cleanup_unique_dataset_impl(
+        auth_session,
+        graph_client,
+        "tests/domains/data.json",
+        "domains",
+        "test-tags-terms-sample-kafka",
+        tmp_path_factory.mktemp("domains"),
     )
 
 
@@ -119,11 +124,8 @@ def test_create_list_get_domain(auth_session):
 
 
 @pytest.mark.dependency(depends=["test_create_list_get_domain"])
-def test_set_unset_domain(auth_session, ingest_cleanup_data):
+def test_set_unset_domain(auth_session, dataset_urn):
     # Set and Unset a Domain for a dataset. Note that this doesn't test for adding domains to charts, dashboards, charts, & jobs.
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
-    )
     domain_urn = "urn:li:domain:engineering"
 
     # First unset to be sure.

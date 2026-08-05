@@ -57,9 +57,6 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.profiling.common import (
-    create_datahub_ge_profiler,
-)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
@@ -76,10 +73,10 @@ from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
-    BaseProcedure,
     generate_procedure_container_workunits,
     generate_procedure_workunits,
 )
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -125,7 +122,6 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.profiling.common import (
         ProfilerRequest as GEProfilerRequest,
     )
@@ -405,7 +401,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         return test_report
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason[:100])
+        self.report.failure(
+            message=reason[:100],
+            context=key,
+        )
         log.error(f"{key} => {reason}\n{traceback.format_exc()}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
@@ -930,9 +929,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 f"Failed to classify table columns for {dataset_name} due to error -> {e}",
                 exc_info=e,
             )
-            self.report.report_warning(
-                "Failed to classify table columns",
-                dataset_name,
+            self.report.warning(
+                message="Failed to classify table columns",
+                context=dataset_name,
+                log=False,
             )
 
     def get_database_properties(
@@ -1335,39 +1335,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
-    def get_profiler_instance(
-        self, inspector: Inspector
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
-        # Import custom profiler first (no GE dependency)
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
         from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
+        """Passed down to the profiler"""
         return {}
 
     # Override if needed
@@ -1508,7 +1493,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
-        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
+        profiler: "SQLAlchemyProfiler",
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(

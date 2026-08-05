@@ -495,14 +495,16 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
                 yield mcp.as_workunit()
             else:
-                self.report.report_warning(
-                    "unknown-upstream-dataset",
-                    f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+                self.report.warning(
+                    message="Unknown upstream dataset for model",
+                    context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
+                    log=False,
                 )
         elif model.system_type is not None:
-            self.report.report_warning(
-                "unknown-system-type",
-                f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+            self.report.warning(
+                message="Unknown system type for model",
+                context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
+                log=False,
             )
 
         mcp = MetadataChangeProposalWrapper(
@@ -792,9 +794,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             elif column.data_type in ("decimal", "int32"):
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             else:
-                self.report.report_warning(
-                    "unknown-data-type",
-                    f"Unknown data type {column.data_type} found",
+                self.report.warning(
+                    message="Unknown data type found",
+                    context=f"data_type={column.data_type}",
+                    log=False,
                 )
 
                 return SchemaFieldDataTypeClass(type=NullTypeClass())

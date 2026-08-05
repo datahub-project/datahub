@@ -159,13 +159,21 @@ public class EntitySpecBuilder {
 
   public EntitySpec buildEntitySpec(
       @Nonnull final DataSchema entitySnapshotSchema, @Nonnull final List<AspectSpec> aspectSpecs) {
-    return buildEntitySpec(entitySnapshotSchema, aspectSpecs, null);
+    return buildEntitySpec(entitySnapshotSchema, aspectSpecs, null, null);
   }
 
   public EntitySpec buildEntitySpec(
       @Nonnull final DataSchema entitySnapshotSchema,
       @Nonnull final List<AspectSpec> aspectSpecs,
       @Nullable final String searchGroup) {
+    return buildEntitySpec(entitySnapshotSchema, aspectSpecs, searchGroup, null);
+  }
+
+  public EntitySpec buildEntitySpec(
+      @Nonnull final DataSchema entitySnapshotSchema,
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nullable final String searchGroup,
+      @Nullable final Boolean viewUnrestricted) {
 
     // 0. Validate the Snapshot definition
     final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
@@ -180,11 +188,16 @@ public class EntitySpecBuilder {
           EntityAnnotation.fromSchemaProperty(
               entityAnnotationObj, entitySnapshotRecordSchema.getFullName());
 
-      // Override searchGroup from YAML configuration if provided
-      if (searchGroup != null) {
+      // Override searchGroup / viewUnrestricted from YAML configuration when provided
+      if (searchGroup != null || viewUnrestricted != null) {
         entityAnnotation =
             new EntityAnnotation(
-                entityAnnotation.getName(), entityAnnotation.getKeyAspect(), searchGroup);
+                entityAnnotation.getName(),
+                entityAnnotation.getKeyAspect(),
+                searchGroup != null ? searchGroup : entityAnnotation.getSearchGroup(),
+                viewUnrestricted != null
+                    ? viewUnrestricted
+                    : entityAnnotation.isViewUnrestricted());
       }
 
       final EntitySpec entitySpec =
@@ -208,7 +221,19 @@ public class EntitySpecBuilder {
       @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs,
       @Nonnull final String searchGroup) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup);
+    return buildConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, false);
+  }
+
+  public EntitySpec buildConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup,
+      final boolean viewUnrestricted) {
+    EntitySpec entitySpec =
+        new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup, viewUnrestricted);
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
+    return entitySpec;
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -217,6 +242,7 @@ public class EntitySpecBuilder {
       @Nonnull final List<AspectSpec> aspectSpecs) {
     EntitySpec entitySpec =
         new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
     return entitySpec;
   }
 
@@ -389,6 +415,8 @@ public class EntitySpecBuilder {
       }
       aspectNames.add(aspectSpec.getName());
     }
+
+    RelationshipEdgeUniquenessValidator.validate(entitySpec);
 
     // Validate entity name
     if (_entityNames.contains(entitySpec.getName().toLowerCase())) {

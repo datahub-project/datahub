@@ -490,10 +490,11 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest_file = folder / "manifest.lkml"
 
         if not manifest_file.exists():
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Manifest File Missing",
                 message="manifest.lkml file missing from project",
                 context=str(manifest_file),
+                log=False,
             )
             return None
 
@@ -581,9 +582,8 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
-                self.report.report_failure(
-                    "No Metadata Produced",
-                    "No metadata was produced. Check the logs for more details.",
+                self.report.failure(
+                    message="No metadata was produced. Check the logs for more details.",
                 )
 
     def _recursively_check_manifests(
@@ -736,11 +736,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                 logger.debug(f"Attempting to load model: {file_path}")
                 model = self._load_model(str(file_path))
             except Exception as e:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Error Loading Model File",
                     message="Unable to load Looker model from file.",
                     context=f"Model Name: {model_name}, File Path: {file_path}",
                     exc=e,
+                    log=False,
                 )
                 continue
 
@@ -753,10 +754,11 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
 
             if connection_definition is None:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Failed to Load Connection",
                     message="Failed to load connection. Check your API key permissions and/or connection_to_platform_map configuration.",
                     context=f"Connection: {model.connection}",
+                    log=False,
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -803,11 +805,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                             view_to_explores[view_name.include].add(explore.name)
                             explore_to_views[explore.name].add(view_name.include)
                 except Exception as e:
-                    self.reporter.report_warning(
+                    self.reporter.warning(
                         title="Failed to process explores",
                         message="Failed to process explore dictionary.",
                         context=f"Explore Details: {explore_dict}",
                         exc=e,
+                        log=False,
                     )
                     logger.debug("Failed to process explore", exc_info=e)
 
@@ -912,11 +915,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_to_explore_map=view_to_explore_map,
                             )
                         except Exception as e:
-                            self.reporter.report_warning(
+                            self.reporter.warning(
                                 title="Error Loading View",
                                 message="Unable to load Looker View.",
                                 context=f"View Details: {raw_view}",
                                 exc=e,
+                                log=False,
                             )
 
                             logger.debug(e, exc_info=e)
@@ -1051,12 +1055,13 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         for project, view_paths in skipped_view_paths.items():
             for path in view_paths:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Skipped View File",
                     message=(
                         "The Looker view file was skipped because it may not be referenced by any models."
                     ),
                     context=(f"Project: {project}, View File Path: {path}"),
+                    log=False,
                 )
 
     def _optimize_views_by_common_explore(

@@ -277,6 +277,8 @@ export interface NodeContext {
     setDisplayVersion: Dispatch<SetStateAction<[number, Urn[]]>>;
     columnEdgeVersion: number; // Used to force recalculation of column->column edges
     setColumnEdgeVersion: Dispatch<SetStateAction<number>>;
+    collapseColumnsVersion: number; // Bumped to collapse every node's columns, e.g. on redraw
+    setCollapseColumnsVersion: Dispatch<SetStateAction<number>>;
     hideTransformations: boolean;
     setHideTransformations: (hide: boolean) => void;
     showDataProcessInstances: boolean;
@@ -307,6 +309,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDisplayVersion: () => {},
     columnEdgeVersion: 0,
     setColumnEdgeVersion: () => {},
+    collapseColumnsVersion: 0,
+    setCollapseColumnsVersion: () => {},
     hideTransformations: false,
     setHideTransformations: () => {},
     showDataProcessInstances: false,

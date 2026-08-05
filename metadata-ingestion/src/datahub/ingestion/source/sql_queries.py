@@ -90,7 +90,8 @@ class SqlQueriesSourceConfig(
     )
     temp_table_patterns: List[str] = Field(
         description="Regex patterns for temporary tables to filter in lineage ingestion. "
-        "Specify regex to match the entire table name. This is useful for platforms like Athena "
+        "Patterns match from the start of the table name only, not the entire name - "
+        "anchor with '^...$' for an exact match. This is useful for platforms like Athena "
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
     )

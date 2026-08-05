@@ -34,11 +34,7 @@ Extracts:
 
 ## Profiler Implementation
 
-DataHub uses a SQLAlchemy-based profiler by default for all SQL sources.
-
-### Default: SQLAlchemy Profiler
-
-The default profiler runs profiling queries directly against your SQL source's existing SQLAlchemy connection and emits the table- and column-level statistics listed under [Capabilities](#capabilities). No additional dependencies are required beyond the SQL connector itself.
+DataHub uses a SQLAlchemy-based profiler for all SQL sources. It runs profiling queries directly against your SQL source's existing SQLAlchemy connection and emits the table- and column-level statistics listed under [Capabilities](#capabilities). No additional dependencies are required beyond the SQL connector itself.
 
 No configuration is required to use it — any SQL source with profiling enabled will use the SQLAlchemy profiler automatically:
 
@@ -49,30 +45,8 @@ source:
       enabled: true
 ```
 
-### Optional: Great Expectations Profiler (Deprecated)
+:::note
 
-:::warning
-
-The Great Expectations profiler is **deprecated** and is planned for removal in a future release. The SQLAlchemy profiler above is the recommended replacement and has feature parity for all dataset- and column-level metrics. Existing users still relying on `method: ge` should plan to migrate.
+The legacy Great Expectations profiler (`profiling.method: ge`) has been removed. SQLAlchemy is now the only SQL profiler; the `profiling.method` option no longer has any effect and can be dropped from recipes.
 
 :::
-
-To use the legacy GE profiler, install the optional `profiling-ge` extra and set `profiling.method` explicitly:
-
-```bash
-pip install 'acryl-datahub[profiling-ge]'
-```
-
-```yaml
-source:
-  config:
-    profiling:
-      enabled: true
-      method: ge
-```
-
-If you set `profiling.method: ge` without installing the extra, the ingestion will fail with a `ConfigurationError` pointing at the fix.
-
-### Differences
-
-The two profilers produce equivalent dataset- and column-level statistics. The only known difference is histogram bucket layout (controlled by `include_field_histogram`, off by default): the SQLAlchemy profiler uses 10 equal-width buckets, while the GE profiler uses Great Expectations' adaptive partitioning.
