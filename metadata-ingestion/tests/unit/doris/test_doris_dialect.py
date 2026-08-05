@@ -404,6 +404,28 @@ class TestDorisDialect:
         assert isinstance(columns[0]["type"], LARGEINT)
         assert dialect.reflection_fallbacks["`my_db`.`my_table`"].expected is True
 
+    def test_unrelated_type_error_is_not_classified_as_expected(self):
+        """The NullType anchor keeps an unrelated 'takes no arguments' TypeError from
+        being waved through under the benign heading."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.return_value = [
+            ("col_a", "INT", "NO", "true", None, "")
+        ]
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "_setup_parser",
+            side_effect=TypeError("SomeOtherThing() takes no arguments"),
+        ):
+            dialect.get_columns(
+                mock_connection, "my_table", schema="my_db", info_cache={}
+            )
+
+        assert dialect.reflection_fallbacks["`my_db`.`my_table`"].expected is False
+
     def test_pop_reflection_fallbacks_drains(self):
         """Draining has to empty the dialect, or a second database re-reports the
         first one's tables."""

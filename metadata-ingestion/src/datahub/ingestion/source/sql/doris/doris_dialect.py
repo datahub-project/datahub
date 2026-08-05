@@ -103,9 +103,11 @@ _TYPE_NAME_PATTERN = re.compile(r"\w+")
 # views, and the TypeError the MySQL DDL parser raises building NullType(*args) for a
 # type it cannot model. Anything else that reaches the fallback is a different problem
 # — a missing grant, a dropped connection — and must not be filed under the same
-# benign heading.
+# benign heading. The second branch is anchored to NullType so an unrelated
+# "takes no arguments" TypeError is not waved through as expected.
 _EXPECTED_DDL_REFUSAL_PATTERN = re.compile(
-    r"not support async materialized view|takes no arguments", re.IGNORECASE
+    r"not support async materialized view|NullType\(\).*takes no arguments",
+    re.IGNORECASE,
 )
 
 # DESCRIBE returns Field, Type, Null, Key, Default, Extra.
@@ -132,14 +134,17 @@ class DescribeRow:
 def _parse_describe_row(row: Sequence[Any]) -> DescribeRow:
     # Trailing columns are read defensively because Doris external catalogs (Iceberg,
     # Hive) do not always return the full six-column shape the internal catalog does.
+    default = (
+        row[_DESCRIBE_DEFAULT_INDEX] if len(row) > _DESCRIBE_DEFAULT_INDEX else None
+    )
     return DescribeRow(
         name=str(row[0]),
         type_str=str(row[1]),
         nullable=len(row) <= _DESCRIBE_NULLABLE_INDEX
         or str(row[_DESCRIBE_NULLABLE_INDEX]).upper() != "NO",
-        default=row[_DESCRIBE_DEFAULT_INDEX]
-        if len(row) > _DESCRIBE_DEFAULT_INDEX
-        else None,
+        # SQLAlchemy reflects a column default as its DDL text, so match the driver's
+        # value to the annotation rather than passing whatever type it handed back.
+        default=None if default is None else str(default),
     )
 
 

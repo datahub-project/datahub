@@ -448,6 +448,53 @@ class TestDorisSourceMethods:
         assert source.report.tables_reflected_without_keys == 1
         assert dialect.reflection_fallbacks == {}
 
+    def test_each_database_reports_only_its_own_fallbacks(self):
+        """Two databases must accumulate into the counter without either re-reporting
+        the other's tables."""
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        dialects = []
+        for db in ("db1", "db2"):
+            dialect = DorisDialect()
+            dialect.reflection_fallbacks[f"`{db}`.`mv`"] = ReflectionFallback(
+                error="not support async materialized view", expected=True
+            )
+            dialects.append(dialect)
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            list_engine = MagicMock()
+            db_engines = [MagicMock(), MagicMock()]
+            mock_create.side_effect = [list_engine, *db_engines]
+
+            list_engine.connect.return_value.__enter__.return_value = _mock_list_conn()
+            for db_engine, dialect in zip(db_engines, dialects, strict=True):
+                db_conn = MagicMock()
+                db_conn.dialect = dialect
+                db_engine.connect.return_value = db_conn
+
+            main_inspector = MagicMock(spec=Inspector)
+            main_inspector.get_schema_names.return_value = ["db1", "db2"]
+            mock_inspect.side_effect = [
+                main_inspector,
+                MagicMock(spec=Inspector),
+                MagicMock(spec=Inspector),
+            ]
+
+            assert len(list(source.get_inspectors())) == 2
+
+        assert source.report.tables_reflected_without_keys == 2
+        contexts = " ".join(str(warning) for warning in source.report.warnings)
+        assert contexts.count("`db1`.`mv`") == 1
+        assert contexts.count("`db2`.`mv`") == 1
+
     def test_unexpected_reflection_error_gets_its_own_warning(self):
         """An unexpected failure must not be filed under the routine-degradation
         heading an operator learns to ignore."""
