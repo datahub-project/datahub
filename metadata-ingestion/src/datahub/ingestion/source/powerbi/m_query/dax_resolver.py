@@ -13,10 +13,18 @@ def extract_dax_table_references(expression: str) -> List[str]:
     tables before emitting lineage. Best-effort — an unparseable expression yields [].
     """
     try:
-        parsed = DAXExpression(expression)
+        # verify_best_practices runs a rule engine whose output we never read.
+        parsed = DAXExpression(expression, verify_best_practices=False)
+        # `Table[Column]` pairs land on table_column_references; standalone table
+        # references (e.g. DISTINCT('T'), UNION('A','B'), a plain table copy) land
+        # on table_references. Both are calculated-table sources. PyDAX is
+        # unstubbed, so cast to str to keep the List[str] contract honest.
         names = {
-            ref.table_name for ref in parsed.table_column_references if ref.table_name
+            str(ref.table_name)
+            for ref in parsed.table_column_references
+            if ref.table_name
         }
+        names |= {str(ref.name) for ref in parsed.table_references if ref.name}
     except Exception as e:
         logger.debug(
             "DAX table-reference extraction failed for expression %r: %s",
