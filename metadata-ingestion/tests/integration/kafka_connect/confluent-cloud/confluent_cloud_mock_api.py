@@ -21,7 +21,6 @@ def log_request_info():
     logger.info(f"Request - {request.method} {request.path} from {client_ip}")
 
 
-# Pagination reaches the catalog inlined in the query text, never as GraphQL variables.
 OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
 LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
 
@@ -456,12 +455,7 @@ def get_topic(cluster_id, topic_name):
 @app.route("/catalog/graphql", methods=["POST"])
 @require_auth
 def catalog_graphql():
-    """Minimal stand-in for the Stream Catalog GraphQL API (cn_connector only).
-
-    Mirrors the live Confluent Cloud endpoint (verified 2026-08-05): any
-    request carrying a GraphQL variables map fails with HTTP 500, so
-    pagination must arrive inlined in the query text.
-    """
+    """cn_connector stand-in. Variables map → 500, like the live endpoint."""
     body = request.get_json(silent=True) or {}
     if "variables" in body:
         return jsonify({"error": "Internal server error"}), 500
@@ -470,9 +464,7 @@ def catalog_graphql():
     offset_match = OFFSET_ARGUMENT_RE.search(query)
     limit_match = LIMIT_ARGUMENT_RE.search(query)
     if not offset_match or not limit_match:
-        # A real GraphQL server rejects a non-integer argument - an unsubstituted
-        # `{limit}` placeholder included - rather than quietly applying a default
-        # page size, which would hide a broken client from this test.
+        # Reject unsubstituted placeholders rather than defaulting the page size.
         return jsonify(
             {"errors": [{"message": "Invalid syntax in pagination arguments"}]}
         ), 400

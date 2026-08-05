@@ -57,10 +57,8 @@ class ConfluentStreamCatalogClient:
             if placeholder not in query
         ]
         if missing:
-            # A query that cannot be paginated would otherwise repeat the same
-            # request forever, or silently stop after whatever the server's default
-            # page size is. This is a bug in the query constant, not a catalog
-            # problem, so it is a failure rather than a warning.
+            # Missing {offset} loops forever; missing {limit} silently truncates.
+            # Client bug, not a catalog outage — report as failure.
             self.report.failure(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
@@ -93,8 +91,7 @@ class ConfluentStreamCatalogClient:
     def _fetch_page(
         self, query: str, root_key: str, offset: int
     ) -> Optional[List[Dict[str, object]]]:
-        # Presence of both placeholders is checked in fetch_entities; both values are
-        # integers, so no escaping is needed.
+        # Integers only — no escaping needed. Placeholder presence checked above.
         inline_query = query.replace(
             LIMIT_PLACEHOLDER, str(self.config.page_size)
         ).replace(OFFSET_PLACEHOLDER, str(offset))
@@ -109,8 +106,8 @@ class ConfluentStreamCatalogClient:
             response.raise_for_status()
             payload = response.json()
         except requests.HTTPError as e:
-            # Carries the server's own explanation, which separates a rejected query
-            # from the routine "catalog not provisioned" case.
+            # Include response body so a rejected query is distinguishable from
+            # "catalog not provisioned".
             self.report.warning(
                 message="The Confluent Stream Catalog rejected the request",
                 context=f"{context}, response={_response_body(e)}",

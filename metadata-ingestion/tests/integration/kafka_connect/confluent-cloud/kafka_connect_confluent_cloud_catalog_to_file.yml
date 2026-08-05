@@ -30,9 +30,7 @@ source:
       api_secret: "admin"
       # Off by default; enabled here so the golden covers catalog-derived lineage.
       include_lineage: true
-      # Smaller than the number of connectors the mock serves, so the run crosses a
-      # page boundary with the real query constant and the mock verifies the inlined
-      # pagination arguments of every request.
+      # Force a page boundary so the mock verifies inlined pagination.
       page_size: 1
 
     connector_patterns:

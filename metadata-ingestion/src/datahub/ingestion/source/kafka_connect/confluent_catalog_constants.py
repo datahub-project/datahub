@@ -11,21 +11,12 @@ CONNECTOR_ROOT_KEY: Final[str] = "cn_connector"
 LINEAGE_SOURCE_PROPERTY: Final[str] = "lineage_source"
 LINEAGE_SOURCE_CATALOG: Final[str] = "confluent_stream_catalog"
 
-# Read-only query against the Stream Catalog. `cn_connector.topics` already reflects
-# post-SMT topic names, which is why it can replace the transform-matching heuristic.
-#
-# Selects only fields this source actually consumes. An unknown field fails the whole
-# query, taking tags, business metadata and topics down with it, so a field earns its
-# place here by being both verified against the live API and read downstream — the
-# connector's class, type, status and description are neither.
-#
-# Pagination placeholders are substituted by the client; see LIMIT_PLACEHOLDER in
-# `datahub.ingestion.source.confluent.constants` for why they are not GraphQL variables.
-#
-# Deliberately not filtered by a cluster-id field: on `cn_connector` that field holds
-# the logical *Connect* cluster id (lcc-*), whereas the Connect REST URI only gives us
-# the Kafka cluster id (lkc-*). The Schema Registry endpoint is already
-# environment-scoped, so connectors are matched by name instead.
+# `cn_connector.topics` already reflects post-SMT names, so it replaces the
+# transform-matching heuristic. Unknown fields fail the whole query — only select
+# fields that are both live-verified and consumed. Not filtered by cluster id:
+# on `cn_connector` that field is the Connect cluster (lcc-*), not the Kafka
+# cluster (lkc-*) the REST URI gives us; match by name instead. Pagination
+# placeholders: see LIMIT_PLACEHOLDER in confluent.constants.
 CONNECTOR_CATALOG_QUERY: Final[str] = """
 {
   cn_connector(limit: {limit}, offset: {offset}) {

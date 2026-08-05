@@ -15,8 +15,7 @@ from datahub.ingestion.source.confluent.models import (
 )
 
 ROOT_KEY = "kafka_topic"
-# Pagination placeholders are inlined by the client; the live catalog endpoint
-# rejects GraphQL variables with an HTTP 500.
+# Live endpoint 500s on a variables map — pagination must be inlined.
 QUERY = "{ kafka_topic(limit: {limit}, offset: {offset}) { name } }"
 
 
@@ -151,11 +150,8 @@ class TestConfluentStreamCatalogClient:
         ]
         session = client.session
         assert isinstance(session, Mock)
-        # Pagination must be inlined into the query text with no variables map, which
-        # the live catalog endpoint answers with an HTTP 500. Every request is checked:
-        # the first proves offset 0 is substituted rather than skipped as falsy, and
-        # the last has an offset that differs from the limit, so a swapped substitution
-        # cannot pass.
+        # Check every body: offset 0 (not skipped as falsy) and a page where
+        # offset != limit (so a swapped substitution cannot pass).
         assert [call.kwargs["json"] for call in session.post.call_args_list] == [
             {"query": "{ kafka_topic(limit: 2, offset: 0) { name } }"},
             {"query": "{ kafka_topic(limit: 2, offset: 2) { name } }"},
@@ -235,7 +231,7 @@ class TestCatalogEntityHelpers:
             {
                 "name": "orders",
                 "business_metadata": [
-                    # The live catalog names attributes `<definition>.<attribute>`.
+                    # Live catalog uses `<definition>.<attribute>` names.
                     {"name": "Governance.owner_team", "value": "core"},
                     {"name": "critical", "value": True},
                     {"name": "tier", "value": 1},

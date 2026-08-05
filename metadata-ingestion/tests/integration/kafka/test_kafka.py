@@ -63,8 +63,7 @@ CATALOG_TOPICS = [
 ]
 
 
-# The live catalog endpoint 500s on a GraphQL variables map, so pagination has to
-# arrive substituted into the query text.
+# Live endpoint 500s on a variables map — pagination must be inlined.
 INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
 
 
