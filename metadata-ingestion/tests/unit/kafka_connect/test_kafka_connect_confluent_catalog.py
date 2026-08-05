@@ -547,12 +547,59 @@ class TestCatalogLineage:
         ):
             assert source.extract_connector_lineages(manifest)
 
+        assert registry_connector.all_cluster_topics == []
         assert manifest.lineages == []
         assert any(
             "not present on the live Kafka cluster" in warning.message
             for warning in source.report.warnings
         )
         assert list(source.report.catalog_lineage_fallbacks) == []
+
+    def test_empty_live_topic_list_does_not_fall_back_to_config_derivation(
+        self,
+    ) -> None:
+        source = make_cloud_source()
+        manifest = make_manifest()
+
+        with (
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(
+                source,
+                "_get_topics_from_connector_config",
+                return_value=["derived-from-config"],
+            ) as derive,
+        ):
+            assert source._get_topics_confluent_cloud_from_manifest(manifest) == []
+
+        derive.assert_not_called()
+
+    def test_kafka_rest_failure_does_not_warn_when_catalog_disabled(self) -> None:
+        source = make_cloud_source()
+        source._catalog = None
+        source._all_kafka_topics_resolved = False
+        source._all_kafka_topics_cache = None
+
+        with patch.object(
+            source, "_parse_confluent_cloud_info", return_value=(None, None)
+        ):
+            assert source._get_all_topics_from_kafka_api() is None
+
+        assert source.report.warnings == []
+
+    def test_kafka_rest_failure_warns_when_catalog_enabled(self) -> None:
+        source = make_cloud_source()
+        source._all_kafka_topics_resolved = False
+        source._all_kafka_topics_cache = None
+
+        with patch.object(
+            source, "_parse_confluent_cloud_info", return_value=(None, None)
+        ):
+            assert source._get_all_topics_from_kafka_api() is None
+
+        assert any(
+            "Stream Catalog lineage will not be cross-checked" in warning.message
+            for warning in source.report.warnings
+        )
 
     def test_connector_absent_from_catalog_does_not_claim_empty_topics(self) -> None:
         source = make_cloud_source()

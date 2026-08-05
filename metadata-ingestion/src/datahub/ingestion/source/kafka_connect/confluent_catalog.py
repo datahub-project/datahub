@@ -1,13 +1,13 @@
 import logging
-from typing import Annotated, List, Optional
+from typing import List, Optional
 
-from pydantic import BeforeValidator, Field
+from pydantic import Field
 
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
 from datahub.ingestion.source.confluent.models import (
     CatalogEntity,
     NameIndex,
-    empty_if_null,
+    NullAsEmptyList,
     index_by_name,
 )
 from datahub.ingestion.source.kafka_connect.common import (
@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogConnector(CatalogEntity):
-    topics: Annotated[List[CatalogEntity], BeforeValidator(empty_if_null)] = Field(
-        default_factory=list
-    )
+    topics: NullAsEmptyList[CatalogEntity] = Field(default_factory=list)
 
     def get_topic_names(self) -> List[str]:
         return list(dict.fromkeys(topic.name for topic in self.topics if topic.name))

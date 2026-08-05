@@ -85,6 +85,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.confluent.models import non_colliding_business_metadata
 from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
@@ -386,15 +387,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             catalog_config = self.source_config.confluent_catalog
             if catalog_config.enabled:
-                if catalog_config.is_confluent_cloud_endpoint():
+                if catalog_config.check_confluent_cloud_endpoint(self.report):
                     self.topic_catalog = KafkaTopicCatalog(catalog_config, self.report)
-                else:
-                    self.report.warning(
-                        message="'confluent_catalog' is enabled but the Schema Registry endpoint is "
-                        "not a Confluent Cloud one — the Stream Catalog is Confluent Cloud only and "
-                        "will be skipped",
-                        context=f"schema_registry_url={catalog_config.schema_registry_url}",
-                    )
         except Exception:
             try:
                 self.consumer.close()
@@ -1319,22 +1313,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             self.report.catalog_tagged_topics += 1
 
         if config.include_business_metadata:
-            properties = catalog_topic.properties_from_business_metadata()
-            # Org-defined attribute names can collide with broker topic properties;
-            # keep the broker value.
-            collisions = sorted(properties.keys() & custom_props.keys())
-            if collisions:
-                self.report.warning(
-                    message="Ignoring Stream Catalog business metadata attributes whose names "
-                    "collide with topic properties read from the broker. Rename the attributes "
-                    "in Confluent to emit them.",
-                    context=f"topic={topic}, attributes={collisions}",
-                )
-                properties = {
-                    name: value
-                    for name, value in properties.items()
-                    if name not in custom_props
-                }
+            properties = non_colliding_business_metadata(
+                catalog_topic,
+                custom_props,
+                self.report,
+                collides_with="topic properties read from the broker",
+                context=f"topic={topic}",
+            )
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1

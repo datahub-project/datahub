@@ -765,6 +765,12 @@ class BaseConnector:
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
 
+    def available_topics(self) -> List[str]:
+        # None = list unavailable (fall back to connector topic_names); [] = empty cluster.
+        if self.all_cluster_topics is not None:
+            return list(self.all_cluster_topics)
+        return list(self.connector_manifest.topic_names)
+
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
         return []
@@ -815,9 +821,7 @@ class BaseConnector:
         2. Use subscribed topics if runtime data unavailable
         3. Use all runtime topics if no subscription config
         """
-        available_topics = set(
-            self.all_cluster_topics or connector_manifest.topic_names
-        )
+        available_topics = set(self.available_topics())
         subscribed_topics_set = set(subscribed_topics)
 
         if subscribed_topics_set:

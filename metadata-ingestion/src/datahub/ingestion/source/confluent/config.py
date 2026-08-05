@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.confluent.constants import (
     CATALOG_GRAPHQL_PATH,
     CONFLUENT_CLOUD_DOMAIN_SUFFIX,
@@ -93,6 +94,17 @@ class ConfluentStreamCatalogConfig(ConfigModel):
     def is_confluent_cloud_endpoint(self) -> bool:
         host = urlparse(self.schema_registry_url or "").hostname or ""
         return host.endswith(CONFLUENT_CLOUD_DOMAIN_SUFFIX)
+
+    def check_confluent_cloud_endpoint(self, report: SourceReport) -> bool:
+        if self.is_confluent_cloud_endpoint():
+            return True
+        report.warning(
+            message="'confluent_catalog' is enabled but the Schema Registry endpoint is "
+            "not a Confluent Cloud one — the Stream Catalog is Confluent Cloud only and "
+            "will be skipped",
+            context=f"schema_registry_url={self.schema_registry_url}",
+        )
+        return False
 
     def get_graphql_endpoint(self) -> str:
         if not self.schema_registry_url:

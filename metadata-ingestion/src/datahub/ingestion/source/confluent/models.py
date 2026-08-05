@@ -5,6 +5,7 @@ from typing import (
     Dict,
     Generic,
     List,
+    Mapping,
     Optional,
     Sequence,
     Set,
@@ -13,6 +14,7 @@ from typing import (
 )
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from typing_extensions import TypeAliasType
 
 from datahub.ingestion.api.source import SourceReport
 
@@ -25,7 +27,12 @@ def empty_if_null(value: object) -> object:
     return value or []
 
 
-NullAsEmptyList = Annotated[List[str], BeforeValidator(empty_if_null)]
+_T = TypeVar("_T")
+NullAsEmptyList = TypeAliasType(
+    "NullAsEmptyList",
+    Annotated[List[_T], BeforeValidator(empty_if_null)],
+    type_params=(_T,),
+)
 
 
 class CatalogModel(BaseModel):
@@ -40,10 +47,10 @@ class CatalogBusinessMetadataAttribute(CatalogModel):
 class CatalogEntity(CatalogModel):
     name: str
     qualified_name: Optional[str] = Field(default=None, alias="qualifiedName")
-    tags: NullAsEmptyList = Field(default_factory=list)
-    business_metadata: Annotated[
-        List[CatalogBusinessMetadataAttribute], BeforeValidator(empty_if_null)
-    ] = Field(default_factory=list)
+    tags: NullAsEmptyList[str] = Field(default_factory=list)
+    business_metadata: NullAsEmptyList[CatalogBusinessMetadataAttribute] = Field(
+        default_factory=list
+    )
 
     def properties_from_business_metadata(self) -> Dict[str, str]:
         return {
@@ -56,11 +63,38 @@ class CatalogEntity(CatalogModel):
 CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
 
+def non_colliding_business_metadata(
+    entity: CatalogEntity,
+    existing: Mapping[str, str],
+    report: SourceReport,
+    collides_with: str,
+    context: str,
+) -> Dict[str, str]:
+    properties = entity.properties_from_business_metadata()
+    if not properties:
+        return {}
+
+    collisions = sorted(properties.keys() & existing.keys())
+    if collisions:
+        report.warning(
+            message=(
+                "Ignoring Stream Catalog business metadata attributes whose names "
+                f"collide with {collides_with}. Rename the attributes in Confluent "
+                "to emit them."
+            ),
+            context=f"{context}, attributes={collisions}",
+        )
+        properties = {
+            name: value for name, value in properties.items() if name not in existing
+        }
+    return properties
+
+
 @dataclass(frozen=True)
 class NameIndex(Generic[CatalogEntityType]):
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
-    case_ambiguous: Dict[str, List[CatalogEntityType]] = field(default_factory=dict)
+    case_ambiguous: Dict[str, List[str]] = field(default_factory=dict)
     empty_name_count: int = 0
     _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False, repr=False)
 
@@ -90,11 +124,11 @@ class NameIndex(Generic[CatalogEntityType]):
                 message=f"Skipped Stream Catalog {entity_label}s that had an empty name",
                 context=f"count={self.empty_name_count}",
             )
-        for lowered, candidates in self.case_ambiguous.items():
+        for lowered, variants in self.case_ambiguous.items():
             report.warning(
                 message=f"Case-insensitive Stream Catalog {entity_label} lookup is disabled for a "
                 "name that matches more than one catalog entity; exact-case lookups still work",
-                context=f"name={lowered}, variants={sorted(c.name for c in candidates)}",
+                context=f"name={lowered}, variants={sorted(variants)}",
             )
 
 
@@ -120,20 +154,13 @@ def index_by_name(
 
     # Distinct casings under one lowered key — including ambiguous exact-names —
     # so a unique sibling cannot win case-insensitive get() for a duplicate.
+    case_ambiguous: Dict[str, List[str]] = {}
     exact_names_by_lowered: Dict[str, Set[str]] = defaultdict(set)
     for name in grouped:
         exact_names_by_lowered[name.lower()].add(name)
-    case_ambiguous: Dict[str, List[CatalogEntityType]] = {}
     for lowered, exact_names in exact_names_by_lowered.items():
-        if len(exact_names) < 2:
-            continue
-        representatives: List[CatalogEntityType] = []
-        for name in sorted(exact_names):
-            if name in by_name:
-                representatives.append(by_name[name])
-            else:
-                representatives.append(ambiguous[name][0])
-        case_ambiguous[lowered] = representatives
+        if len(exact_names) >= 2:
+            case_ambiguous[lowered] = sorted(exact_names)
 
     return NameIndex(
         by_name=by_name,

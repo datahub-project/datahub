@@ -564,14 +564,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         This method implements a hybrid approach that properly handles transforms while
         working within Cloud environment constraints.
         """
-        # Get all available topics from cluster (if available)
         # For Cloud, use all_cluster_topics (populated separately) if available,
         # otherwise fall back to connector_manifest.topic_names
-        all_topics = (
-            list(self.all_cluster_topics)
-            if self.all_cluster_topics
-            else list(self.connector_manifest.topic_names)
-        )
+        all_topics = self.available_topics()
 
         # If we have topics and transforms, try the transform-aware approach
         if all_topics and parser.transforms:
@@ -3030,11 +3025,7 @@ class DebeziumSourceConnector(BaseConnector):
         the RegexRouter replacement pattern to identify which topics belong to this connector.
         """
         # Use all_cluster_topics for Cloud (contains all topics), otherwise use topic_names (OSS)
-        available_topics = (
-            list(self.all_cluster_topics)
-            if self.all_cluster_topics
-            else list(self.connector_manifest.topic_names)
-        )
+        available_topics = self.available_topics()
 
         # Look for RegexRouter transform configuration
         transforms_config = self.connector_manifest.config.get("transforms", "")
