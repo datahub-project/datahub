@@ -586,6 +586,7 @@ class AbstractLineage(ABC):
             )
 
         # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
 
         # BigQuery EXTERNAL_QUERY federation cannot be resolved by the generic parser
