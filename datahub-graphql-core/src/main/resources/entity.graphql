@@ -2764,6 +2764,11 @@ type GlossaryNode implements Entity {
   properties: GlossaryNodeProperties
 
   """
+  Tags associated with the glossary node
+  """
+  tags: GlobalTags
+
+  """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -8262,6 +8267,11 @@ type AssertionInfo {
   description: String
 
   """
+  An optional user-authored note with troubleshooting context for the assertion.
+  """
+  note: String
+
+  """
   URL where assertion details are available
   """
   externalUrl: String
@@ -8821,7 +8831,7 @@ enum AssertionStdParameterType {
 }
 
 """
-The scope that a Dataset-level assertion applies to.
+The scope that an assertion applies to (column, rows, schema, storage, etc.).
 """
 enum DatasetAssertionScope {
   """
@@ -8833,6 +8843,11 @@ enum DatasetAssertionScope {
   Assertion applies to rows of a dataset.
   """
   DATASET_ROWS
+
+  """
+  Assertion applies to the storage size of a dataset.
+  """
+  DATASET_STORAGE_SIZE
 
   """
   Assertion applies to schema of a dataset.

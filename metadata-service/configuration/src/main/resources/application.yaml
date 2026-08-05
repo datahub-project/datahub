@@ -124,23 +124,29 @@ ingestion:
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
   # Per-connector CLI version matrix. When configured, overrides defaultCliVersion on a per-connector
-  # basis. Update the matrix file externally (S3/CDN/gist) without redeploying GMS to change
-  # connector versions. Set source=none (or leave url empty) to disable.
+  # basis. Update the matrix document externally (S3/GCS/CDN/gist) without redeploying GMS to change
+  # connector versions.
   cliVersionMatrix:
-    # Source backend: "http" (default) or "none". Setting "none" is an explicit kill-switch even
-    # when an http.url is configured. With "http" but no url, the factory wires a no-op source.
-    source: "${INGESTION_VERSION_MATRIX_SOURCE:http}"
-    http:
-      url: "${INGESTION_VERSION_MATRIX_URL:}"
-      refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
-      # Optional. Sent verbatim as the `Authorization` header when fetching the matrix URL.
-      # Required when the URL is hosted behind authentication (e.g. a private GitHub gist).
-      # Format examples:
-      #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
-      #   Bearer eyJ...                        (OAuth / OIDC bearer)
-      # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
-      # system-info.
-      authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
+    # Location of the matrix JSON. The scheme selects the backend:
+    #   s3://bucket/matrix.json    private S3 read reusing the credentials datahub.objectStorage
+    #                              resolves (SigV4-signed, so the bucket can stay private and be
+    #                              shared cross-account)
+    #   gs://bucket/matrix.json    private GCS read with Application Default Credentials
+    #                              (Workload Identity Federation on GKE — no static key file)
+    #   file:///path/matrix.json   local filesystem
+    #   https://host/path          HTTP fetch, optionally authenticated with authToken below
+    # Leave empty to disable: connectors then use defaultCliVersion. An unreadable or unsupported
+    # URI degrades to the same no-op rather than blocking GMS startup.
+    uri: "${INGESTION_VERSION_MATRIX_URL:}"
+    refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
+    # Optional, http(s) URIs only — s3/gs authenticate with ambient cloud credentials and file needs
+    # nothing. Sent verbatim as the `Authorization` header, so it is required when the URL is hosted
+    # behind authentication (e.g. a private GitHub gist). Format examples:
+    #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
+    #   Bearer eyJ...                        (OAuth / OIDC bearer)
+    # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
+    # system-info.
+    authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
   # Identifier for this deployment, used for matching against `deployments` allowlists in the
   # version matrix. Sourced from DATAHUB_EXECUTOR_CUSTOMER_ID, which the Acryl Cloud Helm chart
   # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
@@ -321,17 +327,15 @@ datahub:
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
 
-  s3:
-    bucketName: ${DATAHUB_BUCKET_NAME:} # The S3 bucket name to use for storing data
-    roleArn: ${DATAHUB_ROLE_ARN:} # The AWS IAM role ARN to assume for S3 access
-    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
-
   objectStorage:
     uri: ${DATAHUB_OBJECT_STORAGE_URI:} # s3://bucket, s3://bucket/prefix, gs://bucket, or file:///local/root
+    bucket: ${DATAHUB_BUCKET_NAME:} # legacy fallback bucket when uri is unset
     path: ${DATAHUB_OBJECT_STORAGE_PATH:} # legacy fallback prefix/root when uri is unset
     provider: ${DATAHUB_OBJECT_STORAGE_PROVIDER:} # legacy fallback provider when uri is unset
+    roleArn: ${DATAHUB_ROLE_ARN:} # AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600}
+    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600}
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
     multipartThresholdBytes: ${OBJECT_STORAGE_MULTIPART_THRESHOLD_BYTES:8388608}
     multipartPartSizeBytes: ${OBJECT_STORAGE_MULTIPART_PART_SIZE_BYTES:8388608}
 
@@ -404,6 +408,10 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+    documentExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_LIMIT:100}
   limit:
     results:
       max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -540,6 +548,15 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  transactionRetry:
+    # SQLStates / vendor codes that get exponential backoff between retries (all PersistenceExceptions still retry).
+    backoffSqlStates: ${EBEAN_RETRY_BACKOFF_SQL_STATES:40001,40P01}
+    backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
+    initialBackoffMs: ${EBEAN_RETRY_INITIAL_BACKOFF_MS:50}
+    maxBackoffMs: ${EBEAN_RETRY_MAX_BACKOFF_MS:1000}
+    # Retry-After hint (seconds) returned on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li).
+    retryAfterSeconds: ${EBEAN_RETRY_AFTER_SECONDS:1}
+  entityWriteAdvisoryLockEnabled: ${EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED:false} # Postgres-only, opt-in: serialize concurrent writes/deletes per entity via pg_advisory_xact_lock to prevent lock-order deadlocks. No-op on non-Postgres.
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
@@ -822,6 +839,12 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # Bounded same-processor requeue of failed bulk items (version_conflict, 429/503, etc.).
+    itemRequeueEnabled: ${ES_BULK_ITEM_REQUEUE_ENABLED:true}
+    itemRequeueMaxAttempts: ${ES_BULK_ITEM_REQUEUE_MAX_ATTEMPTS:3}
+    # When true, MAE UpdateIndices awaits bulk transfer before Kafka/pgQueue ack.
+    ackAfterTransfer: ${ES_BULK_ACK_AFTER_TRANSFER:false}
+    ackAfterTransferTimeoutSeconds: ${ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS:60}
     # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
@@ -1403,6 +1426,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
+  assertionNote:
+    enabled: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_ENABLED:true}
+    batchSize: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_DELAY_MS:0}
+    limit: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_LIMIT:0}
   assertionFieldPath:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}

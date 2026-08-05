@@ -249,25 +249,30 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 
 ### EBean Configuration (MySQL/PostgreSQL)
 
-| Environment Variable              | Default                               | Description                                     | Components                       |
-| --------------------------------- | ------------------------------------- | ----------------------------------------------- | -------------------------------- |
-| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                               | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                               | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                        | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                                     | GMS, MCE Consumer, System Update |
-| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections                    | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections                    | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds                | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                          | GMS, MCE Consumer, System Update |
-| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                            | GMS, MCE Consumer, System Update |
-| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds                    | GMS, MCE Consumer, System Update |
-| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                                 | GMS, MCE Consumer, System Update |
-| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL       | GMS, MCE Consumer, System Update |
-| `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
-| `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
-| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
-| `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
-| `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
+| Environment Variable               | Default                               | Description                                                                                | Components                       |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------- |
+| `EBEAN_DATASOURCE_USERNAME`        | `datahub`                             | Database username                                                                          | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_PASSWORD`        | `datahub`                             | Database password                                                                          | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_URL`             | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                                                                   | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_DRIVER`          | `com.mysql.jdbc.Driver`               | JDBC Driver                                                                                | GMS, MCE Consumer, System Update |
+| `EBEAN_MIN_CONNECTIONS`            | `2`                                   | Minimum database connections                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_CONNECTIONS`            | `50`                                  | Maximum database connections                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_INACTIVE_TIME_IN_SECS`  | `120`                                 | Maximum inactive time in seconds                                                           | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_AGE_MINUTES`            | `120`                                 | Maximum age in minutes                                                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_LEAK_TIME_MINUTES`          | `15`                                  | Leak time in minutes                                                                       | GMS, MCE Consumer, System Update |
+| `EBEAN_WAIT_TIMEOUT_MILLIS`        | `1000`                                | Wait timeout in milliseconds                                                               | GMS, MCE Consumer, System Update |
+| `EBEAN_AUTOCREATE`                 | `false`                               | Auto-create DDL                                                                            | GMS, MCE Consumer, System Update |
+| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH`  | `false`                               | Use AWS IAM authentication for PostgreSQL                                                  | GMS, MCE Consumer, System Update |
+| `EBEAN_USE_IAM_AUTH`               | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP)                                            | GMS, MCE Consumer, System Update |
+| `EBEAN_CLOUD_PROVIDER`             | `auto`                                | Cloud provider (auto/aws/gcp/traditional)                                                  | GMS, MCE Consumer, System Update |
+| `EBEAN_BATCH_GET_METHOD`           | `IN`                                  | Batch get method (IN or UNION)                                                             | GMS, MCE Consumer, System Update |
+| `EBEAN_URL`                        | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL                                                      | System Update                    |
+| `EBEAN_MAX_TRANSACTION_RETRY`      | `null` (= **3**)                      | Max transaction retries for Ebean (`null` → 3 retries / 4 attempts)                        | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_BACKOFF_SQL_STATES`   | `40001,40P01`                         | SQLStates that get exponential backoff between retries                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_BACKOFF_VENDOR_CODES` | `1213`                                | Vendor error codes that get exponential backoff between retries                            | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_INITIAL_BACKOFF_MS`   | `50`                                  | Initial backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_MAX_BACKOFF_MS`       | `1000`                                | Maximum backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_AFTER_SECONDS`        | `1`                                   | Retry-After hint (seconds) on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li) | GMS, MCE Consumer, System Update |
 
 #### EBean read pool (optional)
 
@@ -466,23 +471,27 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 
 #### Bulk Operations Configuration
 
-| Environment Variable                                         | Default   | Description                                                                                                                                                                           | Components        |
-| ------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `ES_BULK_DELETE_BATCH_SIZE`                                  | `5000`    | Bulk delete batch size                                                                                                                                                                | GMS, MAE Consumer |
-| `ES_BULK_DELETE_SLICES`                                      | `auto`    | Bulk delete slices                                                                                                                                                                    | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_INTERVAL`                               | `30`      | Bulk delete poll interval                                                                                                                                                             | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_UNIT`                                   | `SECONDS` | Bulk delete poll unit                                                                                                                                                                 | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT`                                     | `30`      | Bulk delete timeout                                                                                                                                                                   | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT_UNIT`                                | `MINUTES` | Bulk delete timeout unit                                                                                                                                                              | GMS, MAE Consumer |
-| `ES_BULK_DELETE_NUM_RETRIES`                                 | `3`       | Bulk delete number of retries                                                                                                                                                         | GMS, MAE Consumer |
-| `ES_BULK_ASYNC`                                              | `true`    | Enable async bulk operations                                                                                                                                                          | GMS, MAE Consumer |
-| `ES_BULK_REQUESTS_LIMIT`                                     | `1000`    | Bulk requests limit                                                                                                                                                                   | GMS, MAE Consumer |
-| `ES_BULK_FLUSH_PERIOD`                                       | `1`       | Bulk flush period                                                                                                                                                                     | GMS, MAE Consumer |
-| `ES_BULK_NUM_RETRIES`                                        | `3`       | Bulk number of retries                                                                                                                                                                | GMS, MAE Consumer |
-| `ES_BULK_RETRY_INTERVAL`                                     | `1`       | Bulk retry interval                                                                                                                                                                   | GMS, MAE Consumer |
-| `ES_BULK_REFRESH_POLICY`                                     | `NONE`    | Bulk refresh policy                                                                                                                                                                   | GMS, MAE Consumer |
-| `ES_BULK_ENABLE_BATCH_DELETE`                                | `false`   | Enable batch delete                                                                                                                                                                   | GMS, MAE Consumer |
-| `ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS` | `180`     | Seconds; shared by-query `RequestOptions` on `ESBulkProcessor` (delete/update-by-query) for **GMS and MAE**; maps to `elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds` | GMS, MAE Consumer |
+| Environment Variable                                         | Default   | Description                                                                                                                                                                                  | Components        |
+| ------------------------------------------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `ES_BULK_DELETE_BATCH_SIZE`                                  | `5000`    | Bulk delete batch size                                                                                                                                                                       | GMS, MAE Consumer |
+| `ES_BULK_DELETE_SLICES`                                      | `auto`    | Bulk delete slices                                                                                                                                                                           | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_INTERVAL`                               | `30`      | Bulk delete poll interval                                                                                                                                                                    | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_UNIT`                                   | `SECONDS` | Bulk delete poll unit                                                                                                                                                                        | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT`                                     | `30`      | Bulk delete timeout                                                                                                                                                                          | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT_UNIT`                                | `MINUTES` | Bulk delete timeout unit                                                                                                                                                                     | GMS, MAE Consumer |
+| `ES_BULK_DELETE_NUM_RETRIES`                                 | `3`       | Bulk delete number of retries                                                                                                                                                                | GMS, MAE Consumer |
+| `ES_BULK_ASYNC`                                              | `true`    | Enable async bulk operations                                                                                                                                                                 | GMS, MAE Consumer |
+| `ES_BULK_REQUESTS_LIMIT`                                     | `1000`    | Bulk requests limit                                                                                                                                                                          | GMS, MAE Consumer |
+| `ES_BULK_FLUSH_PERIOD`                                       | `1`       | Bulk flush period                                                                                                                                                                            | GMS, MAE Consumer |
+| `ES_BULK_NUM_RETRIES`                                        | `3`       | Bulk number of retries                                                                                                                                                                       | GMS, MAE Consumer |
+| `ES_BULK_RETRY_INTERVAL`                                     | `1`       | Bulk retry interval                                                                                                                                                                          | GMS, MAE Consumer |
+| `ES_BULK_REFRESH_POLICY`                                     | `NONE`    | Bulk refresh policy (`NONE`, `IMMEDIATE`, `WAIT_UNTIL`). Prefer `NONE` for MAE; `WAIT_UNTIL` can stall the consumer under load. Durability is optional ack-after-transfer, not refresh-wait. | GMS, MAE Consumer |
+| `ES_BULK_ITEM_REQUEUE_ENABLED`                               | `true`    | Requeue failed bulk items (version conflicts, 429/503, etc.) onto the same processor with a bound                                                                                            | GMS, MAE Consumer |
+| `ES_BULK_ITEM_REQUEUE_MAX_ATTEMPTS`                          | `3`       | Max listener requeues per item (in addition to server `retryOnConflict`)                                                                                                                     | GMS, MAE Consumer |
+| `ES_BULK_ACK_AFTER_TRANSFER`                                 | `false`   | When true, MAE awaits bulk transfer completion before Kafka/pgQueue offset ack                                                                                                               | GMS, MAE Consumer |
+| `ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS`                 | `60`      | Timeout for ack-after-transfer wait; on timeout offsets do not advance                                                                                                                       | GMS, MAE Consumer |
+| `ES_BULK_ENABLE_BATCH_DELETE`                                | `false`   | Enable batch delete                                                                                                                                                                          | GMS, MAE Consumer |
+| `ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS` | `180`     | Seconds; shared by-query `RequestOptions` on `ESBulkProcessor` (delete/update-by-query) for **GMS and MAE**; maps to `elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds`        | GMS, MAE Consumer |
 
 #### Index Configuration
 
@@ -1327,28 +1336,29 @@ Reference Links:
 
 #### Optional OIDC Configuration
 
-| Environment Variable                        | Default               | Description                                                              | Components |
-| ------------------------------------------- | --------------------- | ------------------------------------------------------------------------ | ---------- |
-| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                  | Frontend   |
-| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim    | Frontend   |
-| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                     | Frontend   |
-| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint              | Frontend   |
-| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
-| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
-| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
-| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
-| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
-| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
-| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
-| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |
-| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                        | Frontend   |
-| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                       | Frontend   |
-| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                        | Frontend   |
-| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                     | Frontend   |
-| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                          | Frontend   |
-| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                               | Frontend   |
-| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                          | Frontend   |
-| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                          | Frontend   |
+| Environment Variable                        | Default               | Description                                                                                                           | Components |
+| ------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                                                               | Frontend   |
+| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim                                                 | Frontend   |
+| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                                                                  | Frontend   |
+| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint                                                           | Frontend   |
+| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist                                              | Frontend   |
+| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                                                             | Frontend   |
+| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile                                                   | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.                                                  | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL`      | `null`                | URL to redirect denied users (required groups or IdP access_denied). Takes precedence over the access-denied message. | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.                                                | Frontend   |
+| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                                                                     | Frontend   |
+| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                                                                    | Frontend   |
+| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                                                                    | Frontend   |
+| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                                                                     | Frontend   |
+| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                                                                    | Frontend   |
+| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                                                                     | Frontend   |
+| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                                                                  | Frontend   |
+| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                                                                       | Frontend   |
+| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                                                                            | Frontend   |
+| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                                                                       | Frontend   |
+| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                                                                       | Frontend   |
 
 ### Authentication Methods Configuration
 

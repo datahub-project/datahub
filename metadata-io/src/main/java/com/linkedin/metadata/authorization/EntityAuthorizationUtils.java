@@ -48,8 +48,9 @@ import org.apache.http.HttpStatus;
  * </ul>
  *
  * <p>Default API behavior delegates to {@link AuthUtil}. Entity-specific utilities are consulted
- * only when a URN or MCP requires specialized authorization (currently documents, with query and
- * schema field VIEW handled for search/view paths).
+ * only when a URN or MCP requires specialized authorization (currently documents; schema field API
+ * READ inherits from the parent dataset; query and schema field VIEW are handled on search/view
+ * paths).
  */
 @Slf4j
 public final class EntityAuthorizationUtils {
@@ -59,7 +60,10 @@ public final class EntityAuthorizationUtils {
   /**
    * Authorizes entity URNs for API surfaces (OpenAPI / RestLi). Activation follows {@code
    * authorization.restApiAuthorization}. Document URNs use document-specific CREATE/UPDATE
-   * existence classification and bridge-aware READ; all other entity types use {@link AuthUtil}.
+   * existence classification and bridge-aware READ. Schema field READ inherits from the parent
+   * dataset encoded in the URN (same candidate order as GraphQL VIEW), then falls back to a direct
+   * grant on the schema field; other operations on schema fields use {@link AuthUtil}. All other
+   * entity types use {@link AuthUtil}.
    *
    * <p>Independent of View Authorization: when REST API auth is enabled, READ is enforced even if
    * view/search access controls are disabled.
@@ -70,14 +74,48 @@ public final class EntityAuthorizationUtils {
       @Nonnull Collection<Urn> urns) {
     List<Urn> documents =
         urns.stream().filter(DocumentAuthorizationUtils::isDocumentEntity).toList();
+    List<Urn> schemaFields =
+        urns.stream()
+            .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
+            .filter(EntityAspectAuthorizationUtils::isSchemaFieldEntity)
+            .toList();
     List<Urn> others =
-        urns.stream().filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn)).toList();
+        urns.stream()
+            .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
+            .filter(urn -> !EntityAspectAuthorizationUtils.isSchemaFieldEntity(urn))
+            .toList();
     if (!others.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, others)) {
+      return false;
+    }
+    if (!schemaFields.isEmpty()
+        && !isAPIAuthorizedSchemaFieldUrns(opContext, apiOperation, schemaFields)) {
       return false;
     }
     return documents.isEmpty()
         || DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, apiOperation, documents);
+  }
+
+  /**
+   * Authorizes schema field URNs for API surfaces. READ reuses parent-dataset inheritance via
+   * {@link EntityAspectAuthorizationUtils#canViewSchemaFieldEntity} when REST API authorization is
+   * enabled; other operations use {@link AuthUtil} without inheritance.
+   */
+  private static boolean isAPIAuthorizedSchemaFieldUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> schemaFieldUrns) {
+    if (schemaFieldUrns.isEmpty()) {
+      return true;
+    }
+    if (apiOperation != READ) {
+      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, schemaFieldUrns);
+    }
+    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
+      return true;
+    }
+    return schemaFieldUrns.stream()
+        .allMatch(urn -> EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(opContext, urn));
   }
 
   /**

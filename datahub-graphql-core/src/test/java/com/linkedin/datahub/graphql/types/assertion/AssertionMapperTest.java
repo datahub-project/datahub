@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -22,11 +23,13 @@ import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
@@ -91,6 +94,69 @@ public class AssertionMapperTest {
     assertEquals(assertion.getTags().getTags().size(), 1);
     assertEquals(
         assertion.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");
+  }
+
+  @Test
+  public void testMapAssertionNoteFromDedicatedAspect() {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    AssertionInfo info = createFreshnessAssertionInfoWithoutNullableFields();
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("note from aspect")
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user")));
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    aspects.put(Constants.ASSERTION_NOTE_ASPECT_NAME, createEnvelopedAspect(note.data()));
+
+    Assertion assertion = AssertionMapper.map(null, createEntityResponse(aspects));
+
+    assertEquals(assertion.getInfo().getNote(), "note from aspect");
+  }
+
+  @Test
+  public void testMapAssertionNoteFallsBackToDeprecatedField() {
+    AssertionInfo info =
+        createFreshnessAssertionInfoWithoutNullableFields()
+            .setNote(
+                new AssertionNote()
+                    .setContent("legacy note")
+                    .setLastModified(
+                        new AuditStamp()
+                            .setTime(0L)
+                            .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user"))));
+
+    Assertion assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(info));
+
+    assertEquals(assertion.getInfo().getNote(), "legacy note");
+  }
+
+  @Test
+  public void testDedicatedAssertionNoteTakesPrecedence() {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    AssertionInfo info =
+        createFreshnessAssertionInfoWithoutNullableFields()
+            .setNote(
+                new AssertionNote()
+                    .setContent("legacy note")
+                    .setLastModified(
+                        new AuditStamp()
+                            .setTime(0L)
+                            .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user"))));
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("note from aspect")
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user")));
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    aspects.put(Constants.ASSERTION_NOTE_ASPECT_NAME, createEnvelopedAspect(note.data()));
+
+    Assertion assertion = AssertionMapper.map(null, createEntityResponse(aspects));
+
+    assertEquals(assertion.getInfo().getNote(), "note from aspect");
   }
 
   @Test
@@ -176,6 +242,18 @@ public class AssertionMapperTest {
     if (input.hasCustomAssertion()) {
       verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
     }
+
+    if (input.hasCustomProperties()) {
+      Assert.assertNotNull(output.getInfo().getCustomProperties());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().size(), input.getCustomProperties().size());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().get(0).getKey(),
+          input.getCustomProperties().keySet().iterator().next());
+      Assert.assertEquals(
+          output.getInfo().getCustomProperties().get(0).getValue(),
+          input.getCustomProperties().values().iterator().next());
+    }
   }
 
   private void verifyDatasetAssertion(
@@ -233,6 +311,21 @@ public class AssertionMapperTest {
     }
     if (input.hasField()) {
       Assert.assertEquals(output.getField().getPath(), input.getField().getEntityKey().get(1));
+    }
+    if (input.hasFields()) {
+      Assert.assertEquals(output.getFields().size(), input.getFields().size());
+    }
+    if (input.hasScope()) {
+      Assert.assertEquals(output.getScope().toString(), input.getScope().toString());
+    }
+    if (input.hasAggregation()) {
+      Assert.assertEquals(output.getAggregation().toString(), input.getAggregation().toString());
+    }
+    if (input.hasOperator()) {
+      Assert.assertEquals(output.getOperator().toString(), input.getOperator().toString());
+    }
+    if (input.hasNativeType()) {
+      Assert.assertEquals(output.getNativeType(), input.getNativeType());
     }
   }
 
@@ -386,11 +479,21 @@ public class AssertionMapperTest {
     customAssertionInfo.setType("Custom Type 1");
     customAssertionInfo.setEntity(
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
-    customAssertionInfo.setField(
+    Urn fieldUrn =
         UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)"));
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)");
+    customAssertionInfo.setField(fieldUrn);
+    customAssertionInfo.setFields(new UrnArray(fieldUrn));
+    customAssertionInfo.setScope(DatasetAssertionScope.DATASET_COLUMN);
+    customAssertionInfo.setAggregation(AssertionStdAggregation.IDENTITY);
+    customAssertionInfo.setOperator(AssertionStdOperator.GREATER_THAN);
+    customAssertionInfo.setParameters(createAssertionStdParameters());
+    customAssertionInfo.setNativeType("native_type");
+    customAssertionInfo.setNativeParameters(
+        new StringMap(Collections.singletonMap("key", "value")));
     customAssertionInfo.setLogic("custom logic");
     info.setCustomAssertion(customAssertionInfo);
+    info.setCustomProperties(new StringMap(Collections.singletonMap("suite_name", "demo_suite")));
     info.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
 
     return info;

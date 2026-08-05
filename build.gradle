@@ -34,8 +34,8 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
-  ext.springVersion = '7.0.7'
+  // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
+  ext.springVersion = '7.0.8'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
   ext.springBootVersion = '4.0.6'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
@@ -287,6 +287,9 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$confluentSerdeVersion",
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$confluentSerdeVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184).
+    // 0.9.6 is latest on Maven Central, Kafka-aligned, and patches CVE-2024-29371.
+    'jose4j': 'org.bitbucket.b_c:jose4j:0.9.6',
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'janino': "org.codehaus.janino:janino:$janinoVersion",
     'lokiLogbackAppender': "com.github.loki4j:loki-logback-appender:$lokiLogbackAppenderVersion",
@@ -343,7 +346,7 @@ project.ext.externalDependency = [
     'playServer': "org.playframework:play-server_$playScalaVersion",
     'playTest': "org.playframework:play-test_$playScalaVersion",
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
     'postgresql': 'org.postgresql:postgresql:42.7.12',
@@ -555,6 +558,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
 
+    resolutionStrategy.force 'io.ebean:ebean-datasource:9.1'
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs

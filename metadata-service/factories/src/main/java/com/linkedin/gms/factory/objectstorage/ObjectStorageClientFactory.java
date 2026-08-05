@@ -4,7 +4,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
-import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
@@ -35,11 +34,11 @@ public class ObjectStorageClientFactory {
   @Nullable
   protected ObjectStorageClient getInstance() {
     try {
-      S3Configuration s3Configuration = configurationProvider.getDatahub().getS3();
       ObjectStorageConfiguration objectStorageConfiguration =
           configurationProvider.getDatahub().getObjectStorage();
 
-      String legacyBucketName = s3Configuration != null ? s3Configuration.getBucketName() : null;
+      String legacyBucketName =
+          objectStorageConfiguration != null ? objectStorageConfiguration.getBucket() : null;
       String configuredUri =
           objectStorageConfiguration != null ? objectStorageConfiguration.getUri() : null;
       String legacyPath =
@@ -55,55 +54,69 @@ public class ObjectStorageClientFactory {
         return null;
       }
 
-      ObjectStorageLocation resolvedLocation = location.get();
-      int multipartThreshold =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartThresholdBytes() != null
-              ? objectStorageConfiguration.getMultipartThresholdBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
-      int multipartPartSize =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartPartSizeBytes() != null
-              ? objectStorageConfiguration.getMultipartPartSizeBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
-
-      return switch (resolvedLocation.provider()) {
-        case LOCAL -> new LocalObjectStorageClient(resolvedLocation.localRoot());
-        case S3 -> {
-          S3Client s3Client = createS3Client(s3Configuration);
-          if (s3Client == null) {
-            yield null;
-          }
-          yield new S3ObjectStorageClient(
-              s3Client,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-        case GCS -> {
-          Storage storage = StorageOptions.getDefaultInstance().getService();
-          yield new GcsObjectStorageClient(
-              storage,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-      };
+      return clientFor(location.get());
     } catch (Exception e) {
       log.error("Failed to create ObjectStorageClient", e);
       return null;
     }
   }
 
+  /**
+   * Builds a client rooted at an arbitrary location rather than only the configured one, so a
+   * caller addressing a different bucket reuses this credential resolution (role assumption,
+   * endpoint override, region) and this provider routing instead of standing up its own.
+   * Credentials and multipart sizing still come from {@code datahub.objectStorage}; only the
+   * location varies.
+   *
+   * <p>Null when the provider needs a client that cannot be built — today only S3, when AWS is
+   * unconfigured.
+   */
   @Nullable
-  private S3Client createS3Client(@Nullable S3Configuration s3Configuration) {
-    String roleArn = s3Configuration != null ? s3Configuration.getRoleArn() : null;
+  public ObjectStorageClient clientFor(@Nonnull ObjectStorageLocation location) {
+    ObjectStorageConfiguration config = configurationProvider.getDatahub().getObjectStorage();
+    int multipartThreshold =
+        config != null && config.getMultipartThresholdBytes() != null
+            ? config.getMultipartThresholdBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
+    int multipartPartSize =
+        config != null && config.getMultipartPartSizeBytes() != null
+            ? config.getMultipartPartSizeBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
+
+    return switch (location.provider()) {
+      case LOCAL -> new LocalObjectStorageClient(location.localRoot());
+      case S3 -> {
+        S3Client s3Client = createS3Client(config);
+        if (s3Client == null) {
+          yield null;
+        }
+        yield new S3ObjectStorageClient(
+            s3Client,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
+      }
+      case GCS -> {
+        Storage storage = StorageOptions.getDefaultInstance().getService();
+        yield new GcsObjectStorageClient(
+            storage,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
+      }
+    };
+  }
+
+  @Nullable
+  private S3Client createS3Client(@Nullable ObjectStorageConfiguration objectStorageConfiguration) {
+    String roleArn =
+        objectStorageConfiguration != null ? objectStorageConfiguration.getRoleArn() : null;
     if (roleArn != null && !roleArn.trim().isEmpty()) {
       if (stsClient == null) {
         throw new IllegalStateException(
-            "StsClient bean is required when datahub.s3.roleArn is configured");
+            "StsClient bean is required when datahub.objectStorage.roleArn is configured");
       }
       StsAssumeRoleCredentialsProvider credentialsProvider =
           StsAssumeRoleCredentialsProvider.builder()

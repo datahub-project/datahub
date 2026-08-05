@@ -2,7 +2,7 @@ import { Button, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
     Content,
@@ -10,22 +10,26 @@ import {
     HeaderButtons,
     HeaderControls,
     HomeNavSlot,
+    SearchControl,
     SearchIconButton,
     SearchSlot,
     SidebarContainer,
+    SidebarShell,
     SidebarTitle,
+    SortSlot,
     ThinDivider,
     TreeContainer,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import SidebarCollapsedIconRail, {
     type SidebarCollapsedIconRailProps,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarCollapsedIconRail';
+import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import useHierarchicalBrowseSidebarWidth from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/useHierarchicalBrowseSidebarWidth';
 import {
     resolveCollapsedBodyMode,
     shouldPlaceHomeAboveDivider,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/sidebarLayout';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 type BodyRenderProps = {
@@ -51,6 +55,11 @@ type Props = {
      * for autocomplete results.
      */
     search?: React.ReactNode;
+    /**
+     * Optional sort control beside search (e.g. `SidebarSortSelect`).
+     * Omit / `null` / `false` — no sort chrome (Domains / Glossary until they opt in).
+     */
+    sort?: React.ReactNode;
     /**
      * Filter controls. When provided, the shell wraps them in FiltersRow and
      * places home *below* the post-filter divider:
@@ -85,8 +94,13 @@ type Props = {
     collapseButtonTestId?: string;
     expandTooltip?: string;
     collapseTooltip?: string;
-    /** Skip internal width calculation when the parent already owns width. */
+    /**
+     * Skip internal width + resizer when the parent already owns width.
+     * Prefer omitting this so drag-resize + persistence stay enabled.
+     */
     width?: number;
+    /** Fired when the user resizes (and on mount with the resolved width). */
+    onWidthChange?: (width: number) => void;
     className?: string;
 };
 
@@ -105,6 +119,7 @@ export default function HierarchicalBrowseSidebar({
     onExpandSidebar,
     headerActions,
     search,
+    sort,
     filters,
     homeNav,
     children,
@@ -117,15 +132,29 @@ export default function HierarchicalBrowseSidebar({
     expandTooltip,
     collapseTooltip,
     width: widthOverride,
+    onWidthChange,
     className,
 }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const measuredWidth = useSidebarWidth(0.2);
-    const width = widthOverride ?? measuredWidth;
+    const { width: resizableWidth, setWidth } = useHierarchicalBrowseSidebarWidth();
+    const width = widthOverride ?? resizableWidth;
+    const canResize = widthOverride == null;
 
+    const [isResizing, setIsResizing] = useState(false);
     const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(defaultCollapsed);
     const isControlled = controlledCollapsed !== undefined;
     const isCollapsed = isControlled ? controlledCollapsed : uncontrolledCollapsed;
+
+    useEffect(() => {
+        onWidthChange?.(width);
+    }, [width, onWidthChange]);
+
+    const handleResizeWidth = useCallback(
+        (next: number) => {
+            setWidth(next);
+        },
+        [setWidth],
+    );
 
     const toggleCollapsed = useCallback(() => {
         if (onToggleCollapsed) {
@@ -163,12 +192,14 @@ export default function HierarchicalBrowseSidebar({
 
     const isRenderProp = typeof children === 'function';
     const showFilters = filters != null && filters !== false;
+    const showSort = sort != null && sort !== false;
+    const showSearchRow = search != null || showSort;
     const placeHomeAboveDivider = shouldPlaceHomeAboveDivider({
         showFilters,
         hasHomeNav: homeNav != null,
     });
     const homeAboveDivider = placeHomeAboveDivider ? <HomeNavSlot>{homeNav}</HomeNavSlot> : null;
-    const showDividerBeforeTree = search != null || showFilters || homeAboveDivider != null;
+    const showDividerBeforeTree = showSearchRow || showFilters || homeAboveDivider != null;
 
     const collapsedMode = resolveCollapsedBodyMode(collapsedIcons != null);
 
@@ -204,12 +235,17 @@ export default function HierarchicalBrowseSidebar({
             ) : (
                 tree
             );
-        return <TreeContainer>{treeBody}</TreeContainer>;
+        return <TreeContainer data-testid="hierarchical-browse-tree-scroll">{treeBody}</TreeContainer>;
     };
 
     const renderExpandedBody = (tree: React.ReactNode) => (
         <Content>
-            {search != null ? <SearchSlot>{search}</SearchSlot> : null}
+            {showSearchRow ? (
+                <SearchSlot>
+                    {search != null ? <SearchControl>{search}</SearchControl> : null}
+                    {showSort ? <SortSlot>{sort}</SortSlot> : null}
+                </SearchSlot>
+            ) : null}
             {showFilters && <FiltersRow>{filters}</FiltersRow>}
             {homeAboveDivider}
             {showDividerBeforeTree && <ThinDivider />}
@@ -231,29 +267,40 @@ export default function HierarchicalBrowseSidebar({
     }
 
     return (
-        <SidebarContainer
-            $isCollapsed={isCollapsed}
-            $width={width}
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            data-testid={dataTestId}
-            id={id}
-            className={className}
-        >
-            <HeaderControls $isCollapsed={isCollapsed}>
-                {!isCollapsed && title != null ? <SidebarTitle>{title}</SidebarTitle> : null}
-                <HeaderButtons>
-                    {!isCollapsed && headerActions}
-                    {collapseTooltipTitle ? (
-                        <Tooltip title={collapseTooltipTitle} placement="right" showArrow={false}>
-                            {collapseButton}
-                        </Tooltip>
-                    ) : (
-                        collapseButton
-                    )}
-                </HeaderButtons>
-            </HeaderControls>
-            <ThinDivider />
-            {body}
-        </SidebarContainer>
+        <SidebarShell>
+            <SidebarContainer
+                $isCollapsed={isCollapsed}
+                $width={width}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                $isResizing={isResizing}
+                data-testid={dataTestId}
+                id={id}
+                className={className}
+            >
+                <HeaderControls $isCollapsed={isCollapsed}>
+                    {!isCollapsed && title != null ? <SidebarTitle>{title}</SidebarTitle> : null}
+                    <HeaderButtons>
+                        {!isCollapsed && headerActions}
+                        {collapseTooltipTitle ? (
+                            <Tooltip title={collapseTooltipTitle} placement="right" showArrow={false}>
+                                {collapseButton}
+                            </Tooltip>
+                        ) : (
+                            collapseButton
+                        )}
+                    </HeaderButtons>
+                </HeaderControls>
+                <ThinDivider />
+                {body}
+            </SidebarContainer>
+            {canResize && !isCollapsed && (
+                <SidebarResizer
+                    width={width}
+                    onWidthChange={handleResizeWidth}
+                    onResizeStart={() => setIsResizing(true)}
+                    onResizeEnd={() => setIsResizing(false)}
+                />
+            )}
+        </SidebarShell>
     );
 }
