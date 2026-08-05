@@ -39,6 +39,9 @@ base_requirements = {
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
     # setuptools 82.0.0 deprecated pkg_resource
+    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
+    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
+    # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
 }
 
@@ -293,7 +296,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
+    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
+    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
+    "cryptography>=49.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,

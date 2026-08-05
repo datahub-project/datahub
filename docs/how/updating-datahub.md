@@ -40,7 +40,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 
-Draft release notes for the upcoming version. Add entries here as breaking changes, deprecations, and notable fixes land on `master`; promote this section to a versioned heading (for example `## v1.6.1` or `## v1.7.0`) at release cut.
+Draft release notes for the upcoming version. Add entries here as breaking changes, deprecations, and notable fixes land on `master`; promote this section to a versioned heading (for example `## v1.7.1` or `## v1.8.0`) at release cut.
 
 Requirements:
 
@@ -51,9 +51,30 @@ Requirements:
 
 - **(Ingestion / SQL Profiling)** The legacy Great Expectations SQL profiler has been removed. The SQLAlchemy profiler — the default since v1.1.0 and at feature parity for dataset- and column-level metrics — is now the only SQL profiler. The `profiling.method` config option and the `acryl-datahub[profiling-ge]` install extra no longer exist. Recipes that still set `profiling.method` (`ge` or `sqlalchemy`) emit a deprecation warning and ignore the field, profiling with SQLAlchemy instead; for Unity Catalog, `profiling.method: ge` is now rejected (use `sqlalchemy` or `analyze`). **Action:** remove `profiling.method` from your recipes and drop the `profiling-ge` extra from your install command. This is unrelated to — and does not affect — the separate Great Expectations integration (`acryl-datahub[great-expectations]` / the `datahub-gx-plugin` package) that ingests GX validation results into DataHub.
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## v1.7.0
+
+Requirements:
+
+- CLI / Python SDK: 1.7.0
+- Helm Chart: 1.1.0
+
+**Upgrade path / ZDU (zero-downtime upgrade):** You **must upgrade to [v1.6.0](#v160) before upgrading to v1.7.0** — do not skip 1.6.0. Deploy v1.6.0 with Helm chart **1.0.3**, let system-update complete, then upgrade to v1.7.0 with Helm chart **1.1.0**. Enable Elasticsearch/OpenSearch ZDU (`global.datahub.systemUpdate.zdu`) with the **1.1.0** chart on a subsequent OpenSearch/Elasticsearch version bump — not during the v1.6.0 install. See the [v1.6.0](#v160) ZDU notes for the server-side prerequisite detail.
+
+### Breaking Changes
+
 - **(GMS / object storage)** File upload/download configuration moved from `datahub.s3` to `datahub.objectStorage` in `application.yaml`. Environment variables are unchanged (`DATAHUB_BUCKET_NAME`, `DATAHUB_ROLE_ARN`, `DATAHUB_PRESIGNED_*_URL_EXPIRATION_SECONDS`, `DATAHUB_S3_ASSET_PATH_PREFIX`) and now bind under `datahub.objectStorage`. Deployments that override only the YAML path `datahub.s3.*` must switch to `datahub.objectStorage.*`. Quickstart defaults to local `file://` storage (`DATAHUB_OBJECT_STORAGE_URI`), which does not support presigned URLs; documentation file upload remains disabled unless S3 storage with credentials is configured. **Action:** update custom YAML overrides to `datahub.objectStorage`; for production file uploads set `DATAHUB_OBJECT_STORAGE_URI=s3://your-bucket` (or legacy `DATAHUB_BUCKET_NAME`) plus `DATAHUB_ROLE_ARN` or `AWS_REGION`/`AWS_ENDPOINT_URL`.
 
 - **(GMS / Ebean transaction retries)** When a metadata write exhausts retries on a **retryable database transaction conflict** (SQLState `40001` / `40P01`, or MySQL vendor code `1213`), GMS now surfaces a stable conflict error instead of a generic 500. OpenAPI and Rest.li return **HTTP 503** with body fields `code: DATABASE_TRANSACTION_CONFLICT`, `retryable: true`, and a `Retry-After` header. GraphQL returns error extensions `code: 503` / `type: SERVICE_UNAVAILABLE` (same transient semantics; GraphQL HTTP status remains the usual GraphQL response). Non-deadlock retry exhaustion is unchanged (generic failure). Default `EBEAN_MAX_TRANSACTION_RETRY` is unset (`null`), which resolves to **3 retries → 4 total attempts** (`TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY`). **Action:** Clients that previously retried or alerted on 500 for write failures should treat `DATABASE_TRANSACTION_CONFLICT` / GraphQL `SERVICE_UNAVAILABLE` as **retryable** (honor `Retry-After` when present). Optional knobs: `EBEAN_RETRY_BACKOFF_SQL_STATES`, `EBEAN_RETRY_BACKOFF_VENDOR_CODES`, `EBEAN_RETRY_INITIAL_BACKOFF_MS`, `EBEAN_RETRY_MAX_BACKOFF_MS`, `EBEAN_RETRY_AFTER_SECONDS` (OpenAPI/Rest.li `Retry-After` header). Micrometer counters `ebean.tx.transient_backoff` and `ebean.tx.transient_exhausted` are tagged with `path` (`ingest` / `delete`).
+
+- **(Build / Python Docker)** The Gradle property `datahub.dependencies.python.uvProfile` has been replaced by two independent properties: `datahub.dependencies.python.uvDockerProfile` (Python Docker image builds) and `datahub.dependencies.python.uvInstallProfile` (runner-side Gradle `uv` installs). Both default to `default` (PyPI). Setting `pipExtraIndexUrl` no longer auto-switches the profile to `custom` — use `uvDockerProfile=custom` explicitly (and pass extras). Override locally with `UV_DOCKER_PROFILE` / `UV_INSTALL_PROFILE` or `-P`. See [developers.md](../developers.md#python-package-index-pypi). **Action:** replace any `uvProfile` / `ORG_GRADLE_PROJECT_datahub.dependencies.python.uvProfile` overrides with the new property names.
 
 - **(Metadata Model / AI Context)** `aiContext` is now a first-class aspect on `metric`, `semanticModel`, and `schemaField` (PDL record `com.linkedin.common.AiContext`) instead of a nested field on `metricInfo` / `semanticModelInfo` / `semanticFieldAnnotation`. GraphQL clients must read `aiContext` from the entity root (and from `schemaFieldEntity`), not from nested info/annotation objects. Relationship-level `aiContext` on `SemanticModelRelationship` remains inlined. No external release has shipped the nested shape yet. **Action:** Re-ingest affected entities so `aiContext` is emitted as its own aspect; update any custom GraphQL queries/fragments that selected nested `info.aiContext` or `semanticFieldAnnotation.aiContext`.
 
@@ -154,11 +175,13 @@ Requirements:
 
 - #17443 **(Ingestion / MongoDB)** AWS DocumentDB can now be ingested as its own data platform. The MongoDB source has a new opt-in config field `platform` (default `mongodb`). Set `platform: documentdb` together with `hostingEnvironment: AWS_DOCUMENTDB` to emit entities under the new `documentdb` data platform URN instead of `mongodb`; setting `platform: documentdb` with any other hosting environment is rejected at config validation time. The default is unchanged, so existing recipes continue to emit `mongodb` URNs even when pointed at AWS DocumentDB. If enabled on an existing recipe, both the dataset URNs and the database-level container URNs will change, and the stale `mongodb` entities will need to be cleaned up via stateful ingestion (if enabled) or manual soft-delete.
 
-- **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` now defaults to **`ENFORCE`** (was effectively unrestricted for human callers). Browser sessions and user Personal Access Tokens **can no longer** call `getSecretValues` or otherwise decrypt UI secrets through GraphQL. **Rollout (v2.0.0):** new deployments get `ENFORCE` by default; existing deployments should migrate before upgrading or set `AUDIT` during transition. **Action:** If you relied on admins or automation using a user PAT to read plaintext secret values via `getSecretValues`, migrate to [**datahub-actions**](../actions/actions/executor.md) with system client credentials (`DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET`) or set `SECRET_SERVICE_CALLER_GUARD_MODE=AUDIT` temporarily during rollout. Scheduled UI ingestion via **datahub-actions** is unaffected. See [Environment Variables](../deploy/environment-vars.md) and [Ingestion executor security](../docker/ingestion-executor-security.md).
+- **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` now defaults to **`ENFORCE`** (was effectively unrestricted for human callers). Browser sessions and user Personal Access Tokens **can no longer** call `getSecretValues` or otherwise decrypt UI secrets through GraphQL. **Rollout (v1.7.0):** new deployments get `ENFORCE` by default; existing deployments should migrate before upgrading or set `AUDIT` during transition. **Action:** If you relied on admins or automation using a user PAT to read plaintext secret values via `getSecretValues`, migrate to [**datahub-actions**](../actions/actions/executor.md) with system client credentials (`DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET`) or set `SECRET_SERVICE_CALLER_GUARD_MODE=AUDIT` temporarily during rollout. Scheduled UI ingestion via **datahub-actions** is unaffected. See [Environment Variables](../deploy/environment-vars.md) and [Ingestion executor security](../docker/ingestion-executor-security.md).
 
 - **(Java / Plugin API)** `SecretService.encrypt` and `SecretService.decrypt` no-context overloads are removed; use `encrypt(OperationContext, String)` and `decrypt(OperationContext, String)`. Custom GMS plugins or extensions that call `SecretService` directly must pass `OperationContext` from the request, or `null` for background jobs (allowed by the guard). With `ENFORCE`, `decrypt` throws `SecurityException` for human browser/mobile callers and callers other than trusted ingestion workers (**datahub-actions** in OSS).
 
 - #17721: **(Ingestion / Snowplow)** The connector now fetches pipeline enrichments from the supported `pipelines/v1/{pipelineId}/enrichments` endpoint instead of the deprecated `resources/v1/.../configuration/enrichments` endpoint Snowplow is retiring. Because the new payload no longer returns the per-enrichment UUID, enrichment **DataJob URNs are now derived from the enrichment name** (e.g. `...,campaign-attribution)` instead of `...,07409eac-...)`. Existing enrichment DataJobs ingested under the old UUID-based URNs are re-created under the new name-based URNs on the next run. If stateful ingestion is enabled, the old UUID-based DataJobs are soft-deleted by stale-entity removal; otherwise they persist as stale DataJobs and must be cleaned up manually. No recipe changes are required.
+
+- #18845: **(Metadata Model / Entity Registry)** Each directed relationship edge signature — `(source entity type, destination entity type, relationship name)` — may now be produced by **exactly one aspect** on that source entity. Multiple fields within the same aspect may still share a signature. The check runs when entity specs are built and again when registries are merged at GMS startup, including custom / plugin entity registries. Plugin relationship-edge uniqueness failures are never soft-ignored, even when `IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN` is true. **Action:** If you ship a custom or plugin entity registry that declares the same edge signature from two different aspects on one source type, consolidate those fields onto a single aspect or rename the relationship before upgrading — otherwise GMS (or registry load) fails. See [Aspect ownership uniqueness](../what/relationship.md#aspect-ownership-uniqueness).
 
 ### Known Issues
 
@@ -167,6 +190,12 @@ Requirements:
 - **(GMS / Structured Properties / search indices)** With both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` (the latter defaults to true), system-update `BuildIndices` reindexes entity search indices when an existing structured-property field's Elasticsearch type differs from the definition-driven target (for example `float` or `long` vs intended `double` for `urn:li:dataType:datahub.number`). Previously those mismatches were ignored because `structuredProperties` is `dynamic: true` and excluded from the normal mapping diff. Both flags are required. **Action:** Expect longer system-update runtime / search reindex on the first upgrade if any NUMBER (or other) structured-property fields were dynamically mapped to the wrong type. Set `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=false` to skip type-mismatch reindex while leaving other structured-property system-update behavior intact. Ensure mappings reindex flags remain enabled as for other BuildIndices reindexes.
 
 ### Deprecations
+
+- **(Assertions / Metadata Model + Ingestion)** `AssertionType.DATASET` and `DatasetAssertionInfo` are deprecated for new writes. External / self-reported assertions must use `AssertionType.CUSTOM` with expanded `CustomAssertionInfo` (optional structured fields: scope, aggregation, operator, parameters, fields, nativeType, nativeParameters). Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) remain for assertions DataHub evaluates or schedules natively — do not use them for external self-reporting. `DatasetAssertionScope` remains the shared GraphQL / PDL enum name (same values); it is also used on `CustomAssertionInfo.scope`.
+
+  **Ingestion sources (dbt, Great Expectations, YAML data contracts):** on the next run after upgrade, these writers emit `CUSTOM` instead of `DATASET` for the same checks. **Assertion URNs are unchanged** — GUID inputs do not include assertion type (dbt uses platform/name/instance[/env]; GX uses platform/nativeType/nativeParameters/dataset/fields; data contracts use contract/entity/check id). The writers fully upsert `assertionInfo`, replacing the legacy `datasetAssertion` payload with `customAssertion` on the existing assertion entity, while **run history (`assertionRunEvent`) is preserved**. No migration / rewrite job is required for identity or history. Assertions that are never re-ingested stay as stored `DATASET` aspects and continue to render via read-path compatibility until removed or overwritten.
+
+  **Action:** No recipe changes required for dbt / GX. Switch custom writers to `upsertCustomAssertion` / SDK `client.assertions.sync_custom_assertion` (+ `reportAssertionResult`).
 
 - #17376: **(Ingestion / Hex)** Three recipe fields are removed and now emit a deprecation warning when set: `lineage_start_time`, `lineage_end_time`, and `datahub_page_size`. These belonged to the old lineage path that searched DataHub for Hex-tagged Query entities. Lineage now comes directly from the Hex REST API (the `queriedTables` API on Hex Enterprise workspaces, or SQL parsing of project/component cells on all workspaces), so these fields no longer have any effect. **Migration:** remove them from your recipe.
 
@@ -180,7 +209,16 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Docker / Python deps)** `datahub-actions` default app venv now applies `docker/snippets/ingestion/constraints.txt` via `UV_CONSTRAINT`. Floors include `setuptools>=80.10.1,<82` (CVE-2025-47273), `cryptography>=49.0.0` (CVE-2026-69249), and `msgpack>=1.2.1` (GHSA-6v7p-g79w-8964). Ingestion SDK `cryptography` raised to `>=49.0.0,<51.0.0`. Images also drop `pip/_vendor/bom.cdx.json` so scanners do not treat pip's vendored build-time SBOM pins as installed packages.
+
 - **(Kafka / OAUTHBEARER)** Java service images (`datahub-upgrade` / system-update, GMS, MAE/MCE consumers, and the frontend) now ship `jose4j` 0.9.6 on the runtime classpath. Kafka's client library needs this for SASL/OAUTHBEARER JWT validation but does not package it ([KAFKA-20184](https://issues.apache.org/jira/browse/KAFKA-20184)). After the Kafka client upgrade in #13667 removed a transitive `kafka_2.13` dependency that previously pulled jose4j in, secured Kafka setups using `OAuthBearerLoginCallbackHandler` could fail system-update (and other producers) with `NoClassDefFoundError: org/jose4j/keys/resolvers/VerificationKeyResolver`. **Action:** none — existing `springKafkaConfigurationOverrides` for SASL_SSL + OAUTHBEARER keep working; no Helm config change is required.
+
+- **(Assertions)** User-authored assertion notes are now stored in a dedicated `assertionNote`
+  aspect, so ingestion sources can fully upsert `assertionInfo` without overwriting notes. A
+  resumable system-update step copies existing embedded notes to the new aspect and leaves the
+  deprecated `AssertionInfo.note` field readable as a fallback during migration. No action is
+  required. Operators can tune the migration with
+  `SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_ENABLED`, `_BATCH_SIZE`, `_DELAY_MS`, and `_LIMIT`.
 
 - #18395 **(Ingestion / Snowflake)** Snowflake Semantic Views can now be ingested as first-class `semanticModel` + `metric` + logical-`dataset` entities instead of a single dataset (subtype "Semantic View"), gated by `semantic_views.emit_semantic_model_entities`. Unset (default) auto-resolves — enabled on newer DataHub Cloud, off on OSS, older Cloud, and connectionless runs (e.g. file sink) unless the recipe sets it `true`; `false` always forces the legacy dataset. Servers that don't support the new entities, an unreadable Metrics probe, or an unparseable server version also fall back to the legacy dataset. **Action:** URNs change, so repoint links, tags, and automations from the old `urn:li:dataset:(...)` URNs to the new ones (old datasets are soft-deleted with stateful ingestion enabled, else cleaned up manually); `include_usage` is ignored in the new mode; and `semanticModel`/`metric` URNs carry no `env` (use a distinct `platform_instance` per environment), while the logical datasets remain ordinary dataset URNs that keep `env`. Separately, `include_queries: true` now emits query entities even when `include_usage: false` — in both modes.
 
@@ -234,11 +272,19 @@ Requirements:
 
 - **(GMS / search indexing)** Inline Elasticsearch indexing and entity-graph cache invalidation on ingest now require explicit `systemMetadata.properties.appSource = ui` (or the sync-index header), not merely a GraphQL request context. `GroupService` and `RoleService` stamp UI source via `AspectUtils.buildSynchronousMetadataChangeProposal`; other GraphQL resolvers that bypass `MutationUtils` revert to async MAE indexing. See [GMS Entity Graph Cache — Invalidation (sync writes)](../deploy/gms-entity-graph-cache.md#invalidation-sync-writes).
 
+- **(GMS / primary storage read pool)** Optional second connection pool (Ebean) or Cassandra session for entity-aspect **reads**, while writes and `FOR UPDATE` reads stay on PRIMARY. Enable with `EBEAN_READ_POOL_ENABLED` / `CASSANDRA_READ_POOL_ENABLED` (default off). Use split-pool (same URL/hosts) to isolate connection limits, or set `EBEAN_READ_POOL_URL` / `CASSANDRA_READ_POOL_HOSTS` to offload to a replica. Separate from `DATAHUB_READ_ONLY=true`, which disables writes and does not register the read pool. See [Primary storage read pool](../deploy/primary-storage-read-pool.md).
+
+- #18393 / #18421: **(Operations / logging)** Core services and the frontend can optionally ship logs to a Loki-compatible aggregator. Set `LOG_AGGREGATOR_ENDPOINT` to enable shipping (also used for support-bundle log collection without relying on the Kubernetes API). Opt-in; unset leaves local logging unchanged.
+
 ### Environment Variables
 
 - `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` — Replaces `VIEW_RESTRICTED_ENTITY_TYPES`. Overlays on the `entity-registry.yml` `viewUnrestricted` baseline when `VIEW_AUTHORIZATION_ENABLED=true` (shared GMS config for Cloud Search Access Controls and OSS entity-page VBAC). Query-time search filtering remains DataHub Cloud–only. See Breaking Changes above and [Environment Variables](../deploy/environment-vars.md).
 
 - `SEARCH_DEFAULT_ENTITY_TYPES` / `SEARCH_AUTOCOMPLETE_ENTITY_TYPES` / `SEARCH_BROWSE_ENTITY_TYPES` / `SEARCH_PRIORITIZED_*_ENTITY_TYPES` (each with optional `_ADD` / `_REMOVE`) — Configure GraphQL default entity-type lists when callers omit `types`. Unset keeps `application.yaml` defaults. An explicitly empty value searches no entity types. See [Environment Variables](../deploy/environment-vars.md).
+
+- `EBEAN_READ_POOL_ENABLED` / `EBEAN_READ_POOL_URL` / `CASSANDRA_READ_POOL_ENABLED` / `CASSANDRA_READ_POOL_HOSTS` — Optional primary-storage read pool for entity-aspect reads. See Notable Changes above and [Primary storage read pool](../deploy/primary-storage-read-pool.md).
+
+- `LOG_AGGREGATOR_ENDPOINT` — Opt-in endpoint for shipping service logs to a Loki-compatible aggregator (also enables support-bundle log collection). See Notable Changes above.
 
 - #18334 **(GMS / patch)** Fixed keyed-array patch rebase (`ArrayMergingTemplate`) dropping the map key when a patch creates a new element through a deeper path — e.g. adding a field-level tag or term to a schema field with no existing `editableSchemaMetadata` entry produced an `EditableSchemaFieldInfo` with no `fieldPath` and was rejected with `HTTP 422 - fieldPath is required`. The fix applies to every keyed array (tags, terms, ownership, upstreams, etc.). This previously required an SDK-side workaround, now removed: **the Python SDK's `Dataset.patch_builder().add_tag()/add_term()` on a new schema field, and any client that patches a keyed array through a deep path, now depend on this GMS fix.** A new SDK against an older GMS (DataHub Core < 1.8.0 / DataHub Cloud < 2.1.0) regresses to the `422` on those field-level adds. **Action:** upgrade GMS to a version containing this fix before upgrading clients that rely on it.
 
@@ -290,9 +336,9 @@ Requirements:
 Requirements:
 
 - CLI / Python SDK: 1.6.0
-- Helm Chart: 1.0.0
+- Helm Chart: 1.0.3
 
-**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version (with Helm chart **1.0.0** or later) and let system-update complete before turning on `global.datahub.systemUpdate.zdu` for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and Helm values required for staged index upgrades.
+**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version with Helm chart **1.0.3** and let system-update complete. Enable `global.datahub.systemUpdate.zdu` later with Helm chart **1.1.0** (for example when upgrading to [v1.7.0](#v170)) for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and the Helm values foundation required for staged index upgrades.
 
 ### Breaking Changes
 
@@ -304,7 +350,7 @@ Requirements:
 
 - #16982: **(Auth)** The deprecated `corpUserInfo.active` field is **no longer considered** for session eligibility. Users gated on `active` for login must migrate to supported CorpUser status mechanisms.
 
-- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. Requires Helm chart **1.0.0** or later. See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
+- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it with Helm chart **1.0.3** and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. **Enable ZDU with Helm chart 1.1.0** (for example on the [v1.7.0](#v170) upgrade path). See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
 
 - #16930: **(Operations / Upgrades)** Background **aspect schema version migration sweep** runs during upgrades on large deployments. The sweep migrates stale aspect schema versions and avoids overwriting aspects that were updated concurrently during the sweep window.
 

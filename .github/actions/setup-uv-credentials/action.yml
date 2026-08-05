@@ -1,0 +1,170 @@
+name: "Setup UV credentials"
+description: >-
+  Writes a netrc file from Chainguard Libraries credentials and/or strips
+  credentials out of supplied index URLs into netrc entries. Sets
+  DATAHUB_NETRC_PATH so gradle's python-docker.gradle picks it up for
+  `--secret id=netrc,src=...` mounts, and writes ~/.netrc so any uv command
+  running directly on the runner picks up the same credentials. Credentials
+  never appear in command lines, environment variables, or image layers.
+
+inputs:
+  base_profile:
+    description: >-
+      Explicit uv profile to use (e.g. "default", "chainguard", "chainguard-ci",
+      "custom"). Exposed as the action's `uv_profile` output, which callers pass
+      to Gradle-driven Docker builds as
+      `-Pdatahub.dependencies.python.uvDockerProfile=...`. The profile is NOT inferred
+      from credentials or overrides — "custom" is an explicit choice: pass
+      base_profile=custom for a from-scratch profile (gradle then requires
+      pipExtraIndexUrl), or base_profile=chainguard / chainguard-ci (with the
+      chainguard_python_* inputs) to use Chainguard Libraries. extra_index_urls
+      are layered on top of whichever profile is selected. When empty, defaults
+      to "default".
+    required: false
+    default: ""
+  default_index_url:
+    description: >-
+      Optional default (primary) PyPI index URL. May contain embedded
+      credentials — they will be stripped into the netrc.
+    required: false
+    default: ""
+  extra_index_urls:
+    description: >-
+      Optional space-separated extra index URLs. Each may contain embedded
+      credentials — they will be stripped into the netrc. These are LAYERED
+      on top of the selected uv profile as extra indexes (e.g. a wheels-build
+      index added to chainguard).
+    required: false
+    default: ""
+  chainguard_python_identity_id:
+    description: >-
+      Optional Chainguard Libraries for Python pull-token username (identity id).
+      When provided together with chainguard_python_token, a
+      `machine libraries.cgr.dev` netrc entry is added. These credentials do
+      NOT auto-select the chainguard uv profile — set base_profile=chainguard
+      (local) or base_profile=chainguard-ci (CI) to actually resolve from
+      Chainguard Libraries. Pass vars.CHAINGUARD_PYTHON_IDENTITY_ID.
+    required: false
+    default: ""
+  chainguard_python_token:
+    description: >-
+      Optional Chainguard Libraries for Python pull-token password/token.
+      Pass secrets.CHAINGUARD_PYTHON_TOKEN.
+    required: false
+    default: ""
+
+outputs:
+  uv_profile:
+    description: "uv profile to use: the base_profile input value, defaulting to 'default'. Pass to Gradle-driven Docker builds as -Pdatahub.dependencies.python.uvDockerProfile=<this>. The profile is NOT inferred from credentials or overrides — 'custom' is an explicit choice the caller makes (set base_profile=custom; gradle then requires pipExtraIndexUrl). extra_index_urls are LAYERED on top of the selected profile. gradle rejects a non-vanilla pipMirrorUrl on an existing profile (use base_profile=custom for a default-index override)."
+    value: ${{ steps.write.outputs.uv_profile }}
+  default_index_url:
+    description: "Creds-free default index URL (empty if not overridden from vanilla PyPI)."
+    value: ${{ steps.write.outputs.default_index_url }}
+  extra_index_urls:
+    description: "Space-separated creds-free extra index URLs (empty if none)."
+    value: ${{ steps.write.outputs.extra_index_urls }}
+  extra_index_url:
+    description: "Backwards-compatible alias of extra_index_urls."
+    value: ${{ steps.write.outputs.extra_index_urls }}
+
+  netrc_path:
+    description: "Absolute path to the netrc file (same as ~/.netrc)."
+    value: ${{ steps.write.outputs.netrc_path }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: write
+      shell: bash
+      env:
+        VANILLA_PYPI_URL: "https://pypi.python.org/simple"
+        DEFAULT_INDEX_URL_IN: ${{ inputs.default_index_url }}
+        EXTRA_INDEX_URLS_IN: ${{ inputs.extra_index_urls }}
+        CHAINGUARD_PYTHON_IDENTITY_ID: ${{ inputs.chainguard_python_identity_id }}
+        CHAINGUARD_PYTHON_TOKEN: ${{ inputs.chainguard_python_token }}
+        BASE_PROFILE_IN: ${{ inputs.base_profile }}
+      run: |
+        set -euo pipefail
+        netrc="$HOME/.netrc"
+        : > "$netrc"
+        chmod 600 "$netrc"
+
+        # Helper functions live in netrc_helpers.sh so they can be reused and
+        # tested independently. Sourced into this shell; they read $netrc.
+        source "$GITHUB_ACTION_PATH/netrc_helpers.sh"
+
+        # The uv profile is chosen EXPLICITLY by the caller via base_profile. It
+        # is NOT inferred from credentials or overrides — "custom" is an explicit
+        # choice the caller makes (in both this action and gradle). base_profile
+        # defaults to "default"; pass base_profile=chainguard (local) or
+        # base_profile=chainguard-ci (CI) to use Chainguard Libraries, or
+        # base_profile=custom for a from-scratch profile (which gradle requires
+        # pipExtraIndexUrl for). Computed early so the default_url_clean logic
+        # below can be custom-aware.
+        uv_profile="${BASE_PROFILE_IN:-default}"
+
+        # Caller-supplied default index override (e.g. a corporate PyPI mirror).
+        # For an existing (non-custom) profile, a vanilla PyPI mirror is a no-op
+        # (cleared here so the profile's own default index is kept). For the
+        # from-scratch "custom" profile, vanilla PyPI IS the default and must be
+        # preserved — and when no mirror is supplied at all, custom falls back to
+        # vanilla PyPI. This mirrors gradle's resolveUvBuildArgs (which sets
+        # DEFAULT_INDEX_URL = mirrorIsOverride ? mirror : vanilla for custom), so
+        # the direct-docker/Depot path (which consumes this output as the
+        # DEFAULT_INDEX_URL build-arg) doesn't make generate-config exit on
+        # custom+vanilla.
+        default_url_clean=""
+        if [ -n "$DEFAULT_INDEX_URL_IN" ]; then
+          add_netrc_from_url "$DEFAULT_INDEX_URL_IN"
+          default_url_clean=$(strip_creds "$DEFAULT_INDEX_URL_IN")
+          if [ "$default_url_clean" = "$VANILLA_PYPI_URL" ] && [ "$uv_profile" != "custom" ]; then
+            default_url_clean=""
+          fi
+        elif [ "$uv_profile" = "custom" ]; then
+          default_url_clean="$VANILLA_PYPI_URL"
+        fi
+
+        # Caller-supplied extra index URLs (creds stripped into netrc). These are
+        # LAYERED on top of the selected profile as extra indexes (e.g. a
+        # wheels-build index added to chainguard); with the "custom" profile they
+        # are the extras alongside the from-scratch default. gradle forwards them
+        # as EXTRA_INDEX_URLS and generate-config appends them to uv.toml.
+        extra_clean=""
+        if [ -n "$EXTRA_INDEX_URLS_IN" ]; then
+          for url in $EXTRA_INDEX_URLS_IN; do
+            add_netrc_from_url "$url"
+            clean=$(strip_creds "$url")
+            extra_clean="$extra_clean $clean"
+          done
+          extra_clean="${extra_clean# }"
+        fi
+
+        # Update .netrc with Chainguard Libraries credentials.
+        if [ -n "$CHAINGUARD_PYTHON_IDENTITY_ID" ] && [ -n "$CHAINGUARD_PYTHON_TOKEN" ]; then
+          echo "machine libraries.cgr.dev login $CHAINGUARD_PYTHON_IDENTITY_ID password $CHAINGUARD_PYTHON_TOKEN" >> "$netrc"
+        fi
+
+        # Layering model: extra indexes (extra_clean) are LAYERED on top of the
+        # selected profile (e.g. a wheels-build index added to chainguard), so
+        # extras alone do NOT switch the profile. gradle (resolveUvBuildArgs)
+        # validates: custom requires pipExtraIndexUrl, and a non-vanilla
+        # pipMirrorUrl is rejected on an existing profile.
+        # The chosen profile is exposed as the `uv_profile` output for callers to
+        # pass explicitly as `-Pdatahub.dependencies.python.uvDockerProfile=...` to
+        # Gradle-driven Docker builds. This action does NOT set the
+        # ORG_GRADLE_PROJECT_...uvDockerProfile env var — the profile is an explicit
+        # caller choice, not an implicit side effect of running this action.
+
+        {
+          echo "uv_profile=$uv_profile"
+          echo "default_index_url=$default_url_clean"
+          echo "extra_index_urls=$extra_clean"
+          echo "netrc_path=$netrc"
+        } >> "$GITHUB_OUTPUT"
+
+        echo "DATAHUB_NETRC_PATH=$netrc" >> "$GITHUB_ENV"
+
+        echo "  UV_PROFILE: $uv_profile"
+        [ -n "$default_url_clean" ] && echo "  DEFAULT_INDEX_URL: $default_url_clean"
+        [ -n "$extra_clean" ] && echo "  EXTRA_INDEX_URLS: $extra_clean"
+        echo "  netrc entries: $(wc -l < "$netrc")"
