@@ -1680,15 +1680,12 @@ class OdbcLineage(AbstractLineage):
         level of a table's qualified name (e.g. a BigQuery ODBC source commonly
         surfaces dataset.table but omits the project). dsn_to_database_schema
         supplies those missing high-order levels so a fully-qualified upstream
-        URN can still be built. Values are validated to be one or two
-        dot-separated parts at config load time.
+        URN can still be built. 
         """
         value = self.config.dsn_to_database_schema.get(dsn)
         if not value:
             return None, None
-        # Config validation rejects blank segments, but treat empty parts as
-        # unset defensively so an empty string never backfills a level and
-        # produces a malformed qualified name like "project..table".
+        # Empty segments must not backfill (avoids "project..table"); config also rejects blanks.
         parts = [part.strip() or None for part in value.split(".")]
         if len(parts) == 1:
             return parts[0], None
@@ -1927,16 +1924,8 @@ class OdbcLineage(AbstractLineage):
         # qualified name (e.g. BigQuery commonly surfaces dataset.table but omits
         # the project). Backfill the missing high-order levels from
         # dsn_to_database_schema so a fully-qualified URN can still be built.
-        # Navigation values always take precedence over the configured defaults.
-        #
-        # dsn_to_database_schema encodes a contiguous prefix of high-order levels
-        # (database, or database.schema). Only fill the schema tier from config
-        # when the database tier was also missing from navigation. If navigation
-        # already anchored the database but exposed no schema (e.g. MySQL's
-        # Database + Table path, which is genuinely two-part), splicing the
-        # config schema into the middle would fabricate a spurious tier and yield
-        # database.schema.table instead of database.table. There the mapping is
-        # only meant for the ODBC SQL-parsing path, not navigation.
+        # Two-part mappings with nav Database already set are for SQL parsing only.
+        # There the mapping is only meant for the ODBC SQL-parsing path, not navigation.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
         if database_name is None:
             database_name = config_database
@@ -1945,7 +1934,6 @@ class OdbcLineage(AbstractLineage):
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
             if schema_name is not None:
-                # Drop the pseudo-catalog database_name for two-tier platforms.
                 qualified_table_name = f"{schema_name}.{table_name}"
             else:
                 # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
@@ -1970,9 +1958,6 @@ class OdbcLineage(AbstractLineage):
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
-            # Surface the resolved partial levels and the DSN so operators know
-            # exactly which tier is missing and which dsn_to_database_schema entry
-            # to configure. reporter.warning already logs, so no extra logger call.
             self.reporter.warning(
                 title="Can not determine qualified table name",
                 message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",

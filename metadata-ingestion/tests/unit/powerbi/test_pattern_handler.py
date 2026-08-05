@@ -829,9 +829,7 @@ def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
 
 
 def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
-    """Contiguous-prefix backfill: when navigation already anchored Database but
-    exposed no Schema, a two-part dsn_to_database_schema value must not splice
-    config schema into the middle (that path is SQL-parse only). Three-tier
+    """Nav Database blocks splicing schema from a two-part DSN mapping. Three-tier
     platforms then warn instead of emitting database.table or a fabricated
     database.schema.table URN.
     """
@@ -864,7 +862,6 @@ def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
 
 
 def test_odbc_two_part_mysql_allows_database_table_fallback():
-    """MySQL is not in ODBC_THREE_TIER_PLATFORMS, so database.table is allowed."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -920,8 +917,6 @@ def test_odbc_two_part_teradata_allows_database_table_fallback():
 def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
     """Athena expression_lineage must strip catalog from three-part names
     (same as query_lineage) so URNs match the standalone Athena connector.
-    Table-only nav + two-part dsn mapping yields catalog.database.table before
-    stripping → database.table after.
     """
     instance = _build_odbc_lineage(
         dsn_to_database_schema={"athena_dsn": "awsdatacatalog.mydb"},
