@@ -103,7 +103,7 @@ class StoredProcLineageTracker(Closeable):
             if query.downstream is not None:
                 stored_proc_execution.outputs.append(query.downstream)
             self.report.num_related_queries += 1
-            logger.info(
+            logger.debug(
                 "Stored proc tracker captured query: root_id=%s, "
                 "downstream=%s, num_upstreams=%d, query_type=%s",
                 snowflake_root_query_id,
@@ -121,7 +121,7 @@ class StoredProcLineageTracker(Closeable):
         # create dataJobInputOutput lineage instead.
 
         for stored_proc_execution in self._stored_proc_execution_lineage.values():
-            logger.info(
+            logger.debug(
                 "Stored proc %s: inputs=%d, outputs=%d, call=%.120s",
                 stored_proc_execution.call.snowflake_root_query_id,
                 len(stored_proc_execution.inputs),
