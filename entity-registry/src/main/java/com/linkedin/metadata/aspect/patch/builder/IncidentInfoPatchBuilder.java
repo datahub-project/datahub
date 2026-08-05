@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.incident.IncidentAssigneeArray;
@@ -37,10 +38,12 @@ public class IncidentInfoPatchBuilder
   private static final String PATH_DELIM = "/";
   private static final String TITLE_FIELD = "title";
   private static final String DESCRIPTION_FIELD = "description";
+  private static final String STARTED_AT_FIELD = "startedAt";
   private static final String STATUS_FIELD = "status";
   private static final String STATUS_STATE_FIELD = "status/state";
   private static final String STATUS_STAGE_FIELD = "status/stage";
   private static final String STATUS_MESSAGE_FIELD = "status/message";
+  private static final String STATUS_LAST_UPDATED_FIELD = "status/lastUpdated";
   private static final String PRIORITY_FIELD = "priority";
   private static final String ENTITIES_FIELD = "entities";
   private static final String ASSIGNEES_FIELD = "assignees";
@@ -65,6 +68,12 @@ public class IncidentInfoPatchBuilder
     return this;
   }
 
+  /** updateIncident only: startedAt is not editor-owned, so upsertIncident never sets this. */
+  public IncidentInfoPatchBuilder setStartedAt(@Nonnull Long startedAt) {
+    addValue(STARTED_AT_FIELD, instance.numberNode(startedAt));
+    return this;
+  }
+
   /** Replaces the entire status object. Used by the editor's full-snapshot upsert. */
   public IncidentInfoPatchBuilder setStatus(@Nonnull IncidentStatus status) {
     addRecord(STATUS_FIELD, status);
@@ -86,6 +95,12 @@ public class IncidentInfoPatchBuilder
   /** Patches only the status message, leaving state and stage untouched. */
   public IncidentInfoPatchBuilder setStatusMessage(@Nonnull String message) {
     addValue(STATUS_MESSAGE_FIELD, instance.textNode(message));
+    return this;
+  }
+
+  /** Patches only the status lastUpdated audit stamp, leaving state/stage/message untouched. */
+  public IncidentInfoPatchBuilder setStatusLastUpdated(@Nonnull AuditStamp lastUpdated) {
+    addRecord(STATUS_LAST_UPDATED_FIELD, lastUpdated);
     return this;
   }
 

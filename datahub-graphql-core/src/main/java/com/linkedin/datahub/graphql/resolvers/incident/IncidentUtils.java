@@ -116,6 +116,7 @@ public class IncidentUtils {
         IncidentInfoUpdate.builder()
             .title(input.getTitle())
             .description(input.getDescription())
+            .startedAt(input.getStartedAt())
             .priority(mapIncidentPriority(input.getPriority()))
             .entities(
                 input.getResourceUrns() == null ? null : stringsToUrns(input.getResourceUrns()))

@@ -27,7 +27,7 @@ extend type Mutation {
   """
   Patch an existing data incident. Omitted fields, and null scalar fields, remain unchanged.
   An empty assigneeUrns list clears assignees; priority cannot be cleared by this mutation. Use
-  upsertIncident for an editor-owned full replacement that can clear priority.
+  upsertIncident to apply the editor's complete field snapshot, which can clear priority.
   """
   updateIncident(
     """
@@ -42,10 +42,10 @@ extend type Mutation {
   ): Boolean
 
   """
-  Replace the fields owned by the incident editor. Nullable fields are cleared when omitted or
-  set to null. Fields that are not part of this input, such as the incident type, source,
-  creation audit, and startedAt, are preserved. Use updateIncident when omitted fields must
-  remain unchanged.
+  Applies the editor's complete editable-field snapshot to an existing incident via PATCH.
+  Nullable fields are cleared when omitted or set to null. Fields the editor does not own -
+  type, source, created, and startedAt - are never targeted and always survive. Use
+  updateIncident when omitted fields must remain unchanged.
   """
   upsertIncident(
     """
@@ -411,6 +411,12 @@ input UpdateIncidentInput {
   A replacement description. Omit or set to null to leave the current description unchanged.
   """
   description: String
+
+  """
+  A replacement start time. Omit or set to null to leave it unchanged; this mutation cannot clear
+  an existing value. Use this to set or backdate when the incident actually began.
+  """
+  startedAt: Long
 
   """
   A replacement status. Omit or set to null to leave the current status unchanged. Only the

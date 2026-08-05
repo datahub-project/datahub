@@ -9,12 +9,15 @@ import javax.annotation.Nullable;
 /**
  * Values that may be changed on an incident.
  *
- * <p>A null value means "not supplied" for a patch. The replacement operation deliberately treats
- * null values for nullable fields as clears instead.
+ * <p>A null value means "not supplied" for a patch. The upsert operation deliberately treats null
+ * values for nullable fields as clears instead. {@code startedAt} is only consulted by {@link
+ * IncidentService#updateIncident}; {@link IncidentService#upsertIncident} never targets it, since
+ * the editor does not own that field.
  */
 public final class IncidentInfoUpdate {
   @Nullable private final String title;
   @Nullable private final String description;
+  @Nullable private final Long startedAt;
   @Nullable private final IncidentStatus status;
   @Nullable private final Integer priority;
   @Nullable private final List<Urn> entities;
@@ -23,6 +26,7 @@ public final class IncidentInfoUpdate {
   private IncidentInfoUpdate(Builder builder) {
     this.title = builder.title;
     this.description = builder.description;
+    this.startedAt = builder.startedAt;
     this.status = builder.status;
     this.priority = builder.priority;
     this.entities = builder.entities == null ? null : List.copyOf(builder.entities);
@@ -41,6 +45,11 @@ public final class IncidentInfoUpdate {
   @Nullable
   public String getDescription() {
     return description;
+  }
+
+  @Nullable
+  public Long getStartedAt() {
+    return startedAt;
   }
 
   @Nullable
@@ -66,6 +75,7 @@ public final class IncidentInfoUpdate {
   public boolean isEmpty() {
     return title == null
         && description == null
+        && startedAt == null
         && status == null
         && priority == null
         && entities == null
@@ -75,6 +85,7 @@ public final class IncidentInfoUpdate {
   public static final class Builder {
     @Nullable private String title;
     @Nullable private String description;
+    @Nullable private Long startedAt;
     @Nullable private IncidentStatus status;
     @Nullable private Integer priority;
     @Nullable private List<Urn> entities;
@@ -89,6 +100,11 @@ public final class IncidentInfoUpdate {
 
     public Builder description(@Nullable String description) {
       this.description = description;
+      return this;
+    }
+
+    public Builder startedAt(@Nullable Long startedAt) {
+      this.startedAt = startedAt;
       return this;
     }
 

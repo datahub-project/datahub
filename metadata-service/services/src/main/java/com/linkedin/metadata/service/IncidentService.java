@@ -119,6 +119,9 @@ public class IncidentService extends BaseService {
     if (update.getDescription() != null) {
       patchBuilder.setDescription(update.getDescription());
     }
+    if (update.getStartedAt() != null) {
+      patchBuilder.setStartedAt(update.getStartedAt());
+    }
     if (update.getStatus() != null) {
       final IncidentStatus status = update.getStatus();
       patchBuilder.setStatusState(status.getState());
@@ -128,6 +131,7 @@ public class IncidentService extends BaseService {
       if (status.hasMessage()) {
         patchBuilder.setStatusMessage(status.getMessage());
       }
+      patchBuilder.setStatusLastUpdated(status.getLastUpdated());
     }
     if (update.getPriority() != null) {
       patchBuilder.setPriority(update.getPriority());
@@ -144,46 +148,44 @@ public class IncidentService extends BaseService {
 
   /**
    * Applies the editor's complete field snapshot as a JSON Patch, without reading or rewriting the
-   * full aspect. Nullable editor fields that are null in {@code replacement} are explicitly cleared
-   * (PATCH remove); fields the editor does not own (type, customType, source, created) are never
-   * targeted and therefore survive untouched.
+   * full aspect. Nullable editor fields that are null in {@code upsert} are explicitly cleared
+   * (PATCH remove); fields the editor does not own (type, customType, source, created, startedAt)
+   * are never targeted and therefore survive untouched.
    */
   public void upsertIncident(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn incidentUrn,
-      @Nonnull final IncidentInfoUpdate replacement)
+      @Nonnull final IncidentInfoUpdate upsert)
       throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    Objects.requireNonNull(replacement, "replacement must not be null");
-    if (replacement.getStatus() == null) {
-      throw new IllegalArgumentException("Incident status is required for replacement");
+    Objects.requireNonNull(upsert, "upsert must not be null");
+    if (upsert.getStatus() == null) {
+      throw new IllegalArgumentException("Incident status is required for upsert");
     }
-    if (replacement.getEntities() == null || replacement.getEntities().isEmpty()) {
-      throw new IllegalArgumentException("Incident resources cannot be empty for replacement");
+    if (upsert.getEntities() == null || upsert.getEntities().isEmpty()) {
+      throw new IllegalArgumentException("Incident resources cannot be empty for upsert");
     }
 
     IncidentInfoPatchBuilder patchBuilder = new IncidentInfoPatchBuilder().urn(incidentUrn);
-    if (replacement.getTitle() != null) {
-      patchBuilder.setTitle(replacement.getTitle());
+    if (upsert.getTitle() != null) {
+      patchBuilder.setTitle(upsert.getTitle());
     } else {
       patchBuilder.clearTitle();
     }
-    if (replacement.getDescription() != null) {
-      patchBuilder.setDescription(replacement.getDescription());
+    if (upsert.getDescription() != null) {
+      patchBuilder.setDescription(upsert.getDescription());
     } else {
       patchBuilder.clearDescription();
     }
-    patchBuilder.setStatus(replacement.getStatus());
-    if (replacement.getPriority() != null) {
-      patchBuilder.setPriority(replacement.getPriority());
+    patchBuilder.setStatus(upsert.getStatus());
+    if (upsert.getPriority() != null) {
+      patchBuilder.setPriority(upsert.getPriority());
     } else {
       patchBuilder.clearPriority();
     }
-    patchBuilder.setEntities(replacement.getEntities());
+    patchBuilder.setEntities(upsert.getEntities());
     patchBuilder.setAssignees(
-        replacement.getAssignees() == null
-            ? new IncidentAssigneeArray()
-            : replacement.getAssignees());
+        upsert.getAssignees() == null ? new IncidentAssigneeArray() : upsert.getAssignees());
 
     this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }

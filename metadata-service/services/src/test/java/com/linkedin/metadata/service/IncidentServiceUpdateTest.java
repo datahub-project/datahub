@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -62,19 +63,37 @@ public class IncidentServiceUpdateTest {
   }
 
   @Test
-  public void nestedStatusUpdatePatchesOnlySuppliedSubFields() throws Exception {
+  public void nestedStatusUpdatePatchesOnlySuppliedSubFieldsPlusLastUpdated() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+    AuditStamp lastUpdated =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:agent")).setTime(42L);
+
+    service.updateIncident(
+        mock(OperationContext.class),
+        INCIDENT_URN,
+        IncidentInfoUpdate.builder()
+            .status(
+                new IncidentStatus().setState(IncidentState.RESOLVED).setLastUpdated(lastUpdated))
+            .build());
+
+    List<String> paths = patchOpPaths(captureProposal(client));
+    Assert.assertEquals(paths, List.of("/status/state", "/status/lastUpdated"));
+  }
+
+  @Test
+  public void updateIncidentPatchesStartedAt() throws Exception {
     SystemEntityClient client = mock(SystemEntityClient.class);
     IncidentService service = new IncidentService(client);
 
     service.updateIncident(
         mock(OperationContext.class),
         INCIDENT_URN,
-        IncidentInfoUpdate.builder()
-            .status(new IncidentStatus().setState(IncidentState.RESOLVED))
-            .build());
+        IncidentInfoUpdate.builder().startedAt(10L).build());
 
-    List<String> paths = patchOpPaths(captureProposal(client));
-    Assert.assertEquals(paths, List.of("/status/state"));
+    Map<String, JsonNode> opsByPath = patchOpsByPath(captureProposal(client));
+    Assert.assertEquals(opsByPath.get("/startedAt").get("op").asText(), "add");
+    Assert.assertEquals(opsByPath.get("/startedAt").get("value").asLong(), 10L);
   }
 
   @Test

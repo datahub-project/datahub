@@ -65,23 +65,20 @@ public class UpsertIncidentResolverTest {
         new UpsertIncidentResolver(mockIncidentService, mockEntityService).get(environment).get();
 
     Assert.assertTrue(result);
-    ArgumentCaptor<IncidentInfoUpdate> replacementCaptor =
+    ArgumentCaptor<IncidentInfoUpdate> upsertCaptor =
         ArgumentCaptor.forClass(IncidentInfoUpdate.class);
     Mockito.verify(mockIncidentService)
         .upsertIncident(
-            any(OperationContext.class),
-            Mockito.eq(TEST_INCIDENT_URN),
-            replacementCaptor.capture());
-    IncidentInfoUpdate replacement = replacementCaptor.getValue();
-    Assert.assertNull(replacement.getTitle());
-    Assert.assertNull(replacement.getDescription());
-    Assert.assertNull(replacement.getPriority());
+            any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN), upsertCaptor.capture());
+    IncidentInfoUpdate upsert = upsertCaptor.getValue();
+    Assert.assertNull(upsert.getTitle());
+    Assert.assertNull(upsert.getDescription());
+    Assert.assertNull(upsert.getPriority());
+    Assert.assertEquals(upsert.getEntities(), IncidentUtils.stringsToUrns(input.getResourceUrns()));
+    Assert.assertNotNull(upsert.getAssignees());
+    Assert.assertTrue(upsert.getAssignees().isEmpty());
     Assert.assertEquals(
-        replacement.getEntities(), IncidentUtils.stringsToUrns(input.getResourceUrns()));
-    Assert.assertNotNull(replacement.getAssignees());
-    Assert.assertTrue(replacement.getAssignees().isEmpty());
-    Assert.assertEquals(
-        replacement.getStatus().getState(), com.linkedin.incident.IncidentState.RESOLVED);
+        upsert.getStatus().getState(), com.linkedin.incident.IncidentState.RESOLVED);
   }
 
   private static IncidentInfo existingInfo() {

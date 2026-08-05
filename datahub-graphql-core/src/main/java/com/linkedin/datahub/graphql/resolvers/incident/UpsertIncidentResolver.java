@@ -57,10 +57,9 @@ public class UpsertIncidentResolver implements DataFetcher<CompletableFuture<Boo
               new AuditStamp()
                   .setActor(UrnUtils.getUrn(context.getActorUrn()))
                   .setTime(System.currentTimeMillis());
-          IncidentInfoUpdate replacement = IncidentUtils.mapIncidentUpsert(input, actorStamp);
+          IncidentInfoUpdate upsert = IncidentUtils.mapIncidentUpsert(input, actorStamp);
           try {
-            _incidentService.upsertIncident(
-                context.getOperationContext(), incidentUrn, replacement);
+            _incidentService.upsertIncident(context.getOperationContext(), incidentUrn, upsert);
             return true;
           } catch (Exception e) {
             throw new RuntimeException("Failed to upsert incident!", e);

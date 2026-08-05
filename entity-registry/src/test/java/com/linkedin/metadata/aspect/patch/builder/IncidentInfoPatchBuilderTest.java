@@ -119,6 +119,45 @@ public class IncidentInfoPatchBuilderTest {
     assertEquals(ops.get(1).get("value").asText(), "FIXED");
   }
 
+  @Test
+  public void testStatusLastUpdatedIsPatchedAsANestedSubField() throws Exception {
+    AuditStamp lastUpdated =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(42L);
+
+    MetadataChangeProposal proposal =
+        new IncidentInfoPatchBuilder()
+            .urn(UrnUtils.getUrn("urn:li:incident:test"))
+            .setStatusState(IncidentState.RESOLVED)
+            .setStatusLastUpdated(lastUpdated)
+            .build();
+
+    JsonNode ops =
+        new ObjectMapper()
+            .readTree(proposal.getAspect().getValue().asString(StandardCharsets.UTF_8))
+            .get("patch");
+    assertEquals(
+        ops.findValuesAsText("path"), ImmutableList.of("/status/state", "/status/lastUpdated"));
+    assertEquals(ops.get(1).get("value").get("time").asLong(), 42L);
+  }
+
+  @Test
+  public void testSetStartedAtEmitsAddOperation() throws Exception {
+    MetadataChangeProposal proposal =
+        new IncidentInfoPatchBuilder()
+            .urn(UrnUtils.getUrn("urn:li:incident:test"))
+            .setStartedAt(456L)
+            .build();
+
+    JsonNode operation =
+        new ObjectMapper()
+            .readTree(proposal.getAspect().getValue().asString(StandardCharsets.UTF_8))
+            .get("patch")
+            .get(0);
+    assertEquals(operation.get("op").asText(), "add");
+    assertEquals(operation.get("path").asText(), "/startedAt");
+    assertEquals(operation.get("value").asLong(), 456L);
+  }
+
   /**
    * Builds the modern generic PATCH MCP this builder now emits and applies it through the same
    * {@link GenericPatchTemplate} runtime path GMS uses for aspects without a registered Template
@@ -189,5 +228,51 @@ public class IncidentInfoPatchBuilderTest {
     assertEquals(patched.getAssignees().size(), 1);
     assertEquals(
         patched.getAssignees().get(0).getActor(), UrnUtils.getUrn("urn:li:corpuser:assignee"));
+  }
+
+  @Test
+  public void testStartedAtAndStatusLastUpdatedApplyThroughRealPatchPath() throws Exception {
+    AuditStamp created =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L);
+    IncidentInfo existing =
+        new IncidentInfo()
+            .setType(IncidentType.SQL)
+            .setCreated(created)
+            .setStartedAt(1L)
+            .setStatus(new IncidentStatus().setState(IncidentState.ACTIVE).setLastUpdated(created));
+
+    AuditStamp newLastUpdated =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:agent")).setTime(999L);
+
+    MetadataChangeProposal proposal =
+        new IncidentInfoPatchBuilder()
+            .urn(UrnUtils.getUrn("urn:li:incident:test"))
+            .setStartedAt(2L)
+            .setStatusState(IncidentState.RESOLVED)
+            .setStatusLastUpdated(newLastUpdated)
+            .build();
+
+    GenericJsonPatch genericJsonPatch =
+        new ObjectMapper()
+            .readValue(
+                proposal.getAspect().getValue().asString(StandardCharsets.UTF_8),
+                GenericJsonPatch.class);
+    GenericPatchTemplate<IncidentInfo> template =
+        GenericPatchTemplate.<IncidentInfo>builder()
+            .genericJsonPatch(genericJsonPatch)
+            .templateType(IncidentInfo.class)
+            .templateDefault(new IncidentInfo())
+            .build();
+
+    IncidentInfo patched = template.applyPatch(existing);
+
+    // Backdated startedAt and bumped status.lastUpdated took effect.
+    assertEquals(patched.getStartedAt(), Long.valueOf(2L));
+    assertEquals(patched.getStatus().getState(), IncidentState.RESOLVED);
+    assertEquals(patched.getStatus().getLastUpdated().getTime(), Long.valueOf(999L));
+    assertEquals(patched.getStatus().getLastUpdated().getActor(), newLastUpdated.getActor());
+
+    // created is generated at raise time and must never be touched.
+    assertEquals(patched.getCreated().getActor(), created.getActor());
   }
 }
