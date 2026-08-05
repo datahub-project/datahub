@@ -56,7 +56,7 @@ def test_document_change_history(auth_session):
     urn = create_res["data"]["createDocument"]
     assert urn is not None
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Update the document content
@@ -75,7 +75,7 @@ def test_document_change_history(auth_session):
     assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
     assert update_res["data"]["updateDocumentContents"] is True
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Update the document state
@@ -89,7 +89,7 @@ def test_document_change_history(auth_session):
     assert "errors" not in status_res, f"GraphQL errors: {status_res.get('errors')}"
     assert status_res["data"]["updateDocumentStatus"] is True
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history
@@ -174,7 +174,7 @@ def test_document_change_history_with_time_range(auth_session):
     urn = create_res["data"]["createDocument"]
     assert urn is not None
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history with time range
@@ -244,7 +244,7 @@ def test_document_change_history_empty(auth_session):
     urn = create_res["data"]["createDocument"]
     assert urn is not None
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history with a future time range (should return empty)

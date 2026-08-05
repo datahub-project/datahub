@@ -187,7 +187,7 @@ class TestDocumentHierarchyAndSettings:
         )
         private_urn = private_res["data"]["createDocument"]
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Query and verify custom settings
         private_get_res = execute_graphql(auth_session, get_query, {"urn": private_urn})
@@ -213,7 +213,7 @@ class TestDocumentHierarchyAndSettings:
         assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
         assert update_res["data"]["updateDocumentSettings"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify the update
         updated_get_res = execute_graphql(auth_session, get_query, {"urn": private_urn})
@@ -362,7 +362,7 @@ class TestDocumentHierarchyAndSettings:
         )
         assert publish_res["data"]["updateDocumentStatus"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
         time.sleep(3)
 
         # Search again - both should still be visible (both PUBLISHED now)
@@ -450,7 +450,7 @@ class TestDocumentHierarchyAndSettings:
         update_res = execute_graphql(auth_session, update_mutation, update_vars)
         assert update_res["data"]["updateDocumentRelatedEntities"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Wait for search indexing
         time.sleep(5)

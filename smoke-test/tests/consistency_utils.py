@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Protocol
 
 import requests
@@ -142,16 +143,32 @@ def _get_consumer_lag(
 ) -> tuple[Optional[int], bool, bool]:
     """Get combined lag across endpoints.
 
+    Fetches each consumer's lag endpoint concurrently rather than sequentially,
+    since a broad wait (mcp+mcl+mcl_timeseries) would otherwise pay three
+    round-trips per poll tick instead of one.
+
     Returns (lag, group_found, api_available).
     """
+    endpoints = [
+        (consumer, _MESSAGING_LAG_ENDPOINTS[consumer])
+        for consumer in consumers
+        if consumer in _MESSAGING_LAG_ENDPOINTS
+    ]
+
+    with ThreadPoolExecutor(max_workers=max(len(endpoints), 1)) as executor:
+        futures = {
+            executor.submit(
+                _fetch_lag_envelope, gms_url, endpoint, auth_session
+            ): consumer
+            for consumer, endpoint in endpoints
+        }
+        envelopes = {futures[future]: future.result() for future in futures}
+
     total = 0
     group_found = consumer_group is None
     api_available = False
-    for consumer in consumers:
-        endpoint = _MESSAGING_LAG_ENDPOINTS.get(consumer)
-        if not endpoint:
-            continue
-        data = _fetch_lag_envelope(gms_url, endpoint, auth_session)
+    for consumer, _endpoint in endpoints:
+        data = envelopes[consumer]
         if data is None:
             continue
         api_available = True

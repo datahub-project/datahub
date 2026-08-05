@@ -140,7 +140,7 @@ class TestDocumentCrudAndMutations:
         update_res = execute_graphql(auth_session, update_mutation, update_vars)
         assert update_res["data"]["updateDocumentContents"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify update and that lastModified changed
         get_query = """
@@ -228,7 +228,7 @@ class TestDocumentCrudAndMutations:
         assert "errors" not in status_res, f"GraphQL errors: {status_res.get('errors')}"
         assert status_res["data"]["updateDocumentStatus"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify status changed and lastModified was updated
         final_res = execute_graphql(auth_session, get_query, {"urn": urn})
@@ -506,7 +506,7 @@ class TestDocumentCrudAndMutations:
         update_res = execute_graphql(auth_session, update_mutation, update_vars)
         assert update_res["data"]["updateDocumentSubType"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify update
         get_query = """
@@ -592,7 +592,7 @@ class TestDocumentCrudAndMutations:
         update_res = execute_graphql(auth_session, update_mutation, update_vars)
         assert update_res["data"]["updateDocumentRelatedEntities"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify related documents via GraphQL walk
         get_query = """

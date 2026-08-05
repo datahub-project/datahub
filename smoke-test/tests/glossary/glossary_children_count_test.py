@@ -86,7 +86,7 @@ def glossary_tree(auth_session):
         track(_create_term(auth_session, f"{suffix}-branch-term-{i}", branch))
     track(_create_node(auth_session, f"{suffix}-branch-child", branch))
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     yield {"parent": parent, "branch": branch, "leaf_a": leaf_a, "leaf_b": leaf_b}
 

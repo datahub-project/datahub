@@ -54,7 +54,7 @@ class TestDocumentSearchAndHistory:
         }
         execute_graphql(auth_session, update_contents_mutation, update_vars)
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Update content
         update_content_vars = {
@@ -65,7 +65,7 @@ class TestDocumentSearchAndHistory:
         }
         execute_graphql(auth_session, update_contents_mutation, update_content_vars)
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Create parent and move document
         parent_vars = {

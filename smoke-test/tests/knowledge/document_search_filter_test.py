@@ -116,7 +116,7 @@ def test_search_documents_filters_hidden_context_documents(auth_session):
         state="PUBLISHED",
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(5)  # Wait for search indexing
 
     # Search for documents with our unique prefix
@@ -205,7 +205,7 @@ def test_search_across_entities_filters_documents(auth_session):
         state="PUBLISHED",
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(5)  # Wait for search indexing
 
     # Search across entities for documents with our unique prefix
@@ -329,7 +329,7 @@ def test_related_documents_shows_context_only_documents(auth_session):
     update_res = execute_graphql(auth_session, update_mutation, update_vars)
     assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(5)  # Wait for search indexing
 
     # Query relatedDocuments on the dataset
@@ -417,7 +417,7 @@ def test_search_documents_shows_owned_unpublished(auth_session):
     assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
     doc_urn = result["data"]["createDocument"]
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(5)  # Wait for search indexing
 
     # Search for documents with our unique prefix

@@ -80,7 +80,7 @@ def search_data(auth_session, graph_client, tmp_path_factory):
 
     logger.info("Ingesting search smoke test data (ns=%s)", ns)
     ingest_file_via_rest(auth_session, data_file)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     yield data
 

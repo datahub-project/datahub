@@ -366,7 +366,7 @@ def set_corpuser_is_support_user(
             f"{post_resp.text}",
             response=post_resp,
         )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def make_support_actor_user(admin_session, name: str):
