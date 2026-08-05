@@ -698,6 +698,14 @@ class PowerBiDashboardSourceConfig(
         "Works for M-Query where native SQL is used for transformation.",
     )
 
+    extract_table_to_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to extract lineage between tables in the same PowerBI "
+        "dataset that reference each other by name (in M-Query or DAX calculated "
+        "tables). Disable to suppress these edges if name collisions produce false "
+        "positives in your models.",
+    )
+
     profile_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "

@@ -132,7 +132,11 @@ def get_upstream_tables(
         # No `let` keyword — most often a DAX calculated-table expression (e.g.
         # summarize('T', ...)). Try to extract sibling-table references before
         # treating it as an unsupported non-M expression.
-        table_refs = dax_resolver.extract_dax_table_references(expression)
+        table_refs = (
+            dax_resolver.extract_dax_table_references(expression)
+            if config.extract_table_to_table_lineage
+            else []
+        )
         if table_refs:
             reporter.m_query_dax_table_lineage += 1
             return [
@@ -201,7 +205,11 @@ def get_upstream_tables(
         # whether any candidate is a real sibling so that stray identifiers in
         # unsupported sources don't inflate resolver_successes or hide the
         # unsupported-source debug below.
-        table_refs = mquery_resolver.resolve_to_table_references(node_map)
+        table_refs = (
+            mquery_resolver.resolve_to_table_references(node_map)
+            if config.extract_table_to_table_lineage
+            else []
+        )
         sibling_names = (
             {t.name.casefold() for t in table.dataset.tables}
             if table.dataset

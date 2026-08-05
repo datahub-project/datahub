@@ -336,6 +336,27 @@ def test_stray_reference_does_not_inflate_resolver_success() -> None:
     assert reporter.m_query_resolver_no_lineage == 1
 
 
+def test_table_to_table_lineage_can_be_disabled() -> None:
+    config = _config()
+    config.extract_table_to_table_lineage = False
+    child = Table(
+        name="New Names",
+        full_name="d1.New Names",
+        expression='let\n    Source = #"factNewNames"\nin\n    Source',
+    )
+    sibling = Table(name="factNewNames", full_name="d1.factNewNames")
+    _dataset_with_tables([child, sibling])
+
+    lineages = parser.get_upstream_tables(
+        table=child,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(config),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    assert all(not lin.powerbi_table_upstreams for lin in lineages)
+
+
 def test_let_bearing_parse_failure_is_not_treated_as_dax() -> None:
     # A genuine M-Query (contains `let`) that fails to parse must be reported as
     # a parse failure, not silently reinterpreted as DAX — M record access
