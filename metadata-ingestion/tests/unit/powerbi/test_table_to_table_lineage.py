@@ -270,17 +270,49 @@ def test_dax_table_name_containing_let_substring() -> None:
 
 
 def test_sibling_reference_resolves_to_upstream_urn() -> None:
-    config = _config()
+    config = _config()  # convert_urns_to_lowercase defaults to False
     child = Table(name="New Names", full_name="d1.New Names")
     sibling = Table(name="factNewNames", full_name="d1.factNewNames")
     _dataset_with_tables([child, sibling])
 
-    # Case-insensitive match against the sibling table name.
+    # Case-insensitive sibling match; the emitted URN preserves the sibling's
+    # actual casing when convert_urns_to_lowercase is off.
     urns = _mapper(config)._table_reference_upstreams(["FACTNEWNAMES"], child)
 
-    assert len(urns) == 1
-    assert urns[0].startswith("urn:li:dataset:(urn:li:dataPlatform:powerbi,")
-    assert "d1.factnewnames" in urns[0].lower()
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factNewNames,PROD)"
+    ]
+
+
+def test_sibling_reference_urn_lowercased_when_configured() -> None:
+    config = _config()
+    config.convert_urns_to_lowercase = True
+    child = Table(name="New Names", full_name="d1.New Names")
+    sibling = Table(name="factNewNames", full_name="d1.factNewNames")
+    _dataset_with_tables([child, sibling])
+
+    urns = _mapper(config)._table_reference_upstreams(["factNewNames"], child)
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factnewnames,PROD)"
+    ]
+
+
+def test_table_reference_upstreams_warns_when_no_dataset() -> None:
+    config = _config()
+    orphan = Table(name="Orphan", full_name="d1.Orphan")  # dataset stays None
+    reporter = PowerBiDashboardSourceReport()
+    mapper = Mapper(
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        reporter=reporter,
+        dataplatform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    assert mapper._table_reference_upstreams(["Something"], orphan) == []
+    assert list(reporter.warnings)
 
 
 def test_unmatched_and_self_references_are_dropped() -> None:
