@@ -17,6 +17,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -69,12 +70,15 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
+    final Set<Urn> existingResourceUrns =
+        LabelUtils.existingResourceUrns(context.getOperationContext(), resources, _entityService);
     for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
+      validateInputResource(resource, context, existingResourceUrns);
     }
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
+  private void validateInputResource(
+      ResourceRefInput resource, QueryContext context, Set<Urn> existingResourceUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
     if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn, _entityClient)) {
       throw new AuthorizationException(
@@ -82,6 +86,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     }
     LabelUtils.validateResource(
         context.getOperationContext(),
+        existingResourceUrns,
         resourceUrn,
         resource.getSubResource(),
         resource.getSubResourceType(),

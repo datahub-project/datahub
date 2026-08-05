@@ -90,7 +90,7 @@ jobs:
 
       - name: Build quickstart Docker images
         timeout-minutes: 60
-        run: ./gradlew :docker:buildImagesQuickstart -Ptag=${{ env.DATAHUB_VERSION }}
+        run: ./gradlew :docker:buildImagesQuickstart -Ptag=${{ env.DATAHUB_VERSION }} -Pdatahub.dependencies.python.uvDockerProfile=default
         env:
           DOCKER_BUILDKIT: "1"
 
