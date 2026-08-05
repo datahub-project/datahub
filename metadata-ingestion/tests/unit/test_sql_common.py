@@ -288,24 +288,41 @@ def test_get_profiling_internal_reraises_argument_error():
 
 
 def test_get_profiling_internal_warns_and_skips_on_transient_sa_error():
-    """A transient SQLAlchemyError during construction (e.g. the eager-validation
-    connect failed: connection refused) is warned and the inspector is skipped so the
-    rest of the run proceeds -- the original construction-failure-mode intent. This
-    path is distinct from the ArgumentError path above, which must stay loud."""
+    """A transient SQLAlchemyError during one inspector's profiler construction is
+    warned and that inspector is skipped so the rest of the run proceeds -- the
+    original construction-failure-mode intent. Distinct from the ArgumentError path
+    above, which must stay loud. Two inspectors: the first fails to construct, the
+    second succeeds, and its workunits must still come back -- proving the loop
+    continued past the failure rather than aborting the whole run."""
     source = _TestTwoTierSQLAlchemySource.create(
         config_dict={**_TWO_TIER_CONFIG_DICT, "profiling": {"enabled": True}},
         ctx=PipelineContext(run_id="test_ctx"),
     )
+    sentinel_workunit = object()
     with (
-        mock.patch.object(source, "get_inspectors", return_value=[mock.MagicMock()]),
+        mock.patch.object(
+            source,
+            "get_inspectors",
+            return_value=[mock.MagicMock(), mock.MagicMock()],
+        ),
         mock.patch.object(
             source,
             "get_profiler_instance",
-            side_effect=SQLAlchemyError("conn refused"),
+            side_effect=[SQLAlchemyError("conn refused"), mock.MagicMock()],
         ),
+        mock.patch.object(source, "add_profile_metadata"),
+        mock.patch.object(source, "get_db_name", return_value="db"),
+        mock.patch.object(source, "get_allowed_schemas", return_value=["s"]),
+        mock.patch.object(
+            source, "loop_profiler_requests", return_value=[mock.MagicMock()]
+        ),
+        mock.patch.object(source, "loop_profiler", return_value=[sentinel_workunit]),
         mock.patch.object(source, "warn") as mock_warn,
     ):
         result = list(source.get_profiling_internal())
 
-    assert result == []
-    mock_warn.assert_called_once()
+    # The second inspector's workunit came back -- the loop continued past the failure.
+    assert result == [sentinel_workunit]
+    # Warned exactly once, with the construction-failure key (not e.g. "profile_metadata").
+    assert mock_warn.call_count == 1
+    assert mock_warn.call_args[0][1] == "profiler_construction"
