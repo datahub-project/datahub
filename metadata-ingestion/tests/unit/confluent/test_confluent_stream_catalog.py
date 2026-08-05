@@ -1,4 +1,4 @@
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 from unittest.mock import Mock, patch
 
 import pytest
@@ -30,7 +30,7 @@ def make_config(**overrides: object) -> ConfluentStreamCatalogConfig:
     return ConfluentStreamCatalogConfig(**defaults)  # type: ignore[arg-type]
 
 
-def make_response(entities: Optional[Sequence[Mapping[str, object]]]) -> Mock:
+def make_response(entities: Optional[Sequence[object]]) -> Mock:
     response = Mock()
     response.raise_for_status.return_value = None
     response.json.return_value = {"data": {ROOT_KEY: entities}}
