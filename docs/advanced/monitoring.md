@@ -1137,7 +1137,9 @@ GMS aggregates API usage in-memory (`datahub.usage.aggregation`), flushes on a s
 
 **Flush retries:** The store retries the Micrometer flush sink on failure. `UsageFlushSinkComposer` tracks which delegates already succeeded for a given batch and skips them on retry so counters are not double-counted.
 
-Only instrumented requests are aggregated. Set `USAGE_AGGREGATION_ENABLED=true` to enable (default `false` in `application.yaml`; Docker quickstart and debug compose default to `true`).
+**Flush window alignment (optional):** Set `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS` to an arbitrary positive period in seconds (`0` default = disabled). Alignment **only splits** closed windows at the next UTC calendar boundary via `alignDown` / `nextBoundary` — it does **not** rewrite window open times to the grid floor. Mid-period windows keep process-relative open/close (`[start, flushTime)`); the next window opens at that flush Instant (or at the boundary Instant when a drain crosses one). Multiple batches per period are normal — sum additive counters and union distinct identities by grouping on `alignDown(window_start)` for the configured `N` seconds (examples: `60`, `300`, `3600`, `86400`). The coordinator still ticks on `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS` (default 60s) and flushes before the next boundary when within one interval of it. Keep the flush interval > 0 when alignment is enabled; with `scheduledIntervalSeconds=0`, flushes rely on `maxWindowSeconds` and cardinality triggers only, which can miss boundary timing unless `maxWindowSeconds` divides the alignment period cleanly.
+
+Only instrumented requests are aggregated. Set `USAGE_AGGREGATION_ENABLED=true` to enable (default `false` in `application.yaml`; Docker quickstart and debug compose default to `true`, with flush interval `30` and alignment period `3600`).
 
 **Legacy JMX metrics:** `requestContext_{userCategory}_{agentClass}_{requestAPI}` Dropwizard counters are unchanged. `userCategory` is derived from `UsageActorClass.fromActorUrn()`.
 

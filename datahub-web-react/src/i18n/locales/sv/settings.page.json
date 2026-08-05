@@ -13,6 +13,8 @@
     "nav.permissions": "Behörigheter",
     "nav.personal": "Personligt",
     "nav.preferences": "Preferenser",
+    "nav.collapseSidebar": "Fäll ihop inställningssidofältet",
+    "nav.expandSidebar": "Expandera inställningssidofältet",
     "nav.usersGroups": "Användare och grupper",
     "nav.views": "Vyer",
     "subTitle": "Hantera dina inställningar",

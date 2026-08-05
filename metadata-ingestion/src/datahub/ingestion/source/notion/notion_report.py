@@ -87,10 +87,11 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
         self.num_synced_blocks_skipped += 1
         if page_id not in self.synced_blocks_skipped:
             self.synced_blocks_skipped.append(page_id)
-            self.report_warning(
+            self.warning(
                 title="Synced Block Content Skipped",
                 message="Page contains synced blocks that cannot be fully ingested. "
                 "The page will be ingested but synced block content will be missing. "
                 "This is a known limitation of the current connector version.",
                 context=f"Page ID: {page_id}",
+                log=False,
             )

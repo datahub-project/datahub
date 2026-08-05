@@ -12,10 +12,10 @@
     "page.createGlossary": "Criar Glossário",
     "page.subtitle": "Classifique seus ativos de dados e colunas usando dicionários de dados",
     "page.title": "Glossário de Negócios",
-    "section.glossaryTerms": "Glossary Terms",
+    "section.glossaryTerms": "Termos do Glossário",
     "section.termGroups": "Grupos de Termos",
     "sidebar.collapse": "Recolher Glossário",
     "sidebar.expand": "Expandir Glossário",
     "sidebar.home": "Página Inicial do Glossário",
-    "sidebar.section.allTerms": "Todos os Glossary Terms"
+    "sidebar.section.allTerms": "Todos os Termos do Glossário"
 }

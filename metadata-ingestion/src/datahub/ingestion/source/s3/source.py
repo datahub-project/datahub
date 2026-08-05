@@ -280,26 +280,24 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
 
             try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
 
-                self.profiler = SparkProfiler(
+                self.profiler = FileProfiler(
                     aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
+                    verify_ssl=config.verify_ssl,
                     report=self.report,
                     profiling_times_taken=self.profiling_times_taken,
                     profiling_config=config.profiling,
                 )
             except (ImportError, ModuleNotFoundError) as e:
                 raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "Profiling dependencies are not installed but are required for "
+                    "S3/GCS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
 
     @classmethod
@@ -342,14 +340,17 @@ class S3Source(StatefulIngestionSourceBase):
                 fields = inferrer.infer_schema(file)
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                self.report.warning(
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
+                    log=False,
                 )
         else:
-            self.report.report_warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+            self.report.warning(
+                message="File has unsupported extension",
+                context=table_data.full_path,
+                log=False,
             )
         file.close()
 
@@ -373,7 +374,7 @@ class S3Source(StatefulIngestionSourceBase):
         elif content_type == "text/tab-separated-values":
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/avro":
             return avro.AvroInferrer()
         elif extension == ".parquet":
@@ -387,7 +388,7 @@ class S3Source(StatefulIngestionSourceBase):
                 max_rows=self.source_config.max_rows, format="jsonl"
             )
         elif extension == ".json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".avro":
             return avro.AvroInferrer()
         else:
@@ -526,7 +527,11 @@ class S3Source(StatefulIngestionSourceBase):
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
             try:
-                fields = self.get_fields(table_data, path_spec)
+                with PerfTimer() as schema_timer:
+                    fields = self.get_fields(table_data, path_spec)
+                self.report.schema_inference_time_taken_secs += (
+                    schema_timer.elapsed_seconds()
+                )
                 schema_metadata = SchemaMetadata(
                     schemaName=table_data.display_name,
                     platform=data_platform_urn,
@@ -537,11 +542,12 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
                     context=f"dataset={table_data.display_name}, file={table_data.full_path}",
                     exc=e,
+                    log=False,
                 )
         else:
             logger.info(
@@ -558,6 +564,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if table_data.full_path == table_data.table_path
                 else None
             )
+            self.report.tables_tagged += 1
             s3_tags = get_s3_tags(
                 bucket,
                 key_prefix,
@@ -673,6 +680,21 @@ class S3Source(StatefulIngestionSourceBase):
                 f"{folder.path}/{remaining_pattern}"
             )
 
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders (CommonPrefixes) — never objects."""
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder_uri in self.resolve_templated_folders(path_spec.glob_include):
+            if not path_spec.folder_allowed(
+                self._normalize_uri_for_pattern_matching(folder_uri)
+            ):
+                logger.debug(f"Skipping folder excluded by path_spec: {folder_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                folder_uri.rstrip("/")
+            )
+
     def get_dir_to_process(
         self,
         uri: str,
@@ -770,38 +792,44 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Listing objects under {repr(uri)} with {prefix=}")
 
-        for obj in list_objects_recursive_path(
-            uri, startswith=prefix, aws_config=self.source_config.aws_config
-        ):
-            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+        with PerfTimer() as listing_timer:
+            try:
+                for obj in list_objects_recursive_path(
+                    uri, startswith=prefix, aws_config=self.source_config.aws_config
+                ):
+                    self.report.objects_listed += 1
+                    s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
-            if not _is_allowed_path(path_spec, s3_path):
-                continue
+                    if not _is_allowed_path(path_spec, s3_path):
+                        continue
 
-            # Extract the directory name (folder) from the object key
-            dirname = obj.key.rsplit("/", 1)[0]
+                    # Extract the directory name (folder) from the object key
+                    dirname = obj.key.rsplit("/", 1)[0]
 
-            # Initialize folder data if we haven't seen this directory before
-            if dirname not in folder_data:
-                folder_data[dirname] = FolderInfo(
-                    objects=[],
-                    total_size=0,
-                    min_time=obj.last_modified,
-                    max_time=obj.last_modified,
-                    latest_obj=obj,
-                )
+                    # Initialize folder data if we haven't seen this directory before
+                    if dirname not in folder_data:
+                        folder_data[dirname] = FolderInfo(
+                            objects=[],
+                            total_size=0,
+                            min_time=obj.last_modified,
+                            max_time=obj.last_modified,
+                            latest_obj=obj,
+                        )
 
-            # Update folder statistics incrementally
-            folder_info = folder_data[dirname]
-            folder_info.objects.append(obj)
-            folder_info.total_size += obj.size
+                    # Update folder statistics incrementally
+                    folder_info = folder_data[dirname]
+                    folder_info.objects.append(obj)
+                    folder_info.total_size += obj.size
 
-            # Track min/max times and latest object
-            if obj.last_modified < folder_info.min_time:
-                folder_info.min_time = obj.last_modified
-            if obj.last_modified > folder_info.max_time:
-                folder_info.max_time = obj.last_modified
-                folder_info.latest_obj = obj
+                    # Track min/max times and latest object
+                    if obj.last_modified < folder_info.min_time:
+                        folder_info.min_time = obj.last_modified
+                    if obj.last_modified > folder_info.max_time:
+                        folder_info.max_time = obj.last_modified
+                        folder_info.latest_obj = obj
+            finally:
+                # Record elapsed even if listing raises mid-stream.
+                self.report.listing_time_taken_secs += listing_timer.elapsed_seconds()
 
         # Yield folders after processing all objects
         for _dirname, folder_info in folder_data.items():
@@ -1043,9 +1071,10 @@ class S3Source(StatefulIngestionSourceBase):
 
         except Exception as e:
             if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
-                self.get_report().report_warning(
+                self.get_report().warning(
                     "Missing bucket",
                     f"No bucket found {e.response['Error'].get('BucketName')}",
+                    log=False,
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
@@ -1145,6 +1174,10 @@ class S3Source(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.s3_browser(
                         path_spec, self.source_config.number_of_files_to_sample

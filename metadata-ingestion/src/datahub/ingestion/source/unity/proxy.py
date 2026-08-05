@@ -19,6 +19,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    ConnectionInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
     ModelVersionInfo,
@@ -316,6 +317,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.lineage_data_source = lineage_data_source
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
+        self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -379,11 +381,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Unable to get run details for MLflow experiment, run-id: {run_id}",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to get run details for MLflow experiment",
                 message="Error while getting run details for MLflow experiment",
                 context=f"run-id: {run_id}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -499,11 +502,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         except Exception as e:
             model_name = getattr(model_version, "model_name", "unknown")
             version_num = getattr(model_version, "version", "unknown")
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to extract signature from MLmodel file",
                 message="Error while extracting signature from MLmodel file",
                 context=f"model-name: {model_name}, model-version: {version_num}",
                 exc=e,
+                log=False,
             )
             logger.warning(
                 f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {version_num}",
@@ -552,6 +556,44 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return None
 
+    def connections(self) -> Dict[str, ConnectionInfo]:
+        """Return Unity Catalog connections keyed by name (cached).
+
+        Lakehouse Federation foreign catalogs reference a connection by name; the
+        connection carries the external system's type. Listing connections requires
+        metastore-admin or connection-ownership; on permission/other errors we return
+        an empty map so the source can fall back to config overrides.
+        """
+        if self._connections_cache is not None:
+            return self._connections_cache
+        result: Dict[str, ConnectionInfo] = {}
+        try:
+            response = self._workspace_client.connections.list(
+                max_results=self.databricks_api_page_size
+            )
+            for connection in response or []:
+                if connection.name:
+                    result[connection.name] = connection
+        except Exception as e:
+            # Federation is supplemental: never let a connections-listing failure
+            # crash ingestion, but surface it in the report since it silently
+            # degrades federation links/structured properties for this run.
+            self.report.num_federation_connections_list_failed += 1
+            self.report.warning(
+                title="Failed to list Unity Catalog connections",
+                message=(
+                    "Lakehouse Federation links and structured properties will be "
+                    "degraded this run; grant the service principal metastore-admin "
+                    "or connection ownership, or set federation_connection_details "
+                    "overrides."
+                ),
+                context="listing Unity Catalog connections",
+                exc=e,
+                log=False,
+            )
+        self._connections_cache = result
+        return result
+
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         if (
             self.hive_metastore_proxy
@@ -598,7 +640,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         yield optional_table
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
-                    self.report.report_warning("table-parse", str(e))
+                    self.report.warning(
+                        message="Error parsing table",
+                        context="table-parse",
+                        exc=e,
+                        log=False,
+                    )
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
@@ -694,11 +741,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     yield optional_query
             except Exception as e:
                 logger.warning("Error parsing query", exc_info=True)
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to parse query",
                     message="A query from query history could not be parsed and was skipped.",
                     context=f"query_id={getattr(query_info, 'query_id', None)}",
                     exc=e,
+                    log=False,
                 )
 
     def _query_history(
@@ -910,25 +958,27 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         finally:
             parse_failures = self.report.num_queries_missing_info - missing_info_before
             if parse_failures > 0:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to parse queries from system tables",
                     message=(
                         "Statements from system.query.history could not be parsed "
                         "and were skipped."
                     ),
                     context=f"count={parse_failures}",
+                    log=False,
                 )
             row_field_errors = (
                 self.report.num_lineage_row_field_read_errors - row_field_errors_before
             )
             if row_field_errors > 0:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to read lineage row fields",
                     message=(
                         "Lineage column values from system.access.table_lineage "
                         "could not be read and were skipped."
                     ),
                     context=f"count={row_field_errors}",
+                    log=False,
                 )
 
     def _build_datetime_where_conditions(
@@ -1379,6 +1429,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=obj.comment,
             owner=obj.owner,
             type=obj.catalog_type,
+            connection_name=obj.connection_name,
+            options=obj.options,
         )
 
     def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Optional[Schema]:
@@ -1468,9 +1520,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             return table_info.table_constraints or []
         except Exception as e:
-            self.report.report_warning(
-                "table-constraints-fetch",
-                f"Unable to fetch table constraints for {table.ref}: {e}",
+            self.report.warning(
+                message="Unable to fetch table constraints",
+                context=str(table.ref),
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Unable to fetch table constraints for {table.ref}: {e}",
@@ -1570,9 +1624,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """
         if self.warehouse_id:
             return True
-        self.report.report_warning(
+        self.report.warning(
             title="Cannot execute SQL query",
             message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
+            log=False,
         )
         logger.warning(
             "Cannot execute SQL query: warehouse_id is not configured. "
@@ -1623,11 +1678,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
             )
 
-        self.report.report_warning(
+        self.report.warning(
             title="Failed to run SQL query",
-            message=(
-                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
-            ),
+            message="A SQL query against the Databricks warehouse failed. "
+            "Check that the service principal has SELECT on the system.access "
+            "and system.query schemas and that system schemas are enabled for "
+            "this workspace.",
+            exc=error,
+            log=False,
         )
         if count_as_fetch_failure:
             self.report.num_usage_query_fetch_failures += 1

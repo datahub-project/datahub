@@ -38,7 +38,9 @@ public class SchemaFieldType
           STATUS_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,
           GLOSSARY_TERMS_ASPECT_NAME,
-          LOGICAL_PARENT_ASPECT_NAME);
+          LOGICAL_PARENT_ASPECT_NAME,
+          SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME,
+          AI_CONTEXT_ASPECT_NAME);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;

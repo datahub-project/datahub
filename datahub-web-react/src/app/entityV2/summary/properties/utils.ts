@@ -50,6 +50,9 @@ const SUMMARY_ELEMENT_TYPE_TO_NAME = {
     get [SummaryElementType.DocumentType]() {
         return i18next.t('common.labels:type');
     },
+    get [SummaryElementType.SemanticModel]() {
+        return i18next.t('entity.profile.summary:properties.semanticModel');
+    },
 };
 
 export function mapSummaryElement(

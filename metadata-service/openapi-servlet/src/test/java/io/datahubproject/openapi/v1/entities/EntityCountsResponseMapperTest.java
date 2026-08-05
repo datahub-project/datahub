@@ -26,6 +26,8 @@ public class EntityCountsResponseMapperTest {
     assertNull(response.getTotalCount());
     assertEquals(response.getRequestedTypes(), List.of("chart", "dataset"));
     assertEquals(response.isCacheHit(), true);
+    assertEquals(
+        response.getComputedAtMillis(), Instant.parse("2026-07-07T12:00:00Z").toEpochMilli());
   }
 
   @Test

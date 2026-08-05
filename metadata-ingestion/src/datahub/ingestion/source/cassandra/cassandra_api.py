@@ -103,6 +103,7 @@ class CassandraAPI:
     def __init__(self, config: CassandraSourceConfig, report: SourceReport):
         self.config = config
         self.report = report
+        self._cassandra_cluster: Optional[Cluster] = None
         self._cassandra_session: Optional[Session] = None
 
     def authenticate(self) -> bool:
@@ -127,6 +128,7 @@ class CassandraAPI:
                     protocol_version=ProtocolVersion.V4,
                 )
 
+                self._cassandra_cluster = cluster
                 self._cassandra_session = cluster.connect()
                 return True
 
@@ -182,6 +184,7 @@ class CassandraAPI:
                     load_balancing_policy=None,
                 )
 
+            self._cassandra_cluster = cluster
             self._cassandra_session = cluster.connect()
             return True
         except OperationTimedOut as e:
@@ -353,9 +356,7 @@ class CassandraAPI:
             result_set = self._cassandra_session.execute(query).all()
             return result_set
         except DriverException as e:
-            self.report.warning(
-                message="Failed to fetch stats for keyspace", context=str(e), exc=e
-            )
+            self.report.warning(message="Failed to fetch stats for keyspace", exc=e)
             return []
         except Exception:
             self.report.warning(
@@ -365,6 +366,11 @@ class CassandraAPI:
             return []
 
     def close(self):
-        """Close the Cassandra session."""
+        """Close the Cassandra session and cluster."""
         if self._cassandra_session:
             self._cassandra_session.shutdown()
+        if self._cassandra_cluster:
+            # Session.shutdown() only closes this session's connection pools; the
+            # cluster's control connection and IO reactor thread keep running until
+            # Cluster.shutdown() is called, which can crash the interpreter on exit.
+            self._cassandra_cluster.shutdown()

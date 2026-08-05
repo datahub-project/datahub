@@ -1100,8 +1100,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract source column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                message="Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
                 f"source={source_dataset}, target={target_dataset}",
                 exc=e,
             )
@@ -1201,8 +1201,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract sink column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                message="Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
                 f"target_platform={target_platform}, target={target_dataset}",
                 exc=e,
             )
@@ -1222,10 +1222,23 @@ class BaseConnector:
             Extracted table name (e.g., "database.schema.table") or None if parsing fails
         """
         try:
-            return DatasetUrn.from_string(urn).name
+            name = DatasetUrn.from_string(urn).name
         except Exception as e:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
+
+        # DataHub bakes the platform_instance into the URN name as a leading
+        # `{platform_instance}.` segment. Strip it so callers see the logical
+        # db.schema.table name; otherwise table discovery and pattern matching
+        # break for sources ingested with a platform_instance.
+        platform_instance = (
+            self.schema_resolver.platform_instance if self.schema_resolver else None
+        )
+        if platform_instance:
+            prefix = f"{platform_instance}."
+            if name.lower().startswith(prefix.lower()):
+                name = name[len(prefix) :]
+        return name
 
     def _extract_lineages_from_schema_resolver(
         self,

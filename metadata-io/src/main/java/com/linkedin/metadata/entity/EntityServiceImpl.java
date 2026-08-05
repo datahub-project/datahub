@@ -121,6 +121,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -1107,6 +1108,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           final Map<String, Set<String>> urnAspects =
                               batchWithDefaults.getUrnAspectsMap();
 
+                          // Opt-in Postgres per-entity write serialization (advisory lock), taken
+                          // before any row locks so this write serializes against a concurrent
+                          // hard-delete on the same entity. No-op unless enabled on a Postgres
+                          // store.
+                          aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+
                           // read #1
                           // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
                           // in
@@ -1353,6 +1360,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             if (txContext != null) {
                               try {
                                 txContext.commitAndContinue();
+                              } catch (RejectedExecutionException e) {
+                                log.warn(
+                                    "Post-commit cache notification failed (executor terminated),"
+                                        + " cache may serve stale data until TTL expiry",
+                                    e);
+                                opContext
+                                    .getMetricUtils()
+                                    .ifPresent(
+                                        metricUtils ->
+                                            metricUtils.increment(
+                                                EntityServiceImpl.class,
+                                                "post_commit_notify_rejected",
+                                                1));
                               } catch (EntityNotFoundException e) {
                                 if (e.getMessage() != null
                                     && e.getMessage().contains("No rows updated")) {

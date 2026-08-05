@@ -16,21 +16,38 @@ on:
     branches:
       - master
       - releases/**
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
-    paths-ignore:
-      - ".github/**"
-      - "!.github/workflows/docker-unified.yml"
-      - "!.github/scripts/send_failed_tests_to_posthog.py"
-      - "!.github/scripts/docker_helpers.sh"
-      - "!.github/actions/ci-optimization"
-      - "!.github/actions/restore-dependency-caches"
-      - "!.github/scripts/check_python_package.py"
-      - "!.github/scripts/parse_failed_pytest_tests.py"
-      - "!.github/scripts/docker_logs.sh"
-      - "!.github/actions/smoke-test-retry"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   release:
     types: [published]
 
@@ -303,6 +320,13 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - id: uv-creds
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         run: |
@@ -314,13 +338,13 @@ jobs:
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
         # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -512,6 +536,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
@@ -520,7 +552,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
@@ -696,6 +728,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
@@ -704,7 +744,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
@@ -769,6 +809,7 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          PYTEST_XDIST_WORKERS: "3"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
@@ -801,6 +842,14 @@ jobs:
         with:
           name: docker-logs-pytests-${{ matrix.batch }}
           path: "docker_logs/*.log"
+          retention-days: 5
+
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-pytests-${{ matrix.batch }}
+          path: "smoke-test/test-results/pytest-smoke.log"
           retention-days: 5
 
       - name: Report test results
@@ -884,6 +933,7 @@ jobs:
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
+      send_posthog_metrics: true
     secrets: inherit
 
   playwright_report:

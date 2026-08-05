@@ -1063,6 +1063,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         skip_cache: bool = False,
         include_hidden_lifecycle_stages: bool = False,
         include_draft: bool = False,
+        sort_by: Optional[str] = None,
+        sort_order: Literal["ASCENDING", "DESCENDING"] = "ASCENDING",
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -1084,6 +1086,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param skip_cache: Whether to bypass caching. Defaults to False.
         :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
         :param include_draft: Whether to include entities in DRAFT lifecycle state.
+        :param sort_by: Optional searchable field to sort on (e.g. "lastModifiedAt"). If None, uses the backend's default scroll order.
+        :param sort_order: Sort direction when sort_by is set; ignored when sort_by is None. Defaults to ASCENDING.
 
         :return: An iterable of urns that match the filters.
         """
@@ -1134,6 +1138,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+                $sortInput: SearchSortInput,
             """
             + optional_variable_defs
             + """
@@ -1145,6 +1150,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
+                    sortInput: $sortInput,
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
@@ -1176,6 +1182,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "sortInput": (
+                {"sortCriteria": [{"field": sort_by, "sortOrder": sort_order}]}
+                if sort_by
+                else None
+            ),
             "includeSoftDeleted": (
                 None
                 if status is None
@@ -2035,8 +2046,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         platform_name: Optional[str] = None,
         platform_urn: Optional[str] = None,
         field_path: Optional[str] = None,
+        field_paths: Optional[List[str]] = None,
         external_url: Optional[str] = None,
         logic: Optional[str] = None,
+        scope: Optional[str] = None,
+        aggregation: Optional[str] = None,
+        operator: Optional[str] = None,
+        parameters: Optional[Dict] = None,
+        native_type: Optional[str] = None,
+        native_parameters: Optional[List[Dict[str, str]]] = None,
     ) -> Dict:
         graph_query: str = """
             mutation upsertCustomAssertion(
@@ -2045,22 +2063,36 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $type: String!,
                 $description: String!,
                 $fieldPath: String,
+                $fieldPaths: [String!],
                 $platformName: String,
                 $platformUrn: String,
                 $externalUrl: String,
-                $logic: String
+                $logic: String,
+                $scope: DatasetAssertionScope,
+                $aggregation: AssertionStdAggregation,
+                $operator: AssertionStdOperator,
+                $parameters: AssertionStdParametersInput,
+                $nativeType: String,
+                $nativeParameters: [StringMapEntryInput!]
             ) {
                 upsertCustomAssertion(urn: $assertionUrn, input: {
                     entityUrn: $entityUrn
                     type: $type
                     description: $description
                     fieldPath: $fieldPath
+                    fieldPaths: $fieldPaths
                     platform: {
                         urn: $platformUrn
                         name: $platformName
                     }
                     externalUrl: $externalUrl
                     logic: $logic
+                    scope: $scope
+                    aggregation: $aggregation
+                    operator: $operator
+                    parameters: $parameters
+                    nativeType: $nativeType
+                    nativeParameters: $nativeParameters
                 }) {
                         urn
                 }
@@ -2073,10 +2105,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "type": type,
             "description": description,
             "fieldPath": field_path,
+            "fieldPaths": field_paths,
             "platformName": platform_name,
             "platformUrn": platform_urn,
             "externalUrl": external_url,
             "logic": logic,
+            "scope": scope,
+            "aggregation": aggregation,
+            "operator": operator,
+            "parameters": parameters,
+            "nativeType": native_type,
+            "nativeParameters": native_parameters,
         }
 
         res = self.execute_graphql(

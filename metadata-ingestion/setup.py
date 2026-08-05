@@ -39,6 +39,9 @@ base_requirements = {
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
     # setuptools 82.0.0 deprecated pkg_resource
+    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
+    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
+    # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
 }
 
@@ -75,7 +78,9 @@ framework_common = {
     # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
-    "ijson<4.0.0",
+    # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
+    # schema inferrer relies on to keep numbers as native int/float.
+    "ijson>=3.2.0,<4.0.0",
     "click-spinner<0.2.0",
     "requests_file<4.0.0",
     "jsonref<2.0.0",
@@ -146,11 +151,12 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
-    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
-    # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
-    "patchy==2.8.0",
+    # sqlglot[c] ships mypyc-compiled extensions for performance, but the native
+    # C lib has caused memory leaks in the past. Rather than dropping [c] from
+    # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
+    # to force pure-Python sqlglot at runtime (see
+    # datahub/_force_pure_python_sqlglot.py).
+    "sqlglot[c]==30.12.0",
 }
 
 dbt_common = {
@@ -327,7 +333,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
+    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
+    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
+    "cryptography>=49.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -436,9 +444,10 @@ azure_data_factory = {
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
 }
 
-data_lake_profiling = {
-    "pydeequ>=1.1.0,<2.0.0",
-    "pyspark~=3.5.6,<4.0.0",
+file_profiling = {
+    # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
+    # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
+    "datasketches>=5.0.0,<6.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -476,7 +485,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -514,6 +522,18 @@ unstructured_lib = {
     "unstructured-ingest==0.7.2",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
+    # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
+    # import hook that blocks any nltk-initiated import resolving under the CWD,
+    # which includes site-packages whenever the venv lives in the project dir --
+    # the standard `python -m venv .venv` / uv / Poetry in-project layout. That
+    # breaks text partitioning, so document chunking silently produces nothing.
+    # Capped rather than excluding only 3.10.1: there is no fix upstream to
+    # forward-allow. https://github.com/nltk/nltk/issues/3730 is open and the
+    # proposed fix (nltk/nltk#3731) was closed unmerged, with the hook's own
+    # author questioning whether it should exist at all -- so a 3.10.2 may well
+    # still carry it. Given the failure is silent (zero documents indexed, exit
+    # 0), fail closed and lift the cap deliberately once upstream settles.
+    "nltk<3.10.1",
     # Embedding support for semantic search
     *embedding_common,
 }
@@ -610,10 +630,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common
-    | bigquery_common
-    | sqlglot_lib
-    | datacatalog_lineage_common,
+    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -624,8 +641,8 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common,
-    "delta-lake": {*data_lake_profiling, *delta_lake},
+    "dataplex": dataplex_common | cachetools_lib,
+    "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
         "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
@@ -648,7 +665,6 @@ plugins: Dict[str, Set[str]] = {
         *aws_common,
         *abs_base,
         *cachetools_lib,
-        *data_lake_profiling,
     },
     "cassandra": {
         "cassandra-driver>=3.28.0,<4.0.0",
@@ -670,7 +686,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
+    "omni": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
     "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -742,6 +758,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
+    "odcs": aws_common | {"GitPython>2,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -771,17 +788,19 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
-    "s3": {*s3_base, *data_lake_profiling},
-    "s3-slim": {*s3_base},
-    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "abs": {*abs_base, *data_lake_profiling},
+    # Profiling is now a lightweight pure-Python profiler (pyarrow + datasketches,
+    # no JVM), so the `-slim` variants no longer differ from the full extras. They
+    # are kept as deprecated aliases and will be removed in a follow-up (along with
+    # their CI/CD and image-building references).
+    "s3": {*s3_base, *file_profiling},
+    "s3-slim": {*s3_base, *file_profiling},
+    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "abs": {*abs_base, *file_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
+    "sap-datasphere": rest_common | {"defusedxml>=0.7.1,<0.8.0"},
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
@@ -940,7 +959,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.15.18",
+    "ruff==0.15.22",
     "mypy==2.1.0",
 }
 
@@ -958,8 +977,10 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
@@ -998,6 +1019,7 @@ base_dev_requirements = {
             "mariadb",
             "tidb",
             "matillion-dpc",
+            "odcs",
             "okta",
             "oracle",
             "postgres",
@@ -1011,6 +1033,7 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "s3",
+            "sap-datasphere",
             "snowflake",
             "snowplow",
             "snaplogic",
@@ -1183,6 +1206,7 @@ entry_points = {
         "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
@@ -1225,6 +1249,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
@@ -1344,10 +1369,19 @@ setuptools.setup(
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
     },
-    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
-    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    # Install .pth files that run at interpreter startup:
+    # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
+    #   and something calls setproctitle (macOS).
+    # - force_pure_python_sqlglot honours DATAHUB_SQLGLOT_DISABLE_C by loading
+    #   sqlglot from .py instead of the mypyc .so extensions.
     data_files=[
-        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+        (
+            sysconfig.get_path("purelib"),
+            [
+                "datahub_setproctitle_patch.pth",
+                "datahub_force_pure_python_sqlglot.pth",
+            ],
+        ),
     ],
     entry_points=entry_points,
     # Dependencies.

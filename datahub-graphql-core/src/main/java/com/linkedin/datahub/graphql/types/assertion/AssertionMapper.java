@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Status;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.CustomAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -37,20 +39,28 @@ import com.linkedin.datahub.graphql.generated.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.schema.SchemaField;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AssertionMapper {
 
   public static Assertion map(@Nullable QueryContext context, final EntityResponse entityResponse) {
@@ -64,8 +74,29 @@ public class AssertionMapper {
     final EnvelopedAspect envelopedAssertionInfo =
         aspects.get(Constants.ASSERTION_INFO_ASPECT_NAME);
     if (envelopedAssertionInfo != null) {
-      result.setInfo(
-          mapAssertionInfo(context, new AssertionInfo(envelopedAssertionInfo.getValue().data())));
+      final AssertionInfo assertionInfo =
+          new AssertionInfo(envelopedAssertionInfo.getValue().data());
+      final EnvelopedAspect envelopedAssertionNote =
+          aspects.get(Constants.ASSERTION_NOTE_ASPECT_NAME);
+      final String note =
+          envelopedAssertionNote != null
+              ? new AssertionNote(envelopedAssertionNote.getValue().data()).getContent()
+              : null;
+      result.setInfo(mapAssertionInfo(context, assertionInfo, entityUrn, note));
+      try {
+        final Urn datasetUrn =
+            Optional.ofNullable(assertionInfo.getEntityUrn())
+                .orElse(AssertionUtils.getEntityFromAssertionInfo(assertionInfo));
+        if (datasetUrn != null
+            && Constants.DATASET_ENTITY_NAME.equals(datasetUrn.getEntityType())) {
+          final Dataset dataset = new Dataset();
+          dataset.setUrn(datasetUrn.toString());
+          dataset.setType(EntityType.DATASET);
+          result.setDataset(dataset);
+        }
+      } catch (RuntimeException e) {
+        log.warn("Failed to map target dataset for assertion {}: {}", entityUrn, e.getMessage());
+      }
     }
 
     final EnvelopedAspect envelopedAssertionActions =
@@ -114,6 +145,21 @@ public class AssertionMapper {
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
       @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo) {
+    return mapAssertionInfo(context, gmsAssertionInfo, null, null);
+  }
+
+  public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
+      @Nullable QueryContext context,
+      final AssertionInfo gmsAssertionInfo,
+      @Nullable final Urn assertionUrn) {
+    return mapAssertionInfo(context, gmsAssertionInfo, assertionUrn, null);
+  }
+
+  public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
+      @Nullable QueryContext context,
+      final AssertionInfo gmsAssertionInfo,
+      @Nullable final Urn assertionUrn,
+      @Nullable final String note) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
@@ -124,6 +170,10 @@ public class AssertionMapper {
               gmsAssertionInfo.getLastUpdated().getTime(),
               gmsAssertionInfo.getLastUpdated().getActor().toString()));
     }
+    if (gmsAssertionInfo.hasCustomProperties() && assertionUrn != null) {
+      assertionInfo.setCustomProperties(
+          CustomPropertiesMapper.map(gmsAssertionInfo.getCustomProperties(), assertionUrn));
+    }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion =
           mapDatasetAssertionInfo(context, gmsAssertionInfo.getDatasetAssertion());
@@ -132,6 +182,11 @@ public class AssertionMapper {
     // Description
     if (gmsAssertionInfo.hasDescription()) {
       assertionInfo.setDescription(gmsAssertionInfo.getDescription());
+    }
+    if (note != null) {
+      assertionInfo.setNote(note);
+    } else if (gmsAssertionInfo.hasNote()) {
+      assertionInfo.setNote(gmsAssertionInfo.getNote().getContent());
     }
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
@@ -282,7 +337,7 @@ public class AssertionMapper {
   private static AssertionStdParameter mapParameter(
       final com.linkedin.assertion.AssertionStdParameter param) {
     final AssertionStdParameter result = new AssertionStdParameter();
-    result.setType(AssertionStdParameterType.valueOf(param.getType().name()));
+    result.setType(PdlEnumMapper.mapDefaultNull(AssertionStdParameterType.class, param.getType()));
     result.setValue(param.getValue());
     return result;
   }
@@ -339,8 +394,53 @@ public class AssertionMapper {
     CustomAssertionInfo result = new CustomAssertionInfo();
     result.setType(gmsCustomAssertionInfo.getType());
     result.setEntityUrn(gmsCustomAssertionInfo.getEntity().toString());
+
+    // Merge field (deprecated) and fields into a single array for backward compatibility
+    List<SchemaFieldRef> allFields = new ArrayList<>();
+    if (gmsCustomAssertionInfo.hasFields()) {
+      allFields.addAll(
+          gmsCustomAssertionInfo.getFields().stream()
+              .map(AssertionMapper::mapDatasetSchemaField)
+              .collect(Collectors.toList()));
+    }
     if (gmsCustomAssertionInfo.hasField()) {
-      result.setField(AssertionMapper.mapDatasetSchemaField(gmsCustomAssertionInfo.getField()));
+      SchemaFieldRef legacyField = mapDatasetSchemaField(gmsCustomAssertionInfo.getField());
+      if (allFields.stream().noneMatch(f -> f.getUrn().equals(legacyField.getUrn()))) {
+        allFields.add(legacyField);
+      }
+      result.setField(legacyField);
+    } else if (!allFields.isEmpty()) {
+      // Populate singular field from first of fields for older clients
+      result.setField(allFields.get(0));
+    }
+    result.setFields(allFields);
+
+    if (gmsCustomAssertionInfo.hasScope()) {
+      result.setScope(
+          PdlEnumMapper.mapDefaultNull(
+              DatasetAssertionScope.class, gmsCustomAssertionInfo.getScope()));
+    }
+    if (gmsCustomAssertionInfo.hasAggregation()) {
+      result.setAggregation(
+          PdlEnumMapper.mapDefaultNull(
+              AssertionStdAggregation.class, gmsCustomAssertionInfo.getAggregation()));
+    }
+    if (gmsCustomAssertionInfo.hasOperator()) {
+      result.setOperator(
+          PdlEnumMapper.mapDefaultNull(
+              AssertionStdOperator.class, gmsCustomAssertionInfo.getOperator()));
+    }
+    if (gmsCustomAssertionInfo.hasParameters()) {
+      result.setParameters(mapParameters(gmsCustomAssertionInfo.getParameters()));
+    }
+    if (gmsCustomAssertionInfo.hasNativeType()) {
+      result.setNativeType(gmsCustomAssertionInfo.getNativeType());
+    }
+    if (gmsCustomAssertionInfo.hasNativeParameters()) {
+      result.setNativeParameters(
+          StringMapMapper.map(context, gmsCustomAssertionInfo.getNativeParameters()));
+    } else {
+      result.setNativeParameters(Collections.emptyList());
     }
     if (gmsCustomAssertionInfo.hasLogic()) {
       result.setLogic(gmsCustomAssertionInfo.getLogic());

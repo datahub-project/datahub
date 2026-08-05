@@ -46,6 +46,11 @@ on:
         required: false
         type: string
         default: ${{ vars.DOCKER_REGISTRY }}
+      send_posthog_metrics:
+        description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
+        required: false
+        type: boolean
+        default: false
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -94,6 +99,14 @@ jobs:
           docker images
 
       # Path 2: Build images in the job
+      - id: uv-creds
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images (fork — no depot cache)
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
         timeout-minutes: 60
@@ -102,10 +115,11 @@ jobs:
           BUILD_TASK: ${{ inputs.image_build_task }}
           DATAHUB_VERSION: ${{ inputs.datahub_version }}
           LOCAL_BUILD_FLAGS: ${{ inputs.local_build_flags }}
+          UV_DOCKER_PROFILE: ${{ steps.uv-creds.outputs.uv_profile }}
         run: |
           echo "Using build task: $BUILD_TASK"
           read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
-          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
+          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" -Pdatahub.dependencies.python.uvDockerProfile="$UV_DOCKER_PROFILE" "${extra_flags[@]}"
           docker images
 
       # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
@@ -174,6 +188,38 @@ jobs:
           name: playwright-junit-${{ inputs.shard }}
           path: e2e-test/ui/playwright/test-results/junit.xml
           retention-days: 5
+
+      - name: Send failed test metrics to PostHog
+        if: failure() && inputs.send_posthog_metrics
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir e2e-test/ui/playwright/test-results \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "$GH_REPOSITORY" \
+            --workflow-name "$GH_WORKFLOW" \
+            --branch "$GH_HEAD_REF" \
+            --run-id "$GH_RUN_ID" \
+            --run-attempt "$GH_RUN_ATTEMPT" \
+            --batch "$SHARD" \
+            --batch-count "$SHARD_COUNT" \
+            --test-strategy "playwright"
 
       - name: Store logs on failure
         if: failure()

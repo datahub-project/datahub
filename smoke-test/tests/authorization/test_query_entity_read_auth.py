@@ -43,7 +43,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
 
 _UNIQUE = uuid.uuid4().hex[:8]
 TEST_USER_EMAIL = f"query.auth.test.{_UNIQUE}@smoke.datahub.test"
@@ -71,8 +71,15 @@ query entity($urn: String!) {
 """
 
 
+QUERY_AUTH_POLICY_PREFIXES = ["Test VIEW", "Test EDIT_ENTITY_QUERIES"]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def query_auth_setup(graph_client, auth_session):
+    yield from _query_auth_setup_impl(graph_client, auth_session)
+
+
+def _query_auth_setup_impl(graph_client, auth_session):
     if not is_view_authorization_enabled(auth_session):
         pytest.skip(
             "VIEW_AUTHORIZATION_ENABLED is false; "
@@ -116,7 +123,7 @@ def query_auth_setup(graph_client, auth_session):
     wait_for_writes_to_sync()
 
     admin_session = get_frontend_session()
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=QUERY_AUTH_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
@@ -126,7 +133,7 @@ def query_auth_setup(graph_client, auth_session):
     yield
 
     remove_user(admin_session, TEST_USER_URN)
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=QUERY_AUTH_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)

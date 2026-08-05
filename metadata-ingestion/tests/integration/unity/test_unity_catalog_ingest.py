@@ -164,7 +164,7 @@ def register_mock_api(request_mock):
         )
 
 
-def register_mock_data(workspace_client):
+def register_mock_data(workspace_client, include_federation=False):
     workspace_client.metastores.summary.return_value = GetMetastoreSummaryResponse.from_dict(
         {
             "name": "acryl metastore",
@@ -203,7 +203,31 @@ def register_mock_data(workspace_client):
         ]
     ]
 
-    workspace_client.schemas.list.return_value = [
+    if include_federation:
+        # Lakehouse Federation: a foreign catalog mirroring an external Postgres db.
+        existing_catalogs = list(workspace_client.catalogs.list.return_value)
+        existing_catalogs.append(
+            CatalogInfo.from_dict(
+                {
+                    "name": "federated_catalog",
+                    "catalog_type": "FOREIGN_CATALOG",
+                    "connection_name": "pg_conn",
+                    "options": {"database": "my_db"},
+                    "comment": "Foreign catalog over Postgres",
+                    "owner": "account users",
+                    "metastore_id": "123",
+                }
+            )
+        )
+        workspace_client.catalogs.list.return_value = existing_catalogs
+
+        from databricks.sdk.service.catalog import ConnectionInfo, ConnectionType
+
+        workspace_client.connections.list.return_value = [
+            ConnectionInfo(name="pg_conn", connection_type=ConnectionType.POSTGRESQL)
+        ]
+
+    original_schemas = [
         SchemaInfo.from_dict(d)
         for d in [
             {
@@ -223,109 +247,166 @@ def register_mock_data(workspace_client):
         ]
     ]
 
+    if include_federation:
+        federated_schema = SchemaInfo.from_dict(
+            {
+                "name": "my_schema",
+                "catalog_name": "federated_catalog",
+                "owner": "account users",
+                "comment": "Foreign schema mirroring Postgres my_schema",
+                "properties": {},
+                "metastore_id": "123",
+                "full_name": "federated_catalog.my_schema",
+                "created_at": 1666185645311,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186056973,
+                "updated_by": "abc@acryl.io",
+                "catalog_type": "FOREIGN_CATALOG",
+            }
+        )
+
+        def _schemas_list(*args, **kwargs):
+            if kwargs.get("catalog_name") == "federated_catalog":
+                return [federated_schema]
+            return original_schemas
+
+        workspace_client.schemas.list.side_effect = _schemas_list
+    else:
+        workspace_client.schemas.list.return_value = original_schemas
+
     # Set as function so TableInfo can be patched
-    workspace_client.tables.list = lambda *args, **kwargs: [
-        databricks.sdk.service.catalog.TableInfo.from_dict(
-            {
-                "name": "quickstart_table",
-                "catalog_name": "quickstart_catalog",
-                "schema_name": "quickstart_schema",
-                "table_type": "MANAGED",
-                "data_source_format": "DELTA",
-                "columns": [
+    def _tables_list(*args, **kwargs):
+        # Build TableInfo objects lazily (per-call) rather than once up front: the
+        # caller patches `databricks.sdk.service.catalog.TableInfo` to
+        # TableInfoWithGeneration only while this mock is being invoked, and
+        # from_dict() must run under that patch to pick up the `generation` field.
+        if include_federation and kwargs.get("catalog_name") == "federated_catalog":
+            return [
+                databricks.sdk.service.catalog.TableInfo.from_dict(
                     {
-                        "name": "columnA",
-                        "type_text": "int",
-                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
-                        "type_name": "INT",
-                        "type_precision": 0,
-                        "type_scale": 0,
-                        "position": 0,
-                        "nullable": True,
+                        "name": "t",
+                        "catalog_name": "federated_catalog",
+                        "schema_name": "my_schema",
+                        "table_type": "FOREIGN",
+                        "columns": [
+                            {
+                                "name": "id",
+                                "type_name": "INT",
+                                "type_text": "int",
+                                "nullable": True,
+                                "position": 0,
+                            }
+                        ],
+                    }
+                )
+            ]
+        return _build_original_tables()
+
+    def _build_original_tables():
+        return [
+            databricks.sdk.service.catalog.TableInfo.from_dict(
+                {
+                    "name": "quickstart_table",
+                    "catalog_name": "quickstart_catalog",
+                    "schema_name": "quickstart_schema",
+                    "table_type": "MANAGED",
+                    "data_source_format": "DELTA",
+                    "columns": [
+                        {
+                            "name": "columnA",
+                            "type_text": "int",
+                            "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                            "type_name": "INT",
+                            "type_precision": 0,
+                            "type_scale": 0,
+                            "position": 0,
+                            "nullable": True,
+                        },
+                        {
+                            "name": "columnB",
+                            "type_text": "string",
+                            "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                            "type_name": "STRING",
+                            "type_precision": 0,
+                            "type_scale": 0,
+                            "position": 1,
+                            "nullable": True,
+                        },
+                    ],
+                    "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                    "owner": "account users",
+                    "properties": {
+                        "delta.lastCommitTimestamp": "1666185711000",
+                        "delta.lastUpdateVersion": "1",
+                        "delta.minReaderVersion": "1",
+                        "delta.minWriterVersion": "2",
+                        "spark.sql.statistics.numRows": "10",
+                        "spark.sql.statistics.totalSize": "512",
                     },
-                    {
-                        "name": "columnB",
-                        "type_text": "string",
-                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
-                        "type_name": "STRING",
-                        "type_precision": 0,
-                        "type_scale": 0,
-                        "position": 1,
-                        "nullable": True,
+                    "generation": 2,
+                    "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                    "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                    "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+                    "created_at": 1666185698688,
+                    "created_by": "abc@acryl.io",
+                    "updated_at": 1666186049633,
+                    "updated_by": "abc@acryl.io",
+                    "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                }
+            ),
+            databricks.sdk.service.catalog.TableInfo.from_dict(
+                {
+                    "name": "quickstart_table_external",
+                    "catalog_name": "quickstart_catalog",
+                    "schema_name": "quickstart_schema",
+                    "table_type": "EXTERNAL",
+                    "data_source_format": "DELTA",
+                    "columns": [
+                        {
+                            "name": "columnA",
+                            "type_text": "int",
+                            "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                            "type_name": "INT",
+                            "type_precision": 0,
+                            "type_scale": 0,
+                            "position": 0,
+                            "nullable": True,
+                        },
+                        {
+                            "name": "columnB",
+                            "type_text": "string",
+                            "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                            "type_name": "STRING",
+                            "type_precision": 0,
+                            "type_scale": 0,
+                            "position": 1,
+                            "nullable": True,
+                        },
+                    ],
+                    "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                    "owner": "account users",
+                    "properties": {
+                        "delta.lastCommitTimestamp": "1666185711000",
+                        "delta.lastUpdateVersion": "1",
+                        "delta.minReaderVersion": "1",
+                        "delta.minWriterVersion": "2",
+                        "spark.sql.statistics.numRows": "10",
+                        "spark.sql.statistics.totalSize": "512",
                     },
-                ],
-                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
-                "owner": "account users",
-                "properties": {
-                    "delta.lastCommitTimestamp": "1666185711000",
-                    "delta.lastUpdateVersion": "1",
-                    "delta.minReaderVersion": "1",
-                    "delta.minWriterVersion": "2",
-                    "spark.sql.statistics.numRows": "10",
-                    "spark.sql.statistics.totalSize": "512",
-                },
-                "generation": 2,
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
-                "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
-                "created_at": 1666185698688,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666186049633,
-                "updated_by": "abc@acryl.io",
-                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-            }
-        ),
-        databricks.sdk.service.catalog.TableInfo.from_dict(
-            {
-                "name": "quickstart_table_external",
-                "catalog_name": "quickstart_catalog",
-                "schema_name": "quickstart_schema",
-                "table_type": "EXTERNAL",
-                "data_source_format": "DELTA",
-                "columns": [
-                    {
-                        "name": "columnA",
-                        "type_text": "int",
-                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
-                        "type_name": "INT",
-                        "type_precision": 0,
-                        "type_scale": 0,
-                        "position": 0,
-                        "nullable": True,
-                    },
-                    {
-                        "name": "columnB",
-                        "type_text": "string",
-                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
-                        "type_name": "STRING",
-                        "type_precision": 0,
-                        "type_scale": 0,
-                        "position": 1,
-                        "nullable": True,
-                    },
-                ],
-                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
-                "owner": "account users",
-                "properties": {
-                    "delta.lastCommitTimestamp": "1666185711000",
-                    "delta.lastUpdateVersion": "1",
-                    "delta.minReaderVersion": "1",
-                    "delta.minWriterVersion": "2",
-                    "spark.sql.statistics.numRows": "10",
-                    "spark.sql.statistics.totalSize": "512",
-                },
-                "generation": 2,
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table_external",
-                "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
-                "created_at": 1666185698688,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666186049633,
-                "updated_by": "abc@acryl.io",
-                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
-            }
-        ),
-    ]
+                    "generation": 2,
+                    "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                    "full_name": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+                    "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+                    "created_at": 1666185698688,
+                    "created_by": "abc@acryl.io",
+                    "updated_at": 1666186049633,
+                    "updated_by": "abc@acryl.io",
+                    "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                }
+            ),
+        ]
+
+    workspace_client.tables.list = _tables_list
 
     workspace_client.tables.get = lambda *args, **kwargs: (
         databricks.sdk.service.catalog.TableInfo.from_dict(
@@ -617,6 +698,60 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
             pytestconfig,
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/{mce_golden_file}",
+        )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_federation_ingestion(pytestconfig, tmp_path, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_federation_mcps.json"
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client, include_federation=True)
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict = {
+            "run_id": "unity-federation-test",
+            "pipeline_name": "unity-federation-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_hive_metastore": False,
+                    "include_usage_statistics": False,
+                    "warehouse_id": "test",
+                    "include_federation_lineage": True,
+                    "federation_connection_details": {
+                        "pg_conn": {"platform_instance": "prod-pg", "env": "PROD"}
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"/{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/unity_catalog_federation_mces_golden.json",
         )
 
 

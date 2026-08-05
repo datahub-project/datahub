@@ -3,8 +3,7 @@ import { GraphQLHelper } from '../../../../helpers/graphql-helper';
 import type { DataHubLogger } from '../../../../utils/logger';
 import { BaseTab } from './base.tab';
 import { ConfirmationModalComponent } from '@pages/common/confirmation-modal-component';
-import { ToastComponent } from '@pages/common/toast-component';
-import { LONG_TIMEOUT } from '@utils/constants';
+import { TIMEOUTS } from '@utils/constants';
 import {
   DISPLAY_NAME_USERNAME_PASSWORD,
   DISPLAY_NAME_PRIVATE_KEY,
@@ -88,7 +87,6 @@ export abstract class SourcesBaseTab extends BaseTab {
   abstract readonly cliVersionInput: Locator;
 
   protected readonly graphql: GraphQLHelper;
-  protected readonly toast: ToastComponent;
 
   // Locators for the inline secret creation dialog (used in createSecretInlineForPassword).
   // Scoped to the ARIA dialog to avoid strict-mode violations when hidden modal instances
@@ -111,7 +109,6 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.tabKey = 'Sources';
 
     this.graphql = new GraphQLHelper(page);
-    this.toast = new ToastComponent(page);
 
     this.inlineSecretDialog = page.getByRole('dialog', { name: 'Create a new Secret' });
     this.inlineSecretNameInput = this.inlineSecretDialog.getByTestId('secret-modal-name-input').getByRole('textbox');
@@ -160,8 +157,8 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   getDropdownMenuItem(label: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu portal; no data-testid or ARIA role
-    return this.page.locator('body .ant-dropdown-menu').getByText(label);
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu item; filter to :visible to avoid strict-mode violations from hidden dropdowns in the DOM
+    return this.page.locator('body .ant-dropdown-menu-item:visible').getByText(label);
   }
 
   getTypeFilterDropdownItem(value: string): Locator {
@@ -440,8 +437,11 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   async expectSourceStatusContains(sourceName: string, status: string): Promise<void> {
+    // Wait briefly for executor to pick up the request
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
     const row = this.getSourceRow(sourceName);
-    await expect(row.getByText(status, { exact: false })).toBeVisible({ timeout: LONG_TIMEOUT });
+    // Ingestion source execution completion
+    await expect(row.getByText(status, { exact: false })).toBeVisible({ timeout: TIMEOUTS.INGESTION_EXECUTION });
   }
 
   async expectSourceStatusPending(sourceName: string): Promise<void> {

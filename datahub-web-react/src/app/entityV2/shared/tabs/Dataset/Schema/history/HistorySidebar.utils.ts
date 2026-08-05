@@ -8,6 +8,7 @@ import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
 // ──────────────────────────────────────────────────────────────────────────────
 export const PARAM_FIELD_PATH = 'fieldPath';
 export const PARAM_DESCRIPTION = 'description';
+export const PARAM_PREVIOUS_DESCRIPTION = 'previousDescription';
 export const PARAM_TAG_URN = 'tagUrn';
 export const PARAM_TERM_URN = 'termUrn';
 export const PARAM_RELATIONSHIP_TYPE = 'relationshipType';
@@ -24,11 +25,22 @@ export const PARAM_PROPERTY_VALUES = 'propertyValues';
 // These are the formal type names the backend uses ("Is A", "Has A", etc.),
 // distinct from the UI tab labels ("Contains", "Inherits").
 // ──────────────────────────────────────────────────────────────────────────────
+// Getters, not plain values: the map keys ('Is A', 'Has A', ...) are the backend's own technical
+// relationship-type strings and stay untranslated, but the values are real English words — re-evaluate
+// i18next.t() on every read rather than baking in one language at module-init time.
 export const GLOSSARY_RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
-    'Is A': 'inherited',
-    'Has A': 'contained',
-    'Has Value': 'value',
-    'Is Related To': 'related',
+    get 'Is A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.inherited');
+    },
+    get 'Has A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.contained');
+    },
+    get 'Has Value'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.value');
+    },
+    get 'Is Related To'() {
+        return i18next.t('entity.profile.schema:changeEventString.defaultRelationship');
+    },
 };
 
 // Owner types that don't add useful context in change event display
@@ -43,6 +55,7 @@ export const CATEGORY_DOMAIN = 'DOMAIN';
 export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
 export const CATEGORY_APPLICATION = 'APPLICATION';
 export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
+export const CATEGORY_VERSIONING = 'VERSIONING';
 
 // Re-export generated enums for convenience within the history feature
 export { ChangeCategoryType, ChangeOperationType };
@@ -85,6 +98,10 @@ export function getAllCategoryOptions(): CategoryOption[] {
             value: CATEGORY_ASSET_MEMBERSHIP,
             label: i18next.t('entity.profile.schema:historySidebar.categoryAssets'),
         },
+        {
+            value: CATEGORY_VERSIONING,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryVersions'),
+        },
     ];
 }
 
@@ -99,6 +116,7 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         CATEGORY_DOMAIN,
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
+        CATEGORY_VERSIONING,
     ]),
     [EntityType.GlossaryTerm]: new Set([
         ChangeCategoryType.Documentation,
@@ -107,6 +125,7 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         CATEGORY_DOMAIN,
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
+        CATEGORY_VERSIONING,
     ]),
     [EntityType.Domain]: new Set([
         ChangeCategoryType.Documentation,

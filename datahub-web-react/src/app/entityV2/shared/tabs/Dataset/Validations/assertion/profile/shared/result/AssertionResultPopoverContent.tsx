@@ -1,10 +1,12 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
+import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/PrimaryButton';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
@@ -16,9 +18,10 @@ import {
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { sortNativeResults } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { safeUrl } from '@app/shared/urlUtils';
 
-import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent } from '@types';
+import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
 
 const EXPAND_SYMBOL = 'more';
 const UNKNOWN_PLATFORM_NAME = 'unknown';
@@ -92,6 +95,14 @@ const PlatformRow = styled.div``;
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
     margin-right: 4px;
     font-size: 12px;
+`;
+
+const PartitionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ThinDivider = styled(Divider)`
@@ -199,7 +210,47 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
     );
 };
 
-const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: boolean }) => {
+const PartitionSection = ({ partition }: { partition?: string | null }) => {
+    const { t } = useTranslation('entity.profile.validations');
+    if (!partition) return null;
+
+    return (
+        <>
+            <ThinDivider />
+            <PartitionRow>
+                <Icon icon={TreeStructure} size="md" />
+                <span>
+                    <strong>{t('resultPopover.partition')}:</strong> {partition}
+                </span>
+            </PartitionRow>
+        </>
+    );
+};
+
+const getRecommendedAction = (errorType?: AssertionResultErrorType) => {
+    switch (errorType) {
+        case AssertionResultErrorType.SourceConnectionError:
+        case AssertionResultErrorType.SourceQueryFailed:
+            return 'Check the source connection, credentials, and query permissions.';
+        case AssertionResultErrorType.InvalidParameters:
+            return 'Review the assertion configuration and required parameters.';
+        case AssertionResultErrorType.UnsupportedPlatform:
+        case AssertionResultErrorType.InvalidSourceType:
+            return 'Choose a supported platform and assertion source.';
+        default:
+            return 'Review the error details and update the assertion before running it again.';
+    }
+};
+
+const MessageSection = ({
+    errorMessage,
+    recommendedAction,
+    show,
+}: {
+    errorMessage?: string;
+    recommendedAction?: string;
+    show: boolean;
+}) => {
     const { t } = useTranslation('entity.profile.validations');
     if (!show || !errorMessage) return null;
     return (
@@ -218,6 +269,14 @@ const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: b
                     {errorMessage}
                 </Typography.Paragraph>
             </ContextRow>
+            {recommendedAction && (
+                <ContextRow>
+                    <SecondaryHeader>
+                        {t('resultPopover.recommendedAction', { defaultValue: 'Recommended action' })}
+                    </SecondaryHeader>
+                    <Typography.Paragraph>{recommendedAction}</Typography.Paragraph>
+                </ContextRow>
+            )}
         </>
     );
 };
@@ -231,7 +290,7 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
         externalResultsSections.push(
             <ThinDivider key="external-results-divider" />,
             <PlatformRow key="external-results">
-                {result.nativeResults.map((entry) => (
+                {sortNativeResults(result.nativeResults).map((entry) => (
                     <div key={entry.key}>
                         <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
                     </div>
@@ -295,6 +354,10 @@ export const AssertionResultPopoverContent = ({
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
     const hasDetailedError = run?.result?.type === AssertionResultType.Error && !!errorMessage;
+    const recommendedAction =
+        run?.result?.type === AssertionResultType.Error
+            ? getRecommendedAction(run.result.error?.type || undefined)
+            : undefined;
 
     return (
         <>
@@ -306,10 +369,11 @@ export const AssertionResultPopoverContent = ({
                 showProfileButton={showProfileButton}
                 onClickProfileButton={onClickProfileButton}
             />
+            <PartitionSection partition={run?.partitionSpec?.partition} />
             {hasReason && <ReasonSection reasonText={reasonText} />}
             <SeveritySection result={result} />
             <ExpectedSection expectedText={expectedText} />
-            <MessageSection errorMessage={errorMessage} show={hasDetailedError} />
+            <MessageSection errorMessage={errorMessage} recommendedAction={recommendedAction} show={hasDetailedError} />
             <ExternalResultsSection assertion={assertion} result={result} />
         </>
     );

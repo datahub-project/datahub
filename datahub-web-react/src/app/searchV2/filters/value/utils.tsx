@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import {
     EntityFilterField,
     FieldType,
@@ -8,7 +9,12 @@ import {
     FilterValueOption,
 } from '@app/searchV2/filters/types';
 import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
-import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    FILTER_DELIMITER,
+    PARENT_DOCUMENT_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -21,7 +27,7 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@graphql/search.generated';
-import { AndFilterInput, EntityType, NumberValue, StringValue, StructuredPropertyEntity } from '@types';
+import { AllowedValue, AndFilterInput, EntityType, StructuredPropertyEntity } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -32,6 +38,34 @@ const MAX_AGGREGATION_COUNT = 40;
 export const deduplicateOptions = (baseOptions: FilterValueOption[], moreOptions: FilterValueOption[]) => {
     const baseValues = baseOptions.map((op) => op.value);
     return moreOptions.filter((op) => !baseValues.includes(op.value));
+};
+
+const getAllowedValueFilterKey = (allowedValue: AllowedValue): string | null => {
+    const raw = getStructuredPropertyValue(allowedValue.value);
+    if (raw === null || raw === undefined) {
+        return null;
+    }
+    return String(raw);
+};
+
+export const mergeFilterOptionsInAllowedValuesOrder = (
+    aggregationOptions: FilterValueOption[],
+    allowedValuesFromDefinition: AllowedValue[],
+    buildMissingOption: (rawValue: string) => FilterValueOption,
+): FilterValueOption[] => {
+    const aggByValue = new Map(aggregationOptions.map((option) => [option.value, option]));
+
+    const definitionValues = allowedValuesFromDefinition
+        .map(getAllowedValueFilterKey)
+        .filter((rawValue): rawValue is string => rawValue !== null);
+
+    const orderedFromDefinition = definitionValues.map(
+        (rawValue) => aggByValue.get(rawValue) ?? buildMissingOption(rawValue),
+    );
+
+    const remainingOptions = aggregationOptions.filter((option) => !definitionValues.includes(option.value));
+
+    return [...orderedFromDefinition, ...remainingOptions];
 };
 
 export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
@@ -110,25 +144,15 @@ export const useLoadAggregationOptions = ({
             : undefined;
     const allowedValuesFromDefinition = structuredPropEntity?.definition?.allowedValues;
     if (allowedValuesFromDefinition?.length) {
-        const existingValues = new Set((options || []).map((o) => o.value));
-        const extraOptions: FilterValueOption[] = allowedValuesFromDefinition
-            .map((av): FilterValueOption | null => {
-                let rawValue: string | null = null;
-                if (av.value?.__typename === 'StringValue') {
-                    rawValue = (av.value as StringValue).stringValue;
-                } else if (av.value?.__typename === 'NumberValue') {
-                    rawValue = String((av.value as NumberValue).numberValue);
-                }
-                if (rawValue === null || existingValues.has(rawValue)) return null;
-                return {
-                    value: rawValue,
-                    icon: field.icon,
-                    count: includeCounts ? 0 : undefined,
-                    displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
-                };
-            })
-            .filter((opt): opt is FilterValueOption => opt !== null);
-        return { options: [...(options || []), ...extraOptions], loading };
+        return {
+            options: mergeFilterOptionsInAllowedValuesOrder(options || [], allowedValuesFromDefinition, (rawValue) => ({
+                value: rawValue,
+                icon: field.icon,
+                count: includeCounts ? 0 : undefined,
+                displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
+            })),
+            loading,
+        };
     }
 
     return { options: options || [], loading };
@@ -215,5 +239,12 @@ export const getEntityTypeFilterValueDisplayName = (value: string, entityRegistr
 };
 
 export const getDefaultFieldOperatorType = (field: FilterField) => {
+    if (
+        field.field === DOMAINS_FILTER_NAME ||
+        field.field === CONTAINER_FILTER_NAME ||
+        field.field === PARENT_DOCUMENT_FILTER_NAME
+    ) {
+        return FilterOperatorType.WITHIN;
+    }
     return field.type === FieldType.TEXT ? FilterOperatorType.CONTAINS : FilterOperatorType.EQUALS;
 };

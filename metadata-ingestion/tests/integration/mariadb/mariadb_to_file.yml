@@ -1,0 +1,27 @@
+run_id: mariadb-test
+
+source:
+  type: mariadb
+  config:
+    username: root
+    password: password
+    host_port: localhost:53300
+    database: test_db
+    include_stored_procedures: true
+    procedure_pattern:
+      allow:
+        - "test_db.*"
+      deny:
+        - ".*_temp$"
+    # Profiling is intentionally disabled for this test. It focuses on stored-procedure
+    # lineage, and dataset snapshots are emitted as MCEs, which force the golden
+    # comparison onto an order-sensitive path. Profiling adds aspects whose stream
+    # position varies run-to-run, making the comparison flaky. Profiling output is
+    # covered deterministically by the MySQL golden tests.
+    profiling:
+      enabled: False
+
+sink:
+  type: file
+  config:
+    filename: "./mariadb_mces.json"

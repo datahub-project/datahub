@@ -64,6 +64,9 @@ fragment ListDomain on Domain {
     ownership {
         ...ownershipFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     displayProperties {
         ...displayPropertiesFields
     }

@@ -3,15 +3,21 @@ namespace com.linkedin.assertion
 import com.linkedin.common.Urn
 
 /**
-* Attributes that are applicable to Custom Assertions
+* Attributes that are applicable to Custom / externally managed Assertions.
+* This is the supported model for third-party and self-reported data quality checks
+* (dbt, Great Expectations, partner tools, SDK). Prefer this over native typed
+* assertion models (FIELD, VOLUME, FRESHNESS, DATA_SCHEMA, SQL) when the check is
+* defined and evaluated outside DataHub.
 **/
 record CustomAssertionInfo {
     /**
     * The type of custom assertion.
-    * This is how your assertion will appear categorized in DataHub UI. 
+    * This is how your assertion will appear categorized in DataHub UI.
     */
     @Searchable = {
-      "fieldName": "customType"
+      "fieldName": "customType",
+      "fieldType": "KEYWORD",
+      "addToFilters": true
     }
     type: string
 
@@ -33,8 +39,11 @@ record CustomAssertionInfo {
     /**
     * dataset schema field targeted by this assertion.
     *
-    * This field is expected to be provided if the assertion is on dataset field
+    * This field is expected to be provided if the assertion is on dataset field.
+    * Prefer fields for multi-column support.
+    * @deprecated Use fields instead for multi-column support.
     */
+    @deprecated = "Use fields instead for multi-column support."
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "schemaField" ]
@@ -45,6 +54,55 @@ record CustomAssertionInfo {
       "entityTypes": [ "schemaField" ]
     }
     field: optional Urn
+
+    /**
+    * One or more dataset schema fields targeted by this assertion.
+    * Use this field for assertions that involve multiple columns.
+    */
+    @Relationship = {
+      "/*": {
+        "name": "Asserts",
+        "entityTypes": [ "schemaField" ]
+      }
+    }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "schemaField" ]
+    }
+    fields: optional array[Urn]
+
+    /**
+    * Scope of the Assertion. What part of the dataset does this assertion apply to?
+    * Optional structured metadata for display/reporting (migrated from DatasetAssertionInfo).
+    **/
+    scope: optional DatasetAssertionScope
+
+    /**
+    * Standardized assertion aggregation / metric.
+    * Left blank if there is no selected aggregation or metric for a particular column.
+    */
+    aggregation: optional AssertionStdAggregation
+
+    /**
+    * Standardized assertion operator.
+    */
+    operator: optional AssertionStdOperator
+
+    /**
+    * Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+    */
+    parameters: optional AssertionStdParameters
+
+    /**
+    * Native assertion type (platform-specific), e.g. Great Expectations expectation name.
+    */
+    nativeType: optional string
+
+    /**
+    * Native parameters required for the assertion.
+    */
+    nativeParameters: optional map[string, string]
 
     /*
     * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.

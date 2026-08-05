@@ -10,7 +10,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,6 +30,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -149,7 +149,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -222,7 +222,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, resolvedEntityNames)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, resolvedEntityNames)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -277,7 +278,7 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -333,7 +334,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -386,7 +387,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -418,7 +419,7 @@ public class EntityController
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    int usageQuantity =
+    long usageQuantity =
         RequestContext.resolveIngestUsageQuantity(jsonEntityPatchList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
@@ -432,13 +433,22 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
+        opContext, UPDATE, List.of(entityName))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
+    // Existence-aware document CREATE/UPDATE for PATCH of missing document URNs.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext,
+        UPDATE,
+        batch.getItems().stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+    }
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -496,7 +506,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(opContext, CREATE, entityTypes)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
@@ -512,6 +522,15 @@ public class EntityController
       AspectsBatch entityTypeBatch =
           toMCPBatch(opContext, objectMapper.writeValueAsString(array), authentication.getActor());
       allBatchItems.addAll(entityTypeBatch.getItems());
+    }
+
+    // Existence-aware document CREATE/UPDATE after URNs are known from the batch.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext,
+        CREATE,
+        allBatchItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     // Create a combined batch with all items

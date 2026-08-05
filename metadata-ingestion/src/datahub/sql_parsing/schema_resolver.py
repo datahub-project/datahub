@@ -52,6 +52,11 @@ class SchemaResolverInterface(Protocol):
     @property
     def platform(self) -> str: ...
 
+    # Declared as a settable attribute (not a read-only property like `platform`)
+    # because implementers assign it in __init__; a Protocol property would
+    # install a read-only descriptor and break those assignments.
+    platform_instance: Optional[str]
+
     def includes_temp_tables(self) -> bool: ...
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
@@ -370,6 +375,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     ):
         self._base_resolver = base_resolver
         self._extra_schemas = extra_schemas
+        self.platform_instance = base_resolver.platform_instance
 
     @property
     def platform(self) -> str:

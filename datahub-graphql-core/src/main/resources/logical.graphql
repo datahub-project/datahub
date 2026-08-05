@@ -24,9 +24,108 @@ input SetLogicalParentInput {
   parentUrn: String
 }
 
+input CreateLogicalModelInput {
+  """
+  The canonical name that forms the immutable dataset URN, e.g. "my_domain.my_table".
+  """
+  name: String!
+
+  """
+  Optional human-facing display name. Defaults to the canonical name if omitted.
+  """
+  displayName: String
+
+  """
+  The environment/fabric for the logical model. Defaults to PROD.
+  """
+  env: FabricType = PROD
+
+  """
+  Optional data platform URN to create the logical model on (e.g. a custom platform).
+  Defaults to urn:li:dataPlatform:logical.
+  """
+  platform: String
+
+  """
+  The columns (schema fields) of the logical model. Frozen after creation in the UI.
+  """
+  columns: [EditableSchemaFieldInput!]!
+}
+
+input ColumnMappingInput {
+  """
+  The parent (logical) column field path.
+  """
+  parentFieldPath: String!
+
+  """
+  The child (physical) column field path it maps to.
+  """
+  childFieldPath: String!
+}
+
+input LinkPhysicalChildInput {
+  """
+  The logical parent dataset URN.
+  """
+  logicalParentUrn: String!
+
+  """
+  The physical child dataset URN.
+  """
+  childUrn: String!
+
+  """
+  Optional column mappings (parent column -> child column). May be empty for a dataset-level link.
+  """
+  columnMappings: [ColumnMappingInput!]
+}
+
+input UnlinkPhysicalChildInput {
+  """
+  The physical child dataset URN to unlink from its logical parent.
+  """
+  childUrn: String!
+}
+
+input UpdateLogicalModelSchemaInput {
+  """
+  URN of the logical model dataset whose columns are being changed.
+  """
+  urn: String!
+
+  """
+  The full, intended column list after the edit. Replaces the existing schema.
+  """
+  columns: [EditableSchemaFieldInput!]!
+}
+
 extend type Mutation {
   """
   Set or unset an entity's logical parent
   """
   setLogicalParent(input: SetLogicalParentInput!): Boolean
+
+  """
+  Create a new logical model (a dataset on the `logical` platform). Returns the new dataset URN.
+  """
+  createLogicalModel(input: CreateLogicalModelInput!): String
+
+  """
+  Link a physical child dataset to a logical parent, with optional column mappings.
+  """
+  linkPhysicalChild(input: LinkPhysicalChildInput!): Boolean
+
+  """
+  Unlink a physical child dataset from its logical parent.
+  """
+  unlinkPhysicalChild(input: UnlinkPhysicalChildInput!): Boolean
+
+  """
+  Replace a logical model's columns. For a breaking change (a removed, renamed, or retyped
+  column), only the physical-child column mappings that reference the changed column are
+  cleared; a child keeps its link and its remaining mappings as long as at least one survives.
+  Adds and reorders are non-breaking and never affect mappings.
+  """
+  updateLogicalModelSchema(input: UpdateLogicalModelSchemaInput!): Boolean
 }

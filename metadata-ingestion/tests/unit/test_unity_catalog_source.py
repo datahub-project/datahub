@@ -902,13 +902,15 @@ class TestUnityCatalogMetricViews:
         )
         assert config.include_metric_views is False
 
-    def test_subtype_flag_off_emits_table(self):
+    def test_subtype_flag_off_still_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass
 
+        # Classification is accurate regardless of the enrichment flag: a metric
+        # view is never a plain Table, even when include_metric_views is off.
         source = self._build_source(include_metric_views=False)
         table, _ = self._build_metric_view_table()
         aspect: SubTypesClass = source._create_table_sub_type_aspect(table)
-        assert aspect.typeNames == ["Table"]
+        assert aspect.typeNames == ["Metric View"]
 
     def test_subtype_flag_on_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass
@@ -1722,8 +1724,8 @@ class TestUnityCatalogMetricViews:
         spec = source._load_metric_view_spec(table)
         assert spec is None
         assert source.report.num_metric_views_yaml_shape_invalid == 1
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view YAML is not a mapping" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view YAML is not a mapping" in m for m in messages)
 
     @pytest.mark.parametrize(
         "yaml_body,expected_bump",
@@ -1853,7 +1855,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view joins skipped"
+            if "Metric view joins skipped" in w.message
             and any(table.ref.qualified_table_name in ctx for ctx in (w.context or []))
         ]
         assert len(warnings_for_view) == 1
@@ -1876,10 +1878,12 @@ class TestUnityCatalogMetricViews:
         assert spec is not None
         source._extract_metric_view_column_lineage(table, spec)
         assert source.report.num_metric_view_unresolved_qualifiers == 1
-        messages = [w.message for w in source.report.warnings]
-        assert (
-            messages.count("Metric view expression references unknown qualifier") == 1
-        )
+        matching = [
+            w
+            for w in source.report.warnings
+            if "Metric view expression references unknown qualifier" in w.message
+        ]
+        assert len(matching) == 1
 
     def test_skipped_dim_measure_entries_increment_counter_and_warn(self):
         """Malformed dimension/measure entries must not silently disappear."""
@@ -1905,7 +1909,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view dimension/measure entries skipped"
+            if "Metric view dimension/measure entries skipped" in w.message
         ]
         assert len(warnings_for_view) == 1
 
@@ -1927,7 +1931,7 @@ class TestUnityCatalogMetricViews:
         assert lineage is not None
         assert source.report.num_metric_view_unparseable_sources == 1
         messages = [w.message for w in source.report.warnings]
-        assert "Metric view source(s) skipped" in messages
+        assert any("Metric view source(s) skipped" in m for m in messages)
 
     def test_expr_empty_tree_increments_counter(self):
         """sqlglot returning None (empty/comment-only expr) must not silently produce empty CLL."""
@@ -1955,8 +1959,8 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None):
             list(source.process_table(table, schema))
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view has no upstream lineage" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view has no upstream lineage" in m for m in messages)
 
     def test_dim_measure_description_override_from_yaml(self):
         """YAML `description` on a dim/measure surfaces as the schema field description."""
@@ -2716,6 +2720,325 @@ class TestUnityCatalogMetricViews:
         assert any("orders" in u for u in upstream_urns)
         assert any("customer" in u for u in upstream_urns)
         assert any("nation" in u for u in upstream_urns)
+
+
+class TestUnityCatalogExternalS3Lineage:
+    """S3 external-lineage paths carrying partition brace-lists
+    (e.g. `s3://bucket/topic/{20260410,20260411}`) produce URNs whose name
+    segment contains braces and commas, which GMS rejects. We normalize the
+    path down to the parent table path before building the URN."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            # Brace-list partition set -> parent path
+            (
+                "s3://bucket/topics/event/{20260410,20260411,20260412}",
+                "s3://bucket/topics/event",
+            ),
+            # Trailing slash after brace-list
+            (
+                "s3://bucket/topics/event/{20260410,20260411}/",
+                "s3://bucket/topics/event",
+            ),
+            # No partitions -> unchanged
+            (
+                "s3://bucket/topics/event",
+                "s3://bucket/topics/event",
+            ),
+            # s3a scheme preserved
+            (
+                "s3a://bucket/a/b/{d1,d2}",
+                "s3a://bucket/a/b",
+            ),
+            # Brace-list as a suffix of a component -> the whole component is
+            # dropped (parent dir), the prefix stem is not kept.
+            (
+                "s3://bucket/topics/event/part_{d1,d2,d3}",
+                "s3://bucket/topics/event",
+            ),
+            # Illegal char in a middle component -> truncate there.
+            (
+                "s3://bucket/a/b={x,y}/c",
+                "s3://bucket/a",
+            ),
+        ],
+    )
+    def test_strip_s3_partition_from_path(self, raw: str, expected: str) -> None:
+        from datahub.ingestion.source.unity.source import _strip_s3_partition_from_path
+
+        assert _strip_s3_partition_from_path(raw) == expected
+
+    @patch("datahub.ingestion.source.unity.source.create_workspace_client")
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_external_lineage_with_braces_produces_valid_urn(
+        self, mock_hive_proxy, mock_unity_proxy, mock_ws
+    ):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            ExternalTableReference,
+            Metastore,
+            Schema,
+            Table,
+        )
+        from datahub.metadata.urns import DatasetUrn
+
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "include_external_lineage": True,
+            }
+        )
+        source = UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id="c.s.t",
+            name="t",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=None,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=None,
+            properties={},
+        )
+        table.external_upstreams.add(
+            ExternalTableReference(
+                path="s3://bucket/topics/event/{20260410,20260411,20260412}",
+                has_permission=True,
+                name=None,
+                type=None,
+                storage_location="s3://bucket/topics/event/{20260410,20260411,20260412}",
+                last_updated=None,
+            )
+        )
+
+        aspect = source._generate_lineage_aspect(
+            source.gen_dataset_urn(table.ref), table
+        )
+        assert aspect is not None
+        s3_upstreams = [u for u in aspect.upstreams if "s3" in u.dataset]
+        assert len(s3_upstreams) == 1
+        # Must be a parseable URN with no braces/commas in the name segment
+        urn = s3_upstreams[0].dataset
+        assert "{" not in urn and "}" not in urn
+        parsed = DatasetUrn.from_string(urn)  # raises if malformed
+        assert parsed.name == "bucket/topics/event"
+
+
+class TestUnityCatalogMlModelControls:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _schema_and_models(n: int) -> tuple:
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        models = [
+            Model(
+                id=f"c.s.model_{i}",
+                name=f"model_{i}",
+                description=None,
+                schema_name="s",
+                catalog_name="c",
+                created_at=datetime(2023, 1, 1),
+                updated_at=datetime(2023, 1, 2),
+            )
+            for i in range(n)
+        ]
+        return schema, models
+
+    def _build_source(self, **extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+    def test_include_ml_models_false_skips_all_processing(self) -> None:
+        source = self._build_source(include_ml_models=False)
+        schema, _ = self._schema_and_models(3)
+
+        with patch.object(
+            source.unity_catalog_api_proxy, "ml_models"
+        ) as mock_ml_models:
+            workunits = list(source.process_ml_models(schema))
+
+        assert workunits == []
+        # No API call should be made when ML models are disabled
+        mock_ml_models.assert_not_called()
+        assert len(source.report.ml_models.processed_entities) == 0
+
+    def test_ml_model_max_results_zero_ingests_nothing(self) -> None:
+        source = self._build_source(ml_model_max_results=0)
+        schema, models = self._schema_and_models(3)
+
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
+
+        assert len(source.report.ml_models.processed_entities) == 0
+
+    def test_ml_model_max_results_caps_total(self) -> None:
+        source = self._build_source(ml_model_max_results=1)
+        schema, models = self._schema_and_models(3)
+
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
+
+        assert len(source.report.ml_models.processed_entities) == 1
+
+    def test_ml_model_version_uses_configured_env(self) -> None:
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            ModelVersion,
+            Schema,
+        )
+
+        source = self._build_source(env="DEV")
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        model = Model(
+            id="c.s.model",
+            name="model",
+            description=None,
+            schema_name="s",
+            catalog_name="c",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+        version = ModelVersion(
+            id="c.s.model_1",
+            name="model_1",
+            model=model,
+            version="1",
+            aliases=[],
+            description=None,
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="u",
+            run_details=None,
+            signature=None,
+        )
+
+        model_urn = source.gen_ml_model_urn(model.id)
+        wus = list(source.process_ml_model_version(model_urn, version, schema))
+
+        ml_model_urns = [wu.get_urn() for wu in wus if "mlModel:" in wu.get_urn()]
+        assert ml_model_urns
+        assert all(u.endswith(",DEV)") for u in ml_model_urns), ml_model_urns
 
 
 class TestUnityCatalogViewFiltering:

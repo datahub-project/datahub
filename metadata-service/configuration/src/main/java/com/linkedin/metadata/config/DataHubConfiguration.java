@@ -31,7 +31,7 @@ public class DataHubConfiguration {
 
   private PoliciesConfiguration policies;
 
-  private S3Configuration s3;
+  private ObjectStorageConfiguration objectStorage;
 
   /** Neutral API usage aggregation (OSS). */
   private UsageConfiguration usage;
@@ -41,5 +41,6 @@ public class DataHubConfiguration {
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;
+    private EntityCountMetricsConfiguration entityCounts;
   }
 }

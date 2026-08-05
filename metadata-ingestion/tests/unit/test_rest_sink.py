@@ -11,7 +11,12 @@ import time_machine
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
-from datahub.ingestion.sink.datahub_rest import DatahubRestSink, RestSinkMode
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.sink.datahub_rest import (
+    DatahubRestSink,
+    DatahubRestSinkConfig,
+    RestSinkMode,
+)
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -352,7 +357,7 @@ class TestDatahubRestSinkTcpKeepalive:
     """
 
     def test_sink_make_emitter_passes_tcp_keepalive(self):
-        """DatahubRestSink._make_emitter must hand tcp_keepalive to the emitter."""
+        """DatahubRestSink.make_emitter must hand tcp_keepalive to the emitter."""
         from requests.adapters import HTTPAdapter
 
         from datahub.emitter.rest_emitter import _KeepAliveHTTPAdapter
@@ -362,13 +367,13 @@ class TestDatahubRestSinkTcpKeepalive:
         )
 
         cfg = DatahubRestSinkConfig(server="http://localhost:8080", tcp_keepalive=True)
-        emitter = DatahubRestSink._make_emitter(cfg)
+        emitter = DatahubRestSink.make_emitter(cfg)
         assert isinstance(
             emitter._session.get_adapter("https://example.com"), _KeepAliveHTTPAdapter
         )
 
         cfg = DatahubRestSinkConfig(server="http://localhost:8080", tcp_keepalive=False)
-        emitter = DatahubRestSink._make_emitter(cfg)
+        emitter = DatahubRestSink.make_emitter(cfg)
         assert type(emitter._session.get_adapter("https://example.com")) is HTTPAdapter
 
 
@@ -467,7 +472,7 @@ def test_sync_origin_opt_in_passed_through_in_all_modes():
     # downgrades it, so it is a no-op in SYNC mode (already synchronous) and the
     # opt-in is passed through unconditionally regardless of sink mode.
     for mode in (RestSinkMode.SYNC, RestSinkMode.ASYNC, RestSinkMode.ASYNC_BATCH):
-        emitter = DatahubRestSink._make_emitter(
+        emitter = DatahubRestSink.make_emitter(
             DatahubRestSinkConfig(
                 server="http://localhost:8080",
                 mode=mode,
@@ -475,3 +480,15 @@ def test_sync_origin_opt_in_passed_through_in_all_modes():
             )
         )
         assert emitter.respect_mcp_sync_marker is True
+
+
+def test_rest_sink_config_accepts_client_config_dump():
+    # The Kafka default sink builds its REST fallback via
+    # DatahubRestSinkConfig(**DatahubClientConfig(...).model_dump()). Under
+    # ConfigModel's extra="forbid", that round-trip breaks the moment a base
+    # client-config field isn't also a DatahubRestSinkConfig field. Guard it so
+    # such a drift fails here (a targeted unit test) instead of at runtime on
+    # every Kafka-default ingestion run.
+    client = DatahubClientConfig(server="http://localhost:8080")
+    cfg = DatahubRestSinkConfig(**client.model_dump())
+    assert cfg.server == "http://localhost:8080"
