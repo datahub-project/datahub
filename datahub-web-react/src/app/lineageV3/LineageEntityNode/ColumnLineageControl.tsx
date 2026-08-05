@@ -41,31 +41,32 @@ interface Props {
 }
 
 /**
- * How much of a column's lineage in one direction is missing from the graph, e.g. `2 / 5`. Rendered
- * to the left and right of the hovered or selected column, and of every column related to it, for
- * as long as it may have lineage it isn't showing. The total is only known once
- * `getColumnLineageCounts` resolves, so a loading indicator stands in for it until then; both
- * numbers count columns the way the graph draws them, so showing every related node clears it.
+ * How much of a column's lineage in one direction is on the graph, e.g. `2 / 5`. Rendered to the
+ * left and right of the hovered or selected column, and of every column related to it, from the
+ * moment `getColumnLineageCounts` is asked for its total until the column is no longer part of the
+ * traversal -- a loading indicator stands in for the total in the meantime. Both numbers count
+ * columns the way the graph draws them, so showing every related node brings them level.
  *
  * TODO: Expand on hover into a panel of controls, as `ContractLineageControl` does.
  */
 export function ColumnLineageControl({ direction, lineageAsset, shownRelated }: Props) {
     const numShown = shownRelated[direction];
-    const numRelated = direction === LineageDirection.Upstream ? lineageAsset.numUpstream : lineageAsset.numDownstream;
-    // Counts are marked fetched without running the query when all of the node's neighbors are
-    // already on the graph, in which case what's shown is all there is
-    const total = lineageAsset.lineageCountsFetched ? (numRelated ?? numShown ?? 0) : undefined;
+    const total = direction === LineageDirection.Upstream ? lineageAsset.numUpstream : lineageAsset.numDownstream;
 
     if (numShown === undefined) {
         return null; // Lineage was never traversed this way, so there is nothing to say about it
     }
-    if (total !== undefined && total <= numShown) {
-        return null; // Nothing hidden this way; while the total is unknown, there still might be
+    if (total === undefined && lineageAsset.lineageCountsFetched) {
+        // Counts are marked fetched without querying when the node's every neighbor is on the
+        // graph. Nothing was hidden to begin with, so there is no count worth showing.
+        return null;
     }
     return (
         <ControlWrapper direction={direction} data-testid={`column-lineage-control-${lineageAsset.name}-${direction}`}>
             <Counts>
-                {numShown} / {total === undefined ? <Spin indicator={<StyledLoadingIndicator />} /> : total}
+                {/* Cached counts can lag behind the graph, so never show more shown than exist */}
+                {total === undefined ? numShown : Math.min(numShown, total)} /{' '}
+                {total === undefined ? <Spin indicator={<StyledLoadingIndicator />} /> : total}
             </Counts>
         </ControlWrapper>
     );
