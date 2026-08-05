@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +13,7 @@ from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 from google.rpc.error_details_pb2 import ErrorInfo
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -113,11 +114,89 @@ def test_pipeline_task_with_none_timestamps(
     }
 
     with patch(
-        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_list",
+        "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_iter",
         return_value=[mock_pipeline_job],
     ):
         mcps = list(source.pipeline_extractor.get_workunits())
         assert len(mcps) > 0, "Should generate MCPs for pipeline task"
+
+
+def test_training_extractor_stops_pulling_at_max_jobs(source: VertexAISource) -> None:
+    """The training-job stream is consumed lazily: once max_training_jobs_per_type
+    is reached the extractor stops pulling instead of draining the whole listing.
+    Guards against a regression to eager materialization of the listing."""
+    source.config.max_training_jobs_per_type = 2
+    source.config.training_job_type_pattern = AllowDenyPattern(allow=["^CustomJob$"])
+
+    pulled: List[int] = []
+
+    def instrumented_iter(*_args: object, **_kwargs: object) -> Iterator[MagicMock]:
+        for i in range(10):
+            pulled.append(i)
+            yield MagicMock()
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_training_extractor.rate_limited_gapic_iter",
+            side_effect=instrumented_iter,
+        ),
+        patch.object(
+            source.training_extractor, "_get_training_job_mcps", return_value=iter([])
+        ),
+    ):
+        list(source.training_extractor.get_workunits())
+
+    assert pulled == [0, 1], "should stop pulling at the cap, not drain all 10"
+
+
+def test_pipeline_extractor_stops_pulling_at_checkpoint(
+    source: VertexAISource,
+) -> None:
+    """The pipeline stream is consumed lazily: once the incremental checkpoint
+    timestamp is reached the extractor stops pulling instead of draining it.
+    Guards against a regression to eager materialization of the listing."""
+    checkpoint_millis = int(
+        (datetime.now(timezone.utc) - timedelta(days=1)).timestamp() * 1000
+    )
+    # order_by=UPDATE_TIME_DESC yields newest first: the first is newer than the
+    # checkpoint (processed), the second is older and trips the early break.
+    newer = MagicMock(spec=PipelineJob)
+    newer.update_time = datetime.now(timezone.utc)
+    older = MagicMock(spec=PipelineJob)
+    older.update_time = datetime.now(timezone.utc) - timedelta(days=2)
+
+    pulled: List[MagicMock] = []
+
+    def instrumented_iter(*_args: object, **_kwargs: object) -> Iterator[MagicMock]:
+        for job in [newer, older, MagicMock(), MagicMock(), MagicMock()]:
+            pulled.append(job)
+            yield job
+
+    with (
+        patch(
+            "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor.rate_limited_gapic_iter",
+            side_effect=instrumented_iter,
+        ),
+        patch.object(
+            source.pipeline_extractor.state_handler,
+            "get_last_update_time",
+            return_value=checkpoint_millis,
+        ),
+        patch.object(
+            source.pipeline_extractor.state_handler, "update_resource_timestamp"
+        ),
+        patch.object(
+            source.pipeline_extractor,
+            "_get_pipeline_metadata",
+            return_value=MagicMock(),
+        ),
+        patch.object(
+            source.pipeline_extractor, "_get_pipeline_workunits", return_value=iter([])
+        ),
+    ):
+        list(source.pipeline_extractor.get_workunits())
+
+    assert len(pulled) == 2, "should stop pulling at the checkpoint, not drain all 5"
 
 
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
