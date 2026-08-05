@@ -1,0 +1,43 @@
+namespace com.linkedin.common
+
+/**
+ * Records when an entity's external documentation (agent context files, memory,
+ * runbooks) was last verified as accurate against the entity's actual state, so
+ * that drift in the entity or its lineage upstreams can flag that documentation
+ * as stale without the documentation itself ever changing.
+ */
+@Aspect = {
+  "name": "docFreshnessInfo"
+}
+record DocFreshnessInfo {
+
+  /**
+   * URNs (the documented entity itself, plus its lineage upstreams) that the
+   * documentation was checked against at the time of last verification.
+   */
+  verifiedAgainstUrns: array[Urn] = [ ]
+
+  /**
+   * Fingerprint hash of the entity's schema/ownership/deprecation state (and one
+   * hop of its lineage upstreams' state) captured when the documentation was last
+   * verified as accurate. Compared against the live fingerprint to detect drift.
+   */
+  verifiedAtVersion: string
+
+  /**
+   * When the documentation was last verified.
+   */
+  verifiedAtTime: Time
+
+  /**
+   * The user or agent URN that performed the verification.
+   */
+  actor: optional Urn
+
+  /**
+   * Human-readable explanation of why the documentation was flagged stale,
+   * including which upstream entity changed. Unset while the documentation is
+   * considered fresh.
+   */
+  staleReason: optional string
+}

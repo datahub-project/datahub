@@ -57,6 +57,7 @@ entities:
       - logicalParent
       - assetSettings
       - documentation
+      - docFreshnessInfo
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -92,6 +93,7 @@ entities:
       - testResults
       - dataTransformLogic
       - documentation
+      - docFreshnessInfo
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -118,6 +120,7 @@ entities:
       - subTypes
       - testResults
       - documentation
+      - docFreshnessInfo
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
