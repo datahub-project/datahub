@@ -273,12 +273,17 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_RETRY_INITIAL_BACKOFF_MS`   | `50`                                  | Initial backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
 | `EBEAN_RETRY_MAX_BACKOFF_MS`       | `1000`                                | Maximum backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
 | `EBEAN_RETRY_AFTER_SECONDS`        | `1`                                   | Retry-After hint (seconds) on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li) | GMS, MCE Consumer, System Update |
+| `OPTIMISTIC_LOCKING_ENABLED`       | `false`                               | Use CAS on `SystemMetadata.version` instead of `SELECT FOR UPDATE` for aspect writes       | GMS, MCE Consumer, System Update |
+
+Optimistic locking is configured independently for each process. Legacy rows without a
+`SystemMetadata.version` use a plain update until the next write stamps a version. The flag is
+ignored when `entityService.impl=cassandra`.
 
 #### EBean read pool (optional)
 
 See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
 
-GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, write-intent reads (including optimistic-locking CAS reads), and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
 
 | Environment Variable                        | Default                           | Description                                                                 | Components |
 | ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |

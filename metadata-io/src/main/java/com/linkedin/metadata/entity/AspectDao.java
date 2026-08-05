@@ -113,6 +113,21 @@ public interface AspectDao {
       @Nullable TransactionContext txContext,
       @Nonnull final SystemAspect aspect);
 
+  @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
+  default boolean isOptimisticLockingEnabled() {
+    return false;
+  }
+
+  @Nonnull
+  default Optional<EntityAspect> updateAspectConditional(
+      @Nonnull OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final SystemAspect aspect,
+      @Nullable String expectedSystemMetadataVersion) {
+    throw new UnsupportedOperationException(
+        "Optimistic locking conditional update is not supported by this AspectDao");
+  }
+
   /**
    * Insert system aspect, returning the inserted aspect which may be different from the input
    * aspect, having been replaced with an ORM variation.
@@ -196,6 +211,70 @@ public interface AspectDao {
           insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
       return Pair.of(Optional.empty(), inserted);
     }
+  }
+
+  default ConditionalSaveResult saveLatestAspectConditional(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
+
+    if (newAspect.getSystemMetadataVersion().isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Expected a version in systemMetadata.%s", newAspect.getSystemMetadata()));
+    }
+
+    if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
+      SystemAspect currentVersion0 = latestAspect.getDatabaseAspect().get();
+      String expectedVersion = currentVersion0.getSystemMetadata().getVersion();
+
+      if (expectedVersion == null) {
+        Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
+            saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.UPDATED, legacy.getFirst(), legacy.getSecond());
+      }
+
+      long targetVersion =
+          nextVersionResolution(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata());
+      boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+      if (Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
+          && isNoOp) {
+        incrementOptimisticLockMetric("optimistic_lock_skipped_noop");
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.SKIPPED_NOOP, Optional.empty(), Optional.empty());
+      }
+
+      SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
+      Optional<EntityAspect> updated =
+          updateAspectConditional(opContext, txContext, newAspect, expectedVersion);
+      if (updated.isEmpty()) {
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.CONFLICT, Optional.empty(), Optional.empty());
+      }
+
+      Optional<EntityAspect> inserted = Optional.empty();
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
+        inserted =
+            insertAspect(
+                opContext, txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
+      }
+
+      return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, inserted, updated);
+    }
+
+    newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
+    Optional<EntityAspect> inserted =
+        insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
+    return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, Optional.empty(), inserted);
   }
 
   private long nextVersionResolution(
@@ -343,6 +422,14 @@ public interface AspectDao {
       @Nonnull Map<String, Set<String>> urnAspectMap,
       boolean lockLatestForWrite);
 
+  default Map<String, Map<String, Long>> getNextVersions(
+      @Nonnull OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite) {
+    return getNextVersions(operationContext, urnAspectMap, lockLatestForWrite);
+  }
+
   default long getNextVersion(
       @Nonnull OperationContext opContext,
       @Nonnull final String urn,
@@ -417,6 +504,9 @@ public interface AspectDao {
                         MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
                     bytes));
   }
+
+  @OperationContextExempt(reason = "Metrics counter helper, no request context needed")
+  default void incrementOptimisticLockMetric(@Nonnull String name) {}
 
   @Nonnull
   @OperationContextExempt(reason = "Returns static config, no request context needed")

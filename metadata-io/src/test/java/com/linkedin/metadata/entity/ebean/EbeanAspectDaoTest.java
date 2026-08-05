@@ -18,8 +18,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.exception.RetryLimitReached;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.Status;
@@ -30,8 +32,13 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.entity.AspectWriteDisabledException;
+import com.linkedin.metadata.entity.ConditionalSaveResult;
+import com.linkedin.metadata.entity.ConditionalWriteOutcome;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.OptimisticLockConflictException;
 import com.linkedin.metadata.entity.TransactionResult;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -39,7 +46,9 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import io.ebean.DuplicateKeyException;
 import io.ebean.test.LoggedSql;
+import jakarta.persistence.PersistenceException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +56,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
@@ -82,12 +97,6 @@ public class EbeanAspectDaoTest {
 
   @Test
   public void embeddedIdOrderByResolvesToColumns() {
-    // The PostgreSQL lock-ordering fix (deleteUrn / getNextVersions FOR UPDATE) orders by the
-    // embedded-id property path EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH ("key.urn, key.aspect,
-    // key.version"). Ebean must resolve that to real columns; a literal "key.urn" in the SQL would
-    // fail on PostgreSQL. Property→column resolution is dialect-independent, so H2 exercises it
-    // without Testcontainers and this guards against a future Ebean regression silently dropping or
-    // mangling the clause.
     LoggedSql.start();
     server
         .find(EbeanAspectV2.class)
@@ -303,12 +312,14 @@ public class EbeanAspectDaoTest {
     // Mutable list: batchGet may addAll into the first page's result during pagination.
     doReturn(new ArrayList<EbeanAspectV2>())
         .when(spyDao)
-        .batchGetSelectString(any(), anyList(), anyInt(), anyInt(), anyBoolean());
+        .batchGetSelectString(any(), anyList(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
 
     lockingRead.accept(spyDao);
 
     ArgumentCaptor<List<EbeanAspectV2.PrimaryKey>> captor = ArgumentCaptor.captor();
-    verify(spyDao).batchGetSelectString(any(), captor.capture(), anyInt(), anyInt(), anyBoolean());
+    verify(spyDao)
+        .batchGetSelectString(
+            any(), captor.capture(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
     return captor.getValue().stream().map(EbeanAspectDaoTest::keyTuple).toList();
   }
 
@@ -356,7 +367,7 @@ public class EbeanAspectDaoTest {
     EbeanAspectV2 aspectRecord = new EbeanAspectV2();
     aspectRecord.setKey(new EbeanAspectV2.PrimaryKey(urn, aspect, version));
     aspectRecord.setMetadata(metadata);
-    aspectRecord.setCreatedBy("test");
+    aspectRecord.setCreatedBy("urn:li:corpuser:tester");
     aspectRecord.setCreatedFor(null);
     aspectRecord.setCreatedOn(new Timestamp(System.currentTimeMillis()));
     aspectRecord.setSystemMetadata(null);
@@ -658,5 +669,865 @@ public class EbeanAspectDaoTest {
 
     assertEquals(range.getFirst(), Long.valueOf(-1L));
     assertEquals(range.getSecond(), Long.valueOf(-1L));
+  }
+
+  private EbeanAspectDao newOptimisticDao() {
+    return newOptimisticDao(mock(MetricUtils.class));
+  }
+
+  private EbeanAspectDao newOptimisticDao(MetricUtils metricUtils) {
+    EbeanAspectDao dao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            metricUtils,
+            List.of(),
+            null,
+            true);
+    dao.setWritable(true);
+    return dao;
+  }
+
+  private EbeanAspectDao newLegacyDao() {
+    EbeanAspectDao dao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            mock(MetricUtils.class),
+            List.of(),
+            null,
+            false);
+    dao.setWritable(true);
+    return dao;
+  }
+
+  private SystemAspect buildStatusAspect(String urn, Status status, SystemMetadata systemMetadata) {
+    return new EbeanSystemAspect(
+        null,
+        UrnUtils.getUrn(urn),
+        STATUS_ASPECT_NAME,
+        opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+        opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+        status,
+        systemMetadata,
+        AuditStampUtils.createDefaultAuditStamp(),
+        null,
+        null,
+        null);
+  }
+
+  @Test
+  public void testOptimisticLockingPinsPrimaryOnlyOnWriteIntent() {
+    Database primary = mock(Database.class);
+    Database read = mock(Database.class);
+    PrimaryStorageResolver resolver = PrimaryStorageTestUtils.splitPoolEbeanResolver(primary, read);
+    EbeanAspectDao optimisticDao =
+        new EbeanAspectDao(
+            resolver,
+            EbeanConfiguration.testDefault,
+            mock(MetricUtils.class),
+            List.of(),
+            null,
+            true);
+    optimisticDao.setWritable(true);
+
+    OperationContext readCtx =
+        TestOperationContexts.systemContextNoValidate()
+            .withReadPreference(io.datahubproject.metadata.context.ReadPreference.READ);
+
+    assertEquals(
+        optimisticDao.resolveBatchGetDatabase(readCtx, true),
+        primary,
+        "write-intent under OL must pin PRIMARY");
+    assertEquals(
+        optimisticDao.resolveBatchGetDatabase(readCtx, false),
+        read,
+        "pure reads under OL may use the read pool");
+    assertEquals(
+        optimisticDao.resolveGetNextVersionsDatabase(readCtx, true),
+        primary,
+        "getNextVersions write-intent under OL must pin PRIMARY");
+    assertEquals(
+        optimisticDao.resolveGetNextVersionsDatabase(readCtx, false),
+        read,
+        "getNextVersions pure reads under OL may use the read pool (e.g. TimelineService)");
+  }
+
+  @Test
+  public void testGetLatestAspectsSkipsForUpdateWhenOptimisticLockingOn() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    LoggedSql.start();
+
+    optimisticDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          optimisticDao.getLatestAspects(
+              opContext, Map.of("urn:li:corpuser:testOptLockGetLatest", Set.of("status")), true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    List<String> sql =
+        LoggedSql.stop().stream().filter(str -> str.contains("testOptLockGetLatest")).toList();
+    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+    assertFalse(
+        sql.get(0).toLowerCase().contains("for update"),
+        String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
+  }
+
+  @Test
+  public void testBatchGetSkipsForUpdateWhenOptimisticLockingOn() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    LoggedSql.start();
+
+    optimisticDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          optimisticDao.batchGet(
+              opContext,
+              Set.of(
+                  new EntityAspectIdentifier(
+                      "urn:li:corpuser:testOptLockBatchGet",
+                      STATUS_ASPECT_NAME,
+                      ASPECT_LATEST_VERSION)),
+              true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    List<String> sql =
+        LoggedSql.stop().stream().filter(str -> str.contains("testOptLockBatchGet")).toList();
+    assertEquals(sql.size(), 1, String.format("Found: %s", sql));
+    assertFalse(
+        sql.get(0).toLowerCase().contains("for update"),
+        String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
+  }
+
+  @Test
+  public void testGetNextVersionsSkipsForUpdateButQueriesMaxWhenOptimisticLockingOn() {
+    // Under OL we still need MAX(version) for legacy null SystemMetadata.version paths;
+    // only the FOR UPDATE pin is skipped (write-intent already pins primary).
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    LoggedSql.start();
+
+    optimisticDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          optimisticDao.getNextVersions(
+              opContext,
+              Map.of("urn:li:corpuser:testOptLockGetNextVersions", Set.of("status")),
+              true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    List<String> sql =
+        LoggedSql.stop().stream()
+            .filter(str -> str.contains("testOptLockGetNextVersions"))
+            .toList();
+    assertEquals(sql.size(), 1, String.format("Expected one version query under OL, got: %s", sql));
+    assertFalse(
+        sql.get(0).toLowerCase().contains("for update"),
+        String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
+  }
+
+  @Test
+  public void testConditionalUpdateSqlPerDialect() {
+    assertEquals(testDao.getDialect(), EbeanAspectDao.Dialect.H2_OR_OTHER);
+    String mysql = testDao.buildConditionalUpdateSql(EbeanAspectDao.Dialect.MYSQL);
+    assertTrue(mysql.contains("systemmetadata->>'$.version' = :expectedVersion"));
+    String pg = testDao.buildConditionalUpdateSql(EbeanAspectDao.Dialect.POSTGRES);
+    assertTrue(pg.contains("(systemmetadata::jsonb ->> 'version') = :expectedVersion"));
+    String h2 = testDao.buildConditionalUpdateSql(EbeanAspectDao.Dialect.H2_OR_OTHER);
+    assertTrue(h2.contains("INSTR(CAST(systemmetadata AS VARCHAR)"));
+    for (String s : List.of(mysql, pg, h2)) {
+      assertTrue(s.contains("WHERE urn = :urn AND aspect = :aspect AND version = 0"));
+      assertTrue(s.contains("createdfor = :createdFor"));
+    }
+  }
+
+  private void insertAspectWithSystemMetadata(
+      EbeanAspectDao dao,
+      String urn,
+      String aspect,
+      long version,
+      String systemMetadata,
+      String metadata) {
+    EbeanAspectV2 aspectRecord = new EbeanAspectV2();
+    aspectRecord.setKey(new EbeanAspectV2.PrimaryKey(urn, aspect, version));
+    aspectRecord.setMetadata(metadata);
+    aspectRecord.setCreatedBy("urn:li:corpuser:tester");
+    aspectRecord.setCreatedFor(null);
+    aspectRecord.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+    aspectRecord.setSystemMetadata(systemMetadata);
+    dao.getServer().save(aspectRecord);
+  }
+
+  @Test
+  public void testOptimisticLockRetryExhaustedIncrementsMetric() {
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    EbeanAspectDao optimisticDao = newOptimisticDao(metricUtils);
+    String urn = "urn:li:corpuser:testOptLockRetryExhausted";
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    try {
+      optimisticDao.runInTransactionWithRetryUnlocked(
+          opContext,
+          (txContext) -> {
+            throw new OptimisticLockConflictException("force exhaust retries");
+          },
+          mock(AspectsBatch.class),
+          2);
+      throw new AssertionError("expected RetryLimitReached");
+    } catch (RetryLimitReached expected) {
+      // expected
+    }
+
+    verify(metricUtils, org.mockito.Mockito.atLeastOnce())
+        .increment(
+            com.codahale.metrics.MetricRegistry.name(EbeanAspectDao.class, "optimistic_lock_retry"),
+            1);
+    verify(metricUtils, org.mockito.Mockito.atLeastOnce())
+        .increment(
+            com.codahale.metrics.MetricRegistry.name(
+                EbeanAspectDao.class, "optimistic_lock_retry_exhausted"),
+            1);
+  }
+
+  @Test
+  public void testSaveLatestAspectConditionalNullVersionFallsBackToLegacy() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockNullVersion";
+    SystemMetadata legacySysMeta = new SystemMetadata();
+    legacySysMeta.setRunId("legacy");
+    SystemAspect initial =
+        new EbeanSystemAspect(
+            null,
+            UrnUtils.getUrn(urn),
+            STATUS_ASPECT_NAME,
+            opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+            new Status(),
+            legacySysMeta,
+            AuditStampUtils.createDefaultAuditStamp(),
+            null,
+            null,
+            null);
+    optimisticDao.insertAspect(opContext, null, initial, ASPECT_LATEST_VERSION);
+
+    SystemAspect latestAspect =
+        optimisticDao
+            .getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false)
+            .get(urn)
+            .get(STATUS_ASPECT_NAME);
+    assertNotNull(latestAspect);
+    assertNull(latestAspect.getSystemMetadata().getVersion());
+
+    SystemMetadata newSysMeta = new SystemMetadata();
+    newSysMeta.setVersion("1");
+    SystemAspect newAspect =
+        new EbeanSystemAspect(
+            null,
+            UrnUtils.getUrn(urn),
+            STATUS_ASPECT_NAME,
+            opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+            new Status(),
+            newSysMeta,
+            AuditStampUtils.createDefaultAuditStamp(),
+            null,
+            null,
+            null);
+
+    ConditionalSaveResult result =
+        optimisticDao.saveLatestAspectConditional(opContext, null, latestAspect, newAspect, 1);
+
+    assertEquals(result.getOutcome(), ConditionalWriteOutcome.UPDATED);
+    EntityAspect after =
+        optimisticDao
+            .batchGet(
+                opContext,
+                Set.of(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)),
+                false)
+            .get(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+    assertNotNull(after);
+  }
+
+  @Test
+  public void testGetNextVersionsComputesMaxOnDuplicateKeyFallback() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockGetNextFallback";
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "v0-metadata");
+    insertAspectWithSystemMetadata(
+        optimisticDao, urn, STATUS_ASPECT_NAME, 1L, "{\"version\":\"0\"}", "v1-metadata");
+
+    LoggedSql.start();
+    Map<String, Map<String, Long>> versions =
+        optimisticDao.getNextVersions(
+            opContext, null, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), true);
+    List<String> sql = LoggedSql.stop();
+
+    assertEquals(versions.get(urn).get(STATUS_ASPECT_NAME), Long.valueOf(2L));
+    assertTrue(
+        sql.stream().anyMatch(s -> s.contains("metadata_aspect_v2") && s.contains(urn)),
+        "should query metadata_aspect_v2 for the urn, got: " + sql);
+  }
+
+  @Test
+  public void testGetNextVersionsQueriesMaxForLegacyNullVersionWithHistory() {
+    // EntityUtils only calls getNextVersions for aspects missing SystemMetadata.version. Under OL
+    // we must still query MAX(version)+1 — returning 0 would collide with existing history rows.
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockGetNextLegacyHistory";
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"runId\":\"legacy-no-version\"}",
+        "v0-metadata");
+    insertAspectWithSystemMetadata(
+        optimisticDao, urn, STATUS_ASPECT_NAME, 1L, "{\"runId\":\"h1\"}", "v1-metadata");
+    insertAspectWithSystemMetadata(
+        optimisticDao, urn, STATUS_ASPECT_NAME, 2L, "{\"runId\":\"h2\"}", "v2-metadata");
+
+    LoggedSql.start();
+    Map<String, Map<String, Long>> versions =
+        optimisticDao.getNextVersions(
+            opContext, null, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), true);
+    List<String> sql = LoggedSql.stop();
+
+    assertEquals(
+        versions.get(urn).get(STATUS_ASPECT_NAME),
+        Long.valueOf(3L),
+        "legacy null-version v0 with history at 1–2 must get MAX+1=3, not default 0");
+    assertTrue(
+        sql.stream().anyMatch(s -> s.contains("metadata_aspect_v2") && s.contains(urn)),
+        "must query metadata_aspect_v2 for MAX(version), got: " + sql);
+  }
+
+  /**
+   * Concurrent v0 insert under OL must not CAS-overwrite the winner. Throw {@link
+   * OptimisticLockConflictException} so the txn retry loop re-reads and re-applies.
+   */
+  @Test
+  public void testDuplicateKeyInsertThrowsOptimisticLockConflict() {
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    EbeanAspectDao optimisticDao = newOptimisticDao(metricUtils);
+    String urn = "urn:li:corpuser:testOptLockInsertConflict";
+
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    SystemMetadata secondMeta = new SystemMetadata();
+    secondMeta.setVersion("2");
+    try {
+      optimisticDao.insertAspect(
+          opContext,
+          null,
+          buildStatusAspect(urn, new Status().setRemoved(true), secondMeta),
+          ASPECT_LATEST_VERSION);
+      throw new AssertionError("expected OptimisticLockConflictException");
+    } catch (OptimisticLockConflictException thrown) {
+      assertTrue(thrown.getMessage().contains(urn));
+    }
+    verify(metricUtils, org.mockito.Mockito.atLeastOnce())
+        .increment(
+            com.codahale.metrics.MetricRegistry.name(
+                EbeanAspectDao.class, "optimistic_lock_insert_fallback"),
+            1);
+
+    EntityAspect after =
+        optimisticDao
+            .batchGet(
+                opContext,
+                Set.of(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)),
+                false)
+            .get(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+    SystemMetadata afterMeta =
+        com.linkedin.metadata.utils.SystemMetadataUtils.parseSystemMetadata(
+            after.getSystemMetadata());
+    assertEquals(afterMeta.getVersion(), "1", "winner row must remain unchanged");
+    assertTrue(
+        after.getMetadata().contains("\"removed\":false")
+            || after.getMetadata().contains("\"removed\": false"));
+  }
+
+  /** Same conflict-for-retry behavior when the existing row is pre-versioning. */
+  @Test
+  public void testDuplicateKeyInsertOnLegacyRowThrowsOptimisticLockConflict() {
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    EbeanAspectDao optimisticDao = newOptimisticDao(metricUtils);
+    String urn = "urn:li:corpuser:testOptLockInsertLegacyConflict";
+
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"runId\":\"no-version\"}",
+        "{\"removed\":false}");
+
+    SystemMetadata nextMeta = new SystemMetadata();
+    nextMeta.setVersion("1");
+    assertThrows(
+        OptimisticLockConflictException.class,
+        () ->
+            optimisticDao.insertAspect(
+                opContext,
+                null,
+                buildStatusAspect(urn, new Status().setRemoved(true), nextMeta),
+                ASPECT_LATEST_VERSION));
+    verify(metricUtils, org.mockito.Mockito.atLeastOnce())
+        .increment(
+            com.codahale.metrics.MetricRegistry.name(
+                EbeanAspectDao.class, "optimistic_lock_insert_fallback"),
+            1);
+
+    EntityAspect after =
+        optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+    assertTrue(
+        after.getMetadata().contains("\"removed\":false")
+            || after.getMetadata().contains("\"removed\": false"),
+        "legacy winner row must not be overwritten by loser insert");
+  }
+
+  @Test
+  public void testConcurrentWritersWithHistoryRetention() throws Exception {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockHistory";
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    AtomicInteger successes = new AtomicInteger();
+    AtomicReference<Throwable> firstError = new AtomicReference<>();
+    CountDownLatch bothRead = new CountDownLatch(2);
+    CountDownLatch writeGate = new CountDownLatch(1);
+    CountDownLatch done = new CountDownLatch(2);
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+
+    for (int i = 0; i < 2; i++) {
+      final boolean removed = i == 0;
+      pool.submit(
+          () -> {
+            try {
+              optimisticDao.runInTransactionWithRetryUnlocked(
+                  opContext,
+                  (txContext) -> {
+                    SystemAspect latest =
+                        optimisticDao
+                            .getLatestAspects(
+                                opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false)
+                            .get(urn)
+                            .get(STATUS_ASPECT_NAME);
+                    String expected =
+                        latest.getDatabaseAspect().get().getSystemMetadata().getVersion();
+                    bothRead.countDown();
+                    try {
+                      assertTrue(writeGate.await(30, TimeUnit.SECONDS));
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                      throw new RuntimeException(e);
+                    }
+                    SystemMetadata sm = new SystemMetadata();
+                    sm.setVersion(String.valueOf(Long.parseLong(expected) + 1));
+                    ConditionalSaveResult r =
+                        optimisticDao.saveLatestAspectConditional(
+                            opContext,
+                            txContext,
+                            latest,
+                            buildStatusAspect(urn, new Status().setRemoved(removed), sm),
+                            /* maxVersionsToKeep */ 5);
+                    if (r.getOutcome() == ConditionalWriteOutcome.CONFLICT) {
+                      throw new OptimisticLockConflictException("history path conflict");
+                    }
+                    assertEquals(r.getOutcome(), ConditionalWriteOutcome.UPDATED);
+                    successes.incrementAndGet();
+                    return TransactionResult.commit("");
+                  },
+                  mock(AspectsBatch.class),
+                  10);
+            } catch (Throwable t) {
+              firstError.compareAndSet(null, t);
+            } finally {
+              done.countDown();
+            }
+          });
+    }
+    assertTrue(bothRead.await(30, TimeUnit.SECONDS));
+    writeGate.countDown();
+    assertTrue(done.await(60, TimeUnit.SECONDS));
+    pool.shutdownNow();
+
+    assertNull(
+        firstError.get(),
+        "retention>1 concurrent writers failed: "
+            + firstError.get()
+            + (firstError.get() != null && firstError.get().getCause() != null
+                ? " cause=" + firstError.get().getCause()
+                : ""));
+    assertEquals(successes.get(), 2);
+
+    EntityAspect v0 =
+        optimisticDao
+            .batchGet(
+                opContext,
+                Set.of(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)),
+                false)
+            .get(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+    SystemMetadata afterMeta =
+        com.linkedin.metadata.utils.SystemMetadataUtils.parseSystemMetadata(v0.getSystemMetadata());
+    assertEquals(afterMeta.getVersion(), "3");
+
+    EntityAspect history1 = optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 1L);
+    EntityAspect history2 = optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 2L);
+    assertTrue(
+        history1 != null || history2 != null,
+        "expected at least one history row when maxVersionsToKeep > 1");
+  }
+
+  /**
+   * Reproduction for history-before-CAS: with {@code maxVersionsToKeep > 1} and no surrounding
+   * transaction, a conflicting conditional save must not leave an orphaned history row. Inserting
+   * history before CAS autocommits the history write even when version-0 CAS fails.
+   */
+  @Test
+  public void testConflictWithRetentionDoesNotLeaveOrphanHistoryRow() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockOrphanHistory";
+
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    SystemAspect staleLatest =
+        optimisticDao
+            .getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false)
+            .get(urn)
+            .get(STATUS_ASPECT_NAME);
+
+    // Winner bumps v0 without writing history, so history version 1 is free for the stale writer
+    // to wrongly insert before its failed CAS.
+    SystemMetadata winnerMeta = new SystemMetadata();
+    winnerMeta.setVersion("2");
+    assertEquals(
+        optimisticDao
+            .saveLatestAspectConditional(
+                opContext,
+                null,
+                staleLatest,
+                buildStatusAspect(urn, new Status().setRemoved(true), winnerMeta),
+                /* maxVersionsToKeep */ 1)
+            .getOutcome(),
+        ConditionalWriteOutcome.UPDATED);
+    assertNull(
+        optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 1L),
+        "winner with maxVersionsToKeep=1 must not write history");
+
+    // Stale writer still holds the pre-winner latestAspect (expectedVersion=1) but asks for
+    // retention, which (with history-before-CAS) inserts history@1 before the failing CAS.
+    SystemMetadata loserMeta = new SystemMetadata();
+    loserMeta.setVersion("2");
+    ConditionalSaveResult conflict =
+        optimisticDao.saveLatestAspectConditional(
+            opContext,
+            null,
+            staleLatest,
+            buildStatusAspect(urn, new Status().setRemoved(false), loserMeta),
+            /* maxVersionsToKeep */ 5);
+
+    assertEquals(conflict.getOutcome(), ConditionalWriteOutcome.CONFLICT);
+    assertFalse(conflict.getInserted().isPresent(), "conflict must not report a history insert");
+    assertFalse(conflict.getUpdated().isPresent());
+
+    assertNull(
+        optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 1L),
+        "conflicting save must not orphan history version 1 when CAS fails");
+
+    EntityAspect v0 =
+        optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+    SystemMetadata afterMeta =
+        com.linkedin.metadata.utils.SystemMetadataUtils.parseSystemMetadata(v0.getSystemMetadata());
+    assertEquals(afterMeta.getVersion(), "2", "v0 must remain at winner's version");
+  }
+
+  /**
+   * Reproduction for {@code !canWrite} looking like an OL conflict: conditional UPDATE used to
+   * return empty (same as CAS miss), so the txn retry loop kept retrying until {@link
+   * RetryLimitReached}. Read-only mode must fail fast with a non-{@link
+   * jakarta.persistence.PersistenceException}.
+   */
+  @Test
+  public void testReadOnlyFailsFastWithoutOptimisticLockRetries() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockReadOnly";
+
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    optimisticDao.setWritable(false);
+
+    AtomicInteger attempts = new AtomicInteger();
+    final int maxRetries = 5;
+
+    try {
+      optimisticDao.runInTransactionWithRetryUnlocked(
+          opContext,
+          (txContext) -> {
+            attempts.incrementAndGet();
+            SystemAspect latest =
+                optimisticDao
+                    .getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false)
+                    .get(urn)
+                    .get(STATUS_ASPECT_NAME);
+            SystemMetadata next = new SystemMetadata();
+            next.setVersion("2");
+            ConditionalSaveResult result =
+                optimisticDao.saveLatestAspectConditional(
+                    opContext,
+                    txContext,
+                    latest,
+                    buildStatusAspect(urn, new Status().setRemoved(true), next),
+                    1);
+            if (result.getOutcome() == ConditionalWriteOutcome.CONFLICT) {
+              // Old bug path: empty conditional update → CONFLICT → retryable OL exception.
+              throw new OptimisticLockConflictException("should not treat read-only as conflict");
+            }
+            return TransactionResult.commit("");
+          },
+          mock(AspectsBatch.class),
+          maxRetries);
+      throw new AssertionError("expected AspectWriteDisabledException");
+    } catch (AspectWriteDisabledException expected) {
+      // fail-fast path
+    } catch (RetryLimitReached e) {
+      throw new AssertionError(
+          "read-only was retried as an optimistic-lock conflict until RetryLimitReached", e);
+    }
+
+    assertEquals(
+        attempts.get(),
+        1,
+        "read-only must not be retried as an optimistic-lock conflict (would burn "
+            + (maxRetries + 1)
+            + " attempts)");
+
+    // Row unchanged.
+    EntityAspect after =
+        optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+    SystemMetadata afterMeta =
+        com.linkedin.metadata.utils.SystemMetadataUtils.parseSystemMetadata(
+            after.getSystemMetadata());
+    assertEquals(afterMeta.getVersion(), "1");
+  }
+
+  @Test
+  public void testUpdateAspectConditionalThrowsWhenReadOnly() {
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockReadOnlyConditional";
+    insertAspectWithSystemMetadata(
+        optimisticDao,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    optimisticDao.setWritable(false);
+    SystemMetadata next = new SystemMetadata();
+    next.setVersion("2");
+    assertThrows(
+        AspectWriteDisabledException.class,
+        () ->
+            optimisticDao.updateAspectConditional(
+                opContext, null, buildStatusAspect(urn, new Status().setRemoved(true), next), "1"));
+  }
+
+  /**
+   * Pre-existing bug (flag-independent): a successful retry after a PersistenceException used to
+   * still throw {@link RetryLimitReached} because prior exceptions were not cleared. {@code
+   * transactionContext.success()} must clear them for both OL and non-OL DAOs.
+   */
+  @Test
+  public void testTransactionRetrySuccessClearsPriorExceptionsWithoutOptimisticLocking() {
+    AtomicInteger attempts = new AtomicInteger();
+    TransactionResult<String> result =
+        testDao.runInTransactionWithRetryUnlocked(
+            opContext,
+            (txContext) -> {
+              if (attempts.getAndIncrement() == 0) {
+                throw new jakarta.persistence.PersistenceException("transient failure");
+              }
+              return TransactionResult.commit("ok");
+            },
+            mock(AspectsBatch.class),
+            5);
+
+    assertEquals(attempts.get(), 2);
+    assertTrue(result.isCommitOrRollback());
+    assertEquals(result.getResults().orElse(null), "ok");
+  }
+
+  /**
+   * Intentional rollback must not surface as {@link RetryLimitReached} after {@code success()}
+   * clears the exception list.
+   */
+  @Test
+  public void testIntentionalRollbackDoesNotThrowRetryLimitReached() {
+    TransactionResult<String> result =
+        testDao.runInTransactionWithRetryUnlocked(
+            opContext, (txContext) -> TransactionResult.rollback(), mock(AspectsBatch.class), 3);
+
+    assertFalse(result.isCommitOrRollback());
+    assertTrue(result.getResults().isEmpty());
+  }
+
+  /**
+   * Mixed fleet on H2: legacy {@code FOR UPDATE} path and OL CAS path share one DB and must keep
+   * {@code SystemMetadata.version} coherent across a sequential hand-off (GMS OL-off ↔ MCE OL-on).
+   */
+  @Test
+  public void testMixedModeLegacyAndOptimisticSequentialConverges() {
+    EbeanAspectDao legacy = newLegacyDao();
+    EbeanAspectDao optimistic = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockMixedModeSeq";
+
+    insertAspectWithSystemMetadata(
+        legacy,
+        urn,
+        STATUS_ASPECT_NAME,
+        ASPECT_LATEST_VERSION,
+        "{\"version\":\"1\"}",
+        "{\"removed\":false}");
+
+    legacy.runInTransactionWithRetryUnlocked(
+        opContext,
+        (tx) -> {
+          SystemAspect latest =
+              legacy
+                  .getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), true)
+                  .get(urn)
+                  .get(STATUS_ASPECT_NAME);
+          SystemMetadata next = new SystemMetadata();
+          next.setVersion("2");
+          legacy.saveLatestAspect(
+              opContext,
+              tx,
+              latest,
+              buildStatusAspect(urn, new Status().setRemoved(true), next),
+              1);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        3);
+
+    optimistic.runInTransactionWithRetryUnlocked(
+        opContext,
+        (tx) -> {
+          SystemAspect latest =
+              optimistic
+                  .getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), true)
+                  .get(urn)
+                  .get(STATUS_ASPECT_NAME);
+          SystemMetadata next = new SystemMetadata();
+          next.setVersion("3");
+          ConditionalSaveResult r =
+              optimistic.saveLatestAspectConditional(
+                  opContext,
+                  tx,
+                  latest,
+                  buildStatusAspect(urn, new Status().setRemoved(false), next),
+                  1);
+          assertEquals(r.getOutcome(), ConditionalWriteOutcome.UPDATED);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        3);
+
+    EntityAspect after =
+        optimistic.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+    assertEquals(
+        com.linkedin.metadata.utils.SystemMetadataUtils.parseSystemMetadata(
+                after.getSystemMetadata())
+            .getVersion(),
+        "3");
+  }
+
+  @Test
+  public void testIsDuplicateKeyCauseDetectsEbeanDuplicateKey() {
+    assertTrue(
+        EbeanAspectDao.isDuplicateKeyCause(
+            new DuplicateKeyException("dup", new java.sql.SQLException("x", "23505"))));
+  }
+
+  @Test
+  public void testIsDuplicateKeyCauseDetectsPostgresSqlState() {
+    PersistenceException pe =
+        new PersistenceException(
+            "wrap",
+            new java.sql.SQLException("duplicate key value violates unique constraint", "23505"));
+    assertTrue(EbeanAspectDao.isDuplicateKeyCause(pe));
+  }
+
+  @Test
+  public void testIsDuplicateKeyCauseDetectsMysqlErrorCode() {
+    PersistenceException pe =
+        new PersistenceException(
+            "wrap",
+            new java.sql.SQLException("Duplicate entry 'x' for key 'PRIMARY'", "23000", 1062));
+    assertTrue(EbeanAspectDao.isDuplicateKeyCause(pe));
+  }
+
+  @Test
+  public void testIsDuplicateKeyCauseIgnoresForeignKeyViolation() {
+    // MySQL FK often uses SQLState 23000 with error 1452 — must not look like a dup-key.
+    PersistenceException pe =
+        new PersistenceException(
+            "wrap",
+            new java.sql.SQLException(
+                "Cannot add or update a child row: a foreign key constraint fails", "23000", 1452));
+    assertFalse(EbeanAspectDao.isDuplicateKeyCause(pe));
+  }
+
+  @Test
+  public void testIsDuplicateKeyCauseIgnoresMessageOnlyMatch() {
+    // Former fragile path matched message substrings without SQLState / typed cause.
+    assertFalse(
+        EbeanAspectDao.isDuplicateKeyCause(
+            new PersistenceException("Duplicate entry 'foo' for key 'PRIMARY'")));
   }
 }

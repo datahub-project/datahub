@@ -314,9 +314,10 @@ public class EntityUtils {
 
     final Map<String, Map<String, Long>> precalculatedVersions;
     final Map<String, Set<String>> missingAspectVersions;
-    if (txContext.getFailedAttempts() > 2 && txContext.lastExceptionIsDuplicateKey()) {
+    if (txContext.shouldFallbackToDatabaseMaxVersion()) {
       log.warn(
-          "Multiple exceptions detected, last exception detected as DuplicateKey, fallback to database max(version)+1");
+          "DuplicateKey failures reached fallback threshold ({}), using database max(version)+1",
+          TransactionContext.DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES);
       precalculatedVersions = Map.of();
       missingAspectVersions = urnAspects;
     } else {
@@ -348,7 +349,7 @@ public class EntityUtils {
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
-            : aspectDao.getNextVersions(opContext, missingAspectVersions, true);
+            : aspectDao.getNextVersions(opContext, txContext, missingAspectVersions, true);
 
     // stitch back together the precalculated and database versions
     return Stream.concat(
