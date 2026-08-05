@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Union
 
+from google.api_core.exceptions import GoogleAPIError, PermissionDenied
 from google.cloud import bigquery
 
 from datahub.ingestion.api.source import (
@@ -170,7 +171,6 @@ class BigQueryTestConnection:
         project_ids: List[str],
     ) -> CapabilityReport:
         """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
-        from google.api_core.exceptions import GoogleAPIError, PermissionDenied
         from google.cloud import bigquery_analyticshub_v1
 
         ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()

@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+from google.api_core.exceptions import GoogleAPIError, PermissionDenied
 from google.cloud import bigquery, bigquery_analyticshub_v1, resourcemanager_v3
 
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -152,8 +153,6 @@ class BigQueryLinkedDatasetsHandler:
 
         Errors are reported as structured warnings; the method never raises.
         """
-        from google.api_core.exceptions import GoogleAPIError, PermissionDenied
-
         if not datasets:
             return
 
@@ -299,8 +298,6 @@ class BigQueryLinkedDatasetsHandler:
         Returns None only when the consumer dataset cannot be read (e.g.
         `get_dataset` permission denied), leaving it to ingest as a plain dataset.
         """
-        from google.api_core.exceptions import GoogleAPIError, PermissionDenied
-
         try:
             state_name = bigquery_analyticshub_v1.Subscription.State(sub.state).name
         except (ValueError, AttributeError):
@@ -369,8 +366,6 @@ class BigQueryLinkedDatasetsHandler:
 
         Cached (failures as None) so repeat references resolve with one RM call.
         """
-        from google.api_core.exceptions import GoogleAPIError, PermissionDenied
-
         if project_number in self._publisher_project_id_cache:
             return self._publisher_project_id_cache[project_number]
 
