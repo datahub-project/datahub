@@ -727,7 +727,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     )
                     + 1
                 )
-                logger.info(
+                logger.debug(
                     "Snowflake stream-bypass fired for query_id=%s "
                     "(query_type=%s, corrupt=%s, unknown_dollar=%s, multi_target=%s)",
                     res["query_id"],
@@ -763,7 +763,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 for col in obj.get("columns") or []
             )
             downstream_names = [obj.get("objectName", "?") for obj in objects_modified]
-            logger.info(
+            logger.debug(
                 "Stream query preserved on PreparsedQuery path: "
                 "query_id=%s, query_type=%s, cll_columns=%d, downstreams=%s",
                 res["query_id"],
