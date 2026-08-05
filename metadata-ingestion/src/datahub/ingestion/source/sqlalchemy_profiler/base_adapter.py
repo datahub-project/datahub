@@ -133,9 +133,7 @@ class PlatformAdapter(ABC):
         Opt-in is per-adapter by exact platform match in `get_adapter`
         (`adapters/__init__.py`); the base default is None. Do NOT invert the base default:
         `GenericAdapter` is the fallback for every unlisted platform, so inverting would
-        silently apply AUTOCOMMIT to engines that reject it. Which adapters override
-        `setup_profiling`/`cleanup` (and so need separate review before opting in) is
-        documented in the PR description, not here -- it goes stale too fast.
+        silently apply AUTOCOMMIT to engines that reject it.
 
         Accepted correctness trade-off: under AUTOCOMMIT, `min`, `max`, `COUNT(*)`,
         `COUNT(col)`, `uniqueCount`, quantiles, histograms, and sample values each come from
