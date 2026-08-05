@@ -122,9 +122,8 @@ def test_pipeline_task_with_none_timestamps(
 
 
 def test_training_extractor_stops_pulling_at_max_jobs(source: VertexAISource) -> None:
-    """The training-job stream is consumed lazily: once max_training_jobs_per_type
-    is reached the extractor stops pulling instead of draining the whole listing.
-    Guards against a regression to eager materialization of the listing."""
+    """Tests that the extractor consumes the training-job stream lazily, stopping
+    once max_training_jobs_per_type is reached rather than draining the listing."""
     source.config.max_training_jobs_per_type = 2
     source.config.training_job_type_pattern = AllowDenyPattern(allow=["^CustomJob$"])
 
@@ -141,20 +140,24 @@ def test_training_extractor_stops_pulling_at_max_jobs(source: VertexAISource) ->
             side_effect=instrumented_iter,
         ),
         patch.object(
+            source.training_extractor.state_handler,
+            "get_last_update_time",
+            return_value=None,
+        ),
+        patch.object(
             source.training_extractor, "_get_training_job_mcps", return_value=iter([])
         ),
     ):
         list(source.training_extractor.get_workunits())
 
-    assert pulled == [0, 1], "should stop pulling at the cap, not drain all 10"
+    assert pulled == [0, 1]
 
 
 def test_pipeline_extractor_stops_pulling_at_checkpoint(
     source: VertexAISource,
 ) -> None:
-    """The pipeline stream is consumed lazily: once the incremental checkpoint
-    timestamp is reached the extractor stops pulling instead of draining it.
-    Guards against a regression to eager materialization of the listing."""
+    """Tests that the extractor consumes the pipeline stream lazily, stopping once
+    the incremental checkpoint timestamp is reached rather than draining it."""
     checkpoint_millis = int(
         (datetime.now(timezone.utc) - timedelta(days=1)).timestamp() * 1000
     )
@@ -196,7 +199,7 @@ def test_pipeline_extractor_stops_pulling_at_checkpoint(
     ):
         list(source.pipeline_extractor.get_workunits())
 
-    assert len(pulled) == 2, "should stop pulling at the checkpoint, not drain all 5"
+    assert len(pulled) == 2
 
 
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:

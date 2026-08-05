@@ -126,8 +126,8 @@ def _make_cls(*, supported_schemas=None, supported_uris=None):
 
 
 def test_rate_limited_gapic_iter_streams_lazily() -> None:
-    """The streaming variant must pull at most one page item before the first
-    yield, so peak memory does not hold the whole listing."""
+    """Tests that the generator is lazy, pulling at most one item before the
+    first yield so peak memory never holds the whole listing."""
     cls = _make_cls()
     pulled: List[int] = []
 
@@ -152,10 +152,11 @@ def test_rate_limited_gapic_iter_streams_lazily() -> None:
         first = next(stream)
 
     assert first == 0
-    assert pulled == [0]  # only the first proto was materialized
+    assert pulled == [0]
 
 
 def test_rate_limited_gapic_iter_matches_list() -> None:
+    """Tests that rate_limited_gapic_list yields the same items as the generator."""
     cls = _make_cls()
     with (
         patch(
@@ -177,6 +178,7 @@ def test_rate_limited_gapic_iter_matches_list() -> None:
 
 
 def test_rate_limited_gapic_iter_applies_proto_filter() -> None:
+    """Tests that protos are filtered by the class's supported training schemas."""
     wanted = MagicMock(training_task_definition="gs://schema/custom")
     unwanted = MagicMock(training_task_definition="gs://schema/other")
 
@@ -199,6 +201,7 @@ def test_rate_limited_gapic_iter_applies_proto_filter() -> None:
 
 
 def test_rate_limited_gapic_iter_no_list_method_falls_back() -> None:
+    """Tests that a class without a GAPIC list method falls back to list()."""
     cls = MagicMock()
     del cls._list_method
     cls.list.return_value = ["a", "b"]
@@ -210,7 +213,7 @@ def test_rate_limited_gapic_iter_no_list_method_falls_back() -> None:
 
 
 def test_rate_limited_gapic_iter_attribute_error_falls_back() -> None:
-    """Setup errors fall back to list(); the fallback must not fire mid-stream."""
+    """Tests that a setup-time error falls back to the high-level list()."""
     cls = _make_cls()
     cls._empty_constructor.side_effect = AttributeError("no constructor")
     cls.list.return_value = ["fallback"]
@@ -222,8 +225,8 @@ def test_rate_limited_gapic_iter_attribute_error_falls_back() -> None:
 
 
 def test_rate_limited_gapic_iter_does_not_refetch_on_mid_stream_error() -> None:
-    """A failure after streaming has started must propagate, not fall back to
-    list() and re-emit already-yielded resources (the fallback is setup-only)."""
+    """Tests that a failure after streaming has started propagates instead of
+    falling back to list() and re-emitting already-yielded resources."""
     cls = _make_cls()
 
     def pager_then_raise():
@@ -248,11 +251,12 @@ def test_rate_limited_gapic_iter_does_not_refetch_on_mid_stream_error() -> None:
             for item in rate_limited_gapic_iter(cls, nullcontext()):
                 emitted.append(item)
 
-    assert emitted == ["a", "b"]  # no duplicates from a re-run
-    cls.list.assert_not_called()  # did not fall back to the high-level list()
+    assert emitted == ["a", "b"]
+    cls.list.assert_not_called()
 
 
 def test_rate_limited_gapic_iter_passes_filter_str() -> None:
+    """Tests that filter_str is forwarded on the GAPIC list request."""
     cls = _make_cls()
     with (
         patch(
@@ -273,6 +277,7 @@ def test_rate_limited_gapic_iter_passes_filter_str() -> None:
 
 
 def test_rate_limited_gapic_iter_applies_metadata_schema_uri_filter() -> None:
+    """Tests that protos are filtered by the class's supported metadata schema URIs."""
     wanted = MagicMock(metadata_schema_uri="gs://meta/tabular")
     unwanted = MagicMock(metadata_schema_uri="gs://meta/image")
 
@@ -295,6 +300,7 @@ def test_rate_limited_gapic_iter_applies_metadata_schema_uri_filter() -> None:
 
 
 def test_rate_limited_gapic_iter_order_by_value_error_retried_without_it() -> None:
+    """Tests that an order_by rejected by the gRPC layer is retried without it."""
     cls = _make_cls()
     call_count = [0]
 
