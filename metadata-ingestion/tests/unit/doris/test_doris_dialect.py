@@ -3,6 +3,8 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.dialects.mysql.base import MySQLDialect
+from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 
@@ -14,10 +16,14 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     DORIS_MAP,
     DORIS_STRUCT,
     HLL,
+    IPV4,
+    IPV6,
     LARGEINT,
     QUANTILE_STATE,
     VARIANT,
     DorisDialect,
+    ReflectionFallback,
+    _doris_type_map,
     _parse_doris_type,
 )
 
@@ -53,7 +59,7 @@ class TestParseDorisType:
     )
     def test_known_types(self, type_str, expected_type):
         """Test that known Doris types are correctly parsed."""
-        result = _parse_doris_type(type_str)
+        result = _parse_doris_type(type_str, _doris_type_map)
         assert isinstance(result, expected_type)
 
     @pytest.mark.parametrize(
@@ -70,7 +76,7 @@ class TestParseDorisType:
     )
     def test_unknown_types_return_nulltype(self, type_str):
         """Test that unknown types return NULLTYPE for MySQL fallback."""
-        result = _parse_doris_type(type_str)
+        result = _parse_doris_type(type_str, _doris_type_map)
         assert result is sqltypes.NULLTYPE
 
     @pytest.mark.parametrize(
@@ -86,21 +92,21 @@ class TestParseDorisType:
     )
     def test_invalid_types_return_nulltype(self, type_str):
         """Test that invalid type strings return NULLTYPE."""
-        result = _parse_doris_type(type_str)
+        result = _parse_doris_type(type_str, _doris_type_map)
         assert result is sqltypes.NULLTYPE
 
     def test_case_insensitive_parsing(self):
         """Test that type parsing is case-insensitive."""
-        assert isinstance(_parse_doris_type("HLL"), HLL)
-        assert isinstance(_parse_doris_type("hll"), HLL)
-        assert isinstance(_parse_doris_type("Hll"), HLL)
-        assert isinstance(_parse_doris_type("hLL"), HLL)
+        assert isinstance(_parse_doris_type("HLL", _doris_type_map), HLL)
+        assert isinstance(_parse_doris_type("hll", _doris_type_map), HLL)
+        assert isinstance(_parse_doris_type("Hll", _doris_type_map), HLL)
+        assert isinstance(_parse_doris_type("hLL", _doris_type_map), HLL)
 
     def test_whitespace_handling(self):
         """Test that leading/trailing whitespace is handled correctly."""
-        assert isinstance(_parse_doris_type("  bitmap  "), BITMAP)
-        assert isinstance(_parse_doris_type("\tarray\t"), DORIS_ARRAY)
-        assert isinstance(_parse_doris_type("\njsonb\n"), DORIS_JSONB)
+        assert isinstance(_parse_doris_type("  bitmap  ", _doris_type_map), BITMAP)
+        assert isinstance(_parse_doris_type("\tarray\t", _doris_type_map), DORIS_ARRAY)
+        assert isinstance(_parse_doris_type("\njsonb\n", _doris_type_map), DORIS_JSONB)
 
 
 class TestDorisDialect:
@@ -172,9 +178,9 @@ class TestDorisDialect:
         assert isinstance(columns[3]["type"], DORIS_JSONB)
         assert isinstance(columns[4]["type"], HLL)
 
-    @patch("datahub.ingestion.source.sql.doris.doris_dialect.logger")
-    def test_get_columns_sqlalchemy_error(self, mock_logger):
-        """Test get_columns() handles SQLAlchemyError gracefully."""
+    def test_get_columns_records_overlay_failure_for_the_report(self):
+        """A failed DESCRIBE overlay keeps MySQL's columns but silently downgrades
+        Doris-specific types, so it has to reach the report, not just the log."""
         dialect = DorisDialect()
 
         mock_connection = Mock()
@@ -190,40 +196,33 @@ class TestDorisDialect:
                 mock_connection, "test_table", schema="testdb"
             )
 
-        # Should fall back to MySQL reflection
+        # Should fall back to MySQL reflection rather than losing the table.
         assert len(columns) == 1
         assert columns[0]["name"] == "col1"
 
-        # Verify debug log was created (SQLAlchemyError is expected, so debug level)
-        mock_logger.debug.assert_called_once()
-        assert "DESCRIBE failed" in str(mock_logger.debug.call_args)
+        assert list(dialect.type_overlay_failures) == ["`testdb`.`test_table`"]
+        assert (
+            "Connection lost" in dialect.type_overlay_failures["`testdb`.`test_table`"]
+        )
 
-    @patch("datahub.ingestion.source.sql.doris.doris_dialect.logger")
-    def test_get_columns_unexpected_error(self, mock_logger):
-        """Test get_columns() handles unexpected exceptions gracefully."""
+    def test_get_columns_does_not_swallow_unexpected_errors(self):
+        """The overlay catch is scoped to failures DESCRIBE can actually produce, so a
+        MemoryError surfaces instead of being downgraded to a type warning."""
         dialect = DorisDialect()
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "testdb"
-        mock_connection.execute.side_effect = RuntimeError("Unexpected error")
+        mock_connection.execute.side_effect = MemoryError("out of memory")
 
         with patch.object(
             dialect.__class__.__bases__[0],
             "get_columns",
             return_value=[{"name": "col1", "type": sqltypes.INTEGER()}],
         ):
-            columns = dialect.get_columns(
-                mock_connection, "test_table", schema="testdb"
-            )
+            with pytest.raises(MemoryError):
+                dialect.get_columns(mock_connection, "test_table", schema="testdb")
 
-        # Should fall back to MySQL reflection
-        assert len(columns) == 1
-        assert columns[0]["name"] == "col1"
-
-        # Verify warning was logged
-        mock_logger.warning.assert_called_once()
-        assert "Unexpected error in DESCRIBE" in str(mock_logger.warning.call_args)
-        assert "Falling back" in str(mock_logger.warning.call_args)
+        assert dialect.type_overlay_failures == {}
 
     def test_get_columns_no_schema(self):
         """Test get_columns() returns MySQL columns when no schema available."""
@@ -306,10 +305,9 @@ class TestDorisDialect:
         # The source drains this into the ingestion report, so the degraded table is
         # visible to operators rather than only in the logs.
         assert list(dialect.reflection_fallbacks) == ["`my_db`.`my_async_mv`"]
-        assert (
-            "async materialized view"
-            in dialect.reflection_fallbacks["`my_db`.`my_async_mv`"]
-        )
+        fallback = dialect.reflection_fallbacks["`my_db`.`my_async_mv`"]
+        assert "async materialized view" in fallback.error
+        assert fallback.expected is True
 
     def test_reflection_does_not_degrade_on_unexpected_error(self):
         """Only Doris' two known refusals fall back; other errors stay fatal."""
@@ -329,6 +327,135 @@ class TestDorisDialect:
                 )
 
         assert dialect.reflection_fallbacks == {}
+
+    def test_registering_types_does_not_leak_into_other_mysql_dialects(self):
+        """ischema_names is a class attribute shared by every MySQL-family dialect, so
+        updating it in place would teach MySQL/MariaDB/TiDB about Doris types."""
+        DorisDialect()
+
+        assert "largeint" not in MySQLDialect.ischema_names
+        assert "variant" not in MySQLDialect.ischema_names
+        assert "hll" not in MySQLDialect_pymysql().ischema_names
+
+    def test_fallback_not_recorded_when_describe_also_fails(self):
+        """A table whose DESCRIBE fails too is dropped by the caller, so it must not
+        also be reported as reflected-but-degraded."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.side_effect = SQLAlchemyError("SELECT command denied")
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "_setup_parser",
+            side_effect=SQLAlchemyError("not support async materialized view"),
+        ):
+            with pytest.raises(SQLAlchemyError):
+                dialect.get_columns(
+                    mock_connection, "my_async_mv", schema="my_db", info_cache={}
+                )
+
+        assert dialect.reflection_fallbacks == {}
+
+    def test_unexpected_reflection_error_is_flagged_as_unexpected(self):
+        """A missing grant degrades the same way an async MV does, but must not be
+        reported under the same benign heading."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.return_value = [
+            ("col_a", "INT", "NO", "true", None, "")
+        ]
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "_setup_parser",
+            side_effect=SQLAlchemyError("SHOW command denied to user 'svc'"),
+        ):
+            columns = dialect.get_columns(
+                mock_connection, "my_table", schema="my_db", info_cache={}
+            )
+
+        assert [col["name"] for col in columns] == ["col_a"]
+        assert dialect.reflection_fallbacks["`my_db`.`my_table`"].expected is False
+
+    def test_type_error_from_ddl_parser_falls_back(self):
+        """The MySQL DDL parser raises TypeError (not SQLAlchemyError) building
+        NullType(*args) for a type it cannot model, so that branch must degrade too."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.return_value = [
+            ("col_a", "LARGEINT", "NO", "true", None, "")
+        ]
+
+        with patch.object(
+            dialect.__class__.__bases__[0],
+            "_setup_parser",
+            side_effect=TypeError("NullType() takes no arguments"),
+        ):
+            columns = dialect.get_columns(
+                mock_connection, "my_table", schema="my_db", info_cache={}
+            )
+
+        assert isinstance(columns[0]["type"], LARGEINT)
+        assert dialect.reflection_fallbacks["`my_db`.`my_table`"].expected is True
+
+    def test_pop_reflection_fallbacks_drains(self):
+        """Draining has to empty the dialect, or a second database re-reports the
+        first one's tables."""
+        dialect = DorisDialect()
+        dialect.reflection_fallbacks["`db`.`t`"] = ReflectionFallback(
+            error="boom", expected=True
+        )
+        dialect.type_overlay_failures["`db`.`u`"] = "bang"
+
+        assert list(dialect.pop_reflection_fallbacks()) == ["`db`.`t`"]
+        assert list(dialect.pop_type_overlay_failures()) == ["`db`.`u`"]
+        assert dialect.reflection_fallbacks == {}
+        assert dialect.type_overlay_failures == {}
+        assert dialect.pop_reflection_fallbacks() == {}
+
+    @pytest.mark.parametrize(
+        "type_str,expected_type",
+        [
+            ("ipv4", IPV4),
+            ("ipv6", IPV6),
+            ("largeint(40)", LARGEINT),
+            ("variant", VARIANT),
+        ],
+    )
+    def test_describe_columns_builds_doris_only_types(self, type_str, expected_type):
+        """DESCRIBE is the only type source on a fallback table, so these have to
+        instantiate end to end, not merely be registered."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = [
+            ("col_a", type_str, "YES", "", None, "")
+        ]
+
+        columns = dialect._describe_columns(mock_connection, "`db`.`t`")
+
+        assert isinstance(columns[0]["type"], expected_type)
+        assert columns[0]["full_type"] == type_str
+
+    def test_describe_row_tolerates_short_rows(self):
+        """Doris external catalogs do not always return the internal catalog's full
+        six-column DESCRIBE shape."""
+        dialect = DorisDialect()
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = [("col_a", "INT")]
+
+        columns = dialect._describe_columns(mock_connection, "`db`.`t`")
+
+        assert columns[0]["name"] == "col_a"
+        assert columns[0]["nullable"] is True
+        assert columns[0]["default"] is None
 
     def test_largeint_does_not_fall_back_to_nulltype(self):
         """NullType(*args) raises TypeError, so Doris-only types must be registered."""

@@ -1,3 +1,4 @@
+from typing import Generator, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,7 +6,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Inspector
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.doris.doris_dialect import DorisDialect
+from datahub.ingestion.source.sql.doris.doris_dialect import (
+    DorisDialect,
+    ReflectionFallback,
+)
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
 from datahub.ingestion.source.sql.mysql import MySQLSource
 
@@ -373,8 +377,8 @@ class TestDorisSourceMethods:
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
 
         dialect = DorisDialect()
-        dialect.reflection_fallbacks["`db1`.`my_async_mv`"] = (
-            "not support async materialized view"
+        dialect.reflection_fallbacks["`db1`.`my_async_mv`"] = ReflectionFallback(
+            error="not support async materialized view", expected=True
         )
 
         with (
@@ -404,6 +408,69 @@ class TestDorisSourceMethods:
         assert any("my_async_mv" in w for w in warnings)
         # Drained, so a second database cannot re-report the first one's tables.
         assert dialect.reflection_fallbacks == {}
+
+    def test_reflection_fallbacks_reported_on_early_generator_close(self):
+        """A pipeline abort closes the generator at the yield, which must still report
+        the degradations that database already recorded."""
+        config = DorisConfig(host_port="localhost:9030", database="db1")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        dialect = DorisDialect()
+        dialect.reflection_fallbacks["`db1`.`my_async_mv`"] = ReflectionFallback(
+            error="not support async materialized view", expected=True
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine"
+            ) as mock_create,
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.inspect"
+            ) as mock_inspect,
+        ):
+            list_engine = MagicMock()
+            db_engine = MagicMock()
+            mock_create.side_effect = [list_engine, db_engine]
+
+            list_engine.connect.return_value.__enter__.return_value = _mock_list_conn()
+            db_conn = MagicMock()
+            db_conn.dialect = dialect
+            db_engine.connect.return_value = db_conn
+
+            mock_inspect.return_value = MagicMock(spec=Inspector)
+
+            # get_inspectors is declared Iterable, but the drain-on-close behaviour
+            # under test is specifically generator semantics.
+            inspectors = cast(Generator[Inspector, None, None], source.get_inspectors())
+            next(inspectors)
+            inspectors.close()
+
+        assert source.report.tables_reflected_without_keys == 1
+        assert dialect.reflection_fallbacks == {}
+
+    def test_unexpected_reflection_error_gets_its_own_warning(self):
+        """An unexpected failure must not be filed under the routine-degradation
+        heading an operator learns to ignore."""
+        config = DorisConfig(host_port="localhost:9030", database="db1")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        dialect = DorisDialect()
+        dialect.reflection_fallbacks["`db1`.`t`"] = ReflectionFallback(
+            error="SHOW command denied", expected=False
+        )
+        dialect.type_overlay_failures["`db1`.`u`"] = "Connection lost"
+
+        conn = MagicMock()
+        conn.dialect = dialect
+        source._report_reflection_fallbacks(conn)
+
+        titles = [w.title for w in source.report.warnings]
+        assert (
+            "Table reflected without keys or comment after an unexpected error"
+            in titles
+        )
+        assert "Doris column types unavailable" in titles
+        assert source.report.tables_with_unreflected_types == 1
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")

@@ -2,7 +2,8 @@ import functools
 import logging
 import re
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Type
+from dataclasses import dataclass
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Type
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
@@ -98,6 +99,49 @@ _doris_alias_type_map: Dict[str, Type[TypeEngine]] = {
 
 _TYPE_NAME_PATTERN = re.compile(r"\w+")
 
+# Doris' two known refusals to hand back a table in DDL form: async materialized
+# views, and the TypeError the MySQL DDL parser raises building NullType(*args) for a
+# type it cannot model. Anything else that reaches the fallback is a different problem
+# — a missing grant, a dropped connection — and must not be filed under the same
+# benign heading.
+_EXPECTED_DDL_REFUSAL_PATTERN = re.compile(
+    r"not support async materialized view|takes no arguments", re.IGNORECASE
+)
+
+# DESCRIBE returns Field, Type, Null, Key, Default, Extra.
+_DESCRIBE_NULLABLE_INDEX = 2
+_DESCRIBE_DEFAULT_INDEX = 4
+
+
+@dataclass(frozen=True)
+class ReflectionFallback:
+    error: str
+    # Whether `error` matched a known Doris refusal. Drives which warning the source
+    # raises, so an unexpected failure is not reported as routine degradation.
+    expected: bool
+
+
+@dataclass(frozen=True)
+class DescribeRow:
+    name: str
+    type_str: str
+    nullable: bool
+    default: Optional[str]
+
+
+def _parse_describe_row(row: Sequence[Any]) -> DescribeRow:
+    # Trailing columns are read defensively because Doris external catalogs (Iceberg,
+    # Hive) do not always return the full six-column shape the internal catalog does.
+    return DescribeRow(
+        name=str(row[0]),
+        type_str=str(row[1]),
+        nullable=len(row) <= _DESCRIBE_NULLABLE_INDEX
+        or str(row[_DESCRIBE_NULLABLE_INDEX]).upper() != "NO",
+        default=row[_DESCRIBE_DEFAULT_INDEX]
+        if len(row) > _DESCRIBE_DEFAULT_INDEX
+        else None,
+    )
+
 
 @functools.lru_cache(maxsize=None)
 def _warn_type_not_instantiable(type_name: str) -> None:
@@ -110,11 +154,10 @@ def _warn_type_not_instantiable(type_name: str) -> None:
 
 
 def _parse_doris_type(
-    type_str: str, type_map: Optional[Mapping[str, Type[TypeEngine]]] = None
+    type_str: str, known_types: Mapping[str, Type[TypeEngine]]
 ) -> TypeEngine:
     # Precision and length arguments are dropped: full_type carries the exact Doris
     # type string for display, and DataHub only maps the type class.
-    known_types = _doris_type_map if type_map is None else type_map
     match = _TYPE_NAME_PATTERN.match(type_str.strip().lower())
     if not match:
         logger.debug(
@@ -141,12 +184,30 @@ class DorisDialect(MySQLDialect_pymysql):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.ischema_names.update(_doris_type_map)
-        self.ischema_names.update(_doris_alias_type_map)
-        # Tables reflected from DESCRIBE instead of SHOW CREATE TABLE, keyed by
-        # quoted full name. The dialect cannot reach the ingestion report, so
-        # DorisSource drains this into report warnings once a database is done.
-        self.reflection_fallbacks: Dict[str, str] = {}
+        # Rebind rather than update: ischema_names is a class attribute on
+        # MySQLDialect, shared by every MySQL-family dialect in the process, so
+        # mutating it in place teaches MySQL/MariaDB/TiDB reflection about Doris types.
+        self.ischema_names = {
+            **self.ischema_names,
+            **_doris_type_map,
+            **_doris_alias_type_map,
+        }
+        # Tables reflected from DESCRIBE instead of SHOW CREATE TABLE, and tables whose
+        # DESCRIBE type overlay failed, both keyed by quoted full name. The dialect
+        # cannot reach the ingestion report, so DorisSource drains these into report
+        # warnings once a database is done.
+        self.reflection_fallbacks: Dict[str, ReflectionFallback] = {}
+        self.type_overlay_failures: Dict[str, str] = {}
+
+    def pop_reflection_fallbacks(self) -> Dict[str, ReflectionFallback]:
+        fallbacks = self.reflection_fallbacks
+        self.reflection_fallbacks = {}
+        return fallbacks
+
+    def pop_type_overlay_failures(self) -> Dict[str, str]:
+        failures = self.type_overlay_failures
+        self.type_overlay_failures = {}
+        return failures
 
     @reflection.cache  # type: ignore[call-arg]
     def _setup_parser(self, connection, table_name, schema=None, **kw):
@@ -193,7 +254,6 @@ class DorisDialect(MySQLDialect_pymysql):
             full_name = self._full_name(connection, table_name, schema)
             if full_name is None:
                 raise
-            self.reflection_fallbacks[full_name] = str(e)
             logger.info(
                 f"SHOW CREATE TABLE reflection failed for {full_name}: {e}. "
                 f"Falling back to DESCRIBE; keys, foreign keys and the table comment "
@@ -201,7 +261,15 @@ class DorisDialect(MySQLDialect_pymysql):
             )
             state = ReflectedState()
             state.table_name = table_name
+            # Record the fallback only once DESCRIBE has actually produced columns. If
+            # it fails too (the same missing grant that killed SHOW CREATE TABLE, a
+            # dropped connection) the exception propagates and the caller drops the
+            # table, which must not then also be reported as successfully reflected.
             state.columns = self._describe_columns(connection, full_name)
+            self.reflection_fallbacks[full_name] = ReflectionFallback(
+                error=str(e),
+                expected=_EXPECTED_DDL_REFUSAL_PATTERN.search(str(e)) is not None,
+            )
             return state
 
     @reflection.cache  # type: ignore[call-arg]
@@ -228,7 +296,8 @@ class DorisDialect(MySQLDialect_pymysql):
 
         try:
             type_map = {
-                row[0]: row[1] for row in self._describe_rows(connection, full_name)
+                row.name: row.type_str
+                for row in self._describe_rows(connection, full_name)
             }
 
             for col in columns:
@@ -236,18 +305,20 @@ class DorisDialect(MySQLDialect_pymysql):
                     doris_type_str = type_map[col["name"]]
                     col["full_type"] = doris_type_str
 
-                    parsed_type = _parse_doris_type(doris_type_str)
+                    # Only the Doris-only map here: MySQL reflection already resolved
+                    # the standard types correctly, so this overlay exists purely to
+                    # replace them where Doris has a type MySQL cannot express.
+                    parsed_type = _parse_doris_type(doris_type_str, _doris_type_map)
                     if parsed_type is not sqltypes.NULLTYPE:
                         col["type"] = parsed_type
 
-        except SQLAlchemyError as e:
-            logger.debug(
+        except (SQLAlchemyError, IndexError, TypeError) as e:
+            # Columns survive with MySQL's types; only the Doris-specific ones are
+            # lost. Recorded rather than logged so the source can report it, since a
+            # silently generic HLL or BITMAP column looks like correct output.
+            self.type_overlay_failures[full_name] = str(e)
+            logger.info(
                 f"DESCRIBE failed for {full_name}: {e}. "
-                f"Falling back to MySQL type reflection."
-            )
-        except Exception as e:
-            logger.warning(
-                f"Unexpected error in DESCRIBE for {full_name}: {e}. "
                 f"Falling back to MySQL type reflection."
             )
 
@@ -261,28 +332,30 @@ class DorisDialect(MySQLDialect_pymysql):
         quote = self.identifier_preparer.quote_identifier
         return f"{quote(current_schema)}.{quote(table_name)}"
 
-    def _describe_rows(self, connection: Connection, full_name: str) -> List[Any]:
-        return list(connection.execute(text(f"DESCRIBE {full_name}")))
+    def _describe_rows(
+        self, connection: Connection, full_name: str
+    ) -> List[DescribeRow]:
+        return [
+            _parse_describe_row(row)
+            for row in connection.execute(text(f"DESCRIBE {full_name}"))
+        ]
 
     def _describe_columns(
         self, connection: Connection, full_name: str
     ) -> List[Dict[str, Any]]:
         columns: List[Dict[str, Any]] = []
         for row in self._describe_rows(connection, full_name):
-            type_str = str(row[1])
-            # Fall back to the full type map: DESCRIBE is the only type information
-            # available here, so standard MySQL types have to resolve too.
-            column_type = _parse_doris_type(type_str)
-            if column_type is sqltypes.NULLTYPE:
-                column_type = _parse_doris_type(type_str, self.ischema_names)
+            # The full map, not just the Doris-only one: DESCRIBE is the sole type
+            # information available here, so standard MySQL types have to resolve too.
+            # ischema_names is a superset of _doris_type_map, so one lookup suffices.
+            column_type = _parse_doris_type(row.type_str, self.ischema_names)
             columns.append(
                 {
-                    "name": row[0],
+                    "name": row.name,
                     "type": column_type,
-                    "full_type": type_str,
-                    # DESCRIBE reports nullability as YES/NO in its third column.
-                    "nullable": len(row) < 3 or str(row[2]).upper() != "NO",
-                    "default": row[4] if len(row) > 4 else None,
+                    "full_type": row.type_str,
+                    "nullable": row.nullable,
+                    "default": row.default,
                     "comment": None,
                 }
             )
