@@ -400,6 +400,9 @@ class AirbyteBaseClient(ABC):
         connection.ambiguous_stream_namespaces = build_result.ambiguous
         connection.skipped_stream_payloads = build_result.skipped_stream_payloads
         connection.streams_api_unavailable = build_result.streams_api_unavailable
+        connection.streams_api_namespaces_absent = (
+            build_result.streams_api_namespaces_absent
+        )
         return connection
 
     def _fetch_stream_api_metadata(
@@ -423,7 +426,7 @@ class AirbyteBaseClient(ABC):
             detailed_streams = self.list_streams(source_id=source_id)
         except AirbyteApiError as e:
             if e.status_code == 404:
-                # Airbyte < 1.8 has no /streams, and an inaccessible source
+                # Older Airbyte has no /streams, and an inaccessible source
                 # answers the same way. Either way namespaces are unavailable.
                 return AirbyteStreamApiMetadata(unavailable=True)
             raise
@@ -431,6 +434,7 @@ class AirbyteBaseClient(ABC):
         property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
         namespaces_by_name: Dict[str, List[str]] = {}
         skipped_rows: List[str] = []
+        validated_rows = 0
         for index, stream in enumerate(detailed_streams):
             try:
                 row = AirbyteStreamsApiRow.model_validate(stream)
@@ -440,6 +444,8 @@ class AirbyteBaseClient(ABC):
                     f"/streams[{index}]: {e.error_count()} validation error(s)"
                 )
                 continue
+
+            validated_rows += 1
 
             if not row.stream_name:
                 continue
@@ -460,6 +466,10 @@ class AirbyteBaseClient(ABC):
         return AirbyteStreamApiMetadata(
             property_fields_by_stream=property_fields_by_stream,
             namespaces_by_name=namespaces_by_name,
+            # Counted over readable rows only: rows that all failed validation
+            # leave no namespaces either, and blaming the Airbyte version for
+            # that sends operators after the wrong problem.
+            namespaces_absent=validated_rows > 0 and not namespaces_by_name,
             skipped_rows=skipped_rows,
         )
 
@@ -519,6 +529,7 @@ class AirbyteBaseClient(ABC):
             ambiguous=queue_result.ambiguous,
             skipped_stream_payloads=skipped,
             streams_api_unavailable=stream_api_metadata.unavailable,
+            streams_api_namespaces_absent=stream_api_metadata.namespaces_absent,
         )
 
     def _build_stream_config(
@@ -544,7 +555,7 @@ class AirbyteBaseClient(ABC):
         property_fields: Optional[List[PropertyFieldPath]] = None,
     ) -> Dict[str, Any]:
         # Schema sources in order of preference:
-        #   1. propertyFields from `/streams` (Airbyte 1.8+, most accurate)
+        #   1. propertyFields from `/streams` (most accurate)
         #   2. jsonSchema embedded in the legacy configurations payload
         #   3. empty schema — column-level lineage will be dropped
         if property_fields:
@@ -569,9 +580,9 @@ class AirbyteBaseClient(ABC):
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        # `/streams` is Airbyte 1.8+. Older versions 404 — callers should treat
-        # that as "fall back to configurations.streams" instead of propagating
-        # the error.
+        # Older Airbyte versions 404 here; callers fall back to
+        # configurations.streams rather than propagating the error. The namespace
+        # field only appears from 1.7.0 onwards.
         self._check_auth_before_request()
         query_params = []
         if source_id:
