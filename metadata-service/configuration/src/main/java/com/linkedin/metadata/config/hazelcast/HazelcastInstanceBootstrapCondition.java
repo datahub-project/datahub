@@ -6,7 +6,8 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
  * Creates a shared {@link com.hazelcast.core.HazelcastInstance} when any of these features need
- * cluster coordination: search Hazelcast cache, entity graph cache, or GMS endpoint rate limiting.
+ * cluster coordination: search Hazelcast cache, entity graph cache, GMS endpoint rate limiting, or
+ * the post-commit retention buffer.
  */
 public class HazelcastInstanceBootstrapCondition implements Condition {
 
@@ -21,6 +22,16 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
     }
     if (Boolean.parseBoolean(
         env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
+      return true;
+    }
+    if (Boolean.parseBoolean(
+            env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))
+        && Boolean.parseBoolean(
+            env.getProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "false"))) {
+      // Retention buffer is Hazelcast-backed only, so it requires the embedded node — but ONLY when
+      // it will actually wire (RetentionBufferFactory needs BOTH flags). Gating on retentionBuffer
+      // alone would boot an unused cluster (and risk startup failure if it can't join) while ingest
+      // still runs legacy in-transaction retention with RetentionBuffer.NO_OP.
       return true;
     }
     // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone

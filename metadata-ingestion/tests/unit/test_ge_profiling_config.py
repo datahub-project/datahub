@@ -1,9 +1,7 @@
 import pytest
 
-from datahub.ingestion.source.ge_profiling_config import (
-    GEProfilingConfig,
-    ProfilingMethodConfig,
-)
+from datahub.configuration.common import ConfigurationWarning
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 
 
 def test_profile_table_level_only():
@@ -36,7 +34,10 @@ def test_profile_table_level_only_fails_with_field_metric_enabled():
         )
 
 
-def test_profiling_method_defaults_to_sqlalchemy() -> None:
-    """The default profiler is SQLAlchemy, not Great Expectations."""
-    config = ProfilingMethodConfig()
-    assert config.method == "sqlalchemy"
+def test_profiling_method_field_removed() -> None:
+    # `method` was removed together with the Great Expectations profiler.
+    # SQLAlchemy is the only SQL profiler; recipes that still set `method` are
+    # accepted (the field is dropped) with a deprecation warning.
+    with pytest.warns(ConfigurationWarning, match="method was removed"):
+        config = GEProfilingConfig.model_validate({"enabled": True, "method": "ge"})
+    assert not hasattr(config, "method")

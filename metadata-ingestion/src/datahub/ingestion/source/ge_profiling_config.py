@@ -6,9 +6,9 @@ from typing import Annotated, Any, Dict, List, Optional
 import pydantic
 from pydantic import model_validator
 from pydantic.fields import Field
-from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
 
 _PROFILING_FLAGS_TO_REPORT = {
@@ -22,18 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 class ProfilingMethodConfig(ConfigModel):
-    """Base class for profiling configs that support method selection."""
-
-    method: Literal["ge", "sqlalchemy"] = Field(
-        default="sqlalchemy",
-        description=(
-            "Profiling method to use. "
-            "`sqlalchemy` (default) runs profiling queries directly against your "
-            "source's existing SQLAlchemy connection. "
-            "`ge` selects the legacy Great Expectations profiler, which is "
-            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
-        ),
-    )
+    # `method` used to select between the SQLAlchemy and the (now removed) Great
+    # Expectations profiler. SQLAlchemy is the only SQL profiler, so the field is
+    # gone; recipes that still set it are ignored with a deprecation warning.
+    _method_removed = pydantic_removed_field("method", month="August", year=2026)
 
 
 class GEProfilingBaseConfig(ProfilingMethodConfig):

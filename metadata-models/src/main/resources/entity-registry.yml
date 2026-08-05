@@ -396,6 +396,7 @@ entities:
     keyAspect: assertionKey
     aspects:
       - assertionInfo
+      - assertionNote
       - dataPlatformInstance
       - assertionRunEvent
       - assertionRunSummary

@@ -35,8 +35,10 @@ export function useCreateDocumentTreeMutation() {
         async (input: { title: string; parentDocument?: string | null; subType?: string }) => {
             // Generate temporary URN for optimistic update
             const tempUrn = `temp:${Date.now()}`;
+            const isRoot = !input.parentDocument;
+            const rootCreateOptions = isRoot ? ({ placement: 'start' } as const) : undefined;
 
-            // 1. Optimistically add to tree
+            // 1. Optimistically add to tree — root creates at top (matches last-modified default)
             const optimisticNode: DocumentTreeNode = {
                 urn: tempUrn,
                 title: input.title,
@@ -44,7 +46,7 @@ export function useCreateDocumentTreeMutation() {
                 hasChildren: false,
                 children: [],
             };
-            addNode(optimisticNode);
+            addNode(optimisticNode, rootCreateOptions);
 
             try {
                 // 2. Call backend mutation
@@ -69,13 +71,16 @@ export function useCreateDocumentTreeMutation() {
 
                 // 3. Replace temp node with real node
                 deleteNode(tempUrn);
-                addNode({
-                    urn: newUrn,
-                    title: input.title,
-                    parentUrn: input.parentDocument || null,
-                    hasChildren: false,
-                    children: [],
-                });
+                addNode(
+                    {
+                        urn: newUrn,
+                        title: input.title,
+                        parentUrn: input.parentDocument || null,
+                        hasChildren: false,
+                        children: [],
+                    },
+                    rootCreateOptions,
+                );
 
                 // 4. Track analytics event
                 analytics.event({

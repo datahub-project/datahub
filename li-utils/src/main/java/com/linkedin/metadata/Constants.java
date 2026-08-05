@@ -381,6 +381,7 @@ public class Constants {
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
+  public static final String ASSERTION_NOTE_ASPECT_NAME = "assertionNote";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
   public static final String ASSERTION_RUN_SUMMARY_ASPECT_NAME = "assertionRunSummary";
