@@ -1577,11 +1577,14 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
-# Two-tier platforms whose connector URNs are schema.table. Their ODBC
-# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
-# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
-# the enum so a platform-name rename can't silently disable the catalog drop.
-ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+# Platforms whose standalone connectors emit schema.table URNs by default.
+# ODBC nav for these must not prepend Kind=Database or a dsn_to_database_schema
+# database onto Schema+Table (that would force three-part URNs that mismatch
+# the connector). Hive also drops its constant "HIVE" pseudo-catalog.
+ODBC_TWO_TIER_PLATFORMS = {
+    SupportedDataPlatform.HIVE.value.datahub_data_platform_name,
+    SupportedDataPlatform.ORACLE.value.datahub_data_platform_name,
+}
 
 # Platforms whose standalone connectors emit database.schema.table (or the
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
@@ -1920,15 +1923,18 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        # ODBC hierarchical navigation does not always expose every level of the
-        # qualified name (e.g. BigQuery commonly surfaces dataset.table but omits
-        # the project). Backfill the missing high-order levels from
-        # dsn_to_database_schema so a fully-qualified URN can still be built.
-        # Two-part mappings with nav Database already set are for SQL parsing only.
-        # There the mapping is only meant for the ODBC SQL-parsing path, not navigation.
+        # Backfill missing high-order tiers from dsn_to_database_schema (nav wins).
+        # Skip prepending a DSN database onto Schema+Table for two-tier platforms
+        # (Oracle/Hive): that mapping is for SQL parsing / three-tier project
+        # backfill, and would force database.schema.table URNs that mismatch the
+        # standalone connector's default schema.table shape.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
         if database_name is None:
-            database_name = config_database
+            if (
+                data_platform not in ODBC_TWO_TIER_PLATFORMS
+                or schema_name is None
+            ):
+                database_name = config_database
             if schema_name is None:
                 schema_name = config_schema
 

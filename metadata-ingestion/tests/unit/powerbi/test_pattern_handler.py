@@ -914,6 +914,89 @@ def test_odbc_two_part_teradata_allows_database_table_fallback():
     ]
 
 
+def test_odbc_oracle_schema_table_emits_two_part_urn():
+    """Oracle ODBC commonly exposes Schema+Table with no Database. Match
+    OracleLineage / default Oracle connector: schema.table, not skip."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
+def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():
+    """dsn_to_database_schema must not prepend a database onto Oracle
+    Schema+Table navigation — that would emit database.schema.table and
+    mismatch the default Oracle connector's two-part URNs."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+    assert "orcl" not in result.upstreams[0].urn
+
+
+def test_odbc_oracle_nav_database_dropped_for_two_part_urn():
+    """Even when Kind=Database is present, default Oracle URNs are schema.table
+    (add_database_name_to_urn defaults to false). Drop the database tier."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCL"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
 def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
     """Athena expression_lineage must strip catalog from three-part names
     (same as query_lineage) so URNs match the standalone Athena connector.
