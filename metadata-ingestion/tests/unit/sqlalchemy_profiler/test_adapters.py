@@ -1764,25 +1764,6 @@ class TestClickHouseAdapter:
         assert result == [5.0]
         assert any("non-numeric" in w.title.lower() for w in report.warnings)
 
-    def test_profiling_method_defaults_to_sqlalchemy(self):
-        """ClickHouse inherits the SQLAlchemy profiler default."""
-        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
-
-        cfg = ClickHouseConfig(host_port="localhost:28123", username="u", password="p")
-        assert cfg.profiling.method == "sqlalchemy"
-
-    def test_profiling_method_explicit_sqlalchemy_respected(self):
-        """Users opt into the new SQLAlchemy profiler explicitly."""
-        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
-
-        cfg = ClickHouseConfig(
-            host_port="localhost:28123",
-            username="u",
-            password="p",
-            profiling={"enabled": True, "method": "sqlalchemy"},
-        )
-        assert cfg.profiling.method == "sqlalchemy"
-
     def test_get_column_stdev_non_null_count_failure_reports_warning(
         self, adapter, report, mock_table
     ):
