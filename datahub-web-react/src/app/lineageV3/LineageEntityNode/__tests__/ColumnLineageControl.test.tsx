@@ -42,19 +42,25 @@ describe('ColumnLineageControl', () => {
         expect(getByTestId(TEST_ID).textContent).toEqual('2 / 5');
     });
 
-    it('renders nothing once all of the column lineage is on the graph', () => {
-        const { queryByTestId } = renderControl({ numUpstream: 2, lineageCountsFetched: true }, upstream(2));
+    it('keeps showing the counts once all of the column lineage is on the graph', () => {
+        const { getByTestId } = renderControl({ numUpstream: 2, lineageCountsFetched: true }, upstream(2));
 
-        expect(queryByTestId(TEST_ID)).toBeNull();
+        expect(getByTestId(TEST_ID).textContent).toEqual('2 / 2');
     });
 
-    it('renders nothing when the column has no lineage in this direction', () => {
-        const { queryByTestId } = renderControl({ numUpstream: 0, lineageCountsFetched: true }, upstream(0));
+    it('shows zero when the column turns out to have no lineage in this direction', () => {
+        const { getByTestId } = renderControl({ numUpstream: 0, lineageCountsFetched: true }, upstream(0));
 
-        expect(queryByTestId(TEST_ID)).toBeNull();
+        expect(getByTestId(TEST_ID).textContent).toEqual('0 / 0');
     });
 
-    it('renders nothing when counts are fetched without a total, as all neighbors are shown', () => {
+    it('never shows more as shown than exist, as cached counts can lag behind the graph', () => {
+        const { getByTestId } = renderControl({ numUpstream: 2, lineageCountsFetched: true }, upstream(3));
+
+        expect(getByTestId(TEST_ID).textContent).toEqual('2 / 2');
+    });
+
+    it('renders nothing when counts were never queried, as every neighbor is already shown', () => {
         const { queryByTestId } = renderControl({ lineageCountsFetched: true }, upstream(3));
 
         expect(queryByTestId(TEST_ID)).toBeNull();
