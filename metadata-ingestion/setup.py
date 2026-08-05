@@ -91,11 +91,27 @@ framework_common = {
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
     # The ingestion executor bootstraps per-source venvs by shelling out to
-    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # `python -m pip download` (see datahub.executor). uv-created venvs omit pip
     # by default, so pip must be present in the base environment. This was
     # previously pulled in transitively via the classification extra; declare it
     # explicitly here. No upper bound: pip is a system tool.
     "pip",
+    # Logging backend used by the ingestion executor's subprocess runner
+    # (datahub.executor.execution.runner). Adds no runtime deps on Linux/macOS -
+    # colorama and win32-setctime are win32-only.
+    "loguru>=0.5.0,<1.0.0",
+    # Structured concurrency primitives (task groups, cancel scopes, byte/text
+    # streams) used to supervise ingestion subprocesses in
+    # datahub.executor.execution.runner. Previously only available transitively
+    # via httpx/openai/starlette; declare it explicitly.
+    "anyio>=3.0.0,<5.0.0",
+    # Used by the executor to download source plugin wheels
+    # (datahub.executor.execution.runner). Also declared in aws_common, which
+    # keeps the resolution floor for the extras that depend on it.
+    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471,
+    # CVE-2026-21441) fixed in urllib3>=2.6.0. We cannot require >=2.6.0 due to
+    # great expectations.
+    "urllib3>=1.26,<3.0",
 }
 
 rest_common = {
