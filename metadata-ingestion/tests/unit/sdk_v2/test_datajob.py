@@ -3,11 +3,8 @@ import re
 from datetime import datetime, timezone
 from unittest import mock
 
-import pytest
-
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mcp_builder import ContainerKey
-from datahub.errors import ItemNotFoundError
+import pytest
 from datahub.metadata.urns import (
     CorpUserUrn,
     DataFlowUrn,
@@ -18,6 +15,9 @@ from datahub.metadata.urns import (
     DomainUrn,
     TagUrn,
 )
+
+from datahub.emitter.mcp_builder import ContainerKey
+from datahub.errors import ItemNotFoundError
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -271,6 +271,33 @@ def test_datajob_browse_path_without_container() -> None:
     assert_entity_golden(
         job, GOLDEN_DIR / "test_datajob_browse_path_without_container_golden.json"
     )
+
+
+def test_datajob_browse_path_entry_uses_flow_urn_as_id() -> None:
+    """Browse folders resolve entity names only when entry.id is a URN.
+
+    Using flow.name (often a UUID for Airbyte connections) as id leaves the
+    raw id in the ES browse index, so Navigate shows UUID folders.
+    """
+    connection_id = "ede922d9-70ff-411b-a77d-27538f0d4da4"
+    flow = DataFlow(
+        platform="airbyte",
+        name=connection_id,
+        display_name="SourceA → TargetA",
+    )
+    job = DataJob(
+        flow=flow,
+        name=f"{connection_id}_table_one",
+        display_name="table_one",
+    )
+
+    browse_paths = job._get_aspect(models.BrowsePathsV2Class)
+    assert browse_paths is not None
+    assert len(browse_paths.path) == 1
+    entry = browse_paths.path[0]
+    assert entry.id == str(flow.urn)
+    assert entry.urn == str(flow.urn)
+    assert entry.id != connection_id
 
 
 def test_datajob_browse_path_with_container() -> None:
