@@ -164,9 +164,8 @@ class PlatformAdapter(ABC):
         (`null_count = max(0, row_count - non_null_count)` at `:1326`,
         `nullProportion`/`uniqueProportion` via `min(1, ...)` at `:1333`/`:1347`) prevent
         nonsensical RATIOS, not inconsistent COUNTS — they only make sense because cross-
-        snapshot skew is already possible. This is explicitly accepted (the customer stated
-        they tolerate analytical inconsistency) and is safer than the long-transaction
-        alternative.
+        snapshot skew is already possible. This is explicitly accepted and is safer than
+        the long-transaction alternative.
 
         Returns:
             A SQLAlchemy isolation level name (e.g. "AUTOCOMMIT"), or None. Kept as
