@@ -131,11 +131,9 @@ def rate_limited_gapic_iter(
 ) -> Iterator[T]:
     """Stream SDK resources via GAPIC, one rate-limit token per page fetch.
 
-    Yields resources lazily so peak memory holds only a single page (plus the
-    resource being constructed), not the whole listing. Use this for large,
-    uncapped listings such as pipeline jobs and training jobs, whose SDK objects
-    each carry a full resource proto. For bounded collections that are sorted,
-    sliced, len()-ed, or iterated more than once, use rate_limited_gapic_list.
+    Yields lazily, so peak memory holds a single page rather than the whole
+    listing. Prefer this for large listings; use rate_limited_gapic_list only
+    when the caller needs list semantics.
     """
     # sdk_cls typed as Any to access SDK private class attributes (_empty_constructor,
     # _list_method, _construct_sdk_resource_from_gapic) that are not in the public type.
@@ -207,9 +205,8 @@ def rate_limited_gapic_list(
 ) -> List[T]:
     """Materialize rate_limited_gapic_iter into a list.
 
-    Prefer rate_limited_gapic_iter for large listings. Use this only when the
-    caller needs list semantics: iterating more than once, sorting, slicing, or
-    len(). Peak memory holds every resource at once.
+    Use only when the caller needs list semantics: multiple iterations, sort,
+    slice, or len(). Holds every resource in memory at once.
     """
     return list(
         rate_limited_gapic_iter(
