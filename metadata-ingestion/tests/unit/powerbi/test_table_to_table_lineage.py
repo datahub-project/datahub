@@ -429,6 +429,37 @@ def test_let_bearing_parse_failure_is_not_treated_as_dax() -> None:
     assert reporter.m_query_dax_table_lineage == 0
 
 
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "Table.Combine({DimDate, DimProduct}",  # missing ')'
+        'Sql.Database("h","d"',  # missing ')'
+        "let Source = Foo[Bar] in",  # missing output expression
+    ],
+)
+def test_malformed_m_query_without_let_is_not_treated_as_dax(expression: str) -> None:
+    # `let` is sufficient but not necessary for M-Query: a malformed M expression
+    # with no `let` must be reported as a parse failure, never mined for DAX
+    # references (which would fabricate lineage from an unparseable expression).
+    config = _config()
+    reporter = PowerBiDashboardSourceReport()
+    table = Table(name="x", full_name="d1.x", expression=expression)
+
+    lineages = parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+
+    assert lineages == []
+    assert reporter.m_query_dax_table_lineage == 0
+    assert reporter.m_query_parse_unknown_errors == 1
+
+
 def test_extract_lineage_emits_transformed_upstream_edge() -> None:
     # End-to-end through the mapper: a sibling reference must become an
     # UpstreamClass of type TRANSFORMED pointing at the sibling's dataset URN.

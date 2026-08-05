@@ -30,9 +30,32 @@ from datahub.utilities.threading_timeout import TimeoutException, threading_time
 
 logger = logging.getLogger(__name__)
 
-# `let` as a whole word — the M-Query keyword. A substring check would misfire on
-# names like "Outlet" or "Complete" that merely contain the letters "let".
+# Signals that an expression is M-Query. `let` alone is not enough: it is
+# sufficient but not necessary for M, so keying off its absence would send a
+# *malformed* M-Query to the DAX extractor, fabricating lineage from an
+# expression we failed to parse.
+#
+# `let` as a whole word — a substring check would misfire on names like "Outlet"
+# or "Complete" that merely contain the letters "let".
 _M_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
+# M library functions are always namespaced (Table.Combine, Sql.Database,
+# Json.Document); DAX functions never are.
+_M_NAMESPACED_CALL = re.compile(r"\b[A-Za-z_]\w*\.[A-Za-z_]\w*\s*\(")
+# M-only leading keywords and intrinsic literals.
+_M_ONLY_SYNTAX = re.compile(
+    r"^\s*(try|each|if|section|shared)\b"
+    r"|#(table|date|datetime|datetimezone|duration|time|binary)\s*\(",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_m_query(expression: str) -> bool:
+    """Whether *expression* is M-Query (as opposed to a DAX table expression)."""
+    return bool(
+        _M_LET_KEYWORD.search(expression)
+        or _M_NAMESPACED_CALL.search(expression)
+        or _M_ONLY_SYNTAX.search(expression)
+    )
 
 
 def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
@@ -115,12 +138,11 @@ def get_upstream_tables(
         )
         return []
     except MQueryParseError as e:
-        # An expression containing the `let` keyword is genuine M-Query, so a
-        # parse failure is a real failure — never reinterpret it as DAX. DAX's
-        # `Table[Column]` is lexically identical to M record access `id[Field]`,
-        # so the DAX extractor would otherwise fabricate references from a broken
-        # M-Query and hide the parse error.
-        if _M_LET_KEYWORD.search(expression):
+        # A genuine M-Query that failed to parse is a real failure — never
+        # reinterpret it as DAX. DAX's `Table[Column]` is lexically identical to M
+        # record access `id[Field]`, so the DAX extractor would otherwise
+        # fabricate references from a broken M-Query and hide the parse error.
+        if _looks_like_m_query(expression):
             reporter.m_query_parse_unknown_errors += 1
             reporter.warning(
                 title="Unable to parse M-Query expression",
