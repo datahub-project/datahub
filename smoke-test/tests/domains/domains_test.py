@@ -28,7 +28,9 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
 
 
 @with_test_retry()
-def _ensure_domain_readable(auth_session, domain_urn: str, domain_id: str) -> Dict[str, Any]:
+def _ensure_domain_readable(
+    auth_session, domain_urn: str, domain_id: str
+) -> Dict[str, Any]:
     """Wait until the domain is readable by URN — not via global listDomains.total.
 
     Concurrent modules also create domains under xdist, so asserting
@@ -44,9 +46,7 @@ def _ensure_domain_readable(auth_session, domain_urn: str, domain_id: str) -> Di
               }
             }
         }"""
-    res_data = execute_graphql(
-        auth_session, get_domain_query, {"urn": domain_urn}
-    )
+    res_data = execute_graphql(auth_session, get_domain_query, {"urn": domain_urn})
     domain = res_data["data"]["domain"]
     assert domain is not None
     assert domain["urn"] == f"urn:li:domain:{domain_id}"

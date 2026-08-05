@@ -35,9 +35,7 @@ def test_setup(auth_session, graph_client, tmp_path):
     )
     data_file, tag_name = materialize_with_unique_name(data_file, "NeedsDocs", tmp_path)
 
-    dataset_urn = make_dataset_urn(
-        platform="kafka", name=dataset_name, env="PROD"
-    )
+    dataset_urn = make_dataset_urn(platform="kafka", name=dataset_name, env="PROD")
     tag_urn = make_tag_urn(tag_name)
 
     session = graph_client._session
