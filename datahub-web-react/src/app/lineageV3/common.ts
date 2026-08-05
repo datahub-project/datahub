@@ -201,22 +201,6 @@ export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     return [urn, field];
 }
 
-/** Sentinel "field" naming the handle at a node's side control, which stands in for lineage to
- *  nodes that are not on the graph. Prefixed with `␟` so it cannot collide with a field path. */
-const HIDDEN_LINEAGE_FIELD: Record<LineageDirection, string> = {
-    [LineageDirection.Upstream]: '␟hidden-upstream',
-    [LineageDirection.Downstream]: '␟hidden-downstream',
-};
-
-/**
- * Column ref for the handle placed where a node's expand / contract lineage control renders.
- * Column edges to hidden nodes terminate here, as the control is part of the node's own DOM rather
- * than a node of its own.
- */
-export function createHiddenLineageRef(urn: Urn, direction: LineageDirection): ColumnRef {
-    return createColumnRef(urn, HIDDEN_LINEAGE_FIELD[direction]);
-}
-
 export function createFineGrainedOperationRef(
     queryUrn: Urn,
     upstreams: Maybe<SchemaFieldRef[]>,
@@ -396,6 +380,14 @@ export function buildHighlightAdjacencyList(
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
 export type FineGrainedLineage = { downstream: FineGrainedLineageMap; upstream: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
+/**
+ * How many of a column's related columns are rendered on the graph, per direction. A direction is
+ * absent when the column lineage traversal never went that way, i.e. nothing is known about that
+ * side of the column.
+ */
+export type ShownRelatedCounts = Partial<Record<LineageDirection, number>>;
+/** `ShownRelatedCounts` for the hovered / selected column and every column related to it. */
+export type ShownRelatedColumns = Map<ColumnRef, ShownRelatedCounts>;
 
 interface DisplayContext {
     // Params
@@ -415,6 +407,7 @@ interface DisplayContext {
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
+    shownRelatedColumns: ShownRelatedColumns;
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
@@ -435,6 +428,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     highlightedNodes: new Set(),
     cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),
+    shownRelatedColumns: new Map(),
     highlightedEdges: new Set(),
     fineGrainedLineage: {
         downstream: new Map(),

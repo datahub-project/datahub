@@ -104,7 +104,9 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             setDisplayedMenuNode={setDisplayedMenuNode}
             selectedColumn={selectedColumnUrn === urn ? selectedColumn : null}
             setSelectedColumn={setSelectedColumn}
-            hoveredColumn={hoveredColumnUrn === urn ? hoveredColumn : null}
+            // A selected column anywhere on the graph takes precedence over a hovered one, as it
+            // does when computing column highlights, so don't report a hover alongside a selection
+            hoveredColumn={!selectedColumn && hoveredColumnUrn === urn ? hoveredColumn : null}
             setHoveredColumn={setHoveredColumn}
             paginatedColumns={paginatedColumns}
             extraHighlightedColumns={extraHighlightedColumns}

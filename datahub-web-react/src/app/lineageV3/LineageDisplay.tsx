@@ -68,7 +68,7 @@ export default function LineageDisplay({
     useBulkDataProductMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
-    const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
+    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
@@ -141,6 +141,7 @@ export default function LineageDisplay({
                 highlightedNodes,
                 cllHighlightedNodes,
                 highlightedColumns,
+                shownRelatedColumns,
                 highlightedEdges,
                 fineGrainedLineage: fineGrainedLineage.indirect,
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,
