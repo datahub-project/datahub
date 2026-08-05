@@ -11,7 +11,8 @@ Test data (search_test_data.json) contains:
   - 1 chart on looker (revenue_chart)
   - 1 dashboard on looker (sales_dashboard)
 
-All URNs use a "search_smoke_test" namespace for easy identification/cleanup.
+All URNs use a run-unique ``search_smoke_test-<suffix>`` namespace (see
+``materialize_with_unique_name``) so parallel xdist modules cannot collide.
 CorpUser filter tests rely on built-in DataHub system users (always present).
 """
 
@@ -23,6 +24,7 @@ import pytest
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,
+    materialize_with_unique_name,
     run_datahub_cmd,
     wait_for_writes_to_sync,
 )
@@ -31,37 +33,56 @@ logger = logging.getLogger(__name__)
 
 _TEST_DATA = "tests/cli/search_cmd/search_test_data.json"
 
-_SNOWFLAKE_DATASET_URNS = [
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,search_smoke_test.orders,PROD)",
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,search_smoke_test.customers,PROD)",
-]
-_BIGQUERY_DATASET_URNS = [
-    "urn:li:dataset:(urn:li:dataPlatform:bigquery,search_smoke_test.revenue,PROD)",
-]
-_CHART_URNS = [
-    "urn:li:chart:(looker,search_smoke_test.revenue_chart)",
-]
-_DASHBOARD_URNS = [
-    "urn:li:dashboard:(looker,search_smoke_test.sales_dashboard)",
-]
-_ALL_TEST_URNS = (
-    _SNOWFLAKE_DATASET_URNS + _BIGQUERY_DATASET_URNS + _CHART_URNS + _DASHBOARD_URNS
-)
+# Filled by ingest_cleanup_data with a run-unique namespace so parallel modules
+# cannot collide on the shared ``search_smoke_test.*`` URN prefix.
+_NS = "search_smoke_test"
+_SNOWFLAKE_DATASET_URNS: list[str] = []
+_BIGQUERY_DATASET_URNS: list[str] = []
+_CHART_URNS: list[str] = []
+_DASHBOARD_URNS: list[str] = []
+_ALL_TEST_URNS: tuple[str, ...] = ()
+
+
+def _bind_search_urns(ns: str) -> None:
+    global _NS, _SNOWFLAKE_DATASET_URNS, _BIGQUERY_DATASET_URNS
+    global _CHART_URNS, _DASHBOARD_URNS, _ALL_TEST_URNS
+    _NS = ns
+    _SNOWFLAKE_DATASET_URNS = [
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{ns}.orders,PROD)",
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{ns}.customers,PROD)",
+    ]
+    _BIGQUERY_DATASET_URNS = [
+        f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{ns}.revenue,PROD)",
+    ]
+    _CHART_URNS = [
+        f"urn:li:chart:(looker,{ns}.revenue_chart)",
+    ]
+    _DASHBOARD_URNS = [
+        f"urn:li:dashboard:(looker,{ns}.sales_dashboard)",
+    ]
+    _ALL_TEST_URNS = (
+        tuple(_SNOWFLAKE_DATASET_URNS)
+        + tuple(_BIGQUERY_DATASET_URNS)
+        + tuple(_CHART_URNS)
+        + tuple(_DASHBOARD_URNS)
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client):
-    logger.info("Deleting search smoke test data for idempotency")
-    delete_urns_from_file(graph_client, _TEST_DATA)
+def ingest_cleanup_data(auth_session, graph_client, tmp_path_factory):
+    data_file, ns = materialize_with_unique_name(
+        _TEST_DATA, "search_smoke_test", tmp_path_factory.mktemp("search_cmd")
+    )
+    _bind_search_urns(ns)
 
-    logger.info("Ingesting search smoke test data")
-    ingest_file_via_rest(auth_session, _TEST_DATA)
+    logger.info("Ingesting search smoke test data (ns=%s)", ns)
+    ingest_file_via_rest(auth_session, data_file)
     wait_for_writes_to_sync()
 
-    yield
+    yield ns
 
-    logger.info("Cleaning up search smoke test data")
-    delete_urns_from_file(graph_client, _TEST_DATA)
+    logger.info("Cleaning up search smoke test data (ns=%s)", ns)
+    delete_urns_from_file(graph_client, data_file)
     wait_for_writes_to_sync()
 
 
@@ -321,11 +342,12 @@ class TestSearchPagination:
     """Prove --limit + --offset return non-overlapping pages."""
 
     def test_offset_returns_different_results(self, auth_session):
+        # Scope to this module's unique seeded namespace — not global ``*``.
         _, page1_stdout, _ = _run_search(
-            auth_session, ["*", "--limit", "3", "--offset", "0"]
+            auth_session, [_NS, "--limit", "3", "--offset", "0"]
         )
         _, page2_stdout, _ = _run_search(
-            auth_session, ["*", "--limit", "3", "--offset", "3"]
+            auth_session, [_NS, "--limit", "3", "--offset", "3"]
         )
 
         page1 = json.loads(page1_stdout)
@@ -339,10 +361,15 @@ class TestSearchPagination:
         assert not urns1 & urns2, f"Pages should not overlap, shared: {urns1 & urns2}"
 
     def test_total_is_consistent_across_pages(self, auth_session):
-        _, p1, _ = _run_search(auth_session, ["*", "--limit", "3", "--offset", "0"])
-        _, p2, _ = _run_search(auth_session, ["*", "--limit", "3", "--offset", "3"])
+        # Unique namespace keeps total stable under concurrent ingest elsewhere.
+        _, p1, _ = _run_search(auth_session, [_NS, "--limit", "3", "--offset", "0"])
+        _, p2, _ = _run_search(auth_session, [_NS, "--limit", "3", "--offset", "3"])
 
-        assert json.loads(p1)["total"] == json.loads(p2)["total"]
+        total1 = json.loads(p1)["total"]
+        total2 = json.loads(p2)["total"]
+        assert total1 == total2
+        # Seeded fixture has exactly 5 entities under this namespace.
+        assert total1 == len(_ALL_TEST_URNS)
 
 
 class TestSearchDryRun:

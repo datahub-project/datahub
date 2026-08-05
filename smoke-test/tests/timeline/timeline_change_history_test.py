@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import StructuredPropertyUrn
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import execute_graphql
+from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -174,9 +174,14 @@ def _now_ms() -> int:
 
 
 def _emit_and_wait(graph_client, mcp: MetadataChangeProposalWrapper) -> None:
-    """Emit an MCP and wait for writes to propagate."""
+    """Emit an MCP and wait for primary + search indexing to catch up.
+
+    Timeline reads go through search/history storage, so drain MCL (mae_only)
+    after the default sync — cheaper than relying only on assertion retries.
+    """
     graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def _get_timeline(
@@ -191,6 +196,49 @@ def _get_timeline(
 
     res = execute_graphql(auth_session, GET_TIMELINE_QUERY, variables)
     return res["data"]["getTimeline"]["changeTransactions"]
+
+
+@with_test_retry()
+def _wait_for_timeline_events(
+    auth_session,
+    urn: str,
+    expected: List[Tuple[str, str]],
+    entity_label: str,
+    categories: Optional[List[str]] = None,
+    min_events: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Retry getTimeline until expected (category, operation) pairs appear.
+
+    Timeline indexing lags primary writes even after wait_for_writes_to_sync;
+    one-shot asserts flake under load.
+    """
+    txns = _get_timeline(auth_session, urn, categories)
+    events = _collect_change_events(txns)
+    required = min_events if min_events is not None else len(expected)
+    assert len(events) >= required, (
+        f"[{entity_label}] Expected >={required} events, got {len(events)}"
+    )
+    _assert_has_events(events, expected, entity_label)
+    return txns
+
+
+@with_test_retry()
+def _wait_for_timeline_categories(
+    auth_session,
+    urn: str,
+    expected_categories: List[str],
+    entity_label: str,
+) -> List[Dict[str, Any]]:
+    """Retry getTimeline until all expected categories are present."""
+    txns = _get_timeline(auth_session, urn)
+    events = _collect_change_events(txns)
+    categories = {e["category"] for e in events if e.get("category")}
+    for expected in expected_categories:
+        assert expected in categories, (
+            f"[{entity_label}] timeline missing {expected}. Found: {sorted(categories)}"
+        )
+    _assert_actor_present(txns, entity_label)
+    return txns
 
 
 def _collect_change_events(
@@ -409,13 +457,13 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "dataset/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
     def test_dataset_tag_changes(self, graph_client, auth_session):
@@ -437,10 +485,14 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["TAG"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 tag events, got {len(events)}"
-        _assert_has_events(events, [("TAG", "ADD"), ("TAG", "REMOVE")], "dataset/tag")
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
+            [("TAG", "ADD"), ("TAG", "REMOVE")],
+            "dataset/tag",
+            categories=["TAG"],
+            min_events=2,
+        )
 
     def test_dataset_glossary_term_changes(self, graph_client, auth_session):
         """Add then remove a glossary term."""
@@ -469,13 +521,13 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "dataset/glossaryTerm",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
     def test_dataset_domain_changes(self, graph_client, auth_session):
@@ -495,13 +547,13 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "dataset/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
     def test_dataset_structured_property_changes(self, graph_client, auth_session):
@@ -541,17 +593,17 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 3, f"Expected >=3 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [
                 ("STRUCTURED_PROPERTY", "ADD"),
                 ("STRUCTURED_PROPERTY", "MODIFY"),
                 ("STRUCTURED_PROPERTY", "REMOVE"),
             ],
             "dataset/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=3,
         )
 
     def test_dataset_application_changes(self, graph_client, auth_session):
@@ -571,13 +623,13 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "dataset/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
     def test_dataset_documentation_changes(self, graph_client, auth_session):
@@ -601,13 +653,13 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 documentation events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("DOCUMENTATION", "ADD"), ("DOCUMENTATION", "MODIFY")],
             "dataset/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=2,
         )
 
     def test_dataset_schema_changes(self, graph_client, auth_session):
@@ -663,37 +715,32 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["TECHNICAL_SCHEMA"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 schema events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATASET_URN,
             [("TECHNICAL_SCHEMA", "ADD")],
             "dataset/schema",
+            categories=["TECHNICAL_SCHEMA"],
+            min_events=1,
         )
 
     def test_dataset_all_categories(self, auth_session):
         """Fetch timeline with all categories and verify actor attribution."""
-        txns = _get_timeline(auth_session, DATASET_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "TECHNICAL_SCHEMA",
-            "TAG",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-        ]:
-            assert expected in categories, (
-                f"Dataset timeline missing category {expected}. "
-                f"Found: {sorted(categories)}"
-            )
-
-        _assert_actor_present(txns, "dataset")
+        _wait_for_timeline_categories(
+            auth_session,
+            DATASET_URN,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "TECHNICAL_SCHEMA",
+                "TAG",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+            ],
+            "dataset",
+        )
 
 
 # ===========================================================================
@@ -725,13 +772,13 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "glossaryTerm/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
     def test_glossary_term_documentation_changes(self, graph_client, auth_session):
@@ -748,9 +795,14 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
+            [("DOCUMENTATION", "MODIFY")],
+            "glossaryTerm/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
+        )
 
     def test_glossary_term_domain_changes(self, graph_client, auth_session):
         """Set then change domain — verifies ADD and REMOVE."""
@@ -769,13 +821,13 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "glossaryTerm/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
     def test_glossary_term_structured_property_changes(
@@ -809,13 +861,13 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
             [("STRUCTURED_PROPERTY", "ADD"), ("STRUCTURED_PROPERTY", "MODIFY")],
             "glossaryTerm/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
     def test_glossary_term_related_terms_changes(self, graph_client, auth_session):
@@ -839,13 +891,13 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 related term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "glossaryTerm/relatedTerms",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
     def test_glossary_term_application_changes(self, graph_client, auth_session):
@@ -865,32 +917,29 @@ class TestGlossaryTermTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            GLOSSARY_TERM_URN,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "glossaryTerm/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
     def test_glossary_term_all_categories(self, auth_session):
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-        ]:
-            assert expected in categories, (
-                f"GlossaryTerm timeline missing {expected}. Found: {sorted(categories)}"
-            )
-        _assert_actor_present(txns, "glossaryTerm")
+        _wait_for_timeline_categories(
+            auth_session,
+            GLOSSARY_TERM_URN,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+            ],
+            "glossaryTerm",
+        )
 
 
 # ===========================================================================
@@ -922,13 +971,13 @@ class TestDomainTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DOMAIN_URN,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "domain/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
     def test_domain_documentation_changes(self, graph_client, auth_session):
@@ -946,11 +995,13 @@ class TestDomainTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
-        _assert_has_events(
-            events, [("DOCUMENTATION", "MODIFY")], "domain/documentation"
+        _wait_for_timeline_events(
+            auth_session,
+            DOMAIN_URN,
+            [("DOCUMENTATION", "MODIFY")],
+            "domain/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
         )
 
     def test_domain_structured_property_changes(self, graph_client, auth_session):
@@ -976,25 +1027,22 @@ class TestDomainTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DOMAIN_URN,
             [("STRUCTURED_PROPERTY", "ADD"), ("STRUCTURED_PROPERTY", "REMOVE")],
             "domain/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
     def test_domain_all_categories(self, auth_session):
-        txns = _get_timeline(auth_session, DOMAIN_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in ["OWNERSHIP", "DOCUMENTATION", "STRUCTURED_PROPERTY"]:
-            assert expected in categories, (
-                f"Domain timeline missing {expected}. Found: {sorted(categories)}"
-            )
-        _assert_actor_present(txns, "domain")
+        _wait_for_timeline_categories(
+            auth_session,
+            DOMAIN_URN,
+            ["OWNERSHIP", "DOCUMENTATION", "STRUCTURED_PROPERTY"],
+            "domain",
+        )
 
 
 # ===========================================================================
@@ -1030,13 +1078,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "dataProduct/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
     def test_data_product_documentation_changes(self, graph_client, auth_session):
@@ -1052,11 +1100,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
-        _assert_has_events(
-            events, [("DOCUMENTATION", "MODIFY")], "dataProduct/documentation"
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
+            [("DOCUMENTATION", "MODIFY")],
+            "dataProduct/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
         )
 
     def test_data_product_tag_changes(self, graph_client, auth_session):
@@ -1077,11 +1127,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["TAG"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 tag events, got {len(events)}"
-        _assert_has_events(
-            events, [("TAG", "ADD"), ("TAG", "REMOVE")], "dataProduct/tag"
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
+            [("TAG", "ADD"), ("TAG", "REMOVE")],
+            "dataProduct/tag",
+            categories=["TAG"],
+            min_events=2,
         )
 
     def test_data_product_glossary_term_changes(self, graph_client, auth_session):
@@ -1110,13 +1162,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "dataProduct/glossaryTerm",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
     def test_data_product_domain_changes(self, graph_client, auth_session):
@@ -1136,13 +1188,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "dataProduct/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
     def test_data_product_structured_property_changes(self, graph_client, auth_session):
@@ -1174,16 +1226,16 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [
                 ("STRUCTURED_PROPERTY", "ADD"),
                 ("STRUCTURED_PROPERTY", "MODIFY"),
             ],
             "dataProduct/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
     def test_data_product_application_changes(self, graph_client, auth_session):
@@ -1202,13 +1254,13 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "dataProduct/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
     def test_data_product_asset_membership_changes(self, graph_client, auth_session):
@@ -1238,39 +1290,42 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["ASSET_MEMBERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 asset events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            DATA_PRODUCT_URN,
             [("ASSET_MEMBERSHIP", "ADD"), ("ASSET_MEMBERSHIP", "REMOVE")],
             "dataProduct/assetMembership",
+            categories=["ASSET_MEMBERSHIP"],
+            min_events=2,
         )
 
     def test_data_product_all_categories(self, auth_session):
         """Verify all categories appear and actor attribution works."""
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "TAG",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-            "ASSET_MEMBERSHIP",
-        ]:
-            assert expected in categories, (
-                f"DataProduct timeline missing {expected}. Found: {sorted(categories)}"
-            )
-
-        _assert_actor_present(txns, "dataProduct")
+        _wait_for_timeline_categories(
+            auth_session,
+            DATA_PRODUCT_URN,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "TAG",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+                "ASSET_MEMBERSHIP",
+            ],
+            "dataProduct",
+        )
 
     def test_data_product_timeline_structure(self, auth_session):
         """Verify the GraphQL response structure matches what the frontend expects."""
+        # Wait for timeline materialization before structure checks.
+        _wait_for_timeline_categories(
+            auth_session,
+            DATA_PRODUCT_URN,
+            ["OWNERSHIP"],
+            "dataProduct/structure",
+        )
         txns = _get_timeline(auth_session, DATA_PRODUCT_URN)
         assert len(txns) > 0, "Expected at least one transaction"
 

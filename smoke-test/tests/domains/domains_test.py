@@ -5,7 +5,12 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_unique_dataset_impl
-from tests.utils import delete_entity, execute_graphql, with_test_retry
+from tests.utils import (
+    delete_entity,
+    execute_graphql,
+    unique_suffix,
+    with_test_retry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,52 +28,39 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
 
 
 @with_test_retry()
-def _ensure_more_domains(
-    auth_session, query: str, variables: Dict[str, Any], before_count: int
-) -> None:
-    # Get new count of Domains
-    res_data = execute_graphql(auth_session, query, variables)
+def _ensure_domain_readable(auth_session, domain_urn: str, domain_id: str) -> Dict[str, Any]:
+    """Wait until the domain is readable by URN — not via global listDomains.total.
 
-    assert res_data["data"]["listDomains"]["total"] is not None
-
-    # Assert that there are more domains now.
-    after_count = res_data["data"]["listDomains"]["total"]
-    logger.info(f"after_count is {after_count}")
-    assert after_count == before_count + 1
+    Concurrent modules also create domains under xdist, so asserting
+    ``total == before + 1`` races. Get-by-URN is stable for a unique id.
+    """
+    get_domain_query = """query domain($urn: String!) {
+            domain(urn: $urn) {
+              urn
+              id
+              properties {
+                name
+                description
+              }
+            }
+        }"""
+    res_data = execute_graphql(
+        auth_session, get_domain_query, {"urn": domain_urn}
+    )
+    domain = res_data["data"]["domain"]
+    assert domain is not None
+    assert domain["urn"] == f"urn:li:domain:{domain_id}"
+    assert domain["id"] == domain_id
+    return domain
 
 
 @pytest.mark.dependency()
 def test_create_list_get_domain(auth_session):
-    # Setup: Delete the domain (if exists)
-    delete_entity(auth_session, "urn:li:domain:test id")
-
-    # Get count of existing secrets
-    list_domains_query = """query listDomains($input: ListDomainsInput!) {
-            listDomains(input: $input) {
-              start
-              count
-              total
-              domains {
-                urn
-                properties {
-                  name
-                }
-              }
-            }
-        }"""
-    list_domains_variables: Dict[str, Any] = {"input": {"start": 0, "count": 20}}
-
-    res_data = execute_graphql(auth_session, list_domains_query, list_domains_variables)
-
-    assert res_data["data"]["listDomains"]["total"] is not None
-    logger.info(f"domains resp is {res_data}")
-
-    before_count = res_data["data"]["listDomains"]["total"]
-    logger.info(f"before_count is {before_count}")
-
-    domain_id = "test id"
-    domain_name = "test name"
+    # Run-unique id so parallel workers never collide on urn:li:domain:test id.
+    domain_id = f"test-id-{unique_suffix()}"
+    domain_name = f"test name {domain_id}"
     domain_description = "test description"
+    domain_urn = f"urn:li:domain:{domain_id}"
 
     # Create new Domain
     create_domain_query = """mutation createDomain($input: CreateDomainInput!) {
@@ -87,36 +79,9 @@ def test_create_list_get_domain(auth_session):
     )
 
     assert res_data["data"]["createDomain"] is not None
+    assert res_data["data"]["createDomain"] == domain_urn
 
-    domain_urn = res_data["data"]["createDomain"]
-
-    _ensure_more_domains(
-        auth_session=auth_session,
-        query=list_domains_query,
-        variables=list_domains_variables,
-        before_count=before_count,
-    )
-
-    # Get the domain value back
-    get_domain_query = """query domain($urn: String!) {
-            domain(urn: $urn) {
-              urn
-              id
-              properties {
-                name
-                description
-              }
-            }
-        }"""
-    get_domain_variables: Dict[str, Any] = {"urn": domain_urn}
-
-    res_data = execute_graphql(auth_session, get_domain_query, get_domain_variables)
-
-    assert res_data["data"]["domain"] is not None
-
-    domain = res_data["data"]["domain"]
-    assert domain["urn"] == f"urn:li:domain:{domain_id}"
-    assert domain["id"] == domain_id
+    domain = _ensure_domain_readable(auth_session, domain_urn, domain_id)
     assert domain["properties"]["name"] == domain_name
     assert domain["properties"]["description"] == domain_description
 
