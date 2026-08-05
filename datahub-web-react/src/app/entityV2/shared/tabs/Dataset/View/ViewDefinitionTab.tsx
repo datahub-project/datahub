@@ -40,6 +40,7 @@ export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
 
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
@@ -79,19 +80,26 @@ export default function ViewDefinitionTab() {
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
-            <InfoSection>
-                <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
-                <CodeBlockWrapper>
-                    <CodeBlock
-                        code={code}
-                        language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}
-                        languageLabel={false}
-                        languageOptions={languageOptions}
-                        selectedLanguage={selectedLanguage}
-                        onLanguageChange={(value) => setShowFormatted(value === FORMATTED_OPTION)}
-                    />
-                </CodeBlockWrapper>
-            </InfoSection>
+            {canViewQueries ? (
+                <InfoSection>
+                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
+                    <CodeBlockWrapper>
+                        <CodeBlock
+                            code={code}
+                            language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}
+                            languageLabel={false}
+                            languageOptions={languageOptions}
+                            selectedLanguage={selectedLanguage}
+                            onLanguageChange={(value) => setShowFormatted(value === FORMATTED_OPTION)}
+                        />
+                    </CodeBlockWrapper>
+                </InfoSection>
+            ) : (
+                <InfoSection>
+                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
+                    <Typography.Text type="secondary">{t('viewDefinitionTab.noViewPermission')}</Typography.Text>
+                </InfoSection>
+            )}
         </>
     );
 }
