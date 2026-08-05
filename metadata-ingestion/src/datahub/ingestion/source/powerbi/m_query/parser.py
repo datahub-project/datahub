@@ -63,13 +63,14 @@ def get_upstream_tables(
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
-    Covers external data sources (recognized M data-access functions) and
-    references to sibling tables in the same dataset (surfaced on
-    ``Lineage.powerbi_table_upstreams`` for the mapper to resolve to URNs).
+    Covers external data sources (recognized M data-access functions), DAX
+    calculated tables, and references to sibling tables in the same dataset
+    (surfaced on ``Lineage.powerbi_table_upstreams`` for the mapper to resolve
+    to URNs).
 
-    Returns an empty list when the expression is absent, empty, a DAX
-    computed-table expression (no ``let`` keyword), or a NativeQuery that the
-    caller has opted out of (``native_query_parsing=False``).
+    Returns an empty list when the expression is absent or empty, when it is a
+    NativeQuery the caller has opted out of (``native_query_parsing=False``), or
+    when no upstream could be extracted.
     """
     parameters = parameters or {}
 
@@ -139,13 +140,7 @@ def get_upstream_tables(
         )
         if table_refs:
             reporter.m_query_dax_table_lineage += 1
-            return [
-                Lineage(
-                    upstreams=[],
-                    column_lineage=[],
-                    powerbi_table_upstreams=table_refs,
-                )
-            ]
+            return [Lineage(powerbi_table_upstreams=table_refs)]
 
         reporter.m_query_non_mquery_expressions += 1
         logger.info(
@@ -206,7 +201,7 @@ def get_upstream_tables(
         # unsupported sources don't inflate resolver_successes or hide the
         # unsupported-source debug below.
         table_refs = (
-            mquery_resolver.resolve_to_table_references(node_map)
+            mquery_resolver.resolve_to_table_references(node_map, parameters=parameters)
             if config.extract_table_to_table_lineage
             else []
         )
@@ -217,13 +212,7 @@ def get_upstream_tables(
         )
         matched_sibling_ref = any(ref.casefold() in sibling_names for ref in table_refs)
         if table_refs:
-            lineages.append(
-                Lineage(
-                    upstreams=[],
-                    column_lineage=[],
-                    powerbi_table_upstreams=table_refs,
-                )
-            )
+            lineages.append(Lineage(powerbi_table_upstreams=table_refs))
 
         if data_source_found or matched_sibling_ref:
             reporter.m_query_resolver_successes += 1

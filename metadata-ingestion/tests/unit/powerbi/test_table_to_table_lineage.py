@@ -4,6 +4,10 @@ Bridge-backed: each M-Query expression is parsed via the JS bridge, mirroring
 tests/unit/test_ast_utils.py. No static fixtures.
 """
 
+import logging
+
+import pytest
+
 import datahub.ingestion.source.powerbi.m_query.parser as parser
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -144,11 +148,11 @@ def test_nested_let_outer_variable_is_not_a_reference() -> None:
     assert resolve_to_table_references(node_map) == []
 
 
-def test_join_with_shared_ancestor_has_no_circular_warning(caplog) -> None:
-    import logging
-
+def test_join_with_shared_ancestor_has_no_circular_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     node_map = _parse(
-        'let Base = SomeSiblingTbl,'
+        "let Base = SomeSiblingTbl,"
         ' Joined = Table.NestedJoin(Base, {"k"}, Base, {"k"}, "n", JoinKind.Inner)'
         " in Joined"
     )
@@ -159,6 +163,18 @@ def test_join_with_shared_ancestor_has_no_circular_warning(caplog) -> None:
     # be mistaken for a circular reference.
     assert not any("Circular reference" in rec.message for rec in caplog.records)
     assert refs == ["SomeSiblingTbl"]
+
+
+def test_query_parameter_is_not_a_reference() -> None:
+    # M parameters are unresolved identifiers but not sibling tables; when the
+    # parameter map is provided they must be excluded.
+    node_map = _parse(
+        "let Source = Web.Contents(BaseUrl), D = Json.Document(Source) in D"
+    )
+    assert resolve_to_table_references(node_map) == ["BaseUrl"]
+    assert (
+        resolve_to_table_references(node_map, parameters={"BaseUrl": "http://x"}) == []
+    )
 
 
 def test_get_upstream_tables_captures_sibling_reference() -> None:
@@ -350,7 +366,9 @@ def test_table_to_table_lineage_can_be_disabled() -> None:
     lineages = parser.get_upstream_tables(
         table=child,
         reporter=PowerBiDashboardSourceReport(),
-        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(config),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
         ctx=PipelineContext(run_id="test-run-id"),
         config=config,
     )
@@ -367,7 +385,9 @@ def test_let_bearing_parse_failure_is_not_treated_as_dax() -> None:
     lineages = parser.get_upstream_tables(
         table=table,
         reporter=reporter,
-        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(config),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
         ctx=PipelineContext(run_id="test-run-id"),
         config=config,
     )

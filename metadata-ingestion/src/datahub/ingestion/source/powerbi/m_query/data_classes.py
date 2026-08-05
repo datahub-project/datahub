@@ -65,10 +65,10 @@ class DataPlatformTable:
 class Lineage:
     # External warehouse/catalog tables from recognized M data-access functions
     # (e.g. Sql.Database); each entry includes platform pair and dataset URN.
-    upstreams: List[DataPlatformTable]
+    upstreams: List[DataPlatformTable] = field(default_factory=list)
     # Column-level lineage from SQL / Value.NativeQuery parsing (upstream columns
     # per downstream column).
-    column_lineage: List[ColumnLineageInfo]
+    column_lineage: List[ColumnLineageInfo] = field(default_factory=list)
     # Names of other tables in the same Power BI dataset referenced by this table's
     # M-Query (unresolved identifiers); the mapper resolves each name to a sibling
     # dataset URN and emits it as TRANSFORMED.
@@ -76,8 +76,7 @@ class Lineage:
 
     @staticmethod
     def empty() -> "Lineage":
-        # Same as default field values: no external upstreams, CLL, or sibling refs.
-        return Lineage(upstreams=[], column_lineage=[])
+        return Lineage()
 
 
 class FunctionName(Enum):

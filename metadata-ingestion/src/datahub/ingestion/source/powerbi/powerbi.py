@@ -440,8 +440,19 @@ class Mapper:
         identifier that is not an actual sibling table produces no edge. A table
         referencing itself is skipped.
         """
+        if not table_references:
+            return []
+
         dataset = current_table.dataset
-        if not table_references or dataset is None:
+        if dataset is None:
+            # Candidates were found but there's no parent dataset to resolve them
+            # against — surface it rather than dropping them silently.
+            self.__reporter.warning(
+                title="Table-to-table lineage skipped",
+                message="Table has sibling-table references but no parent dataset; "
+                "cannot resolve them to URNs.",
+                context=f"table={current_table.full_name}, references={table_references}",
+            )
             return []
 
         siblings_by_name = {table.name.lower(): table for table in dataset.tables}

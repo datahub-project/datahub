@@ -66,7 +66,10 @@ def resolve_to_data_access_functions(
     return results
 
 
-def resolve_to_table_references(node_map: NodeIdMap) -> List[str]:
+def resolve_to_table_references(
+    node_map: NodeIdMap,
+    parameters: Optional[Dict[str, str]] = None,
+) -> List[str]:
     """
     Find identifier names in the expression that do not resolve to a local `let`
     variable — i.e. references to another table in the same PowerBI dataset.
@@ -123,8 +126,11 @@ def resolve_to_table_references(node_map: NodeIdMap) -> List[str]:
     # unresolved once the walk descends into a nested `let`. Exclude every name
     # bound as a `let` variable anywhere in the expression to avoid fabricating a
     # sibling reference from such a step name.
-    let_bound_names = _collect_let_bound_names(node_map)
-    return sorted(name for name in unresolved if name.casefold() not in let_bound_names)
+    # Exclude let-bound variables (see above) and M query parameters — both are
+    # unresolved identifiers that are not sibling tables.
+    excluded_names = _collect_let_bound_names(node_map)
+    excluded_names |= {name.casefold() for name in (parameters or {})}
+    return sorted(name for name in unresolved if name.casefold() not in excluded_names)
 
 
 def _collect_let_bound_names(node_map: NodeIdMap) -> Set[str]:
