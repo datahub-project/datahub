@@ -50,6 +50,7 @@ Requirements:
 ### Breaking Changes
 
 - #18670 **(Ingestion / Power BI)** ODBC hierarchical navigation no longer emits truncated two-part upstream URNs for three-tier platforms. When Power BI ODBC navigation (plus optional `dsn_to_database_schema` backfill) yields a database and table but no schema, the connector previously emitted `database.table` for every platform. That matched two-part connectors (MySQL, Athena, Teradata, Oracle's default `schema.table`, …) but produced dangling URNs for platforms whose standalone connectors use `database.schema.table` (or BigQuery's `project.dataset.table`). After upgrade, the following platforms **warn and skip** the upstream instead of emitting the truncated URN: **BigQuery, Snowflake, Postgres, MSSQL, Redshift, and Databricks**. Other ODBC platforms keep the previous `database.table` fallback. Existing truncated edges for the affected platforms will not be re-emitted; with stateful ingestion enabled they may be soft-deleted as stale. **Action:** for affected ODBC sources, ensure navigation or `dsn_to_database_schema` supplies the missing schema (or project/dataset for BigQuery) so a full three-part name can be built — for example `dsn_to_database_schema: { my_dsn: analytics.public }` or a one-part mapping plus Schema+Table navigation. Check ingestion warnings titled "Can not determine qualified table name" for which DSNs need a mapping. No recipe change is required for MySQL, Athena, Teradata, Oracle, or other two-part platforms.
+
 ### Known Issues
 
 ### Potential Downtime
