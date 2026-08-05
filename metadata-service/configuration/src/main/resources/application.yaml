@@ -2096,7 +2096,7 @@ featureFlags:
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:true} # Enables displaying the dataset summary page
   metricsEnabled: ${METRICS_ENABLED:true} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and backend wiring for Metric / Semantic Model). Defaults on; set METRICS_ENABLED=false to hide the feature.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
-  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:true} # Enables uploading of files for documentation
+  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
