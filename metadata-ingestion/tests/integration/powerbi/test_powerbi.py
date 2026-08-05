@@ -1840,3 +1840,60 @@ def test_powerbi_gcc_environment(
         output_path=f"{tmp_path}/powerbi_gcc_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_table_to_table_lineage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Tables referencing a sibling table in the same dataset emit TRANSFORMED
+    lineage between the PowerBI datasets, for a quoted M-Query reference, a
+    Table.Combine over two siblings, and a DAX calculated table — alongside the
+    external MSSQL lineage of the table they all point at."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            test_resources_dir / "mock_data/table_to_table_lineage.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-table-to-table-lineage-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_lineage": True,
+                    "extract_table_to_table_lineage": True,
+                    "extract_independent_datasets": True,
+                    # Include MSSQL so the golden also covers a table carrying
+                    # both an external upstream and sibling references.
+                    "dataset_type_mapping": {"Sql": "mssql"},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_table_to_table_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_table_to_table_mces.json",
+        golden_path=f"{test_resources_dir}/golden_test_table_to_table_lineage.json",
+    )
