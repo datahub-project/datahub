@@ -84,7 +84,7 @@ x-datahub-common: &datahub-common-env
   DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
 
 x-datahub-token-authentication-env: &datahub-authentication-env
-  DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_SYSTEM_CLIENT_SECRET}
+  DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}
   DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
   DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
 #################################
