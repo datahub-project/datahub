@@ -11,6 +11,19 @@ public final class HazelcastBootstrapProperties {
   public static final String RATE_LIMIT_SCOPED_ENABLED = "datahub.gms.rateLimits.scoped.enabled";
   public static final String ENTITY_GRAPH_CACHE_ENABLED = "datahub.gms.entityGraphCache.enabled";
 
+  /**
+   * Canonical gate: {@code featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}.
+   * The retention buffer's only backend is Hazelcast (cluster-wide shared map + drain lock), so
+   * this flag alone decides whether the embedded node must boot for it.
+   */
+  public static final String RETENTION_BUFFER_ENABLED = "featureFlags.retentionBufferEnabled";
+
+  /**
+   * Master gate for post-commit retention; the buffer + drainer only wire when this is also true.
+   */
+  public static final String POST_COMMIT_RETENTION_ENABLED =
+      "featureFlags.postCommitRetentionEnabled";
+
   private HazelcastBootstrapProperties() {}
 
   /**

@@ -2,6 +2,8 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.gms.factory.auth.AuthorizerChainFactory;
 import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
+import com.linkedin.gms.factory.entity.RetentionBufferFactory;
+import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.event.ExternalEventsServiceFactory;
 import com.linkedin.gms.factory.event.KafkaConsumerPoolFactory;
 import com.linkedin.gms.factory.event.KafkaExternalEventsPollHandlerConfiguration;
@@ -50,7 +52,12 @@ import org.springframework.context.annotation.FilterType;
             KafkaExternalEventsPollHandlerConfiguration.class,
             ExternalEventsServiceFactory.class,
             KafkaConsumerLagPort.class,
-            PgQueueConsumerLagPort.class
+            PgQueueConsumerLagPort.class,
+            // Upgrade jobs are short-lived and non-ingesting — keep the post-commit retention
+            // buffer + drainer out so they never fire @Scheduled drain ticks or compete for the
+            // cluster-wide drain lock. Matches CleanupUpgradeConfig / LoadIndicesUpgradeConfig.
+            RetentionBufferFactory.class,
+            RetentionBufferSchedulingConfig.class
           })
     })
 public class GeneralUpgradeConfiguration {}

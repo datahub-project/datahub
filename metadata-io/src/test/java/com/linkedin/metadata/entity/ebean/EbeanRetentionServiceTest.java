@@ -1,16 +1,26 @@
 package com.linkedin.metadata.entity.ebean;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.retention.Retention;
+import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -145,6 +155,113 @@ public class EbeanRetentionServiceTest {
     // 5 candidates with count>2; start=2 leaves user2..user4 → 3 handled (empty policies still
     // counted)
     assertEquals(result.rowsHandled, 3);
+  }
+
+  @Test
+  public void testApplyRetentionBatch_prunesOldVersionsKeepsLatest_returnsCommitted() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    String urn = "urn:li:corpuser:batchA";
+    insertAspect(urn, "status", 0);
+    insertAspect(urn, "status", 1);
+    insertAspect(urn, "status", 2);
+
+    // maxVersions=1, largestVersion=2 => delete version < 2 AND version != 0 => only v1 pruned.
+    RetentionService.RetentionContext ctx =
+        RetentionService.RetentionContext.builder()
+            .urn(UrnUtils.getUrn(urn))
+            .aspectName("status")
+            .retentionPolicy(
+                Optional.of(
+                    new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))
+            .maxVersion(Optional.of(2L))
+            .build();
+
+    List<RetentionService.RetentionContext> committed =
+        retentionService.applyRetentionBatchWithPolicyDefaults(opContext, List.of(ctx));
+
+    assertEquals(committed.size(), 1);
+    // Latest (v0) always survives; only the old below-threshold version is gone.
+    assertEquals(versionsFor(urn, "status"), List.of(0L, 2L));
+  }
+
+  @Test
+  public void testApplyRetentionBatch_appliesEachContextIndependently() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    String urnA = "urn:li:corpuser:batchB";
+    String urnB = "urn:li:corpuser:batchC";
+    for (String u : List.of(urnA, urnB)) {
+      insertAspect(u, "status", 0);
+      insertAspect(u, "status", 1);
+      insertAspect(u, "status", 2);
+    }
+
+    List<RetentionService.RetentionContext> contexts =
+        List.of(retentionContext(urnA), retentionContext(urnB));
+
+    List<RetentionService.RetentionContext> committed =
+        retentionService.applyRetentionBatchWithPolicyDefaults(opContext, contexts);
+
+    assertEquals(committed.size(), 2);
+    assertEquals(versionsFor(urnA, "status"), List.of(0L, 2L));
+    assertEquals(versionsFor(urnB, "status"), List.of(0L, 2L));
+  }
+
+  @Test
+  public void testApplyRetentionBatch_poisonContextIsolated_siblingStillCommits() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    String good = "urn:li:corpuser:batchGood";
+    String poison = "urn:li:corpuser:batchPoison";
+    for (String u : List.of(good, poison)) {
+      insertAspect(u, "status", 0);
+      insertAspect(u, "status", 1);
+      insertAspect(u, "status", 2);
+    }
+
+    EbeanRetentionService<?> svc = spy(retentionService);
+    doAnswer(
+            inv -> {
+              RetentionService.RetentionContext ctx = inv.getArgument(0);
+              if (ctx.getUrn().toString().equals(poison)) {
+                throw new RuntimeException("forced delete failure");
+              }
+              return inv.callRealMethod();
+            })
+        .when(svc)
+        .executeRetentionDeleteForContext(any());
+
+    List<RetentionService.RetentionContext> committed =
+        svc.applyRetentionBatchWithPolicyDefaults(
+            opContext, List.of(retentionContext(good), retentionContext(poison)));
+
+    assertEquals(committed.size(), 1);
+    assertEquals(committed.get(0).getUrn().toString(), good);
+
+    assertEquals(versionsFor(good, "status"), List.of(0L, 2L));
+    assertEquals(versionsFor(poison, "status"), List.of(0L, 1L, 2L));
+  }
+
+  private RetentionService.RetentionContext retentionContext(String urn) {
+    return RetentionService.RetentionContext.builder()
+        .urn(UrnUtils.getUrn(urn))
+        .aspectName("status")
+        .retentionPolicy(
+            Optional.of(new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))))
+        .maxVersion(Optional.of(2L))
+        .build();
+  }
+
+  private List<Long> versionsFor(String urn, String aspect) {
+    return server
+        .find(EbeanAspectV2.class)
+        .where()
+        .eq("urn", urn)
+        .eq("aspect", aspect)
+        .orderBy()
+        .asc("version")
+        .findList()
+        .stream()
+        .map(EbeanAspectV2::getVersion)
+        .collect(Collectors.toList());
   }
 
   private void insertAspect(String urn, String aspect, long version) {

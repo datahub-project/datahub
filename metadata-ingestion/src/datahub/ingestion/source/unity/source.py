@@ -82,7 +82,6 @@ from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeP
 from datahub.ingestion.source.unity.config import (
     FederationConnectionDetail,
     UnityCatalogAnalyzeProfilerConfig,
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
@@ -664,15 +663,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
-                        config=self.config,
-                        profiling_config=self.config.profiling,
-                        report=self.report,
-                    ).get_workunits(list(self.tables.values()))
-                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
-                    logger.info(
-                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
-                    )
                     yield from UnityCatalogGEProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,

@@ -26,9 +26,10 @@ import com.linkedin.file.FileUploadScenario;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.DataHubConfiguration;
-import com.linkedin.metadata.config.S3Configuration;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -77,7 +78,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private S3Util mockS3Util;
+  @Autowired private ObjectStorageClient mockObjectStorageClient;
 
   @Autowired private ConfigurationProvider mockConfigProvider;
 
@@ -94,16 +95,20 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @BeforeMethod
   public void setup() throws Exception {
     // Reset all mocks before each test
-    Mockito.reset(mockS3Util, mockConfigProvider, mockEntityService);
+    Mockito.reset(mockObjectStorageClient, mockConfigProvider, mockEntityService);
 
     // Setup default mock behavior for ConfigurationProvider
     DataHubConfiguration datahubConfig = mock(DataHubConfiguration.class);
-    S3Configuration s3Config = mock(S3Configuration.class);
+    ObjectStorageConfiguration objectStorageConfig = mock(ObjectStorageConfiguration.class);
 
     when(mockConfigProvider.getDatahub()).thenReturn(datahubConfig);
-    when(datahubConfig.getS3()).thenReturn(s3Config);
-    when(s3Config.getBucketName()).thenReturn(TEST_BUCKET);
-    when(s3Config.getPresignedDownloadUrlExpirationSeconds()).thenReturn(DEFAULT_EXPIRATION);
+    when(datahubConfig.getObjectStorage()).thenReturn(objectStorageConfig);
+    when(objectStorageConfig.getPresignedDownloadUrlExpirationSeconds())
+        .thenReturn(DEFAULT_EXPIRATION);
+
+    when(mockObjectStorageClient.isConfigured()).thenReturn(true);
+    when(mockObjectStorageClient.supportsPresignedUrls()).thenReturn(true);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(TEST_BUCKET);
 
     // Setup authentication mock
     mockAuthentication = mock(Authentication.class);
@@ -172,10 +177,10 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGetFileWithDefaultExpiration() throws Exception {
-    // Mock S3Util to return presigned URL
+    // Mock object storage client to return presigned URL
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     // Test the endpoint
@@ -192,8 +197,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     int customExpiration = 7200;
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(customExpiration)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(customExpiration)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -210,8 +215,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     int minExpiration = 1;
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(minExpiration)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(minExpiration)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -227,8 +232,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithMaximumValidExpiration() throws Exception {
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(MAX_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(MAX_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -274,13 +279,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGetFileWithNullBucket() throws Exception {
-    // Override the mock to return null bucket
-    DataHubConfiguration datahubConfig = mock(DataHubConfiguration.class);
-    S3Configuration s3Config = mock(S3Configuration.class);
-
-    when(mockConfigProvider.getDatahub()).thenReturn(datahubConfig);
-    when(datahubConfig.getS3()).thenReturn(s3Config);
-    when(s3Config.getBucketName()).thenReturn(null);
+    when(mockObjectStorageClient.storageBucket()).thenReturn(null);
 
     mockMvc
         .perform(
@@ -290,13 +289,12 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testGetFileWithS3UtilException() throws Exception {
+  public void testGetFileWithObjectStorageException() throws Exception {
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    // Mock S3Util to throw an exception
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
-        .thenThrow(new RuntimeException("S3 service unavailable"));
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
+        .thenThrow(new RuntimeException("Object storage service unavailable"));
 
     mockMvc
         .perform(
@@ -310,8 +308,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     String differentFolder = "images";
     String expectedKey = String.format("%s/%s", differentFolder, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -327,8 +325,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     String specialFileId = "file-with_special.chars-123";
     String expectedKey = String.format("%s/%s", TEST_FOLDER, specialFileId);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -347,8 +345,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     String fileIdWithSeparator = "abc123__filename.pdf";
     String expectedKey = String.format("%s/%s", TEST_FOLDER, fileIdWithSeparator);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     // AuthUtil should return true (already set up in setup())
@@ -442,8 +440,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     // The UUID "abc123" should be extracted
     Urn expectedFileUrn = UrnUtils.getUrn("urn:li:dataHubFile:abc123");
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -464,8 +462,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -482,8 +480,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     // the request
     String expectedKey = String.format("%s/%s", TEST_FOLDER, TEST_FILE_ID);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     mockMvc
@@ -500,8 +498,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     String fileIdWithSeparator = "abc123__filename.pdf";
     String expectedKey = String.format("%s/%s", TEST_FOLDER, fileIdWithSeparator);
 
-    when(mockS3Util.generatePresignedDownloadUrl(
-            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+    when(mockObjectStorageClient.presignedDownloadUrl(
+            eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
         .thenReturn(TEST_PRESIGNED_URL);
 
     // Setup EntityService to return file entity with ASSET_DOCUMENTATION_LINKS scenario
@@ -570,9 +568,9 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    @Qualifier("s3Util")
-    public S3Util s3Util() {
-      return mock(S3Util.class);
+    @Qualifier("objectStorageClient")
+    public ObjectStorageClient objectStorageClient() {
+      return mock(ObjectStorageClient.class);
     }
 
     @Bean
