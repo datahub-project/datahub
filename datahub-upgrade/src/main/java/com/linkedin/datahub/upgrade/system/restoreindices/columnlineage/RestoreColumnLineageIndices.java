@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.restoreindices.columnlineage;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -14,10 +15,12 @@ public class RestoreColumnLineageIndices implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreColumnLineageIndices(
-      @Nonnull final EntityService<?> entityService, final boolean enabled) {
+      @Nonnull final EntityService<?> entityService,
+      @Nonnull final AspectDao aspectDao,
+      final boolean enabled) {
     _steps =
         enabled
-            ? ImmutableList.of(new RestoreColumnLineageIndicesStep(entityService))
+            ? ImmutableList.of(new RestoreColumnLineageIndicesStep(entityService, aspectDao))
             : ImmutableList.of();
   }
 
