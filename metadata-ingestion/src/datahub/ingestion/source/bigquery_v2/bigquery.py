@@ -20,6 +20,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryShardPatternMatcher,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
+    BigQueryLinkedDatasetsHandler,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
@@ -184,6 +187,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config, self.report, self.profiling_state_handler
         )
 
+        self.linked_datasets_handler: Optional[BigQueryLinkedDatasetsHandler] = None
+        if self.config.include_linked_datasets:
+            self.linked_datasets_handler = BigQueryLinkedDatasetsHandler(
+                config=self.config,
+                report=self.report,
+                identifiers=self.identifiers,
+                filters=self.filters,
+            )
+
         self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
@@ -195,6 +207,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.filters,
             self.shard_matcher,
             self.ctx.graph,
+            linked_datasets_handler=self.linked_datasets_handler,
         )
 
         self.add_config_to_report()
@@ -408,4 +421,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.window_start_time, self.report.window_end_time = (
             self.config.start_time,
             self.config.end_time,
+        )
+        self.report.include_linked_datasets = self.config.include_linked_datasets
+        self.report.include_linked_dataset_lineage = (
+            self.config.include_linked_dataset_lineage
         )
