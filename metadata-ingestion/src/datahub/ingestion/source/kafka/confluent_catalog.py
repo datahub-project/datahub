@@ -61,7 +61,6 @@ class KafkaTopicCatalog:
 
         index = index_by_name(topics)
         self._report_index_issues(index)
-        # Count after ambiguity filtering so the metric matches connector catalog.
         self.report.catalog_topics_fetched = len(index.by_name)
         return index
 

@@ -203,25 +203,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             yield connector_manifest
 
     def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> bool:
-        """
-        Extract lineages for a connector manifest.
-
-        Returns:
-            bool: True if connector should be included in output, False if it should be skipped
-        """
+        # True = include connector in output; False = skip (unsupported source).
         from datahub.ingestion.source.kafka_connect.connector_registry import (
             ConnectorRegistry,
         )
 
-        # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
             connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
         catalog_connector = self._get_catalog_connector(connector_manifest)
 
-        # Keep the full cluster topic list even with the catalog enabled — a
-        # stale/partial catalog must not silently invent lineage to missing topics.
+        # Cross-check catalog lineage against the live cluster so stale catalog
+        # topic names cannot invent edges.
         all_cluster_topics: Optional[List[str]] = None
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
@@ -241,7 +235,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 return False
             connector_manifest.lineages = []
             connector_manifest.flow_property_bag = {}
-            # Still attach catalog business metadata for sinks without a registry handler.
             self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
             return True
 
@@ -278,12 +271,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         catalog_connector: Optional[CatalogConnector],
         all_cluster_topics: Optional[List[str]] = None,
     ) -> List[KafkaConnectLineage]:
-        """
-        The catalog reports topic names after any topic-routing SMT has been applied, so
-        this is exact where the config-matching path is a prediction. Source connectors
-        only: sink connectors keep using the connector-config path. When the live cluster
-        topic list is available, catalog topics absent from that list are dropped.
-        """
+        # Catalog topic names are post-SMT (exact); config matching is a prediction.
+        # Sources only — sinks stay on the connector-config path.
         if not catalog_connector or not self.config.confluent_catalog.include_lineage:
             return []
 
@@ -294,9 +283,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not topics:
             return []
 
-        # Only cross-check when the live list was retrieved. An empty list is
-        # also what `_get_all_topics_from_kafka_api` returns on API failure, so
-        # treating [] as authoritative would silently drop all catalog lineage.
+        # Truthy check: [] is also the API-failure return, and must not wipe lineage.
         if all_cluster_topics:
             cluster_topic_set = set(all_cluster_topics)
             missing = [topic for topic in topics if topic not in cluster_topic_set]
@@ -340,8 +327,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not properties:
             return
 
-        # Same policy as the Kafka source: connector-config properties win over
-        # catalog attributes when names collide.
+        # Connector config wins on name collision (same as kafka broker props).
         existing = connector_manifest.flow_property_bag or {}
         collisions = sorted(properties.keys() & existing.keys())
         if collisions:
@@ -362,7 +348,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
     ) -> None:
-        """Handle unsupported connectors with appropriate warnings."""
         connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
         self.report.report_dropped(connector_manifest.name)

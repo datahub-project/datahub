@@ -53,11 +53,7 @@ class ConfluentStreamCatalogClient:
         root_key: str,
         model: Type[CatalogEntityType],
     ) -> List[CatalogEntityType]:
-        """
-        `root_key` is the GraphQL field the entities sit under, e.g. `kafka_topic`.
-        Entities that fail to parse are skipped so one malformed record cannot cost
-        the caller the whole page.
-        """
+        # `root_key` is the GraphQL field under `data`, e.g. `kafka_topic`.
         missing = [
             placeholder
             for placeholder in (LIMIT_PLACEHOLDER, OFFSET_PLACEHOLDER)
@@ -109,8 +105,7 @@ class ConfluentStreamCatalogClient:
                 if entity is not None:
                     entities.append(entity)
 
-            # Use the unfiltered API page length so a malformed item cannot look
-            # like the final short page and truncate remaining results.
+            # raw_count, not filtered len: a non-object item must not look like EOF.
             if page.raw_count < self.config.page_size:
                 break
             offset += self.config.page_size

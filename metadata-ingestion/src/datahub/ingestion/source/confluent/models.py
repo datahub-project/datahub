@@ -48,9 +48,8 @@ CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
 @dataclass(frozen=True)
 class NameIndex(Generic[CatalogEntityType]):
-    # Exact-name duplicates go in `ambiguous`. Names that only collide when
-    # lowercased go in `case_ambiguous` so case-insensitive lookup cannot pick
-    # a winner silently; exact-case lookups still use `by_name`.
+    # Case-only collisions stay out of `_by_lowered_name` so insensitive lookup
+    # cannot pick a winner; exact matches still use `by_name`.
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
     case_ambiguous: Dict[str, List[CatalogEntityType]] = field(default_factory=dict)

@@ -154,8 +154,8 @@ class TestConfluentCatalogConfig:
         assert not config.confluent_catalog.enabled
 
     def test_known_catalog_config_subclasses_have_not_changed(self) -> None:
-        # Subclasses that skip validate_connection fail as AssertionError in the
-        # client instead of a config error — adding one has to be deliberate.
+        # Subclasses that skip validate_connection fail later in the client —
+        # adding one has to be deliberate.
         known: Set[Type[ConfluentStreamCatalogConfig]] = {
             ConfluentCatalogConfig,
             KafkaConfluentCatalogConfig,
