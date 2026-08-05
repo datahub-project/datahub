@@ -4,7 +4,7 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
@@ -187,7 +187,9 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # raw string is kept only so operators on engines whose adapter defaults to
     # AUTOCOMMIT but whose DB rejects that session setting (e.g. MySQL behind a
     # proxy) can fall back to transactional behavior. Not promoted in public docs.
-    profiling_isolation_level: Optional[str] = Field(
+    profiling_isolation_level: Annotated[
+        Optional[str], SupportedSources(["mysql", "postgres"])
+    ] = Field(
         default=None,
         description=(
             "Advanced escape hatch. By default each source's adapter chooses the profiling "
@@ -205,6 +207,21 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             "nothing. See the profiling docs for the known cross-snapshot skew."
         ),
     )
+
+    @field_validator("profiling_isolation_level", mode="before")
+    @classmethod
+    def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
+        # Strip and upper-case so the TRANSACTIONAL sentinel matches regardless of
+        # casing/whitespace ("transactional", "Transactional ", "TRANSACTIONAL" all
+        # resolve to the sentinel), and so SQLAlchemy isolation level names land in
+        # their canonical form ("read committed" -> "READ COMMITTED"). Without this,
+        # "transactional" misses the sentinel and is handed to the dialect, producing a
+        # confusing ArgumentError about an invalid isolation level for something the
+        # user reasonably believed was a documented sentinel.
+        if value is None or not isinstance(value, str):
+            return value
+        normalized = value.strip().upper()
+        return normalized or None
 
     partition_profiling_enabled: Annotated[
         bool, SupportedSources(["athena", "bigquery"])
