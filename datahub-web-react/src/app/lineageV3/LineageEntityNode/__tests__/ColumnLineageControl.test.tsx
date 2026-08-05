@@ -48,10 +48,10 @@ describe('ColumnLineageControl', () => {
         expect(getByTestId(TEST_ID).textContent).toEqual('2 / 2');
     });
 
-    it('shows zero when the column turns out to have no lineage in this direction', () => {
-        const { getByTestId } = renderControl({ numUpstream: 0, lineageCountsFetched: true }, upstream(0));
+    it('renders nothing when the column has no lineage in this direction', () => {
+        const { queryByTestId } = renderControl({ numUpstream: 0, lineageCountsFetched: true }, upstream(0));
 
-        expect(getByTestId(TEST_ID).textContent).toEqual('0 / 0');
+        expect(queryByTestId(TEST_ID)).toBeNull();
     });
 
     it('never shows more as shown than exist, as cached counts can lag behind the graph', () => {
