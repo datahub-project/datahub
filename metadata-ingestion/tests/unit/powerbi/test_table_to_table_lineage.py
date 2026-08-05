@@ -504,6 +504,149 @@ def test_malformed_m_query_without_let_is_not_treated_as_dax(expression: str) ->
     assert reporter.m_query_parse_unknown_errors == 1
 
 
+def test_dax_lineage_can_be_disabled() -> None:
+    # The config gate is applied independently on the DAX branch; cover it so a
+    # refactor cannot drop the guard there while the M-Query test still passes.
+    config = _config()
+    config.extract_table_to_table_lineage = False
+    child = Table(
+        name="FMS Summary",
+        full_name="d1.FMS Summary",
+        expression="summarize('FMS Lookup', 'FMS Lookup'[FMSID])",
+    )
+    _dataset_with_tables([child, Table(name="FMS Lookup", full_name="d1.FMS Lookup")])
+    reporter = PowerBiDashboardSourceReport()
+
+    lineages = parser.get_upstream_tables(
+        table=child,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+
+    assert all(not lin.powerbi_table_upstreams for lin in lineages)
+    assert reporter.m_query_dax_table_lineage == 0
+
+
+def test_dax_success_increments_its_counter() -> None:
+    config = _config()
+    child = Table(
+        name="FMS Summary",
+        full_name="d1.FMS Summary",
+        expression="summarize('FMS Lookup', 'FMS Lookup'[FMSID])",
+    )
+    _dataset_with_tables([child, Table(name="FMS Lookup", full_name="d1.FMS Lookup")])
+    reporter = PowerBiDashboardSourceReport()
+
+    parser.get_upstream_tables(
+        table=child,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+
+    assert reporter.m_query_dax_table_lineage == 1
+
+
+def test_case_insensitive_sibling_reference_end_to_end() -> None:
+    # Power BI step references and table names routinely differ in case. Drive it
+    # through a real parse rather than hand-feeding the mapper.
+    config = _config()
+    child = Table(
+        name="Summary",
+        full_name="d1.Summary",
+        expression='let Source = #"FACTNEWNAMES" in Source',
+    )
+    _dataset_with_tables(
+        [child, Table(name="factNewNames", full_name="d1.factNewNames")]
+    )
+
+    mcps = _mapper(config).extract_lineage(
+        child,
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Summary,PROD)",
+        MagicMock(),
+    )
+
+    edges = [
+        edge.dataset
+        for mcp in mcps
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+        for edge in mcp.aspect.upstreams
+    ]
+    assert edges == [
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factNewNames,PROD)"
+    ]
+
+
+def test_self_reference_emits_no_edge_end_to_end() -> None:
+    # A table whose own expression names itself must not produce a self-loop when
+    # driven through a real parse (the name comes from the parser, not the test).
+    config = _config()
+    child = Table(
+        name="PreviousData",
+        full_name="d1.PreviousData",
+        expression='let Source = #"PreviousData" in Source',
+    )
+    _dataset_with_tables([child])
+    reporter = PowerBiDashboardSourceReport()
+    mapper = Mapper(
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        reporter=reporter,
+        dataplatform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    mcps = mapper.extract_lineage(
+        child,
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.PreviousData,PROD)",
+        MagicMock(),
+    )
+
+    assert not [mcp for mcp in mcps if isinstance(mcp.aspect, UpstreamLineageClass)]
+    assert reporter.m_query_table_to_table_lineage == 0
+
+
+def test_external_and_sibling_edges_share_one_upstream_aspect() -> None:
+    # Table.Combine({Sql.Database(...), Sibling}) must yield ONE UpstreamLineage
+    # aspect carrying both the external-platform and the sibling PowerBI edge,
+    # not two aspects (last-write-wins) or one clobbering the other.
+    config = _config()
+    child = Table(
+        name="Combined",
+        full_name="d1.Combined",
+        expression=(
+            'let Source = Sql.Database("srv", "db"),'
+            ' dbo_orders = Source{[Schema="dbo",Item="orders"]}[Data],'
+            " Combined = Table.Combine({dbo_orders, SiblingTable}) in Combined"
+        ),
+    )
+    _dataset_with_tables(
+        [child, Table(name="SiblingTable", full_name="d1.SiblingTable")]
+    )
+
+    mcps = _mapper(config).extract_lineage(
+        child,
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Combined,PROD)",
+        MagicMock(),
+    )
+
+    aspects = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(aspects) == 1
+    datasets = [edge.dataset for edge in aspects[0].upstreams]
+    assert any("dataPlatform:mssql" in urn for urn in datasets)
+    assert any("d1.SiblingTable" in urn for urn in datasets)
+
+
 def test_extract_lineage_emits_transformed_upstream_edge() -> None:
     # End-to-end through the mapper: a sibling reference must become an
     # UpstreamClass of type TRANSFORMED pointing at the sibling's dataset URN.
