@@ -852,6 +852,41 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        """Retrieve a data product urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "values": [data_product_name],
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "dataProduct",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._search_endpoint, search_body)
+        num_entities = results.get("value", {}).get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for data product name {data_product_name}. "
+                f"Will return the first match."
+            )
+        entities_yielded: int = 0
+        entities = []
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            logger.debug(f"yielding {x['entity']}")
+            entities.append(x["entity"])
+        return entities[0] if entities_yielded else None
+
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 

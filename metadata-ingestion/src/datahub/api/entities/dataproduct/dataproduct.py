@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataproduct import DataProductPatchBuilder
+from datahub.utilities.registries.data_product_registry import DataProductRegistry
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.urn import Urn
 
@@ -65,6 +66,22 @@ def patch_list(
             for element_to_add in list_elements:
                 mutable_dictionary[field_name].append(element_to_add)
     return update_needed
+
+
+def patch_resolved_urn_field(
+    original_value: Optional[str],
+    new_value: Optional[str],
+    resolved_original: Optional[str],
+    mutable_dictionary: dict,
+    field_name: str,
+) -> bool:
+    """Update a YAML field that may be a bare name or URN, skipping if only the form differs."""
+    if original_value == new_value:
+        return False
+    if resolved_original == new_value:
+        return False
+    mutable_dictionary[field_name] = new_value
+    return True
 
 
 class Ownership(ConfigModel):
@@ -100,6 +117,7 @@ class DataProduct(ConfigModel):
         tags (Optional[List[str]]): An array of tags (either bare ids or urns) for the Data Product
         terms (Optional[List[str]]): An array of terms (either bare ids or urns) for the Data Product
         assets (List[str]): An array of entity urns that are part of the Data Product
+        parent_data_product (Optional[str]): Parent Data Product as a name or fully-qualified urn.
     """
 
     id: str
@@ -115,6 +133,8 @@ class DataProduct(ConfigModel):
     properties: Optional[Dict[str, LaxStr]] = None
     external_url: Optional[str] = None
     output_ports: Optional[List[str]] = None
+    parent_data_product: Optional[str] = None
+    _resolved_parent_data_product_urn: Optional[str] = None
     _original_yaml_dict: Optional[dict] = None
 
     @field_validator("assets", mode="before")
@@ -168,14 +188,21 @@ class DataProduct(ConfigModel):
         else:
             return f"urn:li:dataProduct:{self.id}"
 
-    # If domain is an urn, we cache it in the private _resolved_domain_urn field
-    # Otherwise, we expect the caller to populate this by using an external DomainRegistry
+    # If domain / parent_data_product is an urn, we cache it in the private resolved field.
+    # Otherwise, we expect the caller to populate this via DomainRegistry / DataProductRegistry.
     def __init__(self, **data):
         super().__init__(**data)
         if self.domain.startswith("urn:li:domain:"):
             self._resolved_domain_urn = self.domain
         else:
             self._resolved_domain_urn = None
+
+        if self.parent_data_product and self.parent_data_product.startswith(
+            "urn:li:dataProduct:"
+        ):
+            self._resolved_parent_data_product_urn = self.parent_data_product
+        else:
+            self._resolved_parent_data_product_urn = None
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
         return AuditStampClass(
@@ -231,6 +258,11 @@ class DataProduct(ConfigModel):
                     external_url=self.external_url
                 )
 
+            if self._resolved_parent_data_product_urn is not None:
+                dataproduct_patch_builder.set_parent_data_product(
+                    parent_urn=self._resolved_parent_data_product_urn
+                )
+
             yield from dataproduct_patch_builder.build()
         else:
             mcp = MetadataChangeProposalWrapper(
@@ -248,6 +280,7 @@ class DataProduct(ConfigModel):
                     ],
                     customProperties=self.properties if self.properties else None,
                     externalUrl=self.external_url if self.external_url else None,
+                    parentDataProduct=self._resolved_parent_data_product_urn,
                 ),
             )
             yield mcp
@@ -258,6 +291,15 @@ class DataProduct(ConfigModel):
         if self._resolved_domain_urn is None:
             raise Exception(
                 f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
+            )
+
+        if (
+            self.parent_data_product is not None
+            and self._resolved_parent_data_product_urn is None
+        ):
+            raise Exception(
+                f"Unable to generate MCP-s because we were unable to resolve the parent "
+                f"data product {self.parent_data_product} to an urn."
             )
 
         yield from self._generate_properties_mcp(upsert_mode=upsert)
@@ -356,6 +398,19 @@ class DataProduct(ConfigModel):
             )
             domain_urn = domain_registry.get_domain_urn(parsed_data_product.domain)
             parsed_data_product._resolved_domain_urn = domain_urn
+
+            if parsed_data_product.parent_data_product:
+                data_product_registry = DataProductRegistry(
+                    cached_data_products=[parsed_data_product.parent_data_product],
+                    graph=graph,
+                )
+                parent_identifier = data_product_registry.get_data_product_urn(
+                    parsed_data_product.parent_data_product
+                )
+                parsed_data_product._resolved_parent_data_product_urn = (
+                    builder.make_data_product_urn(parent_identifier)
+                )
+
             parsed_data_product._original_yaml_dict = orig_dictionary
             return parsed_data_product
 
@@ -415,6 +470,11 @@ class DataProduct(ConfigModel):
             ]
             if data_product_properties
             else None,
+            parent_data_product=(
+                data_product_properties.parentDataProduct
+                if data_product_properties
+                else None
+            ),
         )
 
     def _patch_ownership(
@@ -514,11 +574,26 @@ class DataProduct(ConfigModel):
                 update_needed = True
                 orig_dictionary[simple_field] = this_dataproduct_dict.get(simple_field)
 
-        if original_dataproduct.domain != self.domain:
-            # we check if the resolved domain urn is the same
-            if original_dataproduct._resolved_domain_urn != self.domain:
-                update_needed = True
-                orig_dictionary["domain"] = self.domain
+        update_needed = (
+            patch_resolved_urn_field(
+                original_dataproduct.domain,
+                self.domain,
+                original_dataproduct._resolved_domain_urn,
+                orig_dictionary,
+                "domain",
+            )
+            or update_needed
+        )
+        update_needed = (
+            patch_resolved_urn_field(
+                original_dataproduct.parent_data_product,
+                self.parent_data_product,
+                original_dataproduct._resolved_parent_data_product_urn,
+                orig_dictionary,
+                "parent_data_product",
+            )
+            or update_needed
+        )
 
         if set(original_dataproduct.assets or []) != set(self.assets or []):
             update_needed = True
