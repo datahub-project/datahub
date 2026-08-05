@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -38,7 +39,7 @@ CATALOG_TOPICS = [
     {
         "name": "key_value_topic",
         "qualifiedName": "lkc-stub:key_value_topic",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": ["PII", "Tier1"],
         "business_metadata": [
             {"name": "owning_team", "value": "payments"},
@@ -48,18 +49,29 @@ CATALOG_TOPICS = [
     {
         "name": "value_topic",
         "qualifiedName": "lkc-stub:value_topic",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": None,
         "business_metadata": [{"name": "owning_team", "value": "analytics"}],
     },
     {
         "name": "topic_not_on_this_broker",
         "qualifiedName": "lkc-stub:topic_not_on_this_broker",
-        "clusterId": "lkc-stub",
+        "logical_cluster_id": "lkc-stub",
         "tags": ["Deprecated"],
         "business_metadata": None,
     },
 ]
+
+
+# Live endpoint 500s on a variables map — pagination must be inlined.
+INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
+
+
+def _pagination_is_inlined(request) -> bool:
+    body = request.json()
+    return "variables" not in body and bool(
+        INLINED_PAGINATION_RE.search(body.get("query", ""))
+    )
 
 
 @pytest.fixture(scope="module")
@@ -153,6 +165,7 @@ def test_kafka_confluent_catalog_ingest(
     with requests_mock.Mocker(real_http=True) as catalog_api:
         catalog_api.post(
             f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_pagination_is_inlined,
             json={"data": {"kafka_topic": CATALOG_TOPICS}},
         )
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)

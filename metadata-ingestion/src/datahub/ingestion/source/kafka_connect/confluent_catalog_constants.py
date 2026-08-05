@@ -11,25 +11,17 @@ CONNECTOR_ROOT_KEY: Final[str] = "cn_connector"
 LINEAGE_SOURCE_PROPERTY: Final[str] = "lineage_source"
 LINEAGE_SOURCE_CATALOG: Final[str] = "confluent_stream_catalog"
 
-# `class` is a reserved word in Python, so the model aliases it.
-CONNECTOR_CLASS_FIELD: Final[str] = "class"
-
-# Read-only query against the Stream Catalog. `cn_connector.topics` already reflects
-# post-SMT topic names, which is why it can replace the transform-matching heuristic.
-#
-# Deliberately not filtered by `clusterId`: on `cn_connector` that field holds the
-# logical *Connect* cluster id (lcc-*), whereas the Connect REST URI only gives us the
-# Kafka cluster id (lkc-*). The Schema Registry endpoint is already environment-scoped,
-# so connectors are matched by name instead.
+# `cn_connector.topics` already reflects post-SMT names, so it replaces the
+# transform-matching heuristic. Unknown fields fail the whole query — only select
+# fields that are both live-verified and consumed. Not filtered by cluster id:
+# on `cn_connector` that field is the Connect cluster (lcc-*), not the Kafka
+# cluster (lkc-*) the REST URI gives us; match by name instead. Pagination
+# placeholders: see LIMIT_PLACEHOLDER in confluent.constants.
 CONNECTOR_CATALOG_QUERY: Final[str] = """
-query DataHubKafkaConnectCatalog($limit: Int, $offset: Int) {
-  cn_connector(limit: $limit, offset: $offset) {
+{
+  cn_connector(limit: {limit}, offset: {offset}) {
     name
     qualifiedName
-    class
-    type
-    status
-    description
     tags
     business_metadata {
       name

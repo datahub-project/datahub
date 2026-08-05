@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+import re
 from functools import wraps
 from typing import Any, Dict
 
@@ -19,6 +20,9 @@ def log_request_info():
     client_ip = request.environ.get("REMOTE_ADDR", "unknown")
     logger.info(f"Request - {request.method} {request.path} from {client_ip}")
 
+
+OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
+LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
 
 VALID_AUTH = {
     "DEV_CONFLUENT_AUTH": "YWRtaW46YWRtaW4=",  # admin:admin in base64
@@ -292,10 +296,6 @@ CATALOG_CONNECTORS_DATA = [
     {
         "name": "source_postgres_cdc_01",
         "qualifiedName": "lcc-source01",
-        "class": "PostgresCdcSource",
-        "type": "SOURCE",
-        "status": "RUNNING",
-        "description": "Postgres CDC into Kafka",
         "tags": ["cdc", "production"],
         "business_metadata": [
             {"name": "team", "value": "data-platform"},
@@ -319,9 +319,6 @@ CATALOG_CONNECTORS_DATA = [
     {
         "name": "sink_postgres_01",
         "qualifiedName": "lcc-sink01",
-        "class": "PostgresSink",
-        "type": "SINK",
-        "status": "RUNNING",
         "tags": ["production"],
         "business_metadata": [],
         "topics": [
@@ -458,12 +455,22 @@ def get_topic(cluster_id, topic_name):
 @app.route("/catalog/graphql", methods=["POST"])
 @require_auth
 def catalog_graphql():
-    """Minimal stand-in for the Stream Catalog GraphQL API (cn_connector only)."""
+    """cn_connector stand-in. Variables map → 500, like the live endpoint."""
     body = request.get_json(silent=True) or {}
-    variables = body.get("variables") or {}
+    if "variables" in body:
+        return jsonify({"error": "Internal server error"}), 500
 
-    offset = int(variables.get("offset") or 0)
-    limit = int(variables.get("limit") or len(CATALOG_CONNECTORS_DATA))
+    query = body.get("query") or ""
+    offset_match = OFFSET_ARGUMENT_RE.search(query)
+    limit_match = LIMIT_ARGUMENT_RE.search(query)
+    if not offset_match or not limit_match:
+        # Reject unsubstituted placeholders rather than defaulting the page size.
+        return jsonify(
+            {"errors": [{"message": "Invalid syntax in pagination arguments"}]}
+        ), 400
+
+    offset = int(offset_match.group(1))
+    limit = int(limit_match.group(1))
 
     page = CATALOG_CONNECTORS_DATA[offset : offset + limit]
     return jsonify({"data": {"cn_connector": page}})

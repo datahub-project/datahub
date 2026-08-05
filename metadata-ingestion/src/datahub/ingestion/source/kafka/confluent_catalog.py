@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogKafkaTopic(CatalogEntity):
-    cluster_id: Optional[str] = Field(default=None, alias="clusterId")
+    cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
 
 
 class KafkaTopicCatalog:
@@ -51,9 +51,18 @@ class KafkaTopicCatalog:
             TOPIC_CATALOG_QUERY, TOPIC_ROOT_KEY, CatalogKafkaTopic
         )
         if self.config.cluster_id:
-            topics = [
+            in_cluster = [
                 topic for topic in topics if topic.cluster_id == self.config.cluster_id
             ]
+            if topics and not in_cluster:
+                # Typo or unset logical_cluster_id otherwise looks like "0 topics fetched".
+                self.report.warning(
+                    message="No Stream Catalog topic carries the configured Kafka cluster id, so no "
+                    "catalog metadata will be applied. Check `confluent_catalog.cluster_id`.",
+                    context=f"cluster_id={self.config.cluster_id}, topics_in_catalog={len(topics)}, "
+                    f"cluster_ids_seen={sorted({str(topic.cluster_id) for topic in topics})}",
+                )
+            topics = in_cluster
         self.report.catalog_topics_fetched = len(topics)
 
         by_name: Dict[str, List[CatalogKafkaTopic]] = defaultdict(list)

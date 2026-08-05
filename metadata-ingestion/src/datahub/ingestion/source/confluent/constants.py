@@ -14,5 +14,9 @@ DATA_KEY: Final[str] = "data"
 ERRORS_KEY: Final[str] = "errors"
 MESSAGE_KEY: Final[str] = "message"
 
-LIMIT_VARIABLE: Final[str] = "limit"
-OFFSET_VARIABLE: Final[str] = "offset"
+# Live catalog endpoint returns HTTP 500 for any GraphQL variables map
+# (verified 2026-08-05), so pagination is inlined via these placeholders.
+LIMIT_PLACEHOLDER: Final[str] = "{limit}"
+OFFSET_PLACEHOLDER: Final[str] = "{offset}"
+
+MAX_ERROR_BODY_CHARS: Final[int] = 500
