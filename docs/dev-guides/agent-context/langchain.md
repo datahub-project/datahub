@@ -130,7 +130,6 @@ Common generated artifacts include:
 - Pipeline configuration files
 - Data ingestion scripts
 
-
 ## Troubleshooting
 
 - **Tool execution errors?** Verify your DataHub connection with `client.test_connection()` and check token permissions.
