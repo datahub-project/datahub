@@ -227,6 +227,15 @@ class TestAdapterFactory:
         adapter = get_adapter("postgres", config, report, mock_postgres_engine)
         assert isinstance(adapter, PostgresAdapter)
 
+    def test_get_adapter_timescaledb(self, config, report, mock_postgres_engine):
+        """TimescaleDB is PostgreSQL underneath and TimescaleDBSource extends
+        PostgresSource (inherits PostgresConfig), so it routes to
+        PostgresAdapter -- otherwise it would fall through to GenericAdapter
+        and miss the AUTOCOMMIT isolation-level fix, keeping the long
+        idle-in-transaction that blocks VACUUM."""
+        adapter = get_adapter("timescaledb", config, report, mock_postgres_engine)
+        assert isinstance(adapter, PostgresAdapter)
+
     def test_get_adapter_athena(self, config, report, mock_athena_engine):
         """Test factory returns Athena adapter."""
         adapter = get_adapter("athena", config, report, mock_athena_engine)

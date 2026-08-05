@@ -50,7 +50,14 @@ def get_adapter(
         )
 
         adapter_class = AthenaAdapter
-    elif platform_lower in ("postgresql", "postgres"):
+    elif platform_lower in ("postgresql", "postgres", "timescaledb"):
+        # TimescaleDB is PostgreSQL underneath (a Postgres extension), so
+        # PostgresAdapter's SQL (PERCENTILE_CONT median/quantiles, pg_class
+        # row-count estimation) all works, and TimescaleDBSource extends
+        # PostgresSource so it inherits PostgresConfig. Routing it here makes
+        # the AUTOCOMMIT isolation-level fix apply to TimescaleDB too; without
+        # this it would resolve to GenericAdapter and keep holding the long
+        # idle-in-transaction that blocks VACUUM.
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
             PostgresAdapter,
         )
