@@ -238,7 +238,7 @@ query ReadBehaviorFinding($urn: String!, $start: Int!, $count: Int!) {
         incidentType
         customType
         priority
-        status {
+        incidentStatus {
           state
           stage
           message
@@ -300,13 +300,13 @@ The result is materially stronger than "the endpoint returned 200": it links
 the live behavior difference to a DataHub asset, its downstream impact, the
 exact workflow, and the evidence that a reviewer can inspect.
 
-## Reference implementation
+## Example implementation
 
 The [DataHub Causality Agent](https://github.com/Yatsuiii/datahub-causality-agent)
-is a deterministic reference implementation of this pattern. It uses the
-official DataHub MCP server for context, an external API execution engine for
-the baseline/changed comparison, and the native Incident API for verified
-write-back.
+is a community project, independent of DataHub, that implements this pattern
+end to end. It uses the official DataHub MCP server for context, an external
+API execution engine for the baseline/changed comparison, and the native
+Incident API for verified write-back.
 
 The repository's portable proof contains the corresponding artifacts:
 
