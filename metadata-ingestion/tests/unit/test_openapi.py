@@ -17,7 +17,7 @@ from datahub.ingestion.source.openapi_parser import (
 )
 
 
-class TestGetUrlBasepath(unittest.TestCase):
+class TestGetUrlBasepath:
     def test_base_path_v2(self):
         assert get_url_basepath({"swagger": "2.0", "basePath": "/api/v2"}) == "/api/v2"
 
