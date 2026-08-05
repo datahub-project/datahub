@@ -42,9 +42,7 @@ extend type Mutation {
   ): Boolean
 
   """
-  Applies the editor's complete editable-field snapshot to an existing incident via PATCH.
-  Nullable fields are cleared when omitted or set to null. Fields the editor does not own -
-  type, source, created, and startedAt - are never targeted and always survive. Use
+  Overwrite the Incident. Nullable fields are cleared when omitted or set to null.  Use
   updateIncident when omitted fields must remain unchanged.
   """
   upsertIncident(
