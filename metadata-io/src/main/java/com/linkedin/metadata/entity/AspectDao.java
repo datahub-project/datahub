@@ -253,12 +253,14 @@ public interface AspectDao {
    * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
    * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
    *
-   * <p>The stream is <b>consume-in-scope</b>: {@code consumer} runs inside the same
-   * transaction/scope that opened the underlying cursor, and the stream is closed when it returns.
-   * This is load-bearing because {@code findStream()} pulls rows lazily as the stream is consumed;
-   * returning a live stream to the caller (as the previous signature did) let the scope close
-   * before the rows were fetched, so a later lazy fetch could run on a connection already returned
-   * to the pool. Do not stash the {@link PartitionedStream} for use after {@code consumer} returns.
+   * <p>The stream is <b>consume-in-scope</b>: {@code consumer} runs while a {@link
+   * ScopedTransactionFactory} routing scope is open, and the stream is closed when it returns. This
+   * is load-bearing when an extension routes queries to different backend databases — {@code
+   * findStream()} pulls rows lazily as the stream is consumed, so the cursor's connection has to
+   * stay routed for the whole consumption. Returning a live stream to the caller (as the previous
+   * signature did) let the scope close before the rows were fetched, so later batches could run on
+   * an unrouted connection already returned to the pool. Do not stash the {@link PartitionedStream}
+   * for use after {@code consumer} returns.
    *
    * @param consumer processes the partitioned stream and returns a result; must fully consume it
    *     before returning

@@ -901,16 +901,38 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * batching, with an optional transaction isolation override (e.g. LoadIndices scans with {@link
    * TxIsolation#READ_UNCOMMITTED}).
    *
-   * <p>{@code findStream()} is lazy: its JDBC cursor pulls rows from the database as {@code
-   * consumer} iterates the returned stream, and it binds to the transaction that is current on this
-   * thread when it executes. The entire stream must therefore be consumed <b>before</b> the
-   * transaction commits/closes — otherwise a later lazy fetch would run on a connection already
-   * returned to the pool. That is why {@code consumer} runs here, inside the {@link
-   * ScopedTransactionFactory#begin} scope, rather than the stream being handed back to the caller.
+   * <p>{@code findStream()} is lazy — its JDBC cursor pulls rows as {@code consumer} iterates the
+   * stream, so the cursor's connection has to stay routed for the whole consumption when an
+   * extension routes queries to different backend databases. We get that from Ebean itself rather
+   * than by holding an explicit transaction open across the consumer:
+   *
+   * <ul>
+   *   <li><b>Default path ({@code isolationLevel == null}) — {@link
+   *       ScopedTransactionFactory#scope}, no explicit transaction.</b> Ebean opens its <i>own</i>
+   *       implicit read-only transaction for the {@code findStream()} query, routed from the
+   *       ambient scope. Crucially that implicit transaction is <b>not thread-current</b>, so any
+   *       nested query the {@code consumer} runs (e.g. {@code getLatestAspects}, {@code
+   *       ingestProposal}) opens a <i>separate</i> implicit transaction on its own connection —
+   *       instead of colliding with the still-open cursor ("another command is already in
+   *       progress") or forcing every per-batch side effect into one long-lived transaction. The
+   *       scope only has to stay open across consumption so those nested lookups still route
+   *       correctly.
+   *   <li><b>Isolation path ({@code isolationLevel != null}) — explicit {@link
+   *       ScopedTransactionFactory#begin}.</b> An isolation override can only ride a real
+   *       transaction, which becomes thread-current — so callers on this path (only LoadIndices)
+   *       must not run nested aspect queries inside the {@code consumer}. LoadIndices does not: its
+   *       consumer only converts rows and writes to Elasticsearch.
+   * </ul>
+   *
+   * <p>The implicit read-only query transaction is created by ebean-core (pinned {@code 15.5.2},
+   * identical at the public {@code 15.1.0} tag) in <a
+   * href="https://github.com/ebean-orm/ebean/blob/15.1.0/ebean-core/src/main/java/io/ebeaninternal/server/core/OrmQueryRequest.java#L204-L214">{@code
+   * OrmQueryRequest#initTransIfRequired}</a>.
    *
    * @param args Stream arguments and filters
    * @param isolationLevel Optional isolation level override (null = database default)
-   * @param consumer processes the partitioned stream inside the scope and returns a result
+   * @param consumer processes the partitioned stream inside the scope and returns a result; it must
+   *     fully consume the stream before returning
    * @return whatever {@code consumer} returns
    */
   public <R> R streamAspectBatches(
@@ -918,20 +940,30 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final RestoreIndicesArgs args,
       @Nullable final TxIsolation isolationLevel,
       @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
-    final TxScope txScope =
-        isolationLevel == null
-            ? TxScope.requiresNew()
-            : TxScope.requiresNew().setIsolation(isolationLevel);
-    // begin() makes the transaction current on this thread, so buildStreamQuery()'s findStream()
-    // binds to it; the stream is closed (reverse resource order) before the transaction closes.
-    try (Transaction tx = txnFactory.begin(opContext, txScope);
+    if (isolationLevel != null) {
+      // An isolation override can only ride a real transaction. It becomes thread-current, so the
+      // cursor and any nested query would share one connection — safe only because this path's sole
+      // caller (LoadIndices) runs no nested aspect queries in its consumer.
+      try (Transaction tx =
+              txnFactory.begin(opContext, TxScope.requiresNew().setIsolation(isolationLevel));
+          PartitionedStream<EbeanAspectV2> partitioned =
+              PartitionedStream.<EbeanAspectV2>builder()
+                  .delegateStream(buildStreamQuery(args))
+                  .build()) {
+        final R result = consumer.apply(partitioned);
+        tx.commit();
+        return result;
+      }
+    }
+    // Default path: keep a routing scope open (not a transaction). Ebean's own implicit read-only
+    // transaction for findStream() is not thread-current, so nested queries the consumer runs get
+    // their own connection (see javadoc).
+    try (ScopedTransactionFactory.Scope scope = txnFactory.scope(opContext);
         PartitionedStream<EbeanAspectV2> partitioned =
             PartitionedStream.<EbeanAspectV2>builder()
                 .delegateStream(buildStreamQuery(args))
                 .build()) {
-      final R result = consumer.apply(partitioned);
-      tx.commit();
-      return result;
+      return consumer.apply(partitioned);
     }
   }
 
