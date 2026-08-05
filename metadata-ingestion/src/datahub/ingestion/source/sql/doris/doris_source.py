@@ -28,7 +28,12 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     DORIS_MAP,
     DORIS_STRUCT,
     HLL,
+    IPV4,
+    IPV6,
+    LARGEINT,
     QUANTILE_STATE,
+    VARIANT,
+    DorisDialect,
 )
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import register_custom_type
@@ -37,7 +42,9 @@ from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
+    NumberTypeClass,
     RecordTypeClass,
+    StringTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,6 +67,10 @@ register_custom_type(DORIS_ARRAY, ArrayTypeClass)
 register_custom_type(DORIS_MAP, RecordTypeClass)
 register_custom_type(DORIS_STRUCT, RecordTypeClass)
 register_custom_type(DORIS_JSONB, RecordTypeClass)
+register_custom_type(VARIANT, RecordTypeClass)
+register_custom_type(LARGEINT, NumberTypeClass)
+register_custom_type(IPV4, StringTypeClass)
+register_custom_type(IPV6, StringTypeClass)
 
 
 @functools.lru_cache(maxsize=None)
@@ -144,6 +155,13 @@ class DorisSourceReport(SQLSourceReport):
     # Views whose lineage was dropped because they reference another Doris
     # catalog, which this run does not ingest. Should be 0 on a clean run.
     cross_catalog_views_skipped: int = 0
+    # Expected to be nonzero on a healthy Doris instance that has async materialized
+    # views, which Doris refuses to return DDL for. Only worth investigating if the
+    # count exceeds the number of async MVs, or the unexpected-error warning appears.
+    tables_reflected_without_keys: int = 0
+    # Nonzero means DESCRIBE failed on a table that reflected fine otherwise, so its
+    # Doris-specific column types were downgraded to MySQL equivalents.
+    tables_with_unreflected_types: int = 0
 
 
 @platform_name("Apache Doris", id="doris")
@@ -154,6 +172,7 @@ class DorisSourceReport(SQLSourceReport):
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class DorisSource(MySQLSource):
     config: DorisConfig
+    report: DorisSourceReport
 
     def __init__(self, config: DorisConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)
@@ -270,12 +289,49 @@ class DorisSource(MySQLSource):
                 # tears the engine down on resume.
                 yield inspect(db_conn)
             finally:
+                # In finally, not after the yield: an early close (pipeline abort, a
+                # fatal error elsewhere) throws GeneratorExit at the yield, and the
+                # degradations this database already recorded would otherwise be lost.
+                self._report_reflection_fallbacks(db_conn)
                 db_conn.close()
                 db_engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
         db_name = super().get_db_name(inspector)
         return self._short_database_name(db_name)
+
+    def _report_reflection_fallbacks(self, conn: Connection) -> None:
+        """Surface the reflection degradations the dialect recorded.
+
+        Called once the caller has finished with a database's inspector, so the
+        dialect has recorded every table it fell back on.
+        """
+        dialect = conn.dialect
+        if not isinstance(dialect, DorisDialect):
+            return
+
+        for full_name, fallback in dialect.pop_reflection_fallbacks().items():
+            self.report.tables_reflected_without_keys += 1
+            if fallback.expected:
+                self.report.warning(
+                    title="Table reflected without keys or comment",
+                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: columns are complete but keys, foreign keys and the table comment are missing.",
+                    context=f"{full_name}: {fallback.error}",
+                )
+            else:
+                self.report.warning(
+                    title="Table reflected without keys or comment after an unexpected error",
+                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so columns are complete, but keys, foreign keys and the table comment are missing. Check the account's grants on this table.",
+                    context=f"{full_name}: {fallback.error}",
+                )
+
+        for full_name, error in dialect.pop_type_overlay_failures().items():
+            self.report.tables_with_unreflected_types += 1
+            self.report.warning(
+                title="Doris column types unavailable",
+                message="DESCRIBE failed, so column types fall back to MySQL reflection: Doris-specific types such as HLL, BITMAP and VARIANT are reported as their closest MySQL equivalent instead.",
+                context=f"{full_name}: {error}",
+            )
 
     def get_platform(self) -> str:
         return "doris"
