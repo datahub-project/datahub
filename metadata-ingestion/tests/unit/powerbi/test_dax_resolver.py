@@ -1,5 +1,3 @@
-"""Tests for DAX calculated-table reference extraction."""
-
 from datahub.ingestion.source.powerbi.m_query.dax_resolver import (
     extract_dax_table_references,
 )

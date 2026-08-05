@@ -60,6 +60,7 @@ Requirements:
 ### Other Notable Changes
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
+- **(Ingestion / Power BI)** Power BI ingestion now emits lineage between tables in the same dataset that reference each other by name, in both M-Query (a bare or quoted table reference, or one inside a wrapper such as `Table.Combine`) and DAX calculated tables. These appear as `TRANSFORMED` upstream edges between Power BI datasets, so existing Power BI assets may gain upstream lineage they did not have before. Matching is by table name within the same Power BI dataset and is case-insensitive. **Action:** none required. Set `extract_table_to_table_lineage: false` in the Power BI recipe to keep the previous behaviour, for example if a table and a column share a name in a way that produces unwanted edges.
 
 ## v1.7.0
 

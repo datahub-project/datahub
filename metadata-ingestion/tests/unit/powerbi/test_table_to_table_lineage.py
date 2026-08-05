@@ -1,11 +1,6 @@
-"""Tests for M-Query table-to-table lineage.
-
-Bridge-backed: each M-Query expression is parsed via the JS bridge, mirroring
-tests/unit/test_ast_utils.py. No static fixtures.
-"""
-
 import logging
 import time
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -39,6 +34,8 @@ from datahub.metadata.schema_classes import (
 
 
 def _parse(expression: str) -> NodeIdMap:
+    # Bridge-backed rather than static fixtures, mirroring tests/unit/test_ast_utils.py.
+    # Clear the singleton either side so tests can't leak parser state.
     _clear_bridge()
     node_map = get_bridge().parse(expression)
     _clear_bridge()
@@ -53,7 +50,7 @@ def _config() -> PowerBiDashboardSourceConfig:
     )
 
 
-def _dataset_with_tables(tables: list) -> PowerBIDataset:
+def _dataset_with_tables(tables: List[Table]) -> PowerBIDataset:
     dataset = PowerBIDataset(
         id="d1",
         name="ds",
