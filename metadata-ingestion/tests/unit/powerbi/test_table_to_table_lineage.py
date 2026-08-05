@@ -171,6 +171,21 @@ def test_join_with_shared_ancestor_has_no_circular_warning(
     assert refs == ["SomeSiblingTbl"]
 
 
+def test_lambda_parameter_is_not_a_reference() -> None:
+    # Function parameters are unresolved identifiers but not sibling tables, and
+    # people name them exactly like dimension tables (Country, Region, Date).
+    node_map = _parse("let A = List.Transform({1,2}, (Country) => Country) in A")
+    assert resolve_to_table_references(node_map) == []
+
+
+def test_quoted_dotted_table_name_is_a_reference() -> None:
+    # The dotted-name filter exists to drop M library/enum references
+    # (QuoteStyle.Csv). Those are never #"..."-quoted, so a quoted dotted name is
+    # a real table (dim.Date, Sales.Orders are common in Power BI).
+    node_map = _parse('let A = #"My.Table" in A')
+    assert resolve_to_table_references(node_map) == ["My.Table"]
+
+
 def test_merge_chain_resolves_in_linear_time() -> None:
     # Regression guard: collecting table references must not re-walk shared
     # subtrees per argument. A merge chain where each step joins two earlier

@@ -121,22 +121,31 @@ def resolve_to_table_references(
         parameters={},
         unresolved=unresolved,
     )
-    # The walk threads only the innermost `let` scope, so a variable bound in an
-    # enclosing `let` (e.g. the default Power Query step name `Source`) looks
-    # unresolved once the walk descends into a nested `let`. Exclude every name
-    # bound as a `let` variable anywhere in the expression to avoid fabricating a
-    # sibling reference from such a step name.
-    # Exclude let-bound variables (see above) and M query parameters — both are
-    # unresolved identifiers that are not sibling tables.
-    excluded_names = _collect_let_bound_names(node_map)
+    # The walk threads only the innermost `let` scope, so a name bound in an
+    # enclosing scope (e.g. the default step name `Source`) looks unresolved once
+    # the walk descends into a nested `let`. Drop everything the expression binds
+    # itself, plus query parameters: none of those are sibling tables.
+    excluded_names = _collect_bound_names(node_map)
     excluded_names |= {name.casefold() for name in (parameters or {})}
     return sorted(name for name in unresolved if name.casefold() not in excluded_names)
 
 
-def _collect_let_bound_names(node_map: NodeIdMap) -> Set[str]:
-    """Return the casefolded names of all `let`-bound variables in the map."""
+def _collect_bound_names(node_map: NodeIdMap) -> Set[str]:
+    """Casefolded names bound by the expression itself — never sibling tables.
+
+    Covers `let` variables and function parameters. Parameters matter because
+    people name them exactly like dimension tables (`(Country) => Country`), and
+    the mapper's name check cannot tell such a collision from a real reference.
+    """
     names: Set[str] = set()
     for node in node_map.values():
+        if node.get("kind") == "Parameter":
+            name_node = node.get("name", {})
+            if isinstance(name_node, dict):
+                literal = _strip_quoted_identifier(name_node.get("literal", ""))
+                if literal:
+                    names.add(literal.casefold())
+            continue
         if node.get("kind") != "LetExpression":
             continue
         var_list = node.get("variableList", {})
@@ -155,11 +164,17 @@ def _collect_let_bound_names(node_map: NodeIdMap) -> Set[str]:
                 continue
             key = inner.get("key", {})
             literal = key.get("literal", "") if isinstance(key, dict) else ""
-            if literal.startswith('#"') and literal.endswith('"'):
-                literal = literal[2:-1]
+            literal = _strip_quoted_identifier(literal)
             if literal:
                 names.add(literal.casefold())
     return names
+
+
+def _strip_quoted_identifier(literal: str) -> str:
+    """Turn a quoted identifier (``#"name"``) into its bare name."""
+    if literal.startswith('#"') and literal.endswith('"'):
+        return literal[2:-1]
+    return literal
 
 
 def _walk(
@@ -181,10 +196,8 @@ def _walk(
     # -- IdentifierExpression (wraps Identifier) --
     if kind == "IdentifierExpression":
         identifier = node.get("identifier", {})
-        name = identifier.get("literal", "")
-        # Strip quoted identifier prefix/suffix (#"name" → name)
-        if name.startswith('#"') and name.endswith('"'):
-            name = name[2:-1]
+        raw_name = identifier.get("literal", "")
+        name = _strip_quoted_identifier(raw_name)
         _walk_identifier_name(
             node_map,
             name,
@@ -195,14 +208,14 @@ def _walk(
             seen,
             parameters,
             unresolved,
+            was_quoted=raw_name != name,
         )
         return
 
     # -- Identifier --
     if kind == "Identifier":
-        name = node.get("literal", "")
-        if name.startswith('#"') and name.endswith('"'):
-            name = name[2:-1]
+        raw_name = node.get("literal", "")
+        name = _strip_quoted_identifier(raw_name)
         _walk_identifier_name(
             node_map,
             name,
@@ -213,6 +226,7 @@ def _walk(
             seen,
             parameters,
             unresolved,
+            was_quoted=raw_name != name,
         )
         return
 
@@ -492,6 +506,7 @@ def _walk_identifier_name(
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
     unresolved: Optional[Set[str]] = None,
+    was_quoted: bool = False,
 ) -> None:
     """Resolve a variable name in the current let scope and continue walking."""
     if not name:
@@ -511,11 +526,11 @@ def _walk_identifier_name(
     resolved = resolve_identifier(node_map, current_let, name)
     if resolved is None:
         # Not a local `let` variable. When collecting table references, this is a
-        # candidate reference to a sibling table — but skip dotted identifiers,
-        # which are M library/enum references (e.g. QuoteStyle.Csv,
+        # candidate reference to a sibling table — but skip *unquoted* dotted
+        # identifiers, which are M library/enum references (e.g. QuoteStyle.Csv,
         # JoinKind.LeftOuter) that appear as function arguments and are never
-        # table names.
-        if unresolved is not None and "." not in name:
+        # table names. A quoted #"My.Table" is a real, dotted table name.
+        if unresolved is not None and (was_quoted or "." not in name):
             unresolved.add(name)
         return
     _walk(
