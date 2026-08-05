@@ -2,6 +2,7 @@ from typing import Dict
 from unittest import mock
 
 import pytest
+from sqlalchemy.exc import ArgumentError, SQLAlchemyError
 
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -264,3 +265,47 @@ def test_fine_grained_lineages(
 
     assert actual_downstream == expected_simplified_downstream
     assert actual_upstream == expected_simplified_upstream
+
+
+def test_get_profiling_internal_reraises_argument_error():
+    """An invalid profiling_isolation_level must surface as a loud ArgumentError out
+    of get_profiling_internal, not be swallowed into a warning + continue. Eager
+    validation in SQLAlchemyProfiler.__init__ exists precisely so a bad level fails
+    once, loudly; the broad construction catch in get_profiling_internal must re-raise
+    ArgumentError (not catch it) and only swallow transient SA errors."""
+    source = _TestTwoTierSQLAlchemySource.create(
+        config_dict={**_TWO_TIER_CONFIG_DICT, "profiling": {"enabled": True}},
+        ctx=PipelineContext(run_id="test_ctx"),
+    )
+    with (
+        mock.patch.object(source, "get_inspectors", return_value=[mock.MagicMock()]),
+        mock.patch.object(
+            source, "get_profiler_instance", side_effect=ArgumentError("bad level")
+        ),
+    ):
+        with pytest.raises(ArgumentError):
+            list(source.get_profiling_internal())
+
+
+def test_get_profiling_internal_warns_and_skips_on_transient_sa_error():
+    """A transient SQLAlchemyError during construction (e.g. the eager-validation
+    connect failed: connection refused) is warned and the inspector is skipped so the
+    rest of the run proceeds -- the original construction-failure-mode intent. This
+    path is distinct from the ArgumentError path above, which must stay loud."""
+    source = _TestTwoTierSQLAlchemySource.create(
+        config_dict={**_TWO_TIER_CONFIG_DICT, "profiling": {"enabled": True}},
+        ctx=PipelineContext(run_id="test_ctx"),
+    )
+    with (
+        mock.patch.object(source, "get_inspectors", return_value=[mock.MagicMock()]),
+        mock.patch.object(
+            source,
+            "get_profiler_instance",
+            side_effect=SQLAlchemyError("conn refused"),
+        ),
+        mock.patch.object(source, "warn") as mock_warn,
+    ):
+        result = list(source.get_profiling_internal())
+
+    assert result == []
+    mock_warn.assert_called_once()
