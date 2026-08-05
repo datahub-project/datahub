@@ -5,6 +5,7 @@ tests/unit/test_ast_utils.py. No static fixtures.
 """
 
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -29,6 +30,10 @@ from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     Table,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamLineageClass,
 )
 
 
@@ -279,9 +284,7 @@ def test_sibling_reference_resolves_to_upstream_urn() -> None:
     # actual casing when convert_urns_to_lowercase is off.
     urns = _mapper(config)._table_reference_upstreams(["FACTNEWNAMES"], child)
 
-    assert urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factNewNames,PROD)"
-    ]
+    assert urns == ["urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factNewNames,PROD)"]
 
 
 def test_sibling_reference_urn_lowercased_when_configured() -> None:
@@ -293,9 +296,7 @@ def test_sibling_reference_urn_lowercased_when_configured() -> None:
 
     urns = _mapper(config)._table_reference_upstreams(["factNewNames"], child)
 
-    assert urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factnewnames,PROD)"
-    ]
+    assert urns == ["urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.factnewnames,PROD)"]
 
 
 def test_table_reference_upstreams_warns_when_no_dataset() -> None:
@@ -426,3 +427,30 @@ def test_let_bearing_parse_failure_is_not_treated_as_dax() -> None:
     assert lineages == []
     assert reporter.m_query_parse_unknown_errors == 1
     assert reporter.m_query_dax_table_lineage == 0
+
+
+def test_extract_lineage_emits_transformed_upstream_edge() -> None:
+    # End-to-end through the mapper: a sibling reference must become an
+    # UpstreamClass of type TRANSFORMED pointing at the sibling's dataset URN.
+    config = _config()
+    child = Table(
+        name="Summary",
+        full_name="d1.Summary",
+        expression='let\n    Source = #"Base"\nin\n    Source',
+    )
+    base = Table(name="Base", full_name="d1.Base")
+    _dataset_with_tables([child, base])
+
+    ds_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Summary,PROD)"
+    mcps = _mapper(config).extract_lineage(child, ds_urn, MagicMock())
+
+    upstream_aspects = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1
+    edges = upstream_aspects[0].upstreams
+    assert any(
+        edge.type == DatasetLineageTypeClass.TRANSFORMED
+        and edge.dataset == "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Base,PROD)"
+        for edge in edges
+    )
