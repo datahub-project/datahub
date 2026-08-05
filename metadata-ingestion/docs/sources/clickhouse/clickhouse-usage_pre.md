@@ -17,7 +17,7 @@ This plugin has the below functionalities:
 Before running ingestion, ensure the DataHub host can reach the ClickHouse endpoint (HTTP `8123` / `8443`, or native `9000` / `9440`) and that the DataHub user has read access to the query-log source. These grants assume ClickHouse's SQL-driven access control is enabled (`access_management = 1`).
 
 | Capability                        | Required grants                                                                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- git |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Usage statistics (default)        | `GRANT SELECT ON system.query_log TO datahub` (or on the custom view referenced by `query_log_table`). Strictly required — the fetch fails loudly without it.       |
 | Resolving referenced tables/views | `GRANT SELECT ON <database>.* TO datahub` for every database that appears in the queries you want attributed — SQL parsing resolves upstreams against these tables. |
 | Profiling (optional)              | `GRANT SELECT ON <database>.* TO datahub` for every database you want to profile.                                                                                   |
