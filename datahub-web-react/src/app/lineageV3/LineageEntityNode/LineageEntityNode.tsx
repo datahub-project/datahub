@@ -9,6 +9,8 @@ import {
     LineageEntity,
     LineageNodesContext,
     TRANSITION_DURATION_MS,
+    createLineageFilterNodeId,
+    mayHideLineage,
     parseColumnRef,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
@@ -38,6 +40,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         setHoveredNode,
         displayedMenuNode,
         setDisplayedMenuNode,
+        lineageFilters,
     } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -73,6 +76,32 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
 
     const hasParentDataJob = parentDataJob ? true : undefined;
+    // Data flow lineage: members count only the neighbors outside their own data job
+    const numUpstreams =
+        hasParentDataJob &&
+        Array.from(adjacencyList[LineageDirection.Upstream].get(urn) || []).filter(
+            (upstream) => nodes.get(upstream)?.parentDataJob !== parentDataJob,
+        ).length;
+    const numDownstreams =
+        hasParentDataJob &&
+        Array.from(adjacencyList[LineageDirection.Downstream].get(urn) || []).filter(
+            (downstream) => nodes.get(downstream)?.parentDataJob !== parentDataJob,
+        ).length;
+
+    // Columns only claim to hide lineage in directions where their node does, and pay for the
+    // counts query only then. Passed as booleans to keep `NodeContents` memoized.
+    const mayHideLineageIn = (
+        direction: LineageDirection,
+        numNeighbors: number | undefined,
+        numChildren: number | undefined,
+    ) =>
+        mayHideLineage(
+            direction,
+            data,
+            !!(numNeighbors ?? !!numChildren), // Matches `NodeContents`
+            !!lineageFilters.get(createLineageFilterNodeId(urn, direction)),
+        );
+
     return (
         <NodeContents
             id={id}
@@ -115,18 +144,18 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             numColumnsTotal={numColumnsTotal}
             refetch={refetch}
             ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-            numUpstreams={
-                hasParentDataJob &&
-                Array.from(adjacencyList[LineageDirection.Upstream].get(urn) || []).filter(
-                    (upstream) => nodes.get(upstream)?.parentDataJob !== parentDataJob,
-                ).length
-            }
-            numDownstreams={
-                hasParentDataJob &&
-                Array.from(adjacencyList[LineageDirection.Downstream].get(urn) || []).filter(
-                    (downstream) => nodes.get(downstream)?.parentDataJob !== parentDataJob,
-                ).length
-            }
+            numUpstreams={numUpstreams}
+            numDownstreams={numDownstreams}
+            mayHideUpstreamLineage={mayHideLineageIn(
+                LineageDirection.Upstream,
+                numUpstreams,
+                entity?.numUpstreamChildren,
+            )}
+            mayHideDownstreamLineage={mayHideLineageIn(
+                LineageDirection.Downstream,
+                numDownstreams,
+                entity?.numDownstreamChildren,
+            )}
         />
     );
 }

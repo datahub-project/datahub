@@ -42,10 +42,10 @@ interface Props {
 
 /**
  * How much of a column's lineage in one direction is on the graph, e.g. `2 / 5`. Rendered to the
- * left and right of the hovered or selected column, and of every column related to it, from the
- * moment `getColumnLineageCounts` is asked for its total until the column is no longer part of the
- * traversal -- a loading indicator stands in for the total in the meantime. Both numbers count
- * columns the way the graph draws them, so showing every related node brings them level.
+ * left and right of the hovered or selected column, and of every column related to it, in the
+ * directions where its node may be hiding lineage -- see `mayHideLineage`. A loading indicator
+ * stands in for the total until `getColumnLineageCounts` resolves; both numbers count columns the
+ * way the graph draws them.
  *
  * TODO: Expand on hover into a panel of controls, as `ContractLineageControl` does.
  */
@@ -56,18 +56,13 @@ export function ColumnLineageControl({ direction, lineageAsset, shownRelated }: 
     if (numShown === undefined) {
         return null; // Lineage was never traversed this way, so there is nothing to say about it
     }
-    if (total === undefined && lineageAsset.lineageCountsFetched) {
-        // Counts are marked fetched without querying when the node's every neighbor is on the
-        // graph. Nothing was hidden to begin with, so there is no count worth showing.
-        return null;
-    }
     if (total === 0) {
         return null; // The column has no lineage this way at all, so there is nothing to count
     }
     return (
         <ControlWrapper direction={direction} data-testid={`column-lineage-control-${lineageAsset.name}-${direction}`}>
             <Counts>
-                {/* Cached counts can lag behind the graph, so never show more shown than exist */}
+                {/* Counts are fetched per column, so they can lag behind the graph */}
                 {total === undefined ? numShown : Math.min(numShown, total)} /{' '}
                 {total === undefined ? <Spin indicator={<StyledLoadingIndicator />} /> : total}
             </Counts>

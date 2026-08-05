@@ -165,6 +165,9 @@ interface Props {
     ignoreSchemaFieldStatus: boolean;
     numUpstreams?: number;
     numDownstreams?: number;
+    /** Whether the node may be hiding lineage in each direction, i.e. it shows a control saying so. */
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -210,6 +213,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
         numUpstreams,
         numDownstreams,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     } = props;
 
     const { t } = useTranslation('lineage');
@@ -491,6 +496,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             setSelectedColumn={setSelectedColumn}
                             hoveredColumn={hoveredColumn}
                             setHoveredColumn={setHoveredColumn}
+                            mayHideUpstreamLineage={mayHideUpstreamLineage}
+                            mayHideDownstreamLineage={mayHideDownstreamLineage}
                         />
                     )}
                     {entity && (
