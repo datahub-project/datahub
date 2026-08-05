@@ -189,12 +189,23 @@ def get_upstream_tables(
             if lineage.upstreams:
                 lineages.append(lineage)
 
+        data_source_found = bool(lineages)
+
         # The expression may also reference another table in the same dataset by
         # name (table-to-table lineage). This is collected regardless of whether
         # an external data source was found, since an M-Query can combine both
-        # (e.g. Table.Combine({Sql.Database(...), SiblingTable})). The mapper
-        # validates these candidate names against the dataset's actual tables.
+        # (e.g. Table.Combine({Sql.Database(...), SiblingTable})). The mapper does
+        # the authoritative matching + reporting; here we only check (cheaply)
+        # whether any candidate is a real sibling so that stray identifiers in
+        # unsupported sources don't inflate resolver_successes or hide the
+        # unsupported-source debug below.
         table_refs = mquery_resolver.resolve_to_table_references(node_map)
+        sibling_names = (
+            {t.name.casefold() for t in table.dataset.tables}
+            if table.dataset
+            else set()
+        )
+        matched_sibling_ref = any(ref.casefold() in sibling_names for ref in table_refs)
         if table_refs:
             lineages.append(
                 Lineage(
@@ -203,16 +214,8 @@ def get_upstream_tables(
                     powerbi_table_upstreams=table_refs,
                 )
             )
-        elif not data_access_func_details:
-            logger.debug(
-                "No recognized data-access function found in expression for table"
-                " %s. Expression may use an unsupported source (e.g. Web.Contents,"
-                " Excel.Workbook). To add support, reproduce with: %r",
-                table.full_name,
-                expression,
-            )
 
-        if lineages:
+        if data_source_found or matched_sibling_ref:
             reporter.m_query_resolver_successes += 1
         else:
             reporter.m_query_resolver_no_lineage += 1
@@ -224,6 +227,14 @@ def get_upstream_tables(
                     "Recognized function(s) %s but no lineage extracted for table %s."
                     " To reproduce locally: %r",
                     [f.data_access_function_name for f in data_access_func_details],
+                    table.full_name,
+                    expression,
+                )
+            else:
+                logger.debug(
+                    "No recognized data-access function found in expression for table"
+                    " %s. Expression may use an unsupported source (e.g. Web.Contents,"
+                    " Excel.Workbook). To add support, reproduce with: %r",
                     table.full_name,
                     expression,
                 )

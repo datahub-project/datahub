@@ -254,3 +254,59 @@ def test_unmatched_and_self_references_are_dropped() -> None:
     assert mapper._table_reference_upstreams(["does_not_exist"], child) == []
     # A table referencing itself must not produce a self-loop.
     assert mapper._table_reference_upstreams(["New Names"], child) == []
+
+
+def test_emitted_and_dropped_references_are_reported() -> None:
+    config = _config()
+    child = Table(name="Child", full_name="d1.Child")
+    sibling = Table(name="Sib", full_name="d1.Sib")
+    _dataset_with_tables([child, sibling])
+    reporter = PowerBiDashboardSourceReport()
+    mapper = Mapper(
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        reporter=reporter,
+        dataplatform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    urns = mapper._table_reference_upstreams(["Sib", "Ghost"], child)
+
+    assert len(urns) == 1
+    assert reporter.m_query_table_to_table_lineage == 1
+    assert any(
+        "d1.Child -> d1.Sib" in sample
+        for sample in reporter.m_query_table_to_table_lineage_samples
+    )
+    assert reporter.m_query_table_to_table_unmatched == 1
+    assert any(
+        "d1.Child -> Ghost" in sample
+        for sample in reporter.m_query_table_to_table_unmatched_samples
+    )
+
+
+def test_stray_reference_does_not_inflate_resolver_success() -> None:
+    # An unsupported source whose only unresolved identifier is not a real sibling
+    # table must count as no-lineage, not success.
+    config = _config()
+    child = Table(
+        name="X",
+        full_name="d1.X",
+        expression="let Source = NotASiblingTable in Source",
+    )
+    _dataset_with_tables([child])
+    reporter = PowerBiDashboardSourceReport()
+
+    parser.get_upstream_tables(
+        table=child,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+
+    assert reporter.m_query_resolver_successes == 0
+    assert reporter.m_query_resolver_no_lineage == 1

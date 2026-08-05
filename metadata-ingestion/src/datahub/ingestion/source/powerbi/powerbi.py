@@ -403,14 +403,14 @@ class Mapper:
                 )
 
             # Table-to-table lineage: references to sibling tables in the same
-            # PowerBI dataset (resolved from the M-Query by the parser).
+            # PowerBI dataset (resolved from the M-Query by the parser). The
+            # helper records emitted / dropped samples on the report.
             for sibling_urn in self._table_reference_upstreams(
                 lineage.powerbi_table_upstreams, table
             ):
                 upstream.append(
                     UpstreamClass(sibling_urn, DatasetLineageTypeClass.TRANSFORMED)
                 )
-                self.__reporter.m_query_table_to_table_lineage += 1
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
@@ -449,15 +449,17 @@ class Mapper:
         for reference in table_references:
             sibling = siblings_by_name.get(reference.lower())
             if sibling is None:
-                logger.debug(
-                    "M-Query reference %r in table %s matched no table in dataset %s",
-                    reference,
-                    current_table.full_name,
-                    dataset.name,
+                self.__reporter.m_query_table_to_table_unmatched += 1
+                self.__reporter.m_query_table_to_table_unmatched_samples.append(
+                    f"{current_table.full_name} -> {reference}"
                 )
                 continue
             if sibling.full_name == current_table.full_name:
                 continue
+            self.__reporter.m_query_table_to_table_lineage += 1
+            self.__reporter.m_query_table_to_table_lineage_samples.append(
+                f"{current_table.full_name} -> {sibling.full_name}"
+            )
             upstream_urns.append(
                 self.assets_urn_to_lowercase(
                     builder.make_dataset_urn_with_platform_instance(
