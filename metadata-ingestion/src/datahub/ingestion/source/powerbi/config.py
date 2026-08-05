@@ -280,6 +280,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     )
     # DAX calculated-table expressions that yielded sibling-table references.
     m_query_dax_table_lineage: int = 0
+    # DAX reference extraction failed — almost always a PyDAXLexer API change.
+    m_query_dax_extraction_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

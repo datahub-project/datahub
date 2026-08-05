@@ -156,7 +156,7 @@ def get_upstream_tables(
         # summarize('T', ...)). Try to extract sibling-table references before
         # treating it as an unsupported non-M expression.
         table_refs = (
-            dax_resolver.extract_dax_table_references(expression)
+            dax_resolver.extract_dax_table_references(expression, reporter=reporter)
             if config.extract_table_to_table_lineage
             else []
         )
