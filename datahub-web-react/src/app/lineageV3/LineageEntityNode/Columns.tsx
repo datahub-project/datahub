@@ -99,6 +99,8 @@ interface Props {
     setSelectedColumn: Dispatch<SetStateAction<string | null>>;
     hoveredColumn: string | null;
     setHoveredColumn: Dispatch<SetStateAction<string | null>>;
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
 }
 
 export default function DelayedColumns(props: Props) {
@@ -145,6 +147,8 @@ function Columns(props: Props) {
         setSelectedColumn,
         hoveredColumn,
         setHoveredColumn,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     } = props;
 
     const updateNodeInternals = useUpdateNodeInternals();
@@ -194,6 +198,8 @@ function Columns(props: Props) {
         setSelectedColumn,
         hoveredColumn,
         setHoveredColumn,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     };
     const handleMouseLeave = useCallback(() => {
         setHoveredColumn(null);

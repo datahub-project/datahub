@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
-import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
@@ -10,22 +10,14 @@ import styled from 'styled-components';
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import useFetchColumnCounts from '@app/lineageV3/LineageEntityNode/Column.hooks';
 import { ColumnLineageControl } from '@app/lineageV3/LineageEntityNode/ColumnLineageControl';
 import { LineageDisplayColumn, columnHasLineage } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
-import {
-    LineageNodesContext,
-    createColumnRef,
-    generateIgnoreAsHops,
-    onClickPreventSelect,
-    useIgnoreSchemaFieldStatus,
-} from '@app/lineageV3/common';
-import { ColumnAsset } from '@app/lineageV3/types';
+import { createColumnRef, onClickPreventSelect } from '@app/lineageV3/common';
 import { useGetLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { useGetColumnLineageCountsLazyQuery } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
 
 import LinkOut from '@images/link-out.svg?react';
@@ -123,6 +115,8 @@ type Props = LineageDisplayColumn & {
     parentUrn: string;
     entityType: EntityType;
     allNeighborsFetched: boolean;
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
     selectedColumn: string | null;
     setSelectedColumn: Dispatch<SetStateAction<string | null>>;
     hoveredColumn: string | null;
@@ -140,6 +134,8 @@ export default function Column({
     lineageAsset,
     shownRelated,
     allNeighborsFetched,
+    mayHideUpstreamLineage,
+    mayHideDownstreamLineage,
     selectedColumn,
     setSelectedColumn,
     hoveredColumn,
@@ -151,6 +147,8 @@ export default function Column({
     const selected = selectedColumn === id;
     // Lineage filter nodes cover hidden column lineage themselves, with an edge to the filter node
     const showLineageControls = !!shownRelated && !config.featureFlags.showLineageFilterNodes;
+    const showUpstreamControl = showLineageControls && mayHideUpstreamLineage;
+    const showDownstreamControl = showLineageControls && mayHideDownstreamLineage;
 
     let columnName = fieldPath;
     try {
@@ -167,6 +165,7 @@ export default function Column({
     const turnOnDisabledTooltipOnHover = useCallback(() => setShowDisabledTooltipOnHover(true), []);
 
     const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(
+        parentUrn,
         schemaFieldUrn,
         lineageAsset,
         turnOnDisabledTooltipOnHover,
@@ -174,6 +173,7 @@ export default function Column({
     // Recomputed here rather than taken from props: counts are written onto `lineageAsset` when the
     // query resolves, which re-renders this component but leaves its props stale
     const hasLineage = columnHasLineage(lineageAsset, connectedToHomeNode);
+    const hasFetchedCounts = lineageAsset.numUpstream !== undefined || lineageAsset.numDownstream !== undefined;
     const isFullyFetched = lineageAsset.lineageCountsFetched || allNeighborsFetched;
     const showAsDisabled = !hasLineage && isFullyFetched;
 
@@ -186,12 +186,16 @@ export default function Column({
         }
     }, [selectedColumn, id, hasLineage, isFullyFetched, setSelectedColumn]);
 
-    // Counts back the controls of every column in the traversal, not just the one under the cursor
+    // Counts back the controls of every column in the traversal, not just the one under the cursor.
+    // `isFullyFetched` is not enough to skip the request: it is set without fetching counts when a
+    // node's neighbors are all loaded, which is also true of a node whose lineage is contracted.
     useEffect(() => {
-        if (!showLineageControls || isFullyFetched) return undefined;
-        initiateRequest(HOVER_REQUEST_DELAY);
-        return cancelRequest;
-    }, [showLineageControls, isFullyFetched, initiateRequest, cancelRequest]);
+        if ((!showUpstreamControl && !showDownstreamControl) || hasFetchedCounts) {
+            cancelRequest(); // No longer interested, e.g. the cursor moved on to another column
+        } else {
+            initiateRequest(HOVER_REQUEST_DELAY);
+        }
+    }, [showUpstreamControl, showDownstreamControl, hasFetchedCounts, initiateRequest, cancelRequest]);
 
     const handleMouseEnter = useCallback(() => {
         if (!selectedColumn && !showAsDisabled) {
@@ -262,19 +266,19 @@ export default function Column({
                 )}
                 <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
             </ColumnWrapper>
-            {showLineageControls && shownRelated && (
-                <>
-                    <ColumnLineageControl
-                        direction={LineageDirection.Upstream}
-                        lineageAsset={lineageAsset}
-                        shownRelated={shownRelated}
-                    />
-                    <ColumnLineageControl
-                        direction={LineageDirection.Downstream}
-                        lineageAsset={lineageAsset}
-                        shownRelated={shownRelated}
-                    />
-                </>
+            {shownRelated && showUpstreamControl && (
+                <ColumnLineageControl
+                    direction={LineageDirection.Upstream}
+                    lineageAsset={lineageAsset}
+                    shownRelated={shownRelated}
+                />
+            )}
+            {shownRelated && showDownstreamControl && (
+                <ColumnLineageControl
+                    direction={LineageDirection.Downstream}
+                    lineageAsset={lineageAsset}
+                    shownRelated={shownRelated}
+                />
             )}
         </ColumnPositioner>
     );
@@ -291,49 +295,4 @@ export default function Column({
             {contents}
         </Tooltip>
     );
-}
-
-function useFetchColumnCounts(schemaFieldUrn: string, lineageAsset: ColumnAsset, onDisabled: () => void) {
-    const { rootType, showGhostEntities, setColumnEdgeVersion } = useContext(LineageNodesContext);
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-
-    const assetToWrite = lineageAsset;
-    const [fetchCounts, { loading }] = useGetColumnLineageCountsLazyQuery({
-        variables: {
-            urn: schemaFieldUrn,
-            startTimeMillis,
-            endTimeMillis,
-            // Same hops the graph walks through, so the counts match the columns it draws. The
-            // schema field entry is dropped: GMS fails to read a platform from a schema field urn.
-            ignoreAsHops: generateIgnoreAsHops(rootType).filter((hop) => hop.entityType !== EntityType.SchemaField),
-            includeSoftDeleted: showGhostEntities || ignoreSchemaFieldStatus,
-        },
-        onCompleted: (data) => {
-            assetToWrite.lineageCountsFetched = true;
-            assetToWrite.numUpstream = data.upstream?.total ?? 0;
-            assetToWrite.numDownstream = data.downstream?.total ?? 0;
-            if (!assetToWrite.numUpstream && !assetToWrite.numDownstream) {
-                onDisabled();
-            }
-            setColumnEdgeVersion((v) => v + 1);
-        },
-    });
-
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const cancelRequest = useCallback(() => {
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
-    }, []);
-    const initiateRequest = useCallback(
-        (delay = 0) => {
-            if (!lineageAsset.lineageCountsFetched && !loading) {
-                cancelRequest(); // Several callers can ask for the same counts; keep one timer
-                timeoutRef.current = setTimeout(() => fetchCounts(), delay);
-            }
-        },
-        [lineageAsset.lineageCountsFetched, fetchCounts, loading, cancelRequest],
-    );
-    return { initiateRequest, cancelRequest, loading };
 }
