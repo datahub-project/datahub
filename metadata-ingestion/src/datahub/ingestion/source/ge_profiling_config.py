@@ -182,16 +182,27 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
+    # Advanced escape hatch, not a general isolation-level knob. The long-term
+    # interface is `profiling_consistency: none | snapshot` (follow-up PR); this
+    # raw string is kept only so operators on engines whose adapter defaults to
+    # AUTOCOMMIT but whose DB rejects that session setting (e.g. MySQL behind a
+    # proxy) can fall back to transactional behavior. Not promoted in public docs.
     profiling_isolation_level: Optional[str] = Field(
         default=None,
         description=(
-            "Override the profiling connection's isolation level. By default the source's adapter "
-            "chooses (MySQL/Postgres use AUTOCOMMIT to avoid holding a long-lived transaction "
-            "across profiling; other sources stay transactional). Set to a SQLAlchemy isolation "
-            "level name (e.g. `READ COMMITTED`) to force that level on every source. Set to the "
-            "sentinel `TRANSACTIONAL` to force transactional behavior on a source whose adapter "
-            "defaults to AUTOCOMMIT (e.g. MySQL behind a proxy that rejects the session setting). "
-            "An invalid level fails loudly at profiler construction, not per table."
+            "Advanced escape hatch. By default each source's adapter chooses the profiling "
+            "connection's isolation level (MySQL and Postgres use AUTOCOMMIT so each profiling "
+            "SELECT is self-contained, avoiding a long-lived transaction that pins InnoDB read "
+            "views / holds Postgres idle-in-transaction and blocks VACUUM). Set this only if "
+            "your DB rejects the adapter's default session setting: use the sentinel "
+            "`TRANSACTIONAL` to fall back to the default transactional behavior (e.g. MySQL "
+            "behind a proxy that rejects `AUTOCOMMIT`), or a SQLAlchemy isolation level name to "
+            "force a specific level. An invalid level fails loudly at profiler construction, "
+            "not per table. Cross-statement snapshot consistency is not guaranteed under "
+            "AUTOCOMMIT; under MySQL InnoDB REPEATABLE READ the old long transaction did "
+            "provide one snapshot, so AUTOCOMMIT trades that for safety. Under Postgres READ "
+            "COMMITTED each statement already took a fresh snapshot, so AUTOCOMMIT loses "
+            "nothing. See the profiling docs for the known cross-snapshot skew."
         ),
     )
 
