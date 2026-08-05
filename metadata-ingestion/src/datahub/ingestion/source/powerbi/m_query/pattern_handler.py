@@ -81,8 +81,7 @@ class _ExternalQueryResolution:
 
     upstreams: List[DataPlatformTable]
     rewritten_query: str
-    # True when the outer query failed to parse during extraction (already reported);
-    # caller must not re-parse it.
+    # Already reported; caller must not re-parse the outer query.
     outer_parse_failed: bool = False
 
 
@@ -437,9 +436,6 @@ class AbstractLineage(ABC):
     def _report_external_query_parse_error(
         self, message: LiteralString, context: str
     ) -> None:
-        # Centralizes the "every dropped federation bumps the counter and warns under the
-        # same SQL_PARSING_FAILURE title" invariant so a new warning can't forget the
-        # counter.
         self.reporter.m_query_external_query_parse_errors += 1
         self.reporter.warning(
             title=Constant.SQL_PARSING_FAILURE,
@@ -465,8 +461,6 @@ class AbstractLineage(ABC):
 
         upstreams: List[DataPlatformTable] = []
 
-        # Parse failure here means we are dropping known federated lineage — surface it
-        # instead of silently returning nothing.
         if extraction.parse_failed:
             self._report_external_query_parse_error(
                 message="Fail to parse PowerBI M-Query containing EXTERNAL_QUERY; "
@@ -479,9 +473,6 @@ class AbstractLineage(ABC):
                 outer_parse_failed=True,
             )
 
-        # EXTERNAL_QUERY calls detected but not extractable (non-literal args or placement
-        # outside a FROM/JOIN table position) drop federated lineage. Surface them so the
-        # skip is visible in the run summary rather than debug-only.
         for unresolvable_sql in extraction.unresolvable:
             self._report_external_query_parse_error(
                 message="BigQuery EXTERNAL_QUERY could not be extracted (non-literal "
@@ -503,9 +494,8 @@ class AbstractLineage(ABC):
                 )
                 continue
 
-            # T-SQL cleanup belongs on the federated SQL after extraction, not on the
-            # outer BigQuery text (regex ignores string boundaries and would rewrite
-            # USE/GO/SET/DROP inside the EXTERNAL_QUERY literal before we extract it).
+            # T-SQL cleanup on inner SQL only after extraction — regexes ignore string
+            # boundaries and would corrupt USE/GO/SET/DROP inside the EXTERNAL_QUERY literal.
             inner_sql = reference.inner_sql
             if (
                 connection_detail.platform
@@ -539,8 +529,6 @@ class AbstractLineage(ABC):
                 )
                 continue
 
-            # A clean parse that resolves no upstream table (unknown schema, unresolvable
-            # reference) still drops the federated lineage, so do not count it as resolved.
             if not parsed_result.in_tables:
                 self._report_external_query_parse_error(
                     message="EXTERNAL_QUERY inner SQL parsed but resolved no upstream "
@@ -589,10 +577,8 @@ class AbstractLineage(ABC):
         # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
 
-        # BigQuery EXTERNAL_QUERY federation cannot be resolved by the generic parser
-        # (its args are string literals, not table identifiers). Resolve those upstreams
-        # against the configured external platform and strip them from the outer query so
-        # the remaining native tables still parse cleanly.
+        # Extract EXTERNAL_QUERY before T-SQL cleanup so regexes do not rewrite
+        # USE/GO/SET/DROP inside federation string literals.
         external_upstreams: List[DataPlatformTable] = []
         if (
             platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
@@ -601,13 +587,9 @@ class AbstractLineage(ABC):
             resolution = self._resolve_external_query_upstreams(query)
             external_upstreams = resolution.upstreams
             query = resolution.rewritten_query
-            # Outer already failed during extraction and was reported there; re-parsing
-            # would only duplicate the failure signal. No external upstreams can exist in
-            # this case (parse_failed => no references), so nothing partial to return.
             if resolution.outer_parse_failed:
                 return Lineage.empty()
 
-        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
@@ -627,10 +609,7 @@ class AbstractLineage(ABC):
         # lineage is only partial. Report first, then return whatever we did resolve.
         if parsed_result is None:
             if external_upstreams:
-                # Federated upstreams resolved but the native query did not parse, so
-                # native tables are dropped and the lineage is only partial - warn to
-                # match the sibling table_error branch. (The pure-native failure below
-                # stays at info to preserve long-standing behavior for that path.)
+                # Partial lineage: warn (not info) to match the table_error branch below.
                 self.reporter.warning(
                     title=Constant.SQL_PARSING_FAILURE,
                     message="Fail to parse native sql present in PowerBI M-Query; "

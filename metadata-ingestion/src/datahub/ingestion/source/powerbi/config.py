@@ -266,12 +266,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
-    # BigQuery EXTERNAL_QUERY federation resolution. Units are per EXTERNAL_QUERY
-    # connection reference (not per upstream table URN):
-    # - connections_resolved: mapped connection whose inner SQL yielded >=1 upstream
-    # - connections_unmapped: connection id absent from the config mapping
-    # - parse_errors: dropped federations (outer parse fail, unextractable call,
-    #   inner SQL parse fail, or inner SQL with no tables) — one increment per event
+    # Per EXTERNAL_QUERY connection (not per upstream table URN).
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_parse_errors: int = 0
@@ -462,10 +457,6 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
     @field_validator("platform")
     @classmethod
     def _validate_known_platform(cls, value: str) -> str:
-        # Restrict to SupportedDataPlatform so _data_platform_pair_for can resolve the
-        # PowerBI name used by Mapper.extract_lineage. This does not cover a
-        # user-narrowed dataset_type_mapping — if that mapping omits the PowerBI name,
-        # the resolved EXTERNAL_QUERY upstream can still be filtered there.
         known_platforms = {
             item.value.datahub_data_platform_name for item in SupportedDataPlatform
         }
@@ -612,7 +603,6 @@ class PowerBiDashboardSourceConfig(
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
     )
-    # BigQuery EXTERNAL_QUERY federation connection to external platform mapping
     bigquery_external_query_connection_to_platform: Dict[
         str, BigQueryExternalQueryPlatformDetail
     ] = pydantic.Field(
