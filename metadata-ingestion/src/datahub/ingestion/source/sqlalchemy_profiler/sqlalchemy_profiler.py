@@ -474,8 +474,8 @@ class SQLAlchemyProfiler:
 
         # Resolve the profiling isolation level ONCE here, not per table. The level is
         # adapter-constant and (via the escape hatch) config-constant, so resolving it per
-        # table was wasted work — and worse, it was resolved inside the per-table try at
-        # sqlalchemy_profiler.py:1601 whose handler (:1816) catches sa.exc.SQLAlchemyError.
+        # table was wasted work — and worse, it was resolved inside the per-table try in
+        # `_generate_single_profile` whose handler catches `sa.exc.SQLAlchemyError`.
         # ArgumentError subclasses SQLAlchemyError, so a bad level was swallowed into one
         # warning per table and returned None — zero profiles for the entire run, silently.
         # Validating here fails loudly at construction instead. Keep the execution_options
@@ -493,9 +493,11 @@ class SQLAlchemyProfiler:
             # execution_options(isolation_level=...) validates the name against the dialect
             # eagerly (raises ArgumentError on an unknown name — verified on SQLAlchemy 1.4).
             # One connect/apply/close here is the single eager validation; the per-table path
-            # only re-applies the already-validated level.
-            with self.base_engine.connect() as conn:
-                conn.execution_options(isolation_level=level)
+            # only re-applies the already-validated level. Named `probe_conn` (not `conn`) to
+            # avoid shadowing the `conn` constructor parameter, which is consumed above but
+            # would silently bind to a closed connection in any future code added below.
+            with self.base_engine.connect() as probe_conn:
+                probe_conn.execution_options(isolation_level=level)
         self._profiling_isolation_level = level
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
@@ -1629,10 +1631,15 @@ class SQLAlchemyProfiler:
                 logger.info(f"Profiling {pretty_name}")
                 with self.base_engine.connect() as conn:
                     if self._profiling_isolation_level is not None:
-                        # Rebind is required: Connection.execution_options returns a branched
-                        # copy carrying the new option rather than mutating in place, so the
-                        # returned object is the one that must flow downstream into
-                        # adapter.setup_profiling(context, conn). Do NOT drop the rebind.
+                        # Rebind is required: on SQLAlchemy 1.4 non-future engines
+                        # (setup.py pins sqlalchemy>=1.4.39,<2), Connection.execution_options
+                        # returns a branched copy carrying the new option rather than mutating
+                        # in place, so the returned object is the one that must flow downstream
+                        # into adapter.setup_profiling(context, conn). Do NOT drop the rebind.
+                        # (On future=True engines and SQLAlchemy 2.0, execution_options mutates
+                        # in place and returns self, and calling it after a transaction has
+                        # autobegun raises InvalidRequestError — re-pin this comment if/when the
+                        # sqlalchemy pin lifts.)
                         conn = conn.execution_options(
                             isolation_level=self._profiling_isolation_level
                         )

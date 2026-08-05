@@ -78,11 +78,10 @@ def mock_adapter():
     """A fresh MagicMock adapter for per-table profiling tests.
 
     The isolation level is resolved ONCE at profiler construction (from the real adapter),
-    so a per-table mock's `profiling_isolation_level` is never read — but we set the default
-    (None) anyway so individual tests only need to customize `setup_profiling.side_effect`.
+    so a per-table mock's `profiling_isolation_level` is never read -- individual tests
+    only need to customize `setup_profiling.side_effect`.
     """
     adapter = MagicMock()
-    adapter.profiling_isolation_level.return_value = None
     return adapter
 
 
@@ -214,7 +213,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = PermissionError(
                 "permission denied"
             )
@@ -256,7 +254,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = PermissionError(
                 "permission denied"
             )
@@ -287,7 +284,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
                 "database error", None, None
             )
@@ -328,7 +324,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
                 "database error", None, None
             )
@@ -359,7 +354,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = ConnectionError(
                 "connection lost"
             )
@@ -398,7 +392,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -435,7 +428,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -462,7 +454,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("test error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -663,7 +654,6 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
 
             # Setup succeeds but subsequent profiling will fail
             # We raise an exception that will propagate through the profiling pipeline
@@ -738,7 +728,6 @@ class TestSQLAlchemyProfiler:
 
             # Create mock adapter and mock context
             mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_context = MagicMock()
             mock_context.sql_table = sql_table
             mock_adapter.setup_profiling.return_value = mock_context
@@ -892,7 +881,6 @@ class TestProfilingIsolationLevel:
             env="TEST",
         )
         mock_adapter = MagicMock()
-        mock_adapter.profiling_isolation_level.return_value = None
 
         def _capture_and_short_circuit(_ctx: Any, conn: Any) -> None:
             # Capture the real isolation level on the connection that flowed downstream,
@@ -916,3 +904,61 @@ class TestProfilingIsolationLevel:
 
         assert result is None  # short-circuited
         assert captured == ["READ UNCOMMITTED"]
+
+    def test_mysql_platform_resolves_to_autocommit_at_construction(
+        self, sqlite_engine, mock_report
+    ):
+        # Wiring: platform="mysql" -> get_adapter returns MySQLAdapter ->
+        # profiling_isolation_level() returns "AUTOCOMMIT" -> resolved at construction.
+        # No escape hatch, no mock of get_adapter: this proves the adapter factory and the
+        # hook are wired together end-to-end (the tests above mock get_adapter; this one
+        # does not). sqlite's dialect accepts AUTOCOMMIT as a pseudo-level, so the eager
+        # validation in __init__ succeeds even though base_engine is sqlite.
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+
+    def test_transactional_sentinel_forces_transactional(
+        self, sqlite_engine, mock_report
+    ):
+        # Escape hatch: TRANSACTIONAL overrides an adapter that would otherwise return
+        # AUTOCOMMIT (mysql), forcing back to None (default transactional behavior). This
+        # is the MySQL-behind-a-proxy-that-rejects-AUTOCOMMIT scenario the field exists for.
+        config = ProfilingConfig(
+            enabled=True,
+            profiling_isolation_level="TRANSACTIONAL",
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level is None
+
+    def test_transactional_sentinel_lowercase_is_normalized(
+        self, sqlite_engine, mock_report
+    ):
+        # field_validator strips + upper-cases before the sentinel comparison, so
+        # "transactional " (lowercase, trailing space) normalizes to "TRANSACTIONAL"
+        # and maps to None -- without the validator this would miss the sentinel and be
+        # handed to the dialect as an invalid isolation level.
+        config = ProfilingConfig(
+            enabled=True,
+            profiling_isolation_level="transactional ",
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level is None

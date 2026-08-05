@@ -592,7 +592,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            profiler = self.get_profiler_instance(inspector)
+            try:
+                profiler = self.get_profiler_instance(inspector)
+            except Exception as e:
+                # Construction opens a real connection to eagerly validate the
+                # profiling isolation level (see SQLAlchemyProfiler.__init__), so a
+                # transient DB blip here raises rather than surfacing as a per-table
+                # warning. Report it and skip this inspector so the rest of the run
+                # (other databases / inspectors) proceeds instead of aborting.
+                self.warn(
+                    logger,
+                    "profiler_construction",
+                    f"Failed to construct profiler for platform {self.platform}: {e}",
+                )
+                continue
             try:
                 self.add_profile_metadata(inspector)
             except Exception as e:

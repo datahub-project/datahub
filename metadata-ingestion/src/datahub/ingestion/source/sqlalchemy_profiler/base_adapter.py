@@ -121,51 +121,30 @@ class PlatformAdapter(ABC):
         """
         Isolation level to apply to the profiling connection, or None to keep the default.
 
-        Why this exists (the cause, not "the database holds an implicit transaction"):
-        the DBAPI driver disables autocommit on connect (pymysql issues
+        Why this exists: the DBAPI driver disables autocommit on connect (pymysql issues
         `SET AUTOCOMMIT = 0`; psycopg2 begins a transaction on first use), and SQLAlchemy
         never COMMITs a read-only profiling session, so the transaction stays open for the
         connection's life. Postgres then sits idle-in-transaction, holding back the xmin
         horizon and blocking VACUUM; MySQL pins an InnoDB REPEATABLE-READ read view and grows
         the history/undo list. Returning "AUTOCOMMIT" makes each profiling statement
-        self-contained, removing the long-lived transaction. This routes through the
-        dialect's autocommit API, which is the correct mechanism (vs. `connect_args`
+        self-contained. This routes through the dialect's autocommit API (vs. `connect_args`
         autocommit, which relies on the server default and is not deterministic).
 
         Opt-in is per-adapter by exact platform match in `get_adapter`
-        (`adapters/__init__.py`), NOT by inverting this base default. `GenericAdapter` is the
-        fallback for every unlisted platform — mariadb, tidb, doris, starrocks, hive, oracle,
-        vertica, db2, presto, druid — so inverting the base default would silently apply
-        AUTOCOMMIT to dozens of engines including ones that reject it. That is exactly the
-        blast radius this opt-in avoids; do not re-propose inverting the default.
-
-        Adapter accounting (11 total):
-        - Override `setup_profiling` AND `cleanup` (create session-scoped temp resources
-          requiring teardown): Athena, BigQuery, Trino, Snowflake. Autocommit is probably
-          safe for them (resources are session- not transaction-scoped) but is not taken in
-          this PR — no reason to risk it unreviewed.
-        - Overrides `setup_profiling` only: ClickHouse. Needs its own review (no `cleanup`
-          override, so its setup resources are not explicitly torn down).
-        - Override neither `setup_profiling` nor `cleanup` and are as safe as MySQL/Postgres
-          by the criterion above, but are DEFERRED (not opted in here) pending individual
-          review: Redshift (subclasses PlatformAdapter directly; long transactions blocking
-          VACUUM is a real Redshift problem — tracked as a named follow-up in the spec),
-          MSSQL, Databricks, Generic (the fallback for all unlisted platforms — opting it in
-          is the inversion rejected above).
-        - Opted in here: MySQL, Postgres (neither overrides `setup_profiling` nor `cleanup`,
-          so they create no temp resources).
+        (`adapters/__init__.py`); the base default is None. Do NOT invert the base default:
+        `GenericAdapter` is the fallback for every unlisted platform, so inverting would
+        silently apply AUTOCOMMIT to engines that reject it. Which adapters override
+        `setup_profiling`/`cleanup` (and so need separate review before opting in) is
+        documented in the PR description, not here -- it goes stale too fast.
 
         Accepted correctness trade-off: under AUTOCOMMIT, `min`, `max`, `COUNT(*)`,
         `COUNT(col)`, `uniqueCount`, quantiles, histograms, and sample values each come from
-        different snapshots, so a profile can be internally inconsistent on a concurrently
-        written table — e.g. `uniqueCount` > `rowCount` (uniqueCount is emitted raw at
-        `sqlalchemy_profiler.py:1341`, NOT clamped), or a histogram bucketed on a stale
-        `min`/`max` containing out-of-range values. The clamps that exist
-        (`null_count = max(0, row_count - non_null_count)` at `:1326`,
-        `nullProportion`/`uniqueProportion` via `min(1, ...)` at `:1333`/`:1347`) prevent
-        nonsensical RATIOS, not inconsistent COUNTS — they only make sense because cross-
-        snapshot skew is already possible. This is explicitly accepted and is safer than
-        the long-transaction alternative.
+        a different snapshot, so a profile can be internally inconsistent on a concurrently
+        written table (e.g. `uniqueCount` > `rowCount` -- `uniqueCount` is emitted raw by
+        `_extract_column_profile`, not clamped). The existing clamps
+        (`null_count = max(0, row_count - non_null_count)`, and `nullProportion`/
+        `uniqueProportion` via `min(1, ...)`) prevent nonsensical ratios, not inconsistent
+        counts. This is accepted as safer than the long-transaction alternative.
 
         Returns:
             A SQLAlchemy isolation level name (e.g. "AUTOCOMMIT"), or None. Kept as
