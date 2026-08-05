@@ -27,7 +27,6 @@ import {
     LINEAGE_NODE_HEIGHT,
     LineageEntity,
     VERTICAL_HANDLE,
-    createHiddenLineageRef,
     isGhostEntity,
     onClickPreventSelect,
 } from '@app/lineageV3/common';
@@ -68,21 +67,6 @@ const VerticalHandle = styled(Handle)<{ position: Position }>`
     ${({ position }) => (position === Position.Top ? 'top: 0;' : 'bottom: 0;')}
 `;
 
-/**
- * Handle for column edges to hidden nodes, positioned at the expand / contract lineage control.
- * Always rendered, even when no control is: react-flow only re-measures handles when a node's
- * dimensions change, and the controls are absolutely positioned, so appearing later would be missed.
- */
-const HiddenLineageHandle = styled(Handle)<{ direction: LineageDirection }>`
-    background: initial;
-    border: initial;
-    // Both sides must be set, as react-flow's own handle styles set the one we aren't using
-    ${({ direction }) =>
-        direction === LineageDirection.Upstream
-            ? 'left: auto; right: calc(100% + 10px);'
-            : 'left: calc(100% + 10px); right: auto;'}
-`;
-
 const PropertyBadgeWrapper = styled.div`
     position: absolute;
     right: 12px;
@@ -106,7 +90,9 @@ const ColumnsWrapper = styled.div<{
 }>`
     max-height: ${({ height }) => height}px;
     transition: max-height ${({ transitionDuration }) => transitionDuration}ms ease-in-out;
-    overflow-y: hidden;
+    // Clip, not hidden: hidden on one axis forces the other to auto, which would cut off the
+    // column lineage controls that render outside the node
+    overflow-y: clip;
     width: 100%;
 `;
 
@@ -406,20 +392,6 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <>
                             <HorizontalHandle type="target" position={Position.Left} isConnectable={false} />
                             <HorizontalHandle type="source" position={Position.Right} isConnectable={false} />
-                            <HiddenLineageHandle
-                                id={createHiddenLineageRef(urn, LineageDirection.Upstream)}
-                                direction={LineageDirection.Upstream}
-                                type="source"
-                                position={Position.Left}
-                                isConnectable={false}
-                            />
-                            <HiddenLineageHandle
-                                id={createHiddenLineageRef(urn, LineageDirection.Downstream)}
-                                direction={LineageDirection.Downstream}
-                                type="target"
-                                position={Position.Right}
-                                isConnectable={false}
-                            />
                             {hasUpstreamChildren &&
                                 ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(
                                     fetchStatus[LineageDirection.Upstream],
