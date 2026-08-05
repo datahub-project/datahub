@@ -50,7 +50,7 @@ class KafkaTopicCatalog:
                 topic for topic in topics if topic.cluster_id == self.config.cluster_id
             ]
             if topics and not in_cluster:
-                # Typo or unset logical_cluster_id otherwise looks like "0 topics fetched".
+                # Typo or unset logical_cluster_id otherwise looks like "0 topics indexed".
                 self.report.warning(
                     message="No Stream Catalog topic carries the configured Kafka cluster id, so no "
                     "catalog metadata will be applied. Check `confluent_catalog.cluster_id`.",
@@ -60,16 +60,7 @@ class KafkaTopicCatalog:
             topics = in_cluster
 
         index = index_by_name(topics)
-        self._report_index_issues(index)
-        self.report.catalog_topics_fetched = len(index.by_name)
-        return index
-
-    def _report_index_issues(self, index: NameIndex[CatalogKafkaTopic]) -> None:
-        if index.empty_name_count:
-            self.report.warning(
-                message="Skipped Stream Catalog topics that had an empty name",
-                context=f"count={index.empty_name_count}",
-            )
+        index.report_issues(self.report, "topic")
         for name, candidates in index.ambiguous.items():
             self.report.warning(
                 message="Skipping Stream Catalog metadata for a topic name that exists in "
@@ -77,12 +68,8 @@ class KafkaTopicCatalog:
                 "`confluent_catalog.cluster_id` to pick the right cluster.",
                 context=f"topic={name}, clusters={sorted(str(c.cluster_id) for c in candidates)}",
             )
-        for lowered, candidates in index.case_ambiguous.items():
-            self.report.warning(
-                message="Case-insensitive Stream Catalog topic lookup is disabled for a name "
-                "that matches more than one catalog entity; exact-case lookups still work",
-                context=f"name={lowered}, variants={sorted(c.name for c in candidates)}",
-            )
+        self.report.catalog_topics_indexed = len(index.by_name)
+        return index
 
     def close(self) -> None:
         self.client.close()

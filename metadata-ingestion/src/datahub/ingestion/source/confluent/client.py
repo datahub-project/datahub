@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Type
 
 import requests
@@ -19,10 +20,10 @@ from datahub.ingestion.source.confluent.models import CatalogEntityType
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
 class _CatalogPage:
-    def __init__(self, items: List[Dict[str, object]], raw_count: int) -> None:
-        self.items = items
-        self.raw_count = raw_count
+    items: List[Dict[str, object]]
+    raw_count: int
 
 
 class ConfluentStreamCatalogClient:

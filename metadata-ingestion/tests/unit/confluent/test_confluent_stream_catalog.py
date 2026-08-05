@@ -88,7 +88,7 @@ class TestConfluentStreamCatalogConfig:
         )
 
         with pytest.raises(ValueError) as exc_info:
-            config.validate_connection("confluent_catalog")
+            config.validate_connection()
 
         message = str(exc_info.value)
         assert "confluent_catalog.api_key" in message
@@ -344,6 +344,21 @@ class TestCatalogEntityHelpers:
         assert index.get("ORDERS") is None
         assert sorted(index.case_ambiguous) == ["orders"]
         assert index.ambiguous == {}
+
+    def test_exact_duplicates_block_case_insensitive_lookup_of_siblings(self) -> None:
+        index = index_by_name(
+            [
+                SampleEntity(name="Orders", logical_cluster_id="lkc-1"),
+                SampleEntity(name="Orders", logical_cluster_id="lkc-2"),
+                SampleEntity(name="orders", logical_cluster_id="lkc-3"),
+            ]
+        )
+
+        assert index.get("Orders") is None
+        assert index.get("orders") is not None
+        assert index.get("ORDERS") is None
+        assert "Orders" in index.ambiguous
+        assert sorted(index.case_ambiguous) == ["orders"]
 
     def test_empty_names_are_counted(self) -> None:
         index = index_by_name(

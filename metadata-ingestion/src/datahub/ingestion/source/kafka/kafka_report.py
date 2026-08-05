@@ -21,7 +21,7 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     schema_inference_no_fields: int = 0
     schema_registry_connectivity_failures: int = 0
 
-    catalog_topics_fetched: int = 0
+    catalog_topics_indexed: int = 0
     catalog_tagged_topics: int = 0
     catalog_topics_with_business_metadata: int = 0
 

@@ -231,7 +231,7 @@ class TestConnectorCatalog:
         )
 
         assert catalog.get_connector("source_postgres_01") is None
-        assert catalog.report.catalog_connectors_fetched == 0
+        assert catalog.report.catalog_connectors_indexed == 0
         assert len(catalog.report.warnings) == 1
 
     def test_case_variant_connector_names_block_insensitive_lookup(self) -> None:
@@ -245,7 +245,7 @@ class TestConnectorCatalog:
         assert catalog.get_connector("Source_Postgres_01") is not None
         assert catalog.get_connector("source_postgres_01") is not None
         assert catalog.get_connector("SOURCE_POSTGRES_01") is None
-        assert catalog.report.catalog_connectors_fetched == 2
+        assert catalog.report.catalog_connectors_indexed == 2
         assert any(
             "Case-insensitive Stream Catalog connector lookup is disabled"
             in warning.message
@@ -262,7 +262,7 @@ class TestConnectorCatalog:
         client = catalog.client
         assert isinstance(client, Mock)
         assert client.fetch_entities.call_count == 1
-        assert catalog.report.catalog_connectors_fetched == 1
+        assert catalog.report.catalog_connectors_indexed == 1
 
 
 class TestCatalogLineage:
@@ -322,7 +322,7 @@ class TestCatalogLineage:
 
         with (
             patch(REGISTRY_LOOKUP, return_value=registry_connector),
-            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
         ):
             assert source.extract_connector_lineages(manifest)
 
@@ -343,7 +343,7 @@ class TestCatalogLineage:
 
         with (
             patch(REGISTRY_LOOKUP, return_value=registry_connector),
-            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
         ):
             source.extract_connector_lineages(manifest)
 
@@ -411,7 +411,7 @@ class TestCatalogLineage:
 
         with (
             patch(REGISTRY_LOOKUP, return_value=registry_connector),
-            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
         ):
             source.extract_connector_lineages(manifest)
 
@@ -420,6 +420,7 @@ class TestCatalogLineage:
             "team": "core",
             "critical": "True",
         }
+        assert source.report.catalog_connectors_with_business_metadata == 1
 
     def test_catalog_business_metadata_does_not_overwrite_connector_config(
         self,
@@ -443,7 +444,7 @@ class TestCatalogLineage:
 
         with (
             patch(REGISTRY_LOOKUP, return_value=registry_connector),
-            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
         ):
             source.extract_connector_lineages(manifest)
 
@@ -473,12 +474,13 @@ class TestCatalogLineage:
 
         with (
             patch(REGISTRY_LOOKUP, return_value=None),
-            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
         ):
             assert source.extract_connector_lineages(manifest)
 
         assert manifest.lineages == []
         assert manifest.flow_property_bag == {"team": "core"}
+        assert source.report.catalog_connectors_with_business_metadata == 1
 
     def test_catalog_lineage_drops_topics_absent_from_the_live_cluster(self) -> None:
         source = make_cloud_source(
@@ -505,6 +507,70 @@ class TestCatalogLineage:
         assert any(
             "not present on the live Kafka cluster" in warning.message
             for warning in source.report.warnings
+        )
+
+    def test_unavailable_live_topic_list_keeps_catalog_lineage(self) -> None:
+        source = make_cloud_source(
+            [
+                {
+                    "name": "source_postgres_cdc_01",
+                    "topics": [{"name": "orders"}, {"name": "payments"}],
+                }
+            ]
+        )
+        manifest = make_manifest()
+
+        with (
+            patch(REGISTRY_LOOKUP, return_value=Mock()),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
+        ):
+            assert source.extract_connector_lineages(manifest)
+
+        assert [lineage.target_dataset for lineage in manifest.lineages] == [
+            "orders",
+            "payments",
+        ]
+
+    def test_empty_live_topic_list_drops_all_catalog_lineage(self) -> None:
+        source = make_cloud_source(
+            [{"name": "source_postgres_cdc_01", "topics": [{"name": "orders"}]}]
+        )
+        manifest = make_manifest()
+
+        registry_connector = Mock()
+        registry_connector.extract_lineages.return_value = []
+        registry_connector.extract_flow_property_bag.return_value = {}
+
+        with (
+            patch(REGISTRY_LOOKUP, return_value=registry_connector),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]),
+        ):
+            assert source.extract_connector_lineages(manifest)
+
+        assert manifest.lineages == []
+        assert any(
+            "not present on the live Kafka cluster" in warning.message
+            for warning in source.report.warnings
+        )
+        assert list(source.report.catalog_lineage_fallbacks) == []
+
+    def test_connector_absent_from_catalog_does_not_claim_empty_topics(self) -> None:
+        source = make_cloud_source()
+        manifest = make_manifest()
+
+        registry_connector = Mock()
+        registry_connector.extract_lineages.return_value = []
+        registry_connector.extract_flow_property_bag.return_value = {}
+
+        with (
+            patch(REGISTRY_LOOKUP, return_value=registry_connector),
+            patch.object(source, "_get_all_topics_from_kafka_api", return_value=None),
+        ):
+            assert source.extract_connector_lineages(manifest)
+
+        assert list(source.report.catalog_lineage_fallbacks) == []
+        assert not any(
+            "listed no topics" in warning.message for warning in source.report.warnings
         )
 
 
@@ -553,7 +619,7 @@ class TestCatalogTags:
 
 
 class TestCatalogCreation:
-    def test_catalog_is_skipped_for_self_hosted_deployments(self) -> None:
+    def test_catalog_is_skipped_for_non_confluent_cloud_registry(self) -> None:
         with patch("requests.Session.get") as mock_get:
             response = Mock()
             response.raise_for_status.return_value = None
@@ -561,10 +627,18 @@ class TestCatalogCreation:
             mock_get.return_value = response
 
             config = KafkaConnectSourceConfig(
-                connect_uri="http://localhost:8083",
-                confluent_catalog=make_catalog_config(),
+                connect_uri="https://api.confluent.cloud/connect/v1/environments/env-1/clusters/lkc-1",
+                confluent_cloud_environment_id="env-1",
+                confluent_cloud_cluster_id="lkc-1",
+                username="connect-key",
+                password="connect-secret",
+                use_schema_resolver=False,
+                confluent_catalog=make_catalog_config(
+                    schema_registry_url="http://localhost:8081",
+                ),
             )
             source = KafkaConnectSource(config, Mock())
 
         assert source._catalog is None
         assert len(source.report.warnings) == 1
+        assert "Schema Registry endpoint" in source.report.warnings[0].message

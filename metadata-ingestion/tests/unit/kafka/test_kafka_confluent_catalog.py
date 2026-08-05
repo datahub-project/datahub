@@ -142,7 +142,7 @@ class TestTopicLookup:
         client = catalog.client
         assert isinstance(client, Mock)
         assert client.fetch_entities.call_count == 1
-        assert report.catalog_topics_fetched == 1
+        assert report.catalog_topics_indexed == 1
 
     def test_unknown_topic_returns_nothing(self) -> None:
         catalog = make_catalog([CatalogKafkaTopic(name=TOPIC)], KafkaSourceReport())
@@ -191,7 +191,7 @@ class TestTopicLookup:
         )
 
         assert catalog.get_topic(TOPIC) is None
-        assert report.catalog_topics_fetched == 0
+        assert report.catalog_topics_indexed == 0
         assert len(report.warnings) == 1
 
     def test_case_variant_topic_names_block_insensitive_lookup(self) -> None:
@@ -207,7 +207,7 @@ class TestTopicLookup:
         assert catalog.get_topic("Orders") is not None
         assert catalog.get_topic("orders") is not None
         assert catalog.get_topic("ORDERS") is None
-        assert report.catalog_topics_fetched == 2
+        assert report.catalog_topics_indexed == 2
         assert any(
             "Case-insensitive Stream Catalog topic lookup is disabled"
             in warning.message

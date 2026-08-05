@@ -508,9 +508,10 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
-    catalog_connectors_fetched: int = 0
+    catalog_connectors_indexed: int = 0
     catalog_lineage_connectors: int = 0
     catalog_tagged_flows: int = 0
+    catalog_connectors_with_business_metadata: int = 0
     catalog_lineage_fallbacks: LossyList[str] = field(default_factory=LossyList)
 
     def report_connector_scanned(self, connector: str) -> None:
@@ -522,8 +523,8 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     def report_catalog_lineage_fallback(self, connector: str) -> None:
         self.catalog_lineage_fallbacks.append(connector)
         self.warning(
-            message="The Stream Catalog returned no topics for this connector, so its lineage "
-            "was inferred from the connector config instead. Topic names produced by a "
+            message="The Stream Catalog entry for this connector listed no topics, so its "
+            "lineage was inferred from the connector config instead. Topic names produced by a "
             "topic-routing SMT may not be reflected.",
             context=f"connector={connector}",
         )

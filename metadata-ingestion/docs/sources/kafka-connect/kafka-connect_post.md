@@ -117,7 +117,7 @@ source:
       include_lineage: false
 ```
 
-**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants catalog read access, in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when the `connect_uri` is not a Confluent Cloud endpoint.
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants catalog read access, in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
 
 **What each option changes:**
 
@@ -148,7 +148,7 @@ The Kafka topic edge becomes exact, but the source table disappears from the gra
 Scope of the change:
 
 - **Sink connectors are unaffected.** `topic -> table` lineage always comes from the connector config, because the catalog knows nothing about the destination system.
-- **Connectors missing from the catalog are unaffected.** They fall back to the config-matching path automatically, and the count is reported as `catalog_lineage_fallbacks`.
+- **Connectors missing from the catalog are unaffected.** They fall back to the config-matching path automatically. When a connector _is_ in the catalog but lists no topics, the count is reported as `catalog_lineage_fallbacks`.
 
 Leaving `include_lineage: false` still gives you every tag and business metadata attribute from Stream Governance.
 

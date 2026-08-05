@@ -6,8 +6,6 @@ CATALOG_GRAPHQL_PATH: Final[str] = "/catalog/graphql"
 DEFAULT_PAGE_SIZE: Final[int] = 100
 DEFAULT_TIMEOUT_SECONDS: Final[int] = 30
 
-CATALOG_CONFIG_PATH: Final[str] = "confluent_catalog"
-
 CONFLUENT_CLOUD_DOMAIN_SUFFIX: Final[str] = ".confluent.cloud"
 
 # Confluent Cloud rejects page sizes above this.

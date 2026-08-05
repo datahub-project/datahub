@@ -5,7 +5,6 @@ from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 from datahub.ingestion.source.confluent.constants import (
-    CATALOG_CONFIG_PATH,
     CATALOG_GRAPHQL_PATH,
     CONFLUENT_CLOUD_DOMAIN_SUFFIX,
     DEFAULT_PAGE_SIZE,
@@ -71,7 +70,7 @@ class ConfluentStreamCatalogConfig(ConfigModel):
 
         return self
 
-    def validate_connection(self, config_path: str = CATALOG_CONFIG_PATH) -> None:
+    def validate_connection(self) -> None:
         missing: List[str] = [
             name
             for name, value in (
@@ -85,8 +84,8 @@ class ConfluentStreamCatalogConfig(ConfigModel):
             return
 
         raise ValueError(
-            f"Configuration error: '{config_path}.enabled' is true but "
-            f"{', '.join(repr(f'{config_path}.{name}') for name in missing)} "
+            "Configuration error: 'confluent_catalog.enabled' is true but "
+            f"{', '.join(repr(f'confluent_catalog.{name}') for name in missing)} "
             f"{'is' if len(missing) == 1 else 'are'} not set. "
             "The Stream Catalog requires a Schema Registry endpoint and API key/secret."
         )
