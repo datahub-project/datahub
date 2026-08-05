@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
  * RawSql}/{@code SqlQuery} statements that reference a table name literally.
  *
  * <p>Takes the unqualified base table name (e.g. {@code "metadata_aspect_v2"}) so a single bean
- * serves every raw-SQL table in the deployment; an extension module qualifies it per-request
- * (e.g. per-deployment catalog) without the caller knowing how.
+ * serves every raw-SQL table in the deployment; an extension module qualifies it per-request (e.g.
+ * per-deployment catalog) without the caller knowing how.
  */
 public interface AspectTableResolver {
 
