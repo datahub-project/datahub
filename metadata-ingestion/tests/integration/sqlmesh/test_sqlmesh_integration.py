@@ -18,7 +18,9 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlglot
 import time_machine
+from sqlglot import exp
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
@@ -55,6 +57,7 @@ def _make_model(
     depends_on: set[str],
     description: str | None = None,
     kind: str = "FULL",
+    audits: list[tuple[str, dict[str, Any]]] | None = None,
 ) -> MagicMock:
     model = MagicMock()
     model.name = name
@@ -66,7 +69,7 @@ def _make_model(
     model.column_descriptions = {}
     model.tags = []
     model.owner = None
-    model.audits = []
+    model.audits = audits or []
     model.cron = None
     model.interval_unit = None
     model.start = None
@@ -117,6 +120,27 @@ def _build_fake_sqlmesh_context() -> MagicMock:
         depends_on={"myschema.raw_orders"},
         description="Cleaned and enriched orders.",
         kind="FULL",
+        # A built-in column audit (→ one CUSTOM assertion per column with a field
+        # target) and a project-defined audit unknown to the built-in map (→ one
+        # CUSTOM assertion carrying its own SQL logic). Both must serialise as
+        # AssertionType.CUSTOM in the golden.
+        audits=[
+            (
+                "not_null",
+                {
+                    "columns": exp.Array(
+                        expressions=[
+                            exp.column("order_id"),
+                            exp.column("customer_id"),
+                        ]
+                    )
+                },
+            ),
+            (
+                "assert_amount_positive",
+                {"criteria": sqlglot.condition("amount >= 0")},
+            ),
+        ],
     )
     order_items = _make_model(
         name="myschema.order_items",
@@ -240,16 +264,32 @@ def test_sqlmesh_event_count_and_coverage() -> None:
     assert "DataPlatformInstanceClass" in aspect_types, "Missing DataPlatformInstance"
 
     # Event count: 3 models × (dataPlatformInstance + schemaMetadata + datasetProperties)
-    # + 2 upstreamLineage + 6 sibling MCPs = 17 minimum from get_workunits_internal()
+    # + 2 upstreamLineage + 3 SiblingsClass writes + 3 warehouse sibling patches
+    # = 17 minimum from get_workunits_internal()
     assert len(workunits) >= 17, f"Too few events: {len(workunits)}"
 
-    # Siblings: 3 models × 2 MCPs each = 6
+    # Siblings: each model writes one SiblingsClass aspect on the SQLMesh entity;
+    # the warehouse counterpart is a DatasetPatchBuilder patch (GenericAspect,
+    # is_primary_source=False), not a SiblingsClass. So exactly 3 SiblingsClass.
     sibling_wus = [
         wu
         for wu in workunits
         if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
     ]
-    assert len(sibling_wus) == 6, f"Expected 6 sibling MCPs, got {len(sibling_wus)}"
+    assert len(sibling_wus) == 3, (
+        f"Expected 3 SiblingsClass MCPs, got {len(sibling_wus)}"
+    )
+
+    # ... plus one warehouse-side sibling patch per model, marked non-authoritative.
+    warehouse_sibling_patches = [
+        wu
+        for wu in workunits
+        if wu.is_primary_source is False
+        and "snowflake" in str(getattr(wu.metadata, "entityUrn", ""))
+    ]
+    assert len(warehouse_sibling_patches) == 3, (
+        f"Expected 3 warehouse sibling patches, got {len(warehouse_sibling_patches)}"
+    )
 
     # Lineage: orders → raw_orders, order_items → orders
     lineage_wus = [
@@ -269,6 +309,20 @@ def test_sqlmesh_event_count_and_coverage() -> None:
     ]
     assert len(platform_instance_wus) == 3, (
         f"Expected 3 dataPlatformInstance aspects on datasets, got {len(platform_instance_wus)}"
+    )
+
+    # Audits on the orders model become CUSTOM assertions (never FRESHNESS/VOLUME,
+    # which the rework removed): not_null over two columns + one custom-SQL audit.
+    assertion_infos = [
+        wu.metadata.aspect
+        for wu in workunits
+        if type(getattr(wu.metadata, "aspect", None)).__name__ == "AssertionInfoClass"
+    ]
+    assert len(assertion_infos) == 3, (
+        f"Expected 3 CUSTOM assertions, got {len(assertion_infos)}"
+    )
+    assert all(info.type == "CUSTOM" for info in assertion_infos), (
+        "All SQLMesh audits must map to AssertionType.CUSTOM"
     )
 
     assert source.report.models_scanned == 3
