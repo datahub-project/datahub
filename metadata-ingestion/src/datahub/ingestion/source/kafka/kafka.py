@@ -1399,13 +1399,15 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         if self.consumer:
-            self.consumer.close()
+            try:
+                self.consumer.close()
+            except Exception:
+                logger.warning("Failed to close Kafka consumer", exc_info=True)
         if self.topic_catalog:
             try:
                 self.topic_catalog.close()
             except Exception:
                 logger.warning("Failed to close Stream Catalog client", exc_info=True)
-        # Cleanup any resources when source is closed
         super().close()
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
