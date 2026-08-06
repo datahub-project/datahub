@@ -11,6 +11,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.util.Pair;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -66,6 +67,20 @@ public class SearchContext implements ContextInterface {
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   @Nullable private final Map<PathSpec, String> searchableFieldPaths;
+
+  /**
+   * Resolved once at SearchContext construction from config. Null means callers should treat as
+   * empty / resolve on demand (tests / EMPTY context).
+   */
+  @Nullable private final List<String> defaultSearchEntityNames;
+
+  @Nullable private final List<String> defaultAutocompleteEntityNames;
+
+  @Nullable private final List<String> defaultBrowseEntityNames;
+
+  @Nullable private final List<String> prioritizedSourceEntityTypes;
+
+  @Nullable private final List<String> prioritizedDatahubEntityTypes;
 
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
@@ -175,7 +190,12 @@ public class SearchContext implements ContextInterface {
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,
-          this.searchableFieldPaths);
+          this.searchableFieldPaths,
+          this.defaultSearchEntityNames,
+          this.defaultAutocompleteEntityNames,
+          this.defaultBrowseEntityNames,
+          this.prioritizedSourceEntityTypes,
+          this.prioritizedDatahubEntityTypes);
     }
   }
 

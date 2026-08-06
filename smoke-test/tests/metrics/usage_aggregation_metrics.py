@@ -263,7 +263,7 @@ def graphql_metadata_query_tags(actor_class: str) -> Dict[str, str]:
 
 def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
     """Mint a short-lived PAT for ``actor_urn`` when the session is authorized."""
-    from tests.utils import execute_graphql
+    from tests.utils import execute_graphql, unique_suffix
 
     try:
         result = execute_graphql(
@@ -281,7 +281,11 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
                     "type": "PERSONAL",
                     "actorUrn": actor_urn,
                     "duration": "ONE_HOUR",
-                    "name": "usage-aggregation-pat-probe",
+                    # createAccessToken requires a unique name per actor; a fixed
+                    # name fails when a prior ONE_HOUR PAT with that name still
+                    # exists (leftover run or parallel worker), so mint returns
+                    # None and PAT-auth traffic never runs.
+                    "name": f"usage-aggregation-pat-{unique_suffix()}",
                 }
             },
             expect_errors=True,

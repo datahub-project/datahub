@@ -42,6 +42,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_freshness,
+    make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
@@ -51,8 +52,11 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -114,6 +118,71 @@ def create_base_dbt_config() -> Dict:
             "enable_meta_mapping": False,
         },
     )
+
+
+def _make_sql_model_node(
+    *,
+    compiled_code: Optional[str] = "select 1 as id",
+) -> DBTNode:
+    return DBTNode(
+        database="test_db",
+        schema="test_schema",
+        name="my_model",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code="select 1 as id",
+        dbt_adapter="postgres",
+        dbt_name="model.package.my_model",
+        dbt_file_path="models/my_model.sql",
+        dbt_package_name="package",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=compiled_code,
+    )
+
+
+def test_create_view_properties_includes_compiled_code() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is not None
+    assert "select" in aspect.formattedViewLogic.lower()
+    assert aspect.materialized is True
+
+
+def test_create_view_properties_skips_compiled_code_when_missing() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(
+        _make_sql_model_node(compiled_code=None)
+    )
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
+
+
+def test_create_view_properties_respects_include_compiled_code_false() -> None:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **{
+            **create_base_dbt_config(),
+            "include_compiled_code": False,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
 
 
 def test_dbt_source_patching_no_new():
@@ -2051,6 +2120,63 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
+def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+    field_urn = f"urn:li:schemaField:({upstream_urn},id)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.datasetAssertion is None
+    assert mcp.aspect.customAssertion is not None
+    assert mcp.aspect.customAssertion.type == "dbt"
+    assert mcp.aspect.customAssertion.entity == upstream_urn
+    assert mcp.aspect.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert mcp.aspect.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert (
+        mcp.aspect.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    )
+    assert mcp.aspect.customAssertion.field == field_urn
+    assert mcp.aspect.customAssertion.fields == [field_urn]
+    assert mcp.aspect.customAssertion.nativeType == "not_null_id"
+    assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+
+
 @pytest.mark.parametrize(
     ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
@@ -2718,7 +2844,7 @@ def test_expand_run_results_paths_s3_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("S3 glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_aws_connection():
@@ -2730,7 +2856,7 @@ def test_expand_run_results_paths_missing_aws_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing AWS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def _make_dbt_node(dbt_name, node_type="model", **overrides):
@@ -3077,7 +3203,7 @@ def test_expand_run_results_paths_gcs_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("GCS glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_gcs_connection():
@@ -3089,7 +3215,7 @@ def test_expand_run_results_paths_missing_gcs_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing GCS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def test_gcs_connection_config_builds_s3_compatible():

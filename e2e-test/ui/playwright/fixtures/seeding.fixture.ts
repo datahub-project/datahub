@@ -49,7 +49,7 @@ import { test as base, request, type Browser } from '@playwright/test';
 import { readGmsToken, gmsTokenPath } from './login';
 import type { UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
-import { gmsUrl } from '../utils/constants';
+import { DATAHUB_GRAPHQL_PATH, gmsUrl } from '../utils/constants';
 import {
   extractUrn,
   normalizeMcp,
@@ -88,7 +88,7 @@ async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promi
       extraHTTPHeaders: { Cookie: cookieHeader },
     });
     try {
-      const resp = await apiCtx.post('/api/v2/graphql', {
+      const resp = await apiCtx.post(DATAHUB_GRAPHQL_PATH, {
         data: {
           query: `mutation createAccessToken($input: CreateAccessTokenInput!) {
             createAccessToken(input: $input) { accessToken metadata { id } }

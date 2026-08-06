@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,14 @@ public class StructuredPropertyUtils {
 
   static final Date MIN_DATE = Date.valueOf("1000-01-01");
   static final Date MAX_DATE = Date.valueOf("9999-12-31");
+
+  // ES multi-field suffixes. Kept here (not imported from metadata-io) because this module
+  // cannot depend on ESUtils / V2MappingsBuilder; keep in sync with those definitions.
+  private static final String KEYWORD_SUBFIELD_SUFFIX = ".keyword";
+  private static final String DELIMITED_SUBFIELD_SUFFIX = ".delimited";
+  private static final String NGRAM_SUBFIELD_SUFFIX = ".ngram";
+  private static final List<String> ES_SUBFIELD_SUFFIXES =
+      List.of(KEYWORD_SUBFIELD_SUFFIX, DELIMITED_SUBFIELD_SUFFIX, NGRAM_SUBFIELD_SUFFIX);
 
   public static final String INVALID_SETTINGS_MESSAGE =
       "Cannot have property isHidden = true while other display location settings are also true.";
@@ -141,12 +150,54 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Whether aggregations and exact-match filters should target {@code <field>.keyword} for this
+   * value type. DATE / NUMBER / URN parents are already the typed exact-match field (date, double,
+   * or keyword without a normalizer), so the {@code .keyword} suffix must not be appended.
+   * STRING/RICH_TEXT parents use a normalizer; {@code .keyword} holds the un-normalized value.
+   */
+  public static boolean usesKeywordSubfield(@Nonnull LogicalValueType type) {
+    return type != LogicalValueType.DATE
+        && type != LogicalValueType.NUMBER
+        && type != LogicalValueType.URN;
+  }
+
+  /**
+   * When a filter/facet already uses the versioned ES field path produced by {@link
+   * #toElasticsearchFieldName}, recover the logical value type from the trailing type segment. Used
+   * when definition lookup cannot run against that path (FQN extraction would be wrong).
+   */
+  @Nonnull
+  public static Optional<LogicalValueType> getLogicalValueTypeFromFieldName(
+      @Nonnull String fieldOrFacetName) {
+    if (!fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
+      return Optional.empty();
+    }
+    String path = fieldOrFacetName;
+    for (String suffix : ES_SUBFIELD_SUFFIXES) {
+      if (path.endsWith(suffix)) {
+        path = path.substring(0, path.length() - suffix.length());
+        break;
+      }
+    }
+    // Inverse of toElasticsearchFieldName: type is always the last '.' segment.
+    int lastDot = path.lastIndexOf('.');
+    if (lastDot < 0 || lastDot == path.length() - 1) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(LogicalValueType.valueOf(path.substring(lastDot + 1).toUpperCase()));
+    } catch (IllegalArgumentException e) {
+      return Optional.empty();
+    }
+  }
+
+  /**
    * Given a structured property input field or facet name, return a valid structured property facet
    * name
    *
    * @param fieldOrFacetName input name
    * @param aspectRetriever aspect retriever
-   * @return guranteed facet name
+   * @return guaranteed facet name
    */
   public static Optional<String> toStructuredPropertyFacetName(
       @Nullable OperationFingerprint opContext,
@@ -155,18 +206,13 @@ public class StructuredPropertyUtils {
     return lookupDefinitionFromFilterOrFacetName(opContext, fieldOrFacetName, aspectRetriever)
         .map(
             urnDefinition -> {
-              switch (getLogicalValueType(urnDefinition.getSecond())) {
-                case DATE:
-                case NUMBER:
-                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+              String base =
+                  STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
                       + StructuredPropertyUtils.toElasticsearchFieldName(
                           urnDefinition.getFirst(), urnDefinition.getSecond());
-                default:
-                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                      + StructuredPropertyUtils.toElasticsearchFieldName(
-                          urnDefinition.getFirst(), urnDefinition.getSecond())
-                      + ".keyword";
-              }
+              return usesKeywordSubfield(getLogicalValueType(urnDefinition.getSecond()))
+                  ? base + KEYWORD_SUBFIELD_SUFFIX
+                  : base;
             });
   }
 
@@ -402,10 +448,11 @@ public class StructuredPropertyUtils {
   }
 
   private static String fieldOrFacetToFQN(String fieldOrFacet) {
-    return fieldOrFacet
-        .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-        .replace(".keyword", "")
-        .replace(".delimited", "");
+    String fqn = fieldOrFacet.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
+    for (String suffix : ES_SUBFIELD_SUFFIXES) {
+      fqn = fqn.replace(suffix, "");
+    }
+    return fqn;
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {
@@ -445,6 +492,27 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Returns property URNs with no {@code propertyDefinition} in a pre-fetched aspect map (entity
+   * absent or definition aspect missing). Prefer this when definitions were already loaded in the
+   * same request — avoids a second {@code entityExists} / {@code getLatestAspectObjects}
+   * round-trip.
+   */
+  @Nonnull
+  public static Set<Urn> getMissingPropertyDefinitionUrns(
+      @Nonnull Set<Urn> propertyUrns, @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (propertyUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    return propertyUrns.stream()
+        .filter(
+            propertyUrn ->
+                !propertyAspects
+                    .getOrDefault(propertyUrn, Collections.emptyMap())
+                    .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+        .collect(Collectors.toSet());
+  }
+
+  /**
    * Returns property URNs whose structured property entity does not exist (hard-deleted) or has no
    * {@code propertyDefinition} aspect.
    */
@@ -463,28 +531,48 @@ public class StructuredPropertyUtils {
             .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
             .collect(Collectors.toSet());
 
-    final Set<Urn> missing = new HashSet<>(propertyUrns);
-    missing.removeAll(existing);
+    final Map<Urn, Map<String, Aspect>> definitionAspects =
+        existing.isEmpty()
+            ? Collections.emptyMap()
+            : aspectRetriever.getLatestAspectObjects(
+                opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
-    if (!existing.isEmpty()) {
-      final Map<Urn, Map<String, Aspect>> definitionAspects =
-          aspectRetriever.getLatestAspectObjects(
-              opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
-      existing.stream()
-          .filter(
-              propertyUrn ->
-                  !definitionAspects
-                      .getOrDefault(propertyUrn, Collections.emptyMap())
-                      .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
-          .forEach(missing::add);
+    return getMissingPropertyDefinitionUrns(propertyUrns, definitionAspects);
+  }
+
+  /**
+   * Removes assignments whose property definition is missing from a pre-fetched aspect map. Prefer
+   * this when definitions were already loaded in the same request.
+   */
+  @Nonnull
+  public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull StructuredProperties structuredProperties,
+      @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
     }
 
-    return missing;
+    final Set<Urn> missingPropertyUrns =
+        getMissingPropertyDefinitionUrns(
+            structuredProperties.getProperties().stream()
+                .map(StructuredPropertyValueAssignment::getPropertyUrn)
+                .collect(Collectors.toSet()),
+            propertyAspects);
+
+    if (missingPropertyUrns.isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Pair<StructuredPropertyValueAssignmentArray, Boolean> filtered =
+        filterValueAssignment(structuredProperties.getProperties(), missingPropertyUrns);
+    return Pair.of(structuredProperties.setProperties(filtered.getFirst()), missingPropertyUrns);
   }
 
   /**
    * Removes assignments whose property definition is missing. Returns the filtered aspect and the
-   * dropped property URNs.
+   * dropped property URNs. Fetches definitions via {@code aspectRetriever}; callers that already
+   * hold a definition map should use {@link #filterMissingPropertyDefinitions(StructuredProperties,
+   * Map)} instead.
    */
   @Nonnull
   public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(

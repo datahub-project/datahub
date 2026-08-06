@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine, inspect
@@ -13,9 +13,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.profiling.common import (
-    create_datahub_ge_profiler,
-)
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -24,7 +21,6 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -49,7 +45,7 @@ class BigqueryProfiler(GenericProfiler):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+    ) -> "SQLAlchemyProfiler":
         # Override the parent so the SQLAlchemy engine reuses our in-memory
         # bigquery.Client (built with explicit credentials) instead of letting
         # the dialect fall back to google.auth.default() — which would require
@@ -78,31 +74,16 @@ class BigqueryProfiler(GenericProfiler):
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            # TODO: Remove this branch once Great Expectations is fully
-            # deprecated. The entire if/else then collapses to the
-            # SQLAlchemyProfiler return above.
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -316,10 +297,11 @@ WHERE
             and bq_table.partition_info.column
             is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Profile skipped for partitioned table",
                 message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
+                log=False,
             )
             return None
 

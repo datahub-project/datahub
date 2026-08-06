@@ -20,8 +20,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
-import io.ebean.PagedList;
-import io.ebean.Query;
+import io.ebean.SqlQuery;
+import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
@@ -29,6 +29,7 @@ import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService<U> {
+  private static final String EMPTY_KEYSET = "";
+
   private final EntityService<U> _entityService;
   private final Database _server;
   private final int _batchSize;
@@ -81,47 +84,15 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 })
             .collect(Collectors.toList());
 
-    // Execute separate DELETE statements for each retention context within the same transaction
-    // This provides significantly better index usage (10-20x performance improvement) compared to
-    // a single DELETE with many OR clauses, while maintaining transactional consistency
+    // Separate DELETEs per retention context (better index use than one DELETE with many ORs).
+    // Tx scope depends on caller: legacy in-tx path shares the upsert transaction; when invoked
+    // from the post-commit path (postCommitRetentionEnabled), deletes run outside that upsert tx.
     if (!nonEmptyContexts.isEmpty()) {
       int deletedCount = 0;
       for (RetentionContext context : nonEmptyContexts) {
-        Retention retentionPolicy = context.getRetentionPolicy().get();
-
-        // Build a separate DELETE query for this specific (urn, aspect) pair
-        ExpressionList<EbeanAspectV2> deleteQuery =
-            _server
-                .find(EbeanAspectV2.class)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
-                .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
-                .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
-
-        boolean hasVersionCondition = false;
-        if (retentionPolicy.hasVersion()) {
-          Optional<Expression> versionExpr =
-              getVersionBasedRetentionQuery(
-                  context.getUrn(),
-                  context.getAspectName(),
-                  retentionPolicy.getVersion(),
-                  context.getMaxVersion());
-          if (versionExpr.isPresent()) {
-            deleteQuery.add(versionExpr.get());
-            hasVersionCondition = true;
-          }
-        }
-
-        boolean hasTimeCondition = false;
-        if (retentionPolicy.hasTime()) {
-          deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
-          hasTimeCondition = true;
-        }
-
-        // Execute DELETE immediately for this (urn, aspect) pair if any condition applies
-        if (hasVersionCondition || hasTimeCondition) {
-          int rowsDeleted = deleteQuery.delete();
-          deletedCount += rowsDeleted;
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        deletedCount += rowsDeleted;
+        if (rowsDeleted > 0) {
           log.debug(
               "Deleted {} rows for urn={} aspect={}",
               rowsDeleted,
@@ -137,6 +108,126 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
             nonEmptyContexts.size());
       }
     }
+  }
+
+  /**
+   * Build and execute the single-pair DELETE for one {@link RetentionContext}. Returns rows deleted
+   * (0 when no version/time condition applies — a no-op, not a failure). Caller owns the
+   * transaction; this method issues one {@code DELETE} against the ambient/current tx.
+   */
+  // Package-private (not private) so a test subclass can override it to force a per-context DELETE
+  // failure and exercise the per-context isolation path in applyRetentionBatchWithPolicyDefaults.
+  int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
+    // Callers resolve the policy before this point (batch path fills it from getRetention; legacy
+    // path filters isPresent). Fail loudly with context if that invariant is ever violated.
+    Retention retentionPolicy =
+        context
+            .getRetentionPolicy()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Missing retention policy for "
+                            + context.getUrn()
+                            + " "
+                            + context.getAspectName()));
+
+    ExpressionList<EbeanAspectV2> deleteQuery =
+        _server
+            .find(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+            .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+            .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
+
+    boolean hasVersionCondition = false;
+    if (retentionPolicy.hasVersion()) {
+      Optional<Expression> versionExpr =
+          getVersionBasedRetentionQuery(
+              context.getUrn(),
+              context.getAspectName(),
+              retentionPolicy.getVersion(),
+              context.getMaxVersion());
+      if (versionExpr.isPresent()) {
+        deleteQuery.add(versionExpr.get());
+        hasVersionCondition = true;
+      }
+    }
+
+    boolean hasTimeCondition = false;
+    if (retentionPolicy.hasTime()) {
+      deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
+      hasTimeCondition = true;
+    }
+
+    if (hasVersionCondition || hasTimeCondition) {
+      return deleteQuery.delete();
+    }
+    return 0;
+  }
+
+  /**
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} that applies each (urn, aspect) pair
+   * in its own independent transaction ({@code TxScope.requiresNew}). A poison pair fails and
+   * retries on its own without wedging the rest of the batch, and there is no per-engine savepoint
+   * behavior to reason about — the extra commits are negligible for low-volume background
+   * retention. Returns the contexts that were durably committed — the caller ({@link
+   * com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those keys
+   * from the buffer via {@code removeIfSame}.
+   *
+   * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
+   * cleared rather than retried forever.
+   */
+  @Override
+  @WithSpan
+  @Nonnull
+  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+    List<RetentionContext> withDefaults =
+        retentionContexts.stream()
+            .map(
+                context -> {
+                  if (context.getRetentionPolicy().isEmpty()) {
+                    Retention retentionPolicy =
+                        getRetention(
+                            opContext, context.getUrn().getEntityType(), context.getAspectName());
+                    return context.toBuilder()
+                        .retentionPolicy(Optional.of(retentionPolicy))
+                        .build();
+                  }
+                  return context;
+                })
+            .collect(Collectors.toList());
+
+    List<RetentionContext> successes = new ArrayList<>(withDefaults.size());
+    if (withDefaults.isEmpty()) {
+      return successes;
+    }
+
+    // One independent transaction per context (TxScope.requiresNew): a poison (urn, aspect) fails
+    // and retries on its own without blocking the rest of the batch, and there is no per-engine
+    // savepoint behavior to reason about. Retention is low-volume background cleanup, so the extra
+    // commits are negligible. Each context is a single bulk DELETE.
+    for (RetentionContext context : withDefaults) {
+      try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        tx.commit();
+        successes.add(context);
+        if (rowsDeleted > 0) {
+          log.debug(
+              "Deleted {} rows for urn={} aspect={}",
+              rowsDeleted,
+              context.getUrn(),
+              context.getAspectName());
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Retention delete failed for urn={} aspect={}; leaving key for retry",
+            context.getUrn(),
+            context.getAspectName(),
+            e);
+      }
+    }
+    return successes;
   }
 
   private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
@@ -179,7 +270,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   }
 
   private void applyRetention(
-      PagedList<EbeanAspectV2> rows,
+      List<EbeanAspectV2> rows,
       Map<String, DataHubRetentionConfig> retentionPolicyMap,
       BulkApplyRetentionResult applyRetentionResult) {
     try (Transaction transaction = _server.beginTransaction(TxScope.required())) {
@@ -187,11 +278,10 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       transaction.setBatchSize(_batchSize);
 
       List<RetentionContext> retentionContexts =
-          rows.getList().stream()
+          rows.stream()
               .filter(row -> row.getVersion() != 0)
               .map(
                   row -> {
-                    // 1. Extract an Entity type from the entity Urn
                     Urn urn;
                     try {
                       urn = Urn.createFromString(row.getUrn());
@@ -202,7 +292,6 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
                     final String aspectNameFromRecord = row.getAspect();
                     log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
-                    // Get the retention policies to apply from the local retention policy map
                     Optional<Retention> retentionPolicy =
                         getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
                             .map(key -> retentionPolicyMap.get(key.toString()))
@@ -233,19 +322,32 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   @WithSpan
   public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
     log.debug("Applying retention to all records");
-    int numCandidates = queryCandidates(null, entityName, aspectName).findCount();
-    log.info("Found {} urn, aspect pair with more than 1 version", numCandidates);
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
-    int start = 0;
-    while (start < numCandidates) {
-      log.info("Applying retention to pairs {} through {}", start, start + _batchSize);
-      PagedList<EbeanAspectV2> rows = getPagedAspects(entityName, aspectName, start, _batchSize);
-      applyRetention(rows, retentionPolicyMap, null);
-      start += _batchSize;
-    }
+    String lastUrn = EMPTY_KEYSET;
+    String lastAspect = EMPTY_KEYSET;
+    long pairsHandled = 0;
+    List<EbeanAspectV2> rows;
+    do {
+      rows =
+          getPagedAspectsByKeyset(
+              null, entityName, aspectName, lastUrn, lastAspect, _batchSize, null);
+      if (!rows.isEmpty()) {
+        log.info(
+            "Applying retention to {} (urn, aspect) pairs with version > 0 after key ({}, {})",
+            rows.size(),
+            lastUrn.isEmpty() ? "<start>" : lastUrn,
+            lastAspect.isEmpty() ? "<start>" : lastAspect);
+        applyRetention(rows, retentionPolicyMap, null);
+        pairsHandled += rows.size();
+        EbeanAspectV2 last = rows.get(rows.size() - 1);
+        lastUrn = last.getUrn();
+        lastAspect = last.getAspect();
+      }
+    } while (rows.size() == _batchSize);
 
-    log.info("Finished applying retention to all records");
+    log.info(
+        "Finished applying retention to {} (urn, aspect) pairs with version > 0", pairsHandled);
   }
 
   @Override
@@ -265,57 +367,51 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     startTime = System.currentTimeMillis();
 
     // only supports version based retention for batch apply
-    // find urn, aspect pair where distinct versions > 20 to apply retention policy
-    Query<EbeanAspectV2> query =
-        _server
-            .find(EbeanAspectV2.class)
-            .setDistinct(true)
-            .select(
-                String.format(
-                    "%s, %s, count(%s)",
-                    EbeanAspectV2.URN_COLUMN,
-                    EbeanAspectV2.ASPECT_COLUMN,
-                    EbeanAspectV2.VERSION_COLUMN));
-    ExpressionList<EbeanAspectV2> exp = null;
-    if (args.urn != null || args.aspectName != null) {
-      exp = query.where();
-      if (args.aspectName != null) {
-        exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+    // find urn, aspect pairs where version count > attemptWithVersion
+    int start = args.start != null ? args.start : 0;
+    int count = args.count != null ? args.count : 100;
+    String lastUrn = EMPTY_KEYSET;
+    String lastAspect = EMPTY_KEYSET;
+
+    // Honor legacy start without SQL OFFSET: advance keyset until start rows are skipped.
+    int skipped = 0;
+    while (skipped < start) {
+      int pageSize = Math.min(_batchSize, start - skipped);
+      List<EbeanAspectV2> skipPage =
+          getPagedAspectsByKeyset(
+              args.urn,
+              null,
+              args.aspectName,
+              lastUrn,
+              lastAspect,
+              pageSize,
+              args.attemptWithVersion);
+      if (skipPage.isEmpty()) {
+        result.timeRowMs = System.currentTimeMillis() - startTime;
+        return result;
       }
-      if (args.urn != null) {
-        exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
-      }
-    }
-    if (exp == null) {
-      exp = query.having();
-    } else {
-      exp = exp.having();
+      skipped += skipPage.size();
+      EbeanAspectV2 last = skipPage.get(skipPage.size() - 1);
+      lastUrn = last.getUrn();
+      lastAspect = last.getAspect();
     }
 
-    PagedList<EbeanAspectV2> rows =
-        exp.gt(String.format("count(%s)", EbeanAspectV2.VERSION_COLUMN), args.attemptWithVersion)
-            .setFirstRow(args.start)
-            .setMaxRows(args.count)
-            .findPagedList();
+    List<EbeanAspectV2> rows =
+        getPagedAspectsByKeyset(
+            args.urn, null, args.aspectName, lastUrn, lastAspect, count, args.attemptWithVersion);
     result.timeRowMs = System.currentTimeMillis() - startTime;
 
-    for (EbeanAspectV2 row : rows.getList()) {
-      startTime = System.currentTimeMillis();
-      log.debug("For {},{} version count is {}", row.getUrn(), row.getAspect(), row.getVersion());
+    for (EbeanAspectV2 row : rows) {
+      long applyStart = System.currentTimeMillis();
+      log.debug("For {},{} max version is {}", row.getUrn(), row.getAspect(), row.getVersion());
       try {
         Urn.createFromString(row.getUrn());
       } catch (Exception e) {
         log.error("Failed to serialize urn {}", row.getUrn(), e);
         continue;
       }
-      PagedList<EbeanAspectV2> rowsToChange =
-          queryCandidates(row.getUrn(), null, row.getAspect())
-              .setFirstRow(args.start)
-              .setMaxRows(args.count)
-              .findPagedList();
-
-      applyRetention(rowsToChange, retentionPolicyMap, result);
-      result.timeApplyRetentionMs += System.currentTimeMillis() - startTime;
+      applyRetention(List.of(row), retentionPolicyMap, result);
+      result.timeApplyRetentionMs += System.currentTimeMillis() - applyStart;
     }
 
     return result;
@@ -342,40 +438,81 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                     RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, row.getMetadata())));
   }
 
-  private ExpressionList<EbeanAspectV2> queryCandidates(
-      @Nullable String urn, @Nullable String entityName, @Nullable String aspectName) {
-    ExpressionList<EbeanAspectV2> query =
-        _server
-            .find(EbeanAspectV2.class)
-            .setDistinct(true)
-            .select(
-                String.format(
-                    "%s, %s, max(%s)",
-                    EbeanAspectV2.URN_COLUMN,
-                    EbeanAspectV2.ASPECT_COLUMN,
-                    EbeanAspectV2.VERSION_COLUMN))
-            .where();
-    if (urn != null) {
-      query.eq(EbeanAspectV2.URN_COLUMN, urn);
-    }
-    if (entityName != null) {
-      query.like(EbeanAspectV2.URN_COLUMN, String.format("urn:li:%s%%", entityName));
-    }
-    if (aspectName != null) {
-      query.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
-    }
-    return query;
-  }
-
-  private PagedList<EbeanAspectV2> getPagedAspects(
+  /**
+   * Keyset-paginated candidate (urn, aspect) pairs.
+   *
+   * <p>Avoids {@code OFFSET} over {@code GROUP BY}, which becomes pathological on large
+   * metadata_aspect_v2 tables. When {@code minVersionCount} is null, candidates are pairs with
+   * {@code version > 0}. When set, candidates must also satisfy {@code COUNT(version) >
+   * minVersionCount}.
+   */
+  @Nonnull
+  List<EbeanAspectV2> getPagedAspectsByKeyset(
+      @Nullable String urn,
       @Nullable String entityName,
       @Nullable String aspectName,
-      final int start,
-      final int pageSize) {
-    return queryCandidates(null, entityName, aspectName)
-        .orderBy(EbeanAspectV2.URN_COLUMN + ", " + EbeanAspectV2.ASPECT_COLUMN)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .findPagedList();
+      @Nonnull String lastUrn,
+      @Nonnull String lastAspect,
+      final int pageSize,
+      @Nullable Integer minVersionCount) {
+    if (pageSize <= 0) {
+      return List.of();
+    }
+
+    StringBuilder sql =
+        new StringBuilder(
+            "SELECT urn, aspect, MAX(version) AS version FROM metadata_aspect_v2 WHERE 1=1");
+    if (minVersionCount == null) {
+      sql.append(" AND version > 0");
+    }
+    if (urn != null) {
+      sql.append(" AND urn = :urn");
+    }
+    if (entityName != null) {
+      sql.append(" AND urn LIKE :entityLike");
+    }
+    if (aspectName != null) {
+      sql.append(" AND aspect = :aspectName");
+    }
+    sql.append(" AND (urn > :lastUrn OR (urn = :lastUrn AND aspect > :lastAspect))");
+    sql.append(" GROUP BY urn, aspect");
+    if (minVersionCount != null) {
+      sql.append(" HAVING COUNT(version) > :minVersionCount");
+    }
+    sql.append(" ORDER BY urn, aspect LIMIT :pageSize");
+
+    SqlQuery query =
+        _server
+            .sqlQuery(sql.toString())
+            .setParameter("lastUrn", lastUrn)
+            .setParameter("lastAspect", lastAspect)
+            .setParameter("pageSize", pageSize);
+    if (urn != null) {
+      query.setParameter("urn", urn);
+    }
+    if (entityName != null) {
+      query.setParameter("entityLike", String.format("urn:li:%s%%", entityName));
+    }
+    if (aspectName != null) {
+      query.setParameter("aspectName", aspectName);
+    }
+    if (minVersionCount != null) {
+      query.setParameter("minVersionCount", minVersionCount);
+    }
+
+    List<SqlRow> sqlRows = query.findList();
+    List<EbeanAspectV2> results = new ArrayList<>(sqlRows.size());
+    for (SqlRow sqlRow : sqlRows) {
+      String rowUrn = sqlRow.getString("urn");
+      String rowAspect = sqlRow.getString("aspect");
+      long version = sqlRow.getLong("version");
+      EbeanAspectV2 row = new EbeanAspectV2();
+      row.setKey(new EbeanAspectV2.PrimaryKey(rowUrn, rowAspect, version));
+      row.setUrn(rowUrn);
+      row.setAspect(rowAspect);
+      row.setVersion(version);
+      results.add(row);
+    }
+    return results;
   }
 }

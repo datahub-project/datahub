@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -248,9 +249,28 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
-  @Nonnull
-  PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext, @Nonnull final RestoreIndicesArgs args);
+  /**
+   * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
+   * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
+   *
+   * <p>The stream is <b>consume-in-scope</b>: {@code consumer} runs while a {@link
+   * ScopedTransactionFactory} routing scope is open, and the stream is closed when it returns. This
+   * is load-bearing when an extension routes queries to different backend databases — {@code
+   * findStream()} pulls rows lazily as the stream is consumed, so the cursor's connection has to
+   * stay routed for the whole consumption. Returning a live stream to the caller (as the previous
+   * signature did) let the scope close before the rows were fetched, so later batches could run on
+   * an unrouted connection already returned to the pool. Do not stash the {@link PartitionedStream}
+   * for use after {@code consumer} returns.
+   *
+   * @param consumer processes the partitioned stream and returns a result; must fully consume it
+   *     before returning
+   * @return whatever {@code consumer} returns
+   */
+  @Nullable
+  <R> R streamAspectBatches(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer);
 
   /**
    * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
@@ -298,10 +318,27 @@ public interface AspectDao {
           "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
+  /**
+   * Hard-delete all aspects for a urn. Must be called within an enclosing transaction: the ordered
+   * {@code FOR UPDATE} lock (and any advisory lock) rely on the thread's active transaction, so
+   * invoking this outside one would run them in short-lived auto-commit transactions and defeat the
+   * lock ordering. All current call sites route through {@code runInTransactionWithRetry}.
+   */
   int deleteUrn(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
+   * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
+   * lock per urn when enabled. Used to prevent lock-order deadlocks between multi-row writes (e.g.
+   * logical-model linking) and concurrent hard-deletes touching the same rows.
+   */
+  default void lockUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    // no-op by default
+  }
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(

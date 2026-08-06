@@ -27,6 +27,47 @@ If ingestion fails, validate credentials, permissions, connectivity, and scope f
 
 Verify that your OAuth2 client credentials are correct and have not expired. For OSS deployments, confirm the API is reachable at the `/api/public/v1` path prefix.
 
+#### Missing or Ambiguous Stream Namespaces
+
+A `Stream Metadata Unavailable` warning means the `/streams` endpoint answered 404, so stream
+namespaces and column-level lineage could not be read. Older Airbyte versions have no such
+endpoint; on versions that do, the same status means the source is not accessible to the
+credentials in the recipe, so check permissions.
+
+A `Stream Namespaces Not Reported` warning means `/streams` described the source's streams but
+gave no namespace for any of them, and nothing else supplied a schema for the streams it names,
+so their dataset URNs carry no schema tier. Airbyte only reports stream namespaces from 1.7.0
+onwards. Either upgrade Airbyte, or set the schema for that source in the recipe:
+
+```yaml
+sources_to_platform_instance:
+  <airbyte-source-id>:
+    platform: mssql
+    default_schema: dbo
+```
+
+`default_schema` is only overridden by a namespace reported by Airbyte or a per-table schema in the
+connector's own configuration, so it is safe to leave in place after an upgrade — and once it
+applies, the warning stops for the streams it covers. It deliberately outranks the connector-wide
+schema key, which sometimes holds a database name rather than a schema.
+
+A `Stream Namespace Missing` warning names streams that Airbyte left without a namespace on a
+source where it reported one for others, so the Airbyte version is not the cause. Set the schema
+for those tables in the Airbyte connector's own configuration, or `default_schema` as above if
+every stream on that source shares one schema.
+
+A `Stream Schema Guessed` warning means the same thing happened on a source that replicates
+several schemas. One name cannot be right for all of them, so every stream gets the same schema
+tier and the streams living elsewhere point at another table's URN. `default_schema` cannot fix
+this — only Airbyte knows which stream came from which schema, and it only says so from 1.7.0
+onwards, so upgrading is the resolution. Ignore the warning if every stream really does live in
+the one schema named in the warning's context.
+
+An `Ambiguous Stream Namespace` warning means several schemas expose a stream with the same
+name and Airbyte does not say which configured stream belongs to which schema. DataHub leaves
+the namespace unset rather than guessing. Set the schema explicitly on the affected connection
+in Airbyte to resolve it.
+
 #### Missing Schema Metadata
 
 If datasets are ingested without schema information, confirm that the Airbyte source supports schema discovery and that the sync catalog is populated in the connection settings.

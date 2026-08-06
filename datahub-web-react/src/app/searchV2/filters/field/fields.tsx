@@ -41,6 +41,7 @@ import {
     LAST_MODIFIED_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     REMOVED_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
@@ -136,6 +137,16 @@ const CONTAINER_FILTER: FilterField = {
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Container],
     icon: <FolderOutlined />,
+};
+
+export const PARENT_DOCUMENT_FILTER: FilterField = {
+    field: PARENT_DOCUMENT_FILTER_NAME,
+    get displayName() {
+        return FIELD_TO_LABEL[PARENT_DOCUMENT_FILTER_NAME];
+    },
+    type: FieldType.ENTITY,
+    entityTypes: [EntityType.Document],
+    icon: <FileTextOutlined />,
 };
 
 const FIELD_PATHS_FILTER: FilterField = {
@@ -325,6 +336,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     TAGS_FILTER,
     GLOSSARY_TERMS_FILTER,
     CONTAINER_FILTER,
+    PARENT_DOCUMENT_FILTER,
     FIELD_PATHS_FILTER,
     FIELD_TAGS_FILTER,
     FIELD_GLOSSARY_TERMS_FILTER,
