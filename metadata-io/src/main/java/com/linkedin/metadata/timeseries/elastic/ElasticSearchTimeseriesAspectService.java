@@ -509,7 +509,7 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable Filter sharedFilter,
       @Nullable SortCriterion sort) {
 
-    if (urns.isEmpty()) {
+    if (urns.isEmpty() || limit == 0) {
       return Collections.emptyMap();
     }
 
