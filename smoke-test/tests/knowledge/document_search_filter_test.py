@@ -15,18 +15,32 @@ import time
 import uuid
 
 import pytest
+from requests.structures import CaseInsensitiveDict
 
 from tests.consistency_utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
 
-def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
-    """Execute a GraphQL query against the frontend API."""
+def execute_graphql(
+    auth_session, query: str, variables: dict | None = None, no_sync_wait: bool = False
+) -> dict:
+    """Execute a GraphQL query against the frontend API.
+
+    no_sync_wait=True bypasses TestSessionWrapper's automatic
+    wait_for_writes_to_sync() call by posting via the underlying session
+    directly. Use for all-but-the-last call in a batch of writes where only
+    the state after the whole batch matters.
+    """
     payload = {"query": query, "variables": variables or {}}
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/graphql", json=payload
-    )
+    url = f"{auth_session.frontend_url()}/api/graphql"
+    if no_sync_wait:
+        headers = CaseInsensitiveDict(
+            {"Authorization": f"Bearer {auth_session.gms_token()}"}
+        )
+        response = auth_session._upstream.post(url, json=payload, headers=headers)
+    else:
+        response = auth_session.post(url, json=payload)
     response.raise_for_status()
     result = response.json()
     return result
@@ -58,7 +72,9 @@ def _create_document(
             "settings": {"showInGlobalContext": show_in_global_context},
         }
     }
-    result = execute_graphql(auth_session, create_mutation, variables)
+    # Callers wait once (wait_for_writes_to_sync) after creating all documents
+    # for a test, so intermediate creates/status-updates don't need to sync.
+    result = execute_graphql(auth_session, create_mutation, variables, no_sync_wait=True)
     assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
     urn = result["data"]["createDocument"]
 
@@ -70,18 +86,20 @@ def _create_document(
             }
         """
         update_vars = {"input": {"urn": urn, "state": "PUBLISHED"}}
-        update_res = execute_graphql(auth_session, update_status_mutation, update_vars)
+        update_res = execute_graphql(
+            auth_session, update_status_mutation, update_vars, no_sync_wait=True
+        )
         assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
     return urn
 
 
 def _delete_document(auth_session, urn: str):
-    """Delete a document."""
+    """Delete a document. Cleanup only -- nothing reads this state afterward."""
     delete_mutation = """
         mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
     """
-    execute_graphql(auth_session, delete_mutation, {"urn": urn})
+    execute_graphql(auth_session, delete_mutation, {"urn": urn}, no_sync_wait=True)
 
 
 @pytest.mark.dependency()
@@ -308,7 +326,10 @@ def test_related_documents_shows_context_only_documents(auth_session):
           }
         }
     """
-    dataset_res = execute_graphql(auth_session, dataset_query, {"urn": dataset_urn})
+    # Read of pre-existing bootstrap data, unrelated to this test's own writes.
+    dataset_res = execute_graphql(
+        auth_session, dataset_query, {"urn": dataset_urn}, no_sync_wait=True
+    )
     if "errors" in dataset_res or dataset_res["data"]["dataset"] is None:
         _delete_document(auth_session, doc_urn)
         pytest.skip("Sample dataset not available - skipping test")
@@ -326,7 +347,9 @@ def test_related_documents_shows_context_only_documents(auth_session):
             "relatedAssets": [dataset_urn],
         }
     }
-    update_res = execute_graphql(auth_session, update_mutation, update_vars)
+    update_res = execute_graphql(
+        auth_session, update_mutation, update_vars, no_sync_wait=True
+    )
     assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
     wait_for_writes_to_sync(mae_only=True)
