@@ -236,7 +236,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         all_cluster_topics: Optional[List[str]] = None
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
-            if connector and all_cluster_topics is not None:
+            # Keep the list for catalog cross-check below. Only hand it to
+            # connectors that need it for inference (sinks, EventRouter).
+            if (
+                connector
+                and all_cluster_topics is not None
+                and self._should_assign_cluster_topics(connector_manifest, connector)
+            ):
                 connector.all_cluster_topics = all_cluster_topics
                 logger.debug(
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
@@ -263,6 +269,23 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
         self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
         return True
+
+    @staticmethod
+    def _should_assign_cluster_topics(
+        connector_manifest: ConnectorManifest,
+        connector: object,
+    ) -> bool:
+        # Sinks need the live list to expand topics.regex and intersect subscriptions.
+        if connector_manifest.type == SINK:
+            return True
+
+        # EventRouter lineage filters the live cluster via RegexRouter prefixes;
+        # without the cluster list it cannot identify post-SMT topic names.
+        has_event_router = getattr(connector, "_has_event_router_transform", None)
+        if callable(has_event_router) and has_event_router():
+            return True
+
+        return False
 
     def _get_catalog_connector(
         self, connector_manifest: ConnectorManifest
