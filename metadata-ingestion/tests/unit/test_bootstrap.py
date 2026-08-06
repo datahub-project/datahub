@@ -222,6 +222,7 @@ class TestBootstrapErrorHandling:
                     t.start()
                 for t in threads:
                     t.join(timeout=5.0)
+                    assert not t.is_alive(), f"Thread {t.name} timed out"
 
             # Installed exactly once despite 5 concurrent initializers, and
             # force=True did not trigger any re-installation.
@@ -431,3 +432,79 @@ class TestExceptionHookOptimization:
 
         finally:
             shutdown_secret_masking()
+
+
+class TestStrandedBootstrapFlag:
+    """Regression: tokenless shutdown + reset_instance strands the
+    ``_bootstrap_completed`` flag True while the filter is uninstalled, so
+    the next initialize_secret_masking() short-circuits on the flag and
+    runs with masking off. The install decision must be derived from the
+    actual installed state, not a separate flag that can disagree with it.
+    """
+
+    def test_reinit_after_tokenless_shutdown_and_reset_installs_filter(self):
+        import io
+        import logging
+        import threading
+
+        import datahub.masking.masking_filter as mf_mod
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+        from datahub.masking.masking_filter import _installed_filter as _  # noqa: F401
+        from datahub.masking.secret_registry import SecretRegistry
+
+        try:
+            # 1. init on a worker thread (non-ambient for the main context
+            #    that later tears down). Registers a secret under that
+            #    thread's scope.
+            def worker():
+                initialize_secret_masking()
+                SecretRegistry.get_instance().register_secret("T", "tok_abcdef123")
+
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join(timeout=5.0)
+            assert not t.is_alive(), "worker thread timed out"
+
+            # 2. tokenless shutdown from a context with no scope. end_execution(None)
+            #    drops nothing and reports other groups still active, so shutdown
+            #    returns early with _bootstrap_completed still True.
+            shutdown_secret_masking()
+
+            # 3. reset_instance uninstalls the filter.
+            SecretRegistry.reset_instance()
+            assert mf_mod._installed_filter is None
+
+            # 4. re-init must re-install the filter (not short-circuit on the
+            #    stranded flag).
+            initialize_secret_masking()
+            assert mf_mod._installed_filter is not None, (
+                "re-init short-circuited on _bootstrap_completed; filter not installed"
+            )
+
+            # 5. a newly-registered secret must be masked after the cycle.
+            registry = SecretRegistry.get_instance()
+            registry.register_secret("AFTER", "after_secret_value")
+            capture = io.StringIO()
+            handler = logging.StreamHandler(capture)
+            handler.setFormatter(logging.Formatter("%(message)s"))
+            root = logging.getLogger()
+            root.addHandler(handler)
+            try:
+                # The refresh path re-scans handlers, so the late handler gets
+                # the filter. Force a re-scan by calling install again.
+                initialize_secret_masking()
+                logging.getLogger("test.stranded").info("leak after_secret_value here")
+            finally:
+                root.removeHandler(handler)
+            out = capture.getvalue()
+            assert "after_secret_value" not in out, (
+                f"secret leaked after re-init: {out!r}"
+            )
+            assert "***REDACTED:AFTER***" in out
+
+        finally:
+            shutdown_secret_masking()
+            SecretRegistry.reset_instance()

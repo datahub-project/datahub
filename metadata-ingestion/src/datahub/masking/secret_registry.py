@@ -153,6 +153,13 @@ class SecretRegistry:
 
             if _mf._installed_filter is not None:
                 _mf.uninstall_masking_filter()
+            # Clear the bootstrap-completed latch so the next
+            # initialize_secret_masking() re-installs instead of
+            # short-circuiting on a stranded True. The lazy import avoids a
+            # circular dependency (bootstrap imports this module).
+            from datahub.masking import bootstrap as _boot
+
+            _boot.reset_bootstrap_state()
         except Exception as e:
             # Don't let a teardown failure prevent the singleton reset, but
             # don't swallow it silently either — masking would stay installed
@@ -176,10 +183,21 @@ class SecretRegistry:
     def ensure_execution(self) -> str:
         """Open a secret scope for the current context only if it doesn't already
         have one; returns the active execution id. Idempotent within a context,
-        so a repeated initialize_secret_masking() won't start a second scope."""
+        so a repeated initialize_secret_masking() won't start a second scope.
+
+        Revalidates the ambient id against ``_groups``: a token-based
+        ``end_execution`` from another thread drops the group but leaves this
+        context's contextvar pointing at the dead id (end_execution only clears
+        the ambient contextvar when it matches the *ending* context's). Without
+        revalidation, this would return the stale id and recreate a scope under
+        a dead id, so a later token holder would target the wrong scope.
+        """
         exec_id = _current_exec.get()
         if exec_id is not None:
-            return exec_id
+            with self._registry_lock:
+                if exec_id in self._groups:
+                    return exec_id
+            # Ambient id names no live group — fall through to open a fresh scope.
         return self.begin_execution()
 
     def end_execution(self, exec_id: Optional[str] = None) -> bool:
@@ -257,6 +275,7 @@ class SecretRegistry:
         raw_value: str,
         group: Dict[str, str],
         pending_keys: set,
+        warn: bool = True,
     ) -> _Admit:
         """Admit one secret against the registry, capacity, and batch state.
 
@@ -296,10 +315,17 @@ class SecretRegistry:
         truly_new = set(keys) - self._secrets.keys() - pending_keys
         if len(self._secrets) + len(pending_keys) + len(truly_new) >= self.MAX_SECRETS:
             if not self._capacity_warned:
-                logger.warning(
-                    f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                    f"Skipping registration of {variable_name}"
-                )
+                # ``warn=False`` lets the batch path suppress the per-secret
+                # warning and emit one summary warning with the rejected count
+                # after the loop (an operator otherwise sees only one variable
+                # name with no indication of how many others were dropped).
+                # _capacity_warned is set regardless so the episode still
+                # suppresses repeats.
+                if warn:
+                    logger.warning(
+                        f"Secret registry at capacity ({self.MAX_SECRETS}). "
+                        f"Skipping registration of {variable_name}"
+                    )
                 self._capacity_warned = True
             return _Admit.REJECTED
         group[raw_value] = variable_name
@@ -350,9 +376,13 @@ class SecretRegistry:
             admitted = 0
             duplicates = 0
             rejected = 0
+            # Suppress the per-secret warning for batches; emit one summary
+            # warning with the rejected count after the loop so an operator
+            # sees the blast radius, not just one variable name.
+            warned_before = self._capacity_warned
             for variable_name, raw_value in valid_secrets.items():
                 result = self._admit_locked(
-                    variable_name, raw_value, group, pending_keys
+                    variable_name, raw_value, group, pending_keys, warn=False
                 )
                 if result is _Admit.ADMITTED:
                     admitted += 1
@@ -360,6 +390,12 @@ class SecretRegistry:
                     duplicates += 1
                 else:
                     rejected += 1
+
+            if rejected > 0 and not warned_before:
+                logger.warning(
+                    f"Secret registry at capacity ({self.MAX_SECRETS}). "
+                    f"Skipped {rejected} of {len(valid_secrets)} secret(s) in batch."
+                )
 
             if admitted > 0:
                 self._rebuild_locked()

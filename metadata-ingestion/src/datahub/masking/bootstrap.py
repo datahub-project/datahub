@@ -41,6 +41,20 @@ def is_bootstrapped() -> bool:
     return _bootstrap_completed
 
 
+def reset_bootstrap_state() -> None:
+    """Clear the bootstrap-completed latch.
+
+    Called by ``SecretRegistry.reset_instance()`` (which tears down the
+    installed filter) so the flag can't strand True while the filter is gone.
+    Without this, the next ``initialize_secret_masking()`` short-circuits on
+    the flag and runs with masking off. Safe to call when not bootstrapped.
+    """
+    global _bootstrap_completed, _bootstrap_error
+    with _bootstrap_lock:
+        _bootstrap_completed = False
+        _bootstrap_error = None
+
+
 def get_bootstrap_error() -> Optional[Exception]:
     """Get bootstrap error if bootstrap failed."""
     return _bootstrap_error
@@ -124,6 +138,16 @@ def initialize_secret_masking(
     # they are harmless when no secrets are registered. Only secrets are scoped
     # per execution (ensure_execution below). `force` is accepted for backward
     # compatibility but no longer gates anything — installation is idempotent.
+    #
+    # The install decision uses ``_bootstrap_completed`` as the latch (not
+    # ``masking_filter._installed_filter``) so that test mocks patching
+    # ``install_masking_filter`` still latch correctly — deriving purely
+    # from the real installed state would let every concurrent initializer
+    # re-enter when the install is mocked out. The flag MUST be cleared
+    # wherever the filter is uninstalled, or it strands True while the
+    # filter is gone and the next initialize short-circuits with masking off.
+    # ``reset_bootstrap_state()`` (called by ``SecretRegistry.reset_instance()``,
+    # which tears down the filter) clears it.
     #
     # The whole install-check + scope registration is done under _bootstrap_lock
     # (the same lock shutdown holds across its teardown), so a concurrent

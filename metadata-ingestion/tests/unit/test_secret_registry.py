@@ -1,8 +1,39 @@
 """Test SecretRegistry singleton and is_masking_enabled function."""
 
+import contextlib
+import logging
+from typing import Iterator
+
 import pytest
 
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+
+
+@contextlib.contextmanager
+def _capture_records(logger_name: str) -> Iterator[list]:
+    """Attach a handler to ``logger_name`` for the duration of the block and
+    remove the *same* handler object on exit.
+
+    The masking loggers have ``propagate=False``, so pytest's ``caplog``
+    (attached to root) doesn't see their records — tests must attach a
+    handler directly. The original code did ``_logger.removeHandler(_Capture())``,
+    which removes a *new* instance and leaves the original attached, accumulating
+    records across tests and duplicating them into later assertions. Binding the
+    handler to a variable and removing that same object fixes the leak.
+    """
+    logger = logging.getLogger(logger_name)
+    records: list = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    handler = _Capture()
+    logger.addHandler(handler)
+    try:
+        yield records
+    finally:
+        logger.removeHandler(handler)
 
 
 class TestSecretRegistrySingleton:
@@ -334,24 +365,12 @@ class TestAdmitCapacityAndDuplicates:
 
     def test_duplicate_registration_produces_no_capacity_warning(self):
         """A duplicate registration must not fire the "at capacity" warning."""
-        import logging as _logging
-
         registry = SecretRegistry()
         registry.clear()
         registry.register_secret("KEY1", "duplicate_value")
-        records: list = []
-
-        class _Capture(_logging.Handler):
-            def emit(self, record):
-                records.append(record)
-
-        _logger = _logging.getLogger("datahub.masking.secret_registry")
-        _logger.addHandler(_Capture())
-        try:
+        with _capture_records("datahub.masking.secret_registry") as records:
             # Re-register the same value — duplicate, not capacity.
             registry.register_secret("KEY1_DUP", "duplicate_value")
-        finally:
-            _logger.removeHandler(_Capture())
         assert not any("at capacity" in r.getMessage() for r in records), (
             "duplicate registration fired a spurious capacity warning"
         )
@@ -359,25 +378,15 @@ class TestAdmitCapacityAndDuplicates:
 
     def test_capacity_warning_fires_once_not_per_call(self):
         """The capacity warning fires once per rise to capacity, not per call."""
-        import logging as _logging
-
         registry = SecretRegistry()
         registry.clear()
-        records: list = []
-
-        class _Capture(_logging.Handler):
-            def emit(self, record):
-                records.append(record)
-
-        _logger = _logging.getLogger("datahub.masking.secret_registry")
-        _logger.addHandler(_Capture())
-        try:
-            with pytest.MonkeyPatch.context() as m:
-                m.setattr(SecretRegistry, "MAX_SECRETS", 10)
-                for i in range(20):
-                    registry.register_secret(f"K{i}", f"pa:ss@wo/rd{i}")
-        finally:
-            _logger.removeHandler(_Capture())
+        with (
+            _capture_records("datahub.masking.secret_registry") as records,
+            pytest.MonkeyPatch.context() as m,
+        ):
+            m.setattr(SecretRegistry, "MAX_SECRETS", 10)
+            for i in range(20):
+                registry.register_secret(f"K{i}", f"pa:ss@wo/rd{i}")
         capacity_warnings = [r for r in records if "at capacity" in r.getMessage()]
         assert len(capacity_warnings) == 1, (
             f"expected exactly one capacity warning, got {len(capacity_warnings)}"
@@ -405,25 +414,13 @@ class TestAdmitCapacityAndDuplicates:
     def test_batch_duplicate_does_not_count_as_rejected(self):
         """Re-registering an existing batch must not report every entry as
         rejected (the old 'skipped 20 of 20' on a healthy run)."""
-        import logging as _logging
-
         registry = SecretRegistry()
         registry.clear()
         batch = {f"K{i}": f"batch_value_{i}" for i in range(20)}
         registry.register_secrets_batch(batch)
-        records: list = []
-
-        class _Capture(_logging.Handler):
-            def emit(self, record):
-                records.append(record)
-
-        _logger = _logging.getLogger("datahub.masking.secret_registry")
-        _logger.addHandler(_Capture())
-        try:
+        with _capture_records("datahub.masking.secret_registry") as records:
             # Re-register the same batch — all duplicates, no capacity.
             registry.register_secrets_batch(batch)
-        finally:
-            _logger.removeHandler(_Capture())
         assert not any("at capacity" in r.getMessage() for r in records), (
             "duplicate batch fired a spurious capacity warning"
         )
@@ -446,23 +443,11 @@ class TestAdmitCapacityAndDuplicates:
             registry.end_execution(exec_id)
         assert registry.get_count() == 0  # all dropped
         # Now rise again — should warn again (not suppressed by stale flag).
-        import logging as _logging
-
         with pytest.MonkeyPatch.context() as m:
             m.setattr(SecretRegistry, "MAX_SECRETS", 10)
-            handler_records: list = []
-
-            class _Capture(_logging.Handler):
-                def emit(self, record):
-                    handler_records.append(record)
-
-            _logger = _logging.getLogger("datahub.masking.secret_registry")
-            _logger.addHandler(_Capture())
-            try:
+            with _capture_records("datahub.masking.secret_registry") as handler_records:
                 for i in range(30):
                     registry.register_secret(f"K2_{i}", f"other_value_{i}")
-            finally:
-                _logger.removeHandler(_Capture())
         capacity_warnings = [
             r for r in handler_records if "at capacity" in r.getMessage()
         ]
@@ -470,3 +455,116 @@ class TestAdmitCapacityAndDuplicates:
             f"expected the capacity warning to fire again after room was freed, "
             f"got {len(capacity_warnings)}"
         )
+
+
+class TestEnsureExecutionStaleToken:
+    """Regression: ensure_execution returns the ambient contextvar value
+    without checking it still names a live group. A token-based end_execution
+    from another thread drops the group but leaves the originating context's
+    contextvar pointing at the dead id, so a later ensure_execution recreates
+    a scope under a dead id and a later token holder targets the wrong scope.
+    """
+
+    def test_ensure_execution_revalidates_ambient_after_cross_thread_end(self):
+        import threading
+
+        registry = SecretRegistry()
+        registry.clear()
+        tok = registry.ensure_execution()
+        registry.register_secret("A", "aaa_secret_1")
+        assert tok in registry._groups
+
+        # End from another thread using the token. This drops the group but
+        # does NOT clear this context's contextvar (exec_id != ambient).
+        threading.Thread(target=lambda: registry.end_execution(tok)).start()
+        # The group is gone, but the ambient contextvar still holds tok.
+        assert tok not in registry._groups
+
+        # ensure_execution must revalidate: tok names no live group, so it
+        # must open a fresh scope rather than return the stale tok.
+        new_tok = registry.ensure_execution()
+        assert new_tok != tok, (
+            "ensure_execution returned a stale ambient id that names no live group"
+        )
+        assert new_tok in registry._groups
+
+
+class TestCaptureRecordsNoLeak:
+    """Regression for Item 6: the inline ``_logger.removeHandler(_Capture())``
+    pattern removed a *new* instance, leaving the original handler attached.
+    Across the four capacity/duplicate tests, leaked handlers accumulated
+    and duplicated records into later assertions. The ``_capture_records``
+    contextmanager binds the handler to a variable and removes the same object.
+    """
+
+    def test_capture_records_removes_handler_on_exit(self):
+        logger = logging.getLogger("datahub.masking.secret_registry")
+        # Precondition: clean slate (a prior leaked handler would violate this).
+        logger.handlers.clear()
+        with _capture_records("datahub.masking.secret_registry"):
+            assert len(logger.handlers) == 1, "handler not attached"
+        assert logger.handlers == [], (
+            "handler leaked after context exit — removeHandler removed a new "
+            "instance instead of the one that was added"
+        )
+
+    def test_capture_records_does_not_duplicate_across_invocations(self):
+        """A leaked handler from a first invocation would duplicate records
+        into a second invocation's capture. Each record must appear once."""
+        logger = logging.getLogger("datahub.masking.secret_registry")
+        logger.handlers.clear()
+        registry = SecretRegistry()
+        registry.clear()
+
+        # First invocation: register a secret (no capacity warning expected).
+        with _capture_records("datahub.masking.secret_registry"):
+            registry.register_secret("FIRST", "first_secret_value")
+
+        # Second invocation: trigger a capacity warning.
+        with (
+            _capture_records("datahub.masking.secret_registry") as records2,
+            pytest.MonkeyPatch.context() as m,
+        ):
+            m.setattr(SecretRegistry, "MAX_SECRETS", 5)
+            for i in range(20):
+                registry.register_secret(f"K{i}", f"pa:ss@wo/rd{i}")
+
+        capacity_warnings = [r for r in records2 if "at capacity" in r.getMessage()]
+        # If the first invocation's handler leaked, each warning would appear
+        # twice (once via the leaked handler, once via the new one). Assert each
+        # record object is captured exactly once.
+        ids = [id(r) for r in records2]
+        assert len(ids) == len(set(ids)), (
+            "records duplicated across invocations by a leaked handler"
+        )
+        assert len(capacity_warnings) >= 1
+
+
+class TestBatchRejectionCountInWarning:
+    """Item 8 (optional): when a batch is partly rejected at capacity, the
+    WARNING names one variable while the admitted/duplicates/rejected counts
+    go to DEBUG (off in production). An operator sees 'Skipping registration
+    of S_25' with no indication that 174 others were dropped. The rejected
+    count must appear in the warning so an operator can see the blast radius.
+    """
+
+    def test_batch_rejection_count_appears_in_warning(self):
+        registry = SecretRegistry()
+        registry.clear()
+        # 200 secrets, each expanding to ~4 keys; cap at 20 keys -> most rejected.
+        batch = {f"S_{i}": f"pa:ss@wo/rd{i}" for i in range(200)}
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr(SecretRegistry, "MAX_SECRETS", 20)
+            with _capture_records("datahub.masking.secret_registry") as records:
+                registry.register_secrets_batch(batch)
+        warnings = [r for r in records if "at capacity" in r.getMessage()]
+        assert len(warnings) == 1, f"expected one capacity warning, got {len(warnings)}"
+        msg = warnings[0].getMessage()
+        # The warning must surface the rejected count and the batch total, not
+        # just one variable name. The current per-secret warning names only
+        # S_25 with no indication of the 174 others dropped.
+        assert "Skipped" in msg or "skipped" in msg.lower(), (
+            f"warning didn't use 'Skipped' wording: {msg!r}"
+        )
+        # The batch total (200) must appear so an operator sees the blast radius.
+        assert "200" in msg, f"warning didn't surface the batch total: {msg!r}"

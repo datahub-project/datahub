@@ -1738,6 +1738,96 @@ class TestReviewFixes:
 
         uninstall_masking_filter()
 
+    def test_refresh_honours_install_stdout_wrapper_true(self):
+        """Item 4: install_stdout_wrapper is ignored on the refresh path
+        because the wrapper block sits after the early return. install(False)
+        then install(True) must wrap stdout/stderr, not skip wrapping."""
+        from datahub.masking.masking_filter import StreamMaskingWrapper
+
+        r1 = SecretRegistry()
+        r1.clear()
+        # First install: no wrapper.
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
+        assert not isinstance(sys.stdout, StreamMaskingWrapper)
+        assert not isinstance(sys.stderr, StreamMaskingWrapper)
+
+        # Refresh with wrapper=True must wrap.
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=True)
+        assert isinstance(sys.stdout, StreamMaskingWrapper), (
+            "refresh ignored install_stdout_wrapper=True; stdout not wrapped"
+        )
+        assert isinstance(sys.stderr, StreamMaskingWrapper), (
+            "refresh ignored install_stdout_wrapper=True; stderr not wrapped"
+        )
+
+        uninstall_masking_filter()
+
+    def test_rebind_registry_forces_pattern_rebuild(self):
+        """Item 5: rebind_registry sets _last_version = 0, which equals a
+        fresh registry's version, so _check_and_rebuild_pattern's fast path
+        (``current_version == self._last_version``) skips the rebuild and the
+        old pattern persists. The failure mode is over-masking the old
+        registry's values (not a leak — version 0 implies empty), but the fix
+        removes the need to re-derive that argument: set _last_version = -1 and
+        clear the pattern so the next mask rebuilds from the new registry."""
+        r1 = SecretRegistry()
+        r1.clear()
+        r1.register_secret("A", "aaa_secret_1")
+
+        mf = SecretMaskingFilter(r1)
+        # Force a build so the pattern holds r1's secret.
+        assert "aaa_secret_1" not in mf.mask_text("x aaa_secret_1")
+        assert "***REDACTED:A***" in mf.mask_text("x aaa_secret_1")
+        assert mf._pattern is not None
+        assert mf._last_version == r1.get_version()
+
+        # Rebind to an empty registry. With _last_version = 0 (== the empty
+        # registry's version), the rebuild is skipped and the old pattern
+        # persists — over-masking "aaa_secret_1" even though r2 has no secrets.
+        r2 = SecretRegistry()
+        r2.clear()
+        mf.rebind_registry(r2)
+
+        # After rebind, masking an unrelated text must NOT carry r1's pattern.
+        # (r2 is empty, so nothing should be redacted.)
+        masked = mf.mask_text("x aaa_secret_1")
+        assert "***REDACTED:A***" not in masked, (
+            "rebind_registry did not force a rebuild; old registry's pattern persisted"
+        )
+        assert mf._last_version == r2.get_version()
+
+    def test_datahub_masked_extra_cannot_opt_out_of_masking(self):
+        """Item 2: the idempotency guard uses ``record._datahub_masked`` with
+        truthiness. A caller-supplied ``extra={'_datahub_masked': True}`` forges
+        the sentinel and disables masking for that record. Use a module-private
+        sentinel object compared with ``is`` so a caller can't forge it."""
+        import io
+        import logging
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("OPT_OUT", "sekret_value_x")
+
+        capture = io.StringIO()
+        root = logging.getLogger()
+        handler = logging.StreamHandler(capture)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        root.addHandler(handler)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # A caller tries to opt out by forging the guard attribute via extra.
+            logging.getLogger("test.optout").info(
+                "opt-out attempt sekret_value_x", extra={"_datahub_masked": True}
+            )
+        finally:
+            root.removeHandler(handler)
+            uninstall_masking_filter()
+        out = capture.getvalue()
+        assert "sekret_value_x" not in out, (
+            f"caller-forged _datahub_masked disabled masking: {out!r}"
+        )
+        assert "***REDACTED:OPT_OUT***" in out
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

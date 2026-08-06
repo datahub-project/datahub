@@ -40,6 +40,13 @@ _installed_filter: Optional["SecretMaskingFilter"] = None
 REDACTED_MASKING_NAMESPACE = "datahub.masking."
 REDACTED_FORMAT = "***REDACTED:{name}***"
 MASKING_ERROR_MESSAGE = "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"
+
+# Module-private sentinel stamped onto records after masking so the
+# idempotency guard can recognize them with `is` rather than truthiness.
+# A caller-supplied ``extra={'_datahub_masked': True}`` would otherwise forge
+# the guard and disable masking for that record. A caller can't forge this
+# object.
+_MASKED = object()
 CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
 
 # LogRecord standard attributes (per logging.LogRecord.__init__ + attributes set
@@ -332,9 +339,18 @@ class SecretMaskingFilter(logging.Filter):
         hands in a different registry on a repeat install. Encapsulating
         the rebind here keeps the invariant (rebind implies version reset)
         in one place where it can't drift from the install path.
+
+        Uses ``_last_version = -1`` (not 0): a fresh registry's version is 0,
+        so ``0 == 0`` would make ``_check_and_rebuild_pattern``'s fast path
+        skip the rebuild and the old pattern would persist (over-masking the
+        old registry's values). ``-1`` never equals a real version, so the
+        next mask always rebuilds. The pattern and replacements are cleared
+        too so a stale pattern can't be served before the rebuild runs.
         """
         self._registry = registry
-        self._last_version = 0
+        self._last_version = -1
+        self._pattern = None
+        self._replacements = {}
 
     def _mask_args(self, args: Any) -> Any:
         """Mask secrets in log arguments."""
@@ -542,7 +558,7 @@ class SecretMaskingFilter(logging.Filter):
         if record.name.startswith(REDACTED_MASKING_NAMESPACE):
             return True
 
-        if getattr(record, "_datahub_masked", False):
+        if getattr(record, "_datahub_masked", None) is _MASKED:
             return True
 
         # Check if masking is disabled for debugging
@@ -591,7 +607,7 @@ class SecretMaskingFilter(logging.Filter):
             self._mask_extras(record)
 
             # Mark as masked so subsequent handlers skip the work.
-            record._datahub_masked = True
+            record._datahub_masked = _MASKED
 
         except Exception as e:
             # NEVER let masking break logging
@@ -805,6 +821,15 @@ def install_masking_filter(
             )
             _installed_filter.rebind_registry(secret_registry)
 
+        # Honour install_stdout_wrapper on refresh. The wrapper block sits after
+        # this path's early return, so a repeat install with
+        # install_stdout_wrapper=True after an earlier install with False would
+        # silently skip wrapping. The helper is idempotent and guarded by the
+        # fileno() real-stream check, so calling it here is safe. We do NOT
+        # unwrap when False is passed — teardown owns unwrapping.
+        if install_stdout_wrapper:
+            _wrap_std_streams(_installed_filter)
+
         logger.debug("SecretMaskingFilter already installed; refreshed handlers")
         return _installed_filter
 
@@ -828,27 +853,33 @@ def install_masking_filter(
     # proxy, raw writes become log records and flow through handlers that carry
     # the masking filter, so coverage doesn't suffer.
     if install_stdout_wrapper:
-        if not isinstance(sys.stdout, StreamMaskingWrapper) and _is_real_stream(
-            sys.stdout
-        ):
-            sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
-            logger.debug("Wrapped sys.stdout with StreamMaskingWrapper")
-        else:
-            logger.debug(
-                "Skipped wrapping sys.stdout (not a real stream / already wrapped)"
-            )
-
-        if not isinstance(sys.stderr, StreamMaskingWrapper) and _is_real_stream(
-            sys.stderr
-        ):
-            sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
-            logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
-        else:
-            logger.debug(
-                "Skipped wrapping sys.stderr (not a real stream / already wrapped)"
-            )
+        _wrap_std_streams(masking_filter)
 
     return masking_filter
+
+
+def _wrap_std_streams(masking_filter: "SecretMaskingFilter") -> None:
+    """Wrap sys.stdout/stderr with StreamMaskingWrapper if they are real
+    OS-backed streams and not already wrapped. Idempotent and guarded by the
+    ``fileno()`` real-stream check, so it is safe to call on the refresh path
+    (a repeat install with ``install_stdout_wrapper=True`` after an earlier
+    install with ``False``). Does NOT unwrap when ``install_stdout_wrapper``
+    is False — teardown owns unwrapping."""
+    if not isinstance(sys.stdout, StreamMaskingWrapper) and _is_real_stream(sys.stdout):
+        sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
+        logger.debug("Wrapped sys.stdout with StreamMaskingWrapper")
+    else:
+        logger.debug(
+            "Skipped wrapping sys.stdout (not a real stream / already wrapped)"
+        )
+
+    if not isinstance(sys.stderr, StreamMaskingWrapper) and _is_real_stream(sys.stderr):
+        sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
+        logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
+    else:
+        logger.debug(
+            "Skipped wrapping sys.stderr (not a real stream / already wrapped)"
+        )
 
 
 def uninstall_masking_filter() -> None:
