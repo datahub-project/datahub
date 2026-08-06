@@ -5,7 +5,7 @@ import os
 import pytest
 
 from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,
@@ -21,27 +21,23 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 @pytest.fixture(autouse=False)
 def test_setup(auth_session, graph_client, tmp_path):
-    """Ingest the sample data (with a run-unique tag) and assert clean before /
-    after. Yields the run-unique tag URN for the test to delete references to.
+    """Ingest sample data with run-unique tag + dataset URNs.
 
-    The tag is uniquified per run because ``delete_references_to_urn(tag)``
-    removes the tag from EVERY entity referencing it; a shared tag would let
-    this test delete another module's references (and make ``references_count
-    == 1`` depend on global state). With a private tag the count is
-    deterministic and the delete only touches this test's dataset.
+    Tag uniquification is required because ``delete_references_to_urn`` is
+    non-local: it strips *all* graph references to that tag URN, not just
+    associations created by this module. A shared ``NeedsDocs`` tag would
+    delete other workers' tag links under xdist. Dataset uniquification
+    similarly avoids colliding aspect assertions on ``test-delete``.
     """
 
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-delete"
-
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
-    # Rewrite the tag key `NeedsDocs` to a run-unique name in a temp copy of the
-    # sample file; ingest and clean up from that copy so file and URN agree.
-    data_file, tag_name = materialize_with_unique_name(
-        "tests/delete/cli_test_data.json", "NeedsDocs", tmp_path
+    # Uniquify dataset first, then tag, chaining through the temp file so both
+    # replacements land in the ingested payload.
+    data_file, dataset_name = materialize_with_unique_name(
+        "tests/delete/cli_test_data.json", "test-delete", tmp_path
     )
+    data_file, tag_name = materialize_with_unique_name(data_file, "NeedsDocs", tmp_path)
+
+    dataset_urn = make_dataset_urn(platform="kafka", name=dataset_name, env="PROD")
     tag_urn = make_tag_urn(tag_name)
 
     session = graph_client._session
@@ -78,7 +74,7 @@ def test_setup(auth_session, graph_client, tmp_path):
         typed=False,
     )
 
-    yield tag_urn
+    yield tag_urn, dataset_urn
     rollback_url = f"{gms_host}/runs?action=rollback"
     session.post(
         rollback_url,
@@ -107,12 +103,7 @@ def test_setup(auth_session, graph_client, tmp_path):
 
 @pytest.mark.dependency()
 def test_delete_reference(graph_client, test_setup):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-delete"
-
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-    tag_urn = test_setup
+    tag_urn, dataset_urn = test_setup
 
     # Validate that the ingested tag is being referenced by the dataset
     references_count, related_aspects = graph_client.delete_references_to_urn(
