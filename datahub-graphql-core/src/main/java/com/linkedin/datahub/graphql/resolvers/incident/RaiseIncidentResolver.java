@@ -105,6 +105,15 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
               // CreateIfNotExistsValidator filtered the CREATE_ENTITY write because an Incident
               // already exists at this id. Surface that as a conflict rather than treating the
               // filtered write as a silent success.
+              //
+              // This null check is only a reliable conflict signal with JavaEntityClient:
+              // JavaEntityClient.batchIngestProposals omits FILTER-dropped items from its
+              // returned URN list, so ingestProposal returns null here. RestliEntityClient does
+              // not behave the same way -- on Rest.li SUCCESS it derives the URN from the MCP
+              // itself and returns it even when the write was filtered, which would make this
+              // look like a get-or-create instead of a conflict. Default GMS GraphQL wires
+              // JavaEntityClient, so this holds today; do not remove this check as unreachable,
+              // and if GraphQL is ever wired through Restli, this conflict contract breaks.
               throw new DataHubGraphQLException(
                   String.format("Incident with id %s already exists.", id),
                   DataHubGraphQLErrorCode.CONFLICT);
