@@ -613,7 +613,7 @@ class TestSearchWhereFilter:
         assert where_total >= bq_total
 
         # Namespace-scoped page avoids parallel-worker crowding for fixture URN checks.
-        _, scoped_stdout, _ = _run_search(
+        scoped_exit, scoped_stdout, _ = _run_search(
             auth_session,
             [
                 search_data.ns,
@@ -623,10 +623,11 @@ class TestSearchWhereFilter:
                 "50",
             ],
         )
+        assert scoped_exit == 0
+        scoped = json.loads(scoped_stdout)
+        assert scoped["total"] > 0
         # Guard on page content, not aggregate total (ES lag can empty a page).
-        where_urns = {
-            r["entity"]["urn"] for r in json.loads(scoped_stdout)["searchResults"]
-        }
+        where_urns = {r["entity"]["urn"] for r in scoped["searchResults"]}
         if not where_urns:
             pytest.skip("Empty searchResults page under ES lag")
         for urn in (
