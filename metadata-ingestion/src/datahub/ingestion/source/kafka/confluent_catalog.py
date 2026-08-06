@@ -21,7 +21,6 @@ class CatalogKafkaTopic(CatalogEntity):
 
 
 class KafkaTopicCatalog:
-    # Environment-scoped; ambiguous topic names are dropped unless cluster_id is set.
     def __init__(
         self,
         config: KafkaConfluentCatalogConfig,

@@ -757,9 +757,7 @@ class BaseConnector:
     - supports_connector_class(): Checks if this connector handles the given class
     """
 
-    # Opt in when lineage inference needs the live Kafka REST topic list on
-    # Confluent Cloud (topic_names is always empty there). Sinks are always
-    # opted in via requires_cluster_topics(); EventRouter Debezium overrides it.
+    # Opt in when Cloud lineage needs the live topic list (topic_names empty there).
     needs_cluster_topics: ClassVar[bool] = False
 
     connector_manifest: ConnectorManifest
@@ -782,9 +780,6 @@ class BaseConnector:
         return list(self.connector_manifest.topic_names)
 
     def topics_for_regex_expansion(self) -> Optional[List[str]]:
-        # Prefer the live cluster list (including empty). Fall back to connector
-        # topic_names only when they are non-empty; otherwise None so callers can
-        # try DataHub / warn instead of treating "unknown" as an empty match set.
         if self.all_cluster_topics is not None:
             return list(self.all_cluster_topics)
         if self.connector_manifest.topic_names:
@@ -1466,8 +1461,7 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Priority 1: Use provided available_topics (from Kafka API). Distinguish
-        # None (unavailable → try DataHub) from [] (resolved empty cluster).
+        # Distinguish None (unavailable → try DataHub) from [] (empty cluster).
         if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:

@@ -18,7 +18,6 @@ from typing_extensions import LiteralString, TypeAliasType
 
 from datahub.ingestion.api.source import SourceReport
 
-# GraphQL's JsonPrimitive scalar.
 BusinessMetadataValue = Union[str, bool, int, float]
 
 BM_COLLISION_WITH_CONNECTOR_CONFIG: LiteralString = (

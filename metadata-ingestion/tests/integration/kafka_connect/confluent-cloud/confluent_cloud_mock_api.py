@@ -289,9 +289,6 @@ TOPICS_DATA: Dict[str, Any] = {
 }
 
 
-# Stream Catalog (`/catalog/graphql`) view of the same connectors. Topic names here are
-# post-SMT, which is what the catalog reports, and carry the tags / business metadata a
-# customer would have curated in Stream Governance.
 CATALOG_CONNECTORS_DATA = [
     {
         "name": "source_postgres_cdc_01",

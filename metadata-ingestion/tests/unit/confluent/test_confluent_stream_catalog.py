@@ -11,7 +11,6 @@ from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConf
 from datahub.ingestion.source.confluent.models import CatalogEntity, index_by_name
 
 ROOT_KEY = "kafka_topic"
-# Live endpoint 500s on a variables map — pagination must be inlined.
 QUERY = "{ kafka_topic(limit: {limit}, offset: {offset}) { name } }"
 
 
@@ -123,7 +122,6 @@ class TestConfluentStreamCatalogConfig:
         assert config.is_confluent_cloud_endpoint() is expected
 
     def test_localhost_http_is_not_confluent_cloud(self) -> None:
-        # Disabled configs skip URL normalization; endpoint check is hostname-based.
         config = ConfluentStreamCatalogConfig(
             enabled=False,
             schema_registry_url="http://localhost:8081",

@@ -96,8 +96,6 @@ def run_ingest_with_mocked_graph(
             "datahub.ingestion.run.pipeline.DataHubGraph",
             return_value=mock_datahub_graph,
         ),
-        # Recipes use a fake *.confluent.cloud Schema Registry URL so the
-        # Stream Catalog cloud-endpoint guard passes; point GraphQL at the mock.
         mock.patch(
             "datahub.ingestion.source.confluent.config.ConfluentStreamCatalogConfig."
             "get_graphql_endpoint",

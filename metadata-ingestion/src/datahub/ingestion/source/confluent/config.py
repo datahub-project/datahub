@@ -15,8 +15,6 @@ from datahub.ingestion.source.confluent.constants import (
 
 
 class ConfluentStreamCatalogConfig(ConfigModel):
-    # Subclasses add include_* toggles. Credentials are validated only when a
-    # source calls validate_connection — some inherit them from Schema Registry.
     enabled: bool = Field(
         default=False,
         description="Query the Confluent Cloud Stream Catalog GraphQL API. "
@@ -92,7 +90,6 @@ class ConfluentStreamCatalogConfig(ConfigModel):
                 f"{'is' if len(missing) == 1 else 'are'} not set. "
                 "The Stream Catalog requires a Schema Registry endpoint and API key/secret."
             )
-        # Re-check after inheritance paths that set the URL after model construction.
         self.normalize_schema_registry_url()
 
     def is_confluent_cloud_endpoint(self) -> bool:

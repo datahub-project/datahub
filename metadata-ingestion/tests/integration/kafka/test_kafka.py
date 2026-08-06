@@ -29,12 +29,8 @@ pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
-# Stand-in for a Confluent Cloud Schema Registry endpoint; must match
-# kafka_catalog_to_file.yml.
 CATALOG_STUB_URL = "https://psrc-stub.us-east-1.aws.confluent.cloud"
 
-# One tagged topic, one topic with business metadata only, and one topic the local
-# broker does not have - the last should be ignored rather than create an entity.
 CATALOG_TOPICS = [
     {
         "name": "key_value_topic",
@@ -63,7 +59,6 @@ CATALOG_TOPICS = [
 ]
 
 
-# Live endpoint 500s on a variables map — pagination must be inlined.
 INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
 
 
@@ -159,23 +154,14 @@ def test_kafka_ingest(
 def test_kafka_confluent_catalog_ingest(
     mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
-    """Topic tags and business metadata from the Stream Catalog land on the topics.
-
-    The catalog is Confluent Cloud only, so its GraphQL endpoint is stubbed while
-    everything else runs against the local broker and Schema Registry.
-    """
     config_file = (test_resources_dir / "kafka_catalog_to_file.yml").resolve()
 
-    # real_http so only the catalog is stubbed; the broker and Schema Registry calls
-    # still go to the containers.
     with requests_mock.Mocker(real_http=True) as catalog_api:
         catalog_api.post(
             f"{CATALOG_STUB_URL}/catalog/graphql",
             additional_matcher=_pagination_is_inlined,
             json={"data": {"kafka_topic": CATALOG_TOPICS}},
         )
-        # Catch regressions that send a variables map: with real_http=True those
-        # would otherwise fall through to a real network call against the stub host.
         catalog_api.post(
             f"{CATALOG_STUB_URL}/catalog/graphql",
             additional_matcher=_is_non_inlined_pagination,

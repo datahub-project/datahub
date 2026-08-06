@@ -75,8 +75,6 @@ class TestClusterTopicScoping:
     def test_cloud_postgres_cdc_dispatches_to_debezium_without_cluster_topics(
         self,
     ) -> None:
-        # Registry routes PostgresCdcSource → DebeziumSourceConnector, not JDBC.
-        # Plain CDC derives topics from table.include.list; cluster list not required.
         manifest = _make_manifest(
             name="source_postgres_cdc_01",
             connector_type="source",
@@ -225,8 +223,6 @@ class TestClusterTopicScoping:
         assert assigned == [cluster_topics]
 
     def test_cloud_cdc_emits_lineage_without_cluster_topics(self) -> None:
-        # Live path: PostgresCdcSource → Debezium; empty topic_names + no
-        # all_cluster_topics still yields table.include.list-based lineage.
         source = _make_cloud_source()
         manifest = _make_manifest(
             name="source_postgres_cdc_01",

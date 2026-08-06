@@ -48,7 +48,6 @@ class ConfluentStreamCatalogClient:
         root_key: str,
         model: Type[CatalogEntityType],
     ) -> List[CatalogEntityType]:
-        # `root_key` is the GraphQL field under `data`, e.g. `kafka_topic`.
         missing = [
             placeholder
             for placeholder in (LIMIT_PLACEHOLDER, OFFSET_PLACEHOLDER)
@@ -99,7 +98,6 @@ class ConfluentStreamCatalogClient:
                 if entity is not None:
                     entities.append(entity)
 
-            # Use raw_count so a non-object item is not treated as EOF.
             if page.raw_count < self.config.page_size:
                 break
             offset += self.config.page_size

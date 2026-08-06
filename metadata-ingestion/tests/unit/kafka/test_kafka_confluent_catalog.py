@@ -15,7 +15,6 @@ from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
-# Kept local in tests that build a KafkaSource, so no lookup leaves the machine.
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
 TOPIC = "orders"
 

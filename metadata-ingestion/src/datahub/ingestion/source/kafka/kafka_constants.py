@@ -29,8 +29,6 @@ MAX_DISTINCT_VALUE_FREQUENCIES = 10
 # expensive profiling is disabled.
 DEFAULT_MAX_FIELDS_TO_PROFILE = 10
 
-# Schema Registry client setting that carries Confluent Cloud credentials as
-# "<api-key>:<api-secret>". The Stream Catalog authenticates with the same pair.
 SCHEMA_REGISTRY_BASIC_AUTH_KEY = "basic.auth.user.info"
 
 # Schema types
