@@ -58,9 +58,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleControl;
 import com.linkedin.metadata.dao.throttle.ThrottleEvent;
 import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
@@ -2161,41 +2159,44 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     long startTime = System.currentTimeMillis();
 
-    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(opContext, args)) {
-      return stream
-          .partition(args.batchSize)
-          .map(
-              batch -> {
-                long timeSqlQueryMs = System.currentTimeMillis() - startTime;
+    return aspectDao.streamAspectBatches(
+        opContext,
+        args,
+        stream ->
+            stream
+                .partition(args.batchSize)
+                .map(
+                    batch -> {
+                      long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-                try {
-                  List<SystemAspect> systemAspects =
-                      EntityUtils.toSystemAspectFromEbeanAspects(
-                          opContext,
-                          opContext.getRetrieverContext(),
-                          batch.collect(Collectors.toList()));
+                      try {
+                        List<SystemAspect> systemAspects =
+                            EntityUtils.toSystemAspectFromEbeanAspects(
+                                opContext,
+                                opContext.getRetrieverContext(),
+                                batch.collect(Collectors.toList()));
 
-                  RestoreIndicesResult result =
-                      restoreIndices(opContext, systemAspects, logger, args.createDefaultAspects());
-                  result.timeSqlQueryMs = timeSqlQueryMs;
+                        RestoreIndicesResult result =
+                            restoreIndices(
+                                opContext, systemAspects, logger, args.createDefaultAspects());
+                        result.timeSqlQueryMs = timeSqlQueryMs;
 
-                  logger.accept("Batch completed.");
-                  try {
-                    TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-                  } catch (InterruptedException e) {
-                    throw new RuntimeException(
-                        "Thread interrupted while sleeping after successful batch migration.");
-                  }
+                        logger.accept("Batch completed.");
+                        try {
+                          TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(
+                              "Thread interrupted while sleeping after successful batch migration.");
+                        }
 
-                  return result;
-                } catch (Exception e) {
-                  log.error("Error processing aspect for restore indices.", e);
-                  return null;
-                }
-              })
-          .filter(Objects::nonNull)
-          .collect(Collectors.toList());
-    }
+                        return result;
+                      } catch (Exception e) {
+                        log.error("Error processing aspect for restore indices.", e);
+                        return null;
+                      }
+                    })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList()));
   }
 
   @Nonnull
