@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
-from google.cloud import bigquery_analyticshub_v1
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -25,6 +24,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
 )
 from datahub.testing import mce_helpers
+from tests.integration.bigquery_v2.common import (
+    make_dataset_with_linked_source,
+    make_subscription,
+)
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -65,54 +68,6 @@ def _recipe(
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},
     }
-
-
-def _make_subscription() -> SimpleNamespace:
-    """Stand-in for `bigquery_analyticshub_v1.Subscription`.
-
-    SimpleNamespace avoids the real proto's field typing; the handler reads
-    the same attribute names regardless.
-    """
-    destination = SimpleNamespace(
-        dataset_reference=SimpleNamespace(
-            project_id="consumer-project", dataset_id="shared_dataset"
-        )
-    )
-    return SimpleNamespace(
-        name="projects/consumer-project/locations/us/subscriptions/sub_1",
-        listing=(
-            "projects/111222333/locations/us/dataExchanges/exch_a/listings/listing_a"
-        ),
-        data_exchange="",
-        state=int(bigquery_analyticshub_v1.Subscription.State.STATE_ACTIVE),
-        organization_id="987654321",
-        organization_display_name="Publisher Inc",
-        subscriber_contact="ops@example.com",
-        creation_time=None,
-        last_modify_time=None,
-        log_linked_dataset_query_user_email=False,
-        resource_type=int(bigquery_analyticshub_v1.SharedResourceType.BIGQUERY_DATASET),
-        destination_dataset=destination,
-    )
-
-
-def _make_linked_dataset() -> SimpleNamespace:
-    """Stand-in for `bq_client.get_dataset` on the linked (consumer) dataset.
-
-    The handler reads `_properties` for linked-dataset fields not exposed as
-    typed attributes.
-    """
-    return SimpleNamespace(
-        _properties={
-            "linkedDatasetSource": {
-                "sourceDataset": {
-                    "projectId": "111222333",
-                    "datasetId": "publisher_dataset",
-                }
-            },
-            "linkedDatasetMetadata": {"linkState": "LINKED"},
-        }
-    )
 
 
 def _make_columns() -> list:
@@ -296,7 +251,7 @@ def test_bigquery_linked_datasets_ingest(
     # Analytics Hub mock — return the subscription only for `us` location and
     # only against the consumer-project parent.
     ah_mock = MagicMock()
-    subscription = _make_subscription()
+    subscription = make_subscription()
 
     def _list_subscriptions(parent: str) -> list:
         if parent == "projects/consumer-project/locations/us":
@@ -310,7 +265,7 @@ def test_bigquery_linked_datasets_ingest(
     # for the linked dataset, raise for the regular dataset (handler should
     # not call get_dataset on it because no subscription references it).
     bq_mock = MagicMock()
-    linked_dataset_obj = _make_linked_dataset()
+    linked_dataset_obj = make_dataset_with_linked_source()
 
     def _get_dataset(fqn: str) -> Any:
         if fqn == "consumer-project.shared_dataset":

@@ -35,6 +35,11 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
 )
+from tests.integration.bigquery_v2.common import (
+    DEFAULT_STATE_ACTIVE,
+    make_dataset_with_linked_source,
+    make_subscription,
+)
 
 # --- Fixtures and helpers --------------------------------------------------
 
@@ -60,71 +65,6 @@ def _make_handler(
         config=config, report=report, identifiers=identifiers, filters=filters
     )
     return handler
-
-
-_DEFAULT_STATE_ACTIVE = int(bigquery_analyticshub_v1.Subscription.State.STATE_ACTIVE)
-_DEFAULT_RESOURCE_TYPE_BQ = int(
-    bigquery_analyticshub_v1.SharedResourceType.BIGQUERY_DATASET
-)
-
-
-def _make_subscription(
-    *,
-    state: int = _DEFAULT_STATE_ACTIVE,
-    dataset_id: str = "shared_dataset",
-    project_id: str = "consumer-project",
-    listing: str = (
-        "projects/123456789/locations/us/dataExchanges/exch_a/listings/listing_a"
-    ),
-    data_exchange: str = "",
-    org_display: str = "Publisher Inc",
-    resource_type: int = _DEFAULT_RESOURCE_TYPE_BQ,
-) -> SimpleNamespace:
-    """Minimal stand-in for `Subscription`.
-
-    SimpleNamespace avoids the real proto's field typing; the handler only
-    reads attributes via getattr.
-    """
-    destination = SimpleNamespace(
-        dataset_reference=SimpleNamespace(project_id=project_id, dataset_id=dataset_id)
-    )
-    return SimpleNamespace(
-        name=f"projects/{project_id}/locations/us/subscriptions/sub_1",
-        listing=listing,
-        data_exchange=data_exchange,
-        state=state,
-        organization_id="987654321",
-        organization_display_name=org_display,
-        subscriber_contact="ops@example.com",
-        creation_time=None,
-        last_modify_time=None,
-        log_linked_dataset_query_user_email=False,
-        resource_type=resource_type,
-        destination_dataset=destination,
-    )
-
-
-def _make_dataset_with_linked_source(
-    *,
-    publisher_project_number: str = "111222333",
-    publisher_dataset: str = "publisher_dataset",
-    link_state: str = "LINKED",
-) -> SimpleNamespace:
-    """Stand-in for the Dataset returned by `get_dataset`.
-
-    The handler reads `_properties` for linked-dataset fields not exposed as
-    typed attributes.
-    """
-    properties: Dict[str, Any] = {
-        "linkedDatasetSource": {
-            "sourceDataset": {
-                "projectId": publisher_project_number,
-                "datasetId": publisher_dataset,
-            }
-        },
-        "linkedDatasetMetadata": {"linkState": link_state},
-    }
-    return SimpleNamespace(_properties=properties)
 
 
 def _ah_client_returning(
@@ -209,7 +149,7 @@ def test_extra_properties_includes_source_when_publisher_resolved():
         publisher_project_id="publisher-project",
         publisher_dataset="publisher_dataset",
         subscription_state=bigquery_analyticshub_v1.Subscription.State(
-            _DEFAULT_STATE_ACTIVE
+            DEFAULT_STATE_ACTIVE
         ),
         link_state="LINKED",
         listing="listing_a",
@@ -280,8 +220,8 @@ def test_extra_properties_no_source_when_publisher_unresolved():
 def test_only_bigquery_dataset_subscriptions_advance():
     """Non-BigQuery shared resources (e.g. Pub/Sub) are skipped."""
     handler = _make_handler()
-    bq_dataset_sub = _make_subscription(dataset_id="shared_a")
-    pubsub_sub = _make_subscription(
+    bq_dataset_sub = make_subscription(dataset_id="shared_a")
+    pubsub_sub = make_subscription(
         dataset_id="shared_b",
         resource_type=99,  # any non-BIGQUERY_DATASET value
     )
@@ -289,7 +229,7 @@ def test_only_bigquery_dataset_subscriptions_advance():
     ah = _ah_client_returning({"us": [bq_dataset_sub, pubsub_sub]})
     bq = _bq_client_returning(
         {
-            "consumer-project.shared_a": _make_dataset_with_linked_source(),
+            "consumer-project.shared_a": make_dataset_with_linked_source(),
         }
     )
     rm = _rm_client_returning({"111222333": "publisher-project"})
@@ -311,13 +251,13 @@ def test_dataset_pattern_filter_short_circuits():
         dataset_pattern=AllowDenyPattern(allow=[".*shared_a$"], deny=[])
     )
     handler = _make_handler(config=config)
-    sub_a = _make_subscription(dataset_id="shared_a")
-    sub_b = _make_subscription(dataset_id="shared_b")
+    sub_a = make_subscription(dataset_id="shared_a")
+    sub_b = make_subscription(dataset_id="shared_b")
 
     ah = _ah_client_returning({"us": [sub_a, sub_b]})
     bq = _bq_client_returning(
         {
-            "consumer-project.shared_a": _make_dataset_with_linked_source(),
+            "consumer-project.shared_a": make_dataset_with_linked_source(),
         }
     )
     rm = _rm_client_returning({"111222333": "publisher-project"})
@@ -336,10 +276,10 @@ def test_dataset_pattern_filter_short_circuits():
 
 def test_locations_lowercased_for_ah_call():
     handler = _make_handler()
-    sub = _make_subscription(dataset_id="shared_a")
+    sub = make_subscription(dataset_id="shared_a")
     ah = _ah_client_returning({"eu": [sub]})
     bq = _bq_client_returning(
-        {"consumer-project.shared_a": _make_dataset_with_linked_source()}
+        {"consumer-project.shared_a": make_dataset_with_linked_source()}
     )
     rm = _rm_client_returning({"111222333": "publisher-project"})
     _install_clients(handler, ah=ah, bq=bq, rm=rm)
@@ -356,22 +296,22 @@ def test_locations_lowercased_for_ah_call():
 def test_state_counters_incremented():
     """STALE and INACTIVE subscriptions are still ingested; only counters differ."""
     handler = _make_handler()
-    stale_sub = _make_subscription(
+    stale_sub = make_subscription(
         dataset_id="shared_stale",
         state=int(bigquery_analyticshub_v1.Subscription.State.STATE_STALE),
     )
-    inactive_sub = _make_subscription(
+    inactive_sub = make_subscription(
         dataset_id="shared_inactive",
         state=int(bigquery_analyticshub_v1.Subscription.State.STATE_INACTIVE),
     )
-    active_sub = _make_subscription(dataset_id="shared_active")
+    active_sub = make_subscription(dataset_id="shared_active")
 
     ah = _ah_client_returning({"us": [stale_sub, inactive_sub, active_sub]})
     bq = _bq_client_returning(
         {
-            "consumer-project.shared_stale": _make_dataset_with_linked_source(),
-            "consumer-project.shared_inactive": _make_dataset_with_linked_source(),
-            "consumer-project.shared_active": _make_dataset_with_linked_source(),
+            "consumer-project.shared_stale": make_dataset_with_linked_source(),
+            "consumer-project.shared_inactive": make_dataset_with_linked_source(),
+            "consumer-project.shared_active": make_dataset_with_linked_source(),
         }
     )
     rm = _rm_client_returning({"111222333": "publisher-project"})
@@ -399,7 +339,7 @@ def test_state_counters_incremented():
 )
 def test_get_dataset_error_skips_dataset(error):
     handler = _make_handler()
-    sub = _make_subscription(dataset_id="shared_a")
+    sub = make_subscription(dataset_id="shared_a")
     ah = _ah_client_returning({"us": [sub]})
     bq = _bq_client_returning({"consumer-project.shared_a": error})
     _install_clients(handler, ah=ah, bq=bq)
@@ -413,7 +353,7 @@ def test_get_dataset_error_skips_dataset(error):
 
 def test_linked_dataset_without_source_is_warned_and_kept():
     handler = _make_handler()
-    sub = _make_subscription(dataset_id="shared_a")
+    sub = make_subscription(dataset_id="shared_a")
     ah = _ah_client_returning({"us": [sub]})
     # get_dataset succeeds but exposes no linkedDatasetSource (e.g. the
     # subscriber cannot see the publisher project).
@@ -435,11 +375,11 @@ def test_linked_dataset_without_source_is_warned_and_kept():
 
 def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
     handler = _make_handler()
-    sub = _make_subscription(dataset_id="shared_a")
+    sub = make_subscription(dataset_id="shared_a")
     ah = _ah_client_returning({"us": [sub]})
     bq = _bq_client_returning(
         {
-            "consumer-project.shared_a": _make_dataset_with_linked_source(
+            "consumer-project.shared_a": make_dataset_with_linked_source(
                 publisher_project_number="111222333",
             )
         }
@@ -493,18 +433,18 @@ def test_resource_manager_result_is_cached_per_project_number(rm_result):
     ah = _ah_client_returning(
         {
             "us": [
-                _make_subscription(dataset_id="shared_a"),
-                _make_subscription(dataset_id="shared_b"),
+                make_subscription(dataset_id="shared_a"),
+                make_subscription(dataset_id="shared_b"),
             ]
         }
     )
     # Both subscriptions point at the same publisher project number.
     bq = _bq_client_returning(
         {
-            "consumer-project.shared_a": _make_dataset_with_linked_source(
+            "consumer-project.shared_a": make_dataset_with_linked_source(
                 publisher_dataset="dataset_a"
             ),
-            "consumer-project.shared_b": _make_dataset_with_linked_source(
+            "consumer-project.shared_b": make_dataset_with_linked_source(
                 publisher_dataset="dataset_b"
             ),
         }
@@ -577,14 +517,14 @@ def test_list_subscriptions_unclassified_permission_denied_propagates():
 def test_data_exchange_only_subscription_uses_data_exchange_segment():
     """With no listing, the data_exchange resource path is reduced to its last segment."""
     handler = _make_handler()
-    sub = _make_subscription(
+    sub = make_subscription(
         dataset_id="shared_a",
         listing="",  # no listing
         data_exchange=("projects/123/locations/us/dataExchanges/my_exchange"),
     )
     ah = _ah_client_returning({"us": [sub]})
     bq = _bq_client_returning(
-        {"consumer-project.shared_a": _make_dataset_with_linked_source()}
+        {"consumer-project.shared_a": make_dataset_with_linked_source()}
     )
     rm = _rm_client_returning({"111222333": "publisher-project"})
     _install_clients(handler, ah=ah, bq=bq, rm=rm)
