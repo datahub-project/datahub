@@ -4,6 +4,7 @@
         --update-golden-files -v
 """
 
+import json
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, Optional
 from unittest.mock import MagicMock, patch
@@ -332,3 +333,21 @@ def test_bigquery_linked_datasets_ingest(
         output_path=mcp_output_path,
         golden_path=mcp_golden_path,
     )
+
+    # A linked view must carry exactly one upstreamLineage, the COPY edge; a
+    # second, view-definition-derived one would overwrite it on ingest.
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+    view_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "consumer-project.shared_dataset.active_users,PROD)"
+    )
+    view_lineage = [
+        m
+        for m in mcps
+        if m.get("entityUrn") == view_urn and m.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(view_lineage) == 1
+    lineage_aspect = view_lineage[0]["aspect"]["json"]
+    assert [u["type"] for u in lineage_aspect["upstreams"]] == ["COPY"]
+    assert lineage_aspect["fineGrainedLineages"]

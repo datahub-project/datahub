@@ -874,7 +874,11 @@ class BigQuerySchemaGenerator:
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
         logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
-        if view.view_definition:
+        # A linked-dataset view gets its COPY lineage inline, so skip view-def
+        # parsing to keep a single writer of the single-valued upstreamLineage.
+        if view.view_definition and not self._emits_linked_dataset_copy_lineage(
+            project_id, dataset_name
+        ):
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
 
@@ -897,6 +901,22 @@ class BigQuerySchemaGenerator:
             entity_name=view.name,
             columns=columns,
         )
+
+    def _emits_linked_dataset_copy_lineage(
+        self, project_id: str, dataset_name: str
+    ) -> bool:
+        """Whether a view in this dataset gets inline COPY lineage.
+
+        Kept in sync with the emission gate below so callers can suppress the
+        view-definition writer that would otherwise overwrite it.
+        """
+        if (
+            self.linked_datasets_handler is None
+            or not self.config.include_linked_dataset_lineage
+        ):
+            return False
+        info = self.linked_datasets_handler.get_info(project_id, dataset_name)
+        return info is not None and info.has_publisher
 
     def _emit_linked_dataset_lineage(
         self,
