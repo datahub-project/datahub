@@ -79,7 +79,12 @@ plugins: Dict[str, Set[str]] = {
         "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
-    "executor": {"acryl-executor>=0.3.11,<1"},
+    # The execution engine used to ship as the separate acryl-executor
+    # distribution; it now lives in acryl-datahub as datahub.executor, which is
+    # already a base requirement above. The extra therefore needs nothing, but
+    # the NAME is kept: CI workflows and Dockerfiles install
+    # "acryl-datahub-actions[executor]", and dropping the extra would break them.
+    "executor": set(),
     "slack": {
         "slack-bolt>=1.15.5",
     },
