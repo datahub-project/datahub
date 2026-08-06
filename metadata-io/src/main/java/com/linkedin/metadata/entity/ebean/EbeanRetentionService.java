@@ -268,6 +268,13 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     return successes;
   }
 
+  // TODO(op-propagation): getMaxVersion runs an unscoped ORM findList(). It is currently safe
+  // because its sole caller (getVersionBasedRetentionQuery) is only reached via
+  // executeRetentionDeleteForContext, which always runs inside an already-scoped
+  // _txnFactory.scope(opContext) (applyRetention / applyRetentionBatchWithPolicyDefaults).
+  // Threading opContext here would require adding it to executeRetentionDeleteForContext,
+  // which is a package-private override boundary mocked by EbeanRetentionServiceTest — deferred
+  // to avoid cascading the param across that boundary.
   private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     List<EbeanAspectV2> result =
         _server
@@ -370,7 +377,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       @Nullable String entityName,
       @Nullable String aspectName) {
     log.debug("Applying retention to all records");
-    Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
+    Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies(opContext);
 
     String lastUrn = EMPTY_KEYSET;
     String lastAspect = EMPTY_KEYSET;
@@ -410,7 +417,8 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     result.argAspectName = args.aspectName;
     result.argUrn = args.urn;
 
-    Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
+    Map<String, DataHubRetentionConfig> retentionPolicyMap =
+        getAllRetentionPolicies(args.opContext);
     result.timeRetentionPolicyMapMs = System.currentTimeMillis() - startTime;
     startTime = System.currentTimeMillis();
 
@@ -473,25 +481,30 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     return result;
   }
 
-  private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {
-    return _server
-        .find(EbeanAspectV2.class)
-        .select(
-            String.format(
-                "%s, %s, %s",
-                EbeanAspectV2.URN_COLUMN,
-                EbeanAspectV2.ASPECT_COLUMN,
-                EbeanAspectV2.METADATA_COLUMN))
-        .where()
-        .eq(EbeanAspectV2.ASPECT_COLUMN, Constants.DATAHUB_RETENTION_ASPECT)
-        .eq(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
-        .findList()
-        .stream()
-        .collect(
-            Collectors.toMap(
-                EbeanAspectV2::getUrn,
-                row ->
-                    RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, row.getMetadata())));
+  private Map<String, DataHubRetentionConfig> getAllRetentionPolicies(
+      @Nonnull OperationContext opContext) {
+    return _txnFactory.runInScope(
+        opContext,
+        () ->
+            _server
+                .find(EbeanAspectV2.class)
+                .select(
+                    String.format(
+                        "%s, %s, %s",
+                        EbeanAspectV2.URN_COLUMN,
+                        EbeanAspectV2.ASPECT_COLUMN,
+                        EbeanAspectV2.METADATA_COLUMN))
+                .where()
+                .eq(EbeanAspectV2.ASPECT_COLUMN, Constants.DATAHUB_RETENTION_ASPECT)
+                .eq(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
+                .findList()
+                .stream()
+                .collect(
+                    Collectors.toMap(
+                        EbeanAspectV2::getUrn,
+                        row ->
+                            RecordUtils.toRecordTemplate(
+                                DataHubRetentionConfig.class, row.getMetadata()))));
   }
 
   /**
@@ -559,19 +572,26 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       query.setParameter("minVersionCount", minVersionCount);
     }
 
-    List<SqlRow> sqlRows = query.findList();
-    List<EbeanAspectV2> results = new ArrayList<>(sqlRows.size());
-    for (SqlRow sqlRow : sqlRows) {
-      String rowUrn = sqlRow.getString("urn");
-      String rowAspect = sqlRow.getString("aspect");
-      long version = sqlRow.getLong("version");
-      EbeanAspectV2 row = new EbeanAspectV2();
-      row.setKey(new EbeanAspectV2.PrimaryKey(rowUrn, rowAspect, version));
-      row.setUrn(rowUrn);
-      row.setAspect(rowAspect);
-      row.setVersion(version);
-      results.add(row);
-    }
-    return results;
+    // Raw SQL execution must run inside a routing scope so an extension module routes the
+    // query to the same underlying database opContext resolves to (the table name is already
+    // tenant-qualified above via _tableResolver.aspectTable, but the connection itself is not).
+    return _txnFactory.runInScope(
+        opContext,
+        () -> {
+          List<SqlRow> sqlRows = query.findList();
+          List<EbeanAspectV2> results = new ArrayList<>(sqlRows.size());
+          for (SqlRow sqlRow : sqlRows) {
+            String rowUrn = sqlRow.getString("urn");
+            String rowAspect = sqlRow.getString("aspect");
+            long version = sqlRow.getLong("version");
+            EbeanAspectV2 row = new EbeanAspectV2();
+            row.setKey(new EbeanAspectV2.PrimaryKey(rowUrn, rowAspect, version));
+            row.setUrn(rowUrn);
+            row.setAspect(rowAspect);
+            row.setVersion(version);
+            results.add(row);
+          }
+          return results;
+        });
   }
 }
