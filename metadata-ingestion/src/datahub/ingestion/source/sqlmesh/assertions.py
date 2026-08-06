@@ -1,0 +1,516 @@
+import hashlib
+import json
+import logging
+import time
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
+
+from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sqlmesh.base import SqlmeshSourceBase
+from datahub.ingestion.source.sqlmesh.compat import (
+    SqlmeshModel,
+)
+from datahub.ingestion.source.sqlmesh.constants import (
+    _SQLMESH_AUDIT_MAP,
+    _AuditAssertionParams,
+)
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+    AssertionTypeClass,
+    AuditStampClass,
+    CustomAssertionInfoClass,
+    IncidentInfoClass,
+    IncidentSourceClass,
+    IncidentSourceTypeClass,
+    IncidentStateClass,
+    IncidentStatusClass,
+    IncidentTypeClass,
+    StatusClass,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class AssertionMixin(SqlmeshSourceBase):
+    def _extract_audit_columns(self, kw: Dict[str, Any]) -> List[str]:
+        """Extract column name strings from a SQLGlot Array of Column expressions."""
+        col_array = kw.get("columns")
+        if col_array is None:
+            return []
+        try:
+            return [
+                expr.name
+                for expr in col_array.expressions
+                if hasattr(expr, "name") and expr.name
+            ]
+        except Exception:
+            # Not fatal — the audit still becomes an assertion, just without
+            # per-column targeting — but silently dropping the columns hides a
+            # sqlglot shape we don't handle.
+            logger.warning(
+                "Could not extract audit columns from %r; emitting the audit "
+                "without column targets",
+                col_array,
+                exc_info=True,
+            )
+            return []
+
+    def _extract_literal_value(self, kw: Dict[str, Any], key: str) -> Optional[str]:
+        """Extract a scalar literal value from a SQLGlot Literal expression."""
+        expr = kw.get(key)
+        if expr is None:
+            return None
+        try:
+            return str(expr.this)
+        except Exception:
+            return None
+
+    def _assertion_urn(self, dataset_urn: str, audit_name: str, suffix: str) -> str:
+        raw = f"{dataset_urn}:{audit_name}:{suffix}"
+        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
+
+    @staticmethod
+    def _audit_assertion_suffixes(
+        params: Optional[_AuditAssertionParams], columns: List[str]
+    ) -> List[str]:
+        """The assertion-URN suffixes an audit maps to, given its params and
+        column list.
+
+        Single source of truth shared by the definition side
+        (``_emit_single_audit``) and the run-event side
+        (``_audit_run_events_for_entry``) so both hash to the same assertion
+        URN. Diverging here previously pointed run events at a URN no
+        definition existed for. The three shapes:
+
+        - unknown / custom audit (``params is None``): one assertion, no column
+          targeting → a single empty suffix.
+        - column audit (``params.uses_columns``): one assertion per column
+          (``[""]`` when the audit names no columns).
+        - dataset-level audit: one assertion whose suffix joins all columns.
+        """
+        if params is None:
+            return [""]
+        if params.uses_columns:
+            return list(columns or [""])
+        return [",".join(columns)]
+
+    # -------------------------------------------------------------------------
+    # Audit run events (read from sqlmesh audit --output file)
+    # -------------------------------------------------------------------------
+
+    def _emit_audit_run_events(self, path: str) -> Iterable[MetadataWorkUnit]:
+        """
+        Read a JSON file produced by ``sqlmesh audit --output <file>`` and emit
+        AssertionRunEvent aspects so DataHub shows pass/fail on the Data Quality tab.
+
+        Each entry in the file is matched back to an assertion URN using the same
+        deterministic hash used in _emit_assertions (model → dataset_urn, audit +
+        columns → suffix), so definitions and run events link up automatically.
+        """
+        try:
+            with open(path) as f:
+                payload = json.load(f)
+        except Exception as e:
+            self.report.warning(
+                title="Could not read audit results file",
+                message="Skipping audit run event emission.",
+                context=f"{path}: {e}",
+            )
+            return
+
+        generated_at = payload.get("metadata", {}).get("generated_at", "")
+        try:
+            from datetime import datetime
+
+            ts_ms = int(datetime.fromisoformat(generated_at).timestamp() * 1000)
+        except Exception:
+            ts_ms = int(time.time() * 1000)
+
+        run_id = f"sqlmesh-audit-{ts_ms}"
+        results: List[Dict[str, Any]] = payload.get("results", [])
+        emitted = 0
+
+        for entry in results:
+            try:
+                events = list(self._audit_run_events_for_entry(entry, run_id, ts_ms))
+            except Exception as e:
+                # One malformed entry must not abort the rest of the file.
+                self.report.warning(
+                    title="Could not emit audit run event",
+                    message="An entry in the audit results file was skipped.",
+                    context=str(entry),
+                    exc=e,
+                )
+                continue
+            emitted += len(events)
+            yield from events
+
+        logger.info("Emitted %d assertion run events from %s", emitted, path)
+
+    def _audit_run_events_for_entry(
+        self, entry: Dict[str, Any], run_id: str, ts_ms: int
+    ) -> Iterable[MetadataWorkUnit]:
+        """Turn one audit-results entry into run events (plus incidents on failure)."""
+        model_name: str = entry.get("model", "")
+        audit_name: str = entry.get("audit", "").lower()
+        columns: List[str] = entry.get("columns", [])
+        status: str = entry.get("status", "skip")
+        failing_rows: int = entry.get("failing_rows", 0)
+
+        if not model_name or not audit_name or status == "skip":
+            return
+
+        dataset_urn = self._sqlmesh_urn_for_audit_result(model_name)
+        if dataset_urn is None:
+            return
+
+        # Suffixes must match what _emit_single_audit used, so run events land
+        # on the assertions whose definitions we already emitted. Both sides
+        # derive them from the same helper.
+        params = _SQLMESH_AUDIT_MAP.get(audit_name)
+        suffixes = self._audit_assertion_suffixes(params, columns)
+        for suffix in suffixes:
+            assertion_urn = self._assertion_urn(dataset_urn, audit_name, suffix)
+            yield self._make_run_event(
+                assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
+            )
+            if status == "fail":
+                yield from self._emit_incident_for_failure(
+                    assertion_urn=assertion_urn,
+                    dataset_urn=dataset_urn,
+                    run_id=run_id,
+                    ts_ms=ts_ms,
+                    audit_name=audit_name,
+                    failing_rows=failing_rows,
+                )
+
+    def _sqlmesh_urn_for_audit_result(self, model_name: str) -> Optional[str]:
+        """Resolve the SQLMesh URN an audit result belongs to.
+
+        Prefers the URN cached while the model was emitted: rebuilding it from
+        ``_resolved_effective`` uses the *default* gateway's platform instance
+        and catalog, which is wrong for any model routed through another
+        gateway, and would silently produce run events on a URN no assertion
+        definition exists for.
+        """
+        cached = self._sqlmesh_urn_by_model_key.get(model_name)
+        if cached is not None:
+            return cached
+
+        effective = self._resolved_effective
+        if effective is None:
+            self.report.warning(
+                title="Skipped audit run events for a model",
+                message="No SQLMesh model was ingested in this run, so the audit result cannot be matched to an assertion. Ensure project ingestion succeeds before audit results are read.",
+                context=model_name,
+            )
+            return None
+
+        # Not seen during ingestion: filtered out by model_name_pattern /
+        # model_kind_filter, renamed, or named differently in the results file.
+        # Fall back to the default gateway's config, which is right for
+        # single-gateway projects — the common case.
+        normalized = self._build_logical_fqn(model_name, effective)
+        fallback = self._sqlmesh_urn_by_model_key.get(normalized)
+        if fallback is not None:
+            return fallback
+        self.report.warning(
+            title="Audit result for an un-ingested model",
+            message="No assertion definition was emitted for this model, so its run events may not link to anything. Check model_name_pattern / model_kind_filter against the audit results file.",
+            context=model_name,
+        )
+        return self._make_sqlmesh_urn(normalized, effective)
+
+    def _emit_incident_for_failure(
+        self,
+        *,
+        assertion_urn: str,
+        dataset_urn: str,
+        run_id: str,
+        ts_ms: int,
+        audit_name: str,
+        failing_rows: int,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a DataHub Incident pointing at the failing dataset + assertion.
+
+        URN is derived deterministically from (assertion_urn, run_id), so
+        re-ingesting the same audit results JSON produces the same incident
+        URN and updates the existing entity instead of creating a duplicate.
+
+        Incident type is CUSTOM with customType="SQLMESH_AUDIT" because the
+        SQLMesh audit set (not_null, unique_values, forall, ...) doesn't
+        cleanly map to FRESHNESS / VOLUME / FIELD / DATA_SCHEMA / SQL. The
+        full audit name lives in customType so the UI can render it.
+        """
+        if not self.config.emit_incidents_on_failure:
+            return
+
+        incident_id = hashlib.md5(f"{assertion_urn}:{run_id}".encode()).hexdigest()
+        incident_urn = f"urn:li:incident:{incident_id}"
+
+        title = f"SQLMesh audit '{audit_name}' failed ({failing_rows} failing rows)"
+        description = (
+            f"The `{audit_name}` audit on this dataset failed with "
+            f"{failing_rows} failing rows in run {run_id}. See the "
+            f"associated assertion for details."
+        )
+        created = AuditStampClass(
+            time=ts_ms,
+            actor=mce_builder.make_user_urn("__sqlmesh_ingest__"),
+        )
+        incident_info = IncidentInfoClass(
+            type=IncidentTypeClass.CUSTOM,
+            customType=f"SQLMESH_AUDIT/{audit_name}",
+            title=title,
+            description=description,
+            entities=[dataset_urn],
+            status=IncidentStatusClass(
+                state=IncidentStateClass.ACTIVE,
+                lastUpdated=created,
+            ),
+            source=IncidentSourceClass(
+                type=IncidentSourceTypeClass.ASSERTION_FAILURE,
+                sourceUrn=assertion_urn,
+            ),
+            startedAt=ts_ms,
+            created=created,
+        )
+        # Note: deliberately NOT emitting StatusClass on the incident entity —
+        # blue (and likely other OSS GMS deployments) registers IncidentInfo
+        # as an aspect on Incident but doesn't accept Status on it, returning
+        # HTTP 422 "Unknown aspect status for entity incident". The
+        # incidentInfo aspect alone is sufficient to create the entity.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=incident_urn, aspect=incident_info
+        ).as_workunit()
+
+    def _make_run_event(
+        self,
+        assertion_urn: str,
+        dataset_urn: str,
+        run_id: str,
+        ts_ms: int,
+        status: str,
+        failing_rows: int,
+    ) -> MetadataWorkUnit:
+        result_type = (
+            AssertionResultTypeClass.SUCCESS
+            if status == "pass"
+            else AssertionResultTypeClass.FAILURE
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=AssertionRunEventClass(
+                timestampMillis=ts_ms,
+                assertionUrn=assertion_urn,
+                asserteeUrn=dataset_urn,
+                runId=run_id,
+                result=AssertionResultClass(
+                    type=result_type,
+                    nativeResults={"failing_rows": str(failing_rows)},
+                ),
+                status=AssertionRunStatusClass.COMPLETE,
+            ),
+        ).as_workunit()
+
+    def _emit_assertions(
+        self,
+        model: "SqlmeshModel",
+        sqlmesh_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit DataHub Assertion entities for each SQLMesh audit on the model."""
+        audits: List[Tuple[str, Dict[str, Any]]] = getattr(model, "audits", None) or []
+        for audit_name_raw, kw in audits:
+            audit_name = str(audit_name_raw).lower()
+            params = _SQLMESH_AUDIT_MAP.get(audit_name)
+
+            try:
+                yield from self._emit_single_audit(audit_name, kw, params, sqlmesh_urn)
+            except Exception as e:
+                self.report.num_assertions_failed += 1
+                self.report.warning(
+                    title="Failed to emit assertion",
+                    message="An audit could not be converted into a DataHub assertion; data-quality metadata for it is missing.",
+                    context=f"{audit_name} on {sqlmesh_urn}",
+                    exc=e,
+                )
+
+    def _audit_native_parameters(self, kw: Dict[str, Any]) -> Optional[str]:
+        """JSON-encode an audit's kwargs as flat key → string pairs.
+
+        SQLMesh hands audit arguments over as SQLGlot expressions whose default
+        repr is the whole parse tree, so long values are truncated rather than
+        dumped into a custom property.
+        """
+        rendered: Dict[str, str] = {}
+        for key, value in (kw or {}).items():
+            text = str(value)
+            rendered[str(key)] = text if len(text) <= 200 else text[:200] + "…"
+        return json.dumps(rendered, sort_keys=True) if rendered else None
+
+    def _emit_custom_audit(
+        self,
+        audit_name: str,
+        kw: Dict[str, Any],
+        params: Optional[_AuditAssertionParams],
+        dataset_urn: str,
+        *,
+        assertion_urn: str,
+        field_urn: Optional[str] = None,
+        extra_properties: Optional[Dict[str, str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit one SQLMesh audit as an ``AssertionTypeClass.CUSTOM`` assertion.
+
+        CUSTOM is the honest type: SQLMesh executes these audits itself as part
+        of ``sqlmesh run`` / ``sqlmesh audit``, and DataHub only records the
+        definition plus whatever results arrive through ``audit_results_path``.
+        Typing them as DATASET or SQL implied DataHub could evaluate them, which
+        it can't — and the SQL variant needed a fake ``SELECT 0`` statement to
+        satisfy the schema.
+
+        The audit's semantics (scope / operator / aggregation for the built-ins)
+        and its arguments are carried as custom properties so the check stays
+        inspectable in the UI.
+        """
+        custom_properties: Dict[str, str] = {"sqlmesh.audit": audit_name}
+        if params is not None:
+            custom_properties["sqlmesh.scope"] = params.scope
+            custom_properties["sqlmesh.operator"] = params.operator
+            custom_properties["sqlmesh.aggregation"] = params.aggregation
+        native_parameters = self._audit_native_parameters(kw)
+        if native_parameters:
+            custom_properties["sqlmesh.native_parameters"] = native_parameters
+        if extra_properties:
+            custom_properties.update(extra_properties)
+
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.CUSTOM,
+            source=mce_builder.make_assertion_source(),
+            customProperties=custom_properties,
+            description=f"SQLMesh audit '{audit_name}'. Executed by SQLMesh; results are ingested from audit_results_path.",
+            customAssertion=CustomAssertionInfoClass(
+                type="SQLMesh",
+                entity=dataset_urn,
+                field=field_urn,
+                logic=self._extract_audit_logic(kw),
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=assertion_info
+        ).as_workunit()
+
+    def _extract_audit_logic(self, kw: Dict[str, Any]) -> Optional[str]:
+        """Return the audit's own SQL when SQLMesh exposes it in the kwargs.
+
+        Non-standard audits carry their predicate under ``criteria`` /
+        ``condition``. When neither is present we leave ``logic`` unset rather
+        than inventing a statement — the authoritative SQL lives in the model
+        file.
+        """
+        for key in ("criteria", "condition"):
+            expr = (kw or {}).get(key)
+            if expr is None:
+                continue
+            try:
+                return str(expr.sql())
+            except Exception:
+                return str(expr)
+        return None
+
+    def _emit_single_audit(
+        self,
+        audit_name: str,
+        kw: Dict[str, Any],
+        params: Optional[_AuditAssertionParams],
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if params is None:
+            # Unknown / custom audit: no semantic properties to carry, and no
+            # column targeting since we can't tell which kwarg is a column.
+            yield from self._emit_custom_audit(
+                audit_name,
+                kw,
+                params,
+                dataset_urn,
+                assertion_urn=self._assertion_urn(dataset_urn, audit_name, ""),
+            )
+            return
+
+        cols = self._extract_audit_columns(kw)
+
+        if params.uses_columns:
+            # Column-level: one assertion per column.
+            for col in cols or [""]:
+                extra: Dict[str, str] = {}
+                if audit_name == "accepted_range":
+                    min_v = self._extract_literal_value(kw, "min_v")
+                    max_v = self._extract_literal_value(kw, "max_v")
+                    if min_v is not None:
+                        extra["sqlmesh.min_value"] = min_v
+                    if max_v is not None:
+                        extra["sqlmesh.max_value"] = max_v
+                elif audit_name == "accepted_values":
+                    values = self._extract_expression_values(kw, "values")
+                    if values:
+                        extra["sqlmesh.accepted_values"] = ",".join(values)
+
+                yield from self._emit_custom_audit(
+                    audit_name,
+                    kw,
+                    params,
+                    dataset_urn,
+                    assertion_urn=self._assertion_urn(dataset_urn, audit_name, col),
+                    field_urn=(
+                        mce_builder.make_schema_field_urn(dataset_urn, col)
+                        if col
+                        else None
+                    ),
+                    extra_properties=extra,
+                )
+            return
+
+        # Dataset-level: one assertion covering all columns the audit names.
+        extra = {}
+        if cols:
+            extra["sqlmesh.fields"] = ",".join(cols)
+        if params.row_count_threshold:
+            threshold = self._extract_literal_value(kw, "threshold")
+            if threshold is not None:
+                extra["sqlmesh.threshold"] = threshold
+
+        yield from self._emit_custom_audit(
+            audit_name,
+            kw,
+            params,
+            dataset_urn,
+            assertion_urn=self._assertion_urn(dataset_urn, audit_name, ",".join(cols)),
+            extra_properties=extra,
+        )
+
+    def _extract_expression_values(self, kw: Dict[str, Any], key: str) -> List[str]:
+        """Extract scalar literals from a SQLGlot expression list (e.g. IN values)."""
+        expr = kw.get(key)
+        if expr is None:
+            return []
+        try:
+            return [str(e.this) for e in expr.expressions]
+        except Exception:
+            logger.warning(
+                "Could not extract %r values from audit kwargs", key, exc_info=True
+            )
+            return []

@@ -12,25 +12,31 @@ import pytest
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sqlmesh.compat import (
+    _TOBIKO_CONVERT_PATCH_SENTINEL,
+    _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
+    _install_enterprise_config_compat_patches,
+    _install_tobiko_local_state_fallback_shim,
+    _scoped_tobiko_cloud_env,
+)
+from datahub.ingestion.source.sqlmesh.constants import SQLMESH_PLATFORM
+from datahub.ingestion.source.sqlmesh.models import (
+    _build_count_query,
+    _CapabilityProbes,
+    _EffectiveProjectConfig,
+)
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SqlmeshSourceConfig,
     _read_tobiko_cloud_token_file,
     _tobiko_token_file_cache,
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
-    _TOBIKO_CONVERT_PATCH_SENTINEL,
-    _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
-    SQLMESH_PLATFORM,
     SqlmeshSource,
-    _build_count_query,
-    _EffectiveProjectConfig,
-    _install_enterprise_config_compat_patches,
-    _install_tobiko_local_state_fallback_shim,
-    _scoped_tobiko_cloud_env,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionRunEventClass,
     AssertionTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -559,23 +565,30 @@ class TestFreshnessAndVolumeSignals:
         snapshot = _make_mock_snapshot()
         snapshot.updated_ts = 1_700_000_000_000
 
-        workunits = _run_project(
-            source, {"star.dim_developer": model}, {"star.dim_developer": snapshot}
-        )
-        # Force capability flag — _probe_capabilities may fail on MagicMock
-        source._capabilities.has_state = True
-        # Re-emit just the operation path against the already-built context shape
+        # Pin the state capability so the assertion is deterministic rather than
+        # dependent on how the MagicMock probe happens to resolve.
+        with patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source._probe_capabilities",
+            return_value=_CapabilityProbes(
+                has_state=True, has_warehouse_query=False, has_graph=False
+            ),
+        ):
+            workunits = _run_project(
+                source,
+                {"star.dim_developer": model},
+                {"star.dim_developer": snapshot},
+            )
+
         ops = [
             wu.metadata.aspect
             for wu in workunits
             if isinstance(getattr(wu.metadata, "aspect", None), OperationClass)
         ]
-        # Operation only emits when has_state was true during ingest. Probe on
-        # MagicMock may have set has_state True if snapshots access succeeded.
-        # Accept either: if probe failed, no ops; if succeeded, one CUSTOM op.
-        if ops:
-            assert ops[0].operationType == "CUSTOM"
-            assert ops[0].customOperationType == "SQLMESH_FINGERPRINT_REBUILD"
+        # Exactly one CUSTOM fingerprint-rebuild operation for the one model.
+        assert len(ops) == 1
+        assert ops[0].operationType == "CUSTOM"
+        assert ops[0].customOperationType == "SQLMESH_FINGERPRINT_REBUILD"
+        assert ops[0].lastUpdatedTimestamp == 1_700_000_000_000
 
 
 class TestIncidentOnFailure:
@@ -740,6 +753,138 @@ class TestIncidentOnFailure:
         assert urn1 == urn2
 
 
+class TestAuditRunEventUrnMatching:
+    """Run events must land on the exact assertion URN the definition used.
+
+    The suffix is computed by a single shared helper so the definition side
+    (_emit_single_audit) and run-event side (_audit_run_events_for_entry) can't
+    drift. These tests pin that both hash to the same URN — including the
+    unknown/custom-audit case, which previously diverged (definition used ""
+    while run events joined the columns).
+    """
+
+    def _write_results(self, tmp_path: Path, results: list) -> str:
+        f = Path(tmp_path) / "audit_results.json"
+        f.write_text(
+            _json.dumps(
+                {
+                    "metadata": {"generated_at": "2026-05-28T00:00:00"},
+                    "results": results,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return str(f)
+
+    def _definition_urn(self, workunits: list, audit_substr: str) -> str:
+        for wu in workunits:
+            aspect = getattr(wu.metadata, "aspect", None)
+            if (
+                isinstance(aspect, AssertionInfoClass)
+                and aspect.customProperties.get("sqlmesh.audit") == audit_substr
+            ):
+                return wu.metadata.entityUrn
+        raise AssertionError(f"no assertion definition for {audit_substr}")
+
+    def _run_event_urns(self, source: SqlmeshSource, tmp_path: Path, results: list):
+        path = self._write_results(tmp_path, results)
+        return [
+            wu.metadata.aspect.assertionUrn
+            for wu in source._emit_audit_run_events(path)
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionRunEventClass)
+        ]
+
+    def test_column_audit_run_event_matches_definition(self, tmp_path):
+        source = _make_source()
+        col = MagicMock()
+        col.name = "id"
+        model = _make_mock_model("star.dim_developer")
+        model.audits = [("not_null", {"columns": MagicMock(expressions=[col])})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        definition_urn = self._definition_urn(workunits, "not_null")
+
+        run_urns = self._run_event_urns(
+            source,
+            tmp_path,
+            [
+                {
+                    "model": "star.dim_developer",
+                    "audit": "not_null",
+                    "columns": ["id"],
+                    "status": "pass",
+                    "failing_rows": 0,
+                }
+            ],
+        )
+        assert definition_urn in run_urns
+
+    def test_unknown_audit_with_columns_run_event_matches_definition(self, tmp_path):
+        """Regression: an unknown audit's definition uses an empty suffix, so a
+        run event whose results list columns must still resolve to that same
+        URN — not one built by joining the columns."""
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+        model.audits = [("custom_drift_check", {})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        definition_urn = self._definition_urn(workunits, "custom_drift_check")
+
+        run_urns = self._run_event_urns(
+            source,
+            tmp_path,
+            [
+                {
+                    "model": "star.dim_developer",
+                    "audit": "custom_drift_check",
+                    "columns": ["a", "b"],
+                    "status": "fail",
+                    "failing_rows": 4,
+                }
+            ],
+        )
+        assert definition_urn in run_urns
+
+
+class TestAuditResultUrnResolution:
+    """_sqlmesh_urn_for_audit_result: cached hit, cache-miss fallback, and the
+    no-model-ingested guard — the gateway-aware cache this rework added, whose
+    fallback path had no coverage."""
+
+    def test_cache_hit_returns_ingested_urn(self):
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+        _run_project(source, {"star.dim_developer": model}, {})
+
+        urn = source._sqlmesh_urn_for_audit_result("star.dim_developer")
+        assert urn is not None
+        assert SQLMESH_PLATFORM in urn
+        assert "dim_developer" in urn
+
+    def test_cache_miss_falls_back_and_warns(self):
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+        _run_project(source, {"star.dim_developer": model}, {})
+
+        before = len(list(source.report.warnings))
+        urn = source._sqlmesh_urn_for_audit_result("star.not_ingested")
+        # Still resolves to a structurally valid sqlmesh URN via the default
+        # gateway's effective config, and surfaces a warning so the un-linked
+        # result is visible.
+        assert urn is not None
+        assert SQLMESH_PLATFORM in urn
+        assert "not_ingested" in urn
+        assert len(list(source.report.warnings)) > before
+
+    def test_no_model_ingested_returns_none_and_warns(self):
+        source = _make_source()
+        # _resolved_effective is None because no project was ingested.
+        before = len(list(source.report.warnings))
+        urn = source._sqlmesh_urn_for_audit_result("star.dim_developer")
+        assert urn is None
+        assert len(list(source.report.warnings)) > before
+
+
 class TestLineageEmission:
     def test_lineage_points_to_sqlmesh_urns(self):
         """Lineage edges for managed deps target sqlmesh URNs, not warehouse URNs."""
@@ -878,6 +1023,84 @@ class TestColumnLineage:
             and getattr(wu.metadata.aspect, "fineGrainedLineages", None)
         ]
         assert len(cll_aspects) == 0
+
+
+def _install_fake_column_dependencies(
+    monkeypatch: pytest.MonkeyPatch, deps_by_column: dict
+) -> None:
+    """Wire a fake ``sqlmesh.core.lineage.column_dependencies`` into sys.modules.
+
+    sqlmesh isn't installed in the test venv, so ``_build_column_lineage``'s
+    ``from sqlmesh.core.lineage import column_dependencies`` would otherwise
+    short-circuit to []. Injecting a stand-in lets us regression-test the real
+    (un-mocked) body — in particular the model_name_pattern filter on upstream
+    columns.
+    """
+
+    def _column_dependencies(ctx: Any, model_name: str, col: str) -> dict:
+        return deps_by_column.get(col, {})
+
+    lineage_mod = types.ModuleType("sqlmesh.core.lineage")
+    lineage_mod.column_dependencies = _column_dependencies  # type: ignore[attr-defined]
+    for name, mod in [
+        ("sqlmesh", types.ModuleType("sqlmesh")),
+        ("sqlmesh.core", types.ModuleType("sqlmesh.core")),
+        ("sqlmesh.core.lineage", lineage_mod),
+    ]:
+        # Don't clobber a real sqlmesh if it's importable in this venv.
+        if name not in sys.modules:
+            monkeypatch.setitem(sys.modules, name, mod)
+    if "sqlmesh.core.lineage" not in sys.modules or not hasattr(
+        sys.modules["sqlmesh.core.lineage"], "column_dependencies"
+    ):
+        monkeypatch.setitem(sys.modules, "sqlmesh.core.lineage", lineage_mod)
+
+
+class TestColumnLineageFilter:
+    """Regression: _build_column_lineage's model_name_pattern filter must drop
+    denied upstreams from column-level edges too, not just table-level ones.
+    Runs the real _build_column_lineage (column_dependencies faked in), so the
+    filter is actually exercised rather than mocked away."""
+
+    def test_denied_upstream_excluded_from_column_lineage(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _install_fake_column_dependencies(
+            monkeypatch,
+            {
+                "developer_id": {
+                    "star.base_developer": {"id"},
+                    "raw.denied_table": {"secret"},
+                }
+            },
+        )
+        source = _make_source({"model_name_pattern": {"deny": ["raw\\..*"]}})
+        upstream = _make_mock_model("star.base_developer")
+        model = _make_mock_model(
+            "star.dim_developer",
+            columns={"developer_id": MagicMock(__str__=lambda s: "BIGINT")},
+            depends_on={"star.base_developer"},
+        )
+
+        workunits = _run_project(
+            source,
+            {"star.dim_developer": model},
+            {},
+            extra_models={"star.base_developer": upstream},
+        )
+
+        cll = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+            and getattr(wu.metadata.aspect, "fineGrainedLineages", None)
+        ]
+        assert len(cll) == 1
+        upstream_field_urns = cll[0].fineGrainedLineages[0].upstreams
+        # The allowed upstream is present; the denied one is filtered out of the
+        # column-level edge entirely.
+        assert any("base_developer" in u for u in upstream_field_urns)
+        assert not any("denied_table" in u for u in upstream_field_urns)
 
 
 class TestLineageCategories:
@@ -1358,6 +1581,26 @@ class TestModelFiltering:
 
         assert workunits == []
         assert source.report.models_scanned == 0
+
+    def test_model_kind_filter_accepts_valid_kinds(self):
+        source = _make_source(
+            {"model_kind_filter": ["FULL", "INCREMENTAL_BY_TIME_RANGE"]}
+        )
+        assert source.config.model_kind_filter == [
+            "FULL",
+            "INCREMENTAL_BY_TIME_RANGE",
+        ]
+
+    def test_model_kind_filter_rejects_unknown_kind(self):
+        # A typo would otherwise silently ingest nothing; the validator fails fast.
+        with pytest.raises(ValueError, match="unknown model kind"):
+            SqlmeshSourceConfig.model_validate(
+                {
+                    "project_path": "/p",
+                    "target_platform": "snowflake",
+                    "model_kind_filter": ["FULL", "INCREMENTAL"],
+                }
+            )
 
 
 class TestTagAndOwnerExtraction:

@@ -333,239 +333,40 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1719806400355,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:8e05d33b89f9f028778676644de77819",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400459,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400355,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:acba4099bf6725fb99bd2710a5ddbd97",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400460,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:8e05d33b89f9f028778676644de77819",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "pipeline_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400451,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "SQLMesh fingerprint table must be rebuilt within 24 hour(s) of its cron schedule. Fires when plan/apply stops running, signalling pipeline drift."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400451,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:acba4099bf6725fb99bd2710a5ddbd97",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "upstream_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400451,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Upstream source tables must have been updated within 24 hour(s). Fires when raw data feeding the model is behind schedule."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400451,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
+        "lastObserved": 1719788401186,
+        "runId": "sqlmesh-2024_07_01-00_00_00-d1jyff",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1719806400351,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5f5f25dffc2983fa96bf4e3709a63f13",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400463,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400355,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:5f5f25dffc2983fa96bf4e3709a63f13",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.volume_kind": "row_count_min",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "VOLUME",
-            "volumeAssertion": {
-                "type": "ROW_COUNT_TOTAL",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
-                "rowCountTotal": {
-                    "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    "parameters": {
-                        "value": {
-                            "value": "1",
-                            "type": "NUMBER"
-                        }
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400460,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Row count must be at least 1. Detects catastrophic rebuild failures (empty table). Cloud anomaly detection, when opted in, flags drops below historical norms."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400463,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
+        "lastObserved": 1719788401178,
+        "runId": "sqlmesh-2024_07_01-00_00_00-d1jyff",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -897,6 +698,22 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401085,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
     "changeType": "UPSERT",
@@ -909,6 +726,42 @@
     "systemMetadata": {
         "lastObserved": 1719806400354,
         "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "not_null",
+                "sqlmesh.scope": "DATASET_COLUMN",
+                "sqlmesh.operator": "NOT_NULL",
+                "sqlmesh.aggregation": "IDENTITY",
+                "sqlmesh.native_parameters": "{\"columns\": \"ARRAY(order_id, customer_id)\"}"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_id)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719788401084,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'not_null'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401085,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -932,21 +785,123 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
     "changeType": "UPSERT",
-    "aspectName": "siblings",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)"
-            ],
-            "primary": false
+            "removed": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719806400353,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
+        "lastObserved": 1719788401086,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401183,
+        "runId": "sqlmesh-2024_07_01-00_00_00-d1jyff",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401087,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "not_null",
+                "sqlmesh.scope": "DATASET_COLUMN",
+                "sqlmesh.operator": "NOT_NULL",
+                "sqlmesh.aggregation": "IDENTITY",
+                "sqlmesh.native_parameters": "{\"columns\": \"ARRAY(order_id, customer_id)\"}"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),customer_id)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719788401085,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'not_null'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401086,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "assert_amount_positive",
+                "sqlmesh.native_parameters": "{\"criteria\": \"amount >= 0\"}"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "logic": "amount >= 0"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719788401085,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'assert_amount_positive'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788401087,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -972,22 +927,6 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:65d47338081fd4127db55e0665540d47",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400466,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
     "changeType": "UPSERT",
@@ -1006,102 +945,6 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:8d4c3db5d195545be643b0e08380a6b3",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400466,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:65d47338081fd4127db55e0665540d47",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "pipeline_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400455,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "SQLMesh fingerprint table must be rebuilt within 24 hour(s) of its cron schedule. Fires when plan/apply stops running, signalling pipeline drift."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400455,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:8d4c3db5d195545be643b0e08380a6b3",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "upstream_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400455,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Upstream source tables must have been updated within 24 hour(s). Fires when raw data feeding the model is behind schedule."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400456,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
     "changeType": "UPSERT",
@@ -1113,15 +956,16 @@
                 "sqlmesh.environment": "prod",
                 "sqlmesh.warehouse": "snowflake",
                 "sqlmesh.gateway": "my_warehouse",
-                "sqlmesh.model_kind": "FULL"
+                "sqlmesh.model_kind": "FULL",
+                "sqlmesh.audits": "not_null,assert_amount_positive"
             },
             "description": "Cleaned and enriched orders.",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719806400465,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
+        "lastObserved": 1719788401082,
+        "runId": "sqlmesh-2024_07_01-00_00_00-yzsaqr",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1161,22 +1005,6 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ce66aca5de0e4127b70e77aaac5f760c",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400468,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
     "changeType": "UPSERT",
@@ -1198,47 +1026,6 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ce66aca5de0e4127b70e77aaac5f760c",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.volume_kind": "row_count_min",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "VOLUME",
-            "volumeAssertion": {
-                "type": "ROW_COUNT_TOTAL",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
-                "rowCountTotal": {
-                    "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    "parameters": {
-                        "value": {
-                            "value": "1",
-                            "type": "NUMBER"
-                        }
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400466,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Row count must be at least 1. Detects catastrophic rebuild failures (empty table). Cloud anomaly detection, when opted in, flags drops below historical norms."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400468,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
     "changeType": "UPSERT",
@@ -1251,119 +1038,6 @@
     "systemMetadata": {
         "lastObserved": 1719806400355,
         "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400355,
-        "runId": "sqlmesh-2024_07_01-00_00_00-jlulwt",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a7661d0b05ee8b822134c95731faae0f",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "pipeline_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400459,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "SQLMesh fingerprint table must be rebuilt within 24 hour(s) of its cron schedule. Fires when plan/apply stops running, signalling pipeline drift."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400460,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:a7661d0b05ee8b822134c95731faae0f",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400471,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ac1e8e9495404e69fc530a2a6adc9385",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.volume_kind": "row_count_min",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "VOLUME",
-            "volumeAssertion": {
-                "type": "ROW_COUNT_TOTAL",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
-                "rowCountTotal": {
-                    "operator": "GREATER_THAN_OR_EQUAL_TO",
-                    "parameters": {
-                        "value": {
-                            "value": "1",
-                            "type": "NUMBER"
-                        }
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400472,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Row count must be at least 1. Detects catastrophic rebuild failures (empty table). Cloud anomaly detection, when opted in, flags drops below historical norms."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400472,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1390,22 +1064,6 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ac1e8e9495404e69fc530a2a6adc9385",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400472,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "test",
     "entityUrn": "urn:li:test:sqlmesh-ebc2f1ad78f3-ownership",
     "changeType": "UPSERT",
@@ -1424,62 +1082,6 @@
     "systemMetadata": {
         "lastObserved": 1719806400534,
         "runId": "sqlmesh-2024_07_01-00_00_00-pkp0u2",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:55a50f190655de50b9806a1d107b7eb1",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sqlmesh.freshness_kind": "upstream_freshness",
-                "sqlmesh.interval_unit": "",
-                "sqlmesh.anomaly_detection": "requested"
-            },
-            "type": "FRESHNESS",
-            "freshnessAssertion": {
-                "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
-                "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {
-                        "unit": "HOUR",
-                        "multiple": 24
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1719806400460,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            },
-            "description": "Upstream source tables must have been updated within 24 hour(s). Fires when raw data feeding the model is behind schedule."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400461,
-        "runId": "sqlmesh-2024_07_01-00_00_00-bnj125",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:55a50f190655de50b9806a1d107b7eb1",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1719806400472,
-        "runId": "sqlmesh-2024_07_01-00_00_00-sadj16",
         "lastRunId": "no-run-id-provided"
     }
 }

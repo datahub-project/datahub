@@ -35,6 +35,28 @@ SQLMESH_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "motherduck": "duckdb",
 }
 
+# Maps SQLMesh model kind names to DataHub dataset subtypes. Also the closed
+# set of values accepted by ``model_kind_filter`` (see VALID_MODEL_KINDS).
+MODEL_KIND_TO_SUBTYPE: Dict[str, str] = {
+    "FULL": "Model",
+    "INCREMENTAL_BY_TIME_RANGE": "Model",
+    "INCREMENTAL_BY_UNIQUE_KEY": "Model",
+    "INCREMENTAL_BY_PARTITION": "Model",
+    "INCREMENTAL_UNMANAGED": "Model",
+    "SCD_TYPE_2": "Model",
+    "SCD_TYPE_2_BY_TIME": "Model",
+    "SCD_TYPE_2_BY_COLUMN": "Model",
+    "CUSTOM": "Model",
+    "MANAGED": "Model",
+    "VIEW": "Model",
+    "SEED": "Seed",
+    "EXTERNAL": "Source",
+    "EMBEDDED": "Embedded",
+}
+
+# Valid values for ``model_kind_filter`` — the SQLMesh model kind names above.
+VALID_MODEL_KINDS: frozenset = frozenset(MODEL_KIND_TO_SUBTYPE)
+
 # Tobiko Cloud token file reads are cached for 60s so projected Kubernetes
 # secret mounts pick up rotated tokens without a process restart, while still
 # avoiding a disk read on every ingest.
@@ -464,6 +486,22 @@ class SqlmeshSourceConfig(
             "is derived from a hash of (assertion_urn, run_id)."
         ),
     )
+
+    @field_validator("model_kind_filter", mode="after")
+    @classmethod
+    def validate_model_kind_filter(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        # A typo (e.g. "INCREMENTAL") would otherwise silently match no model
+        # and produce an empty ingestion with zero warning. Fail fast on the
+        # closed set of SQLMesh kind names instead.
+        if not v:
+            return v
+        unknown = [k for k in v if k not in VALID_MODEL_KINDS]
+        if unknown:
+            raise ValueError(
+                f"model_kind_filter contains unknown model kind(s): {unknown}. "
+                f"Valid kinds: {sorted(VALID_MODEL_KINDS)}."
+            )
+        return v
 
     @field_validator("target_platform", mode="after")
     @classmethod
