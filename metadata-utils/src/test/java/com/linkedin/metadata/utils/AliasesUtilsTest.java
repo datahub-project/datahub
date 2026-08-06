@@ -1,50 +1,58 @@
 package com.linkedin.metadata.utils;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertNotEquals;
 
-import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import java.net.URISyntaxException;
 import java.util.Locale;
 import org.testng.annotations.Test;
 
 public class AliasesUtilsTest {
 
   @Test
-  public void testPreservesPlatformCasing() throws URISyntaxException {
-    Urn mixedPlatform =
+  public void testLowercasesEveryComponent() {
+    Urn mixed =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:adlsGen2,Container/Folder,PROD)");
     assertEquals(
-        AliasesUtils.lowercaseDatasetUrn(mixedPlatform).toString(),
-        "urn:li:dataset:(urn:li:dataPlatform:adlsGen2,container/folder,PROD)");
+        AliasesUtils.lowercasedUrnKey(mixed),
+        "urn:li:dataset:(urn:li:dataplatform:adlsgen2,container/folder,prod)");
   }
 
   @Test
-  public void testLowercasesName() throws URISyntaxException {
-    Urn mixedName =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Schema.Table,PROD)");
-    assertEquals(
-        AliasesUtils.lowercaseDatasetUrn(mixedName).toString(),
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
-  }
-
-  @Test
-  public void testPreservesEnv() throws URISyntaxException {
-    Urn dev = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,DEV)");
-    assertEquals(AliasesUtils.lowercaseDatasetUrn(dev).getOriginEntity(), FabricType.DEV);
-    assertEquals(AliasesUtils.lowercaseDatasetUrn(dev).toString(), dev.toString());
-  }
-
-  @Test
-  public void testLowercasesEmbeddedPlatformInstanceAsPartOfName() throws URISyntaxException {
+  public void testLowercasesEmbeddedPlatformInstanceAsPartOfName() {
     Urn withInstance =
         UrnUtils.getUrn(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Instance.DB.Schema.Table,PROD)");
     assertEquals(
-        AliasesUtils.lowercaseDatasetUrn(withInstance).toString(),
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.db.schema.table,PROD)");
+        AliasesUtils.lowercasedUrnKey(withInstance),
+        "urn:li:dataset:(urn:li:dataplatform:snowflake,my_instance.db.schema.table,prod)");
+  }
+
+  /** Distinct environments stay distinct: lowercasing does not collapse them onto one key. */
+  @Test
+  public void testKeepsEnvironmentsDistinct() {
+    Urn prod = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)");
+    Urn dev = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,DEV)");
+    assertNotEquals(AliasesUtils.lowercasedUrnKey(prod), AliasesUtils.lowercasedUrnKey(dev));
+  }
+
+  /** One rule for every entity type, so the side effect needs no per-type derivation. */
+  @Test
+  public void testAppliesToNonDatasetUrns() {
+    Urn chartUrn = UrnUtils.getUrn("urn:li:chart:(Looker,My_Chart)");
+    assertEquals(AliasesUtils.lowercasedUrnKey(chartUrn), "urn:li:chart:(looker,my_chart)");
+  }
+
+  /** The column name is a real source of casing variance, and one rule reaches it. */
+  @Test
+  public void testLowercasesSchemaFieldColumnName() {
+    Urn field =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Schema.Table,PROD),ColumnName)");
+    assertEquals(
+        AliasesUtils.lowercasedUrnKey(field),
+        "urn:li:schemafield:(urn:li:dataset:(urn:li:dataplatform:snowflake,db.schema.table,prod),columnname)");
   }
 
   /**
@@ -52,30 +60,25 @@ public class AliasesUtilsTest {
    * Locale.ROOT} the key would depend on the JVM's locale and stop matching what clients compute.
    */
   @Test
-  public void testLowercasesUnicodeNameIndependentOfDefaultLocale() throws URISyntaxException {
+  public void testLowercasesUnicodeIndependentOfDefaultLocale() {
     Locale original = Locale.getDefault();
     try {
       Locale.setDefault(Locale.forLanguageTag("tr"));
       Urn unicodeName =
           UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,CAFÉ.Ñ_TITLE,PROD)");
       assertEquals(
-          AliasesUtils.lowercaseDatasetUrn(unicodeName).toString(),
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,café.ñ_title,PROD)");
+          AliasesUtils.lowercasedUrnKey(unicodeName),
+          "urn:li:dataset:(urn:li:dataplatform:snowflake,café.ñ_title,prod)");
     } finally {
       Locale.setDefault(original);
     }
   }
 
   @Test
-  public void testIdempotentOnAlreadyLowercased() throws URISyntaxException {
-    Urn lower =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
-    assertEquals(AliasesUtils.lowercaseDatasetUrn(lower).toString(), lower.toString());
-  }
-
-  @Test
-  public void testNonDatasetUrnRejected() {
-    Urn chartUrn = UrnUtils.getUrn("urn:li:chart:(looker,my_chart)");
-    assertThrows(URISyntaxException.class, () -> AliasesUtils.lowercaseDatasetUrn(chartUrn));
+  public void testIdempotent() {
+    Urn mixed =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Schema.Table,PROD)");
+    String once = AliasesUtils.lowercasedUrnKey(mixed);
+    assertEquals(AliasesUtils.lowercasedUrnKey(UrnUtils.getUrn(once)), once);
   }
 }

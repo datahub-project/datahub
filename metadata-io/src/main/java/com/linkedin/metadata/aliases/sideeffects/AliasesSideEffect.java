@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Aliases;
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -16,20 +15,17 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.AliasesUtils;
-import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Derives the system-computed {@code aliases.lowercasedUrn} field from the entity's URN. Keyed on
  * the dataset key aspect so it runs once, at creation.
  */
-@Slf4j
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -55,19 +51,13 @@ public class AliasesSideEffect extends MCPSideEffect {
   private static Stream<ChangeMCP> buildLowercasedUrn(
       ChangeMCP changeMCP, @Nonnull RetrieverContext retrieverContext) {
     Urn urn = changeMCP.getUrn();
+    // The key derivation is entity-agnostic, but the aliases aspect is only registered on dataset,
+    // so emitting it for anything else would be rejected downstream.
     if (!DATASET_ENTITY_NAME.equals(urn.getEntityType())) {
       return Stream.empty();
     }
 
-    final DatasetUrn lowercasedUrn;
-    try {
-      lowercasedUrn = AliasesUtils.lowercaseDatasetUrn(urn);
-    } catch (URISyntaxException e) {
-      log.warn("Unable to compute lowercasedUrn for {}", urn, e);
-      return Stream.empty();
-    }
-
-    Aliases aspect = new Aliases().setLowercasedUrn(lowercasedUrn);
+    Aliases aspect = new Aliases().setLowercasedUrn(AliasesUtils.lowercasedUrnKey(urn));
     return Stream.of(
         ChangeItemImpl.builder()
             .urn(urn)

@@ -8,17 +8,21 @@ namespace com.linkedin.common
  * field, lowercasedUrn.
  */
 @Aspect = {
-  "name": "aliases"
+  "name": "aliases",
+  "schemaVersion": 2
 }
 record Aliases {
   /**
-   * System-computed. The entity's own URN with the name lowercased in full, including any platform
-   * instance prefix; the platform and environment are unchanged. Indexed as an exact-match keyword,
-   * so a reference in any casing resolves to the entity's real URN in one batchable lookup.
+   * System-computed. The entity's own URN lowercased in full. Indexed as an exact-match keyword, so
+   * a reference in any casing resolves to the entity's real URN in one batchable lookup.
+   *
+   * A lookup key, not a URN, which is why the type is string: every component is lowercased,
+   * including the FabricType, which has no lowercase symbol. The value will not parse back into a
+   * typed URN and must not be dereferenced or followed as a reference.
    */
   @Searchable = {
     "fieldType": "KEYWORD",
     "queryByDefault": false
   }
-  lowercasedUrn: optional Urn
+  lowercasedUrn: optional string
 }

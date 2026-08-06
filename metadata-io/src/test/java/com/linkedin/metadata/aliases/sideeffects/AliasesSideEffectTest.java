@@ -92,7 +92,7 @@ public class AliasesSideEffectTest {
     Aliases aspect = out.getAspect(Aliases.class);
     assertNotNull(aspect);
     assertEquals(
-        aspect.getLowercasedUrn().toString(),
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+        aspect.getLowercasedUrn(),
+        "urn:li:dataset:(urn:li:dataplatform:snowflake,db.schema.table,prod)");
   }
 }
