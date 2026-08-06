@@ -254,7 +254,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         if catalog_lineages:
             connector_manifest.lineages = catalog_lineages
-        elif self._catalog_topics_rejected_by_cluster(
+        elif connector and self._catalog_topics_rejected_by_cluster(
             connector_manifest, catalog_connector, all_cluster_topics
         ):
             # Catalog listed topics but none survived live-cluster validation —
