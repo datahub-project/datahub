@@ -8,6 +8,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urn_alias_resolver import urn_alias_loading_enabled
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -91,6 +92,9 @@ class SchemaResolverProvider:
         )
         scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
+        # Read once, not per URN: the flag is fixed for the run by the time any source
+        # exists, and the index is only useful if it holds the whole platform.
+        load_urn_aliases = urn_alias_loading_enabled()
         num_urns = 0
         num_schemas = 0
         with PerfTimer() as timer:
@@ -101,7 +105,8 @@ class SchemaResolverProvider:
                 extraFilters=extra_filters,
                 batch_size=self._batch_size,
             ):
-                resolver.urn_aliases.add(urn)
+                if load_urn_aliases:
+                    resolver.urn_aliases.add(urn)
                 num_urns += 1
                 if schema_info is not None:
                     try:
