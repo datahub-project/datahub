@@ -187,10 +187,13 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
                     .setSkipCache(true)
                     .setSkipHighlighting(true)
                     .setSkipAggregates(true)
-                    // an alias is identity, not visibility; without this the removed != true
-                    // clause silently drops soft-deleted datasets from the coverage the marker
-                    // claims
-                    .setIncludeSoftDeleted(true)),
+                    // An alias is identity, not visibility, and this scan is the last chance to
+                    // write one: the side effect fires only on the key aspect and the marker
+                    // stops any later run. A dataset hidden from search today may be visible
+                    // tomorrow, so every default that trims search results is turned off here.
+                    .setIncludeSoftDeleted(true)
+                    .setFilterNonLatestVersions(false)
+                    .setIncludeHiddenLifecycleStages(true)),
         ImmutableList.of(DATASET_ENTITY_NAME),
         "*",
         filter,

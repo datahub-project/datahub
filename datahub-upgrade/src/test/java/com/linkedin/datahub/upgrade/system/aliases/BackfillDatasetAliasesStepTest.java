@@ -27,6 +27,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -196,7 +197,7 @@ public class BackfillDatasetAliasesStepTest {
   }
 
   @Test
-  public void testSoftDeletedDatasetsAreIncluded() {
+  public void testHiddenDatasetsAreIncluded() {
     stubScroll(page(null, URN_MIXED_CASE));
 
     buildStep(false).executable().apply(mockContext);
@@ -205,7 +206,10 @@ public class BackfillDatasetAliasesStepTest {
     verify(mockSearchService)
         .scrollAcrossEntities(
             captor.capture(), any(), anyString(), any(), any(), any(), any(), anyInt());
-    assertTrue(captor.getValue().getSearchContext().getSearchFlags().isIncludeSoftDeleted());
+    SearchFlags flags = captor.getValue().getSearchContext().getSearchFlags();
+    assertTrue(flags.isIncludeSoftDeleted());
+    assertFalse(flags.isFilterNonLatestVersions());
+    assertTrue(flags.isIncludeHiddenLifecycleStages());
   }
 
   @Test
