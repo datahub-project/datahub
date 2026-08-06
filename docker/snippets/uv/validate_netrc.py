@@ -48,13 +48,20 @@ def validate(path: Path) -> Tuple[int, List[str]]:
     if not path.is_file():
         return 1, [f"netrc file not found: {path}"]
 
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return 1, [f"cannot read {path}: {type(exc).__name__}"]
+
     blank_comment_lines = _blank_then_comment_lines(text)
 
     try:
         netrc.netrc(str(path))
     except netrc.NetrcParseError as exc:
-        errors = [f"failed to parse {path}: {exc}"]
+        # Avoid echoing parse tokens (can include password fragments).
+        line = getattr(exc, "lineno", None)
+        loc = f" (line {line})" if line else ""
+        errors = [f"failed to parse {path}{loc}"]
         if blank_comment_lines:
             errors.append(
                 f"likely cause: blank line(s) before #-comment at line(s) "
@@ -94,13 +101,21 @@ def _self_test() -> int:
             "machine a.example login u password p\n\nmachine b.example login u password p\n",
             True,
         ),
+        (
+            "bad_binary",
+            None,  # filled below with non-utf8 bytes
+            False,
+        ),
     ]
     failed = 0
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         for name, content, expect_ok in cases:
             path = tmp_path / name
-            path.write_text(content, encoding="utf-8")
+            if name == "bad_binary":
+                path.write_bytes(b"\xff\xfe machine h login u password p\n")
+            else:
+                path.write_text(content, encoding="utf-8")
             code, errors = validate(path)
             ok = code == 0
             if ok != expect_ok:

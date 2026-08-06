@@ -5,17 +5,24 @@ ext.validateDatahubNetrc = { String path ->
   if (!path) {
     return
   }
+  // Normalize once so cache key and script see the same file (relative NETRC paths
+  // would otherwise resolve against JVM cwd vs project.exec working dir).
+  def file = new File(path)
+  if (!file.exists()) {
+    return
+  }
+  def absolutePath = file.canonicalPath
+
   // Many Python modules apply this script; validate each path once per build.
-  def cacheKey = "datahub.netrc.validated:${new File(path).canonicalPath}"
+  def cacheKey = "datahub.netrc.validated:${absolutePath}"
   if (rootProject.ext.has(cacheKey)) {
     return
   }
-  rootProject.ext.set(cacheKey, true)
 
   def script = "${rootProject.projectDir}/docker/snippets/uv/validate_netrc.py"
   def stderr = new ByteArrayOutputStream()
   def result = project.exec {
-    commandLine 'python3', script, '--quiet', path
+    commandLine 'python3', script, '--quiet', absolutePath
     errorOutput = stderr
     ignoreExitValue = true
   }
@@ -29,7 +36,9 @@ ext.validateDatahubNetrc = { String path ->
   }
   if (result.exitValue != 0) {
     throw new GradleException(
-      "Invalid netrc at ${path}. Fix the file (see docker/snippets/uv/.netrc.example), then run:\n" +
-      "  python3 docker/snippets/uv/validate_netrc.py ${path}")
+      "Invalid netrc at ${absolutePath}. Fix the file (see docker/snippets/uv/.netrc.example), then run:\n" +
+      "  python3 docker/snippets/uv/validate_netrc.py ${absolutePath}")
   }
+  // Only cache successful validation so a failed configure can be retried in-process.
+  rootProject.ext.set(cacheKey, true)
 }
