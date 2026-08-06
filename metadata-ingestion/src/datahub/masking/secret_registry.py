@@ -262,12 +262,27 @@ class SecretRegistry:
         # it, _capacity_warned would stay True forever after the first
         # warning and the real warning would be permanently suppressed.
         # With the >= admit check the union stays under MAX_SECRETS, so
-        # this is False after admits; the warning itself sets the flag
-        # True between rebuilds, suppressing repeats until the next
-        # rebuild (admit or end_execution).
+        # this is False after admits; _warn_capacity sets the flag True
+        # between rebuilds, suppressing repeats until the next rebuild
+        # (admit or end_execution).
         self._capacity_warned = len(self._secrets) >= self.MAX_SECRETS
 
     # --- Registration (writers) --------------------------------------------
+
+    def _warn_capacity(self, message: str) -> None:
+        """Emit a capacity warning once per episode.
+
+        Single enforcement point for the ``_capacity_warned`` gate: this is
+        the only place that reads the flag to decide whether to warn and sets
+        it after warning. ``_rebuild_locked`` clears the flag when the
+        registry drops below capacity so a later rise can warn again; nothing
+        else touches it. Centralising the gate here avoids the duplicated-
+        guard structure that caused the original capacity bug (two call sites
+        each getting the accounting right and drifting).
+        """
+        if not self._capacity_warned:
+            logger.warning(message)
+            self._capacity_warned = True
 
     def _admit_locked(
         self,
@@ -275,7 +290,6 @@ class SecretRegistry:
         raw_value: str,
         group: Dict[str, str],
         pending_keys: set,
-        warn: bool = True,
     ) -> _Admit:
         """Admit one secret against the registry, capacity, and batch state.
 
@@ -286,17 +300,12 @@ class SecretRegistry:
           already pending in the current batch (dedup across the batch).
           Not a warning condition — duplicate registration is common.
         - REJECTED: admitting would push the *expanded* key count
-          (``len(self._secrets)``) to >= MAX_SECRETS. Warns, gated by
-          ``_capacity_warned`` to suppress repeats within a capacity
-          episode; ``_rebuild_locked`` clears the flag when the registry
-          drops below capacity so a later rise can warn again. In
-          practice this is one warning per capacity episode; an admit
-          interleaved with rejects can reset the flag, but admits at
-          capacity require a secret whose expanded keys are all already
-          present (``truly_new`` empty), which is rare. The capacity
-          bound is on expanded keys (raw + repr + sqlalchemy + json
-          variants), not on the number of registered secrets — counting
-          secrets instead (the old behavior) let a batch of
+          (``len(self._secrets)``) to >= MAX_SECRETS. The caller is
+          responsible for warning via ``_warn_capacity``; this method does
+          not touch ``_capacity_warned`` so the gate stays in one place.
+          The capacity bound is on expanded keys (raw + repr + sqlalchemy +
+          json variants), not on the number of registered secrets —
+          counting secrets instead (the old behavior) let a batch of
           multi-key-expanding values overshoot MAX_SECRETS, which is the
           unit mismatch this fixes.
         - ADMITTED: the secret was added to ``group`` and its truly-new
@@ -314,19 +323,6 @@ class SecretRegistry:
         keys = _expand_keys(raw_value)
         truly_new = set(keys) - self._secrets.keys() - pending_keys
         if len(self._secrets) + len(pending_keys) + len(truly_new) >= self.MAX_SECRETS:
-            if not self._capacity_warned:
-                # ``warn=False`` lets the batch path suppress the per-secret
-                # warning and emit one summary warning with the rejected count
-                # after the loop (an operator otherwise sees only one variable
-                # name with no indication of how many others were dropped).
-                # _capacity_warned is set regardless so the episode still
-                # suppresses repeats.
-                if warn:
-                    logger.warning(
-                        f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                        f"Skipping registration of {variable_name}"
-                    )
-                self._capacity_warned = True
             return _Admit.REJECTED
         group[raw_value] = variable_name
         pending_keys |= truly_new
@@ -357,6 +353,11 @@ class SecretRegistry:
                 logger.debug(
                     f"Registered secret: {variable_name[:8]}*** (version {self._version})"
                 )
+            elif result is _Admit.REJECTED:
+                self._warn_capacity(
+                    f"Secret registry at capacity ({self.MAX_SECRETS}). "
+                    f"Skipping registration of {variable_name}"
+                )
 
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
         """Register multiple secrets atomically under the current execution."""
@@ -376,13 +377,9 @@ class SecretRegistry:
             admitted = 0
             duplicates = 0
             rejected = 0
-            # Suppress the per-secret warning for batches; emit one summary
-            # warning with the rejected count after the loop so an operator
-            # sees the blast radius, not just one variable name.
-            warned_before = self._capacity_warned
             for variable_name, raw_value in valid_secrets.items():
                 result = self._admit_locked(
-                    variable_name, raw_value, group, pending_keys, warn=False
+                    variable_name, raw_value, group, pending_keys
                 )
                 if result is _Admit.ADMITTED:
                     admitted += 1
@@ -391,8 +388,12 @@ class SecretRegistry:
                 else:
                     rejected += 1
 
-            if rejected > 0 and not warned_before:
-                logger.warning(
+            if rejected > 0:
+                # One summary warning with the rejected count so an operator
+                # sees the blast radius, not just one variable name.
+                # _warn_capacity owns the _capacity_warned gate, so this is
+                # the only place the batch path reads/sets the flag.
+                self._warn_capacity(
                     f"Secret registry at capacity ({self.MAX_SECRETS}). "
                     f"Skipped {rejected} of {len(valid_secrets)} secret(s) in batch."
                 )

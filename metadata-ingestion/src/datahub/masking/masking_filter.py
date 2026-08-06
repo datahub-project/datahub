@@ -346,11 +346,22 @@ class SecretMaskingFilter(logging.Filter):
         old registry's values). ``-1`` never equals a real version, so the
         next mask always rebuilds. The pattern and replacements are cleared
         too so a stale pattern can't be served before the rebuild runs.
+
+        The whole body runs under ``_pattern_lock`` (an ``RLock``, so nesting
+        is safe). Every other write to ``_registry`` / ``_last_version`` /
+        ``_pattern`` / ``_replacements`` happens under that lock, and
+        ``mask_text`` snapshots them together under it — an unlocked
+        rebind could land between the snapshot of ``_pattern`` and
+        ``_replacements`` and emit cleartext (or a ``***REDACTED:UNKNOWN***``
+        mismatch from a cleared ``_replacements`` paired with an old
+        ``_pattern``). Clearing under the lock also makes the four writes
+        atomic relative to each other.
         """
-        self._registry = registry
-        self._last_version = -1
-        self._pattern = None
-        self._replacements = {}
+        with self._pattern_lock:
+            self._registry = registry
+            self._last_version = -1
+            self._pattern = None
+            self._replacements = {}
 
     def _mask_args(self, args: Any) -> Any:
         """Mask secrets in log arguments."""

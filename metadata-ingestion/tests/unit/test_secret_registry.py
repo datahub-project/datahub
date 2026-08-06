@@ -476,7 +476,10 @@ class TestEnsureExecutionStaleToken:
 
         # End from another thread using the token. This drops the group but
         # does NOT clear this context's contextvar (exec_id != ambient).
-        threading.Thread(target=lambda: registry.end_execution(tok)).start()
+        t = threading.Thread(target=lambda: registry.end_execution(tok))
+        t.start()
+        t.join(timeout=5.0)
+        assert not t.is_alive(), "worker thread timed out"
         # The group is gone, but the ambient contextvar still holds tok.
         assert tok not in registry._groups
 

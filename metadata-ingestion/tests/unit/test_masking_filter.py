@@ -1828,6 +1828,49 @@ class TestReviewFixes:
         )
         assert "***REDACTED:OPT_OUT***" in out
 
+    def test_rebind_registry_acquires_pattern_lock(self):
+        """Fix 1: ``rebind_registry`` wrote ``_registry`` / ``_last_version``
+        / ``_pattern`` / ``_replacements`` with no lock. ``mask_text``
+        snapshots ``_pattern`` and ``_replacements`` under ``_pattern_lock``,
+        so an unlocked rebind landing between those two snapshots emits
+        cleartext (``_pattern=None`` snapshot) or ``***REDACTED:UNKNOWN***``
+        (old ``_pattern`` + cleared ``_replacements``).
+
+        Deterministic lock-acquisition test: hold ``_pattern_lock`` on the
+        test thread, start a worker that calls ``rebind_registry``, and
+        assert the worker blocks until the lock is released. Without the
+        fix the worker completes immediately (no lock needed); with the fix
+        it blocks on the lock.
+        """
+        r1 = SecretRegistry()
+        r1.clear()
+        r1.register_secret("A", "aaa_secret_1")
+        mf = SecretMaskingFilter(r1)
+        mf.mask_text("x aaa_secret_1")  # prime the pattern
+
+        r2 = SecretRegistry()
+        r2.clear()
+
+        with mf._pattern_lock:
+            done = threading.Event()
+
+            def worker():
+                mf.rebind_registry(r2)
+                done.set()
+
+            t = threading.Thread(target=worker, name="rebind-worker")
+            t.start()
+            completed = done.wait(timeout=0.5)
+            assert not completed, (
+                "rebind_registry completed without acquiring _pattern_lock; "
+                "its writes are unprotected and can tear mask_text's snapshot "
+                "of _pattern/_replacements, emitting cleartext or "
+                "***REDACTED:UNKNOWN***"
+            )
+        t.join(timeout=5.0)
+        assert not t.is_alive(), "rebind worker thread timed out"
+        assert mf._registry is r2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
