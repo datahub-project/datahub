@@ -1,8 +1,10 @@
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.sqlmesh.compat import SqlmeshContextType
+from datahub.ingestion.source.sqlmesh.compat import SqlmeshContextType, SqlmeshModel
+from datahub.ingestion.source.sqlmesh.constants import ENV_SUFFIX_TARGET_SCHEMA
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceReport
 
 
@@ -45,8 +47,7 @@ def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str
     )
 
 
-@dataclass
-class _EffectiveProjectConfig:
+class _EffectiveProjectConfig(BaseModel):
     """Per-project resolved config: project-level overrides merged with global defaults."""
 
     project_path: str
@@ -59,13 +60,12 @@ class _EffectiveProjectConfig:
     convert_urns_to_lowercase: bool
     # Set after context loads — controls how non-prod warehouse sibling URNs are named.
     # One of "schema" (default), "table", or "catalog".
-    env_suffix_target: str = "schema"
+    env_suffix_target: str = ENV_SUFFIX_TARGET_SCHEMA
     # Maps env name regex → catalog override (mutually exclusive with catalog suffix mode).
-    env_catalog_mapping: Dict[str, str] = field(default_factory=dict)
+    env_catalog_mapping: Dict[str, str] = Field(default_factory=dict)
 
 
-@dataclass
-class _CapabilityProbes:
+class _CapabilityProbes(BaseModel):
     """Which data sources are reachable for this ingestion.
 
     State store, data warehouse, and DataHub Graph are three INDEPENDENT
@@ -78,6 +78,43 @@ class _CapabilityProbes:
     has_state: bool = False
     has_warehouse_query: bool = False
     has_graph: bool = False
+
+
+class _ModelAudit(BaseModel):
+    """One entry from a SQLMesh model's ``audits`` list.
+
+    SQLMesh exposes ``model.audits`` as ``(name, kwargs)`` tuples whose kwargs
+    are SQLGlot expressions. Parsing each into this model early keeps the rest
+    of the connector off positional tuple indexing, which is easy to misread.
+    """
+
+    name: str
+    # SQLGlot expressions keyed by audit argument name — genuinely arbitrary
+    # per audit, so the values stay untyped.
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+
+
+def parse_model_audits(model: "SqlmeshModel") -> List["_ModelAudit"]:
+    """Parse ``model.audits`` (a list of ``(name, kwargs)`` tuples) into models."""
+    audits: List[_ModelAudit] = []
+    for entry in getattr(model, "audits", None) or []:
+        if not entry:
+            continue
+        name = str(entry[0])
+        raw_kwargs = entry[1] if len(entry) > 1 else None
+        arguments = raw_kwargs if isinstance(raw_kwargs, dict) else {}
+        audits.append(_ModelAudit(name=name, arguments=arguments))
+    return audits
+
+
+class _MetadataTestSpec(BaseModel):
+    """A governance Metadata Test to emit, replacing an ad-hoc 4-tuple."""
+
+    suffix: str
+    name: str
+    description: str
+    # DataHub Metadata Test rule DSL (nested JSON), assembled at the call site.
+    rules: Dict[str, Any]
 
 
 def _probe_capabilities(

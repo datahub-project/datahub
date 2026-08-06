@@ -13,6 +13,9 @@ from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContextType,
     SqlmeshModel,
 )
+from datahub.ingestion.source.sqlmesh.constants import (
+    MODEL_KIND_EXTERNAL,
+)
 from datahub.ingestion.source.sqlmesh.models import (
     _EffectiveProjectConfig,
 )
@@ -88,7 +91,9 @@ class LineageMixin(SqlmeshSourceBase):
             return self._make_warehouse_urn(dep_fqn, dep_effective)
 
         kind = getattr(dep_model, "kind", None)
-        is_external = str(getattr(kind, "model_kind_name", "")).upper() == "EXTERNAL"
+        is_external = (
+            str(getattr(kind, "model_kind_name", "")).upper() == MODEL_KIND_EXTERNAL
+        )
         if is_external and self.config.skip_external_models_in_lineage:
             return self._make_warehouse_urn(dep_fqn, dep_effective)
         return self._make_sqlmesh_urn(dep_fqn, dep_effective)
@@ -121,7 +126,9 @@ class LineageMixin(SqlmeshSourceBase):
             return None
 
         upstreams = []
-        for dep in raw_deps:
+        # raw_deps is a set; sort so upstream ordering (and the emitted MCP) is
+        # stable run-to-run rather than dependent on set iteration order.
+        for dep in sorted(raw_deps, key=str):
             dep_name = str(dep)
             dep_effective = self._dep_effective(dep_name, effective, sqlmesh_ctx)
             dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
@@ -227,7 +234,8 @@ class LineageMixin(SqlmeshSourceBase):
                     # count.
                     count_undeclared=False,
                 )
-                for upstream_col in upstream_cols:
+                # upstream_cols is a set; sort for deterministic URN ordering.
+                for upstream_col in sorted(upstream_cols):
                     up_col = upstream_col.lower() if convert_lower else upstream_col
                     upstream_field_urns.append(
                         mce_builder.make_schema_field_urn(upstream_dataset_urn, up_col)
@@ -237,7 +245,9 @@ class LineageMixin(SqlmeshSourceBase):
                 fine_grained.append(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=upstream_field_urns,
+                        # Sort so the FIELD_SET is stable regardless of the order
+                        # upstream models/columns were iterated.
+                        upstreams=sorted(upstream_field_urns),
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                         downstreams=[downstream_field_urn],
                     )

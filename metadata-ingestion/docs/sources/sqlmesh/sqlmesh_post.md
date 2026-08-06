@@ -74,7 +74,8 @@ Common causes:
 
 If ingestion logs `Could not initialize SQLMesh context`, check:
 
-- The `project_path` points to a valid SQLMesh project directory (contains `config.yaml`)
+- The `project_path` points to a valid SQLMesh project directory (contains a
+  `config.yaml` or `config.py`)
 - The specified `gateway` name matches a gateway defined in the project config
 - All Python dependencies for Python models are installed in the ingestion environment
   (for example `ibis-framework` for ibis models)

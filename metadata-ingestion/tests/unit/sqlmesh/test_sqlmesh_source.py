@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
     AssertionTypeClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -591,6 +592,78 @@ class TestFreshnessAndVolumeSignals:
         assert ops[0].lastUpdatedTimestamp == 1_700_000_000_000
 
 
+class TestRowCountProfile:
+    """`_emit_row_count_profile` must run its COUNT(*) on the adapter for the
+    model's OWN gateway, not the default one. Multi-gateway projects route
+    different models to different warehouses; querying the default adapter
+    would count rows in the wrong warehouse (the bug fixed by
+    `_engine_adapter_for_model`)."""
+
+    def test_row_count_uses_model_gateway_adapter(self):
+        source = _make_source()
+        source._capabilities = _CapabilityProbes(
+            has_state=False, has_warehouse_query=True, has_graph=False
+        )
+        source._selected_gateway = None
+
+        model = _make_mock_model("star.dim_developer")
+        # Model lives on the "bq" gateway, not the project default.
+        model.gateway = "bq"
+
+        default_adapter = MagicMock()
+        default_adapter.fetchone.return_value = (999,)  # wrong warehouse
+        bq_adapter = MagicMock(DIALECT="bigquery")
+        bq_adapter.fetchone.return_value = (42,)
+
+        ctx = MagicMock()
+        ctx.engine_adapter = default_adapter
+        ctx.engine_adapters = {"bq": bq_adapter}
+
+        workunits = list(
+            source._emit_row_count_profile(
+                model=model,
+                sqlmesh_urn="urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)",
+                physical_name="db.sqlmesh__star.star__dim_developer__4235172200",
+                sqlmesh_ctx=ctx,
+            )
+        )
+
+        # The count came from the model's gateway adapter, never the default.
+        bq_adapter.fetchone.assert_called_once()
+        default_adapter.fetchone.assert_not_called()
+
+        profiles = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), DatasetProfileClass)
+        ]
+        assert len(profiles) == 1
+        assert profiles[0].rowCount == 42
+
+    def test_no_profile_without_warehouse_access(self):
+        source = _make_source()
+        source._capabilities = _CapabilityProbes(
+            has_state=False, has_warehouse_query=False, has_graph=False
+        )
+        source._selected_gateway = None
+
+        model = _make_mock_model("star.dim_developer")
+        # Single-gateway model: no explicit gateway, so it resolves to the
+        # default adapter — the one the has_warehouse_query probe covers.
+        model.gateway = None
+        ctx = MagicMock()
+
+        workunits = list(
+            source._emit_row_count_profile(
+                model=model,
+                sqlmesh_urn="urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)",
+                physical_name="db.sqlmesh__star.star__dim_developer__4235172200",
+                sqlmesh_ctx=ctx,
+            )
+        )
+        assert workunits == []
+
+
 class TestIncidentOnFailure:
     """When emit_incidents_on_failure is True (default), every 'fail' entry
     in the audit_results_path JSON also produces an Incident pointing at
@@ -659,8 +732,11 @@ class TestIncidentOnFailure:
         assert info.source is not None
         assert info.source.type == "ASSERTION_FAILURE"
         assert info.source.sourceUrn.startswith("urn:li:assertion:")
-        # "7 failing rows" appears in title/description so the UI surfaces the count
-        assert "7" in info.title
+        # The exact failing-row count is surfaced in both the title and the
+        # description, so a regression that drops it is caught (a bare "7 in
+        # title" would also pass on an unrelated 7 elsewhere in the string).
+        assert "(7 failing rows)" in info.title
+        assert "7 failing rows" in info.description
 
     def test_no_incident_for_passing_audit(self, tmp_path):
 
@@ -1273,24 +1349,6 @@ class TestNormalization:
             == "star.dim_developer"
         )
 
-    def test_snapshot_physical_name_fallback(self):
-        source = _make_source()
-        eff = _effective(source)
-
-        snapshot = MagicMock()
-        physical = MagicMock()
-        physical.__str__ = lambda s: "db.sqlmesh__star.star__model__123"  # type: ignore[method-assign, misc, assignment]
-
-        def table_name_side_effect(**kwargs):
-            if "ignore_mapping" in kwargs:
-                raise TypeError("unexpected keyword argument")
-            return physical
-
-        snapshot.table_name = MagicMock(side_effect=table_name_side_effect)
-
-        result = source._snapshot_physical_name(snapshot, eff)
-        assert result == "db.sqlmesh__star.star__model__123"
-
     def test_lowercase_applied_when_configured(self):
         source = _make_source({"convert_urns_to_lowercase": True})
         eff = _effective(source)
@@ -1442,6 +1500,22 @@ class TestSchemaEmission:
             if isinstance(getattr(wu.metadata, "aspect", None), SchemaMetadata)
         ]
         assert len(schema_aspects) == 0
+
+    def test_snowflake_timestamp_resolves_to_time_not_bytes(self):
+        # The shared cross-platform type map is last-writer-wins, so SQL
+        # Server's TIMESTAMP -> BytesType shadows Snowflake's TIMESTAMP ->
+        # TimeType. For a Snowflake target we must consult Snowflake's own
+        # resolver so a sibling of a Snowflake table doesn't render a
+        # timestamp column as an opaque bytes blob.
+        from datahub.metadata.schema_classes import BytesTypeClass, TimeTypeClass
+
+        source = _make_source()
+        resolved = source._resolve_column_type("TIMESTAMP", "snowflake")
+        assert isinstance(resolved, TimeTypeClass)
+
+        # A platform without the conflict still flows through resolve_sql_type.
+        other = source._resolve_column_type("TIMESTAMP", "sqlserver")
+        assert isinstance(other, BytesTypeClass)
 
 
 class TestErrorHandling:

@@ -1,7 +1,6 @@
 import logging
 import re
 from typing import (
-    Any,
     Dict,
     List,
     Optional,
@@ -10,12 +9,18 @@ from typing import (
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sqlmesh.compat import (
-    Snapshot,
     SqlmeshContextType,
     SqlmeshModel,
 )
 from datahub.ingestion.source.sqlmesh.constants import (
+    DEFAULT_GATEWAY,
+    DEFAULT_MODEL_SUBTYPE,
+    ENV_SUFFIX_TARGET_CATALOG,
+    ENV_SUFFIX_TARGET_TABLE,
+    PROD_ENVIRONMENT,
+    SNOWFLAKE_PLATFORM,
     SQLMESH_PLATFORM,
+    UNKNOWN_PLATFORM,
 )
 from datahub.ingestion.source.sqlmesh.models import (
     _CapabilityProbes,
@@ -51,6 +56,7 @@ class SqlmeshSourceBase:
     _capabilities: _CapabilityProbes
     _sqlmesh_urn_by_model_key: Dict[str, str]
     _warned_column_lineage_unavailable: bool
+    _warned_missing_gateways: set
 
     def _detect_target_platform(
         self, sqlmesh_ctx: "SqlmeshContextType", effective: _EffectiveProjectConfig
@@ -80,7 +86,7 @@ class SqlmeshSourceBase:
                 message="Falling back to 'unknown'; warehouse sibling URNs will be wrong. Set target_platform explicitly in your recipe config.",
                 exc=e,
             )
-            return "unknown"
+            return UNKNOWN_PLATFORM
 
     def _read_selected_gateway(
         self,
@@ -98,7 +104,7 @@ class SqlmeshSourceBase:
         if not gw:
             # Final fallback — SQLMesh always has SOME selected gateway, but
             # be defensive about API drift.
-            gw = "default"
+            gw = DEFAULT_GATEWAY
         return str(gw).lower()
 
     def _build_per_gateway_effectives(
@@ -122,9 +128,9 @@ class SqlmeshSourceBase:
         # Always include the default gateway exactly as the caller resolved
         # it — preserves auto-detection / Snowflake-lowercase / etc. that
         # already ran for the default.
-        result[self._selected_gateway or default_effective.gateway or "default"] = (
-            default_effective
-        )
+        result[
+            self._selected_gateway or default_effective.gateway or DEFAULT_GATEWAY
+        ] = default_effective
 
         # Discover additional gateways from ctx.engine_adapters when SQLMesh
         # exposes the multi-gateway map. Older / minimal Context mocks may
@@ -161,9 +167,9 @@ class SqlmeshSourceBase:
             target_platform = (
                 (override.target_platform if override else None)
                 or auto_platform
-                or "unknown"
+                or UNKNOWN_PLATFORM
             )
-            if target_platform == "unknown":
+            if target_platform == UNKNOWN_PLATFORM:
                 # Mirrors _detect_target_platform: an "unknown" platform yields
                 # structurally-valid-but-wrong warehouse URNs, silently breaking
                 # sibling stitching for every model on this gateway. Surface it.
@@ -180,7 +186,7 @@ class SqlmeshSourceBase:
                 if override and override.convert_urns_to_lowercase is not None
                 else (
                     default_effective.convert_urns_to_lowercase
-                    or target_platform == "snowflake"
+                    or target_platform == SNOWFLAKE_PLATFORM
                 )
             )
 
@@ -232,20 +238,32 @@ class SqlmeshSourceBase:
             gw_name = getattr(model, "gateway", None)
         gw_key = str(gw_name).lower() if gw_name else (self._selected_gateway or "")
 
-        return self._effective_by_gateway.get(
-            gw_key,
-            # Last-resort: the selected gateway's config. Better than raising
-            # and stopping ingest because of one quirky model.
-            self._effective_by_gateway.get(
-                self._selected_gateway or "",
-                self._resolved_effective
-                or next(iter(self._effective_by_gateway.values())),
-            ),
-        )
+        resolved = self._effective_by_gateway.get(gw_key)
+        if resolved is not None:
+            return resolved
 
-    # -------------------------------------------------------------------------
-    # Project ingestion
-    # -------------------------------------------------------------------------
+        # The model names a gateway we don't have an effective config for.
+        # Falling back to another gateway's config produces
+        # structurally-valid-but-wrong warehouse sibling URNs and lineage
+        # targets, exactly the failure mode _detect_target_platform /
+        # _build_per_gateway_effectives surface — so warn (once per gateway)
+        # rather than resolving silently. Only warn for an explicit,
+        # unrecognised model gateway; a None gateway legitimately means "use
+        # the selected gateway".
+        if gw_name and gw_key not in self._warned_missing_gateways:
+            self._warned_missing_gateways.add(gw_key)
+            self.report.warning(
+                title="Model gateway not found; using fallback config",
+                message="A model references a gateway with no resolved effective config; its warehouse sibling URN and lineage may target the wrong platform. Add it under gateway_overrides.",
+                context=gw_key,
+            )
+
+        # Last-resort: the selected gateway's config. Better than raising
+        # and stopping ingest because of one quirky model.
+        return self._effective_by_gateway.get(
+            self._selected_gateway or "",
+            self._resolved_effective or next(iter(self._effective_by_gateway.values())),
+        )
 
     def _build_physical_name_map(
         self,
@@ -296,38 +314,6 @@ class SqlmeshSourceBase:
                 )
         return result
 
-    def _snapshot_physical_name(
-        self, snapshot: "Snapshot", effective: _EffectiveProjectConfig
-    ) -> Optional[str]:
-        """Extract physical table name from snapshot, handling SQLMesh API version differences."""
-        for kwargs in [
-            {"is_dev": False, "ignore_mapping": True},
-            {"is_dev": False},
-        ]:
-            try:
-                result = snapshot.table_name(**kwargs)
-                return self._normalize_name(str(result), effective) if result else None
-            except TypeError:
-                continue
-            except Exception as e:
-                logger.debug(
-                    "snapshot.table_name(%s) raised unexpected error: %s", kwargs, e
-                )
-                break
-
-        try:
-            fallback: Any = snapshot.table_name
-            if callable(fallback):
-                fallback = fallback()
-            return self._normalize_name(str(fallback), effective) if fallback else None
-        except Exception as e:
-            logger.debug("Fallback physical name access failed: %s", e)
-            return None
-
-    # -------------------------------------------------------------------------
-    # Name and URN helpers
-    # -------------------------------------------------------------------------
-
     def _normalize_name(self, name: str, effective: _EffectiveProjectConfig) -> str:
         """Strip SQL quoting, return dot-separated name, optionally lowercased."""
         parts = []
@@ -376,7 +362,7 @@ class SqlmeshSourceBase:
         Auto-detected from context.config — no user configuration needed.
         """
         env = effective.environment.lower()
-        if env == "prod":
+        if env == PROD_ENVIRONMENT:
             return fqn  # no suffix in prod
 
         parts = fqn.split(".")
@@ -385,6 +371,12 @@ class SqlmeshSourceBase:
         # It maps env name regex → catalog name for that environment.
         for pattern, catalog_override in effective.env_catalog_mapping.items():
             if re.search(pattern, env):
+                # The rest of the FQN was already lowercased by _normalize_name;
+                # apply the same normalization to the mapped catalog so a
+                # mixed-case mapping value doesn't break sibling stitching when
+                # convert_urns_to_lowercase is on.
+                if effective.convert_urns_to_lowercase:
+                    catalog_override = catalog_override.lower()
                 # Replace the catalog component with the mapped catalog
                 if len(parts) >= 3:
                     parts[0] = catalog_override
@@ -396,10 +388,10 @@ class SqlmeshSourceBase:
         suffix = f"__{env}"
         mode = effective.env_suffix_target  # "schema", "table", or "catalog"
 
-        if mode == "catalog":
+        if mode == ENV_SUFFIX_TARGET_CATALOG:
             if parts:
                 parts[0] = f"{parts[0]}{suffix}"
-        elif mode == "table":
+        elif mode == ENV_SUFFIX_TARGET_TABLE:
             if parts:
                 parts[-1] = f"{parts[-1]}{suffix}"
         else:  # "schema" (default)
@@ -422,19 +414,11 @@ class SqlmeshSourceBase:
                 name = ".".join(parts[1:])
 
         return mce_builder.make_dataset_urn_with_platform_instance(
-            platform=effective.target_platform or "unknown",
+            platform=effective.target_platform or UNKNOWN_PLATFORM,
             name=name,
             platform_instance=effective.target_platform_instance,
             env=self.config.env,
         )
-
-    # -------------------------------------------------------------------------
-    # Per-model workunit emission
-    # -------------------------------------------------------------------------
-
-    # -------------------------------------------------------------------------
-    # Model kind helpers
-    # -------------------------------------------------------------------------
 
     def _get_kind_name(self, model: "SqlmeshModel") -> Optional[str]:
         kind = getattr(model, "kind", None)
@@ -449,7 +433,11 @@ class SqlmeshSourceBase:
 
     def _get_subtype(self, model: "SqlmeshModel") -> Optional[str]:
         kind_name = self._get_kind_name(model)
-        return MODEL_KIND_TO_SUBTYPE.get(kind_name, "Model") if kind_name else "Model"
+        return (
+            MODEL_KIND_TO_SUBTYPE.get(kind_name, DEFAULT_MODEL_SUBTYPE)
+            if kind_name
+            else DEFAULT_MODEL_SUBTYPE
+        )
 
     def _get_tags(self, model: "SqlmeshModel") -> List[str]:
         """Build DataHub tag URNs from model.tags with the configured prefix."""
@@ -474,7 +462,3 @@ class SqlmeshSourceBase:
                 owner_raw = match.group(0)
 
         return mce_builder.make_user_urn(owner_raw)
-
-    # -------------------------------------------------------------------------
-    # Per-model workunit emission
-    # -------------------------------------------------------------------------

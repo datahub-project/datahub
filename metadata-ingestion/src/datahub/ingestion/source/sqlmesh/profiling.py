@@ -14,6 +14,12 @@ from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContextType,
     SqlmeshModel,
 )
+from datahub.ingestion.source.sqlmesh.constants import (
+    INGEST_ACTOR,
+    MODEL_KIND_EMBEDDED,
+    MODEL_KIND_EXTERNAL,
+    OPERATION_FINGERPRINT_REBUILD,
+)
 from datahub.ingestion.source.sqlmesh.models import (
     _build_count_query,
 )
@@ -75,9 +81,9 @@ class ProfilingMixin(SqlmeshSourceBase):
         operation = OperationClass(
             timestampMillis=now_ms,
             operationType=OperationTypeClass.CUSTOM,
-            customOperationType="SQLMESH_FINGERPRINT_REBUILD",
+            customOperationType=OPERATION_FINGERPRINT_REBUILD,
             lastUpdatedTimestamp=updated_ts,
-            actor=mce_builder.make_user_urn("__sqlmesh_ingest__"),
+            actor=mce_builder.make_user_urn(INGEST_ACTOR),
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=sqlmesh_urn, aspect=operation
@@ -129,11 +135,9 @@ class ProfilingMixin(SqlmeshSourceBase):
         their own to count).
         """
         kind_name = self._get_kind_name(model) or ""
-        if kind_name.upper() in ("EXTERNAL", "EMBEDDED"):
+        if kind_name.upper() in (MODEL_KIND_EXTERNAL, MODEL_KIND_EMBEDDED):
             return
 
-        if not self._capabilities.has_warehouse_query:
-            return
         if sqlmesh_ctx is None:
             return
 
@@ -176,6 +180,18 @@ class ProfilingMixin(SqlmeshSourceBase):
         if engine_adapter is None:
             return
 
+        # has_warehouse_query is probed only against the default gateway's
+        # adapter, so a failing default probe must not suppress profiles for
+        # models whose own gateway adapter is healthy. Only honour the probe as
+        # a quiet skip when this model resolves to that same default adapter;
+        # for a distinct gateway adapter, attempt the query and let the
+        # try/except below surface any genuine per-gateway failure.
+        default_adapter = getattr(sqlmesh_ctx, "engine_adapter", None)
+        if not self._capabilities.has_warehouse_query and (
+            engine_adapter is default_adapter
+        ):
+            return
+
         try:
             if snapshot_provided:
                 # SQLMesh's table_name() is already dialect-quoted; splice directly.
@@ -186,7 +202,16 @@ class ProfilingMixin(SqlmeshSourceBase):
                     dialect = None
                 query = _build_count_query(live_physical_name, dialect=dialect)
             row = engine_adapter.fetchone(query)
-            row_count = int(row[0]) if row and row[0] is not None else 0
+            # COUNT(*) must return exactly one non-null row. A missing row or
+            # NULL column is an adapter anomaly, not a real zero-row table —
+            # emitting a fabricated 0 here would feed volume monitors a false
+            # data point. Treat it as a profiling failure instead.
+            if not row or row[0] is None:
+                raise ValueError(
+                    "COUNT(*) returned no row / a NULL value; treating as a "
+                    "profiling failure rather than emitting rowCount=0"
+                )
+            row_count = int(row[0])
         except Exception as e:
             # Profiling was requested; a query failure (permissions, table not
             # materialized, dialect quoting) must surface, not vanish silently.

@@ -14,7 +14,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400492,
+        "lastObserved": 1719788400126,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -37,7 +37,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400493,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -53,7 +53,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400493,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -69,7 +69,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400493,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -87,7 +87,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400493,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -103,7 +103,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400494,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -119,7 +119,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400494,
+        "lastObserved": 1719788400127,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -135,7 +135,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400494,
+        "lastObserved": 1719788400128,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -227,7 +227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400494,
+        "lastObserved": 1719788400128,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -251,7 +251,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400495,
+        "lastObserved": 1719788400128,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -269,7 +269,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400495,
+        "lastObserved": 1719788400128,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -285,7 +285,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400495,
+        "lastObserved": 1719788400128,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -304,7 +304,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400495,
+        "lastObserved": 1719788400129,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -325,7 +325,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400495,
+        "lastObserved": 1719788400129,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -345,7 +345,52 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719788400496,
+        "lastObserved": 1719788400129,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400129,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400130,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400129,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400130,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -361,7 +406,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400496,
+        "lastObserved": 1719788400131,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -377,7 +422,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400496,
+        "lastObserved": 1719788400131,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -469,7 +514,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719788400131,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -496,7 +541,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719788400131,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -521,7 +566,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719788400131,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -539,7 +584,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -555,7 +600,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400497,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -574,7 +619,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400498,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -595,7 +640,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400498,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -615,7 +660,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719788400500,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -631,7 +676,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400500,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -659,7 +704,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719788400500,
+                    "time": 1719788400132,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -667,7 +712,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400500,
+        "lastObserved": 1719788400132,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -683,7 +728,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400501,
+        "lastObserved": 1719788400133,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -711,7 +756,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719788400500,
+                    "time": 1719788400132,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -719,7 +764,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400501,
+        "lastObserved": 1719788400133,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -735,7 +780,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400502,
+        "lastObserved": 1719788400133,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -760,7 +805,7 @@
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1719788400501,
+                    "time": 1719788400133,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -768,7 +813,52 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400502,
+        "lastObserved": 1719788400133,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400133,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400134,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400134,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400134,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -784,7 +874,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400503,
+        "lastObserved": 1719788400135,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -800,7 +890,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400503,
+        "lastObserved": 1719788400135,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -892,7 +982,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400503,
+        "lastObserved": 1719788400135,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -919,7 +1009,7 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400135,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -942,7 +1032,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400135,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -960,7 +1050,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400136,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -976,7 +1066,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400136,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -995,7 +1085,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400136,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1016,7 +1106,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400504,
+        "lastObserved": 1719788400136,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1036,7 +1126,52 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1719788400505,
+        "lastObserved": 1719788400136,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400136,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400137,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719788400136,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400137,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1058,7 +1193,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400505,
+        "lastObserved": 1719788400137,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1080,7 +1215,201 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1719788400505,
+        "lastObserved": 1719788400138,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "failing_rows": "0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400138,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "failing_rows": "5"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400138,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:ed0097cf8bcd5ba01e8ed3d98c60e74d",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+        "json": {
+            "type": "CUSTOM",
+            "customType": "SQLMESH_AUDIT/not_null",
+            "title": "SQLMesh audit 'not_null' failed (5 failing rows)",
+            "description": "The `not_null` audit on this dataset failed with 5 failing rows in run sqlmesh-audit-1719792000000. See the associated assertion for details.",
+            "entities": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)"
+            ],
+            "status": {
+                "state": "ACTIVE",
+                "lastUpdated": {
+                    "time": 1719792000000,
+                    "actor": "urn:li:corpuser:__sqlmesh_ingest__"
+                }
+            },
+            "source": {
+                "type": "ASSERTION_FAILURE",
+                "sourceUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611"
+            },
+            "startedAt": 1719792000000,
+            "created": {
+                "time": 1719792000000,
+                "actor": "urn:li:corpuser:__sqlmesh_ingest__"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400138,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "failing_rows": "0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400138,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400139,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400139,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719788400139,
         "runId": "sqlmesh-test",
         "lastRunId": "no-run-id-provided"
     }

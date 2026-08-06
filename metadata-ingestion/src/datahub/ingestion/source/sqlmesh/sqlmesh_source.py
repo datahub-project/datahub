@@ -30,7 +30,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_types import resolve_sql_type
+from datahub.ingestion.source.sql.sql_types import (
+    DATAHUB_FIELD_TYPE,
+    resolve_snowflake_modified_type,
+    resolve_sql_type,
+)
 from datahub.ingestion.source.sqlmesh.assertions import AssertionMixin
 from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContext,
@@ -42,13 +46,39 @@ from datahub.ingestion.source.sqlmesh.compat import (
     _sqlmesh_context_load_lock,
 )
 from datahub.ingestion.source.sqlmesh.constants import (
+    DATASET_NAME_DELIMITER,
+    DEFAULT_GATEWAY,
+    ENV_SUFFIX_TARGET_SCHEMA,
+    MODEL_KIND_EXTERNAL,
+    PROP_AUDITS,
+    PROP_CRON,
+    PROP_ENVIRONMENT,
+    PROP_FINGERPRINT_STALE,
+    PROP_GATEWAY,
+    PROP_GRAIN,
+    PROP_MODEL_KIND,
+    PROP_MODEL_NAME,
+    PROP_PARTITIONED_BY,
+    PROP_PHYSICAL_TABLE,
+    PROP_START,
+    PROP_TIME_COLUMN,
+    PROP_WAREHOUSE,
+    PROP_WAREHOUSE_INSTANCE,
+    SNOWFLAKE_PLATFORM,
+    SQLMESH_DISPLAY_NAME,
+    SQLMESH_LOGO_URL,
     SQLMESH_PLATFORM,
+    SUBTYPE_DATABASE,
+    SUBTYPE_SCHEMA,
+    UNKNOWN_PLATFORM,
 )
 from datahub.ingestion.source.sqlmesh.lineage import LineageMixin
 from datahub.ingestion.source.sqlmesh.models import (
     _CapabilityProbes,
     _EffectiveProjectConfig,
+    _MetadataTestSpec,
     _probe_capabilities,
+    parse_model_audits,
 )
 from datahub.ingestion.source.sqlmesh.profiling import ProfilingMixin
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
@@ -177,6 +207,13 @@ class SqlmeshSource(
         # One-shot guard so a missing sqlmesh.core.lineage import is reported
         # once for the run instead of once per model.
         self._warned_column_lineage_unavailable = False
+        # Gateways we've already warned about resolving via fallback config, so
+        # a multi-gateway project warns once per unknown gateway, not per model.
+        self._warned_missing_gateways: set = set()
+        # Set True only after a project load completes; post-ingest emitters
+        # (metadata tests, audit run events) are gated on it so a failed setup
+        # doesn't write partial, unlinkable metadata.
+        self._ingest_succeeded = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlmeshSource":
@@ -195,7 +232,15 @@ class SqlmeshSource(
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_platform_registration()
+        self._ingest_succeeded = False
         yield from self._ingest_project()
+        # Metadata tests and audit run events depend on state populated during a
+        # successful project load (_resolved_effective, the URN cache). If
+        # ingestion aborted on a config/IO failure (e.g. an unreadable
+        # tobiko_cloud_token_file), skip them so a failed run stays atomic
+        # rather than writing partial, unlinkable metadata.
+        if not self._ingest_succeeded:
+            return
         if self.config.emit_metadata_tests:
             yield from self._emit_metadata_tests()
         if self.config.audit_results_path:
@@ -220,7 +265,7 @@ class SqlmeshSource(
             }
         ]
         scope_key = platform_urn
-        scope_label = "SQLMesh"
+        scope_label = SQLMESH_DISPLAY_NAME
         if self.config.sqlmesh_platform_instance:
             instance_urn = mce_builder.make_dataplatform_instance_urn(
                 SQLMESH_PLATFORM, self.config.sqlmesh_platform_instance
@@ -233,15 +278,19 @@ class SqlmeshSource(
                 }
             )
             scope_key = instance_urn
-            scope_label = f"SQLMesh ({self.config.sqlmesh_platform_instance})"
+            scope_label = (
+                f"{SQLMESH_DISPLAY_NAME} ({self.config.sqlmesh_platform_instance})"
+            )
 
         tests = [
-            (
-                "documentation",
-                f"{scope_label}: models have documentation",
-                "Every SQLMesh model in this project should carry a description, "
-                "either from the model definition or added in DataHub.",
-                {
+            _MetadataTestSpec(
+                suffix="documentation",
+                name=f"{scope_label}: models have documentation",
+                description=(
+                    "Every SQLMesh model in this project should carry a description, "
+                    "either from the model definition or added in DataHub."
+                ),
+                rules={
                     "or": [
                         {
                             "property": "datasetProperties.description",
@@ -254,36 +303,38 @@ class SqlmeshSource(
                     ]
                 },
             ),
-            (
-                "ownership",
-                f"{scope_label}: models have owners",
-                "Every SQLMesh model in this project should have an owner, "
-                "either from the model's owner field or assigned in DataHub.",
-                {"and": [{"property": "ownership.owners.owner", "operator": "exists"}]},
+            _MetadataTestSpec(
+                suffix="ownership",
+                name=f"{scope_label}: models have owners",
+                description=(
+                    "Every SQLMesh model in this project should have an owner, "
+                    "either from the model's owner field or assigned in DataHub."
+                ),
+                rules={
+                    "and": [
+                        {"property": "ownership.owners.owner", "operator": "exists"}
+                    ]
+                },
             ),
         ]
         scope_hash = hashlib.md5(scope_key.encode("utf-8")).hexdigest()[:12]
-        for suffix, name, description, rules in tests:
+        for test in tests:
             definition = {
                 "on": {"types": ["dataset"], "conditions": {"and": conditions}},
-                "rules": rules,
+                "rules": test.rules,
             }
             yield MetadataChangeProposalWrapper(
-                entityUrn=f"urn:li:test:sqlmesh-{scope_hash}-{suffix}",
+                entityUrn=f"urn:li:test:sqlmesh-{scope_hash}-{test.suffix}",
                 aspect=TestInfoClass(
-                    name=name,
-                    category="SQLMesh",
-                    description=description,
+                    name=test.name,
+                    category=SQLMESH_DISPLAY_NAME,
+                    description=test.description,
                     definition=TestDefinitionClass(
                         type=TestDefinitionTypeClass.JSON,
                         json=json.dumps(definition, indent=2),
                     ),
                 ),
             ).as_workunit()
-
-    # -------------------------------------------------------------------------
-    # Platform registration (REQ-14)
-    # -------------------------------------------------------------------------
 
     def _emit_platform_registration(self) -> Iterable[MetadataWorkUnit]:
         """Register the sqlmesh platform in DataHub so entities render with correct branding."""
@@ -292,12 +343,12 @@ class SqlmeshSource(
             entityUrn=platform_urn,
             aspect=DataPlatformInfoClass(
                 name=SQLMESH_PLATFORM,
-                displayName="SQLMesh",
+                displayName=SQLMESH_DISPLAY_NAME,
                 type=PlatformTypeClass.OTHERS,
-                datasetNameDelimiter=".",
+                datasetNameDelimiter=DATASET_NAME_DELIMITER,
                 # Must match the bootstrap entry in data-platforms.yaml so this
                 # UPSERT doesn't wipe the logo on every ingestion run.
-                logoUrl="assets/platforms/sqlmeshlogo.png",
+                logoUrl=SQLMESH_LOGO_URL,
             ),
         ).as_workunit()
 
@@ -405,7 +456,7 @@ class SqlmeshSource(
                 target_platform = self._detect_target_platform(sqlmesh_ctx, effective)
 
                 # Read environment suffix config directly from the loaded Context — no user config needed.
-                env_suffix_target = "schema"
+                env_suffix_target = ENV_SUFFIX_TARGET_SCHEMA
                 env_catalog_mapping: Dict[str, str] = {}
                 try:
                     env_suffix_target = (
@@ -431,7 +482,7 @@ class SqlmeshSource(
                     sqlmesh_platform_instance=effective.sqlmesh_platform_instance,
                     default_catalog=effective.default_catalog,
                     convert_urns_to_lowercase=effective.convert_urns_to_lowercase
-                    or target_platform == "snowflake",
+                    or target_platform == SNOWFLAKE_PLATFORM,
                     env_suffix_target=env_suffix_target,
                     env_catalog_mapping=env_catalog_mapping,
                 )
@@ -484,11 +535,12 @@ class SqlmeshSource(
                             continue
                     all_fqns[fqn] = model
 
-                # URN preview (REQ-16 / Phase 8) — print before emitting anything.
+                # Print URN pairs before emitting anything so a --dry-run can
+                # validate sibling stitching without writing metadata.
                 if self.config.preview_urns:
                     self._log_urn_preview(all_fqns, effective)
 
-                # Containers (Phase 6) — emit before models so browsing works on first run.
+                # Emit containers before models so browsing works on the first run.
                 with self.report.container_emission_sec:
                     yield from self._emit_containers(set(all_fqns.keys()), effective)
 
@@ -508,6 +560,10 @@ class SqlmeshSource(
                 # calls in the same process (e.g. multi-project recipes) don't accumulate
                 # open connections or file handles.
                 sqlmesh_ctx.close()
+
+                # Project load + model emission completed; post-ingest emitters
+                # (metadata tests, audit run events) are now safe to run.
+                self._ingest_succeeded = True
             except Exception as e:
                 # Any failure in post-load setup (capability probe, per-gateway
                 # effectives, physical-name map, container emission) should surface
@@ -519,10 +575,6 @@ class SqlmeshSource(
                     exc=e,
                 )
                 return
-
-    # -------------------------------------------------------------------------
-    # Phase 6: Container emission
-    # -------------------------------------------------------------------------
 
     def _emit_containers(
         self, fqns: Set[str], effective: _EffectiveProjectConfig
@@ -551,7 +603,7 @@ class SqlmeshSource(
                 yield from gen_containers(
                     container_key=db_key,
                     name=catalog,
-                    sub_types=["Database"],
+                    sub_types=[SUBTYPE_DATABASE],
                 )
                 self.report.num_containers_emitted += 1
 
@@ -576,7 +628,7 @@ class SqlmeshSource(
                     yield from gen_containers(
                         container_key=schema_key,
                         name=schema,
-                        sub_types=["Schema"],
+                        sub_types=[SUBTYPE_SCHEMA],
                         parent_container_key=db_key,
                     )
                 else:
@@ -590,16 +642,8 @@ class SqlmeshSource(
                     yield from gen_containers(
                         container_key=schema_key,
                         name=schema,
-                        sub_types=["Schema"],
+                        sub_types=[SUBTYPE_SCHEMA],
                     )
-
-    # -------------------------------------------------------------------------
-    # Phase 7: Incremental changed-only mode
-    # -------------------------------------------------------------------------
-
-    # -------------------------------------------------------------------------
-    # Phase 8: URN preview / dry-run
-    # -------------------------------------------------------------------------
 
     def _log_urn_preview(
         self, all_fqns: Dict[str, "SqlmeshModel"], effective: _EffectiveProjectConfig
@@ -625,7 +669,7 @@ class SqlmeshSource(
                 getattr(model, "gateway", None)
                 or model_effective.gateway
                 or self._selected_gateway
-                or "default"
+                or DEFAULT_GATEWAY
             )
             lines.append(f"  sqlmesh : {sqlmesh_urn} [{gw_name}]")
             lines.append(f"  warehouse: {warehouse_urn}")
@@ -653,7 +697,7 @@ class SqlmeshSource(
             self.report.num_embedded_models += 1
 
         kind_name = self._get_kind_name(model)
-        if kind_name == "EXTERNAL":
+        if kind_name == MODEL_KIND_EXTERNAL:
             self.report.num_external_models += 1
 
         custom_props: Optional[Dict[str, str]] = None
@@ -664,7 +708,7 @@ class SqlmeshSource(
             if self.config.detect_stale_fingerprints and self._is_fingerprint_stale(
                 model, sqlmesh_ctx
             ):
-                custom_props["sqlmesh.fingerprint_stale"] = "true"
+                custom_props[PROP_FINGERPRINT_STALE] = "true"
 
         with self.report.schema_extraction_sec:
             schema_fields = (
@@ -845,34 +889,34 @@ class SqlmeshSource(
         model: "SqlmeshModel",
     ) -> Dict[str, str]:
         props: Dict[str, str] = {
-            "sqlmesh.model_name": fqn,
-            "sqlmesh.environment": effective.environment,
-            "sqlmesh.warehouse": effective.target_platform or "unknown",
+            PROP_MODEL_NAME: fqn,
+            PROP_ENVIRONMENT: effective.environment,
+            PROP_WAREHOUSE: effective.target_platform or UNKNOWN_PLATFORM,
         }
         if effective.gateway:
-            props["sqlmesh.gateway"] = effective.gateway
+            props[PROP_GATEWAY] = effective.gateway
         if physical_name:
-            props["sqlmesh.physical_table"] = physical_name
+            props[PROP_PHYSICAL_TABLE] = physical_name
         if effective.target_platform_instance:
-            props["sqlmesh.warehouse_instance"] = effective.target_platform_instance
+            props[PROP_WAREHOUSE_INSTANCE] = effective.target_platform_instance
         kind = getattr(model, "kind", None)
         if kind is not None:
-            props["sqlmesh.model_kind"] = str(kind)
+            props[PROP_MODEL_KIND] = str(kind)
 
         cron = getattr(model, "cron", None)
         if cron:
-            props["sqlmesh.cron"] = str(cron)
+            props[PROP_CRON] = str(cron)
 
         start = getattr(model, "start", None)
         if start:
-            props["sqlmesh.start"] = str(start)
+            props[PROP_START] = str(start)
 
         time_column = getattr(model, "time_column", None)
         if time_column is not None:
             try:
-                props["sqlmesh.time_column"] = str(time_column.column)
+                props[PROP_TIME_COLUMN] = str(time_column.column)
             except Exception:
-                props["sqlmesh.time_column"] = str(time_column)
+                props[PROP_TIME_COLUMN] = str(time_column)
 
         model_name = str(getattr(model, "name", "?"))
         partitioned_by = getattr(model, "partitioned_by", None)
@@ -880,7 +924,7 @@ class SqlmeshSource(
             try:
                 cols = [str(c.name) for c in partitioned_by if hasattr(c, "name")]
                 if cols:
-                    props["sqlmesh.partitioned_by"] = ",".join(cols)
+                    props[PROP_PARTITIONED_BY] = ",".join(cols)
             except Exception:
                 # Best-effort enrichment: an unexpected partitioned_by shape
                 # just omits the property, but log it so a new SQLMesh version
@@ -896,24 +940,36 @@ class SqlmeshSource(
             try:
                 grain_cols = [str(g.name) for g in grains if hasattr(g, "name")]
                 if grain_cols:
-                    props["sqlmesh.grain"] = ",".join(grain_cols)
+                    props[PROP_GRAIN] = ",".join(grain_cols)
             except Exception:
                 logger.debug(
                     "Could not extract grains for %s", model_name, exc_info=True
                 )
 
-        audits = getattr(model, "audits", None)
-        if audits:
-            try:
-                audit_names = [str(a[0]) for a in audits if a]
-                if audit_names:
-                    props["sqlmesh.audits"] = ",".join(audit_names)
-            except Exception:
-                logger.debug(
-                    "Could not extract audits for %s", model_name, exc_info=True
-                )
+        audit_names = [audit.name for audit in parse_model_audits(model)]
+        if audit_names:
+            props[PROP_AUDITS] = ",".join(audit_names)
 
         return props
+
+    def _resolve_column_type(
+        self, type_str: str, platform: str
+    ) -> Optional[DATAHUB_FIELD_TYPE]:
+        """Resolve a column type, preferring the target platform's own mapping.
+
+        ``resolve_sql_type`` consults a merged cross-platform mapping where the
+        last-registered platform wins on conflicts — so ``TIMESTAMP`` resolves
+        to SQL Server's ``BytesType`` rather than Snowflake's ``TimeType``.
+        These columns describe the resolved warehouse, and the SQLMesh dataset
+        is a sibling of that warehouse entity, so a mismatched type renders
+        confusingly across the pair. Consult the platform-specific resolver
+        first for platforms where the merged mapping is known to conflict.
+        """
+        if type_str and platform.lower() == SNOWFLAKE_PLATFORM:
+            snowflake_type = resolve_snowflake_modified_type(type_str.upper())
+            if snowflake_type is not None:
+                return snowflake_type()
+        return resolve_sql_type(type_str, platform.lower())
 
     def _build_schema_fields(
         self, model: "SqlmeshModel", effective: _EffectiveProjectConfig
@@ -935,7 +991,9 @@ class SqlmeshSource(
         fields = []
         for col_name, col_type in columns_to_types.items():
             type_str = str(col_type) if col_type is not None else ""
-            resolved = resolve_sql_type(type_str, effective.target_platform or "")
+            resolved = self._resolve_column_type(
+                type_str, effective.target_platform or ""
+            )
             fields.append(
                 SchemaField(
                     fieldPath=col_name,
@@ -977,7 +1035,3 @@ class SqlmeshSource(
                 mcp_raw=mcp,
                 is_primary_source=False,
             )
-
-    # -------------------------------------------------------------------------
-    # Audit → Assertion emission
-    # -------------------------------------------------------------------------
