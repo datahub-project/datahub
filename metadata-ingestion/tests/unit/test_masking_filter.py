@@ -1451,15 +1451,15 @@ class TestReviewFixes:
                 args=(),
                 exc_info=None,
             )
-            record.cfg = caller_cfg
+            record.__dict__["cfg"] = caller_cfg
             mf.filter(record)
             # The caller's original dict is untouched.
             assert caller_cfg == caller_cfg_snapshot, (
                 f"Caller's dict was mutated by masking: {caller_cfg!r}"
             )
             # The record's copy is masked.
-            assert "cfg_secret_value" not in str(record.cfg)
-            assert "***REDACTED:CFG_PW***" in str(record.cfg)
+            assert "cfg_secret_value" not in str(record.__dict__["cfg"])
+            assert "***REDACTED:CFG_PW***" in str(record.__dict__["cfg"])
         finally:
             test_logger.handlers.clear()
 
@@ -1488,15 +1488,15 @@ class TestReviewFixes:
             args=(),
             exc_info=None,
         )
-        record.cfg = cycle_dict
+        record.__dict__["cfg"] = cycle_dict
         # Must not hang — the cycle guard prevents infinite recursion.
         mf.filter(record)
         # The non-cyclic top-level leaf with the secret is masked.
-        assert "***REDACTED:CYCLE_PW***" in str(record.cfg)
+        assert "***REDACTED:CYCLE_PW***" in str(record.__dict__["cfg"])
         # The cycle branch emits a placeholder, NOT the raw subtree, so the
         # secret does not leak via the cycle's self-reference.
-        assert "cycle_secret_value" not in str(record.cfg)
-        assert "<not masked: cycle>" in str(record.cfg)
+        assert "cycle_secret_value" not in str(record.__dict__["cfg"])
+        assert "<not masked: cycle>" in str(record.__dict__["cfg"])
 
     def test_extras_deep_nesting_is_capped(self):
         """Issue 2 (B): very deep nesting is capped at _MAX_EXTRA_DEPTH to
@@ -1522,13 +1522,13 @@ class TestReviewFixes:
             args=(),
             exc_info=None,
         )
-        record.cfg = deep
+        record.__dict__["cfg"] = deep
         # Must not hang or raise.
         mf.filter(record)
         # The cap emits a placeholder, NOT the raw subtree, so the secret
         # past the cap does not leak.
-        assert "deep_secret_value" not in str(record.cfg)
-        assert "<not masked: depth limit>" in str(record.cfg)
+        assert "deep_secret_value" not in str(record.__dict__["cfg"])
+        assert "<not masked: depth limit>" in str(record.__dict__["cfg"])
 
     def test_json_formatter_with_quote_in_secret(self):
         """Issue 4: a JSON formatter escapes quotes/backslashes in the secret
@@ -1695,6 +1695,7 @@ class TestReviewFixes:
         r1.clear()
         install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
         filter1 = mf_mod._installed_filter
+        assert filter1 is not None
         assert filter1._registry is r1
 
         # install(r2) WITHOUT reset_instance() — refresh path rebinds.
