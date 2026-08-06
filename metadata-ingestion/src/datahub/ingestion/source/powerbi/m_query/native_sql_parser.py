@@ -169,6 +169,29 @@ def remove_drop_statement(query: str) -> str:
     return remove_tsql_control_statements(query)
 
 
+def _resolve_dialect(platform: str) -> Optional[sqlglot.Dialect]:
+    """Resolve the sqlglot dialect for a platform, falling back to the default.
+
+    Platforms with no sqlglot dialect (e.g. an unresolved 'odbc') or a None platform
+    fall back to the default dialect rather than raising.
+    """
+    try:
+        return get_dialect(platform)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _parse_statements(
+    query: str, dialect: Optional[sqlglot.Dialect]
+) -> List[exp.Expression]:
+    """Parse a query into its non-empty statements in the given dialect.
+
+    Uses ``sqlglot.parse`` (not ``parse_one``) so multi-statement PowerBI SQL is kept.
+    Raises ``SqlglotError`` if the query is not valid SQL; callers decide how to react.
+    """
+    return [stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None]
+
+
 def _is_single_statement(query: str, platform: str) -> bool:
     """Return True if the query parses as a single statement in the platform's dialect.
 
@@ -176,15 +199,7 @@ def _is_single_statement(query: str, platform: str) -> bool:
     or fails to parse is handled by the multi-statement path.
     """
     try:
-        dialect = get_dialect(platform)
-    except (ValueError, AttributeError):
-        # Platform has no sqlglot dialect (e.g. unresolved 'odbc') or is None;
-        # fall back to the default dialect, which classifies these cases the same.
-        dialect = None
-    try:
-        statements = [
-            stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None
-        ]
+        statements = _parse_statements(query, _resolve_dialect(platform))
     except SqlglotError:
         # Not valid single SQL (e.g. separator-less juxtaposed statements).
         return False
@@ -193,16 +208,10 @@ def _is_single_statement(query: str, platform: str) -> bool:
 
 def extract_external_queries(query: str, platform: str) -> ExternalQueryExtraction:
     """Extract EXTERNAL_QUERY federations and rewrite them to inert placeholders."""
-    try:
-        dialect = get_dialect(platform)
-    except (ValueError, AttributeError):
-        dialect = None
+    dialect = _resolve_dialect(platform)
 
     try:
-        # parse (not parse_one) so a federation in a later statement is not dropped.
-        statements = [
-            stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None
-        ]
+        statements = _parse_statements(query, dialect)
     except SqlglotError:
         logger.debug("Failed to parse query for EXTERNAL_QUERY extraction: %s", query)
         return ExternalQueryExtraction(
