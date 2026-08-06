@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.ApplicationService;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -85,11 +87,16 @@ public class ApplicationAuthorizationUtils {
       @Nonnull ApplicationService applicationService,
       @Nonnull QueryContext context,
       @Nonnull String operationName) {
-    for (String resource : resources) {
-      Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!applicationService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        applicationService.filterExistingUrns(context.getOperationContext(), resourceUrns);
+
+    for (Urn resourceUrn : resourceUrns) {
+      if (!existingUrns.contains(resourceUrn)) {
         throw new RuntimeException(
-            String.format("Failed to %s, %s in resources does not exist", operationName, resource));
+            String.format(
+                "Failed to %s, %s in resources does not exist", operationName, resourceUrn));
       }
       verifyEditApplicationsAuthorization(resourceUrn, context);
     }

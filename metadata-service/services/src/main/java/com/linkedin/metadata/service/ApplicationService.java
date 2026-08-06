@@ -18,8 +18,14 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -193,11 +199,17 @@ public class ApplicationService {
         resourceUrns.size(),
         resourceUrns);
 
+    final Map<Urn, Applications> existingApplicationsByResource =
+        batchGetExistingApplications(opContext, resourceUrns);
+
     final List<MetadataChangeProposal> proposals =
         resourceUrns.stream()
             .map(
                 resourceUrn ->
-                    buildAddApplicationAssetsProposal(opContext, applicationUrn, resourceUrn))
+                    buildAddApplicationAssetsProposal(
+                        applicationUrn,
+                        resourceUrn,
+                        existingApplicationsByResource.get(resourceUrn)))
             .collect(Collectors.toList());
 
     try {
@@ -211,8 +223,14 @@ public class ApplicationService {
   }
 
   private MetadataChangeProposal buildAddApplicationAssetsProposal(
-      @Nonnull OperationContext opContext, @Nonnull Urn applicationUrn, Urn resourceUrn) {
-    Applications applications = getExistingApplications(opContext, resourceUrn);
+      @Nonnull Urn applicationUrn, Urn resourceUrn, @Nullable Applications existingApplications) {
+    Applications applications;
+    if (existingApplications != null) {
+      applications = existingApplications;
+    } else {
+      log.info("No existing applications aspect found for resource {}", resourceUrn);
+      applications = emptyApplications();
+    }
 
     if (!applications.getApplications().contains(applicationUrn)) {
       applications.getApplications().add(applicationUrn);
@@ -239,37 +257,48 @@ public class ApplicationService {
         resourceUrn, Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, applications);
   }
 
-  private Applications getExistingApplications(
-      @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn) {
-    try {
-      final EntityResponse response =
-          this.entityClient.getV2(
-              opContext,
-              resourceUrn.getEntityType(),
-              resourceUrn,
-              ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME));
-
-      if (response != null
-          && response.getAspects().containsKey(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
-        return new Applications(
-            response
-                .getAspects()
-                .get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)
-                .getValue()
-                .data());
-      } else {
-        log.info(
-            "No existing applications aspect found for resource {} (response: {})",
-            resourceUrn,
-            response != null ? "present but no aspect" : "null");
-      }
-    } catch (Exception e) {
-      log.warn(
-          "Failed to retrieve existing Applications for resource {}, will create new aspect",
-          resourceUrn,
-          e);
+  private Map<Urn, Applications> batchGetExistingApplications(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> resourceUrns) {
+    if (resourceUrns.isEmpty()) {
+      return Collections.emptyMap();
     }
 
+    final Map<Urn, Applications> existingApplicationsByResource = new HashMap<>();
+    try {
+      final Map<Urn, EntityResponse> responses =
+          this.entityClient.batchGetV2(
+              opContext,
+              resourceUrns.iterator().next().getEntityType(),
+              new HashSet<>(resourceUrns),
+              ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME));
+
+      for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
+        final EntityResponse response = entry.getValue();
+        if (response != null
+            && response.getAspects().containsKey(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
+          existingApplicationsByResource.put(
+              entry.getKey(),
+              new Applications(
+                  response
+                      .getAspects()
+                      .get(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)
+                      .getValue()
+                      .data()));
+        }
+      }
+    } catch (Exception e) {
+      log.error(
+          "Failed to batch retrieve existing Applications for {} resource(s): {}",
+          resourceUrns,
+          e.getMessage(),
+          e);
+      throw new RuntimeException("Failed to batch retrieve existing Applications", e);
+    }
+
+    return existingApplicationsByResource;
+  }
+
+  private static Applications emptyApplications() {
     Applications applications = new Applications(new DataMap());
     applications.setApplications(new UrnArray());
     return applications;
@@ -329,11 +358,17 @@ public class ApplicationService {
     log.info(
         "Batch unsetting application {} from {} resources", applicationUrn, resourceUrns.size());
 
+    final Map<Urn, Applications> existingApplicationsByResource =
+        batchGetExistingApplications(opContext, resourceUrns);
+
     final List<MetadataChangeProposal> proposals =
         resourceUrns.stream()
             .map(
                 resourceUrn ->
-                    buildUnsetApplicationProposal(opContext, applicationUrn, resourceUrn))
+                    buildUnsetApplicationProposal(
+                        applicationUrn,
+                        resourceUrn,
+                        existingApplicationsByResource.get(resourceUrn)))
             .collect(Collectors.toList());
 
     try {
@@ -346,8 +381,14 @@ public class ApplicationService {
   }
 
   private MetadataChangeProposal buildUnsetApplicationProposal(
-      @Nonnull OperationContext opContext, @Nonnull Urn applicationUrn, Urn resourceUrn) {
-    Applications applications = getExistingApplications(opContext, resourceUrn);
+      @Nonnull Urn applicationUrn, Urn resourceUrn, @Nullable Applications existingApplications) {
+    Applications applications;
+    if (existingApplications != null) {
+      applications = existingApplications;
+    } else {
+      log.info("No existing applications aspect found for resource {}", resourceUrn);
+      applications = emptyApplications();
+    }
 
     // Remove the specific application from the list
     applications.getApplications().remove(applicationUrn);
@@ -359,6 +400,22 @@ public class ApplicationService {
   public boolean verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
     try {
       return this.entityClient.exists(opContext, entityUrn);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Failed to check entity existence: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Returns the subset of the given urns that currently exist, resolving them in a single round
+   * trip instead of one existence check per urn.
+   */
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> entityUrns) {
+    if (entityUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    try {
+      return this.entityClient.filterExistingUrns(opContext, entityUrns);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException("Failed to check entity existence: " + e.getMessage(), e);
     }

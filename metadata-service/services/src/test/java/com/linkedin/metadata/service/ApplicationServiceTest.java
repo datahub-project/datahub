@@ -28,6 +28,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -221,6 +222,13 @@ public class ApplicationServiceTest {
   @Test
   public void testBatchSetApplicationAssets() throws Exception {
     List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN, TEST_ASSET_URN_2);
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(ImmutableSet.of(TEST_ASSET_URN, TEST_ASSET_URN_2)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(Collections.emptyMap());
+
     _applicationService.batchSetApplicationAssets(
         _opContext, TEST_APPLICATION_URN, assetUrns, TEST_USER_URN);
 
@@ -253,6 +261,20 @@ public class ApplicationServiceTest {
             mcp2.getAspect().getValue(), mcp2.getAspect().getContentType(), Applications.class);
     assertEquals(apps2.getApplications().size(), 1);
     assertEquals(apps2.getApplications().get(0), TEST_APPLICATION_URN);
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsWithEmptyResourceList() throws Exception {
+    _applicationService.batchSetApplicationAssets(
+        _opContext, TEST_APPLICATION_URN, Collections.emptyList(), TEST_USER_URN);
+
+    verify(_entityClient, Mockito.never()).batchGetV2(any(), any(), any(), any());
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+    assertTrue(mcpListCaptor.getValue().isEmpty());
   }
 
   @Test
@@ -318,12 +340,12 @@ public class ApplicationServiceTest {
   @Test
   public void testBatchUnsetApplicationFromEmptyList() throws Exception {
     // Mock: Resource has no existing applications
-    when(_entityClient.getV2(
+    when(_entityClient.batchGetV2(
             any(OperationContext.class),
             eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
             eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(null);
+        .thenReturn(Collections.emptyMap());
 
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchUnsetApplication(
@@ -364,12 +386,12 @@ public class ApplicationServiceTest {
     response.setEntityName(TEST_ASSET_URN.getEntityType());
     response.setUrn(TEST_ASSET_URN);
 
-    when(_entityClient.getV2(
+    when(_entityClient.batchGetV2(
             any(OperationContext.class),
             eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
             eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+        .thenReturn(Collections.singletonMap(TEST_ASSET_URN, response));
 
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchUnsetApplication(
@@ -398,12 +420,12 @@ public class ApplicationServiceTest {
   public void testBatchUnsetApplicationHandlesException() throws Exception {
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
 
-    when(_entityClient.getV2(
+    when(_entityClient.batchGetV2(
             any(OperationContext.class),
             eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
             eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(null);
+        .thenReturn(Collections.emptyMap());
 
     when(_entityClient.batchIngestProposals(eq(_opContext), any(List.class), eq(false)))
         .thenThrow(new RuntimeException("Batch ingest failed"));
@@ -413,6 +435,27 @@ public class ApplicationServiceTest {
         () ->
             _applicationService.batchUnsetApplication(
                 _opContext, TEST_APPLICATION_URN, resourceUrns, TEST_USER_URN));
+  }
+
+  @Test
+  public void testBatchUnsetApplicationFailsLoudlyWhenBatchFetchThrows() throws Exception {
+    List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("Batch fetch failed"));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchUnsetApplication(
+                _opContext, TEST_APPLICATION_URN, resourceUrns, TEST_USER_URN));
+
+    verify(_entityClient, Mockito.never())
+        .batchIngestProposals(any(), any(List.class), any(Boolean.class));
   }
 
   @Test
@@ -430,12 +473,12 @@ public class ApplicationServiceTest {
                 Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
     response.setUrn(TEST_ASSET_URN);
 
-    when(_entityClient.getV2(
+    when(_entityClient.batchGetV2(
             any(OperationContext.class),
             eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
             eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+        .thenReturn(Collections.singletonMap(TEST_ASSET_URN, response));
 
     List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchSetApplicationAssets(
@@ -475,12 +518,12 @@ public class ApplicationServiceTest {
                 Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
     response.setUrn(TEST_ASSET_URN);
 
-    when(_entityClient.getV2(
+    when(_entityClient.batchGetV2(
             any(OperationContext.class),
             eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
             eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+        .thenReturn(Collections.singletonMap(TEST_ASSET_URN, response));
 
     List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchSetApplicationAssets(
@@ -502,5 +545,49 @@ public class ApplicationServiceTest {
     // Should still only have one application (no duplicate)
     assertEquals(apps.getApplications().size(), 1);
     assertEquals(apps.getApplications().get(0), TEST_APPLICATION_URN);
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsFailsLoudlyWhenBatchFetchThrows() throws Exception {
+    List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("Batch fetch failed"));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchSetApplicationAssets(
+                _opContext, TEST_APPLICATION_URN, assetUrns, TEST_USER_URN));
+
+    verify(_entityClient, Mockito.never())
+        .batchIngestProposals(any(), any(List.class), any(Boolean.class));
+  }
+
+  @Test
+  public void testFilterExistingUrns() throws Exception {
+    when(_entityClient.filterExistingUrns(
+            eq(_opContext), eq(ImmutableList.of(TEST_ASSET_URN, TEST_ASSET_URN_2))))
+        .thenReturn(ImmutableSet.of(TEST_ASSET_URN));
+
+    assertEquals(
+        _applicationService.filterExistingUrns(
+            _opContext, ImmutableList.of(TEST_ASSET_URN, TEST_ASSET_URN_2)),
+        ImmutableSet.of(TEST_ASSET_URN));
+
+    assertEquals(
+        _applicationService.filterExistingUrns(_opContext, Collections.emptyList()),
+        Collections.emptySet());
+
+    when(_entityClient.filterExistingUrns(eq(_opContext), eq(ImmutableList.of(TEST_DOMAIN_URN))))
+        .thenThrow(new RemoteInvocationException("Client error"));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.filterExistingUrns(_opContext, ImmutableList.of(TEST_DOMAIN_URN)));
   }
 }

@@ -12,7 +12,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSetApplicationInput;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,6 +34,7 @@ public class BatchSetApplicationResolverTest {
   private BatchSetApplicationResolver resolver;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
+  private final Set<Urn> existingUrns = new HashSet<>();
 
   @BeforeMethod
   public void setupTest() {
@@ -38,9 +43,23 @@ public class BatchSetApplicationResolverTest {
     mockContext = getMockAllowContext(TEST_ACTOR_URN);
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    existingUrns.clear();
+    Mockito.when(mockApplicationService.filterExistingUrns(any(), Mockito.anyCollection()))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requestedUrns = invocation.getArgument(1);
+              return requestedUrns.stream()
+                  .filter(existingUrns::contains)
+                  .collect(Collectors.toSet());
+            });
   }
 
   private void mockExists(Urn urn, boolean exists) {
+    if (exists) {
+      existingUrns.add(urn);
+    } else {
+      existingUrns.remove(urn);
+    }
     Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(urn))).thenReturn(exists);
   }
 

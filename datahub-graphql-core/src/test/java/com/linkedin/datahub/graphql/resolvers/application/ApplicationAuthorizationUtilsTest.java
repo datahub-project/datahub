@@ -9,6 +9,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.ApplicationService;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -24,17 +28,30 @@ public class ApplicationAuthorizationUtilsTest {
   private ApplicationService mockApplicationService;
   private QueryContext mockAllowContext;
   private QueryContext mockDenyContext;
+  private final Set<Urn> existingUrns = new HashSet<>();
 
   @BeforeMethod
   public void setupTest() {
     mockApplicationService = Mockito.mock(ApplicationService.class);
     mockAllowContext = getMockAllowContext(TEST_ACTOR_URN);
     mockDenyContext = getMockDenyContext(TEST_ACTOR_URN);
+    existingUrns.clear();
+    Mockito.when(mockApplicationService.filterExistingUrns(Mockito.any(), Mockito.anyCollection()))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requestedUrns = invocation.getArgument(1);
+              return requestedUrns.stream()
+                  .filter(existingUrns::contains)
+                  .collect(Collectors.toSet());
+            });
   }
 
   private void mockExists(Urn urn, boolean exists) {
-    Mockito.when(mockApplicationService.verifyEntityExists(Mockito.any(), Mockito.eq(urn)))
-        .thenReturn(exists);
+    if (exists) {
+      existingUrns.add(urn);
+    } else {
+      existingUrns.remove(urn);
+    }
   }
 
   @Test
@@ -60,9 +77,11 @@ public class ApplicationAuthorizationUtilsTest {
         "test operation");
 
     Mockito.verify(mockApplicationService, Mockito.times(1))
-        .verifyEntityExists(Mockito.any(), Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)));
-    Mockito.verify(mockApplicationService, Mockito.times(1))
-        .verifyEntityExists(Mockito.any(), Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)));
+        .filterExistingUrns(
+            Mockito.any(),
+            Mockito.eq(
+                ImmutableList.of(
+                    UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))));
   }
 
   @Test
