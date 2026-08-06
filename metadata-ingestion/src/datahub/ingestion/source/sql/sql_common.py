@@ -1433,6 +1433,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 )
             except NotImplementedError:
                 logger.debug("Source does not support generating profile candidates.")
+            except Exception as e:
+                # The source implements generate_profile_candidates but the query failed
+                # (restricted grants, a proxy, a Doris/TiDB information_schema dialect
+                # difference — Doris and TiDB inherit MySQL's implementation with no
+                # integration coverage here). Degrade to "no candidate filter" rather than
+                # aborting profiling for the whole run: profile_candidates stays None, so
+                # is_dataset_eligible_for_profiling falls back to the no-filter path.
+                self.report.warning(
+                    title="Failed to generate profile candidates",
+                    message="Could not generate the profile candidate list; profiling will proceed without a row/size guardrail for this schema.",
+                    context=f"Schema: {schema}",
+                    exc=e,
+                )
 
         for table in inspector.get_table_names(schema):
             dataset_name = self.get_identifier(

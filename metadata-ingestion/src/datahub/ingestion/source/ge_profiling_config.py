@@ -116,6 +116,21 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
     )
 
+    # Cross-platform flag (no SupportedSources annotation, following query_combiner_enabled):
+    # emits one post-run report.info entry naming the most expensive tables by observed profiling
+    # time, with the guardrail config to set. Off by default; sources whose profiling defaults
+    # to no row/size limit (e.g. MySQL) opt in so operators can discover they need a limit.
+    # Uses report.info (not report.warning) so it surfaces without counting toward
+    # --strict-warnings failure. Applies only to `method: sqlalchemy` (the default); under
+    # `method: ge` both this flag and `profiling_isolation_level` are inert.
+    report_expensive_tables: bool = Field(
+        default=False,
+        description="Emit a post-run report.info entry naming the few tables that took the longest "
+        "to profile, with a suggestion to set `profile_table_row_limit` / `profile_table_size_limit` "
+        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL). "
+        "Applies only to `method: sqlalchemy`.",
+    )
+
     turn_off_expensive_profiling_metrics: bool = Field(
         default=False,
         description="Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10.",
@@ -152,23 +167,27 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     profile_table_size_limit: Annotated[
         Optional[int],
         SupportedSources(
-            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata"]
+            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata", "mysql"]
         ),
     ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
         "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
         "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
-        "`Teradata` uses DBC space accounting.",
+        "`Teradata` uses DBC space accounting. `MySQL` uses `information_schema.tables.data_length` "
+        "and defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables.",
     )
 
     profile_table_row_limit: Annotated[
-        Optional[int], SupportedSources(["snowflake", "bigquery", "oracle"])
+        Optional[int], SupportedSources(["snowflake", "bigquery", "oracle", "mysql"])
     ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported only in "
-        "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
+        "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats. `MySQL` uses "
+        "the InnoDB `information_schema.tables.table_rows` estimate and defaults to `null` (no "
+        "limit) — the shared 5M default is miscalibrated for MySQL by ~100×, so set explicitly "
+        "to guardrail large tables.",
     )
 
     profile_table_row_count_estimate_only: Annotated[
@@ -211,7 +230,9 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             "AUTOCOMMIT; under MySQL InnoDB REPEATABLE READ the old long transaction did "
             "provide one snapshot, so AUTOCOMMIT trades that for safety. Under Postgres READ "
             "COMMITTED each statement already took a fresh snapshot, so AUTOCOMMIT loses "
-            "nothing. See the profiling docs for the known cross-snapshot skew."
+            "nothing. See the profiling docs for the known cross-snapshot skew. "
+            "Applies only to `method: sqlalchemy` (the default); under `method: ge` this "
+            "setting is inert."
         ),
     )
 
