@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 import os
 
-import anthropic
 from pydantic import ValidationError
 
+from llm_clients import create_llm_client
 from pii_models import Column, Source, Verdict
 from pii_taxonomy import BY_NAME, guidance_block
 
@@ -101,30 +101,29 @@ async def classify(
     columns: list[Column],
     api_key: str,
     model: str | None = None,
+    provider: str | None = None,
 ) -> list[Verdict]:
     """Verdicts for the residual columns. No request is made for an empty list."""
     if not columns:
         return []
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
-    response = await client.messages.create(
-        model=model or CLASSIFIER_MODEL,
-        max_tokens=MAX_TOKENS,
-        system=_INSTRUCTIONS.format(labels=guidance_block()),
-        tools=[_TOOL],
-        tool_choice={"type": "tool", "name": _TOOL_NAME},
+    selected_model = model or CLASSIFIER_MODEL
+    client = create_llm_client(provider, selected_model, api_key)
+    response = await client.complete_with_tool(
         messages=[
-            {
-                "role": "user",
-                "content": _prompt(dataset_name, dataset_description, columns),
-            }
+            {"role": "user", "content": _prompt(dataset_name, dataset_description, columns)}
         ],
+        tools=[_TOOL],
+        tool_name=_TOOL_NAME,
+        model=selected_model,
+        system=_INSTRUCTIONS.format(labels=guidance_block()),
+        max_tokens=MAX_TOKENS,
     )
 
     rows: list[dict] = []
     for block in response.content:
-        if block.type == "tool_use" and block.name == _TOOL_NAME:
-            rows = (block.input or {}).get("columns") or []
+        if block.get("type") == "tool_use" and block.get("name") == _TOOL_NAME:
+            rows = (block.get("input") or {}).get("columns") or []
             break
 
     known = {column.field_path for column in columns}

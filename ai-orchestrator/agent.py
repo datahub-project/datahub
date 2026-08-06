@@ -1,9 +1,8 @@
 """
 Model-agnostic agent loop.
 
-The loop is deliberately decoupled from Claude so the LLM can be swapped later
-(Rovo, GPT, Gemini, etc). Only `LLMClient` knows about Anthropic; the loop itself
-only deals with an abstract "call the model, maybe run tools, repeat" contract.
+The loop is deliberately decoupled from any one provider. It only deals with an
+abstract "call the model, maybe run tools, repeat" contract.
 
 Yields SSE-friendly token strings as they stream from the model.
 """
@@ -15,10 +14,9 @@ import os
 import time
 from typing import AsyncIterator
 
-import anthropic
-
 import pii_tagger
 from local_tools import ToolRegistry
+from llm_clients import ModelTurn, TextDelta, create_llm_client
 from mcp_tools import get_mcp
 
 logger = logging.getLogger("agent")
@@ -61,28 +59,16 @@ SYSTEM_PROMPT = (
 )
 
 
-class LLMClient:
-    """Thin abstraction over the LLM provider. Swap this to change models."""
-
-    def __init__(self, api_key: str) -> None:
-        self._client = anthropic.AsyncAnthropic(api_key=api_key)
-
-    def stream(self, messages: list[dict], tools: list[dict], model: str, system: str):
-        return self._client.messages.stream(
-            model=model,
-            max_tokens=MAX_TOKENS,
-            system=system,
-            tools=tools,
-            messages=messages,
-        )
-
-
 async def run_agent(
     user_message: str,
     context: dict | None,
     api_key: str,
     model: str = DEFAULT_MODEL,
     history: list[dict] | None = None,
+    provider: str | None = None,
+    classifier_api_key: str | None = None,
+    classifier_provider: str | None = None,
+    classifier_model: str = "claude-haiku-4-5",
 ) -> AsyncIterator[str]:
     """
     Run the agentic loop. Yields text tokens as they arrive.
@@ -90,9 +76,9 @@ async def run_agent(
     Handles the tool-use cycle:
       user msg -> model -> (tool_use?) -> run tool -> feed result -> model -> ... -> final text
 
-    history: prior conversation turns as [{role, content}, ...] — gives Claude memory of prior turns.
+    history: prior conversation turns as [{role, content}, ...].
     """
-    client = LLMClient(api_key=api_key)
+    client = create_llm_client(provider, model, api_key)
 
     ctx_note = ""
     if context:
@@ -104,7 +90,12 @@ async def run_agent(
 
     # Shared MCP session — reused across requests, not spawned per call. Wrapped so the
     # model sees MCP's reads plus the two guarded PII tools, and no raw write tool.
-    tools = ToolRegistry(await get_mcp(), api_key=api_key)
+    tools = ToolRegistry(
+        await get_mcp(),
+        classifier_api_key=classifier_api_key,
+        classifier_provider=classifier_provider,
+        classifier_model=classifier_model,
+    )
 
     for iteration in range(1, MAX_TOOL_ITERATIONS + 1):
         assistant_blocks: list[dict] = []
@@ -116,14 +107,19 @@ async def run_agent(
         # otherwise the model keeps reasoning from "no proposal on record".
         system = SYSTEM_PROMPT + pii_tagger.pending_prompt_note()
 
-        async with client.stream(messages, tools.definitions, model, system) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    if first_token_ms is None:
-                        first_token_ms = (time.perf_counter() - started) * 1000
-                    yield event.delta.text  # stream text tokens to the UI
+        final: ModelTurn | None = None
+        async for event in client.stream(
+            messages, tools.definitions, model, system, MAX_TOKENS
+        ):
+            if isinstance(event, TextDelta):
+                if first_token_ms is None:
+                    first_token_ms = (time.perf_counter() - started) * 1000
+                yield event.text
+            else:
+                final = event
 
-            final = await stream.get_final_message()
+        if final is None:
+            raise RuntimeError("LLM stream ended without a final response")
 
         # Per-iteration timing: this loop is the dominant cost of a turn, and without it
         # a slow turn is indistinguishable from a slow tool.
@@ -132,19 +128,19 @@ async def run_agent(
             iteration,
             (time.perf_counter() - started) * 1000,
             f"{first_token_ms:.0f} ms" if first_token_ms else "none",
-            final.usage.output_tokens,
-            sum(1 for b in final.content if b.type == "tool_use"),
+            final.output_tokens,
+            sum(1 for b in final.content if b.get("type") == "tool_use"),
         )
 
         # Collect assistant content blocks (text + tool_use) for the transcript.
         for block in final.content:
-            if block.type == "text":
-                assistant_blocks.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                assistant_blocks.append(
-                    {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
+            if block.get("type") == "text":
+                assistant_blocks.append(block)
+            elif block.get("type") == "tool_use":
+                assistant_blocks.append(block)
+                tool_uses.append(
+                    {"id": block["id"], "name": block["name"], "input": block.get("input")}
                 )
-                tool_uses.append({"id": block.id, "name": block.name, "input": block.input})
 
         messages.append({"role": "assistant", "content": assistant_blocks})
 

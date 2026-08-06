@@ -98,12 +98,19 @@ def _gms_headers() -> dict[str, str]:
 
 def _env_fallback(selected_model: str) -> dict[str, Any] | None:
     """The local .env key, when GMS cannot supply one."""
-    env_api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not env_api_key or not selected_model.startswith("claude-"):
+    if selected_model.startswith("claude-"):
+        provider = "claude"
+        env_api_key = os.environ.get("ANTHROPIC_API_KEY")
+    elif selected_model.startswith(("gpt-", "o1-", "o3-", "o4-")):
+        provider = "openai"
+        env_api_key = os.environ.get("OPENAI_API_KEY")
+    else:
+        return None
+    if not env_api_key:
         return None
     return {
         "model": selected_model,
-        "provider": "claude",
+        "provider": provider,
         "apiKey": env_api_key,
         "hasKey": True,
         "source": "env-fallback",
@@ -131,7 +138,7 @@ async def _get_runtime_ai_config(model: str | None = None) -> dict[str, Any]:
     if response.status_code == 404:
         fallback = _env_fallback(selected_model)
         if fallback:
-            logger.info("GMS has no key for %s; using ANTHROPIC_API_KEY.", selected_model)
+            logger.info("GMS has no key for %s; using environment fallback.", selected_model)
             return fallback
         return {"model": selected_model, "provider": None, "apiKey": None, "hasKey": False}
     if response.status_code >= 400:
@@ -152,7 +159,12 @@ async def _get_runtime_ai_config(model: str | None = None) -> dict[str, Any]:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "hasKey": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+    return {
+        "status": "ok",
+        "hasKey": bool(
+            os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        ),
+    }
 
 
 # Idle timeout: if a session has had no activity for this many minutes, its
@@ -163,6 +175,7 @@ SESSION_IDLE_TIMEOUT_MINUTES = 10
 SUMMARY_KEEP_RECENT = 6
 # Model used for generating the running summary (cheap + fast).
 SUMMARY_MODEL = "claude-haiku-4-5"
+PII_CLASSIFIER_MODEL = os.environ.get("PII_CLASSIFIER_MODEL", "claude-haiku-4-5")
 
 
 async def _summarize_messages(messages: list[dict], api_key: str) -> str:
@@ -188,12 +201,14 @@ async def _summarize_messages(messages: list[dict], api_key: str) -> str:
 async def chat(req: ChatRequest) -> StreamingResponse:
     selected_model = req.model.strip().lower() if req.model else _CONFIG["model"]
     runtime_config = await _get_runtime_ai_config(selected_model)
-    if runtime_config["provider"] not in (None, "claude"):
-        raise HTTPException(
-            status_code=501,
-            detail=f"Provider {runtime_config['provider']} is not yet supported by the orchestrator.",
-        )
-
+    try:
+        classifier_config = await _get_runtime_ai_config(PII_CLASSIFIER_MODEL)
+    except HTTPException:
+        classifier_config = {
+            "model": PII_CLASSIFIER_MODEL,
+            "provider": None,
+            "apiKey": None,
+        }
     # Load conversation history from MySQL if a session_id was provided
     history: list[dict] = []
     if req.session_id:
@@ -249,9 +264,10 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                         if existing_summary else []
                     ) + old_messages
 
-                    if runtime_config["apiKey"]:
+                    summary_config = await _get_runtime_ai_config(SUMMARY_MODEL)
+                    if summary_config["apiKey"]:
                         new_summary = await _summarize_messages(
-                            to_summarize, runtime_config["apiKey"]
+                            to_summarize, summary_config["apiKey"]
                         )
                     else:
                         new_summary = existing_summary
@@ -321,6 +337,10 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 api_key=runtime_config["apiKey"],
                 model=selected_model,
                 history=history,
+                provider=runtime_config["provider"],
+                classifier_api_key=classifier_config["apiKey"],
+                classifier_provider=classifier_config["provider"],
+                classifier_model=classifier_config["model"],
             ):
                 # The agent emits this sentinel when a fresh PII proposal is awaiting
                 # confirmation. Turn it into a distinct event the UI can render as
@@ -360,17 +380,31 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
 @app.get("/api/ai-config")
 async def get_config() -> dict:
-    return {"model": _CONFIG["model"], "hasKey": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+    return {
+        "model": _CONFIG["model"],
+        "hasKey": bool(
+            os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        ),
+    }
 
 
 @app.post("/api/ai-config")
 async def save_config(req: ConfigRequest) -> dict:
     if req.model:
-        _CONFIG["model"] = req.model
+        _CONFIG["model"] = req.model.strip().lower()
     if req.apiKey:
         # Hackathon: set in-process env. Production: write to DataHub secret manager.
-        os.environ["ANTHROPIC_API_KEY"] = req.apiKey
-    return {"status": "saved", "model": _CONFIG["model"], "hasKey": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+        if _CONFIG["model"].startswith("claude-"):
+            os.environ["ANTHROPIC_API_KEY"] = req.apiKey
+        elif _CONFIG["model"].startswith(("gpt-", "o1-", "o3-", "o4-")):
+            os.environ["OPENAI_API_KEY"] = req.apiKey
+    return {
+        "status": "saved",
+        "model": _CONFIG["model"],
+        "hasKey": bool(
+            os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        ),
+    }
 
 
 def init_db():

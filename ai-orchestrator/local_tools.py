@@ -82,9 +82,18 @@ class ToolRegistry:
     describes, or a later confirmation would be blocked.
     """
 
-    def __init__(self, mcp, *, api_key: str) -> None:
+    def __init__(
+        self,
+        mcp,
+        *,
+        classifier_api_key: str | None,
+        classifier_provider: str | None,
+        classifier_model: str,
+    ) -> None:
         self._mcp = mcp
-        self._api_key = api_key
+        self._classifier_api_key = classifier_api_key
+        self._classifier_provider = classifier_provider
+        self._classifier_model = classifier_model
         self._proposed_this_turn: set[str] = set()
 
         hidden = [d["name"] for d in mcp.definitions if _is_write_tool(d["name"])]
@@ -119,7 +128,11 @@ class ToolRegistry:
         try:
             if name == PROPOSE:
                 payload = await pii_tagger.propose(
-                    self._mcp, dataset_urn=dataset_urn, api_key=self._api_key
+                    self._mcp,
+                    dataset_urn=dataset_urn,
+                    api_key=self._classifier_api_key or "",
+                    provider=self._classifier_provider,
+                    model=self._classifier_model,
                 )
                 # Only a fresh classification arms the gate. A reused proposal was shown
                 # in an earlier turn, so applying it now is exactly what was asked for —

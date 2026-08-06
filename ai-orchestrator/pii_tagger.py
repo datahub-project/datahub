@@ -237,7 +237,14 @@ def _payload(proposal: Proposal, *, reused: bool) -> dict:
     }
 
 
-async def propose(mcp, *, dataset_urn: str, api_key: str, model: str | None = None) -> dict:
+async def propose(
+    mcp,
+    *,
+    dataset_urn: str,
+    api_key: str,
+    model: str | None = None,
+    provider: str | None = None,
+) -> dict:
     """Classify one dataset and cache the result. Writes nothing."""
     # Resolved before the schema read so a retyped URN still reaches the right entity:
     # reading with the caller's string would fail as "entity not found" even though the
@@ -273,6 +280,7 @@ async def propose(mcp, *, dataset_urn: str, api_key: str, model: str | None = No
             columns=decision.residual,
             api_key=api_key,
             model=model,
+            provider=provider,
         )
 
     proposal = Proposal(
