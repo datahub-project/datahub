@@ -22,6 +22,7 @@ import os
 import threading
 import uuid
 from contextvars import ContextVar
+from enum import Enum, auto
 from typing import Dict, Optional
 
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -35,6 +36,22 @@ _GLOBAL_GROUP = "__global__"
 # Identifies the execution registering/owning secrets in the current context.
 # Set by begin_execution(), read by register_secret() and end_execution().
 _current_exec: ContextVar[Optional[str]] = ContextVar("masking_exec_id", default=None)
+
+
+class _Admit(Enum):
+    """Tri-state result of admitting one secret against the registry.
+
+    A bool (``admitted``) would conflate "duplicate" with "at capacity" —
+    both are non-admitting, but only "at capacity" is a warning condition.
+    Conflating them makes duplicate registrations (common: the same value
+    read twice, or the same recipe's secrets re-registered per execution)
+    emit spurious "at capacity" warnings and permanently suppress the real
+    one via _capacity_warned. Count and warn only on REJECTED.
+    """
+
+    ADMITTED = auto()
+    DUPLICATE = auto()
+    REJECTED = auto()
 
 
 def is_masking_enabled() -> bool:
@@ -99,6 +116,11 @@ class SecretRegistry:
         self._version = 0
         # Serializes writers only; readers are lock-free.
         self._registry_lock = threading.RLock()
+        # True once we've warned about being at capacity; reset by
+        # _rebuild_locked on the condition (count >= MAX) so a capacity
+        # warning fires once per rise to capacity, not once per call, and
+        # can fire again after executions end and free room.
+        self._capacity_warned = False
 
     @classmethod
     def get_instance(cls) -> "SecretRegistry":
@@ -216,8 +238,62 @@ class SecretRegistry:
         self._secrets = secrets
         self._name_to_value = name_to_value
         self._version += 1
+        # Reset on the condition (at capacity), not the event (a warning
+        # fired). If executions end and free room without draining to zero,
+        # this self-corrects so the next capacity rise can warn again;
+        # without it, _capacity_warned would stay True forever after the
+        # first warning and the real warning would be permanently suppressed.
+        self._capacity_warned = len(self._secrets) >= self.MAX_SECRETS
 
     # --- Registration (writers) --------------------------------------------
+
+    def _admit_locked(
+        self,
+        variable_name: str,
+        raw_value: str,
+        group: Dict[str, str],
+        pending_keys: set,
+    ) -> _Admit:
+        """Admit one secret against the registry, capacity, and batch state.
+
+        Called by register_secret / register_secrets_batch with the
+        registry lock held. Returns:
+
+        - DUPLICATE: the raw value is already in this execution's group, or
+          already pending in the current batch (dedup across the batch).
+          Not a warning condition — duplicate registration is common.
+        - REJECTED: admitting would push the *expanded* key count
+          (``len(self._secrets)``) to >= MAX_SECRETS. Warns once per rise
+          to capacity via ``_capacity_warned``. The capacity bound is on
+          expanded keys (raw + repr + sqlalchemy + json variants), not on
+          the number of registered secrets — counting secrets instead
+          (the old behavior) let a batch of multi-key-expanding values
+          overshoot MAX_SECRETS, which is the unit mismatch this fixes.
+        - ADMITTED: the secret was added to ``group`` and its truly-new
+          expanded keys to ``pending_keys``.
+
+        Mutates ``pending_keys``: unioned with the truly-new keys so the
+        batch loop dedup-counts within the batch. The single path passes a
+        throwaway ``set()``, so the mutation is harmless there; the batch
+        path passes a persistent set so successive calls see prior admits.
+        A helper that mutates an argument is easy to misuse later — keep
+        this contract in the docstring.
+        """
+        if raw_value in group or raw_value in pending_keys:
+            return _Admit.DUPLICATE
+        keys = _expand_keys(raw_value)
+        truly_new = set(keys) - set(self._secrets) - pending_keys
+        if len(self._secrets) + len(pending_keys) + len(truly_new) >= self.MAX_SECRETS:
+            if not self._capacity_warned:
+                logger.warning(
+                    f"Secret registry at capacity ({self.MAX_SECRETS}). "
+                    f"Skipping registration of {variable_name}"
+                )
+                self._capacity_warned = True
+            return _Admit.REJECTED
+        group[raw_value] = variable_name
+        pending_keys |= truly_new
+        return _Admit.ADMITTED
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         """Register a secret for masking under the current execution.
@@ -238,19 +314,12 @@ class SecretRegistry:
 
         with self._registry_lock:
             group = self._current_group_locked()
-            if raw_value in group:
-                return
-            if len(self._secrets) >= self.MAX_SECRETS:
-                logger.warning(
-                    f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                    f"Skipping registration of {variable_name}"
+            result = self._admit_locked(variable_name, raw_value, group, set())
+            if result is _Admit.ADMITTED:
+                self._rebuild_locked()
+                logger.debug(
+                    f"Registered secret: {variable_name[:8]}*** (version {self._version})"
                 )
-                return
-            group[raw_value] = variable_name
-            self._rebuild_locked()
-            logger.debug(
-                f"Registered secret: {variable_name[:8]}*** (version {self._version})"
-            )
 
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
         """Register multiple secrets atomically under the current execution."""
@@ -266,24 +335,27 @@ class SecretRegistry:
 
         with self._registry_lock:
             group = self._current_group_locked()
-            added_count = 0
+            pending_keys: set = set()
+            admitted = 0
+            duplicates = 0
+            rejected = 0
             for variable_name, raw_value in valid_secrets.items():
-                if raw_value in group:
-                    continue
-                if len(self._secrets) + added_count >= self.MAX_SECRETS:
-                    logger.warning(
-                        f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                        f"Skipping registration of {variable_name}"
-                    )
-                    break
-                group[raw_value] = variable_name
-                added_count += 1
-
-            if added_count > 0:
-                self._rebuild_locked()
-                logger.debug(
-                    f"Batch registered {added_count} secrets (version {self._version})"
+                result = self._admit_locked(
+                    variable_name, raw_value, group, pending_keys
                 )
+                if result is _Admit.ADMITTED:
+                    admitted += 1
+                elif result is _Admit.DUPLICATE:
+                    duplicates += 1
+                else:
+                    rejected += 1
+
+            if admitted > 0:
+                self._rebuild_locked()
+            logger.debug(
+                f"Batch result: admitted {admitted}, duplicates {duplicates}, "
+                f"rejected {rejected} (version {self._version})"
+            )
 
     # --- Reads (lock-free; the masking hot path) ---------------------------
 
