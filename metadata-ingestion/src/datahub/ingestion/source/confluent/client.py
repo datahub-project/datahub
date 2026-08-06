@@ -27,8 +27,10 @@ class _CatalogPage:
 
 
 class ConfluentStreamCatalogClient:
-    # Failures become report warnings: Stream Governance / catalog access aren't
-    # guaranteed, and supplementary metadata must not fail the whole run.
+    # Transient / environment catalog issues are warnings so optional enrichment
+    # does not fail the run. Hard query-contract defects (missing placeholders or
+    # a response shape our hardcoded GraphQL cannot match) stay failures — they
+    # reproduce every run and would otherwise silently yield an empty catalog.
 
     def __init__(
         self,
@@ -59,7 +61,7 @@ class ConfluentStreamCatalogClient:
         ]
         if missing:
             # Missing {offset} loops forever; missing {limit} silently truncates.
-            self.report.warning(
+            self.report.failure(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
             )
@@ -161,14 +163,14 @@ class ConfluentStreamCatalogClient:
 
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
-            self.report.warning(
+            self.report.failure(
                 message="The Confluent Stream Catalog response is missing a data object",
                 context=context,
             )
             return None
 
         if root_key not in data:
-            self.report.warning(
+            self.report.failure(
                 message="The Confluent Stream Catalog response is missing the queried field",
                 context=f"{context}, fields_returned={sorted(data)}",
             )
@@ -176,7 +178,7 @@ class ConfluentStreamCatalogClient:
 
         entities = data.get(root_key)
         if not isinstance(entities, list):
-            self.report.warning(
+            self.report.failure(
                 message="The Confluent Stream Catalog response field is not a list",
                 context=f"{context}, field={root_key}",
             )
