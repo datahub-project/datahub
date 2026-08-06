@@ -100,7 +100,12 @@ public class RetentionDrainerTest {
     RetentionService<?> retentionService = mock(RetentionService.class);
     // Batch path returns the committed keys so the drainer clears those keys.
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
-        .thenAnswer(invocation -> invocation.getArgument(1));
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
+            });
     RetentionDrainer drainer =
         new RetentionDrainer(
             buffer,
@@ -171,8 +176,9 @@ public class RetentionDrainerTest {
         .thenAnswer(
             invocation -> {
               @SuppressWarnings("unchecked")
-              List<RetentionKey> keys = invocation.getArgument(1);
-              return keys.stream()
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream()
+                  .map(RetentionBatchEntry::key)
                   .filter(k -> ASPECT.equals(k.aspectName()))
                   .collect(Collectors.toList());
             });
@@ -269,7 +275,12 @@ public class RetentionDrainerTest {
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
-        .thenAnswer(invocation -> invocation.getArgument(1));
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
+            });
     RetentionDrainer drainer =
         new RetentionDrainer(
             buffer,
@@ -395,7 +406,9 @@ public class RetentionDrainerTest {
         .thenAnswer(
             invocation -> {
               @SuppressWarnings("unchecked")
-              List<RetentionKey> groupKeys = invocation.getArgument(1);
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              List<RetentionKey> groupKeys =
+                  entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
               // Fail the whole group when its first (only) key is the ownership one.
               if (!groupKeys.isEmpty() && FAILED_ASPECT.equals(groupKeys.get(0).aspectName())) {
                 throw new RuntimeException("forced group failure");
@@ -570,8 +583,8 @@ public class RetentionDrainerTest {
               mergeLanded.await(5, TimeUnit.SECONDS);
               serviceProceed.await(5, TimeUnit.SECONDS);
               @SuppressWarnings("unchecked")
-              List<RetentionKey> keys = invocation.getArgument(1);
-              return keys;
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
             });
 
     RetentionDrainer drainer =
@@ -606,7 +619,12 @@ public class RetentionDrainerTest {
 
       // Second tick drains the surviving newer entry.
       when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
-          .thenAnswer(invocation -> invocation.getArgument(1));
+          .thenAnswer(
+              invocation -> {
+                @SuppressWarnings("unchecked")
+                List<RetentionBatchEntry> entries = invocation.getArgument(1);
+                return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
+              });
       drainer.tick();
       assertTrue(buffer.drain(10).isEmpty());
     } finally {
