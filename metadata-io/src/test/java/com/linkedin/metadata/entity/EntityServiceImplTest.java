@@ -734,7 +734,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -815,7 +820,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -927,7 +937,12 @@ public class EntityServiceImplTest {
                 // Third batch with another success aspect
                 Stream.of(anotherSuccessAspect)));
 
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1157,7 +1172,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
