@@ -142,7 +142,7 @@ At least one of `default_schema` / `default_database` must be set for an Oracle 
 
 #### BigQuery EXTERNAL_QUERY Federation
 
-PowerBI datasets that query BigQuery often use BigQuery federation
+If you query BigQuery from PowerBI, you may use BigQuery federation
 (`EXTERNAL_QUERY("project.region.connection", "<sql>")`) to run SQL on an external
 engine such as Cloud SQL or AlloyDB. The generic SQL parser cannot resolve those
 calls — the arguments are string literals, not table identifiers — so lineage would
