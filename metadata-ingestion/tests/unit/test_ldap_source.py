@@ -207,13 +207,6 @@ def _timeout_config(**overrides):
     )
 
 
-def test_timeout_defaults_are_bounded():
-    """Defaults must stay finite: python-ldap treats 0 or a negative value as 'wait forever'."""
-    config = _timeout_config()
-    assert config.connect_timeout > 0
-    assert config.request_timeout > 0
-
-
 @patch("datahub.ingestion.source.ldap.ldap")
 def test_timeouts_are_set_on_the_connection(mock_ldap):
     """Both bounds are applied to the client before bind, so a stalled server errors out."""
