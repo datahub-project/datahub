@@ -91,7 +91,8 @@ class SchemaResolverProvider:
         )
         scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
-        count = 0
+        num_urns = 0
+        num_schemas = 0
         with PerfTimer() as timer:
             for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
                 platform=platform,
@@ -100,27 +101,40 @@ class SchemaResolverProvider:
                 extraFilters=extra_filters,
                 batch_size=self._batch_size,
             ):
-                try:
-                    resolver.add_graphql_schema_metadata(urn, schema_info)
-                    count += 1
-                except Exception:
-                    logger.warning(
-                        f"Failed to add schema info for {urn}", exc_info=True
-                    )
+                resolver.urn_aliases.add(urn)
+                num_urns += 1
+                if schema_info is not None:
+                    try:
+                        resolver.add_graphql_schema_metadata(urn, schema_info)
+                        num_schemas += 1
+                    except Exception:
+                        logger.warning(
+                            f"Failed to add schema info for {urn}", exc_info=True
+                        )
 
-                if count > 0 and count % 1000 == 0:
+                if num_urns % 1000 == 0:
                     logger.debug(
-                        f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
+                        f"Loaded {num_urns} urns in {timer.elapsed_seconds()} seconds"
                     )
             logger.info(
-                f"Finished loading {count} schema info in {timer.elapsed_seconds()} seconds"
+                f"Finished loading {num_urns} urns ({num_schemas} with schemas) in "
+                f"{timer.elapsed_seconds()} seconds"
             )
 
-        if count == 0:
+        fetched_scope = (
+            f"platform={platform}, platform_instance={platform_instance}, env={env}"
+        )
+        if num_urns == 0:
             logger.warning(
-                f"Bulk schema fetch returned 0 results for platform={platform}, "
-                f"platform_instance={platform_instance}, env={env}. "
-                "Schema resolver will be empty — SQL lineage may be incomplete."
+                f"Bulk fetch returned 0 datasets for {fetched_scope}. Schema resolver "
+                "will be empty — SQL lineage may be incomplete."
+            )
+        elif num_schemas == 0:
+            # The datasets resolve by URN, but with no schemaMetadata there are no columns
+            # to match against, so column-level lineage cannot be produced.
+            logger.warning(
+                f"Bulk fetch found {num_urns} datasets for {fetched_scope} but none had "
+                "a schema — SQL lineage may be incomplete."
             )
         return resolver
 
