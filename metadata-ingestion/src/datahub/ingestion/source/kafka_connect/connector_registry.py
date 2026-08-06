@@ -293,8 +293,9 @@ class ConnectorRegistry:
 class _GenericConnector(BaseConnector):
     """Simple connector for handling generic configurations."""
 
-    # On Confluent Cloud topic_names is empty; use the live cluster list when set.
-    needs_cluster_topics: ClassVar[bool] = True
+    # Generic source connectors should remain connector-scoped and not consume
+    # cluster-wide topic lists.
+    needs_cluster_topics: ClassVar[bool] = False
 
     def __init__(
         self,
