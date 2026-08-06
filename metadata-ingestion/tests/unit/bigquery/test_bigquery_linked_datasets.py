@@ -370,7 +370,7 @@ def test_linked_dataset_without_source_is_warned_and_kept():
     assert info is not None
     assert info.has_publisher is False
     assert handler.report.num_linked_dataset_source_unresolved == 1
-    assert any("source not resolved" in str(w).lower() for w in handler.report.warnings)
+    assert len(handler.report.warnings) == 1
 
 
 def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
@@ -475,8 +475,11 @@ def test_list_subscriptions_api_disabled_is_warned_not_fatal():
     handler.populate_for_project("consumer-project", datasets)
 
     assert handler.get_info("consumer-project", "shared_a") is None
-    assert any("not enabled" in str(w) for w in handler.report.warnings)
-    assert list(handler.report.failures) == []
+    assert not handler.report.failures
+    assert any(
+        w.title == "BigQuery Sharing (Analytics Hub) API not enabled"
+        for w in handler.report.warnings
+    )
 
 
 def test_list_subscriptions_iam_denied_is_reported_as_failure():
@@ -496,8 +499,10 @@ def test_list_subscriptions_iam_denied_is_reported_as_failure():
     handler.populate_for_project("consumer-project", datasets)
 
     assert handler.get_info("consumer-project", "shared_a") is None
+    assert not handler.report.warnings
     assert any(
-        "analyticshub.subscriptions.list" in str(f) for f in handler.report.failures
+        f.title == "Missing permission to list BigQuery Sharing subscriptions"
+        for f in handler.report.failures
     )
 
 
@@ -747,9 +752,7 @@ def test_emission_error_is_recorded_and_not_fatal():
     assert list(report.linked_dataset_lineage_emission_errors) == [
         "consumer-project.shared_dataset.active_users"
     ]
-    assert any(
-        "Failed to emit linked dataset lineage" in str(w) for w in report.warnings
-    )
+    assert len(report.warnings) == 1
 
 
 @pytest.mark.parametrize(
