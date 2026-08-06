@@ -218,6 +218,7 @@ query_collection: Dict[QueryId, LookerQuery] = {
         ],
         filters={
             QueryViewField.QUERY_VIEW: "NOT NULL",
+            QueryViewField.QUERY_FIELDS: "NOT NULL",
         },
     ),
 }
