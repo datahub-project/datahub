@@ -126,6 +126,9 @@ def _make_columns() -> list:
     ]
 
 
+@pytest.mark.parametrize(
+    "include_lineage", [True, False], ids=["lineage_on", "lineage_off"]
+)
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
@@ -161,6 +164,7 @@ def test_bigquery_linked_datasets_ingest(
     get_tables_for_dataset,
     get_views_for_dataset,
     get_snapshots_for_dataset,
+    include_lineage,
     pytestconfig,
     tmp_path,
 ):
@@ -280,8 +284,44 @@ def test_bigquery_linked_datasets_ingest(
     rm_mock.get_project.return_value = SimpleNamespace(project_id="publisher-project")
     handler_get_rm_client.return_value = rm_mock
 
-    pipeline_config_dict: Dict[str, Any] = _recipe(mcp_output_path=mcp_output_path)
+    override = None if include_lineage else {"include_linked_dataset_lineage": False}
+    pipeline_config_dict: Dict[str, Any] = _recipe(
+        mcp_output_path=mcp_output_path, source_config_override=override
+    )
     run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    if not include_lineage:
+        # Detection is independent of the lineage flag: the linked dataset is
+        # still marked and enriched, but siblings and COPY lineage are suppressed.
+        linked_props = [
+            m["aspect"]["json"]["customProperties"]
+            for m in mcps
+            if m.get("aspectName") == "containerProperties"
+            and "linked_dataset.link_type"
+            in m["aspect"]["json"].get("customProperties", {})
+        ]
+        assert len(linked_props) == 1
+        assert linked_props[0]["linked_dataset.link_type"] == "LINKED"
+        assert (
+            linked_props[0]["linked_dataset.source"]
+            == "publisher-project.publisher_dataset"
+        )
+        assert any(
+            m.get("aspectName") == "subTypes"
+            and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
+            for m in mcps
+        )
+        assert not [m for m in mcps if m.get("aspectName") == "siblings"]
+        assert not [
+            m
+            for m in mcps
+            if m.get("aspectName") == "upstreamLineage"
+            and any(u["type"] == "COPY" for u in m["aspect"]["json"]["upstreams"])
+        ]
+        return
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -291,8 +331,6 @@ def test_bigquery_linked_datasets_ingest(
 
     # A linked view must carry exactly one upstreamLineage, the COPY edge; a
     # second, view-definition-derived one would overwrite it on ingest.
-    with open(mcp_output_path) as f:
-        mcps = json.load(f)
     view_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
         "consumer-project.shared_dataset.active_users,PROD)"
