@@ -243,19 +243,19 @@ class BigQueryLinkedDatasetsHandler:
     ) -> Iterable[MetadataWorkUnit]:
         """Emit Siblings + UpstreamLineage for one table/view in a linked dataset."""
         info = self._lookup.get((consumer_project_id, consumer_dataset))
-        if info is None or not info.has_publisher:
+        if info is None:
             return
-
-        # mypy: has_publisher proves both are non-None.
-        assert info.publisher_project_id is not None
-        assert info.publisher_dataset is not None
+        publisher_project_id = info.publisher_project_id
+        publisher_dataset = info.publisher_dataset
+        if not publisher_project_id or not publisher_dataset:
+            return
 
         consumer_urn = self.identifiers.gen_dataset_urn(
             consumer_project_id, consumer_dataset, entity_name
         )
         publisher_urn = self.identifiers.gen_dataset_urn(
-            info.publisher_project_id,
-            info.publisher_dataset,
+            publisher_project_id,
+            publisher_dataset,
             entity_name,
         )
 
