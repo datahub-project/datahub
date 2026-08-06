@@ -1,0 +1,35 @@
+// Shared netrc validation for Python uv installs and Docker builds.
+// Apply: apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
+
+ext.validateDatahubNetrc = { String path ->
+  if (!path) {
+    return
+  }
+  // Many Python modules apply this script; validate each path once per build.
+  def cacheKey = "datahub.netrc.validated:${new File(path).canonicalPath}"
+  if (rootProject.ext.has(cacheKey)) {
+    return
+  }
+  rootProject.ext.set(cacheKey, true)
+
+  def script = "${rootProject.projectDir}/docker/snippets/uv/validate_netrc.py"
+  def stderr = new ByteArrayOutputStream()
+  def result = project.exec {
+    commandLine 'python3', script, '--quiet', path
+    errorOutput = stderr
+    ignoreExitValue = true
+  }
+  def errText = stderr.toString().trim()
+  if (errText) {
+    errText.split('\n').each { line ->
+      if (line) {
+        logger.error("[netrc] ${line}")
+      }
+    }
+  }
+  if (result.exitValue != 0) {
+    throw new GradleException(
+      "Invalid netrc at ${path}. Fix the file (see docker/snippets/uv/.netrc.example), then run:\n" +
+      "  python3 docker/snippets/uv/validate_netrc.py ${path}")
+  }
+}

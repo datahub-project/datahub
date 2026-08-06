@@ -2,11 +2,15 @@
 // Provides netrc secret injection and resolveUvBuildArgs (UV_PROFILE / index URLs).
 // Profile resolution (CLI -P > UV_DOCKER_PROFILE env > gradle.properties) is in settings.gradle.
 
+apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
+
 def netrcFile = {
   def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
   def file = new File(path)
   return file.exists() ? file.absolutePath : null
 }()
+
+validateDatahubNetrc(netrcFile)
 
 def uvDockerProfile = gradle.ext['datahub.dependencies.python.uvDockerProfile']
 
