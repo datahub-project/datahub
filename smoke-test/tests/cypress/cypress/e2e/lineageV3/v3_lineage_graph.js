@@ -17,12 +17,12 @@ import {
   filter,
   hoverColumn,
   selectColumn,
+  setLineageV3FeatureFlags,
   showAll,
   showLess,
   showMore,
   unhoverColumn,
-} from "../lineageV2/utils";
-import { setLineageV3FeatureFlags } from "./utils";
+} from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const CHART_ENTITY_TYPE = "chart";

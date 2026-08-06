@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "Innehåller {{count}} termgrupp",
+    "card.nodeGroupCountTooltip_other": "Innehåller {{count}} termgrupper",
+    "card.termCountTooltip_one": "Innehåller {{count}} term",
+    "card.termCountTooltip_other": "Innehåller {{count}} termer",
+    "empty.addTerm": "Lägg till term",
+    "empty.addTermGroup": "Lägg till termgrupp",
+    "empty.description": "Skapa termer och termgrupper för att organisera datatillgångar med ett gemensamt vokabulär.",
+    "empty.title": "Tom glossary",
+    "list.error": "Kunde inte läsa in glossary! Ett oväntat fel uppstod.",
+    "list.loading": "Läser in glossary...",
+    "page.createGlossary": "Skapa glossary",
+    "page.subtitle": "Klassificera dina datatillgångar och kolumner med hjälp av dataordböcker",
+    "page.title": "Glossary",
+    "section.glossaryTerms": "Termer",
+    "section.termGroups": "Termgrupper",
+    "sidebar.collapse": "Fäll ihop glossary",
+    "sidebar.expand": "Fäll ut glossary",
+    "sidebar.home": "Glossary-startsida",
+    "sidebar.section.allTerms": "Alla termer"
+}

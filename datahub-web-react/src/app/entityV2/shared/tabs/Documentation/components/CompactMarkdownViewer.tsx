@@ -21,7 +21,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     ${(props) =>
         props.lineLimit &&
         props.lineLimit <= 1 &&
-        ` 
+        `
         display: flex;
         align-items: center;
         gap: 4px;
@@ -37,6 +37,8 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     flex: 1;
 `;
 
+// Wrapper div that applies compact editor styles via CSS class selectors,
+// so the lazy-loaded Editor can be styled without a static component reference.
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
     border: none;
 

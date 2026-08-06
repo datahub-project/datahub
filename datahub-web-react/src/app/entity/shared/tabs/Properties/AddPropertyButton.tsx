@@ -1,7 +1,5 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Dropdown } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -9,7 +7,7 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Input as InputComponent, Text } from '@src/alchemy-components';
+import { Button, Dropdown, Input as InputComponent, Loader, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import {
     getStructuredPropertiesSearchInputs,
@@ -19,20 +17,6 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { DataPlatform, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
-
-const AddButton = styled.div<{ isV1Drawer?: boolean }>`
-    border-radius: 200px;
-    background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
-    height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    :hover {
-        cursor: pointer;
-    }
-`;
 
 const DropdownContainer = styled.div`
     border-radius: 12px;
@@ -177,7 +161,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                         </SearchContainer>
                         {loading ? (
                             <LoadingContainer>
-                                <LoadingOutlined />
+                                <Loader size="sm" />
                                 <Text size="sm">{tc('common.feedback:loading')}</Text>
                             </LoadingContainer>
                         ) : (
@@ -199,9 +183,15 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 )}
             >
                 <Tooltip title={t('properties.addProperty.title')} placement="left" showArrow={false}>
-                    <AddButton isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
-                        <Icon icon={Plus} size={isV1Drawer ? 'lg' : '2xl'} color="white" />
-                    </AddButton>
+                    <Button
+                        variant="text"
+                        size={isV1Drawer ? 'sm' : 'md'}
+                        icon={{ icon: Plus }}
+                        iconPosition="left"
+                        data-testid="add-structured-prop-button"
+                    >
+                        {tc('common.actions:add')}
+                    </Button>
                 </Tooltip>
             </Dropdown>
             {selectedProperty && (

@@ -9,7 +9,14 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
-from .token_utils import listUsers, removeUser
+from .token_utils import (
+    assert_graphql_mutation_succeeded,
+    listUsers,
+    removeUser,
+    token_name_filter,
+    wait_for_no_tokens_matching,
+    wait_for_user_in_list,
+)
 
 pytestmark = pytest.mark.no_cypress_suite1
 
@@ -20,22 +27,18 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
 REVOKE_SUITE_USER_EMAIL = "revokable.access@smoke.datahub.test"
 REVOKE_SUITE_USER_URN = f"urn:li:corpuser:{REVOKE_SUITE_USER_EMAIL}"
+REVOKE_SUITE_TOKEN_NAME = "revokable-suite-token"
+SUITE_TOKEN_FILTER = [token_name_filter(REVOKE_SUITE_TOKEN_NAME)]
 
 
-@pytest.fixture()
-def auth_exclude_filter():
-    return {
-        "field": "name",
-        "condition": "EQUAL",
-        "negated": True,
-        "values": ["Test Session Token"],
-    }
+def _ensure_no_suite_tokens(auth_session) -> None:
+    wait_for_no_tokens_matching(auth_session, SUITE_TOKEN_FILTER)
 
 
-@pytest.fixture(scope="class", autouse=True)
-def custom_user_setup():
+@pytest.fixture(scope="module", autouse=True)
+def custom_user_setup(auth_session):
     """Fixture to execute setup before and tear down after all tests are run"""
-    admin_session = login_as(admin_user, admin_pass)
+    admin_session = auth_session
 
     res_data = removeUser(admin_session, REVOKE_SUITE_USER_URN)
     assert res_data
@@ -72,7 +75,8 @@ def custom_user_setup():
         "inviteToken": invite_token,
     }
 
-    sign_up_response = admin_session.post(
+    sign_up_session = login_as(admin_user, admin_pass)
+    sign_up_response = sign_up_session.post(
         f"{get_frontend_url()}/signUp", json=sign_up_json
     )
     sign_up_response.raise_for_status()
@@ -80,10 +84,7 @@ def custom_user_setup():
     assert "error" not in sign_up_response
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
-
-    # signUp will override the session cookie to the new user to be signed up.
-    admin_session.cookies.clear()
-    admin_session = login_as(admin_user, admin_pass)
+    wait_for_user_in_list(admin_session, REVOKE_SUITE_USER_EMAIL, present=True)
 
     # Make user created user is there.
     res_data = listUsers(admin_session)
@@ -93,7 +94,11 @@ def custom_user_setup():
         "users"
     ]
 
+    _ensure_no_suite_tokens(auth_session)
+
     yield
+
+    _ensure_no_suite_tokens(auth_session)
 
     # Delete created user
     res_data = removeUser(admin_session, REVOKE_SUITE_USER_URN)
@@ -110,42 +115,17 @@ def custom_user_setup():
     assert {"username": REVOKE_SUITE_USER_EMAIL} not in res_data["data"]["listUsers"][
         "users"
     ]
-
-
-@pytest.fixture(autouse=True)
-def access_token_setup(auth_session, auth_exclude_filter):
-    """Fixture to execute asserts before and after a test is run"""
-    admin_session = login_as(admin_user, admin_pass)
-
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
-    assert res_data
-    assert res_data["data"]
-
-    if res_data["data"]["listAccessTokens"]["tokens"]:
-        for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
-            revokeAccessToken(admin_session, metadata["id"])
-        wait_for_writes_to_sync()
-
-    # Verify clean state after cleanup
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
-    assert res_data["data"]["listAccessTokens"]["total"] == 0
-    assert not res_data["data"]["listAccessTokens"]["tokens"]
-
-    yield
-
-    # Clean up after the test
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
-    for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
-        revokeAccessToken(admin_session, metadata["id"])
     wait_for_writes_to_sync()
+    wait_for_user_in_list(admin_session, REVOKE_SUITE_USER_EMAIL, present=False)
 
 
-def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
-    admin_session = login_as(admin_user, admin_pass)
+def test_admin_can_create_list_and_revoke_tokens(auth_session):
+    _ensure_no_suite_tokens(auth_session)
+    admin_session = auth_session
     admin_user_urn = f"urn:li:corpuser:{admin_user}"
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -153,8 +133,7 @@ def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
 
     # Using a super account, generate a token for itself.
     res_data = generateAccessToken_v2(admin_session, admin_user_urn)
-    assert res_data
-    assert res_data["data"]
+    assert_graphql_mutation_succeeded(res_data)
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
@@ -173,7 +152,7 @@ def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
     assert res_data["data"]["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
 
     # Using a super account, list the previously created token.
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -193,18 +172,19 @@ def test_admin_can_create_list_and_revoke_tokens(auth_exclude_filter):
     assert res_data["data"]["revokeAccessToken"] is True
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-def test_admin_can_create_and_revoke_tokens_for_other_user(auth_exclude_filter):
-    admin_session = login_as(admin_user, admin_pass)
+def test_admin_can_create_and_revoke_tokens_for_other_user(auth_session):
+    _ensure_no_suite_tokens(auth_session)
+    admin_session = auth_session
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -212,8 +192,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(auth_exclude_filter):
 
     # Using a super account, generate a token for another user.
     res_data = generateAccessToken_v2(admin_session, REVOKE_SUITE_USER_URN)
-    assert res_data
-    assert res_data["data"]
+    assert_graphql_mutation_succeeded(res_data)
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
@@ -225,7 +204,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(auth_exclude_filter):
     wait_for_writes_to_sync()
 
     # Using a super account, list the previously created tokens.
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -247,20 +226,20 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(auth_exclude_filter):
     assert res_data["data"]["revokeAccessToken"] is True
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-def test_non_admin_can_create_list_revoke_tokens(auth_exclude_filter):
+def test_non_admin_can_create_list_revoke_tokens(auth_session):
+    _ensure_no_suite_tokens(auth_session)
     user_session = login_as(REVOKE_SUITE_USER_EMAIL, "user")
 
     # Normal user should be able to generate token for himself.
     res_data = generateAccessToken_v2(user_session, REVOKE_SUITE_USER_URN)
-    assert res_data
-    assert res_data["data"]
+    assert_graphql_mutation_succeeded(res_data)
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
@@ -276,7 +255,7 @@ def test_non_admin_can_create_list_revoke_tokens(auth_exclude_filter):
         user_session,
         [
             {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            auth_exclude_filter,
+            *SUITE_TOKEN_FILTER,
         ],
     )
     assert res_data
@@ -305,7 +284,7 @@ def test_non_admin_can_create_list_revoke_tokens(auth_exclude_filter):
         user_session,
         [
             {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            auth_exclude_filter,
+            *SUITE_TOKEN_FILTER,
         ],
     )
     assert res_data
@@ -314,21 +293,20 @@ def test_non_admin_can_create_list_revoke_tokens(auth_exclude_filter):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
-    admin_session = login_as(admin_user, admin_pass)
+def test_admin_can_manage_tokens_generated_by_other_user(auth_session):
+    _ensure_no_suite_tokens(auth_session)
+    admin_session = auth_session
 
     # Using a super account, there should be no tokens
-    res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
+    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
-    admin_session.cookies.clear()
     user_session = login_as(REVOKE_SUITE_USER_EMAIL, "user")
     res_data = generateAccessToken_v2(user_session, REVOKE_SUITE_USER_URN)
-    assert res_data
-    assert res_data["data"]
+    assert_graphql_mutation_succeeded(res_data)
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
@@ -345,12 +323,12 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
 
     # Admin should be able to list other tokens
     user_session.cookies.clear()
-    admin_session = login_as(admin_user, admin_pass)
+    admin_session = auth_session
     res_data = listAccessTokens(
         admin_session,
         [
             {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            auth_exclude_filter,
+            *SUITE_TOKEN_FILTER,
         ],
     )
     assert res_data
@@ -368,8 +346,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
     assert res_data["data"]["listAccessTokens"]["tokens"][0]["id"] == user_tokenId
 
     # Admin can delete token created by someone else.
-    admin_session.cookies.clear()
-    admin_session = login_as(admin_user, admin_pass)
+    admin_session = auth_session
     res_data = revokeAccessToken(admin_session, user_tokenId)
     assert res_data
     assert res_data["data"]
@@ -383,7 +360,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
         user_session,
         [
             {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            auth_exclude_filter,
+            *SUITE_TOKEN_FILTER,
         ],
     )
     assert res_data
@@ -392,12 +369,12 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using the super account, check that all tokens where removed.
-    admin_session = login_as(admin_user, admin_pass)
+    admin_session = auth_session
     res_data = listAccessTokens(
         admin_session,
         [
             {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            auth_exclude_filter,
+            *SUITE_TOKEN_FILTER,
         ],
     )
     assert res_data
@@ -406,7 +383,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 
-def test_non_admin_can_not_generate_tokens_for_others():
+def test_non_admin_can_not_generate_tokens_for_others(auth_session):
+    _ensure_no_suite_tokens(auth_session)
     user_session = login_as(REVOKE_SUITE_USER_EMAIL, "user")
     # Normal user should not be able to generate token for another user
     res_data = generateAccessToken_v2(user_session, f"urn:li:corpuser:{admin_user}")
@@ -438,7 +416,7 @@ def generateAccessToken_v2(session, actorUrn):
                 "type": "PERSONAL",
                 "actorUrn": actorUrn,
                 "duration": "ONE_HOUR",
-                "name": "my token",
+                "name": REVOKE_SUITE_TOKEN_NAME,
             }
         },
     }

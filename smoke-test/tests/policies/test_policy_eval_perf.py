@@ -18,6 +18,8 @@ from tests.utils import delete_urns, get_admin_credentials, get_frontend_url, lo
 
 logger = logging.getLogger(__name__)
 
+pytestmark = pytest.mark.global_policy_mutator
+
 PERF_NUM_QUERIES = 25
 PERF_LATENCY_RATIO_THRESHOLD = 2
 PERF_LATENCY_ABS_FLOOR_SECONDS = 0.05

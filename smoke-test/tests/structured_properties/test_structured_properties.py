@@ -812,10 +812,12 @@ def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
     assert property1.urn in structured_properties_urns
     assert property2.urn in structured_properties_urns
 
-    # list structured properties (full)
-    structured_properties = StructuredProperties.list(graph_client)
+    # Hydrate only URNs created above; global list() fails on orphan properties from other tests.
+    target_urns = {property1.urn, property2.urn}
     matched_properties = [
-        p for p in structured_properties if p.urn in [property1.urn, property2.urn]
+        StructuredProperties.from_datahub(graph=graph_client, urn=urn)
+        for urn in StructuredProperties.list_urns(graph_client)
+        if urn in target_urns
     ]
     assert len(matched_properties) == 2
     retrieved_property1 = next(p for p in matched_properties if p.urn == property1.urn)

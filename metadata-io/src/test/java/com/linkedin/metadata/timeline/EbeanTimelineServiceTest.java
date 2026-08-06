@@ -7,6 +7,8 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -39,7 +41,9 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);

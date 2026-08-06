@@ -1,5 +1,5 @@
 /**
- * Time-range lineage seeder for lineage-v2 tests.
+ * Time-range lineage seeder for lineage graph tests.
  *
  * Seeds DataJob and dataset lineage edges with relative timestamps so that
  * time-range filter tests can verify that edges created at different times

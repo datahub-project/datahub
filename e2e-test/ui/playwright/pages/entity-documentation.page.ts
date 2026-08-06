@@ -82,7 +82,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.type(text);
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   async clearDocumentation(): Promise<void> {
@@ -94,7 +94,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   // ── Field documentation (v1 schema tab) ─────────────────────────────────
@@ -146,7 +146,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.waitForTimeout(500);
     await this.page.keyboard.type(description);
     await this.fieldDescriptionUpdateButton.click();
-    await expect(this.page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Updated!', { timeout: 15000 });
   }
 
   // ── Link management ──────────────────────────────────────────────────────

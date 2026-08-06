@@ -7,8 +7,7 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 dependencies {
   api project(':metadata-service:configuration')
   implementation project(':metadata-utils')
-  // Provides io.datahubproject.metadata.context types used ONLY by tests (e.g. ObjectMapperContext).
-  testImplementation project(':metadata-operation-context')
+  implementation project(':metadata-operation-context')
 
   implementation externalDependency.concurrencyLimitsCore
   implementation externalDependency.bucket4jCore

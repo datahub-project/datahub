@@ -17,7 +17,9 @@ import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class ParentContainersResolver
@@ -46,12 +48,24 @@ public class ParentContainersResolver
                     context.getMaxParentDepth());
 
             List<Container> containers = new ArrayList<>();
-            for (Urn parentUrn : parentUrns) {
-              EntityResponse response =
-                  _entityClient.getV2(
-                      context.getOperationContext(), parentUrn.getEntityType(), parentUrn, null);
-              if (response != null) {
-                containers.add(ContainerMapper.map(context, response));
+            if (!parentUrns.isEmpty()) {
+              // All ancestors in a container hierarchy are containers, so a single batch call
+              // over one entity type replaces the per-parent getV2 round-trips (N+1).
+              Map<Urn, EntityResponse> responses =
+                  _entityClient.batchGetV2(
+                      context.getOperationContext(),
+                      parentUrns.get(0).getEntityType(),
+                      new HashSet<>(parentUrns),
+                      null);
+
+              // batchGetV2 returns an unordered map; re-iterate parentUrns to preserve hierarchy
+              // order. Missing/unauthorized urns resolve to null and are skipped, matching the
+              // previous response != null behavior.
+              for (Urn parentUrn : parentUrns) {
+                EntityResponse response = responses.get(parentUrn);
+                if (response != null) {
+                  containers.add(ContainerMapper.map(context, response));
+                }
               }
             }
 

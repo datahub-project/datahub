@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search.query.request;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
@@ -355,12 +356,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   /** Tests to make sure that the fields are correctly combined across search-able entities */
   @Test
   public void testGetStandardFieldsEntitySpec() {
+    List<String> entityTypeNames =
+        Stream.concat(
+                parseCsv(DEFAULT_SEARCH_ENTITY_TYPES).stream(),
+                parseCsv(DEFAULT_AUTOCOMPLETE_ENTITY_TYPES).stream())
+            .distinct()
+            .collect(Collectors.toList());
+    // Distinct configured defaults (search ∪ autocomplete) — not an arbitrary registry-wide count.
+    assertTrue(
+        entityTypeNames.size() >= 20,
+        "Expected at least 20 distinct default search/autocomplete entity types");
+
     List<EntitySpec> entitySpecs =
-        Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
+        entityTypeNames.stream()
             .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
-    assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
+    assertEquals(entitySpecs.size(), entityTypeNames.size());
 
     // Count of the distinct field names
     Set<String> expectedFieldNames =

@@ -269,21 +269,9 @@ This plugin extracts:
   - minimum, maximum, mean, median, standard deviation, some quantile values
   - histograms or frequencies of unique values
 
-Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
+Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and no longer requires Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `s3` extra, and no `s3a://` configuration is needed — the profiler reads files over the same `s3://` path used for schema inference. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.
+
 Enabling profiling will slow down ingestion runs.
-
-:::info Compatibility
-
-Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
-
-For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
-:::
-
-:::caution
-
-From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158]
-Avro files that contain such columns won't be profiled.
-:::
 
 ### Limitations
 

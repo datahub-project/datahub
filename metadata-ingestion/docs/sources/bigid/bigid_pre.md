@@ -11,6 +11,11 @@ Before running ingestion, ensure you have:
 1. **Network connectivity** to your BigID instance over HTTPS.
 2. **A BigID service account** (a System User) with a long-lived **user token** and read access to the catalog, classification, business glossary, and (if used) correlation/IDSoR APIs. See [Authentication](#authentication) and [Required permissions](#required-permissions) below.
 3. **Datasets already present in DataHub** for the sources BigID scans, unless you enable `create_datasets`.
+4. **A compatible DataHub version**: **1.8.0+** (DataHub Core) or **2.1.0+** (DataHub Cloud). See [DataHub version compatibility](#datahub-version-compatibility) below.
+
+#### DataHub version compatibility
+
+Field-level enrichment (column classifications and field glossary terms) applies tags and terms to schema fields via PATCH. Adding a field-level tag or term to a field that has no existing `editableSchemaMetadata` entry requires a server-side fix present in **DataHub Core 1.8.0+** and **DataHub Cloud 2.1.0+**. On earlier versions those field-level PATCHes are rejected with `HTTP 422 - fieldPath is required`; dataset-level enrichment is unaffected.
 
 #### Authentication
 

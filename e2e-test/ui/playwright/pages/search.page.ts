@@ -107,6 +107,14 @@ export class SearchPage extends BasePage {
     await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
   }
 
+  async getResultCount(): Promise<number> {
+    // Extract count from text like "1-20 of 1234 results"
+    const resultText = await this.page.getByText(/of [0-9]+ result/).textContent();
+    if (!resultText) return 0;
+    const match = resultText.match(/of (\d+) result/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
   async clickResult(resultName: string): Promise<void> {
     await this.page.getByText(resultName).first().click();
   }
@@ -391,6 +399,24 @@ export class SearchPage extends BasePage {
   async expectUrlNotContains(urlPart: string): Promise<void> {
     const url = this.page.url();
     expect(url).not.toContain(urlPart);
+  }
+
+  /**
+   * Change the operator on an active filter chip (e.g. Domain equals → within).
+   * @param fieldName URL/field name such as "domains" or "platform"
+   * @param operatorLabel Visible operator text such as "within" or "equals"
+   */
+  async selectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await chip.waitFor({ state: 'visible', timeout: 10000 });
+    await chip.getByTestId('active-filter-operator').click();
+    await this.page.getByRole('menuitem', { name: new RegExp(operatorLabel, 'i') }).click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await expect(chip.getByTestId('active-filter-operator')).toHaveText(new RegExp(operatorLabel, 'i'));
   }
 
   async expectTextVisible(text: string): Promise<void> {

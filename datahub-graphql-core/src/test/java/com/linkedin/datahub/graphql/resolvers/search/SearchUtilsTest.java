@@ -3,13 +3,17 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import java.util.List;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -225,6 +229,31 @@ public class SearchUtilsTest {
 
     final List<String> expectedResult = ImmutableList.of(Constants.DATASET_ENTITY_NAME);
     Assert.assertEquals(expectedResult, result);
+  }
+
+  @Test
+  public void testGetSearchEntityNamesExplicitTypesBypassConfig() {
+    List<String> explicit = SearchUtils.getSearchEntityNames(null, List.of(EntityType.DATASET));
+    Assert.assertEquals(explicit, List.of("dataset"));
+  }
+
+  @Test
+  public void testGetSearchEntityNamesEmptyConfiguredDefaultsReturnsEmpty() {
+    SearchContext searchContext =
+        SearchContext.EMPTY.toBuilder().defaultSearchEntityNames(List.of()).build();
+    OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(opContext.getSearchContext()).thenReturn(searchContext);
+
+    Assert.assertEquals(SearchUtils.getSearchEntityNames(opContext, null), List.of());
+    Assert.assertEquals(SearchUtils.getSearchEntityNames(opContext, List.of()), List.of());
+  }
+
+  @Test
+  public void testCreateEmptyScrollResults() {
+    var empty = SearchUtils.createEmptyScrollResults(25);
+    Assert.assertEquals(empty.getCount(), Integer.valueOf(25));
+    Assert.assertEquals(empty.getTotal(), Integer.valueOf(0));
+    Assert.assertTrue(empty.getSearchResults().isEmpty());
   }
 
   private SearchUtilsTest() {}

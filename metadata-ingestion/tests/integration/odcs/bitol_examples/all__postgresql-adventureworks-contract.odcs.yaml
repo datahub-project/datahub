@@ -1,0 +1,5329 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/all/postgresql-adventureworks-contract.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: "1.0.0"
+apiVersion: "v3.0.0"
+id: "6aeafdc1-ed62-4c8f-bf0a-da1061c98cdb"
+status: active
+kind: "DataContract"
+description: {}
+schema:
+  - name: "department"
+    physicalName: "department"
+    physicalType: "table"
+    description: "Lookup table containing the departments within the Adventure Works\
+      \ Cycles company."
+    properties:
+    - name: "departmentid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Department records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/department/departmentid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the department."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/department/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "groupname"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the group to which the department belongs."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/department/groupname"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/department/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "employee"
+    physicalName: "employee"
+    physicalType: "table"
+    description: "Employee information such as salary, department, and title."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for Employee records.  Foreign key to BusinessEntity.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "nationalidnumber"
+      logicalType: "string"
+      physicalType: "varchar[15]"
+      description: "Unique national identification number such as a social security\
+        \ number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/nationalidnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+      tags: ['sensitive']
+    - name: "loginid"
+      logicalType: "string"
+      physicalType: "varchar[256]"
+      description: "Network login."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/loginid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "jobtitle"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Work title such as Buyer or Sales Representative."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/jobtitle"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "birthdate"
+      logicalType: "date"
+      physicalType: "date"
+      description: "Date of birth."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/birthdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+      tags: ['sensitive']
+    - name: "maritalstatus"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "M = Married, S = Single"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/maritalstatus"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "gender"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "M = Male, F = Female"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/gender"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "hiredate"
+      logicalType: "date"
+      physicalType: "date"
+      description: "Employee hired on this date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/hiredate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salariedflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "Job classification. 0 = Hourly, not exempt from collective bargaining.\
+        \ 1 = Salaried, exempt from collective bargaining."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/salariedflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "vacationhours"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Number of available vacation hours."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/vacationhours"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "sickleavehours"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Number of available sick leave hours."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/sickleavehours"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "currentflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Inactive, 1 = Active"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/currentflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "organizationnode"
+      logicalType: "string"
+      physicalType: "varchar[2147483647]"
+      description: "Where the employee is located in corporate hierarchy."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employee/organizationnode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "employeedepartmenthistory"
+    physicalName: "employeedepartmenthistory"
+    physicalType: "table"
+    description: "Employee department transfers."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Employee identification number. Foreign key to Employee.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "departmentid"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Department in which the employee worked including currently. Foreign\
+        \ key to Department.DepartmentID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/departmentid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "shiftid"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Identifies which 8-hour shift the employee works. Foreign key\
+        \ to Shift.Shift.ID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/shiftid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "date"
+      description: "Date the employee started work in the department."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/startdate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "date"
+      description: "Date the employee left the department. NULL = Current department."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeedepartmenthistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "employeepayhistory"
+    physicalName: "employeepayhistory"
+    physicalType: "table"
+    description: "Employee pay history."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Employee identification number. Foreign key to Employee.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeepayhistory/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "ratechangedate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the change in pay is effective"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeepayhistory/ratechangedate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "rate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Salary hourly rate."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeepayhistory/rate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "payfrequency"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "1 = Salary received monthly, 2 = Salary received biweekly"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeepayhistory/payfrequency"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/employeepayhistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "jobcandidate"
+    physicalName: "jobcandidate"
+    physicalType: "table"
+    description: "Résumés submitted to Human Resources by job applicants."
+    properties:
+    - name: "jobcandidateid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for JobCandidate records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/jobcandidate/jobcandidateid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Employee identification number if applicant was hired. Foreign\
+        \ key to Employee.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/jobcandidate/businessentityid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "resume"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "RÃ©sumÃ© in XML format."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/jobcandidate/resume"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/jobcandidate/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "shift"
+    physicalName: "shift"
+    physicalType: "table"
+    description: "Work shift lookup table."
+    properties:
+    - name: "shiftid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Shift records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shift/shiftid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Shift description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shift/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "starttime"
+      logicalType: "date"
+      physicalType: "time"
+      description: "Shift start time."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shift/starttime"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "endtime"
+      logicalType: "date"
+      physicalType: "time"
+      description: "Shift end time."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shift/endtime"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shift/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "address"
+    physicalName: "address"
+    physicalType: "table"
+    description: "Street address information for customers, employees, and vendors."
+    properties:
+    - name: "addressid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Address records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/addressid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "addressline1"
+      logicalType: "string"
+      physicalType: "varchar[60]"
+      description: "First street address line."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/addressline1"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "addressline2"
+      logicalType: "string"
+      physicalType: "varchar[60]"
+      description: "Second street address line."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/addressline2"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "city"
+      logicalType: "string"
+      physicalType: "varchar[30]"
+      description: "Name of the city."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/city"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "stateprovinceid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Unique identification number for the state or province. Foreign\
+        \ key to StateProvince table."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/stateprovinceid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "postalcode"
+      logicalType: "string"
+      physicalType: "varchar[15]"
+      description: "Postal code for the street address."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/postalcode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "spatiallocation"
+      logicalType: "string"
+      physicalType: "bytea"
+      description: "Latitude and longitude of this address."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/spatiallocation"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/address/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "addresstype"
+    physicalName: "addresstype"
+    physicalType: "table"
+    description: "Types of addresses stored in the Address table."
+    properties:
+    - name: "addresstypeid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for AddressType records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/addresstype/addresstypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Address type description. For example, Billing, Home, or Shipping."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/addresstype/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/addresstype/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/addresstype/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "businessentity"
+    physicalName: "businessentity"
+    physicalType: "table"
+    description: "Source of the ID that connects vendors, customers, and employees\
+      \ with address and contact information."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for all customers, vendors, and employees."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentity/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentity/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentity/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "businessentityaddress"
+    physicalName: "businessentityaddress"
+    physicalType: "table"
+    description: "Cross-reference table mapping customers, vendors, and employees\
+      \ to their addresses."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to BusinessEntity.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentityaddress/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "addressid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Address.AddressID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentityaddress/addressid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "addresstypeid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to AddressType.AddressTypeID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentityaddress/addresstypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentityaddress/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentityaddress/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "businessentitycontact"
+    physicalName: "businessentitycontact"
+    physicalType: "table"
+    description: "Cross-reference table mapping stores, vendors, and employees to\
+      \ people"
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to BusinessEntity.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentitycontact/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "personid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Person.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentitycontact/personid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "contacttypeid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key.  Foreign key to ContactType.ContactTypeID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentitycontact/contacttypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentitycontact/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/businessentitycontact/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "contacttype"
+    physicalName: "contacttype"
+    physicalType: "table"
+    description: "Lookup table containing the types of business entity contacts."
+    properties:
+    - name: "contacttypeid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ContactType records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/contacttype/contacttypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Contact type description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/contacttype/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/contacttype/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "countryregion"
+    physicalName: "countryregion"
+    physicalType: "table"
+    description: "Lookup table containing the ISO standard codes for countries and\
+      \ regions."
+    properties:
+    - name: "countryregioncode"
+      logicalType: "string"
+      physicalType: "varchar[3]"
+      description: "ISO standard code for countries and regions."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregion/countryregioncode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Country or region name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregion/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregion/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "emailaddress"
+    physicalName: "emailaddress"
+    physicalType: "table"
+    description: "Where to send a person email."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Person associated with this email address.  Foreign\
+        \ key to Person.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/emailaddress/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "emailaddressid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key. ID of this email address."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/emailaddress/emailaddressid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "emailaddress"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "E-mail address for the person."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/emailaddress/emailaddress"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/emailaddress/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/emailaddress/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "password"
+    physicalName: "password"
+    physicalType: "table"
+    description: "One way hashed authentication information"
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/password/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "passwordhash"
+      logicalType: "string"
+      physicalType: "varchar[128]"
+      description: "Password for the e-mail account."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/password/passwordhash"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "passwordsalt"
+      logicalType: "string"
+      physicalType: "varchar[10]"
+      description: "Random value concatenated with the password string before the\
+        \ password is hashed."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/password/passwordsalt"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/password/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/password/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "person"
+    physicalName: "person"
+    physicalType: "table"
+    description: "Human beings involved with AdventureWorks: employees, customer contacts,\
+      \ and vendor contacts."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for Person records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "persontype"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Primary type of person: SC = Store Contact, IN = Individual (retail)\
+        \ customer, SP = Sales person, EM = Employee (non-sales), VC = Vendor contact,\
+        \ GC = General contact"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/persontype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "namestyle"
+      logicalType: "object"
+      physicalType: "NameStyle"
+      description: "0 = The data in FirstName and LastName are stored in western style\
+        \ (first name, last name) order.  1 = Eastern style (last name, first name)\
+        \ order."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/namestyle"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "title"
+      logicalType: "string"
+      physicalType: "varchar[8]"
+      description: "A courtesy title. For example, Mr. or Ms."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/title"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "firstname"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "First name of the person."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/firstname"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "middlename"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Middle name or middle initial of the person."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/middlename"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "lastname"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Last name of the person."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/lastname"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "suffix"
+      logicalType: "string"
+      physicalType: "varchar[10]"
+      description: "Surname suffix. For example, Sr. or Jr."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/suffix"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "emailpromotion"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "0 = Contact does not wish to receive e-mail promotions, 1 = Contact\
+        \ does wish to receive e-mail promotions from AdventureWorks, 2 = Contact\
+        \ does wish to receive e-mail promotions from AdventureWorks and selected\
+        \ partners."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/emailpromotion"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "additionalcontactinfo"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Additional contact information about the person stored in xml\
+        \ format."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/additionalcontactinfo"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "demographics"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Personal information such as hobbies, and income collected from\
+        \ online shoppers. Used for sales analysis."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/demographics"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/person/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "personphone"
+    physicalName: "personphone"
+    physicalType: "table"
+    description: "Telephone number and type of a person."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Business entity identification number. Foreign key to Person.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personphone/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "phonenumber"
+      logicalType: "object"
+      physicalType: "Phone"
+      description: "Telephone number identification number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personphone/phonenumber"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "phonenumbertypeid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Kind of phone number. Foreign key to PhoneNumberType.PhoneNumberTypeID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personphone/phonenumbertypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personphone/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "phonenumbertype"
+    physicalName: "phonenumbertype"
+    physicalType: "table"
+    description: "Type of phone number of a person."
+    properties:
+    - name: "phonenumbertypeid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for telephone number type records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/phonenumbertype/phonenumbertypeid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the telephone number type"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/phonenumbertype/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/phonenumbertype/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "stateprovince"
+    physicalName: "stateprovince"
+    physicalType: "table"
+    description: "State and province lookup table."
+    properties:
+    - name: "stateprovinceid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for StateProvince records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/stateprovinceid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "stateprovincecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "ISO standard state or province code."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/stateprovincecode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "countryregioncode"
+      logicalType: "string"
+      physicalType: "varchar[3]"
+      description: "ISO standard country or region code. Foreign key to CountryRegion.CountryRegionCode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/countryregioncode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "isonlystateprovinceflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = StateProvinceCode exists. 1 = StateProvinceCode unavailable,\
+        \ using CountryRegionCode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/isonlystateprovinceflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "State or province description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "ID of the territory in which the state or province is located.\
+        \ Foreign key to SalesTerritory.SalesTerritoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/territoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/stateprovince/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "billofmaterials"
+    physicalName: "billofmaterials"
+    physicalType: "table"
+    description: "Items required to make bicycles and bicycle subassemblies. It identifies\
+      \ the heirarchical relationship between a parent product and its components."
+    properties:
+    - name: "billofmaterialsid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for BillOfMaterials records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/billofmaterialsid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productassemblyid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Parent product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/productassemblyid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "componentid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Component identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/componentid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the component started being used in the assembly item."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/startdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the component stopped being used in the assembly item."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "unitmeasurecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Standard code identifying the unit of measure for the quantity."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/unitmeasurecode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "bomlevel"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Indicates the depth the component is from its parent (AssemblyID)."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/bomlevel"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "perassemblyqty"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Quantity of the component needed to create the assembly."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/perassemblyqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/billofmaterials/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "culture"
+    physicalName: "culture"
+    physicalType: "table"
+    description: "Lookup table containing the languages in which some AdventureWorks\
+      \ data is stored."
+    properties:
+    - name: "cultureid"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Primary key for Culture records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/culture/cultureid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Culture description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/culture/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/culture/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "document"
+    physicalName: "document"
+    physicalType: "table"
+    description: "Product maintenance documents."
+    properties:
+    - name: "title"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Title of the document."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/title"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "owner"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Employee who controls the document.  Foreign key to Employee.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/owner"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "folderflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = This is a folder, 1 = This is a document."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/folderflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "filename"
+      logicalType: "string"
+      physicalType: "varchar[400]"
+      description: "File name of the document"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/filename"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "fileextension"
+      logicalType: "string"
+      physicalType: "varchar[8]"
+      description: "File extension indicating the document type. For example, .doc\
+        \ or .txt."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/fileextension"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "revision"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Revision number of the document."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/revision"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "changenumber"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Engineering change approval number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/changenumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "status"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "1 = Pending approval, 2 = Approved, 3 = Obsolete"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/status"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "documentsummary"
+      logicalType: "string"
+      physicalType: "text"
+      description: "Document abstract."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/documentsummary"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "document"
+      logicalType: "string"
+      physicalType: "bytea"
+      description: "Complete document."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/document"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      description: "ROWGUIDCOL number uniquely identifying the record. Required for\
+        \ FileStream."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "documentnode"
+      logicalType: "string"
+      physicalType: "varchar[2147483647]"
+      description: "Primary key for Document records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/document/documentnode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+  - name: "illustration"
+    physicalName: "illustration"
+    physicalType: "table"
+    description: "Bicycle assembly diagrams."
+    properties:
+    - name: "illustrationid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Illustration records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/illustration/illustrationid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "diagram"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Illustrations used in manufacturing instructions. Stored as XML."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/illustration/diagram"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/illustration/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "location"
+    physicalName: "location"
+    physicalType: "table"
+    description: "Product inventory and manufacturing locations."
+    properties:
+    - name: "locationid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Location records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/location/locationid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Location description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/location/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "costrate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Standard hourly cost of the manufacturing location."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/location/costrate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "availability"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Work capacity (in hours) of the manufacturing location."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/location/availability"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/location/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "product"
+    physicalName: "product"
+    physicalType: "table"
+    description: "Products sold or used in the manfacturing of sold products."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for Product records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productnumber"
+      logicalType: "string"
+      physicalType: "varchar[25]"
+      description: "Unique product identification number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/productnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "makeflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Product is purchased, 1 = Product is manufactured in-house."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/makeflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "finishedgoodsflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Product is not a salable item. 1 = Product is salable."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/finishedgoodsflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "color"
+      logicalType: "string"
+      physicalType: "varchar[15]"
+      description: "Product color."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/color"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "safetystocklevel"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Minimum inventory quantity."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/safetystocklevel"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "reorderpoint"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Inventory level that triggers a purchase order or work order."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/reorderpoint"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "standardcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Standard cost of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/standardcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "listprice"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Selling price."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/listprice"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "size"
+      logicalType: "string"
+      physicalType: "varchar[5]"
+      description: "Product size."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/size"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "sizeunitmeasurecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Unit of measure for Size column."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/sizeunitmeasurecode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "weightunitmeasurecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Unit of measure for Weight column."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/weightunitmeasurecode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "weight"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Product weight."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/weight"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "daystomanufacture"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Number of days required to manufacture the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/daystomanufacture"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productline"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "R = Road, M = Mountain, T = Touring, S = Standard"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/productline"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "class"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "H = High, M = Medium, L = Low"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/class"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "style"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "W = Womens, M = Mens, U = Universal"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/style"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productsubcategoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product is a member of this product subcategory. Foreign key to\
+        \ ProductSubCategory.ProductSubCategoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/productsubcategoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productmodelid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product is a member of this product model. Foreign key to ProductModel.ProductModelID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/productmodelid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "sellstartdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the product was available for sale."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/sellstartdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "sellenddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the product was no longer available for sale."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/sellenddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "discontinueddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the product was discontinued."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/discontinueddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/product/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productcategory"
+    physicalName: "productcategory"
+    physicalType: "table"
+    description: "High-level product categorization."
+    properties:
+    - name: "productcategoryid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductCategory records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcategory/productcategoryid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Category description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcategory/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcategory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcategory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productcosthistory"
+    physicalName: "productcosthistory"
+    physicalType: "table"
+    description: "Changes in the cost of a product over time."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcosthistory/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Product cost start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcosthistory/startdate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Product cost end date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcosthistory/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "standardcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Standard cost of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcosthistory/standardcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productcosthistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productdescription"
+    physicalName: "productdescription"
+    physicalType: "table"
+    description: "Product descriptions in several languages."
+    properties:
+    - name: "productdescriptionid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductDescription records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdescription/productdescriptionid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "description"
+      logicalType: "string"
+      physicalType: "varchar[400]"
+      description: "Description of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdescription/description"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdescription/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdescription/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productdocument"
+    physicalName: "productdocument"
+    physicalType: "table"
+    description: "Cross-reference table mapping products to related product documents."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdocument/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdocument/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "documentnode"
+      logicalType: "string"
+      physicalType: "varchar[2147483647]"
+      description: "Document identification number. Foreign key to Document.DocumentNode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productdocument/documentnode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+  - name: "productinventory"
+    physicalName: "productinventory"
+    physicalType: "table"
+    description: "Product inventory information."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "locationid"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Inventory location identification number. Foreign key to Location.LocationID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/locationid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "shelf"
+      logicalType: "string"
+      physicalType: "varchar[10]"
+      description: "Storage compartment within an inventory location."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/shelf"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "bin"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Storage container on a shelf in an inventory location."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/bin"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "quantity"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Quantity of products in the inventory location."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/quantity"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productinventory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productlistpricehistory"
+    physicalName: "productlistpricehistory"
+    physicalType: "table"
+    description: "Changes in the list price of a product over time."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productlistpricehistory/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "List price start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productlistpricehistory/startdate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "List price end date"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productlistpricehistory/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "listprice"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Product list price."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productlistpricehistory/listprice"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productlistpricehistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productmodel"
+    physicalName: "productmodel"
+    physicalType: "table"
+    description: "Product model classification."
+    properties:
+    - name: "productmodelid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductModel records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/productmodelid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Product model description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "catalogdescription"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Detailed product catalog information in xml format."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/catalogdescription"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "instructions"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Manufacturing instructions in xml format."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/instructions"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodel/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productmodelillustration"
+    physicalName: "productmodelillustration"
+    physicalType: "table"
+    description: "Cross-reference table mapping product models and illustrations."
+    properties:
+    - name: "productmodelid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to ProductModel.ProductModelID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelillustration/productmodelid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "illustrationid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Illustration.IllustrationID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelillustration/illustrationid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelillustration/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productmodelproductdescriptionculture"
+    physicalName: "productmodelproductdescriptionculture"
+    physicalType: "table"
+    description: "Cross-reference table mapping product descriptions and the language\
+      \ the description is written in."
+    properties:
+    - name: "productmodelid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to ProductModel.ProductModelID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelproductdescriptionculture/productmodelid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productdescriptionid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to ProductDescription.ProductDescriptionID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelproductdescriptionculture/productdescriptionid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "cultureid"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Culture identification number. Foreign key to Culture.CultureID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelproductdescriptionculture/cultureid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productmodelproductdescriptionculture/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productphoto"
+    physicalName: "productphoto"
+    physicalType: "table"
+    description: "Product images."
+    properties:
+    - name: "productphotoid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductPhoto records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/productphotoid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "thumbnailphoto"
+      logicalType: "string"
+      physicalType: "bytea"
+      description: "Small image of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/thumbnailphoto"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "thumbnailphotofilename"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Small image file name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/thumbnailphotofilename"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "largephoto"
+      logicalType: "string"
+      physicalType: "bytea"
+      description: "Large image of the product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/largephoto"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "largephotofilename"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Large image file name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/largephotofilename"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productphoto/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productproductphoto"
+    physicalName: "productproductphoto"
+    physicalType: "table"
+    description: "Cross-reference table mapping products and product photos."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productproductphoto/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productphotoid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product photo identification number. Foreign key to ProductPhoto.ProductPhotoID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productproductphoto/productphotoid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "primary"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Photo is not the principal image. 1 = Photo is the principal\
+        \ image."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productproductphoto/primary"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productproductphoto/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productreview"
+    physicalName: "productreview"
+    physicalType: "table"
+    description: "Customer reviews of products they have purchased."
+    properties:
+    - name: "productreviewid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductReview records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/productreviewid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "reviewername"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the reviewer."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/reviewername"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "reviewdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date review was submitted."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/reviewdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "emailaddress"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Reviewer's e-mail address."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/emailaddress"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rating"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product rating given by the reviewer. Scale is 1 to 5 with 5 as\
+        \ the highest rating."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/rating"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "comments"
+      logicalType: "string"
+      physicalType: "varchar[3850]"
+      description: "Reviewer's comments"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/comments"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productreview/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productsubcategory"
+    physicalName: "productsubcategory"
+    physicalType: "table"
+    description: "Product subcategories. See ProductCategory table."
+    properties:
+    - name: "productsubcategoryid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ProductSubcategory records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productsubcategory/productsubcategoryid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productcategoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product category identification number. Foreign key to ProductCategory.ProductCategoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productsubcategory/productcategoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Subcategory description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productsubcategory/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productsubcategory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productsubcategory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "scrapreason"
+    physicalName: "scrapreason"
+    physicalType: "table"
+    description: "Manufacturing failure reasons lookup table."
+    properties:
+    - name: "scrapreasonid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ScrapReason records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/scrapreason/scrapreasonid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Failure description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/scrapreason/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/scrapreason/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "transactionhistory"
+    physicalName: "transactionhistory"
+    physicalType: "table"
+    description: "Record of each purchase order, sales order, or work order transaction\
+      \ year to date."
+    properties:
+    - name: "transactionid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for TransactionHistory records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/transactionid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "referenceorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Purchase order, sales order, or work order identification number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/referenceorderid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "referenceorderlineid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Line number associated with the purchase order, sales order, or\
+        \ work order."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/referenceorderlineid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "transactiondate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date and time of the transaction."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/transactiondate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "transactiontype"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "W = WorkOrder, S = SalesOrder, P = PurchaseOrder"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/transactiontype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "quantity"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product quantity."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/quantity"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Product cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/actualcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "transactionhistoryarchive"
+    physicalName: "transactionhistoryarchive"
+    physicalType: "table"
+    description: "Transactions for previous years."
+    properties:
+    - name: "transactionid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for TransactionHistoryArchive records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/transactionid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "referenceorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Purchase order, sales order, or work order identification number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/referenceorderid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "referenceorderlineid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Line number associated with the purchase order, sales order, or\
+        \ work order."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/referenceorderlineid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "transactiondate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date and time of the transaction."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/transactiondate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "transactiontype"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "W = Work Order, S = Sales Order, P = Purchase Order"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/transactiontype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "quantity"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product quantity."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/quantity"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Product cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/actualcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/transactionhistoryarchive/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "unitmeasure"
+    physicalName: "unitmeasure"
+    physicalType: "table"
+    description: "Unit of measure lookup table."
+    properties:
+    - name: "unitmeasurecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Primary key."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/unitmeasure/unitmeasurecode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Unit of measure description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/unitmeasure/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/unitmeasure/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "workorder"
+    physicalName: "workorder"
+    physicalType: "table"
+    description: "Manufacturing work orders."
+    properties:
+    - name: "workorderid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for WorkOrder records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/workorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "orderqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product quantity to build."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/orderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "scrappedqty"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Quantity that failed inspection."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/scrappedqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Work order start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/startdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Work order end date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "duedate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Work order due date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/duedate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "scrapreasonid"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Reason for inspection failure."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/scrapreasonid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorder/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "workorderrouting"
+    physicalName: "workorderrouting"
+    physicalType: "table"
+    description: "Work order details."
+    properties:
+    - name: "workorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to WorkOrder.WorkOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/workorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "operationsequence"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Primary key. Indicates the manufacturing process sequence."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/operationsequence"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "locationid"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Manufacturing location where the part is processed. Foreign key\
+        \ to Location.LocationID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/locationid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "scheduledstartdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Planned manufacturing start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/scheduledstartdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "scheduledenddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Planned manufacturing end date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/scheduledenddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualstartdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Actual start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/actualstartdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualenddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Actual end date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/actualenddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualresourcehrs"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Number of manufacturing hours used."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/actualresourcehrs"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "plannedcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Estimated manufacturing cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/plannedcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "actualcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Actual manufacturing cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/actualcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/workorderrouting/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "productvendor"
+    physicalName: "productvendor"
+    physicalType: "table"
+    description: "Cross-reference table mapping vendors with the products they supply."
+    properties:
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Vendor.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "averageleadtime"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "The average span of time (in days) between placing an order with\
+        \ the vendor and receiving the purchased product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/averageleadtime"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "standardprice"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "The vendor's usual selling price."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/standardprice"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "lastreceiptcost"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "The selling price when last purchased."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/lastreceiptcost"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "lastreceiptdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the product was last received by the vendor."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/lastreceiptdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "minorderqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "The maximum quantity that should be ordered."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/minorderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "maxorderqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "The minimum quantity that should be ordered."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/maxorderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "onorderqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "The quantity currently on order."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/onorderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "unitmeasurecode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "The product's unit of measure."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/unitmeasurecode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/productvendor/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "purchaseorderdetail"
+    physicalName: "purchaseorderdetail"
+    physicalType: "table"
+    description: "Individual products associated with a specific purchase order. See\
+      \ PurchaseOrderHeader."
+    properties:
+    - name: "purchaseorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to PurchaseOrderHeader.PurchaseOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/purchaseorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "purchaseorderdetailid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key. One line number per purchased product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/purchaseorderdetailid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "duedate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the product is expected to be received."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/duedate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "orderqty"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Quantity ordered."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/orderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "unitprice"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Vendor's selling price of a single product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/unitprice"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "receivedqty"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Quantity actually received from the vendor."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/receivedqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rejectedqty"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Quantity rejected during inspection."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/rejectedqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderdetail/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "purchaseorderheader"
+    physicalName: "purchaseorderheader"
+    physicalType: "table"
+    description: "General purchase order information. See PurchaseOrderDetail."
+    properties:
+    - name: "purchaseorderid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/purchaseorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "revisionnumber"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Incremental number to track changes to the purchase order over\
+        \ time."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/revisionnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "status"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Order current status. 1 = Pending; 2 = Approved; 3 = Rejected;\
+        \ 4 = Complete"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/status"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "employeeid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Employee who created the purchase order. Foreign key to Employee.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/employeeid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "vendorid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Vendor with whom the purchase order is placed. Foreign key to\
+        \ Vendor.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/vendorid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shipmethodid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Shipping method. Foreign key to ShipMethod.ShipMethodID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/shipmethodid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "orderdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Purchase order creation date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/orderdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shipdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Estimated shipment date from the vendor."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/shipdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "subtotal"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Purchase order subtotal. Computed as SUM(PurchaseOrderDetail.LineTotal)for\
+        \ the appropriate PurchaseOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/subtotal"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "taxamt"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Tax amount."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/taxamt"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "freight"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Shipping cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/freight"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/purchaseorderheader/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "shipmethod"
+    physicalName: "shipmethod"
+    physicalType: "table"
+    description: "Shipping company lookup table."
+    properties:
+    - name: "shipmethodid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ShipMethod records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/shipmethodid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Shipping company name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shipbase"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Minimum shipping charge."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/shipbase"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shiprate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Shipping charge per pound."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/shiprate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shipmethod/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "vendor"
+    physicalName: "vendor"
+    physicalType: "table"
+    description: "Companies from whom Adventure Works Cycles purchases parts or other\
+      \ goods."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for Vendor records.  Foreign key to BusinessEntity.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "accountnumber"
+      logicalType: "object"
+      physicalType: "AccountNumber"
+      description: "Vendor account (identification) number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/accountnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Company name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "creditrating"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "1 = Superior, 2 = Excellent, 3 = Above average, 4 = Average, 5\
+        \ = Below average"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/creditrating"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "preferredvendorstatus"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Do not use if another vendor is available. 1 = Preferred over\
+        \ other vendors supplying the same product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/preferredvendorstatus"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "activeflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Vendor no longer used. 1 = Vendor is actively used."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/activeflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "purchasingwebserviceurl"
+      logicalType: "string"
+      physicalType: "varchar[1024]"
+      description: "Vendor URL."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/purchasingwebserviceurl"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/vendor/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "countryregioncurrency"
+    physicalName: "countryregioncurrency"
+    physicalType: "table"
+    description: "Cross-reference table mapping ISO currency codes to a country or\
+      \ region."
+    properties:
+    - name: "countryregioncode"
+      logicalType: "string"
+      physicalType: "varchar[3]"
+      description: "ISO code for countries and regions. Foreign key to CountryRegion.CountryRegionCode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregioncurrency/countryregioncode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "currencycode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "ISO standard currency code. Foreign key to Currency.CurrencyCode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregioncurrency/currencycode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/countryregioncurrency/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "creditcard"
+    physicalName: "creditcard"
+    physicalType: "table"
+    description: "Customer credit card information."
+    properties:
+    - name: "creditcardid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for CreditCard records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/creditcardid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "cardtype"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Credit card name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/cardtype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "cardnumber"
+      logicalType: "string"
+      physicalType: "varchar[25]"
+      description: "Credit card number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/cardnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "expmonth"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Credit card expiration month."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/expmonth"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "expyear"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Credit card expiration year."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/expyear"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/creditcard/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "currency"
+    physicalName: "currency"
+    physicalType: "table"
+    description: "Lookup table containing standard ISO currencies."
+    properties:
+    - name: "currencycode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "The ISO code for the Currency."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currency/currencycode"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Currency name."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currency/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currency/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "currencyrate"
+    physicalName: "currencyrate"
+    physicalType: "table"
+    description: "Currency exchange rates."
+    properties:
+    - name: "currencyrateid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for CurrencyRate records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/currencyrateid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "currencyratedate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date and time the exchange rate was obtained."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/currencyratedate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "fromcurrencycode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Exchange rate was converted from this currency code."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/fromcurrencycode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "tocurrencycode"
+      logicalType: "string"
+      physicalType: "bpchar"
+      description: "Exchange rate was converted to this currency code."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/tocurrencycode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "averagerate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Average exchange rate for the day."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/averagerate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "endofdayrate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Final exchange rate for the day."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/endofdayrate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/currencyrate/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "customer"
+    physicalName: "customer"
+    physicalType: "table"
+    description: "Current customer information. Also see the Person and Store tables."
+    properties:
+    - name: "customerid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/customerid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "personid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Foreign key to Person.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/personid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "storeid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Foreign key to Store.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/storeid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "ID of the territory in which the customer is located. Foreign\
+        \ key to SalesTerritory.SalesTerritoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/territoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/customer/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "personcreditcard"
+    physicalName: "personcreditcard"
+    physicalType: "table"
+    description: "Cross-reference table mapping people to their credit card information\
+      \ in the CreditCard table."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Business entity identification number. Foreign key to Person.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personcreditcard/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "creditcardid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Credit card identification number. Foreign key to CreditCard.CreditCardID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personcreditcard/creditcardid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/personcreditcard/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesorderdetail"
+    physicalName: "salesorderdetail"
+    physicalType: "table"
+    description: "Individual products associated with a specific sales order. See\
+      \ SalesOrderHeader."
+    properties:
+    - name: "salesorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to SalesOrderHeader.SalesOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/salesorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "salesorderdetailid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key. One incremental unique number per product sold."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/salesorderdetailid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "carriertrackingnumber"
+      logicalType: "string"
+      physicalType: "varchar[25]"
+      description: "Shipment tracking number supplied by the shipper."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/carriertrackingnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "orderqty"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Quantity ordered per product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/orderqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product sold to customer. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "specialofferid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Promotional code. Foreign key to SpecialOffer.SpecialOfferID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/specialofferid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "unitprice"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Selling price of a single product."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/unitprice"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "unitpricediscount"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Discount amount."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/unitpricediscount"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderdetail/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesorderheader"
+    physicalName: "salesorderheader"
+    physicalType: "table"
+    description: "General sales order information."
+    properties:
+    - name: "salesorderid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/salesorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "revisionnumber"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Incremental number to track changes to the sales order over time."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/revisionnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "orderdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Dates the sales order was created."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/orderdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "duedate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the order is due to the customer."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/duedate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shipdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the order was shipped to the customer."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/shipdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "status"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "Order current status. 1 = In process; 2 = Approved; 3 = Backordered;\
+        \ 4 = Rejected; 5 = Shipped; 6 = Cancelled"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/status"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "onlineorderflag"
+      logicalType: "object"
+      physicalType: "Flag"
+      description: "0 = Order placed by sales person. 1 = Order placed online by customer."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/onlineorderflag"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "purchaseordernumber"
+      logicalType: "object"
+      physicalType: "OrderNumber"
+      description: "Customer purchase order number reference."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/purchaseordernumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "accountnumber"
+      logicalType: "object"
+      physicalType: "AccountNumber"
+      description: "Financial accounting number reference."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/accountnumber"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "customerid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Customer identification number. Foreign key to Customer.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/customerid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salespersonid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Sales person who created the sales order. Foreign key to SalesPerson.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/salespersonid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Territory in which the sale was made. Foreign key to SalesTerritory.SalesTerritoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/territoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "billtoaddressid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Customer billing address. Foreign key to Address.AddressID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/billtoaddressid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shiptoaddressid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Customer shipping address. Foreign key to Address.AddressID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/shiptoaddressid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "shipmethodid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Shipping method. Foreign key to ShipMethod.ShipMethodID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/shipmethodid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "creditcardid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Credit card identification number. Foreign key to CreditCard.CreditCardID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/creditcardid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "creditcardapprovalcode"
+      logicalType: "string"
+      physicalType: "varchar[15]"
+      description: "Approval code provided by the credit card company."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/creditcardapprovalcode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "currencyrateid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Currency exchange rate used. Foreign key to CurrencyRate.CurrencyRateID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/currencyrateid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "subtotal"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales subtotal. Computed as SUM(SalesOrderDetail.LineTotal)for\
+        \ the appropriate SalesOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/subtotal"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "taxamt"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Tax amount."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/taxamt"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "freight"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Shipping cost."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/freight"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "totaldue"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Total due from customer. Computed as Subtotal + TaxAmt + Freight."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/totaldue"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "comment"
+      logicalType: "string"
+      physicalType: "varchar[128]"
+      description: "Sales representative comments."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/comment"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheader/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesorderheadersalesreason"
+    physicalName: "salesorderheadersalesreason"
+    physicalType: "table"
+    description: "Cross-reference table mapping sales orders to sales reason codes."
+    properties:
+    - name: "salesorderid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to SalesOrderHeader.SalesOrderID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheadersalesreason/salesorderid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "salesreasonid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to SalesReason.SalesReasonID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheadersalesreason/salesreasonid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesorderheadersalesreason/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesperson"
+    physicalName: "salesperson"
+    physicalType: "table"
+    description: "Sales representative current information."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for SalesPerson records. Foreign key to Employee.BusinessEntityID"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Territory currently assigned to. Foreign key to SalesTerritory.SalesTerritoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/territoryid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salesquota"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Projected yearly sales."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/salesquota"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "bonus"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Bonus due if quota is met."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/bonus"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "commissionpct"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Commision percent received per sale."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/commissionpct"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salesytd"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales total year to date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/salesytd"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "saleslastyear"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales total of previous year."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/saleslastyear"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesperson/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salespersonquotahistory"
+    physicalName: "salespersonquotahistory"
+    physicalType: "table"
+    description: "Sales performance tracking."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Sales person identification number. Foreign key to SalesPerson.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salespersonquotahistory/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "quotadate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Sales quota date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salespersonquotahistory/quotadate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "salesquota"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales quota amount."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salespersonquotahistory/salesquota"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salespersonquotahistory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salespersonquotahistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesreason"
+    physicalName: "salesreason"
+    physicalType: "table"
+    description: "Lookup table of customer purchase reasons."
+    properties:
+    - name: "salesreasonid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for SalesReason records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesreason/salesreasonid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Sales reason description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesreason/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "reasontype"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Category the sales reason belongs to."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesreason/reasontype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesreason/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salestaxrate"
+    physicalName: "salestaxrate"
+    physicalType: "table"
+    description: "Tax rate lookup table."
+    properties:
+    - name: "salestaxrateid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for SalesTaxRate records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/salestaxrateid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "stateprovinceid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "State, province, or country/region the sales tax applies to."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/stateprovinceid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "taxtype"
+      logicalType: "number"
+      physicalType: "int2"
+      description: "1 = Tax applied to retail transactions, 2 = Tax applied to wholesale\
+        \ transactions, 3 = Tax applied to all sales (retail and wholesale) transactions."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/taxtype"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "taxrate"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Tax rate amount."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/taxrate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Tax rate description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salestaxrate/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesterritory"
+    physicalName: "salesterritory"
+    physicalType: "table"
+    description: "Sales territory lookup table."
+    properties:
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for SalesTerritory records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/territoryid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Sales territory description"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "countryregioncode"
+      logicalType: "string"
+      physicalType: "varchar[3]"
+      description: "ISO standard country or region code. Foreign key to CountryRegion.CountryRegionCode."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/countryregioncode"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "group"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Geographic area to which the sales territory belong."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/group"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salesytd"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales in the territory year to date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/salesytd"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "saleslastyear"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Sales in the territory the previous year."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/saleslastyear"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "costytd"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Business costs in the territory year to date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/costytd"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "costlastyear"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Business costs in the territory the previous year."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/costlastyear"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "salesterritoryhistory"
+    physicalName: "salesterritoryhistory"
+    physicalType: "table"
+    description: "Sales representative transfers to other sales territories."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. The sales rep.  Foreign key to SalesPerson.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "territoryid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Territory identification number. Foreign key to SalesTerritory.SalesTerritoryID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/territoryid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Primary key. Date the sales representive started work in the territory."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/startdate"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the sales representative left work in the territory."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/salesterritoryhistory/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "shoppingcartitem"
+    physicalName: "shoppingcartitem"
+    physicalType: "table"
+    description: "Contains online customer orders until the order is submitted or\
+      \ cancelled."
+    properties:
+    - name: "shoppingcartitemid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for ShoppingCartItem records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/shoppingcartitemid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "shoppingcartid"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Shopping cart identification number."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/shoppingcartid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "quantity"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product quantity ordered."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/quantity"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product ordered. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/productid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "datecreated"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Date the time the record was created."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/datecreated"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/shoppingcartitem/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "specialoffer"
+    physicalName: "specialoffer"
+    physicalType: "table"
+    description: "Sale discounts lookup table."
+    properties:
+    - name: "specialofferid"
+      logicalType: "number"
+      physicalType: "serial"
+      description: "Primary key for SpecialOffer records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/specialofferid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "description"
+      logicalType: "string"
+      physicalType: "varchar[255]"
+      description: "Discount description."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/description"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "discountpct"
+      logicalType: "number"
+      physicalType: "numeric"
+      description: "Discount precentage."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/discountpct"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "type"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Discount type category."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/type"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "category"
+      logicalType: "string"
+      physicalType: "varchar[50]"
+      description: "Group the discount applies to such as Reseller or Customer."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/category"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "startdate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Discount start date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/startdate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "enddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      description: "Discount end date."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/enddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "minqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Minimum discount percent allowed."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/minqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "maxqty"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Maximum discount percent allowed."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/maxqty"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialoffer/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "specialofferproduct"
+    physicalName: "specialofferproduct"
+    physicalType: "table"
+    description: "Cross-reference table mapping products to special offer discounts."
+    properties:
+    - name: "specialofferid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key for SpecialOfferProduct records."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialofferproduct/specialofferid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "productid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Product identification number. Foreign key to Product.ProductID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialofferproduct/productid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialofferproduct/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/specialofferproduct/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+  - name: "store"
+    physicalName: "store"
+    physicalType: "table"
+    description: "Customers (resellers) of Adventure Works products."
+    properties:
+    - name: "businessentityid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "Primary key. Foreign key to Customer.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/businessentityid"
+      criticalDataElement: false
+      primaryKey: true
+      required: false
+    - name: "name"
+      logicalType: "object"
+      physicalType: "Name"
+      description: "Name of the store."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/name"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "salespersonid"
+      logicalType: "number"
+      physicalType: "int4"
+      description: "ID of the sales person assigned to the customer. Foreign key to\
+        \ SalesPerson.BusinessEntityID."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/salespersonid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "demographics"
+      logicalType: "string"
+      physicalType: "xml"
+      description: "Demographic informationg about the store such as the number of\
+        \ employees, annual sales and store type."
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/demographics"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "rowguid"
+      logicalType: "string"
+      physicalType: "uuid"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/rowguid"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+    - name: "modifieddate"
+      logicalType: "date"
+      physicalType: "timestamp"
+      partitioned: false
+      authoritativeDefinitions:
+      - type: "implementation"
+        url: "jdbc:postgresql://localhost:5432/adventureworks/store/modifieddate"
+      criticalDataElement: false
+      primaryKey: false
+      required: false
+contractCreatedTs: "2023-09-28T20:24:49.331+00:00"
+

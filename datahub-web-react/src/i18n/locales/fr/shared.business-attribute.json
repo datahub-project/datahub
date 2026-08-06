@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Ajouter un attribut",
+    "addError": "Échec de l'ajout: \n {{error}}",
+    "addSuccess": "Attribut ajouté!",
+    "modal.addTitle": "Ajouter {{entityName}}",
+    "modal.removeTitle": "Retirer {{entityName}}",
+    "removeAttributeError": "Échec du retrait de l'attribut: \n {{error}}",
+    "removeConfirm.content": "Voulez-vous vraiment retirer l'attribut {{attributeName}}?",
+    "removeConfirm.title": "Retirer l'attribut {{attributeName}}?",
+    "removeError": "Échec du retrait: \n {{error}}",
+    "removeSuccess": "Attribut retiré!",
+    "searchPlaceholder": "Rechercher {{entityName}}..."
+}

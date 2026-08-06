@@ -144,6 +144,7 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Debezium JDBC Sink**<br/>`io.debezium.connector.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
 | **ClickHouse Sink**<br/>`com.clickhouse.kafka.connect.ClickHouseSinkConnector` | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Iceberg Sink**<br/>`org.apache.iceberg.connect.IcebergSinkConnector`         | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Confluent JDBC Sink**<br/>`io.confluent.connect.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
 
 **Legend:**

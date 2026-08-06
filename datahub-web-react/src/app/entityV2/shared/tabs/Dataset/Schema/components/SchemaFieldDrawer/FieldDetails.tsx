@@ -88,6 +88,7 @@ type FieldDetailsProps = {
 
 export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refetchNotes }: FieldDetailsProps) => {
     const { t } = useTranslation('entity.profile.schema');
+    const { t: te } = useTranslation('entity.shared.entityDropdown');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
@@ -106,6 +107,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                             subResourceType: SubResourceType.DatasetField,
                         },
                     ]}
+                    initialDeprecation={deprecation?.deprecated ? deprecation : null}
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetch}
                     zIndexOverride={1000}
@@ -154,16 +156,24 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                         </MarkAsDeprecatedButtonContainer>
                     )}
                     {!!deprecation?.deprecated && (
-                        <DeprecationIcon
-                            urn={datasetUrn}
-                            subResource={fieldPath}
-                            subResourceType={SubResourceType.DatasetField}
-                            deprecation={deprecation}
-                            showUndeprecate
-                            refetch={refetch}
-                            // default zIndex of the popover
-                            zIndexOverride={1030}
-                        />
+                        <>
+                            <DeprecationIcon
+                                urn={datasetUrn}
+                                subResource={fieldPath}
+                                subResourceType={SubResourceType.DatasetField}
+                                deprecation={deprecation}
+                                showUndeprecate
+                                refetch={refetch}
+                                // default zIndex of the popover
+                                zIndexOverride={1030}
+                            />
+                            <MarkAsDeprecatedButtonContainer>
+                                <MarkAsDeprecatedButton
+                                    onClick={() => setIsDeprecationModalVisible(true)}
+                                    internalText={te('deprecation.editDeprecated')}
+                                />
+                            </MarkAsDeprecatedButtonContainer>
+                        </>
                     )}
                 </DeprecationWrapper>
             </FieldDetailsContent>

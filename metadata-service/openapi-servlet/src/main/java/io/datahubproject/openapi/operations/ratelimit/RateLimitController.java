@@ -8,6 +8,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -72,7 +73,8 @@ public class RateLimitController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, operation, List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, operation, List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);

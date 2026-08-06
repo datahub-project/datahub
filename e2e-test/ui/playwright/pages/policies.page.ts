@@ -46,7 +46,7 @@ export class PoliciesPage extends BasePage {
         const deactivateItem = this.page.getByRole('menuitem').getByText('Deactivate');
         if ((await deactivateItem.count()) > 0) {
           await deactivateItem.click();
-          await expect(this.page.getByText('Successfully deactivated policy.')).toBeVisible({ timeout: 15000 });
+          await this.toast.expectVisible('Successfully deactivated policy.', { timeout: 15000 });
         }
       }
     }

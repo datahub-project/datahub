@@ -71,6 +71,14 @@ gradle.projectsEvaluated {
   }
 
   tasks.named('jacocoMergedReport').configure {
+    // classDirectories/sourceDirectories below are plain fileTrees over each module's build
+    // output dirs — wrapping them in fileTree() drops the task-dependency info that
+    // sourceSets.main.output normally carries. Without an explicit edge, Gradle 8's validation
+    // fails the task for consuming compile/codegen/resource outputs without an ordering (see
+    // validation_problems#implicit_dependency). Each tested module's `classes` task transitively
+    // produces all of them (compileJava → codegen, processResources → copyOriginalMXESchemas,
+    // and classes.dependsOn copyGitProperties — see build.gradle), so depend on it.
+    dependsOn testedProjects.collect { it.tasks.named('classes') }
     classDirectories.setFrom(rootProject.files(testedProjects.collect { p ->
       p.sourceSets.main.output.collect { dir -> p.fileTree(dir: dir, excludes: jacocoCoverageExcludes) }
     }))

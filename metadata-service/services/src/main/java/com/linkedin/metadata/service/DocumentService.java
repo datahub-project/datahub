@@ -1,8 +1,13 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
+import com.linkedin.common.SemanticText;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
@@ -47,8 +52,10 @@ import lombok.extern.slf4j.Slf4j;
  * contents and relationships - Updating document contents and relationships - Moving documents
  * within the hierarchy - Searching and listing documents - Deleting documents
  *
- * <p>Note that no Authorization is performed within the service. The expectation is that the caller
- * has already verified the permissions of the active Actor.
+ * <p>Authorization is enforced on public mutating methods and single-document reads via {@link
+ * DocumentAuthorizationUtils}. {@link #searchDocuments} returns only documents the actor can view;
+ * search totals/facets may still reflect the broader index hit set. System authentication
+ * short-circuits those checks so bridge and other system writers continue to work.
  */
 @Slf4j
 public class DocumentService {
@@ -93,12 +100,51 @@ public class DocumentService {
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
+    return createDocument(
+        opContext,
+        id,
+        subTypes,
+        title,
+        source,
+        state,
+        text,
+        parentDocumentUrn,
+        relatedAssetUrns,
+        relatedDocumentUrns,
+        settings,
+        null,
+        actorUrn);
+  }
+
+  /**
+   * Creates a new document with its initial ownership in the same ingest batch.
+   *
+   * @param owners optional initial owners; defaults to the creator
+   */
+  @Nonnull
+  public Urn createDocument(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable List<String> subTypes,
+      @Nullable String title,
+      @Nullable com.linkedin.knowledge.DocumentSource source,
+      @Nullable com.linkedin.knowledge.DocumentState state,
+      @Nonnull String text,
+      @Nullable Urn parentDocumentUrn,
+      @Nullable List<Urn> relatedAssetUrns,
+      @Nullable List<Urn> relatedDocumentUrns,
+      @Nullable com.linkedin.knowledge.DocumentSettings settings,
+      @Nullable List<Owner> owners,
+      @Nonnull Urn actorUrn)
+      throws Exception {
 
     // Generate document URN
     final String documentId = id != null ? id : UUID.randomUUID().toString();
     final Urn documentUrn =
         Urn.createFromString(
             String.format("urn:li:%s:%s", Constants.DOCUMENT_ENTITY_NAME, documentId));
+
+    DocumentAuthorizationUtils.assertCanCreate(opContext, documentUrn);
 
     // Check if document already exists
     if (entityClient.exists(opContext, documentUrn)) {
@@ -214,6 +260,20 @@ public class DocumentService {
             documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
     mcps.add(settingsMcp);
 
+    final List<Owner> initialOwners;
+    if (owners != null && !owners.isEmpty()) {
+      initialOwners = owners;
+    } else {
+      final Owner creatorOwner = new Owner();
+      creatorOwner.setOwner(actorUrn);
+      creatorOwner.setType(OwnershipType.TECHNICAL_OWNER);
+      initialOwners = Collections.singletonList(creatorOwner);
+    }
+    final MetadataChangeProposal ownershipMcp =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn, Constants.OWNERSHIP_ASPECT_NAME, buildOwnership(initialOwners, actorUrn));
+    mcps.add(ownershipMcp);
+
     // Ingest the document with all aspects
     entityClient.batchIngestProposals(opContext, mcps, false);
 
@@ -232,6 +292,13 @@ public class DocumentService {
   @Nullable
   public DocumentInfo getDocumentInfo(@Nonnull OperationContext opContext, @Nonnull Urn documentUrn)
       throws Exception {
+    DocumentAuthorizationUtils.assertCanView(opContext, documentUrn);
+    return getDocumentInfoWithoutAuthorization(opContext, documentUrn);
+  }
+
+  @Nullable
+  private DocumentInfo getDocumentInfoWithoutAuthorization(
+      @Nonnull OperationContext opContext, @Nonnull Urn documentUrn) throws Exception {
 
     final EntityResponse response =
         entityClient.getV2(
@@ -267,9 +334,34 @@ public class DocumentService {
       @Nullable List<String> subTypes,
       @Nonnull Urn actorUrn)
       throws Exception {
+    updateDocumentContents(opContext, documentUrn, text, null, title, subTypes, actorUrn);
+  }
+
+  /**
+   * Updates the contents of a document, including an optional dedicated semantic-search payload.
+   *
+   * @param opContext the operation context
+   * @param documentUrn the document URN
+   * @param text the new display text
+   * @param semanticText optional semantic-search content
+   * @param title optional updated title
+   * @param subTypes optional updated sub-types
+   * @throws Exception if update fails
+   */
+  public void updateDocumentContents(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nullable String text,
+      @Nullable String semanticText,
+      @Nullable String title,
+      @Nullable List<String> subTypes,
+      @Nonnull Urn actorUrn)
+      throws Exception {
+
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Get existing info
-    final DocumentInfo existingInfo = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo existingInfo = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (existingInfo == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -277,9 +369,10 @@ public class DocumentService {
 
     // Update text if provided
     if (text != null) {
-      final DocumentContents documentContents = new DocumentContents();
-      documentContents.setText(text);
-      existingInfo.setContents(documentContents);
+      if (!existingInfo.hasContents()) {
+        existingInfo.setContents(new DocumentContents());
+      }
+      existingInfo.getContents().setText(text);
     }
 
     // Update title if provided
@@ -304,6 +397,19 @@ public class DocumentService {
     infoMcp.setChangeType(ChangeType.UPSERT);
     infoMcp.setAspect(GenericRecordUtils.serializeAspect(existingInfo));
     mcps.add(infoMcp);
+
+    // semanticText is a standalone aspect. Only write it when the caller opts in so ordinary
+    // document body/title mutations leave an existing curated embedding source untouched.
+    if (semanticText != null) {
+      final MetadataChangeProposal semanticTextMcp = new MetadataChangeProposal();
+      semanticTextMcp.setEntityUrn(documentUrn);
+      semanticTextMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+      semanticTextMcp.setAspectName(Constants.SEMANTIC_TEXT_ASPECT_NAME);
+      semanticTextMcp.setChangeType(ChangeType.UPSERT);
+      semanticTextMcp.setAspect(
+          GenericRecordUtils.serializeAspect(new SemanticText().setText(semanticText)));
+      mcps.add(semanticTextMcp);
+    }
 
     // Update subTypes if provided
     if (subTypes != null && !subTypes.isEmpty()) {
@@ -344,8 +450,10 @@ public class DocumentService {
       @Nonnull Urn actorUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -417,6 +525,8 @@ public class DocumentService {
       @Nonnull Urn actorUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
@@ -443,7 +553,7 @@ public class DocumentService {
     }
 
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -490,6 +600,8 @@ public class DocumentService {
       @Nonnull Urn actorUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
@@ -497,7 +609,7 @@ public class DocumentService {
     }
 
     // Fetch existing info
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format("Document with URN %s does not exist", documentUrn));
@@ -544,6 +656,8 @@ public class DocumentService {
       @Nonnull Urn actorUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
@@ -565,7 +679,7 @@ public class DocumentService {
     settingsMcp.setAspect(GenericRecordUtils.serializeAspect(settings));
 
     // Also update lastModified timestamp in DocumentInfo
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info != null) {
       final AuditStamp infoLastModified = new AuditStamp();
       infoLastModified.setTime(System.currentTimeMillis());
@@ -606,6 +720,8 @@ public class DocumentService {
       @Nonnull Urn actorUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
+
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
@@ -631,7 +747,7 @@ public class DocumentService {
     subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
 
     // Also update lastModified timestamp in DocumentInfo
-    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
     if (info != null) {
       final AuditStamp lastModified = new AuditStamp();
       lastModified.setTime(System.currentTimeMillis());
@@ -666,6 +782,8 @@ public class DocumentService {
   public void deleteDocument(@Nonnull OperationContext opContext, @Nonnull Urn documentUrn)
       throws Exception {
 
+    DocumentAuthorizationUtils.assertCanDelete(opContext, documentUrn);
+
     // Verify document exists
     if (!entityClient.exists(opContext, documentUrn)) {
       throw new IllegalArgumentException(
@@ -696,21 +814,11 @@ public class DocumentService {
   public void setDocumentOwnership(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
-      @Nonnull java.util.List<com.linkedin.common.Owner> owners,
+      @Nonnull List<Owner> owners,
       @Nonnull Urn actorUrn)
       throws Exception {
 
-    // Create Ownership aspect
-    final Ownership ownership = new Ownership();
-    final OwnerArray ownerArray = new OwnerArray();
-    ownerArray.addAll(owners);
-    ownership.setOwners(ownerArray);
-
-    // Set last modified
-    final AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
-    auditStamp.setActor(actorUrn);
-    ownership.setLastModified(auditStamp);
+    DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Create MCP for ownership
     final MetadataChangeProposal mcp = new MetadataChangeProposal();
@@ -718,11 +826,25 @@ public class DocumentService {
     mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
     mcp.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(ownership));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(buildOwnership(owners, actorUrn)));
 
     entityClient.ingestProposal(opContext, mcp, false);
 
     log.debug("Set ownership for document {} with {} owners", documentUrn, owners.size());
+  }
+
+  @Nonnull
+  private static Ownership buildOwnership(@Nonnull List<Owner> owners, @Nonnull Urn actorUrn) {
+    final Ownership ownership = new Ownership();
+    final OwnerArray ownerArray = new OwnerArray();
+    ownerArray.addAll(owners);
+    ownership.setOwners(ownerArray);
+
+    final AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setActor(actorUrn);
+    ownership.setLastModified(auditStamp);
+    return ownership;
   }
 
   /**
@@ -752,14 +874,26 @@ public class DocumentService {
             ? sortCriterion
             : new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING);
 
-    return entityClient.search(
-        opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-        Constants.DOCUMENT_ENTITY_NAME,
-        query,
-        filter,
-        Collections.singletonList(sort),
-        start,
-        count);
+    SearchResult result =
+        entityClient.search(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            Constants.DOCUMENT_ENTITY_NAME,
+            query,
+            filter,
+            Collections.singletonList(sort),
+            start,
+            count);
+    // Filter unauthorized hits rather than failing the whole page: GraphQL search callers expect
+    // mixed-access result sets, and bridge inheritance can authorize only a subset of documents.
+    result.setEntities(
+        new com.linkedin.metadata.search.SearchEntityArray(
+            result.getEntities().stream()
+                .filter(
+                    entity ->
+                        DocumentAuthorizationUtils.isAuthorizedDocumentOperation(
+                            opContext, READ, entity.getEntity()))
+                .toList()));
+    return result;
   }
 
   /**
@@ -837,7 +971,7 @@ public class DocumentService {
 
     try {
       // Get the parent's document info
-      DocumentInfo parentInfo = getDocumentInfo(opContext, currentParent);
+      DocumentInfo parentInfo = getDocumentInfoWithoutAuthorization(opContext, currentParent);
       if (parentInfo != null && parentInfo.hasParentDocument()) {
         // Recursively check the parent's parent
         Urn grandParent = parentInfo.getParentDocument().getDocument();

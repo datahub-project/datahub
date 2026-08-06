@@ -65,11 +65,12 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="LKML File Loading Error",
                 message="A lookml file is not present on local storage or GitHub",
                 context=f"file path: {path}",
                 exc=e,
+                log=False,
             )
             self.viewfile_cache[path] = None
             return None
@@ -101,11 +102,12 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="LKML File Parsing Error",
                 message="The input file is not lookml file",
                 context=f"file path: {path}",
                 exc=e,
+                log=False,
             )
 
             logger.debug(f"Raw file content for path {path}")
