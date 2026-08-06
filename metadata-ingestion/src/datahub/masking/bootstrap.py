@@ -33,7 +33,11 @@ logger = get_masking_safe_logger(__name__)
 _bootstrap_completed = False
 _bootstrap_error: Optional[Exception] = None
 _original_excepthook = None  # Track original exception hook for restoration
-_bootstrap_lock = threading.Lock()  # Thread safety for concurrent initialization
+# ``RLock`` so reset_instance can re-enter it if reached from inside a locked
+# region (see SecretRegistry.reset_instance). shutdown_secret_masking takes
+# this first, then SecretRegistry._lock; reset_instance calls
+# reset_bootstrap_state (which acquires this) after releasing SecretRegistry._lock.
+_bootstrap_lock = threading.RLock()
 
 
 def is_bootstrapped() -> bool:
@@ -99,19 +103,29 @@ def initialize_secret_masking(
     force: bool = False,
 ) -> Optional[str]:
     """
-    Initialize secret masking infrastructure (logging filter + exception hook).
+    Initialize secret masking infrastructure (logging filter + exception hook)
+    and open a new per-execution secret scope.
 
-    Secrets register automatically at point-of-read.
+    Secrets register automatically at point-of-read. Each call opens a
+    *distinct* scope and returns its token; the caller owns nesting and
+    passes the token to ``shutdown_secret_masking(token)`` when done. Two
+    calls on the same context return different tokens and own different
+    groups, so ending one execution never drops another's secrets or
+    uninstalls the filter while another execution is still live.
 
     Returns:
         The execution token (opaque string) for this scope, or ``None`` if
-        masking is disabled. Pass the token to ``shutdown_secret_masking(token)``
-        when tearing down — this is required when the call site that tears down
-        runs in a different thread/context than the one that initialized (e.g.
-        a dispatcher that starts an execution on one thread and finishes it on
-        another). Without the token, shutdown falls back to the ambient
-        context's scope and is a silent no-op if that context has none
-        (secrets then accumulate for the process lifetime — fails safe).
+        masking is disabled by configuration. A return of ``None`` from a
+        *failed* install is raised as ``RuntimeError`` instead, so a caller
+        can distinguish "off by configuration" from "installation crashed,
+        secrets now reaching logs" — the exact failure shape that made the
+        Python 3.13 ``_acquireLock`` removal silent.
+
+    Raises:
+        RuntimeError: if masking is enabled but installation failed (the
+        filter is not installed and secrets would reach logs unmasked).
+        This is fail-loud for a security control: a silent ``None`` on
+        failure left no signal.
 
     .. deprecated::
         ``force`` is deprecated and ignored. The filter is installed once for the
@@ -136,16 +150,14 @@ def initialize_secret_masking(
 
     # The filter + exception hook are installed once for the process lifetime;
     # they are harmless when no secrets are registered. Only secrets are scoped
-    # per execution (ensure_execution below). `force` is accepted for backward
+    # per execution (begin_execution below). `force` is accepted for backward
     # compatibility but no longer gates anything — installation is idempotent.
     #
     # The install decision uses ``_bootstrap_completed`` as the latch (not
     # ``masking_filter._installed_filter``) so that test mocks patching
-    # ``install_masking_filter`` still latch correctly — deriving purely
-    # from the real installed state would let every concurrent initializer
-    # re-enter when the install is mocked out. The flag MUST be cleared
-    # wherever the filter is uninstalled, or it strands True while the
-    # filter is gone and the next initialize short-circuits with masking off.
+    # ``install_masking_filter`` still latch correctly. The flag MUST be cleared
+    # wherever the filter is uninstalled, or it strands True while the filter
+    # is gone and the next initialize short-circuits with masking off.
     # ``reset_bootstrap_state()`` (called by ``SecretRegistry.reset_instance()``,
     # which tears down the filter) clears it.
     #
@@ -158,29 +170,19 @@ def initialize_secret_masking(
         if not _bootstrap_completed:
             try:
                 logger.info("Initializing secret masking infrastructure")
-
-                # Install logging filter + stdout wrapper (idempotent)
                 install_masking_filter(
                     secret_registry=registry,
                     max_message_size=max_message_size,
                     install_stdout_wrapper=True,
                 )
-
-                # Install custom exception hook to mask unhandled exceptions
                 _install_exception_hook(registry)
-
-                # Configure warnings to use logging
                 logging.captureWarnings(True)
-
-                # Disable HTTP debug output (prevent deadlock)
                 try:
                     import http.client
 
                     http.client.HTTPConnection.debuglevel = 0
                 except Exception:
                     pass
-
-                # Set HTTP-related loggers to INFO (not DEBUG)
                 for logger_name in [
                     "urllib3",
                     "urllib3.connectionpool",
@@ -191,7 +193,6 @@ def initialize_secret_masking(
                         logging.getLogger(logger_name).setLevel(logging.INFO)
                     except Exception:
                         pass
-
                 _bootstrap_completed = True
                 _bootstrap_error = None
                 logger.info(
@@ -200,13 +201,24 @@ def initialize_secret_masking(
                 )
             except Exception as e:
                 _bootstrap_error = e
-                logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
-                return None  # Don't raise - graceful degradation
+                # D7: fail-loud for a security control. A silent None here left
+                # no signal that masking was off — the exact shape that made
+                # the Python 3.13 _acquireLock removal silent. Log at critical
+                # (the masking-safe logger writes to sys.__stderr__, which
+                # survives celery's stderr proxy) and raise so the caller can
+                # decide whether to proceed unmasked.
+                logger.critical(
+                    f"Failed to initialize secret masking: {e}. "
+                    f"Secrets may reach logs unmasked.",
+                    exc_info=True,
+                )
+                raise RuntimeError(f"Secret masking installation failed: {e}") from e
 
-        # Open a secret scope for this execution (idempotent within one context).
-        # Secrets registered after this belong to this execution and are dropped
-        # by the matching shutdown_secret_masking(), without affecting others.
-        exec_id = registry.ensure_execution()
+        # Always open a *distinct* scope per call (D1). The caller owns the
+        # token; a second call on the same context does NOT alias onto an
+        # earlier scope, so ending one execution never drops another's
+        # secrets.
+        exec_id = registry.begin_execution()
         return exec_id
 
 

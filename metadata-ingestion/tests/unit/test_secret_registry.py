@@ -6,7 +6,11 @@ from typing import Iterator
 
 import pytest
 
-from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+from datahub.masking.secret_registry import (
+    _GLOBAL_GROUP,
+    SecretRegistry,
+    is_masking_enabled,
+)
 
 
 @contextlib.contextmanager
@@ -247,6 +251,31 @@ class TestSecretRegistryMaxSecrets:
         # Should not have increased
         assert len(secrets_after) == count_at_max
 
+    def test_register_max_secrets_is_linear_not_quadratic(self):
+        """Acceptance property: registering 10000 secrets one at a time
+        completes in time comparable to the fork-point (linear) impl.
+
+        Pre-D2 the registry did a full _expand_keys rebuild on every admit,
+        making this O(n^2) — ~90s at MAX_SECRETS=10000. Post-D2 the admit
+        path publishes incrementally, so this is O(n). Assert a generous
+        ceiling (10s) that's well under the 90s baseline and well above the
+        ~0.5s the linear path takes, so the test stays robust on slow CI
+        runners while still catching a quadratic regression."""
+        import time
+
+        registry = SecretRegistry()
+        registry.clear()
+        start = time.monotonic()
+        for i in range(SecretRegistry.MAX_SECRETS):
+            registry.register_secret(f"KEY_{i}", f"value_{i}")
+        elapsed = time.monotonic() - start
+        # 10s is ~10x the linear impl's time and ~9x under the quadratic
+        # baseline; a quadratic regression would blow past this easily.
+        assert elapsed < 10.0, (
+            f"Registering {SecretRegistry.MAX_SECRETS} secrets took {elapsed:.2f}s, "
+            "which suggests quadratic behavior (D2 regression). Expected < 10s."
+        )
+
 
 class TestRegisterSecretsBatch:
     """Test batch registration of secrets."""
@@ -457,39 +486,124 @@ class TestAdmitCapacityAndDuplicates:
         )
 
 
-class TestEnsureExecutionStaleToken:
-    """Regression: ensure_execution returns the ambient contextvar value
-    without checking it still names a live group. A token-based end_execution
-    from another thread drops the group but leaves the originating context's
-    contextvar pointing at the dead id, so a later ensure_execution recreates
-    a scope under a dead id and a later token holder targets the wrong scope.
+class TestPerExecutionScoping:
+    """D1: per-execution scoping must not collapse when two executions share a
+    context, and a secret registered on another thread must reach the parent
+    execution's scope when its ``exec_id`` is passed.
     """
 
-    def test_ensure_execution_revalidates_ambient_after_cross_thread_end(self):
+    def test_same_context_overlap_does_not_collapse(self):
+        """Two ``initialize_secret_masking`` on the same context must return
+        distinct tokens and own distinct groups; ending one must not drop
+        the other's secrets or uninstall the filter while the other is live.
+        """
+        from datahub.masking import bootstrap
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        bootstrap.reset_bootstrap_state()
+
+        tok_a = bootstrap.initialize_secret_masking()
+        assert tok_a is not None
+        registry.register_secret("A_PW", "aaa_secret_value")
+        tok_b = bootstrap.initialize_secret_masking()
+        assert tok_b is not None
+        assert tok_a != tok_b, "second initialize aliased onto the first scope"
+        registry.register_secret("B_PW", "bbb_secret_value")
+
+        # A's secret and B's secret are in different groups.
+        assert set(registry._groups[tok_a].keys()) == {"aaa_secret_value"}
+        assert set(registry._groups[tok_b].keys()) == {"bbb_secret_value"}
+
+        # End A. B is still live, so the filter must stay installed and B's
+        # secret must still be registered.
+        bootstrap.shutdown_secret_masking(tok_a)
+        assert "bbb_secret_value" in registry._secrets, (
+            "B's secret was dropped when A ended"
+        )
+        import datahub.masking.masking_filter as mf
+
+        assert mf._installed_filter is not None, (
+            "filter was uninstalled while B's execution is still live"
+        )
+        assert bootstrap.is_bootstrapped()
+
+        # Tear down B.
+        bootstrap.shutdown_secret_masking(tok_b)
+        assert mf._installed_filter is None
+        assert "bbb_secret_value" not in registry._secrets
+
+    def test_register_on_another_thread_lands_in_parent_scope(self):
+        """A secret registered on a worker thread with the parent's
+        ``exec_id`` lands in the parent's scope, not ``__global__``; ending
+        the parent drops it.
+        """
         import threading
 
-        registry = SecretRegistry()
-        registry.clear()
-        tok = registry.ensure_execution()
-        registry.register_secret("A", "aaa_secret_1")
-        assert tok in registry._groups
+        from datahub.masking import bootstrap
 
-        # End from another thread using the token. This drops the group but
-        # does NOT clear this context's contextvar (exec_id != ambient).
-        t = threading.Thread(target=lambda: registry.end_execution(tok))
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        bootstrap.reset_bootstrap_state()
+
+        tok = bootstrap.initialize_secret_masking()
+        assert tok is not None
+        done = threading.Event()
+
+        def worker():
+            registry.register_secret("PW", "sup3rsecret_value", exec_id=tok)
+            done.set()
+
+        t = threading.Thread(target=worker)
         t.start()
         t.join(timeout=5.0)
         assert not t.is_alive(), "worker thread timed out"
-        # The group is gone, but the ambient contextvar still holds tok.
-        assert tok not in registry._groups
 
-        # ensure_execution must revalidate: tok names no live group, so it
-        # must open a fresh scope rather than return the stale tok.
-        new_tok = registry.ensure_execution()
-        assert new_tok != tok, (
-            "ensure_execution returned a stale ambient id that names no live group"
+        # The secret landed in the parent's scope, not __global__.
+        assert tok in registry._groups
+        assert "sup3rsecret_value" in registry._groups[tok]
+        assert _GLOBAL_GROUP not in registry._groups or "sup3rsecret_value" not in (
+            registry._groups.get(_GLOBAL_GROUP, {})
         )
-        assert new_tok in registry._groups
+        assert "sup3rsecret_value" in registry._secrets
+
+        # Ending the parent drops the worker's secret too.
+        bootstrap.shutdown_secret_masking(tok)
+        assert "sup3rsecret_value" not in registry._secrets
+
+    def test_register_without_exec_id_on_other_thread_lands_in_global(self):
+        """Without an explicit ``exec_id``, a secret registered on a worker
+        thread (which has no ambient scope — ContextVars don't cross thread
+        boundaries) lands in ``__global__``. Fails safe (still masked) but
+        not scoped to any execution. Documents the residual.
+        """
+        import threading
+
+        from datahub.masking import bootstrap
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        bootstrap.reset_bootstrap_state()
+
+        tok = bootstrap.initialize_secret_masking()
+        done = threading.Event()
+
+        def worker():
+            registry.register_secret("PW", "worker_secret_value")
+            done.set()
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join(timeout=5.0)
+        assert not t.is_alive()
+
+        # No exec_id -> lands in __global__, still masked.
+        assert "worker_secret_value" in registry._secrets
+        assert "worker_secret_value" in registry._groups.get(_GLOBAL_GROUP, {})
+
+        bootstrap.shutdown_secret_masking(tok)
+        # __global__ is dropped when the last real execution ends.
+        assert "worker_secret_value" not in registry._secrets
 
 
 class TestCaptureRecordsNoLeak:

@@ -1962,9 +1962,17 @@ class TestReviewFixes:
                 assert out.count("bytes truncated for performance") == 1, (
                     f"handler {i} re-truncated: {out!r}"
                 )
-                # The byte count is the ORIGINAL message's overrun, not the
-                # already-truncated string's.
-                expected_bytes = len(big) - 5000
+                # D6: masking runs before truncation now, so the byte count
+                # is the MASKED message's overrun (the secret is replaced by
+                # ***REDACTED:MULTI*** before truncating), not the original
+                # message's overrun. Compute the masked message via the
+                # installed filter so the assertion tracks the real masked
+                # length rather than a hardcoded guess.
+                mf = next(
+                    f for f in handlers[0].filters if isinstance(f, SecretMaskingFilter)
+                )
+                masked_big = mf.mask_text(big)
+                expected_bytes = len(masked_big) - 5000
                 assert str(expected_bytes) in out, (
                     f"handler {i} wrong byte count: {out!r}"
                 )
@@ -2336,10 +2344,16 @@ class TestReviewFixes:
             assert logging.Handler.__init__ is their_init, (
                 "uninstall clobbered another library's Handler.__init__ patch"
             )
-            assert mf_mod._original_handler_init is None
-            assert mf_mod._patched_handler_init is None
+            # S6: on decline we KEEP the saved globals so re-install is
+            # idempotent (the dead patch in lib X's chain reactivates when
+            # _installed_filter is set again) instead of stacking a new
+            # wrapper each cycle.
+            assert mf_mod._original_handler_init is original
+            assert mf_mod._patched_handler_init is our_patch
             # Restore for teardown.
             logging.Handler.__init__ = original  # type: ignore[assignment]
+            mf_mod._original_handler_init = None
+            mf_mod._patched_handler_init = None
         finally:
             if mf_mod._installed_filter is not None:
                 uninstall_masking_filter()
@@ -2381,6 +2395,109 @@ class TestReviewFixes:
                 "covered — the hook must be installed before the scan"
             )
             logging.getLogger().removeHandler(h)
+        finally:
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_exact_masking_namespace_logger_is_bypassed(self):
+        """D3: the bypass predicate in filter() must match the attach-time
+        skip predicate. A record from the logger named exactly
+        ``datahub.masking`` (no trailing dot) must be bypassed, not masked —
+        ``startswith(REDACTED_MASKING_NAMESPACE)`` misses it, so the two
+        call sites used to disagree."""
+        import datahub.masking.masking_filter as mf_mod
+        from datahub.masking.masking_filter import _is_masking_namespace_name
+
+        # The predicate covers both the dotless name and the dotted namespace.
+        assert _is_masking_namespace_name("datahub.masking")
+        assert _is_masking_namespace_name("datahub.masking.foo")
+        assert not _is_masking_namespace_name("datahub.maskingfoo")
+        assert not _is_masking_namespace_name("datahub.ingestion")
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("M_NS", "maskingns_secret_value")
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        ns_logger = logging.getLogger("datahub.masking")
+        ns_logger.addHandler(h)
+        ns_logger.propagate = False
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            ns_logger.info("internal log mentioning maskingns_secret_value")
+            out = cap.getvalue()
+            # The record is bypassed: the secret appears UNMASKED because
+            # the record-name bypass short-circuits. This is correct —
+            # masking-internal loggers carry no secrets and must not re-enter.
+            assert "maskingns_secret_value" in out, (
+                f"datahub.masking record was masked (should be bypassed): {out!r}"
+            )
+            assert "***REDACTED:M_NS***" not in out
+        finally:
+            ns_logger.removeHandler(h)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_truncation_does_not_leak_partial_secret(self):
+        """D6: a secret straddling the truncation cut point must not survive
+        in part. Mask-before-truncate replaces the secret with a redaction
+        token first, so truncating the masked message can only cut tokens,
+        never secret bytes."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("PW", "SUPERSECRETPASSWORD1234")
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(h)
+        try:
+            mf = SecretMaskingFilter(registry, max_message_size=100)
+            # Manually attach so we control max_message_size precisely.
+            h.addFilter(mf)
+            # Secret straddles the 100-char cut.
+            msg = "x" * 90 + "SUPERSECRETPASSWORD1234" + "y" * 200
+            logging.getLogger("datahub.test.trunc").info(msg)
+            out = cap.getvalue()
+            assert "SUPERSECRETPASSWORD1234" not in out, f"full secret leaked: {out!r}"
+            # No partial prefix of the secret should survive either —
+            # mask-before-truncate replaces the whole secret with a
+            # redaction token, so even the secret's first few chars are
+            # gone. (The token itself may be cut by truncation, which is
+            # fine — only the secret must not survive.)
+            for n in range(3, len("SUPERSECRETPASSWORD1234")):
+                assert "SUPERSECRETPASSWORD1234"[:n] not in out, (
+                    f"partial secret prefix ({n} chars) leaked: {out!r}"
+                )
+            # The message was truncated (D6 still truncates after masking).
+            assert "truncated for performance" in out
+        finally:
+            logging.getLogger().removeHandler(h)
+
+    def test_handler_not_on_any_logger_cleaned_on_uninstall(self):
+        """S7: a handler that received the filter via the Handler.__init__
+        hook but is not attached to any logger (held by a QueueListener, or
+        just constructed and never attached) must still have the filter
+        removed on uninstall — _snapshot_handler_pairs only sees
+        handlers on loggers, so without covered-handler tracking this
+        handler would retain the filter."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # Construct a handler AFTER install (hook attaches the filter)
+            # but never attach it to any logger.
+            orphan = logging.StreamHandler(StringIO())
+            assert mf_mod._installed_filter in orphan.filters, (
+                "hook did not attach filter to the orphan handler"
+            )
+            uninstall_masking_filter()
+            assert mf_mod._installed_filter is None
+            assert mf_mod._installed_filter not in orphan.filters, (
+                "orphan handler (not on any logger) retained the filter after uninstall"
+            )
         finally:
             if mf_mod._installed_filter is not None:
                 uninstall_masking_filter()

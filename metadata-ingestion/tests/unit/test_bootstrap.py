@@ -42,8 +42,11 @@ class TestBootstrapErrorHandling:
                 test_exception = Exception("Simulated installation failure")
                 mock_install.side_effect = test_exception
 
-                # Initialize (should fail gracefully)
-                initialize_secret_masking()
+                # D7: initialize now raises on install failure (fail-loud).
+                try:
+                    initialize_secret_masking()
+                except RuntimeError:
+                    pass
 
                 # Verify initialization failed
                 assert not is_bootstrapped(), "Should not be bootstrapped after failure"
@@ -55,17 +58,15 @@ class TestBootstrapErrorHandling:
                     "Should record the actual error"
                 )
 
-            # Second attempt: simulate success
+            # Second attempt: simulate success. The latch was not set on the
+            # failed first attempt, so this re-runs install.
             with patch("datahub.masking.bootstrap.install_masking_filter"):
-                # This time it succeeds (no side_effect)
                 initialize_secret_masking(force=True)
 
-                # Verify initialization succeeded
                 assert is_bootstrapped(), (
                     "Should be bootstrapped after successful retry"
                 )
 
-                # CRITICAL: Verify error was cleared (this is the bug fix)
                 error = get_bootstrap_error()
                 assert error is None, (
                     "Error should be None after successful initialization. "
@@ -78,7 +79,16 @@ class TestBootstrapErrorHandling:
             shutdown_secret_masking()
 
     def test_bootstrap_error_set_on_failure(self):
-        """Verify that _bootstrap_error is set when initialization fails."""
+        """D7: a failed install raises RuntimeError and records the error.
+
+        Previously the failure was silently swallowed (return None), making
+        "off by configuration" indistinguishable from "installation crashed,
+        secrets now reaching logs" — the exact shape that made the Python
+        3.13 ``_acquireLock`` removal silent. Now it fails loud: the caller
+        gets a RuntimeError and a critical log line.
+        """
+        import pytest
+
         from datahub.masking.bootstrap import (
             get_bootstrap_error,
             initialize_secret_masking,
@@ -96,8 +106,11 @@ class TestBootstrapErrorHandling:
                 test_error = ValueError("Test failure during filter installation")
                 mock_install.side_effect = test_error
 
-                # Initialize (should fail gracefully, not raise)
-                initialize_secret_masking()
+                # Initialize must raise (fail-loud for a security control).
+                with pytest.raises(
+                    RuntimeError, match="Secret masking installation failed"
+                ):
+                    initialize_secret_masking()
 
                 # Verify state
                 assert not is_bootstrapped(), "Should not be bootstrapped after failure"

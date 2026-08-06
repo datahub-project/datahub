@@ -417,24 +417,49 @@ class TestBootstrapErrorHandling:
             pass
 
     def test_initialize_with_filter_installation_error(self):
-        """Test that initialization handles filter installation errors."""
+        """D7: initialization raises on filter installation errors (fail-loud
+        for a security control) and records the error."""
         # Mock install_masking_filter to raise an error
         from datahub.masking import bootstrap
 
         def mock_install_fail(*args, **kwargs):
             raise RuntimeError("Simulated installation error")
 
-        with mock.patch.object(
-            bootstrap, "install_masking_filter", side_effect=mock_install_fail
+        critical_calls = []
+        original_critical = bootstrap.logger.critical
+
+        def spy_critical(msg, *args, **kwargs):
+            critical_calls.append(msg)
+            return original_critical(msg, *args, **kwargs)
+
+        with (
+            mock.patch.object(
+                bootstrap, "install_masking_filter", side_effect=mock_install_fail
+            ),
+            mock.patch.object(bootstrap.logger, "critical", side_effect=spy_critical),
         ):
-            # Should not raise, but should log error
-            initialize_secret_masking()
+            # D7: must raise (RuntimeError wrapping the install error), not
+            # silently return None.
+            import pytest
+
+            with pytest.raises(
+                RuntimeError, match="Secret masking installation failed"
+            ):
+                initialize_secret_masking()
 
             # Should have recorded error
             from datahub.masking.bootstrap import get_bootstrap_error
 
             error = get_bootstrap_error()
             assert error is not None
+
+            # Acceptance property: installation failure "appears in logs at
+            # critical". The bootstrap logger is masking-safe (writes to
+            # __stderr__, propagate=False) so caplog can't see it; spy on
+            # logger.critical directly.
+            assert any(
+                "Failed to initialize secret masking" in c for c in critical_calls
+            ), f"expected a critical log for install failure, got: {critical_calls}"
 
 
 class TestSecretRegistryBatchRegistration:
