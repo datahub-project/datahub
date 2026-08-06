@@ -1005,7 +1005,8 @@ class TestSinkAvailableTopicsMigration:
         connector.all_cluster_topics = ["orders", "payments", "unrelated"]
 
         lineages = connector.extract_lineages()
-        assert sorted(lineage.source_dataset for lineage in lineages) == [
-            "orders",
-            "payments",
-        ]
+        source_datasets: List[str] = []
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+            source_datasets.append(lineage.source_dataset)
+        assert sorted(source_datasets) == ["orders", "payments"]
