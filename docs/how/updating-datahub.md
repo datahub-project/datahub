@@ -59,6 +59,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
+
 ## v1.7.0
 
 Requirements:

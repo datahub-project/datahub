@@ -79,6 +79,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 
     num_documents_fetched: int = 0
     num_documents_processed: int = 0
+    num_documents_failed: int = 0
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
@@ -98,6 +99,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_processed(self, num_chunks: int) -> None:
         self.num_documents_processed += 1
         self.num_chunks_created += num_chunks
+
+    def report_document_failed(self) -> None:
+        self.num_documents_failed += 1
 
     def report_document_skipped(self) -> None:
         self.num_documents_skipped += 1
@@ -329,6 +333,25 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
         finally:
+            # Every attempted document failing the same way is a systemic problem --
+            # a dependency or environment break -- not per-document data. Without
+            # this the run exits 0 having indexed nothing, and the only trace is a
+            # pile of per-document warnings. Same reasoning as the whole-batch
+            # hydration failure above. Read the chunking source's counter directly:
+            # self.report.num_documents_processed is only populated in get_report(),
+            # so it is still stale here.
+            if (
+                self.report.num_documents_failed > 0
+                and self.chunking_source.report.num_documents_processed == 0
+            ):
+                self.report.failure(
+                    title="Every document failed to process",
+                    message="No document could be processed, so nothing was "
+                    "indexed. This usually means a dependency or environment "
+                    "problem rather than bad document data; see the per-document "
+                    "warnings for the underlying error.",
+                    context=f"attempted={self.report.num_documents_failed}",
+                )
             # Save state after processing
             if self.config.incremental.enabled:
                 self._save_state()
@@ -1506,8 +1529,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.warning(error_msg, exc_info=True)
+            # Structured rather than a bare logger call: a document that silently
+            # produces no semanticContent is invisible to operators otherwise.
+            self.report.report_document_failed()
+            self.report.warning(
+                title="Failed to process document",
+                message="The document could not be partitioned or chunked, so no "
+                "semanticContent was written for it.",
+                context=doc.get("urn", "unknown"),
+                exc=e,
+            )
 
     def get_report(self) -> SourceReport:
         # Forward stats from the chunking sub-component into our report
