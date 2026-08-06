@@ -3,7 +3,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional
+from typing import TYPE_CHECKING, Callable, ClassVar, Dict, Final, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -757,6 +757,11 @@ class BaseConnector:
     - supports_connector_class(): Checks if this connector handles the given class
     """
 
+    # Opt in when lineage inference needs the live Kafka REST topic list on
+    # Confluent Cloud (topic_names is always empty there). Sinks are always
+    # opted in via requires_cluster_topics(); EventRouter Debezium overrides it.
+    needs_cluster_topics: ClassVar[bool] = False
+
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -764,6 +769,11 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+
+    def requires_cluster_topics(self) -> bool:
+        if self.connector_manifest.type == SINK:
+            return True
+        return self.needs_cluster_topics
 
     def available_topics(self) -> List[str]:
         # None = list unavailable (fall back to connector topic_names); [] = empty cluster.

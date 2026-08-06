@@ -275,17 +275,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_manifest: ConnectorManifest,
         connector: object,
     ) -> bool:
-        # Sinks need the live list to expand topics.regex and intersect subscriptions.
-        if connector_manifest.type == SINK:
-            return True
-
-        # EventRouter lineage filters the live cluster via RegexRouter prefixes;
-        # without the cluster list it cannot identify post-SMT topic names.
-        has_event_router = getattr(connector, "_has_event_router_transform", None)
-        if callable(has_event_router) and has_event_router():
-            return True
-
-        return False
+        requires = getattr(connector, "requires_cluster_topics", None)
+        if callable(requires):
+            return bool(requires())
+        # Non-BaseConnector stubs in unit tests: sinks still need the live list.
+        return connector_manifest.type == SINK
 
     def _get_catalog_connector(
         self, connector_manifest: ConnectorManifest
