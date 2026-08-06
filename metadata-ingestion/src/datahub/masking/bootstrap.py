@@ -22,8 +22,8 @@ from typing import Optional
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
+    _uninstall_masking_filter,
     install_masking_filter,
-    uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -214,7 +214,7 @@ def initialize_secret_masking(
                 )
                 raise RuntimeError(f"Secret masking installation failed: {e}") from e
 
-        # Always open a *distinct* scope per call (D1). The caller owns the
+        # Always open a *distinct* scope per call. The caller owns the
         # token; a second call on the same context does NOT alias onto an
         # earlier scope, so ending one execution never drops another's
         # secrets.
@@ -262,7 +262,9 @@ def shutdown_secret_masking(execution_id: Optional[str] = None) -> None:
             # teardown mutation so the seam's contract is "the race window".
             _teardown_hook()
 
-            uninstall_masking_filter()
+            # Internal caller: bypass the public guard (we already verified
+            # via end_execution that no scopes are active).
+            _uninstall_masking_filter()
 
             # Restore original exception hook
             if _original_excepthook is not None:

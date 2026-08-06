@@ -190,7 +190,9 @@ class SecretRegistry:
             from datahub.masking import masking_filter as _mf
 
             if _mf._installed_filter is not None:
-                _mf.uninstall_masking_filter()
+                # Internal caller: bypass the public guard (reset_instance is
+                # tearing down the whole registry, so scopes are going away).
+                _mf._uninstall_masking_filter()
             # Clear the bootstrap-completed latch so the next
             # initialize_secret_masking() re-installs instead of
             # short-circuiting on a stranded True. The lazy import avoids a
@@ -488,6 +490,18 @@ class SecretRegistry:
     def get_count(self) -> int:
         """Number of distinct secret keys currently masked (the union)."""
         return len(self._secrets)
+
+    def has_active_executions(self) -> bool:
+        """True if any per-execution scope is currently open.
+
+        Used by the public ``uninstall_masking_filter`` guard so a direct
+        call does not disarm masking process-wide while live executions
+        still have secrets registered. ``__global__`` (the catch-all for
+        ambient registrations with no exec_id) does not count as an active
+        execution — it is the residual bucket, not a scope.
+        """
+        with self._registry_lock:
+            return any(g != _GLOBAL_GROUP for g in self._groups)
 
     def clear(self) -> None:
         """Drop all secrets from all executions (primarily for tests)."""

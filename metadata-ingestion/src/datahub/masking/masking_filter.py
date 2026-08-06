@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import threading
+import uuid
 import weakref
 from typing import Any, Dict, List, Optional, TextIO, Tuple
 
@@ -74,7 +75,7 @@ _patched_handler_init: Optional[Any] = None
 # root-logger / handler filter attachments. Bootstrap holds _bootstrap_lock
 # across install/uninstall, but install_masking_filter is also public and
 # called directly by tests; without this lock, two concurrent direct calls
-# attach two filter instances and leak one on teardown (D5). An RLock so a
+# attach two filter instances and leak one on teardown. An RLock so a
 # holder can re-enter (e.g. bootstrap's _bootstrap_lock path calling install
 # then uninstall within the same thread).
 _install_lock = threading.RLock()
@@ -85,7 +86,7 @@ _install_lock = threading.RLock()
 # QueueListener, or nested inside another handler) still get the filter
 # removed — _snapshot_handler_pairs only sees handlers attached to a
 # logger, so without this set those handlers would retain the filter after
-# uninstall and keep masking records dispatched through them (S7). Weak so
+# uninstall and keep masking records dispatched through them. Weak so
 # a GC'd handler leaves the set without manual cleanup.
 _covered_handlers: "weakref.WeakSet[logging.Handler]" = weakref.WeakSet()
 
@@ -112,19 +113,37 @@ def _is_masking_namespace_name(name: str) -> bool:
     return name == "datahub.masking" or name.startswith(REDACTED_MASKING_NAMESPACE)
 
 
-# Module-private sentinel stamped onto records after masking so the
-# idempotency guard can recognize them with `is` rather than truthiness.
-# A caller-supplied ``extra={'_datahub_masked': True}`` would otherwise forge
-# the guard and disable masking for that record. A caller can't forge this
-# object.
-_MASKED = object()
+# Idempotency token stamped onto records after masking. A random string
+# (not ``object()``) so structured formatters that serialize ``record.__dict__``
+# emit a valid line instead of raising ``TypeError: Object of type object is
+# not JSON serializable`` and dropping the record. Compared by value (``==``)
+# so the guard survives cross-thread ``QueueHandler``/``QueueListener`` and
+# cross-process pickle, where ``is`` would fail on the un-pickled copy.
+# Randomness prevents a caller from forging ``extra={'_datahub_masked': ...}``
+# to disable masking for a record.
+_MASKED = f"_datahub_masked_{uuid.uuid4().hex}"
 CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
+
+# Truncation suffix marker. Used by ``_truncate_message`` and by the
+# idempotency check in ``_truncate_message`` (B2): if the message already
+# ends with this marker, it is returned unchanged so a second masking pass
+# (when the sentinel guard fails) does not re-truncate and corrupt the
+# byte count.
+_TRUNCATION_MARKER_RE = re.compile(r"\n\.\.\. \[\d+ bytes truncated for performance\]$")
 
 # LogRecord standard attributes (per logging.LogRecord.__init__ + attributes set
 # by the framework during formatting). Extras added via ``extra={...}`` are
 # everything NOT in this set, and we mask those recursively. Iterating the whole
 # __dict__ and masking pathname/funcName/module would waste regex on the hot path
 # and could corrupt those fields.
+#
+# ``_datahub_masked`` is included so ``_mask_extras`` skips it (it is the
+# idempotency token, not user data). This set only governs ``_mask_extras``'s
+# own skip loop — a third-party formatter that serializes ``record.__dict__``
+# directly still sees ``_datahub_masked`` and emits it as a key. That is the
+# accepted cost of making the token a string (B1): the alternative
+# ``object()`` sentinel raised ``TypeError`` in JSON formatters and dropped
+# the record entirely.
 _STANDARD_RECORD_ATTRS = frozenset(
     {
         "name",
@@ -150,10 +169,6 @@ _STANDARD_RECORD_ATTRS = frozenset(
         "taskName",
         "message",
         "asctime",
-        # The idempotency sentinel stamped by filter() after masking. Without
-        # this, structured formatters that serialize non-standard record
-        # attributes would emit "_datahub_masked": "<object object at 0x...>"
-        # on every line — the sentinel is internal, not user data.
         "_datahub_masked",
     }
 )
@@ -180,6 +195,15 @@ class SecretMaskingFilter(logging.Filter):
         self._pattern: Optional[re.Pattern] = None
         self._replacements: Dict[str, str] = {}
         self._last_version: int = 0
+        # Length of the longest expanded key in the compiled pattern. Used by
+        # the two-stage truncation in filter() to pre-truncate to
+        # max_message_size + longest_key before masking, so a secret
+        # starting within the first max_message_size chars is fully contained
+        # in the pre-truncated region (secrets are at most this long) and
+        # gets masked before the final cut. The bound is the longest expanded
+        # key (repr-escaped / JSON-escaped / SQLAlchemy-encoded variants can
+        # be longer than the raw value), not the longest raw secret.
+        self._longest_key_length: int = 0
 
         # Circuit breaker to prevent cascading failures
         self._failure_count = 0
@@ -224,6 +248,10 @@ class SecretMaskingFilter(logging.Filter):
             escaped_values = [re.escape(value) for value, _ in sorted_secrets]
             pattern_str = "|".join(escaped_values)
 
+            # Longest expanded key — sorted_secrets is longest-first, so the
+            # first entry's key length is the bound for two-stage truncation.
+            new_longest_key_length = len(sorted_secrets[0][0]) if sorted_secrets else 0
+
             # Compile regex - NOT under lock (this is the expensive part!)
             try:
                 new_pattern = re.compile(pattern_str)
@@ -261,6 +289,7 @@ class SecretMaskingFilter(logging.Filter):
                     self._pattern = new_pattern
                     self._replacements = new_replacements
                     self._last_version = current_version
+                    self._longest_key_length = new_longest_key_length
 
                     if attempt > 0:
                         logger.debug(
@@ -496,10 +525,18 @@ class SecretMaskingFilter(logging.Filter):
         chain, including chained exception messages that the old rebuild
         dropped.
 
-        Residual gap: a formatter with a custom ``formatException`` that
-        re-derives from ``exc_info`` (instead of reusing ``exc_text``) bypasses
-        the masked text. Same accepted residual as the structured-formatter
-        case for extras.
+        Residual: pre-filling ``exc_text`` means stdlib ``Formatter.format``
+        skips its ``formatException`` call entirely (it only calls
+        ``formatException`` when ``exc_text`` is falsy). So a handler whose
+        formatter overrides ``formatException`` — to redact frames, add
+        context, or route to a structured traceback renderer — has that
+        override bypassed: the stock masked traceback is emitted instead.
+        Not pre-filling ``exc_text`` would restore the custom
+        ``formatException`` but leave tracebacks unmasked, which is the
+        primary leak surface; the trade runs in the direction of masking the
+        printed output. A handler that wants both a custom traceback format
+        and masking must mask inside its own ``formatException`` (or read
+        ``record.exc_text`` when set).
         """
         if not exc_info:
             return None
@@ -517,16 +554,38 @@ class SecretMaskingFilter(logging.Filter):
             )
             return MASKING_ERROR_MESSAGE
 
-    def _truncate_message(self, message: str) -> str:
-        """Truncate large messages before masking."""
+    def _truncate_message(
+        self, message: str, original_len: Optional[int] = None
+    ) -> str:
+        """Truncate large messages after masking.
+
+        Idempotent: if the message already ends with the truncation marker,
+        return it unchanged. This is defense-in-depth so that when the
+        idempotency token guard in ``filter()`` fails (e.g. a third-party
+        formatter that strips unknown attributes, or a record that round-
+        tripped through pickle and lost the token), a second masking pass
+        does not re-truncate the already-truncated text, eat the first
+        suffix, and report a wrong byte count. The marker is a trailing
+        ``\\n... [N bytes truncated for performance]`` line.
+
+        ``original_len`` is the pre-truncation length of the message (before
+        the two-stage pre-truncate). When provided, the byte count in the
+        marker reflects the original overrun (``original_len -
+        max_message_size``), not the post-pre-truncate overrun, so the user
+        sees how much of the original was dropped rather than how much of the
+        already-truncated region was dropped.
+        """
         if not isinstance(message, str):
             return message
 
         if len(message) <= self._max_message_size:
             return message
 
-        # Truncate with informative suffix
-        truncated_bytes = len(message) - self._max_message_size
+        if _TRUNCATION_MARKER_RE.search(message):
+            return message
+
+        base_len = original_len if original_len is not None else len(message)
+        truncated_bytes = base_len - self._max_message_size
         return (
             f"{message[: self._max_message_size]}\n"
             f"... [{truncated_bytes} bytes truncated for performance]"
@@ -535,8 +594,9 @@ class SecretMaskingFilter(logging.Filter):
     # Depth cap and cycle guard for _mask_value_recursive. extra= can carry
     # self-referential or very large structures onto the logging hot path; an
     # unbounded recursion would hang the logger. The cap is generous (real
-    # config is rarely >10 deep); beyond it we return the value unchanged
-    # rather than raise, so logging still proceeds (residual gap documented).
+    # config is rarely >10 deep); beyond it we return a placeholder string
+    # (not the raw value, not an exception) so logging proceeds and any
+    # secret in the elided subtree is not emitted in cleartext.
     _MAX_EXTRA_DEPTH = 10
 
     def _mask_value_recursive(
@@ -629,12 +689,17 @@ class SecretMaskingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and mask a log record.
 
-        Idempotent per record: a sentinel (``record._datahub_masked``) is set
+        Idempotent per record: a token (``record._datahub_masked``) is set
         after masking so the same record flowing through multiple handlers
-        (each carrying this filter) is not re-truncated / re-masked. Without
-        this, N handlers produce N× regex cost and N× truncation — the second
-        truncation re-truncates the already-truncated text, eats the previous
-        suffix, and reports a wrong byte count.
+        (each carrying this filter) is not re-masked / re-truncated. The
+        token is a random string compared by value so the guard survives
+        cross-thread ``QueueHandler``/``QueueListener`` and cross-process
+        pickle, and so structured formatters that serialize ``record.__dict__``
+        emit a valid line instead of raising on a non-serializable sentinel.
+
+        Defense-in-depth: ``_truncate_message`` is independently idempotent
+        (it detects its own suffix marker), so a second masking pass when the
+        token guard fails does not re-truncate and corrupt the byte count.
         """
         # Re-entrancy / idempotency guard. Records from the masking framework's
         # own loggers bypass masking entirely (their handlers are skipped at
@@ -643,12 +708,12 @@ class SecretMaskingFilter(logging.Filter):
         # bootstrap.shutdown_secret_masking). The check is on the record name,
         # not the logger we attached to, so it catches propagation. Uses the
         # shared _is_masking_namespace_name predicate so the bypass and the
-        # attach-time skip agree (D3): a record from the exact-name
+        # attach-time skip agree: a record from the exact-name
         # ``datahub.masking`` logger is bypassed here, not masked.
         if _is_masking_namespace_name(record.name):
             return True
 
-        if getattr(record, "_datahub_masked", None) is _MASKED:
+        if getattr(record, "_datahub_masked", None) == _MASKED:
             return True
 
         # Check if masking is disabled for debugging. is_masking_enabled is
@@ -659,44 +724,65 @@ class SecretMaskingFilter(logging.Filter):
             return True  # Skip all masking and truncation for debugging
 
         try:
-            # 1. Mask the full message BEFORE truncating. Truncating first
-            #    would leak a partial secret straddling the cut point (the
-            #    regex matches full secrets only, so a partial would survive
-            #    unmasked). Masking first replaces secrets with
-            #    ***REDACTED:X*** tokens, so truncating the masked message
-            #    can only cut tokens, never secret bytes. This trades the
-            #    "regex on huge strings" cost the old ordering avoided for
-            #    correctness — the right trade for a security control.
+            # 1. Two-stage truncation + masking of record.msg.
+            #
+            #    When secrets are registered, mask_text on a huge message is
+            #    expensive (regex over the whole string) for output truncated to
+            #    max_message_size anyway. Pre-truncate to max_message_size +
+            #    longest_key (no marker) so the regex only scans the region that
+            #    can affect the final output: any secret starting within the
+            #    first max_message_size chars is fully contained (secrets are at
+            #    most longest_key long), so mask_text matches and replaces it;
+            #    anything beyond max_message_size + longest_key is dropped before
+            #    the regex ever sees it. The bound is the longest *expanded* key
+            #    (repr/JSON/SQLAlchemy variants can be longer than the raw value);
+            #    a raw-length bound would cut a JSON-escaped secret at the
+            #    pre-truncate boundary and reintroduce the partial-disclosure bug.
+            #
+            #    The original length is tracked so the final marker reports the
+            #    true overrun (original - max_message_size), not the pre-
+            #    truncated region's overrun (which would mislead the user about
+            #    how much was dropped). When no secrets are registered the pre-
+            #    truncate is skipped: mask_text is a no-op then, so there is no
+            #    performance gain, and skipping preserves the single-stage
+            #    marker semantics.
+            #
+            #    _truncate_message is idempotent (detects its own marker) so a
+            #    second pass when the token guard fails does not re-truncate.
             if isinstance(record.msg, str):
+                original_len = len(record.msg)
+                if self._longest_key_length > 0:
+                    pre_cut = self._max_message_size + self._longest_key_length
+                    if len(record.msg) > pre_cut:
+                        record.msg = record.msg[:pre_cut]
                 record.msg = self.mask_text(record.msg)
+                record.msg = self._truncate_message(
+                    record.msg, original_len=original_len
+                )
 
-            # 2. Truncate the masked message (performance: bounds output size).
-            if isinstance(record.msg, str):
-                record.msg = self._truncate_message(record.msg)
-
-            # 3. Mask arguments (for formatting)
+            # 2. Mask arguments (for formatting)
             if record.args:
                 record.args = self._mask_args(record.args)
 
-            # 4. Mask pre-formatted message if it exists
+            # 3. Mask pre-formatted message if it exists
             if hasattr(record, "message") and record.message:
                 record.message = self.mask_text(record.message)
 
-            # 5. Materialize traceback text from exc_info so it can be masked.
+            # 4. Materialize traceback text from exc_info so it can be masked.
             #    exc_info itself is left untouched (error reporters read it).
             #    See _mask_exception for why we do not rebuild the exception.
             if record.exc_info and not record.exc_text:
                 record.exc_text = self._mask_exception(record.exc_info)
 
-            # 6. Mask formatted exception text (pre-existing or just materialized)
+            # 5. Mask formatted exception text (pre-existing or just materialized)
             if record.exc_text:
                 record.exc_text = self.mask_text(record.exc_text)
 
-            # 7. Mask stack_info if present (Python 3.2+)
+            # 6. Mask stack_info if present (Python 3.2+)
             if hasattr(record, "stack_info") and record.stack_info:
                 record.stack_info = self.mask_text(record.stack_info)
 
-            # 8. Mask non-standard attributes (extra={...}). Must run after msg/args
+            # 7. Mask non-standard attributes (extra={...}). Must run after msg/args
             #    masking and inside the try so unexpected types from third-party
             #    libraries do not break logging.
             self._mask_extras(record)
@@ -893,14 +979,24 @@ def _cover_handler(handler: logging.Handler) -> None:
 
     Handlers not on any logger (held by a QueueListener, nested inside
     another handler) are unreachable from _snapshot_handler_pairs; without
-    tracking, uninstall would miss them and they'd retain the filter (S7).
-    The weak set auto-drops GC'd handlers."""
-    try:
-        _covered_handlers.add(handler)
-    except Exception:
-        # WeakSet can raise ReferenceError on a dying ref; not worth failing
-        # the install for.
-        pass
+    tracking, uninstall would miss them and they'd retain the filter.
+    The weak set auto-drops GC'd handlers.
+
+    Acquires ``_install_lock`` so the add is serialized with the readers in
+    ``_remove_filter_from_existing_handlers`` (which snapshots the set under
+    the same lock). The GIL makes ``WeakSet.add`` effectively atomic on
+    CPython, but the lock makes that guarantee explicit rather than
+    reasoning about interpreter internals. ``_install_lock`` is an RLock,
+    so calling this from inside ``install_masking_filter`` (which already
+    holds the lock) does not self-deadlock.
+    """
+    with _install_lock:
+        try:
+            _covered_handlers.add(handler)
+        except Exception:
+            # WeakSet can raise ReferenceError on a dying ref; not worth
+            # failing the install for.
+            pass
 
 
 def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
@@ -909,8 +1005,9 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> Non
     Masking lives on handlers, not the logger: Python skips logger-level filters
     for records propagated from child loggers, so a root-logger filter would miss
     almost everything. A handler filter sees every record reaching that output and
-    masks it in place, without touching the handler's stream. (Repointing streams
-    instead loops forever under celery -- see install_masking_filter.)
+    masks it in place, without touching the handler's stream. (Repointing
+    streams instead drops every record under celery -- see
+    install_masking_filter.)
 
     Covers handlers present at install time. Handlers created later are
     covered by the ``Handler.__init__`` hook, so masking does not depend
@@ -924,7 +1021,7 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> Non
     short-circuits masking for records whose name is in the masking
     namespace, so there is no re-entrancy and no masking of internal logs. The
     per-logger skip is a best-effort attach-time optimization; the record-name
-    bypass is the real safety net, and the two now agree (D3).
+    bypass is the real safety net, and the two share one predicate.
     """
     pairs = _snapshot_handler_pairs()
     added = 0
@@ -952,7 +1049,7 @@ def _remove_filter_from_existing_handlers(masking_filter: SecretMaskingFilter) -
     logging API) rather than reassigning handler.filters. Iterates
     _snapshot_handler_pairs (handlers on loggers) AND _covered_handlers
     (handlers we attached to but which may not be on any logger — held by a
-    QueueListener, nested inside another handler — S7). Snapshots under
+    QueueListener, nested inside another handler). Snapshots under
     the logging module lock so a concurrent addHandler/removeHandler can't
     mutate the lists under us.
     """
@@ -973,12 +1070,18 @@ def _remove_filter_from_existing_handlers(masking_filter: SecretMaskingFilter) -
 def _is_real_stream(stream: object) -> bool:
     """True if ``stream`` is a real OS-backed stream safe to wrap.
 
-    Fail-closed: if ``fileno()`` raises (pytest capture, celery LoggingProxy,
-    structlog, IPython, journald), we treat it as a non-real stream and skip
-    wrapping. Skipping costs nothing under a proxy: raw print()/stderr writes
-    are converted to log records by the proxy and flow through handlers that
-    carry the masking filter. Wrapping a proxy would re-enter logging and
-    recurse.
+    Fail-closed: if ``fileno()`` raises (pytest capture, celery
+    ``LoggingProxy``, structlog, IPython, journald), we treat it as a
+    non-real stream and skip wrapping. celery's ``LoggingProxy`` defines
+    no ``fileno`` (it proxies to ``sys.stderr``/``sys.stdout``), so this
+    guard refuses to wrap it. That matters because ``LoggingProxy.write``
+    has a thread-local ``recurse_protection`` flag that returns 0 and
+    drops the write on re-entry: wrapping the proxy would re-enter logging
+    via the proxy, and the proxy would drop every masked write — the
+    symptom is silently dropped output, not infinite recursion. Skipping
+    the wrap costs nothing under a proxy: raw ``print()``/``stderr`` writes
+    are converted to log records by the proxy and flow through handlers
+    that carry the masking filter.
     """
     try:
         stream.fileno()  # type: ignore[attr-defined]
@@ -1001,9 +1104,10 @@ def install_masking_filter(
     ``Handler.__init__`` hook covers handlers created later — ``basicConfig``
     after install, a library's lazy logging config, a per-task
     FileHandler/QueueHandler — so masking does not depend on install
-    ordering. Streams are not repointed: under celery, ``sys.stderr``
-    re-enters logging, so a handler pointed at it would recurse infinitely
-    and drop output.
+    ordering. Streams are not repointed: under celery, ``sys.stderr`` is a
+    ``LoggingProxy`` whose ``write`` has a thread-local ``recurse_protection``
+    flag that returns 0 and drops the write on re-entry, so a handler pointed
+    at it would have every record dropped (silently, no exception).
 
     Residual gaps (fail-open limitations of the security envelope):
     - A handler attached by direct ``logger.handlers.append(h)`` (bypassing
@@ -1016,8 +1120,10 @@ def install_masking_filter(
       time (would risk __str__ side effects); a formatter that serializes them
       via %s may emit them unmasked unless the output flows through the
       stdout/stderr wrapper.
-    - A custom ``Formatter.formatException`` that re-derives from ``exc_info``
-      instead of reusing ``record.exc_text`` bypasses the masked traceback.
+    - A custom ``Formatter.formatException`` override is bypassed: filter()
+      pre-fills ``record.exc_text``, and stdlib ``Formatter.format`` only
+      calls ``formatException`` when ``exc_text`` is falsy. See
+      ``_mask_exception`` for the trade.
 
     Note: the "already installed → refresh" path re-scans handlers, re-adds
     the root-logger filter if something removed it, and rebinds the
@@ -1097,8 +1203,10 @@ def install_masking_filter(
         )
 
         # Wrap stdout/stderr only to mask raw writes (print(), C-extension output).
-        # We do NOT repoint handler streams here: under celery, sys.stderr re-enters
-        # logging, so a handler pointed at it would recurse infinitely and drop output.
+        # We do NOT repoint handler streams here: under celery, sys.stderr is a
+        # LoggingProxy whose write() has a thread-local recurse_protection
+        # flag that returns 0 and drops the write on re-entry, so a handler
+        # pointed at it would have every record dropped silently.
         # Skip wrapping when the stream is not a real OS-backed stream (proxy / pytest
         # capture / structlog / etc.) — wrapping a proxy re-enters logging. Under a
         # proxy, raw writes become log records and flow through handlers that carry
@@ -1140,7 +1248,7 @@ def _wrap_std_streams(masking_filter: "SecretMaskingFilter") -> None:
         )
 
 
-def uninstall_masking_filter() -> None:
+def _uninstall_masking_filter() -> None:
     """Remove secret masking: detach the filter from the root logger and every
     handler it was attached to, unwrap stdout/stderr, and revert the
     ``Handler.__init__`` hook so future handlers don't auto-attach.
@@ -1149,6 +1257,13 @@ def uninstall_masking_filter() -> None:
     ``SecretMaskingFilter`` someone else installed survives. Symmetric with
     ``install_masking_filter`` (which attaches the filter, wraps streams, and
     installs the ``Handler.__init__`` hook).
+
+    Module-private: this is the low-level teardown primitive that disarms
+    masking process-wide. Callers should go through
+    ``shutdown_secret_masking`` (the refcounted lifecycle), which only reaches
+    this path when the last execution scope has ended. Calling this directly
+    while execution scopes are active would uninstall the filter out from
+    under live executions and silently unmask their logs.
     """
     global _installed_filter
 
@@ -1178,3 +1293,29 @@ def uninstall_masking_filter() -> None:
             sys.stderr = sys.stderr._original
 
         logger.info("Uninstalled SecretMaskingFilter")
+
+
+def uninstall_masking_filter() -> None:
+    """Public teardown that refuses while execution scopes are active.
+
+    The refcounted lifecycle is ``shutdown_secret_masking``; this primitive
+    exists for direct callers (tests, integrations that bypass the
+    refcount). A direct call disarms masking process-wide, so it refuses
+    (and logs) when per-execution scopes are still open — otherwise it
+    would uninstall the filter out from under live executions and
+    silently unmask their logs. Internal callers that have already done
+    the refcount check (``shutdown_secret_masking``,
+    ``SecretRegistry.reset_instance``) call ``_uninstall_masking_filter``
+    directly to bypass this guard.
+    """
+    registry = SecretRegistry.get_instance()
+    if registry.has_active_executions():
+        logger.warning(
+            "uninstall_masking_filter() called while execution scopes are "
+            "still active; refusing to disarm masking process-wide. Use "
+            "shutdown_secret_masking(token) to end an execution, or call "
+            "_uninstall_masking_filter() directly if you have already "
+            "verified no executions are live."
+        )
+        return
+    _uninstall_masking_filter()

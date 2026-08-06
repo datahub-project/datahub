@@ -724,8 +724,9 @@ class TestEdgeCases:
         assert "***REDACTED:SPECIAL***" in record.msg
 
 
-class TestP1Fixes:
-    """Test P1 critical fixes from production hardening review."""
+class TestStreamWrapperContract:
+    """Pin the StreamMaskingWrapper write() contract: return value and
+    type validation."""
 
     def test_stream_wrapper_return_value(self):
         """
@@ -761,8 +762,7 @@ class TestP1Fixes:
         )
 
     def test_stream_wrapper_type_validation(self):
-        """
-        P1 FIX #2: Verify write() rejects non-string types.
+        """Verify write() rejects non-string types.
 
         The wrapper should raise TypeError for non-string input
         to maintain contract compliance.
@@ -786,9 +786,12 @@ class TestP1Fixes:
         with pytest.raises(TypeError, match="must be str"):
             wrapper.write(None)  # type: ignore[arg-type]
 
+
+class TestRegistrySingleton:
+    """Pin the SecretRegistry singleton's thread-safety and O(1) lookup."""
+
     def test_singleton_thread_safety(self):
-        """
-        P1 FIX #3: Verify singleton is thread-safe under concurrent access.
+        """Verify the singleton is thread-safe under concurrent access.
 
         The simplified singleton pattern should only create one instance
         even when accessed concurrently from multiple threads.
@@ -818,8 +821,7 @@ class TestP1Fixes:
         assert len(instances) == 50, f"Expected 50 calls, got {len(instances)}"
 
     def test_get_secret_value_performance(self):
-        """
-        P2 BONUS: Verify O(1) lookup with reverse index.
+        """Verify O(1) lookup with the reverse index.
 
         With the reverse index, lookups should be O(1) instead of O(n).
         """
@@ -1303,10 +1305,12 @@ class TestHandlerCoverageAndCelerySafety:
             redirect_logger.removeHandler(redirect_handler)
 
 
-class TestReviewFixes:
-    """Regression tests for issues raised in code review of the handler-level
-    masking fix. Each test targets a specific defect; together they pin the
-    invariants the fix is supposed to maintain."""
+class TestInstallLifecycleAndCoverage:
+    """Pin the install/teardown lifecycle and handler-coverage invariants:
+    idempotent install, symmetric uninstall, hook-before-scan, refresh on
+    repeat install, namespace bypass, extras masking, and snapshot
+    locking. Grouped by the behavior each test pins rather than by review
+    round."""
 
     def setup_method(self):
         uninstall_masking_filter()
@@ -1962,17 +1966,12 @@ class TestReviewFixes:
                 assert out.count("bytes truncated for performance") == 1, (
                     f"handler {i} re-truncated: {out!r}"
                 )
-                # D6: masking runs before truncation now, so the byte count
-                # is the MASKED message's overrun (the secret is replaced by
-                # ***REDACTED:MULTI*** before truncating), not the original
-                # message's overrun. Compute the masked message via the
-                # installed filter so the assertion tracks the real masked
-                # length rather than a hardcoded guess.
-                mf = next(
-                    f for f in handlers[0].filters if isinstance(f, SecretMaskingFilter)
-                )
-                masked_big = mf.mask_text(big)
-                expected_bytes = len(masked_big) - 5000
+                # The byte count in the marker reflects the ORIGINAL
+                # message's overrun (original_len - max_message_size), per
+                # the two-stage truncation: the user sees how much of the
+                # original was dropped, not how much of the pre-truncated
+                # region was dropped.
+                expected_bytes = len(big) - 5000
                 assert str(expected_bytes) in out, (
                     f"handler {i} wrong byte count: {out!r}"
                 )
@@ -2499,6 +2498,267 @@ class TestReviewFixes:
                 "orphan handler (not on any logger) retained the filter after uninstall"
             )
         finally:
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+
+class TestStructuredFormatterAndGuard:
+    """Pin the idempotency token's survival across the structured-formatter
+    and async-logging boundaries, and the no-record-dropped guarantee for
+    formatters that serialize ``record.__dict__``."""
+
+    def test_json_formatter_serializing_record_dict_does_not_drop_record(self):
+        """A JSON formatter that serializes ``record.__dict__`` must emit a
+        valid line; the idempotency token (a string, not ``object()``) is
+        JSON-serializable so the formatter does not raise and drop the
+        record. This is the B1 regression: ``object()`` raised
+        ``TypeError: Object of type object is not JSON serializable`` and
+        silently dropped the line."""
+        import json
+
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("J_PW", "json_secret_value")
+
+        class JsonFormatter(logging.Formatter):
+            def format(self, record):
+                return json.dumps({k: str(v) for k, v in record.__dict__.items()})
+
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(JsonFormatter())
+        logging.getLogger().addHandler(h)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            logging.getLogger("datahub.test.json").info(
+                "connecting with json_secret_value"
+            )
+            out = cap.getvalue()
+            assert out, f"JSON formatter dropped the record (no output): {out!r}"
+            # The token appears as a key in the JSON output — accepted cost.
+            assert "_datahub_masked" in out
+            # The secret is masked.
+            assert "json_secret_value" not in out
+            assert "***REDACTED:J_PW***" in out
+        finally:
+            logging.getLogger().removeHandler(h)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_guard_survives_queuehandler_queuelistener(self):
+        """The idempotency token (compared by value) survives a
+        ``QueueHandler``/``QueueListener`` pair: the record is pickled
+        onto the queue, unpickled on the listener thread, and formatted
+        there. A second filter on the listener's handler must see the token
+        and skip re-masking. Pre-B1 the ``object()`` sentinel failed ``is``
+        after unpickle and the listener's filter re-masked (B2 corruption)."""
+        import logging.handlers
+        import queue
+
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("Q_PW", "queue_secret_value")
+
+        q = queue.Queue()
+        listener_cap = StringIO()
+        listener_handler = logging.StreamHandler(listener_cap)
+        listener_handler.setFormatter(logging.Formatter("%(message)s"))
+        # The listener's handler also carries the filter (installed via the
+        # hook or the scan); a second masking pass here is what B2 corrupts.
+        install_masking_filter(registry, install_stdout_wrapper=False)
+        # Attach the listener-handler AFTER install so the hook covers it.
+        listener_handler.addFilter(mf_mod._installed_filter)
+
+        qh = logging.handlers.QueueHandler(q)
+        logging.getLogger().addHandler(qh)
+        listener = logging.handlers.QueueListener(q, listener_handler)
+        listener.start()
+        try:
+            logging.getLogger("datahub.test.queue").info(
+                "connecting with queue_secret_value"
+            )
+            # Wait for the listener thread to process the record.
+            import time
+
+            for _ in range(100):
+                if q.empty() and listener_cap.getvalue():
+                    break
+                time.sleep(0.01)
+            listener_handler.flush()
+            out = listener_cap.getvalue()
+            assert "queue_secret_value" not in out, (
+                f"secret leaked via queue listener: {out!r}"
+            )
+            assert "***REDACTED:Q_PW***" in out
+            # Exactly one truncation/mask — the listener's filter did not
+            # re-mask (which would double the redaction token or re-truncate).
+            assert out.count("***REDACTED:Q_PW***") == 1, (
+                f"listener re-masked the record: {out!r}"
+            )
+        finally:
+            listener.stop()
+            logging.getLogger().removeHandler(qh)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_guard_survives_pickle_round_trip(self):
+        """The idempotency token survives a pickle round-trip: after
+        pickle/unpickle the token is a new object, so ``is`` fails but ``==``
+        succeeds. A second filter seeing the un-pickled record must skip
+        re-masking."""
+        import pickle
+
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("P_PW", "pickle_secret_value")
+
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(h)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            record = logging.LogRecord(
+                name="datahub.test.pickle",
+                level=logging.INFO,
+                pathname=__file__,
+                lineno=1,
+                msg="connecting with pickle_secret_value",
+                args=None,
+                exc_info=None,
+            )
+            # First pass: mask + stamp the token.
+            assert mf_mod._installed_filter.filter(record)
+            assert getattr(record, "_datahub_masked", None) == mf_mod._MASKED
+            first_msg = record.msg
+            # Pickle round-trip: the token object identity is lost.
+            record2 = pickle.loads(pickle.dumps(record))
+            assert getattr(record2, "_datahub_masked", None) is not mf_mod._MASKED
+            # But value equality holds, so the guard skips re-masking.
+            assert mf_mod._installed_filter.filter(record2)
+            assert record2.msg == first_msg, (
+                "second filter pass after pickle re-masked or re-truncated the record"
+            )
+        finally:
+            logging.getLogger().removeHandler(h)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_truncate_idempotent_with_guard_cleared(self):
+        """``_truncate_message`` is idempotent on its own (B2): even if the
+        idempotency token is stripped from the record (a formatter that
+        deletes unknown attributes, or a hand-built record), a second
+        masking pass does not re-truncate and corrupt the byte count."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        mf = SecretMaskingFilter(registry, max_message_size=100)
+        big = "x" * 200
+        first = mf._truncate_message(big)
+        assert "truncated for performance" in first
+        # Second pass with the guard forcibly cleared (no _datahub_masked).
+        second = mf._truncate_message(first)
+        assert second == first, (
+            f"_truncate_message re-truncated an already-truncated message: "
+            f"first={first!r} second={second!r}"
+        )
+
+    def test_truncation_with_secret_straddling_pre_truncate_boundary_json_escaped(self):
+        """A secret in its JSON-escaped form straddling the pre-truncate
+        boundary must not survive in part. The two-stage truncation bound
+        is the longest *expanded* key (JSON-escaped can be longer than the
+        raw value), so the JSON-escaped secret is fully contained in the
+        pre-truncated region and gets masked before the final cut."""
+        import json
+
+        # A secret whose JSON-escaped form is longer than the raw value.
+        raw_secret = 'quote"secret'
+        json_secret = json.dumps(raw_secret)  # '"quote\\"secret"' (longer)
+        assert len(json_secret) > len(raw_secret)
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("JS_PW", raw_secret)
+        # The registry expands keys, so json_secret is in the pattern.
+
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(h)
+        try:
+            mf = SecretMaskingFilter(registry, max_message_size=50)
+            h.addFilter(mf)
+            # Place the JSON-escaped secret so it straddles the pre-truncate
+            # boundary (max_message_size + longest_key). The raw secret is
+            # at the start (masked early); the JSON-escaped form is near the
+            # cut.
+            msg = "x" * 40 + json_secret + "y" * 200
+            logging.getLogger("datahub.test.jsboundary").info(msg)
+            out = cap.getvalue()
+            assert raw_secret not in out, f"raw secret leaked: {out!r}"
+            assert json_secret not in out, (
+                f"JSON-escaped secret leaked across pre-truncate boundary: {out!r}"
+            )
+            # No partial prefix of either form should survive.
+            for n in range(3, len(json_secret)):
+                assert json_secret[:n] not in out, (
+                    f"partial JSON-escaped secret ({n} chars) leaked: {out!r}"
+                )
+        finally:
+            logging.getLogger().removeHandler(h)
+
+
+class TestCustomFormatException:
+    """Pin the exc_text pre-fill residual: a custom formatException
+    override is bypassed because stdlib Formatter.format only calls
+    formatException when exc_text is falsy."""
+
+    def test_custom_format_exception_is_bypassed(self):
+        """When filter() pre-fills record.exc_text, a handler whose
+        formatter overrides formatException has that override bypassed:
+        stdlib Formatter.format skips its formatException call entirely
+        (it only calls formatException when exc_text is falsy). The stock
+        masked traceback is emitted instead. This is the documented
+        residual; the test pins it so a future change is intentional."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("EX_PW", "exc_secret_value")
+
+        custom_used = []
+
+        class CustomFormatter(logging.Formatter):
+            def formatException(self, ei):
+                custom_used.append(True)
+                return "CUSTOM TRACEBACK"
+
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(CustomFormatter("%(message)s"))
+        logging.getLogger().addHandler(h)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            try:
+                raise ValueError("boom with exc_secret_value")
+            except ValueError:
+                logging.getLogger("datahub.test.exc").exception("caught")
+            out = cap.getvalue()
+            # The custom formatException was NOT called (exc_text pre-filled).
+            assert not custom_used, (
+                "custom formatException was called; exc_text pre-fill should "
+                "have bypassed it"
+            )
+            # The stock masked traceback was emitted, with the secret masked.
+            assert "exc_secret_value" not in out
+            assert "***REDACTED:EX_PW***" in out
+            assert "ValueError" in out
+        finally:
+            logging.getLogger().removeHandler(h)
             if mf_mod._installed_filter is not None:
                 uninstall_masking_filter()
 
