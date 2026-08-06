@@ -192,14 +192,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         # connectors that need it. Source connectors without EventRouter must not
         # receive the whole-cluster list — that fabricates lineage for every topic.
         if connector and self._is_confluent_cloud:
-            all_cluster_topics = self._get_all_topics_from_kafka_api()
-            if all_cluster_topics and self._should_assign_cluster_topics(
-                connector_manifest, connector
-            ):
-                connector.all_cluster_topics = all_cluster_topics
-                logger.debug(
-                    f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
-                )
+            if self._should_assign_cluster_topics(connector_manifest, connector):
+                all_cluster_topics = self._get_all_topics_from_kafka_api()
+                if all_cluster_topics:
+                    connector.all_cluster_topics = all_cluster_topics
+                    logger.debug(
+                        f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
+                    )
 
         if not connector:
             # No handler found for this connector class
