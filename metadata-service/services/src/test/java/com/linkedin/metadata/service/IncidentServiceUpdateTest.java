@@ -82,6 +82,25 @@ public class IncidentServiceUpdateTest {
   }
 
   @Test
+  public void nestedStatusUpdateWithoutLastUpdatedDoesNotThrowOrPatchIt() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    IncidentService service = new IncidentService(client);
+
+    // A caller building IncidentInfoPatch directly (bypassing IncidentUtils.mapIncidentStatus,
+    // which always stamps lastUpdated) may supply a status without it set. lastUpdated is a
+    // required field on IncidentStatus, so calling getLastUpdated() unconditionally would throw.
+    service.updateIncident(
+        mock(OperationContext.class),
+        INCIDENT_URN,
+        IncidentInfoPatch.builder()
+            .status(new IncidentStatus().setState(IncidentState.RESOLVED))
+            .build());
+
+    List<String> paths = patchOpPaths(captureProposal(client));
+    Assert.assertEquals(paths, List.of("/status/state"));
+  }
+
+  @Test
   public void updateIncidentPatchesStartedAt() throws Exception {
     SystemEntityClient client = mock(SystemEntityClient.class);
     IncidentService service = new IncidentService(client);

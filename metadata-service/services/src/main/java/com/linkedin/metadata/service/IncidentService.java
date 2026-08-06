@@ -131,7 +131,9 @@ public class IncidentService extends BaseService {
       if (status.hasMessage()) {
         patchBuilder.setStatusMessage(status.getMessage());
       }
-      patchBuilder.setStatusLastUpdated(status.getLastUpdated());
+      if (status.hasLastUpdated()) {
+        patchBuilder.setStatusLastUpdated(status.getLastUpdated());
+      }
     }
     if (update.getPriority() != null) {
       patchBuilder.setPriority(update.getPriority());

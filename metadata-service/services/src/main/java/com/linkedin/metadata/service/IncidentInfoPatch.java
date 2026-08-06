@@ -29,7 +29,8 @@ public final class IncidentInfoPatch {
     this.status = builder.status;
     this.priority = builder.priority;
     this.entities = builder.entities == null ? null : List.copyOf(builder.entities);
-    this.assignees = builder.assignees;
+    this.assignees =
+        builder.assignees == null ? null : new IncidentAssigneeArray(builder.assignees);
   }
 
   public static Builder builder() {
