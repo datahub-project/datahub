@@ -170,11 +170,8 @@ class BigQueryLinkedDatasetsHandler:
         if not datasets:
             return
 
-        # The API is location-scoped, so group datasets and query once per location.
-        locations: Dict[str, List[str]] = {}
-        for ds in datasets:
-            location = (ds.location or "US").lower()
-            locations.setdefault(location, []).append(ds.name)
+        # The API is location-scoped, so query once per distinct dataset location.
+        locations: Set[str] = {(ds.location or "US").lower() for ds in datasets}
 
         ah_client = self._get_ah_client()
 
