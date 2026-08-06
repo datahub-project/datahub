@@ -11,6 +11,7 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
+import com.linkedin.metadata.entity.retention.buffer.SimpleRetentionKey;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -122,7 +123,7 @@ public class HazelcastCoalesceBufferTest {
 
     for (int i = 0; i < 5; i++) {
       buffer.merge(
-          new RetentionKey(
+          new SimpleRetentionKey(
               "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.t" + i + ",PROD)", "status"),
           (long) i,
           CoalesceBuffers.KEEP_MAX_LONG);

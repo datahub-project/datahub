@@ -1115,7 +1115,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (retentionBuffer.defersApply()) {
         for (RetentionService.RetentionContext ctx : retentionBatch) {
           retentionBuffer.enqueue(
-              ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
+              opContext, ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
         }
         return;
       }
@@ -2090,6 +2090,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     args.attemptWithVersion = attemptWithVersion;
     args.aspectName = aspectName;
     args.urn = urn;
+    args.opContext = opContext;
     BulkApplyRetentionResult result = retentionService.batchApplyRetentionEntities(args);
     return result.toString();
   }

@@ -8,11 +8,12 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -21,12 +22,20 @@ import org.springframework.scheduling.annotation.Scheduled;
 /**
  * Background drainer over a {@link CoalesceBuffer} of pending retention keys. All pods share one
  * cluster-wide drain lock (Hazelcast), so exactly one pod applies retention per tick and the rest
- * no-op. The drained batch is handed to {@link
- * RetentionService#applyRetentionBatchWithPolicyDefaults}, which applies each (urn, aspect) pair in
- * its own transaction so a poison pair fails and retries on its own without blocking the rest of
- * the batch. Keys whose contexts are returned as committed are cleared via {@code removeIfSame};
+ * no-op. The drained batch is grouped by {@link RetentionContextResolver#groupKey} so entries that
+ * share a routing context are applied in one {@link
+ * RetentionService#applyRetentionBatchWithPolicyDefaults} call with a single reconstructed {@link
+ * OperationContext} (from {@link RetentionContextResolver#resolveOpContext}); each (urn, aspect)
+ * pair still runs in its own transaction so a poison pair fails and retries on its own without
+ * blocking the rest of the group. Keys returned as committed are cleared via {@code removeIfSame};
  * everything else stays for the next tick to retry (no retention_dlq table in v1 — see plan Global
  * Constraints).
+ *
+ * <p>Original drained keys are retained for the {@code removeIfSame} clear step — the service
+ * echoes back the committed {@link RetentionKey}s (original instances, not reconstructed ones), so
+ * cross-off is by {@link RetentionKey} equals (explicit per subtype). A key subtype that carries
+ * routing metadata is removed with that metadata intact, and two requests for the same URN routed
+ * to different underlying databases do not cross-clear.
  *
  * <p>{@code tick()} is {@code @Scheduled}; scheduling is turned on by {@code
  * RetentionBufferSchedulingConfig} (a gated {@code @EnableScheduling}) in ANY process that wires
@@ -49,6 +58,7 @@ public class RetentionDrainer {
   private final CoalesceBuffer<RetentionKey, Long> buffer;
   private final RetentionService<?> retentionService;
   private final OperationContext systemOperationContext;
+  private final RetentionContextResolver contextResolver;
   private final int batchSize;
 
   /** Safety-net lease so a drainer that dies mid-drain doesn't wedge the lock forever. */
@@ -61,6 +71,7 @@ public class RetentionDrainer {
       @Nonnull CoalesceBuffer<RetentionKey, Long> buffer,
       @Nonnull RetentionService<?> retentionService,
       @Nonnull OperationContext systemOperationContext,
+      @Nonnull RetentionContextResolver contextResolver,
       int batchSize,
       long drainLockLeaseMs,
       boolean enabled,
@@ -68,6 +79,7 @@ public class RetentionDrainer {
     this.buffer = buffer;
     this.retentionService = retentionService;
     this.systemOperationContext = systemOperationContext;
+    this.contextResolver = contextResolver;
     this.batchSize = batchSize;
     this.drainLockLease = Duration.ofMillis(drainLockLeaseMs);
     this.enabled = enabled;
@@ -121,19 +133,21 @@ public class RetentionDrainer {
       return;
     }
 
-    // Build retention contexts up front, then hand the whole batch to the service in one call.
-    // EbeanRetentionService applies each context in its OWN transaction (TxScope.requiresNew) so a
-    // poison pair fails and retries in isolation; only committed contexts come back as successes.
-    List<RetentionService.RetentionContext> contexts = new ArrayList<>(batch.size());
+    // Build retention contexts up front, keyed by the ORIGINAL drained key (kept for the
+    // removeIfSame clear step — a RetentionKey subtype that carries routing metadata must be
+    // removed with that metadata intact, so we never reconstruct keys here). Malformed URNs are
+    // cleared immediately so they don't wedge the drainer forever.
+    Map<RetentionKey, RetentionService.RetentionContext> contextsByKey = new LinkedHashMap<>();
     for (Map.Entry<RetentionKey, Long> entry : batch) {
       try {
         Urn urn = Urn.createFromString(entry.getKey().urn());
-        contexts.add(
+        RetentionService.RetentionContext context =
             RetentionService.RetentionContext.builder()
                 .urn(urn)
                 .aspectName(entry.getKey().aspectName())
                 .maxVersion(Optional.of(entry.getValue()))
-                .build());
+                .build();
+        contextsByKey.put(entry.getKey(), context);
       } catch (Exception e) {
         // Malformed URN in the buffer — clear it so it doesn't wedge the drainer forever.
         log.warn(
@@ -144,22 +158,40 @@ public class RetentionDrainer {
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }
     }
-    if (contexts.isEmpty()) {
+    if (contextsByKey.isEmpty()) {
       return;
     }
 
-    List<RetentionService.RetentionContext> successes;
-    try {
-      successes =
-          retentionService.applyRetentionBatchWithPolicyDefaults(systemOperationContext, contexts);
-    } catch (Exception e) {
-      // Whole batch failed (tx setup / commit). Nothing durable — the attempted contexts stay for
-      // retry (malformed keys were already removed above, so count off contexts, not batch).
-      log.warn("Retention batch apply failed; leaving {} keys for retry", contexts.size(), e);
-      if (metricUtils != null) {
-        metricUtils.increment(RetentionDrainer.class, "retention_drain_failed", 1);
+    // Group entries by the resolver's routing grouping key so entries that share a routing context
+    // are applied in one batch call. One OperationContext is reconstructed per group (from a
+    // representative key) and used for every entry in that group's apply call.
+    Map<String, List<RetentionKey>> groups = new LinkedHashMap<>();
+    for (RetentionKey key : contextsByKey.keySet()) {
+      groups.computeIfAbsent(contextResolver.groupKey(key), k -> new ArrayList<>()).add(key);
+    }
+
+    Set<RetentionKey> successes = new HashSet<>();
+    for (List<RetentionKey> groupKeys : groups.values()) {
+      RetentionKey representative = groupKeys.get(0);
+      OperationContext groupOpContext =
+          contextResolver.resolveOpContext(representative, systemOperationContext);
+      List<RetentionService.RetentionContext> groupContexts = new ArrayList<>(groupKeys.size());
+      for (RetentionKey key : groupKeys) {
+        groupContexts.add(contextsByKey.get(key));
       }
-      return;
+      try {
+        successes.addAll(
+            retentionService.applyRetentionBatchWithPolicyDefaults(
+                groupOpContext, groupKeys, groupContexts));
+      } catch (Exception e) {
+        // Whole group failed (tx setup / commit). Nothing durable — the attempted keys stay for
+        // retry (malformed keys were already removed above).
+        log.warn(
+            "Retention group apply failed for {} keys; leaving for retry", groupContexts.size(), e);
+        if (metricUtils != null) {
+          metricUtils.increment(RetentionDrainer.class, "retention_drain_failed", 1);
+        }
+      }
     }
 
     if (metricUtils != null) {
@@ -174,14 +206,13 @@ public class RetentionDrainer {
           batchSize);
     }
 
-    // Clear only the keys whose contexts were durably committed. removeIfSame guards against a
-    // higher version having re-merged into the buffer while we were draining.
-    Set<RetentionKey> successKeys =
-        successes.stream()
-            .map(ctx -> new RetentionKey(ctx.getUrn().toString(), ctx.getAspectName()))
-            .collect(Collectors.toSet());
+    // Clear only the keys whose commits were durably committed. removeIfSame guards against a
+    // higher version having re-merged into the buffer while we were draining. Match by
+    // RetentionKey equals (explicit per subtype) so a routing-metadata-carrying key subtype is
+    // removed with its metadata intact, and two requests for the same URN routed to different
+    // underlying databases do not cross-clear.
     for (Map.Entry<RetentionKey, Long> entry : batch) {
-      if (successKeys.contains(entry.getKey())) {
+      if (successes.contains(entry.getKey())) {
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }
     }

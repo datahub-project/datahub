@@ -101,7 +101,10 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   @WithSpan
-  public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
+  public void batchApplyRetention(
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName) {
     // TODO: This method is not actually batching anything. Cassandra makes it complicated.
     log.debug("Applying retention to all records");
     List<EntityAspectIdentifier> candidates = queryCandidates(entityName, aspectName);

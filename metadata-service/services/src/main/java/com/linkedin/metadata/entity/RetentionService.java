@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -305,27 +306,40 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * Batch variant of {@link #applyRetentionWithPolicyDefaults} intended for the post-commit drain
    * path. Applies each pair's DELETE with per-pair failure isolation where supported by the storage
    * backend (see {@code EbeanRetentionService} for the per-context transaction implementation).
-   * Returns the contexts that were durably committed — callers should clear only those keys from
-   * the buffer.
+   * Returns the keys that were durably committed — callers should clear only those keys from the
+   * buffer.
+   *
+   * <p>The drainer passes parallel {@code keys} and {@code retentionContexts} lists (same index
+   * order); the service uses each context for the DELETE and echoes back the original key at each
+   * committed index. Cross-off in the drainer is by {@link RetentionKey} equals, which is explicit
+   * per subtype — so a key subtype that carries routing metadata is matched with that metadata
+   * intact (two requests for the same URN routed to different underlying databases do not
+   * cross-clear).
    *
    * <p>Default implementation falls back to {@link #applyRetentionWithPolicyDefaults} and returns
-   * the full input list — treating every pair as committed <b>with no per-pair failure
+   * the full input {@code keys} list — treating every pair as committed <b>with no per-pair failure
    * isolation</b>. On a backend using this default (e.g. Cassandra) a partial failure that does not
    * throw leaves those keys reported as committed, so the drainer clears them and they are silently
    * under-pruned until the next enqueue re-adds them. Storage-specific subclasses (see {@code
    * EbeanRetentionService}) override to apply each context in its own transaction (per-pair failure
    * isolation).
    *
+   * <p>Empty-policy contexts' keys are returned as committed (no-op DELETEs) so their buffer keys
+   * are cleared rather than retried forever.
+   *
    * @param opContext operation context
+   * @param keys original buffer keys, parallel to {@code retentionContexts} (same index order)
    * @param retentionContexts urn, aspect name, and additional context to apply retention for
-   * @return the subset of {@code retentionContexts} that were durably committed (empty on
+   * @return the subset of {@code keys} whose corresponding context was durably committed (empty on
    *     full-batch failure — all keys stay for retry)
    */
   @Nonnull
-  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
-      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+  public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<RetentionKey> keys,
+      @Nonnull List<RetentionContext> retentionContexts) {
     applyRetentionWithPolicyDefaults(opContext, retentionContexts);
-    return retentionContexts;
+    return keys;
   }
 
   /**
@@ -342,11 +356,15 @@ public abstract class RetentionService<U extends ChangeMCP> {
   /**
    * Batch apply retention to all records that match the input entityName and aspectName
    *
+   * @param opContext operation context for the current call; used by storage implementations to
+   *     route raw-SQL statements to the correct underlying database
    * @param entityName Name of the entity to apply retention to. If null, applies to all entities
    * @param aspectName Name of the aspect to apply retention to. If null, applies to all aspects
    */
   public abstract void batchApplyRetention(
-      @Nullable String entityName, @Nullable String aspectName);
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName);
 
   /** Batch apply retention to all records within the start, end count */
   public abstract BulkApplyRetentionResult batchApplyRetentionEntities(

@@ -146,7 +146,13 @@ public class EbeanEntityServiceTest
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _realRetentionService =
+        new EbeanRetentionService<>(
+            _entityServiceImpl,
+            server,
+            1000,
+            new com.linkedin.metadata.entity.ebean.PlainAspectTableResolver(),
+            new com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory(server));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)

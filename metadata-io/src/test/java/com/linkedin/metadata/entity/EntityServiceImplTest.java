@@ -1697,7 +1697,8 @@ public class EntityServiceImplTest {
 
     entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
 
-    verify(retentionBuffer, times(1)).enqueue(eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
+    verify(retentionBuffer, times(1))
+        .enqueue(eq(opContext), eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
     verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
   }
 
@@ -1727,18 +1728,17 @@ public class EntityServiceImplTest {
 
     RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
     when(retentionBuffer.defersApply()).thenReturn(true);
-    doThrow(new RuntimeException("enqueue exploded"))
-        .when(retentionBuffer)
-        .enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
-    entityService.setRetentionBuffer(retentionBuffer);
-
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
     OperationContext testContext = contextWithMetrics(mockMetricUtils);
+    doThrow(new RuntimeException("enqueue exploded"))
+        .when(retentionBuffer)
+        .enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
+    entityService.setRetentionBuffer(retentionBuffer);
 
     // Must not throw.
     entityService.applyRetentionPostCommit(testContext, List.of(postCommitUpsertResult()));
 
-    verify(retentionBuffer, times(1)).enqueue(TEST_URN, STATUS_ASPECT_NAME, 2L);
+    verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
   }

@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
@@ -48,6 +49,8 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   private final EntityService<U> _entityService;
   private final Database _server;
   private final int _batchSize;
+  private final AspectTableResolver _tableResolver;
+  private final ScopedTransactionFactory _txnFactory;
 
   private final Clock _clock = Clock.systemUTC();
 
@@ -170,18 +173,32 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
    * in its own independent transaction ({@code TxScope.requiresNew}). A poison pair fails and
    * retries on its own without wedging the rest of the batch, and there is no per-engine savepoint
    * behavior to reason about — the extra commits are negligible for low-volume background
-   * retention. Returns the contexts that were durably committed — the caller ({@link
+   * retention. Returns the original keys that were durably committed — the caller ({@link
    * com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those keys
    * from the buffer via {@code removeIfSame}.
    *
-   * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
-   * cleared rather than retried forever.
+   * <p>Cross-off in the drainer is by {@link RetentionKey} equals (explicit per subtype), so a key
+   * subtype that carries routing metadata is matched with that metadata intact. Echoing back the
+   * original keys (rather than reconstructed ones) keeps that contract intact.
+   *
+   * <p>Empty-policy contexts' keys are returned as successes (no-op DELETEs) so their buffer keys
+   * are cleared rather than retried forever.
    */
   @Override
   @WithSpan
   @Nonnull
-  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
-      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+  public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<RetentionKey> keys,
+      @Nonnull List<RetentionContext> retentionContexts) {
+    if (keys.size() != retentionContexts.size()) {
+      throw new IllegalArgumentException(
+          "keys and retentionContexts must be the same size: keys="
+              + keys.size()
+              + " contexts="
+              + retentionContexts.size());
+    }
+
     List<RetentionContext> withDefaults =
         retentionContexts.stream()
             .map(
@@ -198,7 +215,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 })
             .collect(Collectors.toList());
 
-    List<RetentionContext> successes = new ArrayList<>(withDefaults.size());
+    List<RetentionKey> successes = new ArrayList<>(withDefaults.size());
     if (withDefaults.isEmpty()) {
       return successes;
     }
@@ -207,24 +224,38 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     // and retries on its own without blocking the rest of the batch, and there is no per-engine
     // savepoint behavior to reason about. Retention is low-volume background cleanup, so the extra
     // commits are negligible. Each context is a single bulk DELETE.
-    for (RetentionContext context : withDefaults) {
-      try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
-        int rowsDeleted = executeRetentionDeleteForContext(context);
-        tx.commit();
-        successes.add(context);
-        if (rowsDeleted > 0) {
-          log.debug(
-              "Deleted {} rows for urn={} aspect={}",
-              rowsDeleted,
+    //
+    // Each per-context transaction is opened inside _txnFactory.scope(opContext) so an extension
+    // module routes the DELETE to the same underlying database opContext resolves to. The scope
+    // is per-context (not per-batch) because a batch may group entries that share a routing
+    // context;
+    // opening it per-context keeps the routing invariant tight and matches the existing
+    // per-context transaction granularity.
+    //
+    // Echo back the ORIGINAL key at each committed index (keys.get(i)), not a reconstructed one.
+    // Cross-off in the drainer is by RetentionKey equals (explicit per subtype), so a key subtype
+    // that carries routing metadata is matched with that metadata intact.
+    for (int i = 0; i < withDefaults.size(); i++) {
+      RetentionContext context = withDefaults.get(i);
+      try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
+        try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
+          int rowsDeleted = executeRetentionDeleteForContext(context);
+          tx.commit();
+          successes.add(keys.get(i));
+          if (rowsDeleted > 0) {
+            log.debug(
+                "Deleted {} rows for urn={} aspect={}",
+                rowsDeleted,
+                context.getUrn(),
+                context.getAspectName());
+          }
+        } catch (Exception e) {
+          log.warn(
+              "Retention delete failed for urn={} aspect={}; leaving key for retry",
               context.getUrn(),
-              context.getAspectName());
+              context.getAspectName(),
+              e);
         }
-      } catch (Exception e) {
-        log.warn(
-            "Retention delete failed for urn={} aspect={}; leaving key for retry",
-            context.getUrn(),
-            context.getAspectName(),
-            e);
       }
     }
     return successes;
@@ -320,7 +351,10 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
   @Override
   @WithSpan
-  public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
+  public void batchApplyRetention(
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName) {
     log.debug("Applying retention to all records");
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
@@ -331,7 +365,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     do {
       rows =
           getPagedAspectsByKeyset(
-              null, entityName, aspectName, lastUrn, lastAspect, _batchSize, null);
+              opContext, null, entityName, aspectName, lastUrn, lastAspect, _batchSize, null);
       if (!rows.isEmpty()) {
         log.info(
             "Applying retention to {} (urn, aspect) pairs with version > 0 after key ({}, {})",
@@ -379,6 +413,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       int pageSize = Math.min(_batchSize, start - skipped);
       List<EbeanAspectV2> skipPage =
           getPagedAspectsByKeyset(
+              args.opContext,
               args.urn,
               null,
               args.aspectName,
@@ -398,7 +433,14 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
     List<EbeanAspectV2> rows =
         getPagedAspectsByKeyset(
-            args.urn, null, args.aspectName, lastUrn, lastAspect, count, args.attemptWithVersion);
+            args.opContext,
+            args.urn,
+            null,
+            args.aspectName,
+            lastUrn,
+            lastAspect,
+            count,
+            args.attemptWithVersion);
     result.timeRowMs = System.currentTimeMillis() - startTime;
 
     for (EbeanAspectV2 row : rows) {
@@ -448,6 +490,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
    */
   @Nonnull
   List<EbeanAspectV2> getPagedAspectsByKeyset(
+      @Nonnull OperationContext opContext,
       @Nullable String urn,
       @Nullable String entityName,
       @Nullable String aspectName,
@@ -461,7 +504,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
     StringBuilder sql =
         new StringBuilder(
-            "SELECT urn, aspect, MAX(version) AS version FROM metadata_aspect_v2 WHERE 1=1");
+            "SELECT urn, aspect, MAX(version) AS version FROM"
+                + _tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)
+                + "WHERE 1=1");
     if (minVersionCount == null) {
       sql.append(" AND version > 0");
     }

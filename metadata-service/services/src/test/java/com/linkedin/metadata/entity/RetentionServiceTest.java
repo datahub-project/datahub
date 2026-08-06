@@ -58,6 +58,7 @@ public class RetentionServiceTest {
 
           @Override
           public void batchApplyRetention(
+              @Nonnull OperationContext opContext,
               @javax.annotation.Nullable String entityName,
               @javax.annotation.Nullable String aspectName) {}
 

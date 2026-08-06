@@ -68,7 +68,8 @@ public class RetentionServiceExactKeyTest {
           protected void applyRetention(List<RetentionContext> retentionContexts) {}
 
           @Override
-          public void batchApplyRetention(String entityName, String aspectName) {}
+          public void batchApplyRetention(
+              @Nonnull OperationContext opContext, String entityName, String aspectName) {}
 
           @Override
           public BulkApplyRetentionResult batchApplyRetentionEntities(
