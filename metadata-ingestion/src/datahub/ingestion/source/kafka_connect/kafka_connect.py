@@ -5,7 +5,9 @@ from typing import Dict, Iterable, List, Optional
 import jpype
 import jpype.imports
 import requests
+from requests.adapters import HTTPAdapter
 from typing_extensions import LiteralString
+from urllib3.util import Retry
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -20,7 +22,18 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.confluent.constants import MAX_KAFKA_TOPIC_FETCH_ATTEMPTS
+from datahub.ingestion.source.confluent.constants import (
+    KAFKA_REST_FETCH_FAILED,
+    KAFKA_REST_FETCH_FAILED_CATALOG,
+    KAFKA_REST_NO_AUTH,
+    KAFKA_REST_NO_AUTH_CATALOG,
+    KAFKA_REST_NO_ENDPOINT,
+    KAFKA_REST_NO_ENDPOINT_CATALOG,
+    KAFKA_REST_UNEXPECTED_RESPONSE,
+    KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG,
+    KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES,
+    MAX_KAFKA_TOPIC_FETCH_ATTEMPTS,
+)
 from datahub.ingestion.source.confluent.models import (
     BM_COLLISION_WITH_CONNECTOR_CONFIG,
     non_colliding_business_metadata,
@@ -85,7 +98,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
         # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
-        self.kafka_session = self._create_json_session()
+        # Mount retries for transient REST failures (matches fivetran/dremio pattern).
+        self.kafka_session = self._create_kafka_session()
 
         # Test the connection using appropriate credentials
         connect_username, connect_password = self.config.get_connect_credentials()
@@ -447,6 +461,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
         return session
 
+    @classmethod
+    def _create_kafka_session(cls) -> requests.Session:
+        session = cls._create_json_session()
+        retry_strategy = Retry(
+            total=MAX_KAFKA_TOPIC_FETCH_ATTEMPTS - 1,
+            backoff_factor=1,
+            status_forcelist=list(KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES),
+            allowed_methods=["GET"],
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
+
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
         """Get topics for a connector using environment-specific strategy.
 
@@ -566,15 +595,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             kafka_rest_endpoint, cluster_id = self._parse_confluent_cloud_info()
             if not kafka_rest_endpoint or not cluster_id:
                 self._warn_kafka_topics_unavailable(
-                    general_message=(
-                        "Could not resolve the Kafka REST endpoint for the live-cluster "
-                        "topic list"
-                    ),
-                    catalog_message=(
-                        "Could not resolve the Kafka REST endpoint for the live-cluster "
-                        "topic list, so Stream Catalog lineage will not be cross-checked "
-                        "against the broker"
-                    ),
+                    KAFKA_REST_NO_ENDPOINT_CATALOG
+                    if self._catalog is not None
+                    else KAFKA_REST_NO_ENDPOINT,
                     context=f"connect_uri={self.config.connect_uri}",
                 )
                 return None
@@ -584,81 +607,42 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             auth_headers = self._get_kafka_auth_headers()
             if auth_headers is None:
                 self._warn_kafka_topics_unavailable(
-                    general_message=(
-                        "No authentication credentials available for the Kafka REST API"
-                    ),
-                    catalog_message=(
-                        "No authentication credentials available for the Kafka REST API, "
-                        "so Stream Catalog lineage will not be cross-checked against the "
-                        "broker"
-                    ),
+                    KAFKA_REST_NO_AUTH_CATALOG
+                    if self._catalog is not None
+                    else KAFKA_REST_NO_AUTH,
                     context=f"topics_url={topics_url}",
                 )
                 return None
 
-            for attempt in range(MAX_KAFKA_TOPIC_FETCH_ATTEMPTS):
-                try:
-                    response = self.kafka_session.get(topics_url, headers=auth_headers)
-                    response.raise_for_status()
-                    topics_data = response.json()
-                except Exception as e:
-                    if attempt + 1 < MAX_KAFKA_TOPIC_FETCH_ATTEMPTS:
-                        logger.debug(
-                            "Retrying Kafka REST topic list fetch after failure "
-                            "(attempt %s/%s)",
-                            attempt + 1,
-                            MAX_KAFKA_TOPIC_FETCH_ATTEMPTS,
-                            exc_info=e,
-                        )
-                        continue
-                    self._warn_kafka_topics_unavailable(
-                        general_message="Failed to get topics from the Kafka REST API",
-                        catalog_message=(
-                            "Failed to get topics from the Kafka REST API, so Stream "
-                            "Catalog lineage will not be cross-checked against the broker"
-                        ),
-                        context=f"connect_uri={self.config.connect_uri}",
-                        exc=e,
-                    )
-                    return None
+            response = self.kafka_session.get(topics_url, headers=auth_headers)
+            response.raise_for_status()
+            topics_data = response.json()
 
-                if (
-                    topics_data.get("kind") == "KafkaTopicList"
-                    and "data" in topics_data
-                ):
-                    all_topics = [
-                        topic["topic_name"]
-                        for topic in topics_data["data"]
-                        if not topic.get("is_internal", False)
-                    ]
-                    logger.info(
-                        f"Retrieved {len(all_topics)} topics from Confluent Cloud "
-                        "Kafka REST API v3"
-                    )
-                    return all_topics
-
-                self._warn_kafka_topics_unavailable(
-                    general_message=(
-                        "Unexpected response format from the Kafka REST API topic list"
-                    ),
-                    catalog_message=(
-                        "Unexpected response format from the Kafka REST API topic list, "
-                        "so Stream Catalog lineage will not be cross-checked against the "
-                        "broker"
-                    ),
-                    context=f"topics_url={topics_url}",
+            if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
+                all_topics = [
+                    topic["topic_name"]
+                    for topic in topics_data["data"]
+                    if not topic.get("is_internal", False)
+                ]
+                logger.info(
+                    f"Retrieved {len(all_topics)} topics from Confluent Cloud "
+                    "Kafka REST API v3"
                 )
-                return None
+                return all_topics
 
+            self._warn_kafka_topics_unavailable(
+                KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
+                if self._catalog is not None
+                else KAFKA_REST_UNEXPECTED_RESPONSE,
+                context=f"topics_url={topics_url}",
+            )
             return None
 
         except Exception as e:
             self._warn_kafka_topics_unavailable(
-                general_message="Failed to get topics from the Kafka REST API",
-                catalog_message=(
-                    "Failed to get topics from the Kafka REST API, so Stream Catalog "
-                    "lineage will not be cross-checked against the broker"
-                ),
+                KAFKA_REST_FETCH_FAILED_CATALOG
+                if self._catalog is not None
+                else KAFKA_REST_FETCH_FAILED,
                 context=f"connect_uri={self.config.connect_uri}",
                 exc=e,
             )
@@ -666,17 +650,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _warn_kafka_topics_unavailable(
         self,
+        message: LiteralString,
         *,
-        general_message: LiteralString,
-        catalog_message: LiteralString,
         context: str,
         exc: Optional[Exception] = None,
     ) -> None:
         # Always warn: available_topics() consumers need this list with or without
-        # Stream Catalog. Use catalog-specific wording only when the catalog is on.
-        message: LiteralString = (
-            catalog_message if self._catalog is not None else general_message
-        )
+        # Stream Catalog. Callers pick catalog-suffixed wording when the catalog is on.
         self.report.warning(message=message, context=context, exc=exc)
 
     def _parse_confluent_cloud_info(self) -> tuple[Optional[str], Optional[str]]:

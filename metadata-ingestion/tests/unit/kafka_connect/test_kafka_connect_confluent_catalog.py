@@ -2,6 +2,7 @@ from typing import Dict, List, Mapping, Optional, Sequence, Set, Type
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -836,3 +837,172 @@ class TestDebeziumEventRouterTopicFiltering:
             "events.OrderCreated"
         ]
         assert lineages[0].source_dataset == "mydb.public.outbox"
+
+
+class TestParseConfluentCloudInfo:
+    def test_explicit_endpoint_and_cluster_id(self) -> None:
+        source = make_cloud_source()
+        source.config.kafka_rest_endpoint = (
+            "https://pkc-xyz.us-east-1.aws.confluent.cloud"
+        )
+
+        endpoint, cluster_id = source._parse_confluent_cloud_info()
+
+        assert endpoint == "https://pkc-xyz.us-east-1.aws.confluent.cloud"
+        assert cluster_id == "lkc-abc123"
+
+    def test_derived_from_connector_configs(self) -> None:
+        source = make_cloud_source()
+        source.config.kafka_rest_endpoint = None
+
+        with patch.object(
+            source,
+            "_derive_kafka_rest_endpoint_from_connectors",
+            return_value="https://pkc-derived.confluent.cloud",
+        ):
+            endpoint, cluster_id = source._parse_confluent_cloud_info()
+
+        assert endpoint == "https://pkc-derived.confluent.cloud"
+        assert cluster_id == "lkc-abc123"
+
+    def test_cluster_id_only_fallback(self) -> None:
+        source = make_cloud_source()
+        source.config.kafka_rest_endpoint = None
+
+        with patch.object(
+            source, "_derive_kafka_rest_endpoint_from_connectors", return_value=None
+        ):
+            endpoint, cluster_id = source._parse_confluent_cloud_info()
+
+        assert endpoint is None
+        assert cluster_id == "lkc-abc123"
+
+    def test_total_failure_returns_none_pair(self) -> None:
+        with patch("requests.Session.get") as mock_get:
+            response = Mock()
+            response.raise_for_status.return_value = None
+            response.json.return_value = []
+            mock_get.return_value = response
+
+            config = KafkaConnectSourceConfig(
+                connect_uri="https://connect.example.com",
+                username="connect-key",
+                password="connect-secret",
+                use_schema_resolver=False,
+                confluent_catalog=make_catalog_config(enabled=False),
+            )
+            source = KafkaConnectSource(config, Mock())
+
+        source.config.kafka_rest_endpoint = None
+        with patch.object(
+            source, "_derive_kafka_rest_endpoint_from_connectors", return_value=None
+        ):
+            endpoint, cluster_id = source._parse_confluent_cloud_info()
+
+        assert endpoint is None
+        assert cluster_id is None
+
+    def test_extract_cluster_id_from_connect_uri(self) -> None:
+        source = make_cloud_source()
+        assert source._extract_cluster_id_from_connect_uri() == "lkc-abc123"
+
+    def test_convert_broker_to_rest_endpoint(self) -> None:
+        source = make_cloud_source()
+        assert (
+            source._convert_broker_to_rest_endpoint(
+                "SASL_SSL://pkc-abc.us-east-1.aws.confluent.cloud:9092"
+            )
+            == "https://pkc-abc.us-east-1.aws.confluent.cloud"
+        )
+
+
+class TestKafkaSessionRetryAdapter:
+    def test_kafka_session_mounts_retry_adapter(self) -> None:
+        source = make_cloud_source()
+        https_adapter = source.kafka_session.get_adapter("https://example.com")
+        assert https_adapter.max_retries.total == 2
+        assert 429 in https_adapter.max_retries.status_forcelist
+        assert 500 in https_adapter.max_retries.status_forcelist
+
+    def test_fetch_failure_warns_and_returns_none(self) -> None:
+        source = make_cloud_source()
+        source._catalog = None
+        source._all_kafka_topics_resolved = False
+        source._all_kafka_topics_cache = None
+
+        with (
+            patch.object(
+                source,
+                "_parse_confluent_cloud_info",
+                return_value=("https://pkc.confluent.cloud", "lkc-abc123"),
+            ),
+            patch.object(
+                source,
+                "_get_kafka_auth_headers",
+                return_value={"Authorization": "Basic abc"},
+            ),
+            patch.object(
+                source.kafka_session,
+                "get",
+                side_effect=requests.exceptions.ConnectionError("boom"),
+            ),
+        ):
+            assert source._get_all_topics_from_kafka_api() is None
+
+        assert any(
+            warning.message == "Failed to get topics from the Kafka REST API"
+            for warning in source.report.warnings
+        )
+
+
+class TestSinkAvailableTopicsMigration:
+    def test_s3_regex_expands_against_cluster_topics_on_cloud(self) -> None:
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ConfluentS3SinkConnector,
+        )
+
+        manifest = make_manifest(
+            name="s3-sink",
+            connector_type="sink",
+            config={
+                "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+                "s3.bucket.name": "my-bucket",
+                "topics.regex": "orders.*",
+            },
+        )
+        manifest.topic_names = []
+        connector = ConfluentS3SinkConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = ["orders", "orders_dlq", "payments"]
+
+        assert sorted(connector.get_topics_from_config()) == ["orders", "orders_dlq"]
+
+    def test_bigquery_lineage_uses_available_topics_not_empty_topic_names(
+        self,
+    ) -> None:
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            BigQuerySinkConnector,
+        )
+
+        manifest = make_manifest(
+            name="bq-sink",
+            connector_type="sink",
+            config={
+                "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                "project": "my-project",
+                "defaultDataset": "analytics",
+                "topics": "orders,payments",
+            },
+        )
+        manifest.topic_names = []
+        connector = BigQuerySinkConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = ["orders", "payments", "unrelated"]
+
+        lineages = connector.extract_lineages()
+        assert sorted(lineage.source_dataset for lineage in lineages) == [
+            "orders",
+            "payments",
+        ]

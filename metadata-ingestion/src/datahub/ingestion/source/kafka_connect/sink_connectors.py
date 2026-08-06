@@ -57,36 +57,13 @@ class ConfluentS3SinkConnector(BaseConnector):
             target_platform="s3",
             bucket=bucket,
             topics_dir=topics_dir,
-            topics=connector_manifest.topic_names,
+            topics=self._resolve_subscribed_topics(
+                connector_manifest, self.get_topics_from_config()
+            ),
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """
-        Extract topics from S3 sink connector configuration.
-
-        Supports both explicit topic lists and regex patterns:
-        - topics: Comma-separated list of topic names
-        - topics.regex: Java regex pattern to match topics dynamically
-        """
-        config = self.connector_manifest.config
-
-        # Priority 1: Explicit 'topics' field
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        # Priority 2: 'topics.regex' pattern
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            # Expand pattern using available sources
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
+        return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # Mask/Remove properties that may reveal credentials
@@ -207,36 +184,9 @@ class SnowflakeSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
-        # Prefer the live-cluster topic list when resolved (including empty).
-        available_topics = set(self.available_topics())
-
-        # Get topics the connector subscribes to from its configuration
-        subscribed_topics = set(self.get_topics_from_config())
-
-        if subscribed_topics:
-            if available_topics:
-                # Runtime topic data available — intersect to exclude stale topics
-                topic_list = list(available_topics.intersection(subscribed_topics))
-                logger.debug(
-                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                    f"(intersection of {len(available_topics)} runtime topics and "
-                    f"{len(subscribed_topics)} configured topics)"
-                )
-            else:
-                # Runtime /topics API returned nothing (connector hasn't processed
-                # messages yet, or topics were reset) — trust the config directly
-                topic_list = list(subscribed_topics)
-                logger.debug(
-                    f"Runtime topics empty for {connector_manifest.name}, "
-                    f"using {len(topic_list)} topics from connector config"
-                )
-        else:
-            # No subscription config found — use whatever the runtime API returned
-            topic_list = list(available_topics)
-            logger.debug(
-                f"No subscription config found for {connector_manifest.name}, "
-                f"using all {len(topic_list)} available topics"
-            )
+        topic_list = self._resolve_subscribed_topics(
+            connector_manifest, self.get_topics_from_config()
+        )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
         )
@@ -265,32 +215,7 @@ class SnowflakeSinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """
-        Extract topics from Snowflake sink connector configuration.
-
-        Supports both explicit topic lists and regex patterns:
-        - topics: Comma-separated list of topic names
-        - topics.regex: Java regex pattern to match topics dynamically
-        """
-        config = self.connector_manifest.config
-
-        # Priority 1: Explicit 'topics' field
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        # Priority 2: 'topics.regex' pattern
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            # Expand pattern using available sources
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
+        return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # For all snowflake sink connector properties, refer below link
@@ -378,34 +303,9 @@ class ClickHouseSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse topic2TableMap: {e}")
 
-        # Prefer the live-cluster topic list when resolved (including empty).
-        available_topics = set(self.available_topics())
-
-        subscribed_topics = set(self.get_topics_from_config())
-        if subscribed_topics:
-            if available_topics:
-                # Runtime topic data available — intersect to exclude stale topics
-                topic_list = list(available_topics.intersection(subscribed_topics))
-                logger.debug(
-                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                    f"(intersection of {len(available_topics)} runtime topics and "
-                    f"{len(subscribed_topics)} configured topics)"
-                )
-            else:
-                # Runtime /topics API returned nothing (connector hasn't processed
-                # messages yet, or topics were reset) — trust the config directly
-                topic_list = list(subscribed_topics)
-                logger.debug(
-                    f"Runtime topics empty for {connector_manifest.name}, "
-                    f"using {len(topic_list)} topics from connector config"
-                )
-        else:
-            # No subscription config found — use whatever the runtime API returned
-            topic_list = list(available_topics)
-            logger.debug(
-                f"No subscription config found for {connector_manifest.name}, "
-                f"using all {len(topic_list)} available topics"
-            )
+        topic_list = self._resolve_subscribed_topics(
+            connector_manifest, self.get_topics_from_config()
+        )
 
         # Apply transforms
         transform_result = get_transform_pipeline().apply_forward(
@@ -431,22 +331,7 @@ class ClickHouseSinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        config = self.connector_manifest.config
-
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
+        return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         return {
@@ -744,32 +629,7 @@ class BigQuerySinkConnector(BaseConnector):
         return f"{dataset}.{table}"
 
     def get_topics_from_config(self) -> List[str]:
-        """
-        Extract topics from BigQuery sink connector configuration.
-
-        Supports both explicit topic lists and regex patterns:
-        - topics: Comma-separated list of topic names
-        - topics.regex: Java regex pattern to match topics dynamically
-        """
-        config = self.connector_manifest.config
-
-        # Priority 1: Explicit 'topics' field
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        # Priority 2: 'topics.regex' pattern
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            # Expand pattern using available sources
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
+        return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # Mask/Remove properties that may reveal credentials
@@ -791,8 +651,9 @@ class BigQuerySinkConnector(BaseConnector):
         target_platform: str = parser.target_platform
         project: str = parser.project
 
-        # Apply transforms to all topics
-        topic_list = list(self.connector_manifest.topic_names)
+        topic_list = self._resolve_subscribed_topics(
+            self.connector_manifest, self.get_topics_from_config()
+        )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, self.connector_manifest.config
         )
@@ -1185,32 +1046,7 @@ class JdbcSinkConnector(BaseConnector):
         return table_name
 
     def get_topics_from_config(self) -> List[str]:
-        """
-        Extract topics from JDBC sink connector configuration.
-
-        Supports both explicit topic lists and regex patterns:
-        - topics: Comma-separated list of topic names
-        - topics.regex: Java regex pattern to match topics dynamically
-        """
-        config = self.connector_manifest.config
-
-        # Priority 1: Explicit 'topics' field
-        topics = config.get(ConnectorConfigKeys.TOPICS, "")
-        if topics:
-            return parse_comma_separated_list(topics)
-
-        # Priority 2: 'topics.regex' pattern
-        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
-        if topics_regex:
-            # Expand pattern using available sources
-            return self._expand_topic_regex_patterns(
-                topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
-            )
-
-        return []
+        return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         """
@@ -1278,36 +1114,9 @@ class JdbcSinkConnector(BaseConnector):
                 f"database={parser.database_name}, schema={parser.schema_name}"
             )
 
-            # Prefer the live-cluster topic list when resolved (including empty).
-            available_topics = set(self.available_topics())
-
-            # Get topics the connector subscribes to from its configuration
-            subscribed_topics = set(self.get_topics_from_config())
-
-            if subscribed_topics:
-                if available_topics:
-                    # Runtime topic data available — intersect to exclude stale topics
-                    topic_list = list(available_topics.intersection(subscribed_topics))
-                    logger.debug(
-                        f"Resolved {len(topic_list)} topics for {self.connector_manifest.name} "
-                        f"(intersection of {len(available_topics)} runtime topics and "
-                        f"{len(subscribed_topics)} configured topics)"
-                    )
-                else:
-                    # Runtime /topics API returned nothing (connector hasn't processed
-                    # messages yet, or topics were reset) — trust the config directly
-                    topic_list = list(subscribed_topics)
-                    logger.debug(
-                        f"Runtime topics empty for {self.connector_manifest.name}, "
-                        f"using {len(topic_list)} topics from connector config"
-                    )
-            else:
-                # No subscription config found — use whatever the runtime API returned
-                topic_list = list(available_topics)
-                logger.debug(
-                    f"No subscription config found for {self.connector_manifest.name}, "
-                    f"using all {len(topic_list)} available topics"
-                )
+            topic_list = self._resolve_subscribed_topics(
+                self.connector_manifest, self.get_topics_from_config()
+            )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
             )

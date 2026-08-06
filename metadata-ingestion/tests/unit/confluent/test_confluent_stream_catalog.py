@@ -336,6 +336,21 @@ class TestCatalogEntityHelpers:
         assert entity.duplicate_business_metadata_names() == ["team"]
         assert entity.properties_from_business_metadata() == {"team": "payments"}
 
+    def test_null_only_duplicate_business_metadata_names_are_ignored(self) -> None:
+        entity = SampleEntity.model_validate(
+            {
+                "name": "orders",
+                "business_metadata": [
+                    {"name": "team", "value": None},
+                    {"name": "team", "value": None},
+                    {"name": "owner", "value": "alice"},
+                ],
+            }
+        )
+
+        assert entity.duplicate_business_metadata_names() == []
+        assert entity.properties_from_business_metadata() == {"owner": "alice"}
+
     def test_lookup_tolerates_case_differences(self) -> None:
         index = index_by_name([SampleEntity(name="Orders")])
 

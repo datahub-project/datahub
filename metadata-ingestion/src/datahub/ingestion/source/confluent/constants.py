@@ -1,4 +1,6 @@
-from typing import Final
+from typing import Final, Tuple
+
+from typing_extensions import LiteralString
 
 # https://docs.confluent.io/cloud/current/stream-governance/graphql.html
 CATALOG_GRAPHQL_PATH: Final[str] = "/catalog/graphql"
@@ -26,4 +28,39 @@ OFFSET_PLACEHOLDER: Final[str] = "{offset}"
 MAX_ERROR_BODY_CHARS: Final[int] = 500
 
 # Transient Kafka REST failures while listing topics for Confluent Cloud lineage.
+# urllib3 Retry.total is additional retries after the first attempt.
 MAX_KAFKA_TOPIC_FETCH_ATTEMPTS: Final[int] = 3
+KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES: Final[Tuple[int, ...]] = (
+    429,
+    500,
+    502,
+    503,
+    504,
+)
+
+KAFKA_REST_NO_ENDPOINT: LiteralString = (
+    "Could not resolve the Kafka REST endpoint for the live-cluster topic list"
+)
+KAFKA_REST_NO_ENDPOINT_CATALOG: LiteralString = (
+    "Could not resolve the Kafka REST endpoint for the live-cluster topic list, "
+    "so Stream Catalog lineage will not be cross-checked against the broker"
+)
+KAFKA_REST_NO_AUTH: LiteralString = (
+    "No authentication credentials available for the Kafka REST API"
+)
+KAFKA_REST_NO_AUTH_CATALOG: LiteralString = (
+    "No authentication credentials available for the Kafka REST API, "
+    "so Stream Catalog lineage will not be cross-checked against the broker"
+)
+KAFKA_REST_FETCH_FAILED: LiteralString = "Failed to get topics from the Kafka REST API"
+KAFKA_REST_FETCH_FAILED_CATALOG: LiteralString = (
+    "Failed to get topics from the Kafka REST API, so Stream Catalog lineage "
+    "will not be cross-checked against the broker"
+)
+KAFKA_REST_UNEXPECTED_RESPONSE: LiteralString = (
+    "Unexpected response format from the Kafka REST API topic list"
+)
+KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG: LiteralString = (
+    "Unexpected response format from the Kafka REST API topic list, "
+    "so Stream Catalog lineage will not be cross-checked against the broker"
+)

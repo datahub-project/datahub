@@ -22,6 +22,8 @@ from typing import (
     cast,
 )
 
+from typing_extensions import LiteralString
+
 from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_MAGIC_BYTE,
     CONFLUENT_WIRE_HEADER_LENGTH,
@@ -90,7 +92,10 @@ from datahub.ingestion.source.confluent.models import (
     non_colliding_business_metadata,
 )
 from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
-from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka_config import (
+    KafkaConfluentCatalogConfig,
+    KafkaSourceConfig,
+)
 from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaProfiler,
 )
@@ -389,15 +394,22 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             catalog_config = self.source_config.confluent_catalog
-            if catalog_config.enabled:
-                if catalog_config.check_confluent_cloud_endpoint(self.report):
-                    self.topic_catalog = KafkaTopicCatalog(catalog_config, self.report)
+            self.topic_catalog = self._create_topic_catalog(catalog_config)
         except Exception:
             try:
                 self.consumer.close()
             except Exception as e:
                 logger.debug(f"Failed to close consumer during failed init: {e}")
             raise
+
+    def _create_topic_catalog(
+        self, catalog_config: KafkaConfluentCatalogConfig
+    ) -> Optional[KafkaTopicCatalog]:
+        if not catalog_config.enabled:
+            return None
+        if not catalog_config.check_confluent_cloud_endpoint(self.report):
+            return None
+        return KafkaTopicCatalog(catalog_config, self.report)
 
     def init_kafka_admin_client(self) -> None:
         try:
@@ -553,7 +565,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         log=False,
                     )
 
-    def _locked_warning(self, message: str, context: str) -> None:
+    def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.
         with self._report_lock:
             self.report.warning(message=message, context=context, log=False)

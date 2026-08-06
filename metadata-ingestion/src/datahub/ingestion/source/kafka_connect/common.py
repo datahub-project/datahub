@@ -771,6 +771,16 @@ class BaseConnector:
             return list(self.all_cluster_topics)
         return list(self.connector_manifest.topic_names)
 
+    def topics_for_regex_expansion(self) -> Optional[List[str]]:
+        # Prefer the live cluster list (including empty). Fall back to connector
+        # topic_names only when they are non-empty; otherwise None so callers can
+        # try DataHub / warn instead of treating "unknown" as an empty match set.
+        if self.all_cluster_topics is not None:
+            return list(self.all_cluster_topics)
+        if self.connector_manifest.topic_names:
+            return list(self.connector_manifest.topic_names)
+        return None
+
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
         return []
@@ -803,9 +813,7 @@ class BaseConnector:
         if topics_regex:
             return self._expand_topic_regex_patterns(
                 topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
+                available_topics=self.topics_for_regex_expansion(),
             )
 
         return []
@@ -1431,15 +1439,16 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Priority 1: Use provided available_topics (from Kafka API)
-        if available_topics:
+        # Priority 1: Use provided available_topics (from Kafka API). Distinguish
+        # None (unavailable → try DataHub) from [] (resolved empty cluster).
+        if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:
                 logger.info(
                     f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
                     f"from {len(available_topics)} available Kafka topics"
                 )
-            elif not matched_topics:
+            else:
                 logger.warning(
                     f"Java regex pattern '{topics_regex}' did not match any of the {len(available_topics)} available topics"
                 )

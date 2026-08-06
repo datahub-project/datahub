@@ -172,9 +172,7 @@ class KafkaSourceConfig(
 
         catalog = self.confluent_catalog
         if not catalog.schema_registry_url:
-            catalog.schema_registry_url = self.connection.schema_registry_url.rstrip(
-                "/"
-            )
+            catalog.schema_registry_url = self.connection.schema_registry_url
 
         if not catalog.api_key and not catalog.api_secret:
             basic_auth = self.connection.schema_registry_config.get(

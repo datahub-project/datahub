@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import (
     Annotated,
@@ -70,15 +70,13 @@ class CatalogEntity(CatalogModel):
         }
 
     def duplicate_business_metadata_names(self) -> List[str]:
-        seen: Set[str] = set()
-        duplicates: Set[str] = set()
-        for attribute in self.business_metadata:
-            if not attribute.name:
-                continue
-            if attribute.name in seen:
-                duplicates.add(attribute.name)
-            seen.add(attribute.name)
-        return sorted(duplicates)
+        # Only names with multiple non-null values — null siblings do not overwrite.
+        counts = Counter(
+            attribute.name
+            for attribute in self.business_metadata
+            if attribute.name and attribute.value is not None
+        )
+        return sorted(name for name, count in counts.items() if count > 1)
 
 
 CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
@@ -114,7 +112,7 @@ def non_colliding_business_metadata(
     return properties
 
 
-@dataclass(frozen=True)
+@dataclass
 class NameIndex(Generic[CatalogEntityType]):
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
@@ -122,19 +120,12 @@ class NameIndex(Generic[CatalogEntityType]):
     empty_name_count: int = 0
     _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False, repr=False)
 
-    # frozen would otherwise generate a __hash__ that crashes on the dict fields.
-    __hash__ = None  # type: ignore[assignment]
-
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "_by_lowered_name",
-            {
-                name.lower(): entity
-                for name, entity in self.by_name.items()
-                if name.lower() not in self.case_ambiguous
-            },
-        )
+        self._by_lowered_name = {
+            name.lower(): entity
+            for name, entity in self.by_name.items()
+            if name.lower() not in self.case_ambiguous
+        }
 
     def get(self, name: str) -> Optional[CatalogEntityType]:
         entity = self.by_name.get(name)
@@ -182,13 +173,14 @@ def index_by_name(
 
     # Distinct casings under one lowered key — including ambiguous exact-names —
     # so a unique sibling cannot win case-insensitive get() for a duplicate.
-    case_ambiguous: Dict[str, List[str]] = {}
     exact_names_by_lowered: Dict[str, Set[str]] = defaultdict(set)
     for name in grouped:
         exact_names_by_lowered[name.lower()].add(name)
-    for lowered, exact_names in exact_names_by_lowered.items():
-        if len(exact_names) >= 2:
-            case_ambiguous[lowered] = sorted(exact_names)
+    case_ambiguous = {
+        lowered: sorted(exact_names)
+        for lowered, exact_names in exact_names_by_lowered.items()
+        if len(exact_names) >= 2
+    }
 
     return NameIndex(
         by_name=by_name,
