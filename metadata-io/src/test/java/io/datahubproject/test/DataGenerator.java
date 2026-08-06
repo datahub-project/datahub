@@ -1,6 +1,5 @@
 package io.datahubproject.test;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.AuditStamp;
@@ -81,7 +80,7 @@ public class DataGenerator {
             mock(PreProcessHooks.class),
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setEnableBrowseV2(anyBoolean()),
+                .setEnableBrowseV2(false),
             mock(MetricUtils.class));
     return new DataGenerator(opContext, mockEntityServiceImpl);
   }

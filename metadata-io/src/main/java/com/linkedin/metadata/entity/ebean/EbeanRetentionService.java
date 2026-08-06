@@ -272,9 +272,15 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   // because its sole caller (getVersionBasedRetentionQuery) is only reached via
   // executeRetentionDeleteForContext, which always runs inside an already-scoped
   // _txnFactory.scope(opContext) (applyRetention / applyRetentionBatchWithPolicyDefaults).
-  // Threading opContext here would require adding it to executeRetentionDeleteForContext,
-  // which is a package-private override boundary mocked by EbeanRetentionServiceTest — deferred
-  // to avoid cascading the param across that boundary.
+  //
+  // Threading opContext into getMaxVersion would require adding it to getVersionBasedRetentionQuery
+  // and then to executeRetentionDeleteForContext, which is package-private specifically so
+  // EbeanRetentionServiceTest can mock it (the test stubs
+  // executeRetentionDeleteForContext(any())). Adding an opContext param across that mock boundary
+  // would break the test mock, so the fix is deferred until the test mock is reworked to take
+  // opContext. No ticket exists yet — this rationale is documented inline so a future reader can
+  // pick it up: thread opContext through getMaxVersion -> getVersionBasedRetentionQuery ->
+  // executeRetentionDeleteForContext, and update EbeanRetentionServiceTest's mock accordingly.
   private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     List<EbeanAspectV2> result =
         _server

@@ -7,8 +7,6 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class EntityServiceConfiguration {
-  public static EntityServiceConfiguration EMPTY = new EntityServiceConfiguration();
-
   private boolean alwaysEmitChangeLog = false;
   private boolean cdcModeChangeLog = false;
   @Nullable private Integer retry = null;

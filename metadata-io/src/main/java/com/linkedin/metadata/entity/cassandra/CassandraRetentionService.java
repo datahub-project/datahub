@@ -70,6 +70,9 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   @WithSpan
+  // opContext is accepted for signature parity with the Ebean impl and is available for future
+  // CQL-level tenant routing; currently unused because Cassandra routing is keyspace-based and
+  // handled elsewhere (keyspace selection happens at the session/cluster level, not per-statement).
   protected void applyRetention(
       @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {
 

@@ -167,6 +167,8 @@ public class RetentionDrainer {
     // Group entries by the resolver's routing grouping key so entries that share a routing context
     // are applied in one batch call. One OperationContext is reconstructed per group (from a
     // representative key) and used for every entry in that group's apply call.
+    // LinkedHashMap (not HashMap) to preserve group insertion order across runs so drain order is
+    // deterministic for reproducible logs/debugging.
     Map<String, List<RetentionKey>> groups = new LinkedHashMap<>();
     for (RetentionKey key : contextsByKey.keySet()) {
       groups.computeIfAbsent(contextResolver.groupKey(key), k -> new ArrayList<>()).add(key);

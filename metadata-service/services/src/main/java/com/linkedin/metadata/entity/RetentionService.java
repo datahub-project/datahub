@@ -338,6 +338,13 @@ public abstract class RetentionService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull List<RetentionKey> keys,
       @Nonnull List<RetentionContext> retentionContexts) {
+    if (keys.size() != retentionContexts.size()) {
+      throw new IllegalArgumentException(
+          "keys and retentionContexts must be the same size: keys="
+              + keys.size()
+              + " contexts="
+              + retentionContexts.size());
+    }
     applyRetentionWithPolicyDefaults(opContext, retentionContexts);
     return keys;
   }

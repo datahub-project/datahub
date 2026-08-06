@@ -19,6 +19,12 @@ public interface ScopedTransactionFactory {
   /**
    * Begin an explicit transaction for the given scope and operation context. Caller manages the
    * transaction lifecycle (commit / rollback / close).
+   *
+   * <p>Currently unused by {@code EbeanRetentionService}, which calls {@code
+   * _server.beginTransaction(...)} directly for its ORM transactions (the per-context and
+   * batch-scope transactions it opens do not go through this seam). Retained because cloud
+   * extension modules route {@code begin} through the tenant seam (see cloud PR
+   * acryldata/datahub-fork#11489); removing it here would break that routing path.
    */
   @Nonnull
   Transaction begin(@Nonnull OperationContext opContext, @Nonnull TxScope txScope);
