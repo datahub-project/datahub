@@ -264,12 +264,11 @@ source:
       enabled: true
 ```
 
-What this gives you: \*\*complete dataset metadata + audit Validation tab
+What this gives you: **complete dataset metadata, the audit Validation tab, and
+Operation/Profile timeseries for the monitors you create.** Strictly less than
+the happy path, but still the bulk of the value.
 
-- Operation/Profile timeseries for monitors you create\*\*. Strictly less
-  than the happy path, but still the bulk of the value.
-
-### Real-world configuration examples
+#### Real-world configuration examples
 
 End-to-end Snowflake setup, the most common case:
 
@@ -318,7 +317,7 @@ sink:
 Env vars expected at runtime: `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`,
 `SNOWFLAKE_ACCOUNT`, `DATAHUB_GMS_URL`, `DATAHUB_TOKEN`.
 
-#### BigQuery service-account JSON
+##### BigQuery service-account JSON
 
 ```yaml
 # SQLMesh config.yaml
@@ -339,7 +338,7 @@ secret manager (GCP Secret Manager, K8s projected secret, etc.). The
 file is read by the BigQuery client library directly; the connector
 itself doesn't touch it.
 
-#### Tobiko Cloud Enterprise
+##### Tobiko Cloud Enterprise
 
 ```yaml
 source:
@@ -360,7 +359,7 @@ state — model definitions still load from project files, but
 `snapshot.updated_ts` and other state-derived signals are unavailable
 (`has_state_store_access: False` in the report).
 
-#### Running in Kubernetes
+##### Running in Kubernetes
 
 The connector ships no special K8s requirements. Common setup:
 
@@ -376,7 +375,7 @@ The connector ships no special K8s requirements. Common setup:
   GitHub Actions on whatever cadence makes sense for your refresh
   rate (commonly once per day, aligned with the SQLMesh apply cron).
 
-#### Running in CI/CD (GitHub Actions example)
+##### Running in CI/CD (GitHub Actions example)
 
 ```yaml
 - name: Ingest SQLMesh metadata to DataHub

@@ -13,6 +13,7 @@ Re-generate the golden file after intentional changes:
 
 from __future__ import annotations
 
+import json
 import pathlib
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -24,6 +25,7 @@ from sqlglot import exp
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sqlmesh.models import _CapabilityProbes
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import SqlmeshSource
 from datahub.metadata.schema_classes import (
@@ -38,6 +40,7 @@ pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2024-07-01 00:00:00"
 INTEGRATION_DIR = pathlib.Path(__file__).parent
 GOLDEN_FILE = INTEGRATION_DIR / "sqlmesh_mces_golden.json"
+HAPPY_PATH_GOLDEN_FILE = INTEGRATION_DIR / "sqlmesh_mces_happy_path_golden.json"
 
 
 # ---------------------------------------------------------------------------
@@ -174,11 +177,22 @@ def _build_fake_sqlmesh_context() -> MagicMock:
         "myschema.order_items",
         "mywarehouse.sqlmesh__myschema.myschema__order_items__3456789012",
     )
-    snapshots = {1: snap_raw, 2: snap_orders, 3: snap_items}
+    # Key snapshots by model name, mirroring the real SQLMesh ``ctx.snapshots``
+    # contract (the source looks them up via ``snapshots.get(model_name)``), so
+    # the fixture actually exercises name-based lookup rather than opaque ints.
+    snapshots = {
+        "myschema.raw_orders": snap_raw,
+        "myschema.orders": snap_orders,
+        "myschema.order_items": snap_items,
+    }
 
     ctx = MagicMock()
     ctx.models = models
     ctx.snapshots = snapshots
+    # get_model resolves the fixture models by name (and None for undeclared
+    # refs), so lineage routing (managed vs external vs undeclared-warehouse) is
+    # driven by real lookups instead of a blanket truthy MagicMock.
+    ctx.get_model = models.get
     return ctx
 
 
@@ -195,6 +209,10 @@ def test_sqlmesh_ingestion_golden_file(
 
     pipeline = Pipeline.create(
         {
+            # Pin the run id so systemMetadata.runId is deterministic; the
+            # default appends a random suffix, which would make the golden's
+            # hard-coded runId values flaky.
+            "run_id": "sqlmesh-test",
             "source": {
                 "type": "sqlmesh",
                 "config": {
@@ -210,9 +228,22 @@ def test_sqlmesh_ingestion_golden_file(
         }
     )
 
-    with patch(
-        "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
-        return_value=_build_fake_sqlmesh_context(),
+    with (
+        patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+            return_value=_build_fake_sqlmesh_context(),
+        ),
+        # Degraded path: state store and warehouse unreachable, so no
+        # fingerprint-rebuild operations or row-count profiles are emitted.
+        # Pin it explicitly rather than relying on how the MagicMock context
+        # happens to answer the probe — the happy-path golden covers the
+        # full-signal case.
+        patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source._probe_capabilities",
+            return_value=_CapabilityProbes(
+                has_state=False, has_warehouse_query=False, has_graph=False
+            ),
+        ),
     ):
         pipeline.run()
 
@@ -222,6 +253,130 @@ def test_sqlmesh_ingestion_golden_file(
         pytestconfig,
         output_path=output_path,
         golden_path=GOLDEN_FILE,
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Happy-path golden: state store + warehouse reachable, plus audit results
+# ---------------------------------------------------------------------------
+
+
+def _build_happy_path_context() -> MagicMock:
+    """Same project as the minimal golden, but with SQLMesh state and the
+    warehouse both reachable.
+
+    Snapshots are keyed by model name (so the operation/profile lookups hit),
+    carry an ``updated_ts`` for the fingerprint-rebuild ``OperationAspect``, and
+    the engine adapter answers ``COUNT(*)`` for ``DatasetProfile.rowCount``.
+    ``engine_adapters`` is an empty dict so profiling falls back to the single
+    default adapter rather than a MagicMock stand-in.
+    """
+    ctx = _build_fake_sqlmesh_context()
+
+    physical_names = {
+        "myschema.raw_orders": "mywarehouse.sqlmesh__myschema.myschema__raw_orders__1234567890",
+        "myschema.orders": "mywarehouse.sqlmesh__myschema.myschema__orders__2345678901",
+        "myschema.order_items": "mywarehouse.sqlmesh__myschema.myschema__order_items__3456789012",
+    }
+    snapshots_by_name: dict[str, Any] = {}
+    for name, phys in physical_names.items():
+        snap = _make_snapshot(name, phys)
+        snap.updated_ts = 1_719_792_000_000  # 2024-07-01, fixed for determinism
+        snapshots_by_name[name] = snap
+    ctx.snapshots = snapshots_by_name
+
+    adapter = MagicMock()
+    adapter.fetchone.return_value = (100,)
+    ctx.engine_adapter = adapter
+    ctx.engine_adapters = {}
+    return ctx
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_sqlmesh_happy_path_golden_file(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """End-to-end golden for the full-signal path: assertion definitions plus
+    run events (with an incident on failure), fingerprint-rebuild operations,
+    and row-count profiles. The minimal golden covers the degraded path where
+    state/warehouse are unreachable; this one proves the wiring through
+    get_workunits_internal when they are."""
+    audit_results_path = tmp_path / "audit_results.json"
+    audit_results_path.write_text(
+        json.dumps(
+            {
+                "metadata": {"generated_at": "2024-07-01T00:00:00"},
+                "results": [
+                    {
+                        "model": "myschema.orders",
+                        "audit": "not_null",
+                        "columns": ["order_id"],
+                        "status": "pass",
+                        "failing_rows": 0,
+                    },
+                    {
+                        "model": "myschema.orders",
+                        "audit": "not_null",
+                        "columns": ["customer_id"],
+                        "status": "fail",
+                        "failing_rows": 5,
+                    },
+                    {
+                        "model": "myschema.orders",
+                        "audit": "assert_amount_positive",
+                        "status": "pass",
+                        "failing_rows": 0,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "sqlmesh_mces_happy_path.json"
+
+    pipeline = Pipeline.create(
+        {
+            # Pin the run id (see the minimal golden test) for a deterministic
+            # systemMetadata.runId in the golden.
+            "run_id": "sqlmesh-test",
+            "source": {
+                "type": "sqlmesh",
+                "config": {
+                    "project_path": "/fake/sqlmesh_project",
+                    "gateway": "my_warehouse",
+                    "environment": "prod",
+                    "target_platform": "snowflake",
+                    "env": "PROD",
+                    "convert_urns_to_lowercase": True,
+                    "audit_results_path": str(audit_results_path),
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_path)}},
+        }
+    )
+
+    with (
+        patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+            return_value=_build_happy_path_context(),
+        ),
+        patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source._probe_capabilities",
+            return_value=_CapabilityProbes(
+                has_state=True, has_warehouse_query=True, has_graph=False
+            ),
+        ),
+    ):
+        pipeline.run()
+
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=HAPPY_PATH_GOLDEN_FILE,
         ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )
 

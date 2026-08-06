@@ -18,6 +18,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.source.sqlmesh.constants import (
+    SNOWFLAKE_PLATFORM,
+    SQLMESH_PLATFORM,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -74,10 +78,10 @@ def _read_tobiko_cloud_token_file(path: str) -> str:
     # (cachetools does not cache exceptions, so a transient failure isn't stuck.)
     try:
         return Path(path).read_text(encoding="utf-8").strip()
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         raise ValueError(
             f"Could not read tobiko_cloud_token_file at {path!r}: {e}. "
-            "Verify the path and file permissions."
+            "Verify the path, file permissions, and that it is UTF-8 text."
         ) from e
 
 
@@ -355,6 +359,7 @@ class SqlmeshSourceConfig(
     )
     fingerprint_staleness_threshold_hours: int = Field(
         default=48,
+        ge=0,
         description=(
             "Number of hours before a fingerprint table is considered stale. "
             "Only used when detect_stale_fingerprints=True. "
@@ -444,9 +449,6 @@ class SqlmeshSourceConfig(
             "When not set, the owner field value is used as-is."
         ),
     )
-    # ------------------------------------------------------------------
-    # Per-feature toggles for extras (default ON, opt out individually)
-    # ------------------------------------------------------------------
     emit_metadata_tests: bool = Field(
         default=True,
         description=(
@@ -503,10 +505,24 @@ class SqlmeshSourceConfig(
             )
         return v
 
+    @field_validator("tobiko_cloud_url", mode="after")
+    @classmethod
+    def validate_tobiko_cloud_url_is_https(cls, v: Optional[str]) -> Optional[str]:
+        # The URL is injected as the Tobiko Cloud state-connection endpoint and
+        # carries the cloud token/state over the wire. A plaintext http:// value
+        # would transmit those credentials unencrypted, so reject anything that
+        # isn't https.
+        if v and not v.lower().startswith("https://"):
+            raise ValueError(
+                "tobiko_cloud_url must use https:// so cloud credentials and "
+                f"state are not sent over plaintext HTTP (got {v!r})."
+            )
+        return v
+
     @field_validator("target_platform", mode="after")
     @classmethod
     def validate_target_platform(cls, v: Optional[str]) -> Optional[str]:
-        if v and v.lower() == "sqlmesh":
+        if v and v.lower() == SQLMESH_PLATFORM:
             raise ValueError(
                 "target_platform cannot be 'sqlmesh'. It should be the warehouse "
                 "platform that SQLMesh writes to (e.g. snowflake, bigquery, databricks)."
@@ -518,7 +534,7 @@ class SqlmeshSourceConfig(
     def set_lowercase_for_snowflake(cls, values: dict) -> dict:
         # Auto-enable URN lowercasing for Snowflake, matching dbt connector behaviour.
         values = deepcopy(values)
-        if (values.get("target_platform") or "").lower() == "snowflake":
+        if (values.get("target_platform") or "").lower() == SNOWFLAKE_PLATFORM:
             values.setdefault("convert_urns_to_lowercase", True)
         return values
 

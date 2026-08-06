@@ -276,14 +276,15 @@ def generate_pyproject_toml() -> str:
 
     # Plugin extras — each plugin's deps are fully inlined (no self-references)
     output_lines.append(
-        "# airflow, great-expectations, and sqlmesh excluded from pyproject "
-        "(circular deps or irreconcilable pins)."
+        "# airflow, great-expectations, and sqlmesh are excluded from these "
+        "pyproject extras (circular deps or irreconcilable pins)."
     )
     output_lines.append(
-        "# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin "
-        "directly; for sqlmesh use setuptools "
-        "``pip install 'acryl-datahub[sqlmesh]'`` until sqlmesh accepts "
-        "sqlglot 30.12+."
+        "# For airflow / great-expectations install acryl-datahub-airflow-plugin "
+        "/ acryl-datahub-gx-plugin directly. sqlmesh has no pyproject extra "
+        "because it pins sqlglot below acryl-datahub[all]; install it explicitly "
+        "alongside acryl-datahub, e.g. `pip install acryl-datahub sqlmesh`, and "
+        "let pip resolve a compatible sqlglot."
     )
     output_lines.append("")
 

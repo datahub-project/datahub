@@ -20,4 +20,6 @@ sink:
   type: datahub-rest
   config:
     server: "http://localhost:8080"
-    token: "${DATAHUB_TOKEN}"  # required for authenticated / hosted DataHub
+    # token is optional for a local unauthenticated DataHub; uncomment for
+    # authenticated / hosted (DataHub Cloud) instances.
+    # token: "${DATAHUB_TOKEN}"

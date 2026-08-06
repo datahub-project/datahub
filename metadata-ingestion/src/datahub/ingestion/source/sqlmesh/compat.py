@@ -40,6 +40,12 @@ if SqlmeshContext is not None:
     # still strand a fork on Linux under contention, and the parallel-parse
     # speedup is small in practice.
     #
+    # Applied at import time (rather than deferred to connector init) on
+    # purpose: sqlmesh.core.loader / .model.cache bind
+    # create_process_pool_executor by name when they are imported, and the
+    # patch must be in place before any SqlmeshContext is constructed. Importing
+    # this module is the connector's earliest hook that reliably precedes that.
+    #
     # These are private SQLMesh internals, so a version bump can rename them.
     # sqlmesh itself is installed at this point, so a failure here means an
     # API rename rather than a missing package — log loudly and carry on
@@ -47,10 +53,19 @@ if SqlmeshContext is not None:
     try:
         from sqlmesh.utils.process import SynchronousPoolExecutor
 
-        def _sync_pool(*args: object, **kwargs: object) -> SynchronousPoolExecutor:
+        def _sync_pool(
+            initializer: Optional[Callable[..., object]] = None,
+            initargs: tuple = (),
+            **_ignored: object,
+        ) -> SynchronousPoolExecutor:
+            # create_process_pool_executor's real contract is (initializer,
+            # initargs); a sqlmesh version may also pass max_workers / mp_context,
+            # which we deliberately drop — running synchronously in-process is the
+            # whole point. Naming the two we use keeps that contract visible
+            # instead of hiding it behind **kwargs.
             return SynchronousPoolExecutor(
-                initializer=kwargs.get("initializer"),  # type: ignore[arg-type]
-                initargs=kwargs.get("initargs", ()),  # type: ignore[arg-type]
+                initializer=initializer,  # type: ignore[arg-type]
+                initargs=initargs,
             )
 
         # Patch every module that captured create_process_pool_executor by name
@@ -308,6 +323,12 @@ def _scoped_tobiko_cloud_env(
         os.environ[keys["URL"]] = url
     if token:
         os.environ[keys["TOKEN"]] = token
+    else:
+        # No static token → SSO fallback via ~/.tcloud/auth.yaml. Clear any
+        # ambient TOKEN so a stale value from the environment can't silently
+        # authenticate this run (the previous value is restored on exit; the
+        # key is already tracked in `saved`).
+        os.environ.pop(keys["TOKEN"], None)
     os.environ["SQLMESH__DEFAULT_GATEWAY"] = gateway
     try:
         yield
