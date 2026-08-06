@@ -23,9 +23,11 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 def test_setup(auth_session, graph_client, tmp_path):
     """Ingest sample data with run-unique tag + dataset URNs.
 
-    Both the tag and the dataset must be uniquified: ``delete_references_to_urn``
-    and aspect assertions would race if another module shared ``test-delete`` or
-    ``NeedsDocs`` under xdist ``--dist=loadscope``.
+    Tag uniquification is required because ``delete_references_to_urn`` is
+    non-local: it strips *all* graph references to that tag URN, not just
+    associations created by this module. A shared ``NeedsDocs`` tag would
+    delete other workers' tag links under xdist. Dataset uniquification
+    similarly avoids colliding aspect assertions on ``test-delete``.
     """
 
     # Uniquify dataset first, then tag, chaining through the temp file so both

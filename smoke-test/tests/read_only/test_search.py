@@ -147,8 +147,8 @@ def test_openapi_v3_entity(auth_session):
         try:
             _openapi_v3_entity_once(auth_session, entity_type)
         except _OpenApiTransientSkip as exc:
-            # Read-only: empty index / concurrent delete after retries → skip.
-            # URN mismatch and other AssertionErrors still fail the test.
-            logger.warning("Skipping OpenAPI v3 check for %s: %s", entity_type, exc)
+            # Empty search / 404 under ES lag — yellow skip, not silent green.
+            # run_concurrent_tests treats Skipped separately; all-skip → pytest.skip.
+            pytest.skip(f"OpenAPI v3 {entity_type}: {exc}")
 
     run_concurrent_tests(entity_types, test_entity, test_name="test_openapi_v3_entity")

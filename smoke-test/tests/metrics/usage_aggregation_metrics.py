@@ -281,8 +281,10 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
                     "type": "PERSONAL",
                     "actorUrn": actor_urn,
                     "duration": "ONE_HOUR",
-                    # Unique name avoids collision with leftover PATs from prior
-                    # runs / parallel workers minting the same display name.
+                    # createAccessToken requires a unique name per actor; a fixed
+                    # name fails when a prior ONE_HOUR PAT with that name still
+                    # exists (leftover run or parallel worker), so mint returns
+                    # None and PAT-auth traffic never runs.
                     "name": f"usage-aggregation-pat-{unique_suffix()}",
                 }
             },

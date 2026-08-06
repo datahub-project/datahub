@@ -57,30 +57,35 @@ def test_create_list_get_domain(auth_session):
     domain_description = "test description"
     domain_urn = f"urn:li:domain:{domain_id}"
 
-    # Create new Domain
-    create_domain_query = """mutation createDomain($input: CreateDomainInput!) {
-            createDomain(input: $input)
-        }"""
-    create_domain_variables: Dict[str, Any] = {
-        "input": {
-            "id": domain_id,
-            "name": domain_name,
-            "description": domain_description,
+    try:
+        # Create new Domain
+        create_domain_query = """mutation createDomain($input: CreateDomainInput!) {
+                createDomain(input: $input)
+            }"""
+        create_domain_variables: Dict[str, Any] = {
+            "input": {
+                "id": domain_id,
+                "name": domain_name,
+                "description": domain_description,
+            }
         }
-    }
 
-    res_data = execute_graphql(
-        auth_session, create_domain_query, create_domain_variables
-    )
+        res_data = execute_graphql(
+            auth_session, create_domain_query, create_domain_variables
+        )
 
-    assert res_data["data"]["createDomain"] is not None
-    assert res_data["data"]["createDomain"] == domain_urn
+        assert res_data["data"]["createDomain"] is not None
+        assert res_data["data"]["createDomain"] == domain_urn
 
-    domain = _ensure_domain_readable(auth_session, domain_urn, domain_id)
-    assert domain["properties"]["name"] == domain_name
-    assert domain["properties"]["description"] == domain_description
-
-    delete_entity(auth_session, domain_urn)
+        domain = _ensure_domain_readable(auth_session, domain_urn, domain_id)
+        assert domain["properties"]["name"] == domain_name
+        assert domain["properties"]["description"] == domain_description
+    finally:
+        # Always delete — assertion failures must not leak domains into CI.
+        try:
+            delete_entity(auth_session, domain_urn)
+        except Exception as exc:
+            logger.warning("Failed to clean up domain %s: %s", domain_urn, exc)
 
 
 @pytest.mark.dependency(depends=["test_create_list_get_domain"])

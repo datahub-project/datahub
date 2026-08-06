@@ -198,7 +198,7 @@ def _get_timeline(
     return res["data"]["getTimeline"]["changeTransactions"]
 
 
-@with_test_retry()
+@with_test_retry(max_attempts=2)
 def _wait_for_timeline_events(
     auth_session,
     urn: str,
@@ -222,7 +222,7 @@ def _wait_for_timeline_events(
     return txns
 
 
-@with_test_retry()
+@with_test_retry(max_attempts=2)
 def _wait_for_timeline_categories(
     auth_session,
     urn: str,
