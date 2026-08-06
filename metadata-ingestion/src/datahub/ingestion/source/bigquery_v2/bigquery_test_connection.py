@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Union
 
 from google.api_core.exceptions import GoogleAPIError, PermissionDenied
-from google.cloud import bigquery
+from google.cloud import bigquery, bigquery_analyticshub_v1
 
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -19,6 +19,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.gcp_errors import (
+    is_iam_permission_denied,
+    is_service_disabled,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -171,9 +175,16 @@ class BigQueryTestConnection:
         project_ids: List[str],
     ) -> CapabilityReport:
         """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
-        from google.cloud import bigquery_analyticshub_v1
+        # Build the client inside the test so a construction/credential failure maps
+        # to this capability, not the outer handler's basic_connectivity=False.
+        try:
+            ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Could not initialise the Analytics Hub client: {e}",
+            )
 
-        ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
         for project_id in project_ids:
             try:
                 logger.info(f"Linked datasets capability test for project {project_id}")
@@ -182,15 +193,24 @@ class BigQueryTestConnection:
                 )
                 next(iter(iterator), None)
             except PermissionDenied as e:
-                return CapabilityReport(
-                    capable=False,
-                    failure_reason=(
+                if is_service_disabled(e):
+                    reason = (
+                        f"Analytics Hub API is not enabled on project {project_id}. "
+                        "Enable it to ingest BigQuery Sharing metadata, or unset "
+                        f"`include_linked_datasets`. Error: {e}"
+                    )
+                elif is_iam_permission_denied(e):
+                    reason = (
                         "Analytics Hub `subscriptions.list` permission missing on "
                         f"project {project_id}. Grant `analyticshub.subscriptions.list` "
                         "and `analyticshub.subscriptions.get` (e.g. via "
                         f"`roles/analyticshub.subscriptionOwner`). Error: {e}"
-                    ),
-                )
+                    )
+                else:
+                    reason = (
+                        f"Analytics Hub permission denied on project {project_id}: {e}"
+                    )
+                return CapabilityReport(capable=False, failure_reason=reason)
             except GoogleAPIError as e:
                 return CapabilityReport(
                     capable=False,
