@@ -174,13 +174,14 @@ class KafkaSourceConfig(
         if not catalog.schema_registry_url:
             catalog.schema_registry_url = self.connection.schema_registry_url
 
-        if not catalog.api_key and not catalog.api_secret:
-            basic_auth = self.connection.schema_registry_config.get(
-                SCHEMA_REGISTRY_BASIC_AUTH_KEY
-            )
-            if isinstance(basic_auth, str) and ":" in basic_auth:
-                key, _, secret = basic_auth.partition(":")
+        basic_auth = self.connection.schema_registry_config.get(
+            SCHEMA_REGISTRY_BASIC_AUTH_KEY
+        )
+        if isinstance(basic_auth, str) and ":" in basic_auth:
+            key, _, secret = basic_auth.partition(":")
+            if not catalog.api_key:
                 catalog.api_key = key
+            if not catalog.api_secret:
                 catalog.api_secret = SecretStr(secret)
 
         catalog.validate_connection()

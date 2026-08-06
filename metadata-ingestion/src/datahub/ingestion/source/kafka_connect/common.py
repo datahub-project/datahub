@@ -828,6 +828,13 @@ class BaseConnector:
 
         return []
 
+    def _sink_has_topic_subscription(self) -> bool:
+        config = self.connector_manifest.config
+        return bool(
+            config.get(ConnectorConfigKeys.TOPICS)
+            or config.get(ConnectorConfigKeys.TOPICS_REGEX)
+        )
+
     def _resolve_subscribed_topics(
         self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
     ) -> List[str]:
@@ -837,12 +844,22 @@ class BaseConnector:
         Applies three-way fallback logic:
         1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
         2. Use subscribed topics if runtime data unavailable
-        3. Use all runtime topics if no subscription config
+        3. Use all runtime topics only when no topics / topics.regex subscription is set
+
+        An empty result from a configured subscription (e.g. topics.regex matched
+        nothing) must not fall through to the whole-cluster list.
         """
         available_topics = set(self.available_topics())
         subscribed_topics_set = set(subscribed_topics)
+        subscription_configured = self._sink_has_topic_subscription()
 
-        if subscribed_topics_set:
+        if subscription_configured or subscribed_topics_set:
+            if not subscribed_topics_set:
+                logger.debug(
+                    f"Configured topic subscription for {connector_manifest.name} "
+                    f"resolved to zero topics; not falling back to the cluster list"
+                )
+                return []
             if available_topics:
                 topic_list = list(available_topics.intersection(subscribed_topics_set))
                 logger.debug(

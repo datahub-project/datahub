@@ -59,7 +59,7 @@ class ConfluentStreamCatalogClient:
         ]
         if missing:
             # Missing {offset} loops forever; missing {limit} silently truncates.
-            self.report.failure(
+            self.report.warning(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
             )
@@ -71,7 +71,7 @@ class ConfluentStreamCatalogClient:
 
         while True:
             if pages >= MAX_CATALOG_PAGES:
-                self.report.failure(
+                self.report.warning(
                     message="Stopped Confluent Stream Catalog pagination after hitting the "
                     "page safety limit; the catalog may be ignoring the offset parameter",
                     context=f"entity={root_key}, pages={pages}, entities_retrieved={len(entities)}, "
@@ -161,14 +161,14 @@ class ConfluentStreamCatalogClient:
 
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response is missing a data object",
                 context=context,
             )
             return None
 
         if root_key not in data:
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response is missing the queried field",
                 context=f"{context}, fields_returned={sorted(data)}",
             )
@@ -176,7 +176,7 @@ class ConfluentStreamCatalogClient:
 
         entities = data.get(root_key)
         if not isinstance(entities, list):
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response field is not a list",
                 context=f"{context}, field={root_key}",
             )

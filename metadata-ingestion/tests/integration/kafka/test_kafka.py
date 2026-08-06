@@ -74,6 +74,12 @@ def _pagination_is_inlined(request: requests_mock.request._RequestObjectProxy) -
     )
 
 
+def _is_non_inlined_pagination(
+    request: requests_mock.request._RequestObjectProxy,
+) -> bool:
+    return not _pagination_is_inlined(request)
+
+
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/kafka"
@@ -167,6 +173,15 @@ def test_kafka_confluent_catalog_ingest(
             f"{CATALOG_STUB_URL}/catalog/graphql",
             additional_matcher=_pagination_is_inlined,
             json={"data": {"kafka_topic": CATALOG_TOPICS}},
+        )
+        # Catch regressions that send a variables map: with real_http=True those
+        # would otherwise fall through to a real network call against the stub host.
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_is_non_inlined_pagination,
+            exc=AssertionError(
+                "Catalog GraphQL must inline limit/offset; variables maps are rejected"
+            ),
         )
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 

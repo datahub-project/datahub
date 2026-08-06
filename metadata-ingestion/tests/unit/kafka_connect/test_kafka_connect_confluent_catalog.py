@@ -541,8 +541,16 @@ class TestCatalogLineage:
         manifest = make_manifest()
 
         registry_connector = Mock()
-        registry_connector.extract_lineages.return_value = []
+        registry_connector.extract_lineages.return_value = [
+            KafkaConnectLineage(
+                source_dataset="should-not-be-used",
+                source_platform="postgres",
+                target_dataset="should-not-be-used",
+                target_platform=KAFKA,
+            )
+        ]
         registry_connector.extract_flow_property_bag.return_value = {}
+        registry_connector.requires_cluster_topics.return_value = False
 
         with (
             patch(REGISTRY_LOOKUP, return_value=registry_connector),
@@ -550,7 +558,7 @@ class TestCatalogLineage:
         ):
             assert source.extract_connector_lineages(manifest)
 
-        assert registry_connector.all_cluster_topics == []
+        registry_connector.extract_lineages.assert_not_called()
         assert manifest.lineages == []
         assert any(
             "not present on the live Kafka cluster" in warning.message
@@ -725,7 +733,7 @@ class TestCatalogCreation:
                 password="connect-secret",
                 use_schema_resolver=False,
                 confluent_catalog=make_catalog_config(
-                    schema_registry_url="http://localhost:8081",
+                    schema_registry_url="https://schema-registry.internal.example.com",
                 ),
             )
             source = KafkaConnectSource(config, Mock())
@@ -980,6 +988,34 @@ class TestSinkAvailableTopicsMigration:
         connector.all_cluster_topics = ["orders", "orders_dlq", "payments"]
 
         assert sorted(connector.get_topics_from_config()) == ["orders", "orders_dlq"]
+
+    def test_empty_regex_match_does_not_fall_back_to_all_cluster_topics(self) -> None:
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            ConfluentS3SinkConnector,
+        )
+
+        manifest = make_manifest(
+            name="s3-sink",
+            connector_type="sink",
+            config={
+                "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+                "s3.bucket.name": "my-bucket",
+                "topics.regex": "no_such_prefix.*",
+            },
+        )
+        manifest.topic_names = []
+        connector = ConfluentS3SinkConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = ["orders", "payments", "unrelated"]
+
+        assert connector.get_topics_from_config() == []
+        assert (
+            connector._resolve_subscribed_topics(
+                manifest, connector.get_topics_from_config()
+            )
+            == []
+        )
 
     def test_bigquery_lineage_uses_available_topics_not_empty_topic_names(
         self,

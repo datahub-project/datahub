@@ -123,6 +123,33 @@ class TestCatalogConnectionInheritance:
         assert catalog.schema_registry_url == "https://psrc-other.aws.confluent.cloud"
         assert catalog.get_credentials() == ("explicit-key", "explicit-secret")
 
+    def test_partial_catalog_credentials_inherit_the_missing_side(self) -> None:
+        config = make_source_config(
+            catalog={
+                "enabled": True,
+                "api_key": "explicit-key",
+            },
+            schema_registry_config={"basic.auth.user.info": "sr-key:sr-secret"},
+        )
+
+        assert config.confluent_catalog.get_credentials() == (
+            "explicit-key",
+            "sr-secret",
+        )
+
+        config = make_source_config(
+            catalog={
+                "enabled": True,
+                "api_secret": "explicit-secret",
+            },
+            schema_registry_config={"basic.auth.user.info": "sr-key:sr-secret"},
+        )
+
+        assert config.confluent_catalog.get_credentials() == (
+            "sr-key",
+            "explicit-secret",
+        )
+
     def test_enabling_without_any_credentials_is_rejected(self) -> None:
         with pytest.raises(ValueError) as exc_info:
             make_source_config(catalog={"enabled": True})
@@ -380,7 +407,7 @@ class TestCatalogMetadataOnTopics:
         source = KafkaSource(
             make_source_config(
                 catalog=enabled_catalog_config(
-                    schema_registry_url="http://schema-registry.internal:8081"
+                    schema_registry_url="https://schema-registry.internal.example.com"
                 ),
                 schema_registry_url=SCHEMA_REGISTRY_URL,
             ),

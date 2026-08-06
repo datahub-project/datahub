@@ -184,7 +184,7 @@ class TestConfluentStreamCatalogClient:
             {"query": "{ kafka_topic(limit: 2, offset: 4) { name } }"},
         ]
 
-    def test_query_without_pagination_placeholders_is_a_failure(self) -> None:
+    def test_query_without_pagination_placeholders_is_a_warning(self) -> None:
         client = make_client([])
 
         assert (
@@ -196,7 +196,8 @@ class TestConfluentStreamCatalogClient:
         session = client.session
         assert isinstance(session, Mock)
         assert session.post.call_count == 0
-        assert len(client.report.failures) == 1
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
     def test_rejected_request_reports_the_server_response(self) -> None:
         response = Mock()
@@ -243,32 +244,35 @@ class TestConfluentStreamCatalogClient:
         assert [entity.name for entity in entities] == ["orders"]
         assert len(client.report.warnings) == 1
 
-    def test_missing_data_key_is_a_failure(self) -> None:
+    def test_missing_data_key_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
-    def test_non_list_entity_field_is_a_failure(self) -> None:
+    def test_non_list_entity_field_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"data": {"kafka_topic": {"name": "orders"}}}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
-    def test_missing_queried_field_is_a_failure(self) -> None:
+    def test_missing_queried_field_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"data": {"some_other_entity": []}}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
     def test_failure_part_way_through_pagination_is_reported_as_partial(self) -> None:
         broken = Mock()
@@ -316,7 +320,8 @@ class TestConfluentStreamCatalogClient:
             entities = fetch(client)
 
         assert len(entities) == 4
-        assert len(client.report.failures) == 1
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
 
 class TestCatalogEntityHelpers:
