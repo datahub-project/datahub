@@ -61,6 +61,19 @@ MODEL_KIND_TO_SUBTYPE: Dict[str, str] = {
 # Valid values for ``model_kind_filter`` — the SQLMesh model kind names above.
 VALID_MODEL_KINDS: frozenset = frozenset(MODEL_KIND_TO_SUBTYPE)
 
+
+def _reject_sqlmesh_target_platform(v: Optional[str]) -> Optional[str]:
+    # target_platform is the warehouse SQLMesh writes to; setting it to "sqlmesh"
+    # points sibling URNs back at the SQLMesh entity itself and silently breaks
+    # stitching. Reject it at both the top level and per-gateway override.
+    if v and v.lower() == SQLMESH_PLATFORM:
+        raise ValueError(
+            "target_platform cannot be 'sqlmesh'. It should be the warehouse "
+            "platform that SQLMesh writes to (e.g. snowflake, bigquery, databricks)."
+        )
+    return v
+
+
 # Tobiko Cloud token file reads are cached for 60s so projected Kubernetes
 # secret mounts pick up rotated tokens without a process restart, while still
 # avoiding a disk read on every ingest.
@@ -171,6 +184,11 @@ class GatewayOverride(ConfigModel):
         ),
     )
 
+    @field_validator("target_platform", mode="after")
+    @classmethod
+    def validate_target_platform(cls, v: Optional[str]) -> Optional[str]:
+        return _reject_sqlmesh_target_platform(v)
+
 
 class SqlmeshSourceConfig(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
@@ -214,7 +232,8 @@ class SqlmeshSourceConfig(
         description=(
             "Tobiko Cloud state-store URL. Only needed when the project's "
             "``config.py`` does not already declare it on its cloud state "
-            "connection. Ignored when no token is configured."
+            "connection. Used for both static-token and SSO auth, so it must be "
+            "https:// whenever it is set (credentials/state travel over it)."
         ),
     )
     environment: str = Field(
@@ -509,9 +528,9 @@ class SqlmeshSourceConfig(
     @classmethod
     def validate_tobiko_cloud_url_is_https(cls, v: Optional[str]) -> Optional[str]:
         # The URL is injected as the Tobiko Cloud state-connection endpoint and
-        # carries the cloud token/state over the wire. A plaintext http:// value
-        # would transmit those credentials unencrypted, so reject anything that
-        # isn't https.
+        # carries the cloud token/state over the wire for both static-token and
+        # SSO auth. A plaintext http:// value would transmit those credentials
+        # unencrypted, so reject anything that isn't https whenever it is set.
         if v and not v.lower().startswith("https://"):
             raise ValueError(
                 "tobiko_cloud_url must use https:// so cloud credentials and "
@@ -522,12 +541,7 @@ class SqlmeshSourceConfig(
     @field_validator("target_platform", mode="after")
     @classmethod
     def validate_target_platform(cls, v: Optional[str]) -> Optional[str]:
-        if v and v.lower() == SQLMESH_PLATFORM:
-            raise ValueError(
-                "target_platform cannot be 'sqlmesh'. It should be the warehouse "
-                "platform that SQLMesh writes to (e.g. snowflake, bigquery, databricks)."
-            )
-        return v
+        return _reject_sqlmesh_target_platform(v)
 
     @model_validator(mode="before")
     @classmethod

@@ -5,13 +5,14 @@ import sys
 import time
 import types
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, List, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sqlmesh.compat import (
     _TOBIKO_CONVERT_PATCH_SENTINEL,
     _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
@@ -51,6 +52,22 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 
 WAREHOUSE_PLATFORM = "snowflake"
+
+_AspectT = TypeVar("_AspectT")
+
+
+def _aspects_of_type(
+    workunits: Iterable[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> List[_AspectT]:
+    # wu.metadata is a union (MCE/MCP/MCPW); only MCP/MCPW carry `.aspect`.
+    # Narrowing by isinstance here keeps call sites both runtime-safe and
+    # mypy-clean (a bare wu.metadata.aspect trips union-attr).
+    out: List[_AspectT] = []
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, aspect_type):
+            out.append(aspect)
+    return out
 
 
 def _make_source(extra_config: dict | None = None) -> SqlmeshSource:
@@ -632,11 +649,7 @@ class TestRowCountProfile:
         bq_adapter.fetchone.assert_called_once()
         default_adapter.fetchone.assert_not_called()
 
-        profiles = [
-            wu.metadata.aspect
-            for wu in workunits
-            if isinstance(getattr(wu.metadata, "aspect", None), DatasetProfileClass)
-        ]
+        profiles = _aspects_of_type(workunits, DatasetProfileClass)
         assert len(profiles) == 1
         assert profiles[0].rowCount == 42
 
@@ -862,12 +875,15 @@ class TestAuditRunEventUrnMatching:
                 return wu.metadata.entityUrn
         raise AssertionError(f"no assertion definition for {audit_substr}")
 
-    def _run_event_urns(self, source: SqlmeshSource, tmp_path: Path, results: list):
+    def _run_event_urns(
+        self, source: SqlmeshSource, tmp_path: Path, results: list
+    ) -> List[str]:
         path = self._write_results(tmp_path, results)
         return [
-            wu.metadata.aspect.assertionUrn
-            for wu in source._emit_audit_run_events(path)
-            if isinstance(getattr(wu.metadata, "aspect", None), AssertionRunEventClass)
+            event.assertionUrn
+            for event in _aspects_of_type(
+                source._emit_audit_run_events(path), AssertionRunEventClass
+            )
         ]
 
     def test_column_audit_run_event_matches_definition(self, tmp_path):
@@ -920,6 +936,36 @@ class TestAuditRunEventUrnMatching:
             ],
         )
         assert definition_urn in run_urns
+
+    def test_malformed_entry_skipped_and_valid_one_still_emitted(self, tmp_path):
+        """One malformed entry must not abort the file: it is skipped with a
+        warning while a valid entry still yields its AssertionRunEvent."""
+        source = _make_source()
+        col = MagicMock()
+        col.name = "id"
+        model = _make_mock_model("star.dim_developer")
+        model.audits = [("not_null", {"columns": MagicMock(expressions=[col])})]
+        _run_project(source, {"star.dim_developer": model}, {})
+
+        path = self._write_results(
+            tmp_path,
+            [
+                "totally-not-an-entry",
+                {
+                    "model": "star.dim_developer",
+                    "audit": "not_null",
+                    "columns": ["id"],
+                    "status": "fail",
+                    "failing_rows": 2,
+                },
+            ],
+        )
+        before = len(list(source.report.warnings))
+        run_events = _aspects_of_type(
+            source._emit_audit_run_events(path), AssertionRunEventClass
+        )
+        assert len(run_events) == 1
+        assert len(list(source.report.warnings)) > before
 
 
 class TestAuditResultUrnResolution:
@@ -1266,6 +1312,34 @@ class TestLineageCategories:
         assert WAREHOUSE_PLATFORM in upstream_urn
         assert SQLMESH_PLATFORM not in upstream_urn
 
+    def test_dep_filtered_by_model_kind_uses_warehouse_urn(self):
+        """A managed dep excluded by model_kind_filter has no sqlmesh entity, so
+        lineage points at its warehouse URN instead of a dangling sqlmesh URN."""
+        source = _make_source({"model_kind_filter": ["VIEW"]})
+        # Upstream is a FULL model (filtered out); the downstream VIEW is emitted.
+        upstream = _make_mock_model("star.base_developer", kind_name="FULL")
+        model = _make_mock_model(
+            "star.dim_developer",
+            depends_on={"star.base_developer"},
+            kind_name="VIEW",
+        )
+
+        workunits = _run_project(
+            source,
+            {"star.dim_developer": model, "star.base_developer": upstream},
+            {},
+        )
+
+        lineage = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+        ]
+        assert len(lineage) == 1
+        upstream_urn = lineage[0].upstreams[0].dataset
+        assert WAREHOUSE_PLATFORM in upstream_urn
+        assert SQLMESH_PLATFORM not in upstream_urn
+
     def test_include_database_name_false_strips_catalog(self):
         """include_database_name=False drops catalog from warehouse sibling URN."""
         source = _make_source(
@@ -1276,9 +1350,7 @@ class TestLineageCategories:
         workunits = _run_project(source, {"star.dim_developer": model}, {})
 
         sibling_targets = [
-            wu.metadata.aspect.siblings[0]
-            for wu in workunits
-            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+            aspect.siblings[0] for aspect in _aspects_of_type(workunits, SiblingsClass)
         ]
         warehouse_urn = next(u for u in sibling_targets if WAREHOUSE_PLATFORM in u)
         # With include_database_name=False, catalog 'analytics' is stripped
@@ -1297,9 +1369,7 @@ class TestPlatformDetection:
         )
 
         sibling_targets = [
-            wu.metadata.aspect.siblings[0]
-            for wu in workunits
-            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+            aspect.siblings[0] for aspect in _aspects_of_type(workunits, SiblingsClass)
         ]
         assert any("bigquery" in u for u in sibling_targets)
 
@@ -1313,9 +1383,7 @@ class TestPlatformDetection:
         )
 
         sibling_targets = [
-            wu.metadata.aspect.siblings[0]
-            for wu in workunits
-            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+            aspect.siblings[0] for aspect in _aspects_of_type(workunits, SiblingsClass)
         ]
         assert any("redshift" in u for u in sibling_targets)
         assert not any("databricks" in u for u in sibling_targets)
@@ -1636,9 +1704,7 @@ class TestEnvironmentSuffix:
             workunits = list(source2._ingest_project())
 
         sibling_targets = [
-            wu.metadata.aspect.siblings[0]
-            for wu in workunits
-            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+            aspect.siblings[0] for aspect in _aspects_of_type(workunits, SiblingsClass)
         ]
         warehouse_urn = next(u for u in sibling_targets if "snowflake" in u)
         # In dev with schema mode: star__dev schema, not star
@@ -1812,6 +1878,17 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="cannot be 'sqlmesh'"):
             SqlmeshSourceConfig.model_validate(
                 {"project_path": "/p", "target_platform": "sqlmesh"}
+            )
+
+    def test_gateway_override_target_platform_sqlmesh_rejected(self):
+        # Same guard must apply per-gateway: a gateway override of "sqlmesh"
+        # would silently corrupt that gateway's sibling URNs.
+        with pytest.raises(ValueError, match="cannot be 'sqlmesh'"):
+            SqlmeshSourceConfig.model_validate(
+                {
+                    "project_path": "/p",
+                    "gateway_overrides": {"gw": {"target_platform": "sqlmesh"}},
+                }
             )
 
 
@@ -2176,3 +2253,19 @@ class TestScopedTobikoCloudEnv:
         ):
             raise RuntimeError("boom")
         assert dict(os.environ) == snapshot
+
+    def test_ambient_token_cleared_during_sso_and_restored(self):
+
+        # A stale TOKEN already in the environment must not silently authenticate
+        # an SSO (token=None) run: it is removed inside the block and restored on
+        # exit.
+        token_key = "SQLMESH__GATEWAYS__GW__STATE_CONNECTION__TOKEN"
+        os.environ[token_key] = "stale-ambient-token"
+        try:
+            with _scoped_tobiko_cloud_env(
+                token=None, gateway="gw", url="https://example"
+            ):
+                assert token_key not in os.environ
+            assert os.environ[token_key] == "stale-ambient-token"
+        finally:
+            os.environ.pop(token_key, None)

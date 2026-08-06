@@ -11,7 +11,12 @@ from typing import (
     Optional,
 )
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_assertion_source,
+    make_assertion_urn,
+    make_schema_field_urn,
+    make_user_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sqlmesh.base import SqlmeshSourceBase
@@ -22,14 +27,8 @@ from datahub.ingestion.source.sqlmesh.constants import (
     _SQLMESH_AUDIT_MAP,
     AUDIT_KWARG_COLUMNS,
     AUDIT_LOGIC_KWARGS,
-    AUDIT_RESULT_AUDIT,
-    AUDIT_RESULT_COLUMNS,
-    AUDIT_RESULT_FAILING_ROWS,
-    AUDIT_RESULT_GENERATED_AT,
     AUDIT_RESULT_METADATA,
-    AUDIT_RESULT_MODEL,
     AUDIT_RESULT_RESULTS,
-    AUDIT_RESULT_STATUS,
     AUDIT_RUN_ID_PREFIX,
     AUDIT_STATUS_FAIL,
     AUDIT_STATUS_PASS,
@@ -46,7 +45,11 @@ from datahub.ingestion.source.sqlmesh.constants import (
     PROP_SCOPE,
     _AuditAssertionParams,
 )
-from datahub.ingestion.source.sqlmesh.models import parse_model_audits
+from datahub.ingestion.source.sqlmesh.models import (
+    AuditResultEntry,
+    AuditResultsMetadata,
+    parse_model_audits,
+)
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
@@ -70,7 +73,6 @@ logger = logging.getLogger(__name__)
 
 class AssertionMixin(SqlmeshSourceBase):
     def _extract_audit_columns(self, kw: Dict[str, Any]) -> List[str]:
-        """Extract column name strings from a SQLGlot Array of Column expressions."""
         col_array = kw.get(AUDIT_KWARG_COLUMNS)
         if col_array is None:
             return []
@@ -93,7 +95,6 @@ class AssertionMixin(SqlmeshSourceBase):
             return []
 
     def _extract_literal_value(self, kw: Dict[str, Any], key: str) -> Optional[str]:
-        """Extract a scalar literal value from a SQLGlot Literal expression."""
         expr = kw.get(key)
         if expr is None:
             return None
@@ -114,7 +115,7 @@ class AssertionMixin(SqlmeshSourceBase):
 
     def _assertion_urn(self, dataset_urn: str, audit_name: str, suffix: str) -> str:
         raw = f"{dataset_urn}:{audit_name}:{suffix}"
-        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
+        return make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
 
     @staticmethod
     def _audit_assertion_suffixes(
@@ -142,14 +143,9 @@ class AssertionMixin(SqlmeshSourceBase):
         return [",".join(columns)]
 
     def _emit_audit_run_events(self, path: str) -> Iterable[MetadataWorkUnit]:
-        """
-        Read a JSON file produced by ``sqlmesh audit --output <file>`` and emit
-        AssertionRunEvent aspects so DataHub shows pass/fail on the Data Quality tab.
-
-        Each entry in the file is matched back to an assertion URN using the same
-        deterministic hash used in _emit_assertions (model → dataset_urn, audit +
-        columns → suffix), so definitions and run events link up automatically.
-        """
+        # Each entry is matched back to an assertion URN using the same
+        # deterministic hash as the definition side (model → dataset_urn,
+        # audit + columns → suffix), so run events link up automatically.
         try:
             with open(path) as f:
                 payload = json.load(f)
@@ -161,9 +157,9 @@ class AssertionMixin(SqlmeshSourceBase):
             )
             return
 
-        generated_at = payload.get(AUDIT_RESULT_METADATA, {}).get(
-            AUDIT_RESULT_GENERATED_AT, ""
-        )
+        generated_at = AuditResultsMetadata.model_validate(
+            payload.get(AUDIT_RESULT_METADATA) or {}
+        ).generated_at
         try:
             parsed = datetime.fromisoformat(generated_at)
             # A naive generated_at (no offset) would otherwise be interpreted in
@@ -173,22 +169,34 @@ class AssertionMixin(SqlmeshSourceBase):
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=timezone.utc)
             ts_ms = int(parsed.timestamp() * 1000)
-        except Exception:
+        except Exception as e:
+            # run_id and every derived incident URN hang off this timestamp.
+            # Falling back to wall-clock makes them change on each run, so a
+            # persistently malformed generated_at mints a NEW incident every
+            # re-ingest instead of updating the existing one — warn loudly.
             ts_ms = int(time.time() * 1000)
+            self.report.warning(
+                title="Audit results generated_at is missing or unparseable",
+                message="Falling back to wall-clock time; run and incident IDs "
+                "will not be stable across re-ingests until this is fixed.",
+                context=f"{path}: {generated_at!r} ({e})",
+            )
 
         run_id = f"{AUDIT_RUN_ID_PREFIX}{ts_ms}"
-        results: List[Dict[str, Any]] = payload.get(AUDIT_RESULT_RESULTS, [])
+        raw_results: List[Any] = payload.get(AUDIT_RESULT_RESULTS) or []
         emitted = 0
 
-        for entry in results:
+        # Validate each entry inside the loop (not the whole file at once) so a
+        # single malformed entry is skipped rather than dropping every result.
+        for raw in raw_results:
             try:
+                entry = AuditResultEntry.model_validate(raw)
                 events = list(self._audit_run_events_for_entry(entry, run_id, ts_ms))
             except Exception as e:
-                # One malformed entry must not abort the rest of the file.
                 self.report.warning(
                     title="Could not emit audit run event",
                     message="An entry in the audit results file was skipped.",
-                    context=str(entry),
+                    context=str(raw),
                     exc=e,
                 )
                 continue
@@ -198,18 +206,16 @@ class AssertionMixin(SqlmeshSourceBase):
         logger.info("Emitted %d assertion run events from %s", emitted, path)
 
     def _audit_run_events_for_entry(
-        self, entry: Dict[str, Any], run_id: str, ts_ms: int
+        self, entry: AuditResultEntry, run_id: str, ts_ms: int
     ) -> Iterable[MetadataWorkUnit]:
-        """Turn one audit-results entry into run events (plus incidents on failure)."""
-        model_name: str = entry.get(AUDIT_RESULT_MODEL, "")
-        audit_name: str = entry.get(AUDIT_RESULT_AUDIT, "").lower()
-        columns: List[str] = entry.get(AUDIT_RESULT_COLUMNS, [])
-        # Normalise casing once: run-event classification (_make_run_event),
-        # the skip check, and incident emission all compare against lowercase
-        # literals, so a "PASS"/"FAIL"/"Skip" from the results file must not
-        # slip through as an unrecognised status.
-        status: str = entry.get(AUDIT_RESULT_STATUS, AUDIT_STATUS_SKIP).lower()
-        failing_rows: int = entry.get(AUDIT_RESULT_FAILING_ROWS, 0)
+        # audit/status arrive already lowercased from AuditResultEntry, so the
+        # skip check, run-event classification, and incident emission all match
+        # their lowercase literals regardless of the file's original casing.
+        model_name = entry.model
+        audit_name = entry.audit
+        columns = entry.columns
+        status = entry.status
+        failing_rows = entry.failing_rows
 
         if not model_name or not audit_name or status == AUDIT_STATUS_SKIP:
             return
@@ -310,7 +316,7 @@ class AssertionMixin(SqlmeshSourceBase):
         )
         created = AuditStampClass(
             time=ts_ms,
-            actor=mce_builder.make_user_urn(INGEST_ACTOR),
+            actor=make_user_urn(INGEST_ACTOR),
         )
         incident_info = IncidentInfoClass(
             type=IncidentTypeClass.CUSTOM,
@@ -372,7 +378,6 @@ class AssertionMixin(SqlmeshSourceBase):
         model: "SqlmeshModel",
         sqlmesh_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit DataHub Assertion entities for each SQLMesh audit on the model."""
         for audit in parse_model_audits(model):
             audit_name = audit.name.lower()
             params = _SQLMESH_AUDIT_MAP.get(audit_name)
@@ -440,7 +445,7 @@ class AssertionMixin(SqlmeshSourceBase):
 
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.CUSTOM,
-            source=mce_builder.make_assertion_source(),
+            source=make_assertion_source(),
             customProperties=custom_properties,
             description=f"SQLMesh audit '{audit_name}'. Executed by SQLMesh; results are ingested from audit_results_path.",
             customAssertion=CustomAssertionInfoClass(
@@ -491,55 +496,38 @@ class AssertionMixin(SqlmeshSourceBase):
         params: Optional[_AuditAssertionParams],
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        if params is None:
-            # Unknown / custom audit: no semantic properties to carry, and no
-            # column targeting since we can't tell which kwarg is a column.
+        # Per-audit extra properties (min/max bounds, accepted values, row-count
+        # threshold, ...) are declared on _AuditAssertionParams so every audit's
+        # semantics live in _SQLMESH_AUDIT_MAP and this method stays generic.
+        # Unknown / custom audits (params is None) carry no columns or semantics.
+        cols = self._extract_audit_columns(kw) if params is not None else []
+        declared_extra = (
+            self._audit_declared_properties(kw, params) if params is not None else {}
+        )
+
+        # Derive suffixes from the same helper the run-event side uses, so a
+        # definition and its run events always hash to the same assertion URN.
+        for suffix in self._audit_assertion_suffixes(params, cols):
+            field_urn: Optional[str] = None
+            extra = dict(declared_extra)
+            if params is not None and params.uses_columns:
+                # Column-level: the suffix is a single column ("" when none named).
+                field_urn = (
+                    make_schema_field_urn(dataset_urn, suffix) if suffix else None
+                )
+            elif params is not None and cols:
+                # Dataset-level: record every column the audit covers.
+                extra[PROP_FIELDS] = ",".join(cols)
+
             yield from self._emit_custom_audit(
                 audit_name,
                 kw,
                 params,
                 dataset_urn,
-                assertion_urn=self._assertion_urn(dataset_urn, audit_name, ""),
+                assertion_urn=self._assertion_urn(dataset_urn, audit_name, suffix),
+                field_urn=field_urn,
+                extra_properties=extra,
             )
-            return
-
-        cols = self._extract_audit_columns(kw)
-        # Per-audit extra properties (min/max bounds, accepted values, row-count
-        # threshold, ...) are declared on _AuditAssertionParams, so this method
-        # stays generic and every audit's semantics live in _SQLMESH_AUDIT_MAP.
-        declared_extra = self._audit_declared_properties(kw, params)
-
-        if params.uses_columns:
-            # Column-level: one assertion per column.
-            for col in cols or [""]:
-                yield from self._emit_custom_audit(
-                    audit_name,
-                    kw,
-                    params,
-                    dataset_urn,
-                    assertion_urn=self._assertion_urn(dataset_urn, audit_name, col),
-                    field_urn=(
-                        mce_builder.make_schema_field_urn(dataset_urn, col)
-                        if col
-                        else None
-                    ),
-                    extra_properties=dict(declared_extra),
-                )
-            return
-
-        # Dataset-level: one assertion covering all columns the audit names.
-        extra = dict(declared_extra)
-        if cols:
-            extra[PROP_FIELDS] = ",".join(cols)
-
-        yield from self._emit_custom_audit(
-            audit_name,
-            kw,
-            params,
-            dataset_urn,
-            assertion_urn=self._assertion_urn(dataset_urn, audit_name, ",".join(cols)),
-            extra_properties=extra,
-        )
 
     def _audit_declared_properties(
         self, kw: Dict[str, Any], params: _AuditAssertionParams
@@ -562,7 +550,6 @@ class AssertionMixin(SqlmeshSourceBase):
         return extra
 
     def _extract_expression_values(self, kw: Dict[str, Any], key: str) -> List[str]:
-        """Extract scalar literals from a SQLGlot expression list (e.g. IN values)."""
         expr = kw.get(key)
         if expr is None:
             return []

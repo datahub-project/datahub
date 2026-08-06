@@ -1,11 +1,43 @@
+import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sqlmesh.compat import SqlmeshContextType, SqlmeshModel
-from datahub.ingestion.source.sqlmesh.constants import ENV_SUFFIX_TARGET_SCHEMA
+from datahub.ingestion.source.sqlmesh.constants import (
+    AUDIT_STATUS_SKIP,
+    ENV_SUFFIX_TARGET_SCHEMA,
+)
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceReport
+
+logger = logging.getLogger(__name__)
+
+
+class AuditResultsMetadata(BaseModel):
+    # The ``metadata`` block of a ``sqlmesh audit --output`` file. Only
+    # generated_at matters here (it anchors run/incident IDs); ignore the rest.
+    model_config = ConfigDict(extra="ignore")
+
+    generated_at: str = ""
+
+
+class AuditResultEntry(BaseModel):
+    # One entry from the ``results`` array of a SQLMesh audit-results file.
+    # audit/status are normalised to lowercase so downstream comparisons against
+    # the lowercase audit map and status literals can't miss on casing.
+    model_config = ConfigDict(extra="ignore")
+
+    model: str = ""
+    audit: str = ""
+    columns: List[str] = Field(default_factory=list)
+    status: str = AUDIT_STATUS_SKIP
+    failing_rows: int = 0
+
+    @field_validator("audit", "status", mode="after")
+    @classmethod
+    def _lowercase(cls, v: str) -> str:
+        return v.lower() if isinstance(v, str) else v
 
 
 def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str:
@@ -15,13 +47,8 @@ def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str
     catalogs / schemas / tables that contain hyphens or other identifier-
     significant characters (e.g. SQLMesh's example sushi project uses the
     catalog ``sushi-example``, which DuckDB parses as ``sushi - example``).
-    Parsing the dotted form back into a SQLGlot Table also fails for the
-    same reason. The robust path is to split on ``.`` and build the Table
-    expression by parts, letting SQLGlot quote per dialect.
-
-    Supports 1-, 2-, and 3-part names. The default identifier policy uses
-    SQLGlot's ``identify=True`` which double-quotes everything (or backticks
-    for BigQuery).
+    Splitting on ``.`` and building the Table expression by parts lets
+    SQLGlot quote each identifier per dialect.
     """
     from sqlglot import exp
 
@@ -48,8 +75,6 @@ def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str
 
 
 class _EffectiveProjectConfig(BaseModel):
-    """Per-project resolved config: project-level overrides merged with global defaults."""
-
     project_path: str
     gateway: Optional[str]
     environment: str
@@ -81,13 +106,8 @@ class _CapabilityProbes(BaseModel):
 
 
 class _ModelAudit(BaseModel):
-    """One entry from a SQLMesh model's ``audits`` list.
-
-    SQLMesh exposes ``model.audits`` as ``(name, kwargs)`` tuples whose kwargs
-    are SQLGlot expressions. Parsing each into this model early keeps the rest
-    of the connector off positional tuple indexing, which is easy to misread.
-    """
-
+    # SQLMesh exposes ``model.audits`` as ``(name, kwargs)`` tuples; parsing
+    # each into this model early keeps the connector off positional indexing.
     name: str
     # SQLGlot expressions keyed by audit argument name — genuinely arbitrary
     # per audit, so the values stay untyped.
@@ -95,21 +115,30 @@ class _ModelAudit(BaseModel):
 
 
 def parse_model_audits(model: "SqlmeshModel") -> List["_ModelAudit"]:
-    """Parse ``model.audits`` (a list of ``(name, kwargs)`` tuples) into models."""
     audits: List[_ModelAudit] = []
     for entry in getattr(model, "audits", None) or []:
         if not entry:
             continue
-        name = str(entry[0])
-        raw_kwargs = entry[1] if len(entry) > 1 else None
+        # Guard each entry independently: a single unexpected audit shape (e.g.
+        # a non-subscriptable entry from a future sqlmesh version) must not abort
+        # the whole model's emission — skip it and keep the rest.
+        try:
+            name = str(entry[0])
+            raw_kwargs = entry[1] if len(entry) > 1 else None
+        except (TypeError, IndexError, KeyError):
+            logger.warning(
+                "Skipping malformed audit entry %r on model %s",
+                entry,
+                getattr(model, "name", "?"),
+                exc_info=True,
+            )
+            continue
         arguments = raw_kwargs if isinstance(raw_kwargs, dict) else {}
         audits.append(_ModelAudit(name=name, arguments=arguments))
     return audits
 
 
 class _MetadataTestSpec(BaseModel):
-    """A governance Metadata Test to emit, replacing an ad-hoc 4-tuple."""
-
     suffix: str
     name: str
     description: str

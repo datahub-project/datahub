@@ -6,9 +6,13 @@ from typing import (
     Optional,
 )
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_user_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sqlmesh.compat import (
+    Snapshot,
     SqlmeshContextType,
     SqlmeshModel,
 )
@@ -61,10 +65,6 @@ class SqlmeshSourceBase:
     def _detect_target_platform(
         self, sqlmesh_ctx: "SqlmeshContextType", effective: _EffectiveProjectConfig
     ) -> str:
-        """
-        Resolve the warehouse platform name, auto-detecting from the gateway
-        connection type if not explicitly configured.
-        """
         if effective.target_platform:
             return effective.target_platform
 
@@ -254,7 +254,7 @@ class SqlmeshSourceBase:
             self._warned_missing_gateways.add(gw_key)
             self.report.warning(
                 title="Model gateway not found; using fallback config",
-                message="A model references a gateway with no resolved effective config; its warehouse sibling URN and lineage may target the wrong platform. Add it under gateway_overrides.",
+                message="A model references a gateway with no resolved effective config; its warehouse sibling URN and lineage may target the wrong platform. Ensure the gateway is defined in your SQLMesh project so it appears in ctx.engine_adapters, then set target_platform under gateway_overrides if auto-detection still fails.",
                 context=gw_key,
             )
 
@@ -270,17 +270,10 @@ class SqlmeshSourceBase:
         sqlmesh_ctx: "SqlmeshContextType",
         effective: _EffectiveProjectConfig,
     ) -> Dict[str, str]:
-        """Map logical FQN → physical fingerprinted table name (for custom property only).
-
-        Computed from model attributes (catalog, physical_schema, schema_name, view_name,
-        data_hash) to avoid sqlmesh_ctx.snapshots, which triggers an internal
-        ProcessPoolExecutor(mp_context=fork) that hangs on macOS when the DataHub async
-        sink thread pool is already running.
-
-        Physical table name format:
-          {catalog}.{physical_schema}.{schema_name}__{view_name}__{data_hash}
-        e.g. analytics.sqlmesh__myschema.myschema__orders__3732581953
-        """
+        # Computed from model attributes rather than sqlmesh_ctx.snapshots,
+        # which triggers an internal ProcessPoolExecutor(mp_context=fork) that
+        # hangs on macOS when the DataHub async sink thread pool is running.
+        # Used for a custom property only.
         result: Dict[str, str] = {}
         for model in sqlmesh_ctx.models.values():
             try:
@@ -315,7 +308,6 @@ class SqlmeshSourceBase:
         return result
 
     def _normalize_name(self, name: str, effective: _EffectiveProjectConfig) -> str:
-        """Strip SQL quoting, return dot-separated name, optionally lowercased."""
         parts = []
         for part in name.split("."):
             cleaned = part.strip(" \t\"'`")
@@ -336,12 +328,10 @@ class SqlmeshSourceBase:
     def _build_logical_fqn(
         self, raw_name: str, effective: _EffectiveProjectConfig
     ) -> str:
-        """Normalize + catalog-qualify a model name."""
         return self._qualify_fqn(self._normalize_name(raw_name, effective), effective)
 
     def _make_sqlmesh_urn(self, fqn: str, effective: _EffectiveProjectConfig) -> str:
-        """URN for the SQLMesh entity (urn:li:dataPlatform:sqlmesh,...)."""
-        return mce_builder.make_dataset_urn_with_platform_instance(
+        return make_dataset_urn_with_platform_instance(
             platform=SQLMESH_PLATFORM,
             name=fqn,
             platform_instance=effective.sqlmesh_platform_instance,
@@ -403,8 +393,7 @@ class SqlmeshSourceBase:
         return ".".join(parts)
 
     def _make_warehouse_urn(self, fqn: str, effective: _EffectiveProjectConfig) -> str:
-        """URN for the warehouse view sibling (urn:li:dataPlatform:<target_platform>,...)."""
-        # Apply environment suffix for non-prod environments before any other transforms.
+        # Apply the environment suffix for non-prod before any other transforms.
         name = self._apply_env_suffix(fqn, effective)
 
         if not self.config.include_database_name:
@@ -413,7 +402,7 @@ class SqlmeshSourceBase:
             if len(parts) >= 3:
                 name = ".".join(parts[1:])
 
-        return mce_builder.make_dataset_urn_with_platform_instance(
+        return make_dataset_urn_with_platform_instance(
             platform=effective.target_platform or UNKNOWN_PLATFORM,
             name=name,
             platform_instance=effective.target_platform_instance,
@@ -426,6 +415,35 @@ class SqlmeshSourceBase:
             return None
         kind_name = getattr(kind, "model_kind_name", None)
         return str(kind_name) if kind_name is not None else None
+
+    def _lookup_snapshot(
+        self, model: "SqlmeshModel", sqlmesh_ctx: "SqlmeshContextType"
+    ) -> Optional["Snapshot"]:
+        # SQLMesh state keys snapshots by fqn, but older/renamed models are
+        # sometimes only reachable by name — try both. Raises on a state-read
+        # failure so each caller picks its own reporting level (hard warning vs
+        # soft debug fallback).
+        snapshots = sqlmesh_ctx.snapshots
+        return snapshots.get(str(getattr(model, "fqn", "") or "")) or snapshots.get(
+            str(getattr(model, "name", ""))
+        )
+
+    def _snapshot_updated_ts(
+        self, model: "SqlmeshModel", sqlmesh_ctx: "SqlmeshContextType"
+    ) -> int:
+        # updated_ts (epoch millis) from the model's snapshot, or 0 when unknown.
+        # Raises on a state-read failure — callers decide how loudly to report.
+        snapshot = self._lookup_snapshot(model, sqlmesh_ctx)
+        return int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
+
+    def _is_filtered_by_kind(self, model: "SqlmeshModel") -> bool:
+        # True when model_kind_filter is set and this model's kind is excluded,
+        # so no sqlmesh entity is emitted for it. A model with no resolvable kind
+        # is never filtered (matches the ingestion-side filter in _ingest_project).
+        if not self.config.model_kind_filter:
+            return False
+        kind_name = self._get_kind_name(model)
+        return bool(kind_name) and kind_name not in self.config.model_kind_filter
 
     def _is_embedded(self, model: "SqlmeshModel") -> bool:
         kind = getattr(model, "kind", None)
@@ -440,7 +458,6 @@ class SqlmeshSourceBase:
         )
 
     def _get_tags(self, model: "SqlmeshModel") -> List[str]:
-        """Build DataHub tag URNs from model.tags with the configured prefix."""
         raw = getattr(model, "tags", None)
         raw_tags: List[str] = [t for t in (raw or []) if isinstance(t, str)]
         if not raw_tags:
@@ -449,7 +466,6 @@ class SqlmeshSourceBase:
         return [str(TagUrn(f"{prefix}{tag}")) for tag in raw_tags]
 
     def _get_owner_urn(self, model: "SqlmeshModel") -> Optional[str]:
-        """Extract owner URN from model.owner, applying extraction pattern if set."""
         owner_raw = getattr(model, "owner", None)
         if not owner_raw or not isinstance(owner_raw, str):
             return None
@@ -461,4 +477,4 @@ class SqlmeshSourceBase:
             elif match:
                 owner_raw = match.group(0)
 
-        return mce_builder.make_user_urn(owner_raw)
+        return make_user_urn(owner_raw)
