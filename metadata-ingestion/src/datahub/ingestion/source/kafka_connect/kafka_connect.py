@@ -188,10 +188,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
-        # For Confluent Cloud, populate all_cluster_topics for validation purposes
+        # For Confluent Cloud, optionally pass the live cluster topic list into
+        # connectors that need it. Source connectors without EventRouter must not
+        # receive the whole-cluster list — that fabricates lineage for every topic.
         if connector and self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
-            if all_cluster_topics:
+            if all_cluster_topics and self._should_assign_cluster_topics(
+                connector_manifest, connector
+            ):
                 connector.all_cluster_topics = all_cluster_topics
                 logger.debug(
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
@@ -215,6 +219,23 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_manifest.lineages = connector.extract_lineages()
         connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
         return True  # Always include connectors with handlers
+
+    @staticmethod
+    def _should_assign_cluster_topics(
+        connector_manifest: ConnectorManifest,
+        connector: object,
+    ) -> bool:
+        # Sinks need the live list to expand topics.regex and intersect subscriptions.
+        if connector_manifest.type == SINK:
+            return True
+
+        # EventRouter lineage filters the live cluster via RegexRouter prefixes;
+        # without the cluster list it cannot identify post-SMT topic names.
+        has_event_router = getattr(connector, "_has_event_router_transform", None)
+        if callable(has_event_router) and has_event_router():
+            return True
+
+        return False
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
