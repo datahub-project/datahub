@@ -252,14 +252,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, catalog_connector, all_cluster_topics
         )
 
-        if catalog_lineages:
+        if catalog_lineages is not None:
             connector_manifest.lineages = catalog_lineages
-        elif connector and self._catalog_topics_rejected_by_cluster(
-            connector_manifest, catalog_connector, all_cluster_topics
-        ):
-            # Catalog listed topics but none survived live-cluster validation —
-            # do not fall back to config-derived lineage that may reintroduce them.
-            connector_manifest.lineages = []
         elif connector:
             connector_manifest.lineages = connector.extract_lineages()
             if self._catalog_listed_no_topics(connector_manifest, catalog_connector):
@@ -295,43 +289,22 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             and not catalog_connector.get_topic_names()
         )
 
-    def _catalog_topics_rejected_by_cluster(
-        self,
-        connector_manifest: ConnectorManifest,
-        catalog_connector: Optional[CatalogConnector],
-        all_cluster_topics: Optional[List[str]],
-    ) -> bool:
-        if (
-            not catalog_connector
-            or not self.config.confluent_catalog.include_lineage
-            or connector_manifest.type != SOURCE
-            or all_cluster_topics is None
-        ):
-            return False
-        catalog_topics = catalog_connector.get_topic_names()
-        if not catalog_topics:
-            return False
-        cluster_topic_set = set(all_cluster_topics)
-        return not any(topic in cluster_topic_set for topic in catalog_topics)
-
     def _build_catalog_lineages(
         self,
         connector_manifest: ConnectorManifest,
         catalog_connector: Optional[CatalogConnector],
         all_cluster_topics: Optional[List[str]],
-    ) -> List[KafkaConnectLineage]:
-        # Catalog names are post-SMT; sources only.
+    ) -> Optional[List[KafkaConnectLineage]]:
         if not catalog_connector or not self.config.confluent_catalog.include_lineage:
-            return []
+            return None
 
         if connector_manifest.type != SOURCE:
-            return []
+            return None
 
         topics = catalog_connector.get_topic_names()
         if not topics:
-            return []
+            return None
 
-        # None = list unavailable (keep catalog topics); [] = empty cluster.
         if all_cluster_topics is not None:
             cluster_topic_set = set(all_cluster_topics)
             missing = [topic for topic in topics if topic not in cluster_topic_set]
