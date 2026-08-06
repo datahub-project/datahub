@@ -20,6 +20,13 @@ _PROFILING_FLAGS_TO_REPORT = {
 
 logger = logging.getLogger(__name__)
 
+# Sentinel for the `profiling_isolation_level` escape hatch: setting this value
+# (case-insensitive, normalized to upper-case by the validator) falls back to the
+# default transactional behavior — i.e. clears the adapter's AUTOCOMMIT default.
+# A shared constant so the validator (here) and the resolver (sqlalchemy_profiler)
+# don't drift on the literal string.
+TRANSACTIONAL = "TRANSACTIONAL"
+
 
 class ProfilingMethodConfig(ConfigModel):
     # `method` used to select between the SQLAlchemy and the (now removed) Great
@@ -213,7 +220,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
         # Strip and upper-case so the TRANSACTIONAL sentinel matches regardless of
         # casing/whitespace ("transactional", "Transactional ", "TRANSACTIONAL" all
-        # resolve to the sentinel), and so SQLAlchemy isolation level names land in
+        # resolve to the sentinel — see the TRANSACTIONAL module constant), and so SQLAlchemy isolation level names land in
         # their canonical form ("read committed" -> "READ COMMITTED"). Without this,
         # "transactional" misses the sentinel and is handed to the dialect, producing a
         # confusing ArgumentError about an invalid isolation level for something the

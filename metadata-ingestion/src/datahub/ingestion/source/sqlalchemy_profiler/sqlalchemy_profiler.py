@@ -30,7 +30,7 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import TRANSACTIONAL, ProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -473,32 +473,49 @@ class SQLAlchemyProfiler:
         self.platform = platform.lower()
 
         # Resolve the profiling isolation level ONCE here, not per table. The level is
-        # adapter-constant and (via the escape hatch) config-constant, so resolving it per
-        # table was wasted work — and worse, it was resolved inside the per-table try in
-        # `_generate_single_profile` whose handler catches `sa.exc.SQLAlchemyError`.
-        # ArgumentError subclasses SQLAlchemyError, so a bad level was swallowed into one
-        # warning per table and returned None — zero profiles for the entire run, silently.
-        # Validating here fails loudly at construction instead. Keep the execution_options
-        # *call* itself inside the per-table connection scope (it must apply to each checked-out
-        # connection); only resolution and validation are hoisted.
-        adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+        # adapter-constant and (via the escape hatch) config-constant, so resolving it
+        # per table was wasted work. Resolution is hoisted into a method so it is unit-
+        # testable independent of constructor wiring; the per-table path only re-applies
+        # the already-resolved level (see the `conn.execution_options` call in
+        # `_generate_single_profile`).
+        #
+        # NOTE: resolution here deliberately does NOT open a connection. An earlier
+        # version probed with `base_engine.connect()` + `execution_options(isolation_level=...)`
+        # to validate the level name eagerly, but that coupled config-validity to
+        # DB-reachability: a transient connect blip (PgBouncer/ProxySQL reconnect,
+        # failover, pool hiccup) at construction skipped profiling for the whole
+        # inspector. Instead the level is validated lazily on first per-table use,
+        # and a targeted `except ArgumentError: raise` in `_generate_single_profile`
+        # makes a bad level fail the run loudly on the first table — restoring the
+        # pre-PR per-table degradation for transient blips while keeping bad config
+        # loud. See PR #18690 review.
+        self._profiling_isolation_level = self._resolve_profiling_isolation_level()
+
+    def _resolve_profiling_isolation_level(self) -> Optional[str]:
+        """Resolve the profiling isolation level for this source's profiling connections.
+
+        Precedence (the "escape hatch" overrides the adapter in both directions):
+
+        1. Adapter default — `adapter.profiling_isolation_level()`. MySQL and Postgres
+           adapters return ``AUTOCOMMIT`` so each profiling SELECT is self-contained,
+           avoiding a long-lived transaction that pins InnoDB read views / holds
+           Postgres idle-in-transaction and blocks VACUUM.
+        2. Config override — ``profiling_isolation_level``. If set to a SQLAlchemy
+           isolation level name, that wins. If set to the ``TRANSACTIONAL`` sentinel,
+           the level is cleared (``None``), falling back to the default transactional
+           behavior — e.g. for MySQL behind a proxy that rejects the ``AUTOCOMMIT``
+           session setting.
+
+        Returns the resolved level string, or ``None`` for transactional. Does NOT
+        open a connection or validate the name — validation is deferred to the per-table
+        path so a transient connect blip can't gate a whole database's profiling.
+        """
+        adapter = get_adapter(self.platform, self.config, self.report, self.base_engine)
         level = adapter.profiling_isolation_level()
-        # Escape hatch (config overrides the adapter in both directions): force a level, or
-        # force transactional (None) via the "TRANSACTIONAL" sentinel — e.g. for MySQL behind a
-        # proxy that rejects the AUTOCOMMIT session setting.
         override = self.config.profiling_isolation_level
         if override is not None:
-            level = None if override == "TRANSACTIONAL" else override
-        if level is not None:
-            # execution_options(isolation_level=...) validates the name against the dialect
-            # eagerly (raises ArgumentError on an unknown name — verified on SQLAlchemy 1.4).
-            # One connect/apply/close here is the single eager validation; the per-table path
-            # only re-applies the already-validated level. Named `probe_conn` (not `conn`) to
-            # avoid shadowing the `conn` constructor parameter, which is consumed above but
-            # would silently bind to a closed connection in any future code added below.
-            with self.base_engine.connect() as probe_conn:
-                probe_conn.execution_options(isolation_level=level)
-        self._profiling_isolation_level = level
+            level = None if override == TRANSACTIONAL else override
+        return level
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -1852,6 +1869,17 @@ class SQLAlchemyProfiler:
                     self.times_taken.append(time_taken)
                     return profile
 
+            except sa.exc.ArgumentError:
+                # A bad `profiling_isolation_level` name surfaces here on the first
+                # per-table `conn.execution_options(isolation_level=...)` (the level
+                # is resolved at construction but NOT eagerly validated there, to
+                # avoid coupling config-validity to DB-reachability — see
+                # `_resolve_profiling_isolation_level`). ArgumentError subclasses
+                # SQLAlchemyError, so without this targeted handler the broad
+                # `except SQLAlchemyError` below would swallow it into one warning
+                # per table + return None — zero profiles for the run, silently, the
+                # exact failure mode this PR exists to prevent. Re-raise loud, once.
+                raise
             except (
                 sa.exc.SQLAlchemyError,
                 ConnectionError,

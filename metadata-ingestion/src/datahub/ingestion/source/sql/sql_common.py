@@ -22,7 +22,7 @@ import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
-from sqlalchemy.exc import ArgumentError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -592,29 +592,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            try:
-                profiler = self.get_profiler_instance(inspector)
-            except ArgumentError:
-                # Bad profiling_isolation_level config — fail loudly. Eager validation
-                # in SQLAlchemyProfiler.__init__ exists precisely so an invalid level
-                # surfaces here as one loud failure instead of being swallowed per-table into
-                # a warning + zero profiles (the silent failure mode this PR moved
-                # validation out of the per-table path to prevent). Re-raise; do NOT let
-                # the broad catch below turn it into a warning + continue.
-                raise
-            except SQLAlchemyError as e:
-                # Transient DB issue during eager validation (e.g. the validation connect
-                # failed: connection refused, auth error, driver not installed). Report
-                # and skip this inspector so the rest of the run (other databases /
-                # inspectors) proceeds instead of aborting. Narrowed to SQLAlchemyError
-                # (minus ArgumentError, handled above) so programming errors (TypeError,
-                # ValueError from a buggy adapter) stay loud rather than being silenced.
-                self.warn(
-                    logger,
-                    "profiler_construction",
-                    f"Failed to construct profiler for platform {self.platform}: {e}",
-                )
-                continue
+            # SQLAlchemyProfiler.__init__ resolves the isolation level but deliberately
+            # does NOT open a connection (an earlier eager probe coupled config-validity
+            # to DB-reachability and let a transient connect blip skip a whole database).
+            # So construction no longer raises transient errors here. A bad level name
+            # is validated lazily on first per-table use and re-raised loudly by the
+            # targeted `except ArgumentError` in `_generate_single_profile` — see the
+            # SQLAlchemyProfiler docstring for the rationale.
+            profiler = self.get_profiler_instance(inspector)
             try:
                 self.add_profile_metadata(inspector)
             except Exception as e:

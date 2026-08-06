@@ -769,12 +769,79 @@ class TestProfilingIsolationLevel:
     per-table).
     """
 
+    def test_resolve_isolation_level_adapter_default_wins(
+        self, sqlite_engine, mock_report
+    ):
+        # No config override -> the adapter's default wins. Directly exercises the
+        # resolver (the constructor already calls it once with the real adapter; this
+        # re-calls it with a mocked adapter to assert precedence in isolation).
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            assert profiler._resolve_profiling_isolation_level() == "AUTOCOMMIT"
+
+    def test_resolve_isolation_level_override_wins(self, sqlite_engine, mock_report):
+        # A concrete override wins over the adapter default.
+        config = ProfilingConfig(
+            enabled=True, profiling_isolation_level="READ UNCOMMITTED"
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            assert profiler._resolve_profiling_isolation_level() == "READ UNCOMMITTED"
+
+    def test_resolve_isolation_level_transactional_sentinel_clears(
+        self, sqlite_engine, mock_report
+    ):
+        # The TRANSACTIONAL sentinel clears the level to None (falls back to
+        # transactional), even when the adapter would return AUTOCOMMIT.
+        config = ProfilingConfig(
+            enabled=True, profiling_isolation_level="TRANSACTIONAL"
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            assert profiler._resolve_profiling_isolation_level() is None
+
     def test_applies_autocommit_when_level_configured(self, profiler, mock_adapter):
         # Force AUTOCOMMIT via the escape hatch; the per-table connection must receive it.
         profiler.config.catch_exceptions = True
         profiler.config.profiling_isolation_level = "AUTOCOMMIT"
-        # Re-resolve at construction-time state: __init__ validated against the real sqlite
-        # dialect (AUTOCOMMIT is accepted), so self._profiling_isolation_level == "AUTOCOMMIT".
+        # The level is resolved at construction (see `_resolve_profiling_isolation_level`);
+        # AUTOCOMMIT is accepted by sqlite's dialect, so resolution yields
+        # "AUTOCOMMIT". Set directly here to skip the per-table execution_options
+        # round-trip (these tests assert on the applied option, not on resolution).
         profiler._profiling_isolation_level = "AUTOCOMMIT"
         mock_conn = MagicMock()
 
@@ -837,26 +904,40 @@ class TestProfilingIsolationLevel:
         # (execution_options was never called, so no .return_value indirection).
         assert mock_adapter.setup_profiling.call_args[0][1] is mock_conn
 
-    def test_invalid_level_fails_loudly_at_construction(
+    def test_invalid_level_fails_loudly_at_first_table(
         self, sqlite_engine, mock_report
     ):
-        # Item 12 / Blocking 1: an invalid level must fail ONCE at construction (loud), not
-        # per-table inside the catch_exceptions handler (silent, zero profiles). __init__
-        # validates by applying execution_options on a real connection, which raises
-        # ArgumentError for an unknown level (verified on SQLAlchemy 1.4).
+        # An invalid level must fail loudly ONCE, not be swallowed per-table into a
+        # warning + zero profiles (the silent failure mode this PR exists to prevent).
+        # Construction deliberately does NOT validate the level (an earlier eager
+        # probe coupled config-validity to DB-reachability — see
+        # `_resolve_profiling_isolation_level`); the bad level is stored unvalidated
+        # and surfaces on the first per-table `conn.execution_options(...)`, where
+        # the targeted `except ArgumentError: raise` in `_generate_single_profile`
+        # re-raises it so the run fails on the first table instead of silently producing
+        # zero profiles.
         import sqlalchemy as sa
 
         config = ProfilingConfig(
             enabled=True,
             profiling_isolation_level="BOGUS",
         )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        # Construction succeeded; the level is stored unvalidated.
+        assert profiler._profiling_isolation_level == "BOGUS"
         with pytest.raises(sa.exc.ArgumentError):
-            SQLAlchemyProfiler(
-                conn=sqlite_engine,
-                report=mock_report,
-                config=config,
+            profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="main.test_table",
+                schema="main",
+                table="test_table",
                 platform="sqlite",
-                env="TEST",
             )
 
     def test_level_reaches_real_dialect(self, sqlite_engine, mock_report):
@@ -912,8 +993,9 @@ class TestProfilingIsolationLevel:
         # profiling_isolation_level() returns "AUTOCOMMIT" -> resolved at construction.
         # No escape hatch, no mock of get_adapter: this proves the adapter factory and the
         # hook are wired together end-to-end (the tests above mock get_adapter; this one
-        # does not). sqlite's dialect accepts AUTOCOMMIT as a pseudo-level, so the eager
-        # validation in __init__ succeeds even though base_engine is sqlite.
+        # does not). Resolution does not open a connection, so the sqlite base_engine
+        # being a different dialect than mysql is fine — the level is only validated
+        # later on the per-table path.
         config = ProfilingConfig(enabled=True)
         profiler = SQLAlchemyProfiler(
             conn=sqlite_engine,
