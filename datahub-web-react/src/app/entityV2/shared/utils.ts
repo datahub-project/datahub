@@ -149,6 +149,14 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             duration: 3,
         };
     }
+    if (getGraphqlErrorCode(e) === 400) {
+        // Surface the server's own message (e.g. a validator plugin's rejection reason) instead
+        // of the generic defaultMessage.
+        const serverMessage = e.graphQLErrors?.[0]?.message;
+        if (serverMessage) {
+            return { content: serverMessage, duration: 3 };
+        }
+    }
     return defaultMessage;
 };
 

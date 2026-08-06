@@ -15,7 +15,7 @@ public class ValidationException extends RuntimeException {
   }
 
   public ValidationException(@Nonnull ValidationExceptionCollection validationExceptionCollection) {
-    this(validationExceptionCollection.toString());
+    this(validationExceptionCollection.getCollectiveMessage());
     this.validationExceptionCollection = validationExceptionCollection;
   }
 }
