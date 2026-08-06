@@ -47,7 +47,7 @@
                     "urn": "urn:li:container:99b9785e9e12713c9df27982572a999c"
                 },
                 {
-                    "id": "my-adf-instance.test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)"
                 }
             ]
@@ -360,7 +360,7 @@
                     "urn": "urn:li:container:99b9785e9e12713c9df27982572a999c"
                 },
                 {
-                    "id": "my-adf-instance.test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)"
                 }
             ]
@@ -536,7 +536,7 @@
                     "urn": "urn:li:container:99b9785e9e12713c9df27982572a999c"
                 },
                 {
-                    "id": "my-adf-instance.test-data-factory.DataProcessingPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataProcessingPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataProcessingPipeline,DEV)"
                 }
             ]
@@ -721,7 +721,7 @@
                     "urn": "urn:li:container:99b9785e9e12713c9df27982572a999c"
                 },
                 {
-                    "id": "my-adf-instance.test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,my-adf-instance.test-data-factory.DataIngestionPipeline,DEV)"
                 }
             ]
