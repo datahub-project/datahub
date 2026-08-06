@@ -84,8 +84,12 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     EbeanAspectV2 mockAspect = mock(EbeanAspectV2.class);
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockAspectDao.streamAspectBatches(
-            any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(Stream.of(mockAspect)));
 
@@ -101,7 +105,8 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
     assertEquals(DataHubUpgradeState.SUCCEEDED, result.result());
 
-    verify(mockAspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(mockAspectDao)
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertEquals("schemaMetadata", argsCaptor.getValue().aspectName());
     assertEquals(10, argsCaptor.getValue().batchSize());
     assertEquals(1000, argsCaptor.getValue().limit());
