@@ -3,6 +3,22 @@ from typing import Dict, List, Optional
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
+# Whether a bulk load should fill its URN index. Off by default: the index holds a whole
+# platform's URNs in memory, which most consumers of a bulk-loaded catalog never read.
+# Process-wide rather than a per-call argument so that consumers wanting the index and
+# consumers that don't still share one cached catalog and one fetch. Set once per
+# ingestion, before any source exists — see PipelineContext.
+_LOAD_URN_ALIASES = False
+
+
+def set_urn_alias_loading(value: bool) -> None:
+    global _LOAD_URN_ALIASES
+    _LOAD_URN_ALIASES = value
+
+
+def urn_alias_loading_enabled() -> bool:
+    return _LOAD_URN_ALIASES
+
 
 def _has_lowercased_name(urn: str) -> bool:
     # Only the dataset name can be judged: a URN's scaffolding is mixed case whatever the

@@ -4,11 +4,12 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata
+from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata, SchemaResolver
 from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
 )
+from datahub.utilities.urn_alias_resolver import set_urn_alias_loading
 
 _PROVIDER_LOGGER = "datahub.sql_parsing.schema_resolver_provider"
 
@@ -17,6 +18,13 @@ _FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,
 _FAKE_SCHEMA: GraphQLSchemaMetadata = {
     "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
 }
+
+
+@pytest.fixture(autouse=True)
+def reset_urn_alias_loading():
+    set_urn_alias_loading(False)
+    yield
+    set_urn_alias_loading(False)
 
 
 @pytest.fixture(autouse=True)
@@ -148,23 +156,42 @@ def test_bulk_fetch_yields_datasets_that_have_no_schema(mock_test_connection):
     assert results == [(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]
 
 
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    provider = SchemaResolverProvider(graph=graph)
-
+def _load(graph: DataHubGraph) -> SchemaResolver:
     with patch.object(
         graph,
         "_bulk_fetch_schema_info_by_filter",
         return_value=iter([(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]),
     ):
-        resolver = provider.get(platform="bigquery", platform_instance=None, env="PROD")
+        return SchemaResolverProvider(graph=graph).get(
+            platform="bigquery", platform_instance=None, env="PROD"
+        )
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    set_urn_alias_loading(True)
+    resolver = _load(graph)
 
     # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
     assert resolver.urn_aliases.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
     assert resolver.urn_aliases.lookup(_SCHEMALESS_URN_UPPERCASED) == [_SCHEMALESS_URN]
     # ...but only the one with a schema is in the schema cache.
+    assert resolver.schema_count() == 1
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_provider_skips_the_urn_index_when_no_consumer_needs_it(mock_test_connection):
+    """The index is a whole platform's URNs in memory; nobody pays unless it is wanted."""
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    resolver = _load(graph)
+
+    assert resolver.urn_aliases.cache_count() == 0
+    # Schemas are loaded either way.
     assert resolver.schema_count() == 1
 
 

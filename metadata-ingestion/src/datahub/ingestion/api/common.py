@@ -6,6 +6,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.urn_alias_resolver import set_urn_alias_loading
 
 if TYPE_CHECKING:
     from datahub.ingestion.run.pipeline import PipelineConfig
@@ -62,12 +63,23 @@ class PipelineContext:
         self.checkpointers: Dict[str, Committable] = {}
 
         self._set_dataset_urn_to_lower_if_needed()
+        self._enable_urn_alias_loading_if_needed()
 
     @property
     def flags(self) -> "FlagsConfig":
         from datahub.ingestion.run.pipeline_config import FlagsConfig
 
         return self.pipeline_config.flags if self.pipeline_config else FlagsConfig()
+
+    def _enable_urn_alias_loading_if_needed(self) -> None:
+        """Declare, once per run, whether any feature needs case-insensitive URN lookup.
+
+        Bulk-loaded catalogs only fill their URN index when something will read it, so a
+        new consumer adds its condition here rather than threading a flag through the
+        resolver-provider call chain (which would stop consumers sharing one catalog).
+        """
+        if self.flags.auto_resolve_lineage_urns.enabled:
+            set_urn_alias_loading(True)
 
     def _set_dataset_urn_to_lower_if_needed(self) -> None:
         # TODO: Get rid of this function once lower-casing is the standard.
