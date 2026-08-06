@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
@@ -257,6 +258,13 @@ public class EntitySearchServiceTest {
         Filter requestParams,
         @Nullable Integer limit) {
       return null;
+    }
+
+    @Nonnull
+    @Override
+    public Map<Urn, IncidentStats> getActiveIncidentStats(
+        @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+      return Map.of();
     }
 
     @Override
