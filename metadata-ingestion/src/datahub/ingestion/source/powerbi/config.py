@@ -16,6 +16,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -554,9 +555,32 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: TransparentSecretStr = pydantic.Field(
-        description="Azure app client secret"
+    client_secret: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Azure app client secret. Required unless certificate-based "
+        "authentication is configured via `certificate_path` or `certificate_data`.",
     )
+    certificate_path: Optional[str] = pydantic.Field(
+        default=None,
+        description="Path to a PEM file containing both the private key and the "
+        "certificate uploaded to the Azure app registration, if using "
+        "certificate-based authentication. Mutually exclusive with `client_secret` "
+        "and `certificate_data`.",
+    )
+    certificate_data: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Inline PEM content containing both the private key and the "
+        "certificate uploaded to the Azure app registration, if using "
+        "certificate-based authentication. Newlines may be escaped as '\\n', so the "
+        "value can be stored as a single-line secret. Mutually exclusive with "
+        "`client_secret` and `certificate_path`.",
+    )
+    certificate_password: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Passphrase for the private key referenced by `certificate_path` "
+        "or `certificate_data`, if the key is encrypted.",
+    )
+    _fix_certificate_data_newlines = pydantic_multiline_string("certificate_data")
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"
@@ -734,6 +758,51 @@ class PowerBiDashboardSourceConfig(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def treat_empty_auth_values_as_unset(cls, values: Dict) -> Dict:
+        # A recipe with `client_secret: "${SECRET}"` and an unset variable resolves
+        # to an empty string; treat that as "not configured" so users get the
+        # actionable auth-method error instead of an opaque MSAL failure.
+        if isinstance(values, dict):
+            for field in (
+                "client_secret",
+                "certificate_path",
+                "certificate_data",
+                "certificate_password",
+            ):
+                value = values.get(field)
+                if isinstance(value, str) and not value.strip():
+                    values[field] = None
+        return values
+
+    @model_validator(mode="after")
+    def validate_service_principal_auth(self) -> "PowerBiDashboardSourceConfig":
+        if self.certificate_path is not None and self.certificate_data is not None:
+            raise ValueError(
+                "Specify only one of `certificate_path` or `certificate_data`."
+            )
+        uses_certificate = (
+            self.certificate_path is not None or self.certificate_data is not None
+        )
+        if self.client_secret is not None and uses_certificate:
+            raise ValueError(
+                "Specify only one authentication method: either `client_secret` or "
+                "a certificate (`certificate_path`/`certificate_data`)."
+            )
+        if self.client_secret is None and not uses_certificate:
+            raise ValueError(
+                "No authentication method configured. Set `client_secret` for "
+                "secret-based authentication, or `certificate_path`/`certificate_data` "
+                "for certificate-based authentication."
+            )
+        if self.certificate_password is not None and not uses_certificate:
+            raise ValueError(
+                "`certificate_password` is set but no certificate is configured. "
+                "Set `certificate_path` or `certificate_data`."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":

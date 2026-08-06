@@ -16,11 +16,34 @@ export const POWERBI_CLIENT_ID: RecipeField = {
 export const POWERBI_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
     label: 'Client Secret',
-    tooltip: 'The Azure AD Client Secret',
+    tooltip: 'The Azure AD Client Secret. Required unless certificate-based authentication is configured instead.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.client_secret',
     placeholder: 'client secret',
-    required: true,
+    required: false,
+    rules: null,
+};
+
+export const POWERBI_CERTIFICATE_DATA: RecipeField = {
+    name: 'certificate_data',
+    label: 'Certificate PEM',
+    tooltip:
+        'PEM content containing both the private key and the certificate registered on the Azure AD application, if using certificate-based authentication instead of a client secret. Newlines may be escaped as \\n.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.certificate_data',
+    placeholder: '-----BEGIN PRIVATE KEY-----\\n...',
+    required: false,
+    rules: null,
+};
+
+export const POWERBI_CERTIFICATE_PASSWORD: RecipeField = {
+    name: 'certificate_password',
+    label: 'Certificate Key Passphrase',
+    tooltip: 'Passphrase for the certificate private key, only needed if the private key is encrypted.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.certificate_password',
+    placeholder: 'passphrase',
+    required: false,
     rules: null,
 };
 
