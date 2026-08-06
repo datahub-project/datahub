@@ -208,6 +208,7 @@ class BigQueryV2Report(
     num_linked_dataset_lineage_emitted: int = 0
     num_linked_dataset_get_dataset_errors: int = 0
     num_linked_dataset_project_resolve_errors: int = 0
+    num_linked_dataset_source_unresolved: int = 0
     num_linked_dataset_state_inactive: int = 0
     num_linked_dataset_state_stale: int = 0
     linked_dataset_lineage_emission_errors: LossyList[str] = field(

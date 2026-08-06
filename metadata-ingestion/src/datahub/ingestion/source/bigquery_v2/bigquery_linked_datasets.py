@@ -285,8 +285,6 @@ class BigQueryLinkedDatasetsHandler:
 
         self.report.num_linked_dataset_lineage_emitted += 1
 
-    # ---- Internals --------------------------------------------------------
-
     def _consumer_dataset_name(
         self, sub: bigquery_analyticshub_v1.Subscription, fallback_project: str
     ) -> Optional[str]:
@@ -371,6 +369,21 @@ class BigQueryLinkedDatasetsHandler:
         if publisher_project_number and publisher_dataset:
             info.publisher_project_id = self._resolve_publisher_project_id(
                 publisher_project_number
+            )
+        else:
+            # We know this is a linked dataset (subscription confirmed, get_dataset
+            # succeeded) yet it exposes no source, so warn rather than silently
+            # produce a LINKED dataset with no lineage.
+            self.report.num_linked_dataset_source_unresolved += 1
+            self.report.warning(
+                title="Linked dataset source not resolved",
+                message=(
+                    "A dataset recognised as linked did not expose its source "
+                    "dataset, so no lineage or siblings are emitted. This usually "
+                    "means the subscriber cannot see the publisher project, or the "
+                    "link is still pending."
+                ),
+                context=f"{project_id}.{consumer_dataset}",
             )
 
         return info

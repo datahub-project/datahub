@@ -420,6 +420,29 @@ class TestPopulateForProject:
         assert handler.get_info("consumer-project", "shared_a") is None
         assert handler.report.num_linked_dataset_get_dataset_errors == 1
 
+    def test_linked_dataset_without_source_is_warned_and_kept(self):
+        handler = _make_handler()
+        sub = _make_subscription(dataset_id="shared_a")
+        ah = _ah_client_returning({"us": [sub]})
+        # get_dataset succeeds but exposes no linkedDatasetSource (e.g. the
+        # subscriber cannot see the publisher project).
+        dataset_no_source = SimpleNamespace(
+            _properties={"linkedDatasetMetadata": {"linkState": "LINKED"}}
+        )
+        bq = _bq_client_returning({"consumer-project.shared_a": dataset_no_source})
+        _install_clients(handler, ah=ah, bq=bq)
+
+        datasets = [BigqueryDataset(name="shared_a", location="US")]
+        handler.populate_for_project("consumer-project", datasets)
+
+        info = handler.get_info("consumer-project", "shared_a")
+        assert info is not None
+        assert info.has_publisher is False
+        assert handler.report.num_linked_dataset_source_unresolved == 1
+        assert any(
+            "source not resolved" in str(w).lower() for w in handler.report.warnings
+        )
+
     def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage(self):
         handler = _make_handler()
         sub = _make_subscription(dataset_id="shared_a")
