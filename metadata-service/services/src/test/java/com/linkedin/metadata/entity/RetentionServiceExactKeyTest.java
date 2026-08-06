@@ -65,7 +65,8 @@ public class RetentionServiceExactKeyTest {
           }
 
           @Override
-          protected void applyRetention(List<RetentionContext> retentionContexts) {}
+          protected void applyRetention(
+              @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {}
 
           @Override
           public void batchApplyRetention(

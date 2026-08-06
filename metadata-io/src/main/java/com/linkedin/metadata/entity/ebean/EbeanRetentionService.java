@@ -71,7 +71,8 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
   @Override
   @WithSpan
-  protected void applyRetention(List<RetentionContext> retentionContexts) {
+  protected void applyRetention(
+      @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {
 
     List<RetentionContext> nonEmptyContexts =
         retentionContexts.stream()
@@ -90,25 +91,31 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     // Separate DELETEs per retention context (better index use than one DELETE with many ORs).
     // Tx scope depends on caller: legacy in-tx path shares the upsert transaction; when invoked
     // from the post-commit path (postCommitRetentionEnabled), deletes run outside that upsert tx.
+    // Open a routing scope around the loop so the ORM DELETEs hit the same underlying database
+    // opContext resolves to (the SELECT path already routes via _tableResolver.aspectTable). When
+    // called inside an already-scoped upsert transaction, nesting the same tenant ThreadLocal is
+    // benign (sets the same value).
     if (!nonEmptyContexts.isEmpty()) {
-      int deletedCount = 0;
-      for (RetentionContext context : nonEmptyContexts) {
-        int rowsDeleted = executeRetentionDeleteForContext(context);
-        deletedCount += rowsDeleted;
-        if (rowsDeleted > 0) {
-          log.debug(
-              "Deleted {} rows for urn={} aspect={}",
-              rowsDeleted,
-              context.getUrn(),
-              context.getAspectName());
+      try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
+        int deletedCount = 0;
+        for (RetentionContext context : nonEmptyContexts) {
+          int rowsDeleted = executeRetentionDeleteForContext(context);
+          deletedCount += rowsDeleted;
+          if (rowsDeleted > 0) {
+            log.debug(
+                "Deleted {} rows for urn={} aspect={}",
+                rowsDeleted,
+                context.getUrn(),
+                context.getAspectName());
+          }
         }
-      }
 
-      if (deletedCount > 0) {
-        log.debug(
-            "Retention applied: deleted {} total rows across {} (urn, aspect) pairs",
-            deletedCount,
-            nonEmptyContexts.size());
+        if (deletedCount > 0) {
+          log.debug(
+              "Retention applied: deleted {} total rows across {} (urn, aspect) pairs",
+              deletedCount,
+              nonEmptyContexts.size());
+        }
       }
     }
   }
@@ -301,51 +308,58 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   }
 
   private void applyRetention(
+      @Nonnull OperationContext opContext,
       List<EbeanAspectV2> rows,
       Map<String, DataHubRetentionConfig> retentionPolicyMap,
       BulkApplyRetentionResult applyRetentionResult) {
-    try (Transaction transaction = _server.beginTransaction(TxScope.required())) {
-      transaction.setBatchMode(true);
-      transaction.setBatchSize(_batchSize);
+    // Scope the whole batch tx (SELECT-built contexts + DELETE) so ORM DELETEs route to the same
+    // underlying database opContext resolves to — matches the routed SELECT in
+    // getPagedAspectsByKeyset. Without this, the DELETE hits the default @Table catalog and
+    // silently misses rows in a multi-tenant deployment.
+    try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.required())) {
+        transaction.setBatchMode(true);
+        transaction.setBatchSize(_batchSize);
 
-      List<RetentionContext> retentionContexts =
-          rows.stream()
-              .filter(row -> row.getVersion() != 0)
-              .map(
-                  row -> {
-                    Urn urn;
-                    try {
-                      urn = Urn.createFromString(row.getUrn());
-                    } catch (Exception e) {
-                      log.error("Failed to serialize urn {}", row.getUrn(), e);
-                      return null;
-                    }
+        List<RetentionContext> retentionContexts =
+            rows.stream()
+                .filter(row -> row.getVersion() != 0)
+                .map(
+                    row -> {
+                      Urn urn;
+                      try {
+                        urn = Urn.createFromString(row.getUrn());
+                      } catch (Exception e) {
+                        log.error("Failed to serialize urn {}", row.getUrn(), e);
+                        return null;
+                      }
 
-                    final String aspectNameFromRecord = row.getAspect();
-                    log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
-                    Optional<Retention> retentionPolicy =
-                        getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
-                            .map(key -> retentionPolicyMap.get(key.toString()))
-                            .filter(Objects::nonNull)
-                            .findFirst()
-                            .map(DataHubRetentionConfig::getRetention);
+                      final String aspectNameFromRecord = row.getAspect();
+                      log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
+                      Optional<Retention> retentionPolicy =
+                          getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
+                              .map(key -> retentionPolicyMap.get(key.toString()))
+                              .filter(Objects::nonNull)
+                              .findFirst()
+                              .map(DataHubRetentionConfig::getRetention);
 
-                    return RetentionService.RetentionContext.builder()
-                        .urn(urn)
-                        .aspectName(aspectNameFromRecord)
-                        .retentionPolicy(retentionPolicy)
-                        .maxVersion(Optional.of(row.getVersion()))
-                        .build();
-                  })
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList());
+                      return RetentionService.RetentionContext.builder()
+                          .urn(urn)
+                          .aspectName(aspectNameFromRecord)
+                          .retentionPolicy(retentionPolicy)
+                          .maxVersion(Optional.of(row.getVersion()))
+                          .build();
+                    })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-      applyRetention(retentionContexts);
-      if (applyRetentionResult != null) {
-        applyRetentionResult.rowsHandled += retentionContexts.size();
+        applyRetention(opContext, retentionContexts);
+        if (applyRetentionResult != null) {
+          applyRetentionResult.rowsHandled += retentionContexts.size();
+        }
+
+        transaction.commit();
       }
-
-      transaction.commit();
     }
   }
 
@@ -372,7 +386,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
             rows.size(),
             lastUrn.isEmpty() ? "<start>" : lastUrn,
             lastAspect.isEmpty() ? "<start>" : lastAspect);
-        applyRetention(rows, retentionPolicyMap, null);
+        applyRetention(opContext, rows, retentionPolicyMap, null);
         pairsHandled += rows.size();
         EbeanAspectV2 last = rows.get(rows.size() - 1);
         lastUrn = last.getUrn();
@@ -452,7 +466,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
         log.error("Failed to serialize urn {}", row.getUrn(), e);
         continue;
       }
-      applyRetention(List.of(row), retentionPolicyMap, result);
+      applyRetention(args.opContext, List.of(row), retentionPolicyMap, result);
       result.timeApplyRetentionMs += System.currentTimeMillis() - applyStart;
     }
 

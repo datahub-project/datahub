@@ -70,7 +70,8 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   @WithSpan
-  protected void applyRetention(List<RetentionContext> retentionContexts) {
+  protected void applyRetention(
+      @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {
 
     List<RetentionContext> nonEmptyContexts =
         retentionContexts.stream()
@@ -137,6 +138,7 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
       retentionPolicy.ifPresent(
           retention ->
               applyRetention(
+                  opContext,
                   List.of(
                       RetentionContext.builder()
                           .urn(urn)

@@ -299,7 +299,7 @@ public abstract class RetentionService<U extends ChangeMCP> {
                         && !context.getRetentionPolicy().get().data().isEmpty())
             .collect(Collectors.toList());
 
-    applyRetention(withDefaults);
+    applyRetention(opContext, withDefaults);
   }
 
   /**
@@ -351,7 +351,8 @@ public abstract class RetentionService<U extends ChangeMCP> {
    *
    * @param retentionContexts Additional context that could be used to apply retention
    */
-  protected abstract void applyRetention(List<RetentionContext> retentionContexts);
+  protected abstract void applyRetention(
+      @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts);
 
   /**
    * Batch apply retention to all records that match the input entityName and aspectName
