@@ -9,7 +9,7 @@ import {
     DEFAULT_GLOSSARY_SIDEBAR_SORT,
     GlossarySidebarSortValue,
 } from '@app/glossaryV2/glossarySidebarFilters/glossarySidebarSort';
-import { DEFAULT_GLOSSARY_CHILDREN_COUNT, getGlossaryChildrenScrollInput } from '@app/glossaryV2/utils';
+import { DEFAULT_GLOSSARY_CHILDREN_COUNT } from '@app/glossaryV2/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -117,17 +117,10 @@ export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverrid
 
     useEffect(() => {
         if (entityUrn && urnsToUpdate.includes(entityUrn)) {
-            refetch(
-                getGlossaryScrollInput({
-                    parentNode: entityUrn,
-                    scrollId,
-                    sort,
-                    sortTypeBeforeName: true,
-                }),
-            );
+            refetch(scrollVariables);
             setUrnsToUpdate((prev) => prev.filter((urn) => urn !== entityUrn));
         }
-    }, [entityUrn, urnsToUpdate, setUrnsToUpdate, refetch, scrollId, sort]);
+    }, [entityUrn, urnsToUpdate, setUrnsToUpdate, refetch, scrollVariables]);
 
     useEffect(() => {
         if (entityUrn && nodeToNewEntity[entityUrn] && !dataUrnsSet.has(nodeToNewEntity[entityUrn].urn)) {
@@ -174,6 +167,6 @@ export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverrid
         loading: loading || (shouldDoAutoComplete && autoCompleteLoading),
         searchQuery,
         setSearchQuery,
-        refetch: () => refetch(getGlossaryChildrenScrollInput(entityUrn || '', scrollId)),
+        refetch: () => refetch(scrollVariables),
     };
 }
