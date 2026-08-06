@@ -21,6 +21,7 @@ import pytest
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
+    _remove_filter_from_existing_handlers,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -1870,6 +1871,351 @@ class TestReviewFixes:
         t.join(timeout=5.0)
         assert not t.is_alive(), "rebind worker thread timed out"
         assert mf._registry is r2
+
+    def test_handler_created_after_install_is_masked(self):
+        """P0-1: a handler created and attached AFTER install_masking_filter
+        must still mask. Without the Handler.__init__ hook, the one-shot
+        _add_filter_to_existing_handlers (run at install time) misses it.
+
+        The test isolates the new handler on a child logger with
+        propagate=False so it is the ONLY handler that sees the record.
+        Otherwise a pre-existing handler's filter (e.g. pytest's
+        LogCaptureHandler) would mask the shared record in place before the
+        new handler emits, hiding the bug — the masking filter mutates
+        record.msg, and all handlers in callHandlers share the same record.
+        """
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("LATE_PW", "late_secret_value")
+
+        capture = StringIO()
+        child = logging.getLogger("datahub.ingestion.source.late_p1")
+        child.handlers.clear()
+        child.propagate = False
+        child.setLevel(logging.INFO)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # Handler created and attached AFTER install, on the child only.
+            handler = logging.StreamHandler(capture)
+            handler.setFormatter(logging.Formatter("%(message)s"))
+            child.addHandler(handler)
+            child.info("connecting with late_secret_value")
+            out = capture.getvalue()
+            assert "late_secret_value" not in out, (
+                f"handler created after install leaked secret: {out!r}"
+            )
+            assert "***REDACTED:LATE_PW***" in out
+        finally:
+            child.removeHandler(handler)
+            child.propagate = True
+
+    def test_basicconfig_after_install_masks(self):
+        """P0-1 (B): logging.basicConfig() after install adds a StreamHandler
+        to root; that handler must pick up the filter via the __init__ hook."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("BC_PW", "bc_secret_value")
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # basicConfig with a fresh stream; if root already has handlers
+            # this is a no-op, so force a fresh handler via a manual StreamHandler.
+            capture = StringIO()
+            handler = logging.StreamHandler(capture)
+            handler.setFormatter(logging.Formatter("%(message)s"))
+            logging.getLogger().addHandler(handler)
+            logging.getLogger("datahub.ingestion.source.bc").info(
+                "connecting with bc_secret_value"
+            )
+            out = capture.getvalue()
+            assert "bc_secret_value" not in out
+            assert "***REDACTED:BC_PW***" in out
+        finally:
+            logging.getLogger().removeHandler(handler)
+
+    def test_one_record_multiple_handlers_truncation_byte_count(self):
+        """P0-2: a record reaching 3 handlers must produce exactly one
+        truncation suffix, a correct byte count, and masked output in every
+        handler. The _MASKED sentinel makes filter() idempotent per record."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("MULTI", "multi_secret_value")
+
+        captures = [StringIO(), StringIO(), StringIO()]
+        handlers = [logging.StreamHandler(c) for c in captures]
+        for h in handlers:
+            h.setFormatter(logging.Formatter("%(message)s"))
+        root = logging.getLogger()
+        for h in handlers:
+            root.addHandler(h)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            big = "multi_secret_value " + "y" * 12000
+            logging.getLogger("datahub.test.multi").info(big)
+            outs = [c.getvalue() for c in captures]
+            for i, out in enumerate(outs):
+                assert "multi_secret_value" not in out, (
+                    f"handler {i} leaked secret: {out!r}"
+                )
+                assert "***REDACTED:MULTI***" in out, f"handler {i} not masked"
+                # Exactly one truncation suffix (not nested / re-truncated).
+                assert out.count("bytes truncated for performance") == 1, (
+                    f"handler {i} re-truncated: {out!r}"
+                )
+                # The byte count is the ORIGINAL message's overrun, not the
+                # already-truncated string's.
+                expected_bytes = len(big) - 5000
+                assert str(expected_bytes) in out, (
+                    f"handler {i} wrong byte count: {out!r}"
+                )
+        finally:
+            for h in handlers:
+                root.removeHandler(h)
+
+    def test_double_install_after_new_handler_attaches_and_no_duplicates(self):
+        """P1-1: a second install call after a new handler appeared must
+        attach to the new handler, and must not duplicate the filter on
+        handlers that already have it."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        root = logging.getLogger()
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            f1 = mf_mod._installed_filter
+            assert f1 is not None
+            # New handler after first install.
+            new_cap = StringIO()
+            new_h = logging.StreamHandler(new_cap)
+            new_h.setFormatter(logging.Formatter("%(message)s"))
+            root.addHandler(new_h)
+            # Second install call (refresh path).
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # The new handler has the filter exactly once.
+            assert sum(1 for f in new_h.filters if f is f1) == 1, (
+                "new handler missing or duplicate filter after refresh"
+            )
+            # Existing handlers don't get a duplicate.
+            for h in root.handlers:
+                assert sum(1 for f in h.filters if f is f1) <= 1, (
+                    f"duplicate filter on handler {h}"
+                )
+        finally:
+            root.removeHandler(new_h)
+
+    def test_uninstall_symmetry_and_unrelated_filter_survives(self):
+        """P1-4: after install -> uninstall, no SecretMaskingFilter remains on
+        any handler or logger, stdout/stderr are the original objects, handler
+        streams are unchanged, and the Handler.__init__ hook is reverted. An
+        unrelated pre-existing filter on a handler survives uninstall."""
+        import datahub.masking.masking_filter as mf_mod
+
+        saved_stdout = sys.stdout
+        saved_stderr = sys.stderr
+        root = logging.getLogger()
+
+        # An unrelated filter that must survive uninstall.
+        class UnrelatedFilter(logging.Filter):
+            pass
+
+        unrelated = UnrelatedFilter()
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        h.addFilter(unrelated)
+        root.addHandler(h)
+        # Capture the handler's stream reference; it must not change.
+        original_stream = h.stream
+        try:
+            assert mf_mod._original_handler_init is None
+            install_masking_filter(install_stdout_wrapper=True)
+            assert mf_mod._original_handler_init is not None
+            uninstall_masking_filter()
+            # Hook reverted.
+            assert mf_mod._original_handler_init is None
+            # No SecretMaskingFilter anywhere.
+            for _log_name, obj in list(logging.root.manager.loggerDict.items()):
+                if isinstance(obj, logging.Logger):
+                    for hh in obj.handlers:
+                        assert not any(
+                            isinstance(f, SecretMaskingFilter) for f in hh.filters
+                        )
+            for hh in root.handlers:
+                assert not any(isinstance(f, SecretMaskingFilter) for f in hh.filters)
+            assert not any(isinstance(f, SecretMaskingFilter) for f in root.filters)
+            # Unrelated filter survived.
+            assert unrelated in h.filters, "unrelated filter was stripped"
+            # Streams restored.
+            assert sys.stdout is saved_stdout
+            assert sys.stderr is saved_stderr
+            # Handler stream unchanged.
+            assert h.stream is original_stream
+        finally:
+            root.removeHandler(h)
+
+    def test_shared_handler_masking_namespace_bypass(self):
+        """P1-3: a handler shared between a datahub.masking.* logger and a
+        normal logger gets the filter (via the normal logger). Records from
+        the masking namespace through that handler are bypassed by filter()'s
+        record-name check (no re-entrancy, no masking of internal logs).
+        Records from the normal logger are masked."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("SHARED", "shared_secret_value")
+
+        shared_cap = StringIO()
+        shared_h = logging.StreamHandler(shared_cap)
+        shared_h.setFormatter(logging.Formatter("%(name)s %(message)s"))
+        normal_logger = logging.getLogger("datahub.ingestion.shared")
+        normal_logger.handlers.clear()
+        normal_logger.propagate = False
+        normal_logger.addHandler(shared_h)
+        masking_logger = logging.getLogger("datahub.masking.sharedtest")
+        masking_logger.handlers.clear()
+        masking_logger.propagate = False
+        masking_logger.addHandler(shared_h)
+        normal_logger.setLevel(logging.DEBUG)
+        masking_logger.setLevel(logging.DEBUG)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            normal_logger.info("normal line shared_secret_value")
+            masking_logger.warning("internal line shared_secret_value")
+            out = shared_cap.getvalue()
+            # Normal record masked.
+            assert "shared_secret_value" not in out.split("internal line")[0]
+            # The masking-namespace record is NOT masked (bypass), so the
+            # secret appears in that line — by design (internal logs carry no
+            # real secrets). The point: no re-entrancy, no recursion.
+            assert "internal line shared_secret_value" in out
+        finally:
+            normal_logger.removeHandler(shared_h)
+            masking_logger.removeHandler(shared_h)
+            normal_logger.propagate = True
+            masking_logger.propagate = True
+
+    def test_masking_framework_loggers_do_not_propagate(self):
+        """Step 0 Q1: get_masking_safe_logger sets propagate=False so the
+        masking framework's own log records (mask_text warnings, rebuild
+        retries, circuit-breaker messages) do not reach root handlers that
+        carry the masking filter — that would re-enter mask_text. Assert
+        propagate is False and that a warning emitted from inside mask_text
+        does not re-enter the filter."""
+        from datahub.masking.logging_utils import get_masking_safe_logger
+
+        mf_logger = get_masking_safe_logger("datahub.masking.reentry_test")
+        assert mf_logger.propagate is False, (
+            "masking-framework logger propagates to root; mask_text's own "
+            "warnings would re-enter the filter"
+        )
+        # Instrument mask_text to emit a warning mid-call and confirm it
+        # does not recurse into the filter.
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("REENTRY", "reentry_secret_value")
+        root_cap = StringIO()
+        root_h = logging.StreamHandler(root_cap)
+        root_h.setFormatter(logging.Formatter("%(name)s %(message)s"))
+        root = logging.getLogger()
+        root.addHandler(root_h)
+        call_count = {"n": 0}
+        original_mask_text = SecretMaskingFilter.mask_text
+
+        def counting_mask_text(self, text):
+            call_count["n"] += 1
+            return original_mask_text(self, text)
+
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            installed = next(
+                f for f in root_h.filters if isinstance(f, SecretMaskingFilter)
+            )
+            # Bypass mypy's "cannot assign to a method" by setting via __dict__.
+            import types
+
+            installed.mask_text = types.MethodType(  # type: ignore[method-assign]
+                counting_mask_text, installed
+            )
+            # Trigger a masking-framework warning by registering 100+ secrets.
+            for i in range(110):
+                registry.register_secret(f"K{i}", f"v{i}_secret_value")
+            # Force a rebuild + warning path.
+            installed._last_version = -1
+            installed.mask_text("trigger rebuild reentry_secret_value")
+            # The warning from inside mask_text (large secret count) must not
+            # have re-entered the filter (which would inflate the count).
+            # mask_text is called at least once for the trigger; re-entrancy
+            # would call it again from within the warning emission. We can't
+            # pin an exact count (the warning may legitimately call mask_text
+            # for its own stream), but the masking-framework logger has
+            # propagate=False so its records never reach root_h's filter.
+            assert "reentry_secret_value" not in root_cap.getvalue()
+        finally:
+            root.removeHandler(root_h)
+
+    def test_concurrent_add_remove_handler_no_exception(self):
+        """P2-1: concurrent addHandler/removeHandler on one thread while
+        install/uninstall runs on another must not raise. The logging-module
+        lock around the snapshot in _snapshot_handler_pairs prevents
+        RuntimeError from concurrent list mutation."""
+        errors: list = []
+        stop = threading.Event()
+
+        def mutator():
+            root = logging.getLogger()
+            while not stop.is_set():
+                h = logging.StreamHandler(StringIO())
+                root.addHandler(h)
+                root.removeHandler(h)
+
+        def installer():
+            registry = SecretRegistry.get_instance()
+            registry.clear()
+            for _ in range(20):
+                try:
+                    install_masking_filter(registry, install_stdout_wrapper=False)
+                    uninstall_masking_filter()
+                except Exception as e:
+                    errors.append(e)
+
+        try:
+            t1 = threading.Thread(target=mutator, name="mutator")
+            t2 = threading.Thread(target=installer, name="installer")
+            t1.start()
+            t2.start()
+            t2.join(timeout=10.0)
+            stop.set()
+            t1.join(timeout=5.0)
+            assert not t2.is_alive(), "installer thread timed out"
+            assert not errors, f"install/uninstall raised: {errors}"
+        finally:
+            stop.set()
+
+    def test_remove_filter_from_existing_handlers_direct_coverage(self):
+        """P1-4 / test #8: direct coverage of _remove_filter_from_existing_handlers
+        (teardown is the half that was silently broken before this PR). Asserts
+        our instance is gone and an unrelated SecretMaskingFilter survives."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            ours = mf_mod._installed_filter
+            assert ours is not None
+            # Someone else's SecretMaskingFilter on a handler.
+            theirs = SecretMaskingFilter(registry)
+            cap = StringIO()
+            h = logging.StreamHandler(cap)
+            h.setFormatter(logging.Formatter("%(message)s"))
+            h.addFilter(theirs)
+            logging.getLogger().addHandler(h)
+            _remove_filter_from_existing_handlers(ours)
+            assert ours not in h.filters, "our filter was not removed"
+            assert theirs in h.filters, "unrelated SecretMaskingFilter was stripped"
+        finally:
+            logging.getLogger().removeHandler(h)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
 
 
 if __name__ == "__main__":

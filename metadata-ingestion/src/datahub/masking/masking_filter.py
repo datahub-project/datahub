@@ -24,7 +24,7 @@ import logging
 import re
 import sys
 import threading
-from typing import Any, Dict, Optional, TextIO, Tuple
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.secret_registry import SecretRegistry
@@ -35,6 +35,15 @@ logger = get_masking_safe_logger(__name__)
 # install/uninstall tracking). See install_masking_filter. Forward-annotated
 # because SecretMaskingFilter is defined below.
 _installed_filter: Optional["SecretMaskingFilter"] = None
+
+# Original ``logging.Handler.__init__`` saved while the __init__ hook is
+# installed, so uninstall can restore it. ``None`` means the hook is not
+# active. The hook auto-attaches the installed filter to every *new* handler
+# (P0-1: a handler created after install — basicConfig, a library's lazy
+# logging config, a per-task FileHandler — otherwise gets no filter, and
+# the deleted stream-repointing accidentally covered this case). Idempotent
+# (re-install is a no-op) and reversible on uninstall.
+_original_handler_init: Optional[Any] = None
 
 # Constants
 REDACTED_MASKING_NAMESPACE = "datahub.masking."
@@ -680,22 +689,79 @@ class StreamMaskingWrapper:
         return getattr(self._original, name)
 
 
-def _iter_all_loggers() -> list[logging.Logger]:
-    """Root logger plus every initialized named logger (skipping PlaceHolders).
+def _snapshot_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
+    """Snapshot ``(logger, handler)`` pairs under the logging module lock.
 
-    Returns a list (snapshot) so callers iterate a stable copy while other
-    threads add/remove loggers. We deliberately do NOT take logging._acquireLock
-    here: it is held during logging I/O on some paths and would risk deadlock,
-    and list(loggerDict.keys()) + .get() is safe enough against concurrent
-    mutation (a removed logger yields None from .get and is skipped).
+    Holding ``logging._acquireLock`` around the snapshot prevents
+    ``RuntimeError`` from a concurrent ``addHandler`` / ``removeHandler``
+    mutating ``logger.handlers`` or ``loggerDict`` while we iterate (P2-1).
+    The lock is released before we return, so callers can ``addFilter`` /
+    ``removeFilter`` and log without holding it — holding it across a log
+    call would deadlock (the logging path acquires the same lock).
+
+    ``loggerDict`` is snapshotted as ``list(items())`` (P2-2): indexing by
+    key after a keys-only snapshot can raise ``KeyError`` if a logger is
+    GC'd between the two steps; ``items()`` holds the value reference too.
+    ``PlaceHolder`` entries (non-Logger) are filtered out.
     """
-    loggers: list[logging.Logger] = [logging.getLogger()]
-    # .get() per snapshotted key: a logger may be removed between snapshot and access.
-    for name in list(logging.root.manager.loggerDict.keys()):
-        obj = logging.root.manager.loggerDict.get(name)
-        if isinstance(obj, logging.Logger):
-            loggers.append(obj)
-    return loggers
+    logging._acquireLock()  # type: ignore[attr-defined]
+    try:
+        root = logging.getLogger()
+        pairs: List[Tuple[logging.Logger, logging.Handler]] = [
+            (root, h) for h in list(root.handlers)
+        ]
+        for _name, obj in list(logging.root.manager.loggerDict.items()):
+            if isinstance(obj, logging.Logger):
+                for h in list(obj.handlers):
+                    pairs.append((obj, h))
+        return pairs
+    finally:
+        logging._releaseLock()  # type: ignore[attr-defined]
+
+
+def _install_handler_init_hook() -> None:
+    """Patch ``logging.Handler.__init__`` to auto-attach the installed filter
+    to every new handler (P0-1). Idempotent: a no-op if already installed.
+    Reversed by ``_uninstall_handler_init_hook``.
+
+    ``Handler.__init__`` is the construction seam: standard handlers
+    (StreamHandler, FileHandler, QueueHandler, ...) all call it, so one
+    patch covers handlers created by ``basicConfig``, library lazy config,
+    and per-task handler construction after install. Subclasses that do
+    NOT call ``Handler.__init__`` (rare) won't be covered — documented
+    residual. The patched ``__init__`` reads ``_installed_filter`` (a
+    pointer read, atomic under the GIL); if it is None (uninstalled) it
+    skips, so a handler constructed during the uninstall window gets no
+    filter and ``_remove_filter_from_existing_handlers`` cleans up any that
+    did.
+
+    The original ``__init__`` is captured in a closure (not re-read from the
+    global) so a handler being constructed when uninstall runs can still
+    finish initializing — without this, uninstall clearing
+    ``_original_handler_init`` to None mid-call would leave the handler
+    half-constructed.
+    """
+    global _original_handler_init
+    if _original_handler_init is not None:
+        return  # idempotent
+    original = logging.Handler.__init__
+    _original_handler_init = original
+
+    def patched_handler_init(self: Any, level: int = logging.NOTSET) -> None:
+        original(self, level)  # closure-captured, race-safe vs uninstall
+        f = _installed_filter
+        if f is not None and f not in self.filters:
+            self.addFilter(f)
+
+    logging.Handler.__init__ = patched_handler_init  # type: ignore[assignment]
+
+
+def _uninstall_handler_init_hook() -> None:
+    """Restore ``logging.Handler.__init__``. No-op if the hook is not active."""
+    global _original_handler_init
+    if _original_handler_init is not None:
+        logging.Handler.__init__ = _original_handler_init  # type: ignore[assignment]
+        _original_handler_init = None
 
 
 def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
@@ -707,24 +773,37 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> Non
     masks it in place, without touching the handler's stream. (Repointing streams
     instead loops forever under celery -- see install_masking_filter.)
 
+    This is the one-shot that covers handlers present at install time. Handlers
+    created *after* install are covered by the ``Handler.__init__`` hook
+    (``_install_handler_init_hook``), so masking is structurally unconditional
+    rather than dependent on install ordering (P0-1).
+
     Skip datahub.masking.* loggers: they log to the original stderr by design and
     carry no secrets, so filtering them only risks re-entrancy. The trailing dot
-    avoids matching a hypothetical "datahub.maskingfoo" logger.
+    in ``REDACTED_MASKING_NAMESPACE`` avoids matching a hypothetical
+    "datahub.maskingfoo" logger. A handler *shared* between a datahub.masking.*
+    logger and another logger still gets the filter via the other logger — that
+    is safe because ``filter()``'s record-name bypass short-circuits masking
+    for records whose name is in the masking namespace, so there is no
+    re-entrancy and no masking of internal logs. The per-logger skip is a
+    best-effort attach-time optimization; the record-name bypass is the real
+    safety net.
     """
+    pairs = _snapshot_handler_pairs()
     added = 0
-    for log in _iter_all_loggers():
-        if log.name.startswith(REDACTED_MASKING_NAMESPACE):
+    for log, handler in pairs:
+        if log.name == "datahub.masking" or log.name.startswith(
+            REDACTED_MASKING_NAMESPACE
+        ):
             continue
-        # Copy: handlers may be added/removed by other threads during iteration.
-        for handler in list(log.handlers):
-            # Identity check: don't skip attaching because some OTHER
-            # SecretMaskingFilter is present — that would let us miss handlers
-            # we should cover, and on teardown we'd strip a filter we never added.
-            # We only skip our own instance (re-install / refresh path).
-            if masking_filter in handler.filters:
-                continue
-            handler.addFilter(masking_filter)
-            added += 1
+        # Identity check: don't skip attaching because some OTHER
+        # SecretMaskingFilter is present — that would let us miss handlers
+        # we should cover, and on teardown we'd strip a filter we never added.
+        # We only skip our own instance (re-install / refresh path).
+        if masking_filter in handler.filters:
+            continue
+        handler.addFilter(masking_filter)
+        added += 1
     if added:
         logger.debug(f"Installed SecretMaskingFilter on {added} handler(s)")
 
@@ -734,12 +813,14 @@ def _remove_filter_from_existing_handlers(masking_filter: SecretMaskingFilter) -
 
     Identity-based (not isinstance) so we never strip a different
     SecretMaskingFilter that someone else installed. Uses removeFilter (the
-    logging API) rather than reassigning handler.filters.
+    logging API) rather than reassigning handler.filters. Snapshots under
+    the logging module lock so a concurrent addHandler/removeHandler can't
+    mutate the lists under us (P2-1).
     """
-    for log in _iter_all_loggers():
-        for handler in list(log.handlers):
-            while masking_filter in handler.filters:
-                handler.removeFilter(masking_filter)
+    pairs = _snapshot_handler_pairs()
+    for _log, handler in pairs:
+        while masking_filter in handler.filters:
+            handler.removeFilter(masking_filter)
 
 
 def _is_real_stream(stream: object) -> bool:
@@ -765,28 +846,32 @@ def install_masking_filter(
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
     """Enable secret masking: install the filter on existing handlers (+ root
-    logger) and, optionally, wrap sys.stdout/stderr for raw writes.
+    logger), hook ``Handler.__init__`` so handlers created later are also
+    covered, and, optionally, wrap sys.stdout/stderr for raw writes.
 
     Masking happens at the handler level (see _add_filter_to_existing_handlers).
-    Coverage is a snapshot of the handlers present now, so call this AFTER logging
-    is configured; handlers added later are covered only by a re-install or, for
-    stdout/stderr, by the stream wrapper.
+    The one-shot covers handlers present at install time; the
+    ``Handler.__init__`` hook (``_install_handler_init_hook``) covers handlers
+    created later — ``basicConfig`` after install, a library's lazy logging
+    config, a per-task FileHandler/QueueHandler — so masking is structurally
+    unconditional rather than dependent on install ordering. This restores
+    the coverage the deleted stream-repointing accidentally provided, without
+    repointing streams (which deadlocked under celery).
 
-    Fail-open limitations (residual gaps, documented so nobody over-engineers a
-    addHandler monkeypatch later):
-    - A handler added to a child logger after install can emit unmasked (a
-      logger's own handlers run before ancestors'). Not a concern in the
-      executor, where handlers exist before masking is installed per task.
-    - A FileHandler added after install in a non-celery process: its writes
-      don't go through the stdout/stderr wrapper, so they're unmasked. Under
-      celery, late handlers' writes go through the proxy back into logging and
-      are masked there; outside celery, late StreamHandler()s inherit the
-      wrapped stderr. The residual gap is FileHandler-after-install in a
-      non-celery process.
+    Residual gaps (fail-open limitations, documented so reviewers see the
+    security envelope):
+    - A handler attached by direct ``logger.handlers.append(h)`` (bypassing
+      ``addHandler``) where ``h`` was constructed before install and is not
+      on any logger at install time: neither the one-shot nor the ``__init__``
+      hook sees it. Rare pattern; not used by the executor or stdlib logging.
+    - A handler whose ``__init__`` does not call ``logging.Handler.__init__``
+      (rare third-party override): the hook doesn't fire for it.
     - Arbitrary objects in extras are not stringified-and-masked at filter
       time (would risk __str__ side effects); a formatter that serializes them
       via %s may emit them unmasked unless the output flows through the
       stdout/stderr wrapper.
+    - A custom ``Formatter.formatException`` that re-derives from ``exc_info``
+      instead of reusing ``record.exc_text`` bypasses the masked traceback.
 
     Note: the "already installed → refresh" path re-scans handlers, re-adds
     the root-logger filter if something removed it, and rebinds the
@@ -854,6 +939,12 @@ def install_masking_filter(
     root_logger.addFilter(masking_filter)
     _add_filter_to_existing_handlers(masking_filter)
     _installed_filter = masking_filter
+    # Hook Handler.__init__ so handlers created AFTER install (basicConfig,
+    # library lazy config, per-task FileHandler) auto-attach the filter. This
+    # makes masking structurally unconditional rather than install-ordering-
+    # dependent (P0-1); the deleted stream-repointing accidentally covered
+    # this case and we are restoring that coverage without repointing streams.
+    _install_handler_init_hook()
     logger.info("Installed SecretMaskingFilter on root logger and existing handlers")
 
     # Wrap stdout/stderr only to mask raw writes (print(), C-extension output).
@@ -894,7 +985,15 @@ def _wrap_std_streams(masking_filter: "SecretMaskingFilter") -> None:
 
 
 def uninstall_masking_filter() -> None:
-    """Remove secret masking filter from root logger and all handlers."""
+    """Remove secret masking: detach the filter from the root logger and every
+    handler it was attached to, unwrap stdout/stderr, and revert the
+    ``Handler.__init__`` hook so future handlers don't auto-attach.
+
+    Identity-based: only *our* installed instance is removed, so a different
+    ``SecretMaskingFilter`` someone else installed survives. Symmetric with
+    ``install_masking_filter`` (which attaches the filter, wraps streams, and
+    installs the ``Handler.__init__`` hook).
+    """
     global _installed_filter
 
     root_logger = logging.getLogger()
@@ -905,6 +1004,11 @@ def uninstall_masking_filter() -> None:
             root_logger.removeFilter(_installed_filter)
         _remove_filter_from_existing_handlers(_installed_filter)
         _installed_filter = None
+
+    # Revert the Handler.__init__ hook so handlers constructed after uninstall
+    # don't auto-attach a (now-None) filter. Done after _installed_filter is
+    # cleared so the hook's pointer read sees None during teardown.
+    _uninstall_handler_init_hook()
 
     # Unwrap stdout/stderr (only if we wrapped them)
     if isinstance(sys.stdout, StreamMaskingWrapper):
