@@ -182,6 +182,12 @@ def test_parse_query_fields_handles_delimiters_and_blanks():
         "orders.state",
     ]
     assert parse("") == []
+    # Some Looker versions / result formats return a JSON array instead of a
+    # delimited string; the parser must handle both.
+    assert parse(["orders.count", "orders.created_date"]) == [
+        "orders.count",
+        "orders.created_date",
+    ]
 
 
 def test_explore_stat_key_round_trips_between_model_and_row():

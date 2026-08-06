@@ -822,12 +822,11 @@ class ExploreStatGenerator(BaseStatGenerator):
 
     @staticmethod
     def _parse_query_fields(raw_fields: object) -> List[str]:
-        result: List[str] = []
-        for token in _QUERY_FIELDS_SPLIT_RE.split(str(raw_fields)):
-            stripped = token.strip()
-            if stripped:
-                result.append(stripped)
-        return result
+        if isinstance(raw_fields, (list, tuple)):
+            tokens = [str(t) for t in raw_fields]
+        else:
+            tokens = _QUERY_FIELDS_SPLIT_RE.split(str(raw_fields))
+        return [t.strip() for t in tokens if t.strip()]
 
     def _augment_entity_timeseries_aspects(
         self, entity_usage_stat: Dict[Tuple[str, str], Any]
