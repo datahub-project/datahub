@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
+    KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
 )
@@ -104,7 +105,7 @@ class TestClusterTopicScoping:
         assigned: List[Optional[List[str]]] = []
 
         class CapturingDebezium(DebeziumSourceConnector):
-            def extract_lineages(self) -> List[object]:
+            def extract_lineages(self) -> List[KafkaConnectLineage]:
                 assigned.append(self.all_cluster_topics)
                 return []
 
