@@ -828,7 +828,7 @@ class TestLineageEmissionGuard:
         handler = MagicMock()
         handler.gen_lineage_workunits.side_effect = ValueError("bad urn")
         report = BigQueryV2Report()
-        gen = SimpleNamespace(
+        gen: Any = SimpleNamespace(
             linked_datasets_handler=handler,
             config=SimpleNamespace(include_linked_dataset_lineage=True),
             report=report,
