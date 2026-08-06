@@ -84,7 +84,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
           // A caller-provided id makes creation retry-safe: reusing it is a conflict, not an
           // update, so raiseIncident stays create-only. Omitting it preserves the original
           // random-UUID, upsert-based behavior exactly.
-          final boolean callerProvidedId = input.getId() != null;
+          final boolean callerProvidedId = input.getId() != null && !input.getId().isEmpty();
           final String id = callerProvidedId ? input.getId() : UUID.randomUUID().toString();
 
           try {
