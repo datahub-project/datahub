@@ -248,5 +248,8 @@ class TestClusterTopicScoping:
         assert connector.all_cluster_topics is None
 
         lineages = connector.extract_lineages()
-        assert lineages
-        assert all(lineage.target_dataset for lineage in lineages)
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_dataset == "ecommerce.public.orders"
+        assert lineage.target_dataset == "pg_cdc.public.orders"
+        assert lineage.source_platform == "postgres"
