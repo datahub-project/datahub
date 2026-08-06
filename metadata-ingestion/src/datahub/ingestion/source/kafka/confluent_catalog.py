@@ -47,7 +47,6 @@ class KafkaTopicCatalog:
                 topic for topic in topics if topic.cluster_id == self.config.cluster_id
             ]
             if topics and not in_cluster:
-                # Typo or unset logical_cluster_id otherwise looks like "0 topics indexed".
                 self.report.warning(
                     message="No Stream Catalog topic carries the configured Kafka cluster id, so no "
                     "catalog metadata will be applied. Check `confluent_catalog.cluster_id`.",

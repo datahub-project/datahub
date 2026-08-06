@@ -20,8 +20,7 @@ DATA_KEY: Final[str] = "data"
 ERRORS_KEY: Final[str] = "errors"
 MESSAGE_KEY: Final[str] = "message"
 
-# Live catalog 500s on any GraphQL variables map (verified 2026-08-05), so
-# pagination is inlined via these placeholders.
+# Catalog GraphQL rejects a variables map; inline limit/offset instead.
 LIMIT_PLACEHOLDER: Final[str] = "{limit}"
 OFFSET_PLACEHOLDER: Final[str] = "{offset}"
 

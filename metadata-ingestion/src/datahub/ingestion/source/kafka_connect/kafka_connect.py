@@ -236,8 +236,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         all_cluster_topics: Optional[List[str]] = None
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
-            # Keep the list for catalog cross-check below. Only hand it to
-            # connectors that need it for inference (sinks, JDBC, EventRouter).
+            # Catalog cross-check uses the full list; only inference-needing
+            # connectors (sinks, JDBC, EventRouter) get it assigned.
             if (
                 connector
                 and all_cluster_topics is not None

@@ -27,11 +27,6 @@ class _CatalogPage:
 
 
 class ConfluentStreamCatalogClient:
-    # Transient / environment catalog issues are warnings so optional enrichment
-    # does not fail the run. Hard query-contract defects (missing placeholders or
-    # a response shape our hardcoded GraphQL cannot match) stay failures — they
-    # reproduce every run and would otherwise silently yield an empty catalog.
-
     def __init__(
         self,
         config: ConfluentStreamCatalogConfig,
@@ -60,7 +55,6 @@ class ConfluentStreamCatalogClient:
             if placeholder not in query
         ]
         if missing:
-            # Missing {offset} loops forever; missing {limit} silently truncates.
             self.report.failure(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
@@ -105,7 +99,7 @@ class ConfluentStreamCatalogClient:
                 if entity is not None:
                     entities.append(entity)
 
-            # raw_count, not filtered len: a non-object item must not look like EOF.
+            # Use raw_count so a non-object item is not treated as EOF.
             if page.raw_count < self.config.page_size:
                 break
             offset += self.config.page_size
