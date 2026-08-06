@@ -9,50 +9,34 @@ All SQLMesh model kinds are supported: `FULL`, `INCREMENTAL_BY_TIME_RANGE`,
 
 #### Data quality assertions
 
-Three families of DataHub Assertions are emitted per model, all attached to
-the SQLMesh logical URN (sibling stitching surfaces them on the warehouse
-sibling in the UI automatically):
+SQLMesh audits become DataHub **`CUSTOM`** assertions attached to the SQLMesh
+logical URN (sibling stitching surfaces them on the warehouse sibling in the
+UI):
 
-1. **Audit-derived `DATASET` assertions** — each `not_null`,
-   `unique_values`, `unique_combination_of_columns`, `number_of_rows`,
-   `forall`, `accepted_range`, and `accepted_values` audit in the model's
-   SQL becomes a typed assertion. Unrecognised audit names fall back to a
-   `_NATIVE_` dataset-rows assertion so they're still discoverable.
+- Each built-in audit (`not_null`, `unique_values`,
+  `unique_combination_of_columns`, `number_of_rows`, `forall`,
+  `accepted_range`, `accepted_values`) and any unrecognised audit name becomes
+  an `AssertionType.CUSTOM` assertion with `customAssertion.type = "SQLMesh"`.
+- Useful semantics (scope / operator / aggregation / fields / kwargs) are
+  carried as custom properties. The connector does **not** invent a SQL
+  statement for DataHub to evaluate — SQLMesh executes the audits.
+- Pass/fail history comes from an external `audit_results_path` JSON
+  (`sqlmesh audit --output`). Failures can emit Incidents when
+  `emit_incidents_on_failure` is enabled.
 
-2. **`FRESHNESS` assertions** — two per non-external, non-embedded model
-   (`pipeline_freshness` and `upstream_freshness`). Both use a
-   `FIXED_INTERVAL` schedule derived from the model's `interval_unit`:
-   3× the cron cadence with a 1-hour floor (mapping in
-   `_INTERVAL_UNIT_TO_SLA`). The two-assertion split is diagnostic: when
-   freshness drifts, `customProperties.sqlmesh.freshness_kind` tells you
-   whether the pipeline stopped rebuilding or upstream data is stale.
+#### Freshness and volume signals
 
-3. **`VOLUME` assertions** — one per model, asserting `row_count >= 1`.
-   Catches the catastrophic empty-table-after-rebuild failure mode
-   universally. Tighter expected-value thresholds aren't predictable from
-   the model definition; anomaly detection (Cloud feature) wraps the
-   static threshold with an ML baseline derived from accumulated run-event
-   history.
+The connector does **not** emit `FRESHNESS` or `VOLUME` assertion definitions
+(there is no Cloud path that auto-attaches a monitor to an ingested assertion).
+Instead it emits the timeseries signals users can point monitors at:
 
-External and embedded models skip the freshness and volume families
-(they have no rebuild schedule and no own materialised output).
+- **`OperationAspect`** with `customOperationType=SQLMESH_FINGERPRINT_REBUILD`
+  from `snapshot.updated_ts` (when the SQLMesh state store is reachable)
+- **`DatasetProfile.rowCount`** from a warehouse `COUNT(*)` against the
+  physical fingerprint table (when the gateway engine adapter is reachable)
 
-Today only the assertion **definitions** are emitted; evaluation is
-performed by DataHub's monitor framework (auto-run on Cloud) or by
-re-ingestion-time run events (planned). The `audit_results_path` config
-still provides a manual pass/fail path for audit assertions.
-
-#### Smart anomaly detection
-
-When `emit_smart_assertion_anomaly_detection: true` (default), every
-emitted assertion carries `customProperties["sqlmesh.anomaly_detection"]
-= "requested"`. DataHub stores this like any other custom property —
-it shows in the assertion's properties panel and is queryable through
-the GraphQL API. Cloud's monitor framework additionally reads the
-marker to wrap the assertion's static threshold in an ML detector, so
-a drop below the historical baseline fires even when the static rule
-passes. Set the flag to `false` only if you don't want the marker
-visible on assertions in the UI.
+`sqlmesh.cron` / `interval_unit` are still ingested as dataset custom
+properties for reference; they are **not** mapped into a freshness SLA.
 
 #### Stateful ingestion
 
@@ -67,17 +51,10 @@ and soft-deletes entities that have been removed from the SQLMesh project.
 - **Audit run results**: Pass/fail status on the Validation tab requires an external
   JSON results file (`audit_results_path`). The connector does not execute audits
   itself at ingestion time.
-- **Assertion run events**: Today only assertion definitions are emitted.
-  Per-ingest run events with actual signal values (row counts via
-  `ctx.engine_adapter`, fingerprint `updated_ts` from the state store)
-  are planned so DataHub instances without Cloud monitors get a usable
-  Validation tab.
-- **Metadata Tests**: `emit_metadata_tests` is reserved on the config but
-  the Test JSON DSL is undocumented in DataHub, so the flag is currently
-  a no-op. Will wire up once the DSL is exposed.
 - **Sibling merging**: Sibling stitching requires the warehouse connector to be running
   and producing URNs that match this connector's output. Verify URN alignment using
-  `preview_urns: true` before full ingestion.
+  `preview_urns: true` before full ingestion. The warehouse sibling edge is patched
+  (not overwritten) so an existing dbt sibling relationship is preserved.
 
 ### Troubleshooting
 

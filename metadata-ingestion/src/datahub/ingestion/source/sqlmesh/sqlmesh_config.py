@@ -17,6 +17,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -436,39 +437,18 @@ class SqlmeshSourceConfig(
             "(DataHub Cloud). Set to false to skip emitting them."
         ),
     )
-    emit_freshness_assertions: bool = Field(
-        default=True,
-        description=(
-            "Emit two FRESHNESS assertions per non-external, non-embedded model: "
-            "``pipeline_freshness`` (the fingerprint table must have been rebuilt "
-            "recently) and ``upstream_freshness`` (upstream sources must have been "
-            "updated recently). The SLA window is 3× the model's cron cadence "
-            "with a 1-hour floor. Standard DataHub assertion entities — they "
-            "show on the Validation tab as registered checks. Evaluation is "
-            "performed by DataHub monitors (Cloud auto-runs them)."
-        ),
+    # Removed: the connector no longer synthesises FRESHNESS / VOLUME assertion
+    # definitions, nor an anomaly-detection opt-in marker. Freshness and volume
+    # monitoring is expressed with DataHub monitors created against the
+    # OperationAspect / DatasetProfile timeseries this connector emits.
+    _emit_freshness_assertions = pydantic_removed_field(
+        "emit_freshness_assertions", month="August", year=2026
     )
-    emit_volume_assertions: bool = Field(
-        default=True,
-        description=(
-            "Emit one VOLUME assertion per non-external, non-embedded model "
-            "asserting ``row_count >= 1``. Detects the catastrophic empty-table "
-            "rebuild failure mode. Standard DataHub assertion entity. "
-            "Per-ingest run events with actual row counts via "
-            "``ctx.engine_adapter`` are planned so users without monitors also "
-            "get an evaluation history."
-        ),
+    _emit_volume_assertions = pydantic_removed_field(
+        "emit_volume_assertions", month="August", year=2026
     )
-    emit_smart_assertion_anomaly_detection: bool = Field(
-        default=True,
-        description=(
-            "Attach ``customProperties['sqlmesh.anomaly_detection'] = 'requested'`` "
-            "to every emitted assertion. DataHub stores the property like any "
-            "other custom property; Cloud's monitor framework additionally reads "
-            "the marker to wrap the assertion's static threshold in its ML "
-            "anomaly detector. Set to false only if the marker in the UI is "
-            "undesirable."
-        ),
+    _emit_smart_assertion_anomaly_detection = pydantic_removed_field(
+        "emit_smart_assertion_anomaly_detection", month="August", year=2026
     )
     emit_incidents_on_failure: bool = Field(
         default=True,
