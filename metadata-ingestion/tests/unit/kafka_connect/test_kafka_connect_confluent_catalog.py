@@ -313,6 +313,21 @@ class TestCatalogLineage:
 
         assert not source.extract_connector_lineages(manifest)
 
+    def test_unknown_source_with_all_catalog_topics_filtered_is_still_skipped(
+        self,
+    ) -> None:
+        # Catalog listed topics, but none are on the live cluster — no registry
+        # handler either, so drop the connector rather than emit an empty flow.
+        source = make_cloud_source(
+            [{"name": "exotic_source", "topics": [{"name": "stale_topic"}]}]
+        )
+        manifest = make_manifest(
+            name="exotic_source", config={"connector.class": "SomeUnknownSource"}
+        )
+
+        with patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]):
+            assert not source.extract_connector_lineages(manifest)
+
     def test_missing_catalog_topics_falls_back_and_is_reported(self) -> None:
         source = make_cloud_source([{"name": "source_postgres_cdc_01", "topics": []}])
         manifest = make_manifest()
