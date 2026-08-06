@@ -29,6 +29,7 @@ import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/Creat
 import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoveDataProductModal from '@app/entityV2/shared/EntityDropdown/MoveDataProductModal';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
@@ -180,6 +181,7 @@ const EntityDropdown = (props: Props) => {
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
+    const isDataProductEntity = entityType === EntityType.DataProduct;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
     const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
@@ -566,6 +568,9 @@ const EntityDropdown = (props: Props) => {
                 />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
+            {isMoveModalVisible && isDataProductEntity && (
+                <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />
+            )}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

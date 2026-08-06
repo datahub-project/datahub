@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import MoveDataProductModal from '@app/entityV2/shared/EntityDropdown/MoveDataProductModal';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
 import {
@@ -27,6 +28,7 @@ export default function MoveEntityMenuAction() {
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
+    const isDataProductEntity = entityType === EntityType.DataProduct;
     const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
     if (isDomainMoveHidden) {
@@ -56,6 +58,9 @@ export default function MoveEntityMenuAction() {
                 />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
+            {isMoveModalVisible && isDataProductEntity && (
+                <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />
+            )}
         </Tooltip>
     );
 }
