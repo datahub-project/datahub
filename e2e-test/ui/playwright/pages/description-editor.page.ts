@@ -108,11 +108,10 @@ export default class DescriptionEditorPage extends BasePage {
     const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
+    // data-file-url is set asynchronously after the visible node is inserted, so poll for it
+    // instead of reading it synchronously right after toBeVisible().
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await expect(fileNode).toHaveAttribute('data-file-url', urlPattern, { timeout: TIMEOUTS.EXTRA_LONG });
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -120,11 +119,10 @@ export default class DescriptionEditorPage extends BasePage {
     const fileNode = this.aboutFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
+    // data-file-url is set asynchronously after the visible node is inserted, so poll for it
+    // instead of reading it synchronously right after toBeVisible().
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await expect(fileNode).toHaveAttribute('data-file-url', urlPattern, { timeout: TIMEOUTS.EXTRA_LONG });
     await expect(fileNode).toContainText(fileName);
   }
 
