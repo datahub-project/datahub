@@ -335,15 +335,18 @@ def wait_for_writes_to_sync(
             return
 
     # The offset-checkpoint path only covers mcp/mcl/mcl_timeseries; fall back
-    # to legacy aggregate-lag polling for any consumer_group-scoped call.
+    # to legacy aggregate-lag polling for any consumer_group-scoped call, and
+    # also if the checkpoint fetch itself fails (transient auth/connection
+    # error) rather than trusting a false-empty checkpoint.
     if not legacy_wait and not consumer_group:
-        wait_for_offsets_to_be_consumed(
+        checkpoint_established = wait_for_offsets_to_be_consumed(
             consumers,
             max_timeout_in_sec=max_timeout_in_sec,
             auth_session=auth_session,
         )
-        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-        return
+        if checkpoint_established:
+            time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+            return
 
     start_time = time.time()
     lag_zero = False
@@ -463,15 +466,16 @@ def _fetch_detailed_partitions(
     gms_url: str,
     endpoint: str,
     auth_session: Optional[_AuthenticatedSession] = None,
-) -> dict:
-    """Returns {partition: (current_offset, lag)} from the detailed lag envelope.
+) -> Optional[dict]:
+    """Returns {partition: (current_offset, lag)} from the detailed lag envelope,
+    or None if the fetch itself failed (as opposed to a genuinely empty result).
 
     Assumes a single consumer group per topic (true for mcp/mcl/mcl_timeseries
     today); takes the first group found if there happen to be more.
     """
     data = _fetch_detailed_lag_envelope(gms_url, endpoint, auth_session)
-    if not data:
-        return {}
+    if data is None:
+        return None
     consumer_groups = data.get("consumerGroups", {})
     for _group_name, topics in consumer_groups.items():
         for _topic_name, topic_info in topics.items():
@@ -488,7 +492,7 @@ def wait_for_offsets_to_be_consumed(
     max_timeout_in_sec: int = 60,
     poll_interval_sec: float = 0.25,
     auth_session: Optional[_AuthenticatedSession] = None,
-) -> None:
+) -> bool:
     """PROTOTYPE. Wait for consumer offsets to pass a fixed checkpoint captured
     at call time, instead of polling a continuously-refreshed aggregate lag.
 
@@ -499,6 +503,14 @@ def wait_for_offsets_to_be_consumed(
             granularity of wait_for_writes_to_sync's poll loop, since each
             check is now a ~20-50ms HTTP call rather than a ~1.4s CLI spawn).
         auth_session: base authenticated test session used for GMS operations.
+
+    Returns:
+        True if a checkpoint was established (whether or not every offset was
+        consumed within the timeout). False if the checkpoint fetch itself
+        failed (e.g. a transient 401/connection error) -- the caller should
+        fall back to the legacy lag-polling path rather than trust an empty
+        checkpoint, which would otherwise return near-instantly as if there
+        were nothing to wait for.
     """
     start_time = time.time()
     gms_url = _get_gms_url()
@@ -507,6 +519,13 @@ def wait_for_offsets_to_be_consumed(
     for consumer_type in consumers:
         endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
         partitions = _fetch_detailed_partitions(gms_url, endpoint, auth_session)
+        if partitions is None:
+            logger.warning(
+                "Could not establish an offset checkpoint for %s (lag endpoint "
+                "unreachable); falling back to legacy wait",
+                consumer_type,
+            )
+            return False
         for partition, (offset, lag) in partitions.items():
             targets[(consumer_type, partition)] = offset + lag
 
@@ -516,6 +535,8 @@ def wait_for_offsets_to_be_consumed(
         for consumer_type in {c for (c, _p) in remaining}:
             endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
             partitions = _fetch_detailed_partitions(gms_url, endpoint, auth_session)
+            if partitions is None:
+                continue
             for partition, (offset, _lag) in partitions.items():
                 key = (consumer_type, partition)
                 if key in remaining and offset >= remaining[key]:
@@ -530,3 +551,4 @@ def wait_for_offsets_to_be_consumed(
         logger.info(
             f"All {len(targets)} target offset(s) consumed after {elapsed:.2f}s"
         )
+    return True
