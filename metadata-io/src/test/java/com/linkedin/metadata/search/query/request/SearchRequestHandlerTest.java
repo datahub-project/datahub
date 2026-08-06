@@ -818,6 +818,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 Stream.concat(COMMON.stream(), Stream.of("parentDomain"))
                     .collect(Collectors.toSet()))
             .put(
+                EntityType.DATA_PRODUCT,
+                Stream.concat(COMMON.stream(), Stream.of("parentDataProduct"))
+                    .collect(Collectors.toSet()))
+            .put(
                 EntityType.SCHEMA_FIELD,
                 Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
                     .collect(Collectors.toSet()))
