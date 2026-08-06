@@ -39,11 +39,15 @@ _installed_filter: Optional["SecretMaskingFilter"] = None
 # Original ``logging.Handler.__init__`` saved while the __init__ hook is
 # installed, so uninstall can restore it. ``None`` means the hook is not
 # active. The hook auto-attaches the installed filter to every *new* handler
-# (P0-1: a handler created after install — basicConfig, a library's lazy
-# logging config, a per-task FileHandler — otherwise gets no filter, and
-# the deleted stream-repointing accidentally covered this case). Idempotent
+# (a handler created after install — basicConfig, a library's lazy logging
+# config, a per-task FileHandler — otherwise gets no filter). Idempotent
 # (re-install is a no-op) and reversible on uninstall.
 _original_handler_init: Optional[Any] = None
+# The patched ``__init__`` we installed, kept so uninstall can verify the
+# current ``Handler.__init__`` is still ours before restoring. If another
+# library wrapped our patch, we leave the chain alone (see
+# _uninstall_handler_init_hook).
+_patched_handler_init: Optional[Any] = None
 
 # Constants
 REDACTED_MASKING_NAMESPACE = "datahub.masking."
@@ -692,20 +696,23 @@ class StreamMaskingWrapper:
 def _snapshot_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
     """Snapshot ``(logger, handler)`` pairs under the logging module lock.
 
-    Holding ``logging._acquireLock`` around the snapshot prevents
+    Holding the logging module lock around the snapshot prevents
     ``RuntimeError`` from a concurrent ``addHandler`` / ``removeHandler``
-    mutating ``logger.handlers`` or ``loggerDict`` while we iterate (P2-1).
+    mutating ``logger.handlers`` or ``loggerDict`` while we iterate.
     The lock is released before we return, so callers can ``addFilter`` /
     ``removeFilter`` and log without holding it — holding it across a log
     call would deadlock (the logging path acquires the same lock).
 
-    ``loggerDict`` is snapshotted as ``list(items())`` (P2-2): indexing by
+    ``loggerDict`` is snapshotted as ``list(items())``: indexing by
     key after a keys-only snapshot can raise ``KeyError`` if a logger is
     GC'd between the two steps; ``items()`` holds the value reference too.
     ``PlaceHolder`` entries (non-Logger) are filtered out.
     """
-    logging._acquireLock()  # type: ignore[attr-defined]
-    try:
+    # ``logging._lock`` is the module-level RLock that ``_acquireLock`` /
+    # ``_releaseLock`` wrap. Those wrappers were removed in Python 3.13,
+    # but ``_lock`` itself remains and is an RLock on 3.10–3.14+, so it
+    # works as a context manager across the whole supported range.
+    with logging._lock:  # type: ignore[attr-defined]
         root = logging.getLogger()
         pairs: List[Tuple[logging.Logger, logging.Handler]] = [
             (root, h) for h in list(root.handlers)
@@ -715,13 +722,11 @@ def _snapshot_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
                 for h in list(obj.handlers):
                     pairs.append((obj, h))
         return pairs
-    finally:
-        logging._releaseLock()  # type: ignore[attr-defined]
 
 
 def _install_handler_init_hook() -> None:
     """Patch ``logging.Handler.__init__`` to auto-attach the installed filter
-    to every new handler (P0-1). Idempotent: a no-op if already installed.
+    to every new handler. Idempotent: a no-op if already installed.
     Reversed by ``_uninstall_handler_init_hook``.
 
     ``Handler.__init__`` is the construction seam: standard handlers
@@ -741,7 +746,7 @@ def _install_handler_init_hook() -> None:
     ``_original_handler_init`` to None mid-call would leave the handler
     half-constructed.
     """
-    global _original_handler_init
+    global _original_handler_init, _patched_handler_init
     if _original_handler_init is not None:
         return  # idempotent
     original = logging.Handler.__init__
@@ -753,15 +758,39 @@ def _install_handler_init_hook() -> None:
         if f is not None and f not in self.filters:
             self.addFilter(f)
 
+    _patched_handler_init = patched_handler_init
     logging.Handler.__init__ = patched_handler_init  # type: ignore[assignment]
 
 
 def _uninstall_handler_init_hook() -> None:
-    """Restore ``logging.Handler.__init__``. No-op if the hook is not active."""
-    global _original_handler_init
-    if _original_handler_init is not None:
+    """Restore ``logging.Handler.__init__`` if (and only if) it is still our
+    patched function.
+
+    If another library patched ``Handler.__init__`` *after* us, the current
+    attribute is no longer ``_patched_handler_init``. Restoring
+    ``_original_handler_init`` unconditionally would discard that library's
+    patch — the classic monkeypatch stacking hazard. When the current
+    attribute is not ours, leave the chain alone and log at debug: we
+    cannot safely unwind a patch someone else wrapped, and the residual
+    (their patch stays in place, ours is no longer reachable) is the safe
+    choice. No-op if the hook was never installed.
+    """
+    global _original_handler_init, _patched_handler_init
+    if _original_handler_init is None:
+        return
+    if logging.Handler.__init__ is _patched_handler_init:
         logging.Handler.__init__ = _original_handler_init  # type: ignore[assignment]
-        _original_handler_init = None
+    else:
+        # Someone wrapped our patch. Restoring the original would clobber
+        # their wrapper; leave it in place. Our filter is still attached
+        # to handlers constructed while our patch was active, and
+        # _remove_filter_from_existing_handlers cleans those up.
+        logger.debug(
+            "Skipping Handler.__init__ restore: another library patched "
+            "it after we did; leaving their patch in place"
+        )
+    _original_handler_init = None
+    _patched_handler_init = None
 
 
 def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
@@ -773,10 +802,9 @@ def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> Non
     masks it in place, without touching the handler's stream. (Repointing streams
     instead loops forever under celery -- see install_masking_filter.)
 
-    This is the one-shot that covers handlers present at install time. Handlers
-    created *after* install are covered by the ``Handler.__init__`` hook
-    (``_install_handler_init_hook``), so masking is structurally unconditional
-    rather than dependent on install ordering (P0-1).
+    Covers handlers present at install time. Handlers created later are
+    covered by the ``Handler.__init__`` hook, so masking does not depend
+    on install ordering.
 
     Skip datahub.masking.* loggers: they log to the original stderr by design and
     carry no secrets, so filtering them only risks re-entrancy. The trailing dot
@@ -815,7 +843,7 @@ def _remove_filter_from_existing_handlers(masking_filter: SecretMaskingFilter) -
     SecretMaskingFilter that someone else installed. Uses removeFilter (the
     logging API) rather than reassigning handler.filters. Snapshots under
     the logging module lock so a concurrent addHandler/removeHandler can't
-    mutate the lists under us (P2-1).
+    mutate the lists under us.
     """
     pairs = _snapshot_handler_pairs()
     for _log, handler in pairs:
@@ -851,15 +879,14 @@ def install_masking_filter(
 
     Masking happens at the handler level (see _add_filter_to_existing_handlers).
     The one-shot covers handlers present at install time; the
-    ``Handler.__init__`` hook (``_install_handler_init_hook``) covers handlers
-    created later — ``basicConfig`` after install, a library's lazy logging
-    config, a per-task FileHandler/QueueHandler — so masking is structurally
-    unconditional rather than dependent on install ordering. This restores
-    the coverage the deleted stream-repointing accidentally provided, without
-    repointing streams (which deadlocked under celery).
+    ``Handler.__init__`` hook covers handlers created later — ``basicConfig``
+    after install, a library's lazy logging config, a per-task
+    FileHandler/QueueHandler — so masking does not depend on install
+    ordering. Streams are not repointed: under celery, ``sys.stderr``
+    re-enters logging, so a handler pointed at it would recurse infinitely
+    and drop output.
 
-    Residual gaps (fail-open limitations, documented so reviewers see the
-    security envelope):
+    Residual gaps (fail-open limitations of the security envelope):
     - A handler attached by direct ``logger.handlers.append(h)`` (bypassing
       ``addHandler``) where ``h`` was constructed before install and is not
       on any logger at install time: neither the one-shot nor the ``__init__``
@@ -933,18 +960,18 @@ def install_masking_filter(
         secret_registry=secret_registry, max_message_size=max_message_size
     )
 
-    # The root-logger filter is just the "already installed?" sentinel (and masks
-    # records logged directly on root). The real masking is the handler filters
-    # below, since logger-level filters don't see propagated child-logger records.
+    # The root-logger filter is the "already installed?" sentinel (and masks
+    # records logged directly on root). The real masking is the handler
+    # filters below, since logger-level filters don't see propagated
+    # child-logger records.
     root_logger.addFilter(masking_filter)
-    _add_filter_to_existing_handlers(masking_filter)
     _installed_filter = masking_filter
-    # Hook Handler.__init__ so handlers created AFTER install (basicConfig,
-    # library lazy config, per-task FileHandler) auto-attach the filter. This
-    # makes masking structurally unconditional rather than install-ordering-
-    # dependent (P0-1); the deleted stream-repointing accidentally covered
-    # this case and we are restoring that coverage without repointing streams.
+    # Hook Handler.__init__ before the handler scan so a handler
+    # constructed between the two is covered by the hook rather than
+    # missed by both. The scan's identity check prevents a double
+    # attach for handlers the hook has already covered.
     _install_handler_init_hook()
+    _add_filter_to_existing_handlers(masking_filter)
     logger.info("Installed SecretMaskingFilter on root logger and existing handlers")
 
     # Wrap stdout/stderr only to mask raw writes (print(), C-extension output).

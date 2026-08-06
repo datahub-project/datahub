@@ -17,6 +17,7 @@ import time
 from io import StringIO
 
 import pytest
+from pytest import MonkeyPatch
 
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
@@ -2214,6 +2215,173 @@ class TestReviewFixes:
             assert theirs in h.filters, "unrelated SecretMaskingFilter was stripped"
         finally:
             logging.getLogger().removeHandler(h)
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_snapshot_uses_lock_not_acquire_lock(self):
+        """A1: ``logging._acquireLock`` / ``_releaseLock`` were removed in
+        Python 3.13. ``_snapshot_handler_pairs`` must use ``logging._lock``
+        (a context manager that survives 3.10–3.14+), not the removed
+        wrappers. Spy on both: post-fix, ``_lock`` is acquired and
+        ``_acquireLock`` is never called. Pre-fix, ``_acquireLock`` is
+        called and ``_lock`` is not — on 3.13 that call raises
+        ``AttributeError`` and install silently fails (caught by graceful
+        degradation, filter never installs).
+        """
+        import datahub.masking.masking_filter as mf_mod
+
+        acquire_calls: list = []
+        lock_acquires: list = []
+        real_lock = logging._lock
+
+        class SpyLock:
+            def __enter__(self):
+                lock_acquires.append(1)
+                return real_lock.__enter__()
+
+            def __exit__(self, *exc):
+                return real_lock.__exit__(*exc)
+
+        with MonkeyPatch().context() as m:
+            # ``_acquireLock`` / ``_releaseLock`` exist on 3.10–3.12 and are
+            # gone on 3.13+; ``raising=False`` lets the spy install on both.
+            m.setattr(
+                logging, "_acquireLock", lambda: acquire_calls.append(1), raising=False
+            )
+            m.setattr(logging, "_releaseLock", lambda: None, raising=False)
+            m.setattr(logging, "_lock", SpyLock())
+
+            mf_mod._snapshot_handler_pairs()
+
+        assert acquire_calls == [], (
+            "_snapshot_handler_pairs still calls logging._acquireLock, which "
+            "was removed in Python 3.13 — install would raise AttributeError "
+            "and silently fail to install the filter"
+        )
+        assert lock_acquires, (
+            "_snapshot_handler_pairs did not acquire logging._lock; the "
+            "snapshot is not protected against concurrent addHandler/"
+            "removeHandler"
+        )
+
+    def test_install_succeeds_when_acquire_lock_is_gone(self):
+        """A1 end-to-end: with ``_acquireLock`` removed (simulating 3.13),
+        ``install_masking_filter`` must still install the filter. Pre-fix,
+        ``_snapshot_handler_pairs`` calls the missing ``_acquireLock`` and
+        the install silently fails. We scope the removal to the snapshot
+        call only — leaving it removed breaks 3.11 logging internals
+        (``isEnabledFor`` etc. also use ``_acquireLock``), which is not the
+        scenario under test."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("SECRET", "sekret_value_x")
+
+        real_snapshot = mf_mod._snapshot_handler_pairs
+
+        def snapshot_without_acquire_lock():
+            # Simulate 3.13: _acquireLock is gone. The post-fix body uses
+            # `with logging._lock:` and never touches _acquireLock, so this
+            # patch is a no-op for it. Pre-fix, the body's first line is
+            # `logging._acquireLock()` and raises AttributeError.
+            with MonkeyPatch().context() as m:
+                if hasattr(logging, "_acquireLock"):
+                    m.delattr(logging, "_acquireLock")
+                if hasattr(logging, "_releaseLock"):
+                    m.delattr(logging, "_releaseLock")
+                return real_snapshot()
+
+        try:
+            with MonkeyPatch().context() as m:
+                m.setattr(
+                    mf_mod,
+                    "_snapshot_handler_pairs",
+                    snapshot_without_acquire_lock,
+                )
+                install_masking_filter(registry, install_stdout_wrapper=False)
+                installed = mf_mod._installed_filter
+            assert installed is not None, (
+                "install_masking_filter silently failed when _acquireLock is "
+                "missing (simulating 3.13): masking is off with no signal"
+            )
+        finally:
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+
+    def test_uninstall_does_not_clobber_another_patch(self):
+        """A2: if another library patches ``Handler.__init__`` after us,
+        uninstall must NOT restore the original unconditionally — that would
+        discard their patch. Only restore when the current attribute is
+        still ours (identity compare)."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            assert mf_mod._patched_handler_init is not None
+            our_patch = mf_mod._patched_handler_init
+            original = mf_mod._original_handler_init
+
+            # Another library wraps our patch after we installed.
+            def their_init(self, level=logging.NOTSET):
+                our_patch(self, level)
+
+            logging.Handler.__init__ = their_init  # type: ignore[assignment]
+
+            mf_mod._uninstall_handler_init_hook()
+
+            # We did NOT restore the original (would clobber their_init).
+            assert logging.Handler.__init__ is their_init, (
+                "uninstall clobbered another library's Handler.__init__ patch"
+            )
+            assert mf_mod._original_handler_init is None
+            assert mf_mod._patched_handler_init is None
+            # Restore for teardown.
+            logging.Handler.__init__ = original  # type: ignore[assignment]
+        finally:
+            if mf_mod._installed_filter is not None:
+                uninstall_masking_filter()
+            if mf_mod._original_handler_init is not None:
+                mf_mod._uninstall_handler_init_hook()
+
+    def test_install_hook_before_scan_covers_race_window(self):
+        """A3: the ``Handler.__init__`` hook must be installed BEFORE the
+        existing-handler scan, so a handler constructed between the two is
+        covered by the hook (not missed by both). Verify by constructing a
+        handler during the scan via a patched ``_add_filter_to_existing_handlers``
+        — the hook (already active) must attach the filter to it."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        try:
+            # Patch the scan to construct a new handler mid-scan.
+            real_scan = mf_mod._add_filter_to_existing_handlers
+            late_handler = {"h": None}
+
+            def scan_with_late_handler(filt):
+                real_scan(filt)
+                h = logging.StreamHandler(StringIO())
+                late_handler["h"] = h
+
+            with MonkeyPatch().context() as m:
+                m.setattr(
+                    mf_mod,
+                    "_add_filter_to_existing_handlers",
+                    scan_with_late_handler,
+                )
+                install_masking_filter(registry, install_stdout_wrapper=False)
+
+            h = late_handler["h"]
+            assert h is not None
+            assert mf_mod._installed_filter in h.filters, (
+                "handler constructed between hook-install and scan was not "
+                "covered — the hook must be installed before the scan"
+            )
+            logging.getLogger().removeHandler(h)
+        finally:
             if mf_mod._installed_filter is not None:
                 uninstall_masking_filter()
 

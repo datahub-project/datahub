@@ -144,6 +144,16 @@ class SecretRegistry:
         filter from handlers/root, so the next install doesn't attach a
         second filter alongside the stale one. The lazy import avoids a
         circular dependency (masking_filter imports this module).
+
+        ``_bootstrap_lock`` is deliberately NOT held here. ``shutdown_secret_masking()``
+        establishes the lock order ``_bootstrap_lock`` -> ``SecretRegistry._lock``
+        (it takes ``_bootstrap_lock`` first, then calls into the registry). Taking
+        ``_bootstrap_lock`` here would invert that order against a concurrent
+        ``shutdown_secret_masking()`` that already holds it and is waiting on
+        ``SecretRegistry._lock`` — a classic lock-order-inversion deadlock.
+        The teardown below is safe to run without ``_bootstrap_lock`` because
+        ``reset_instance`` is a test/dev seam, not a production teardown path,
+        and ``uninstall_masking_filter()`` is idempotent and self-guarding.
         """
         with cls._lock:
             cls._instance = None
