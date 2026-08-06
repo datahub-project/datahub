@@ -474,6 +474,19 @@
       "Status Aspect"
     ]
   },
+  "sqlmesh": {
+    "platform_type": [
+      "ETL/ELT",
+      "Data Quality"
+    ],
+    "connection_type": "Pull",
+    "description": "SQLMesh is an open-source data transformation framework that enables versioned, SQL-native models with built-in audits, lineage, and multi-gateway warehouse support.",
+    "img_path": "img/logos/platforms/sqlmesh.png",
+    "extra_features": [
+      "Patch Lineage",
+      "Status Aspect"
+    ]
+  },
   "superset": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",

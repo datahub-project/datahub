@@ -767,11 +767,11 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
     # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
-# vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
-# because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
-# yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
-# in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
-"sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib},
+    # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
+    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
+    # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib

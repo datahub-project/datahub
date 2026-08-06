@@ -89,11 +89,11 @@ unchanged.
 
 Two kinds of credentials matter for an ingest run:
 
-| Credential                                  | Where it lives                                              | How to provide it                                                                            |
-| ------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| **DataHub GMS token**                       | DataHub sink config                                         | `${DATAHUB_TOKEN}` interpolated in the recipe                                                |
-| **Tobiko Cloud token** (Enterprise only)    | This connector's config                                     | `tobiko_cloud_token: ${TOBIKO_TOKEN}` _or_ `tobiko_cloud_token_file: ${SECRETS_DIR}/tobiko`  |
-| **Warehouse credentials** (Snowflake, etc.) | SQLMesh project's `config.yaml` or `config.py`              | SQLMesh's own env-var interpolation — `password: ${SNOWFLAKE_PASSWORD}` etc.                 |
+| Credential                                  | Where it lives                                 | How to provide it                                                                           |
+| ------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **DataHub GMS token**                       | DataHub sink config                            | `${DATAHUB_TOKEN}` interpolated in the recipe                                               |
+| **Tobiko Cloud token** (Enterprise only)    | This connector's config                        | `tobiko_cloud_token: ${TOBIKO_TOKEN}` _or_ `tobiko_cloud_token_file: ${SECRETS_DIR}/tobiko` |
+| **Warehouse credentials** (Snowflake, etc.) | SQLMesh project's `config.yaml` or `config.py` | SQLMesh's own env-var interpolation — `password: ${SNOWFLAKE_PASSWORD}` etc.                |
 
 The two patterns the connector itself supports:
 
@@ -211,14 +211,14 @@ the report. Different emissions depend on different probes.
 
 **Happy path — all three available:**
 
-| Emission                              | Depends on               |
-| ------------------------------------- | ------------------------ |
-| Dataset entities + schema + lineage   | nothing (just project files) |
-| Sibling URN routing                   | nothing                  |
-| Assertion **definitions** (audit, freshness, volume) | nothing |
-| Assertion **run events** (audit pass/fail) | `audit_results_path` JSON file (no probes needed) |
-| Volume `DatasetProfile.rowCount`      | `has_state` (for authoritative fingerprint name) + `has_warehouse_query` (for COUNT) |
-| Pipeline `OperationAspect.lastUpdatedTimestamp` | `has_state` (for `snapshot.updated_ts`) |
+| Emission                                             | Depends on                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Dataset entities + schema + lineage                  | nothing (just project files)                                                         |
+| Sibling URN routing                                  | nothing                                                                              |
+| Assertion **definitions** (audit, freshness, volume) | nothing                                                                              |
+| Assertion **run events** (audit pass/fail)           | `audit_results_path` JSON file (no probes needed)                                    |
+| Volume `DatasetProfile.rowCount`                     | `has_state` (for authoritative fingerprint name) + `has_warehouse_query` (for COUNT) |
+| Pipeline `OperationAspect.lastUpdatedTimestamp`      | `has_state` (for `snapshot.updated_ts`)                                              |
 
 **Minimal path — state store unavailable** (`has_state: false`):
 
@@ -258,17 +258,16 @@ source:
     sqlmesh_platform_instance: prod
     include_column_lineage: true
     convert_urns_to_lowercase: true
-    # Assertion definitions still go out; Monitor evaluates against the
-    # warehouse connector's own DatasetProfile + Operation timeseries.
-    emit_freshness_assertions: true
-    emit_volume_assertions: true
+    # OperationAspect + DatasetProfile are emitted when state/warehouse are reachable.
+    # Create freshness/volume monitors in DataHub against those timeseries.
     stateful_ingestion:
       enabled: true
 ```
 
-What this gives you: **complete dataset metadata + audit Validation tab
-+ assertion stubs that Cloud Monitor will fill in**. Strictly less
-than the happy path, but still the bulk of the value.
+What this gives you: \*\*complete dataset metadata + audit Validation tab
+
+- Operation/Profile timeseries for monitors you create\*\*. Strictly less
+  than the happy path, but still the bulk of the value.
 
 ### Real-world configuration examples
 
@@ -285,7 +284,7 @@ gateways:
       account: ${SNOWFLAKE_ACCOUNT}
       warehouse: COMPUTE_WH
       role: SQLMESH_ROLE
-      database: ANALYTICS  # the catalog SQLMesh writes to
+      database: ANALYTICS # the catalog SQLMesh writes to
 default_gateway: snowflake_prod
 model_defaults:
   dialect: snowflake

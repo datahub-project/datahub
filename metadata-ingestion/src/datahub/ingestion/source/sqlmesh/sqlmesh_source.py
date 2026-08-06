@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     Iterator,
@@ -21,7 +22,11 @@ from typing import (
 
 try:
     from sqlmesh import Context as SqlmeshContext
+except ImportError:
+    # sqlmesh is an optional dependency; callers must check `SqlmeshContext is None` before use
+    SqlmeshContext = None  # type: ignore[assignment,misc]
 
+if SqlmeshContext is not None:
     # SQLMesh's ProcessPoolExecutor(mp_context=fork) deadlocks when the DataHub
     # async sink thread pool is already running — the child process inherits
     # locks held by other threads (allocator arena, stdio buffer, libcurl
@@ -32,27 +37,36 @@ try:
     # remaining locks (logging, numpy C-ext init, requests session pool) can
     # still strand a fork on Linux under contention, and the parallel-parse
     # speedup is small in practice.
-    from sqlmesh.utils.process import SynchronousPoolExecutor
+    #
+    # These are private SQLMesh internals, so a version bump can rename them.
+    # sqlmesh itself is installed at this point, so a failure here means an
+    # API rename rather than a missing package — log loudly and carry on
+    # without the patch instead of pretending sqlmesh is absent.
+    try:
+        from sqlmesh.utils.process import SynchronousPoolExecutor
 
-    def _sync_pool(*args: object, **kwargs: object) -> SynchronousPoolExecutor:
-        return SynchronousPoolExecutor(
-            initializer=kwargs.get("initializer"),  # type: ignore[arg-type]
-            initargs=kwargs.get("initargs", ()),  # type: ignore[arg-type]
+        def _sync_pool(*args: object, **kwargs: object) -> SynchronousPoolExecutor:
+            return SynchronousPoolExecutor(
+                initializer=kwargs.get("initializer"),  # type: ignore[arg-type]
+                initargs=kwargs.get("initargs", ()),  # type: ignore[arg-type]
+            )
+
+        # Patch every module that captured create_process_pool_executor by name
+        # at import time. Hitting the factory in sqlmesh.utils.process is not
+        # enough — call sites that did `from ... import create_process_pool_executor`
+        # have their own binding.
+        import sqlmesh.core.loader as _loader_mod
+        import sqlmesh.core.model.cache as _cache_mod
+
+        _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+        _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+    except ImportError:
+        logging.getLogger(__name__).warning(
+            "Could not patch SQLMesh's process-pool factory (private API moved "
+            "in this sqlmesh version). Model parsing will fork worker processes, "
+            "which can hang when the DataHub async sink is active.",
+            exc_info=True,
         )
-
-    # Patch every module that captured create_process_pool_executor by name
-    # at import time. Hitting the factory in sqlmesh.utils.process is not
-    # enough — call sites that did `from ... import create_process_pool_executor`
-    # have their own binding.
-    import sqlmesh.core.loader as _loader_mod
-    import sqlmesh.core.model.cache as _cache_mod
-
-    _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
-    _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
-
-except ImportError:
-    # sqlmesh is an optional dependency; callers must check `SqlmeshContext is None` before use
-    SqlmeshContext = None  # type: ignore[assignment,misc]
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -98,24 +112,15 @@ from datahub.metadata.schema_classes import (
     AssertionRunStatusClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
-    AssertionStdParameterClass,
-    AssertionStdParametersClass,
-    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
-    CalendarIntervalClass,
+    CustomAssertionInfoClass,
     DataPlatformInfoClass,
-    DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
     DatasetProfileClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    FixedIntervalScheduleClass,
-    FreshnessAssertionInfoClass,
-    FreshnessAssertionScheduleClass,
-    FreshnessAssertionScheduleTypeClass,
-    FreshnessAssertionTypeClass,
     IncidentInfoClass,
     IncidentSourceClass,
     IncidentSourceTypeClass,
@@ -126,19 +131,15 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
     PlatformTypeClass,
-    RowCountTotalClass,
     SiblingsClass,
-    SqlAssertionInfoClass,
-    SqlAssertionTypeClass,
     StatusClass,
     TestDefinitionClass,
     TestDefinitionTypeClass,
     TestInfoClass,
-    VolumeAssertionInfoClass,
-    VolumeAssertionTypeClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Dataset
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.tag_urn import TagUrn
 
 if TYPE_CHECKING:
@@ -172,8 +173,8 @@ def _install_enterprise_config_compat_patches() -> None:
     """When tobikodata is installed, the project's ``config.py`` may return an
     ``EnterpriseConfig`` carrying a Snowflake connection with
     ``application="Tobiko_TobikoCloud"``. Loading that through plain
-    ``sqlmesh.Context`` trips two distinct failures (described by Gen Digital's
-    customer):
+    ``sqlmesh.Context`` trips two distinct failures seen on enterprise Tobiko
+    Cloud projects:
 
     - The OSS ``SnowflakeConnectionConfig`` declares
       ``application: Literal["Tobiko_SQLMesh"]``, which pydantic rejects the
@@ -245,8 +246,16 @@ def _install_enterprise_config_compat_patches() -> None:
 # idempotent across multiple ingest runs in the same process.
 _TOBIKO_SHIM_SENTINEL_ATTR = "_datahub_local_state_shim_installed"
 
+# Invoked with a human-readable reason when the local-state fallback actually
+# activates, so the running source can put it on its ingestion report. The
+# patch is installed once per process but a process may run several
+# ingestions, so the callback is read at call time, not captured at install.
+_tobiko_local_state_fallback_callback: Optional[Callable[[str], None]] = None
 
-def _install_tobiko_local_state_fallback_shim() -> None:
+
+def _install_tobiko_local_state_fallback_shim(
+    on_fallback: Optional[Callable[[str], None]] = None,
+) -> None:
     """When tobikodata is installed but no Tobiko Cloud token is configured,
     let SQLMesh's Context init succeed against an EnterpriseConfig project by
     swapping the cloud state sync for an in-memory DuckDB stub.
@@ -255,7 +264,14 @@ def _install_tobiko_local_state_fallback_shim() -> None:
     ``RemoteCloudSchedulerConfig.get_cloud_connection()`` when creds are
     absent; any other scheduler failure surfaces. No-op when tobikodata isn't
     installed (OSS-only projects don't have a cloud scheduler to patch).
+
+    ``on_fallback`` is called if and when the fallback is actually used, so the
+    caller can surface it on the ingestion report — the degraded mode silently
+    drops every state-derived signal.
     """
+    global _tobiko_local_state_fallback_callback
+    _tobiko_local_state_fallback_callback = on_fallback
+
     try:
         from tobikodata.sqlmesh_enterprise.config.scheduler import (  # type: ignore[import-not-found]
             RemoteCloudSchedulerConfig,
@@ -279,7 +295,7 @@ def _install_tobiko_local_state_fallback_shim() -> None:
         except ConfigError as e:
             if _TOBIKO_CLOUD_NO_CREDS_ERR_FRAGMENT not in str(e):
                 raise
-            logger.info(
+            reason = (
                 "Tobiko Cloud state store unreachable (no token configured). "
                 "Falling back to an in-memory DuckDB state so the SQLMesh "
                 "Context can initialise from project files. Snapshot history "
@@ -287,6 +303,9 @@ def _install_tobiko_local_state_fallback_shim() -> None:
                 "unavailable in this mode. Set tobiko_cloud_token / "
                 "tobiko_cloud_token_file to read from the real cloud state."
             )
+            logger.info(reason)
+            if _tobiko_local_state_fallback_callback is not None:
+                _tobiko_local_state_fallback_callback(reason)
             engine_adapter = DuckDBConnectionConfig().create_engine_adapter()
             schema = context.config.get_state_schema(context.gateway)
             return EngineAdapterStateSync(
@@ -384,8 +403,10 @@ _MODEL_KIND_TO_SUBTYPE: Dict[str, str] = {
 }
 
 
-# Maps SQLMesh built-in audit names to DataHub assertion parameters.
-# Audits not listed here fall back to a DATASET_ROWS / _NATIVE_ assertion.
+# Describes the semantics of each SQLMesh built-in audit. Every audit becomes a
+# CUSTOM DataHub assertion (SQLMesh, not DataHub, executes them) — these values
+# are carried as customProperties so the check's shape stays inspectable.
+# Audits not listed here are emitted as CUSTOM without the semantic properties.
 @dataclass
 class _AuditAssertionParams:
     scope: str
@@ -436,70 +457,6 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         aggregation=AssertionStdAggregationClass.IDENTITY,
     ),
 }
-
-
-# Freshness SLA windows derived from a model's interval_unit. The values are
-# (CalendarIntervalClass.X, multiple) tuples meaning "the model is considered
-# stale if it hasn't been refreshed in N units". Roughly 3× the cron interval
-# with a 1-hour floor for sub-hourly schedules — tight enough to catch a
-# stalled pipeline within a couple of missed runs, loose enough to absorb
-# normal scheduling jitter.
-#
-# Keys are SQLMesh IntervalUnit string values (see sqlmesh.core.node.IntervalUnit).
-_INTERVAL_UNIT_TO_SLA: Dict[str, Tuple[str, int]] = {
-    "five_minute": (CalendarIntervalClass.HOUR, 1),
-    "quarter_hour": (CalendarIntervalClass.HOUR, 1),
-    "half_hour": (CalendarIntervalClass.HOUR, 2),
-    "hour": (CalendarIntervalClass.HOUR, 3),
-    "day": (CalendarIntervalClass.HOUR, 36),
-    "month": (CalendarIntervalClass.DAY, 35),
-    "year": (CalendarIntervalClass.DAY, 366),
-}
-# Fallback when interval_unit is missing or unrecognised (rare; only happens
-# for embedded/external models with no cron).
-_DEFAULT_FRESHNESS_SLA: Tuple[str, int] = (CalendarIntervalClass.HOUR, 24)
-
-
-def _freshness_sla_for_model(model: "SqlmeshModel") -> Tuple[str, int]:
-    """Pick a (CalendarInterval, multiple) SLA window for the given model.
-
-    Reads ``model.interval_unit`` (SQLMesh's inferred granularity from the
-    cron string). Returns a sensible default when interval_unit isn't set
-    or maps to an unknown value.
-    """
-    interval_unit = getattr(model, "interval_unit", None)
-    if interval_unit is None:
-        return _DEFAULT_FRESHNESS_SLA
-    # IntervalUnit is a str-Enum in sqlmesh; both .value and str() work.
-    key = getattr(interval_unit, "value", str(interval_unit)).lower()
-    return _INTERVAL_UNIT_TO_SLA.get(key, _DEFAULT_FRESHNESS_SLA)
-
-
-# Approximate milliseconds in each CalendarInterval unit. Used to convert
-# the (unit, multiple) SLA window into a comparable duration. Approximation
-# is intentional — calendar arithmetic is fiddly and freshness SLAs are
-# tolerance windows, not deadlines down to the millisecond.
-_CALENDAR_INTERVAL_MS: Dict[str, int] = {
-    "SECOND": 1_000,
-    "MINUTE": 60_000,
-    "HOUR": 3_600_000,
-    "DAY": 86_400_000,
-    "WEEK": 7 * 86_400_000,
-    "MONTH": 30 * 86_400_000,
-    "QUARTER": 91 * 86_400_000,
-    "YEAR": 365 * 86_400_000,
-}
-
-
-def _sla_window_to_ms(unit: str, multiple: int) -> int:
-    """Convert (CalendarInterval, multiple) → duration in milliseconds.
-
-    Falls back to a 24-hour window if the unit isn't recognised — better
-    to over-alert than under-alert on freshness when we hit an unfamiliar
-    unit.
-    """
-    per_unit = _CALENDAR_INTERVAL_MS.get(unit.upper(), 86_400_000)
-    return per_unit * max(1, multiple)
 
 
 def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str:
@@ -579,10 +536,11 @@ class _CapabilityProbes:
 def _probe_capabilities(
     sqlmesh_ctx: "SqlmeshContextType",
     graph: Optional["DataHubGraph"],
+    report: SqlmeshSourceReport,
 ) -> _CapabilityProbes:
-    """Probe each signal once. Failures degrade gracefully — the emitter
-    layer decides how to handle a missing capability (skip with info log,
-    fall back to a cheaper signal, etc.).
+    """Probe each signal once. Failures degrade gracefully, but each one silently
+    removes an emission, so a failed probe is reported as a warning rather than
+    only logged.
     """
     probes = _CapabilityProbes(has_graph=graph is not None)
 
@@ -593,10 +551,10 @@ def _probe_capabilities(
         sqlmesh_ctx.state_reader.get_environments()
         probes.has_state = True
     except Exception as e:
-        logger.info(
-            "State store unreachable; pipeline-rebuild-lag freshness will "
-            "fall back to engine-adapter INFORMATION_SCHEMA. (%s)",
-            e,
+        report.warning(
+            title="SQLMesh state store unreachable",
+            message="Last-rebuild operation aspects and stale-fingerprint detection are skipped for this run. Check the state connection / state schema grants.",
+            exc=e,
         )
 
     # Warehouse-query probe: ping the engine adapter. We use a no-op
@@ -606,11 +564,10 @@ def _probe_capabilities(
         sqlmesh_ctx.engine_adapter.fetchone("SELECT 1")
         probes.has_warehouse_query = True
     except Exception as e:
-        logger.info(
-            "Data warehouse unreachable via engine adapter; volume + "
-            "pipeline-freshness will fall back to DataHub Graph profile "
-            "where available. (%s)",
-            e,
+        report.warning(
+            title="Data warehouse unreachable via SQLMesh engine adapter",
+            message="Row-count dataset profiles are skipped for this run. Check the gateway connection and SELECT grants on the SQLMesh physical tables.",
+            exc=e,
         )
 
     return probes
@@ -698,6 +655,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # falls back to engine_adapter, volume prefers engine_adapter but
         # falls back to Graph profile.
         self._capabilities: _CapabilityProbes = _CapabilityProbes()
+        # SQLMesh dataset URN per model key (logical FQN, model.name, model.fqn),
+        # populated while emitting models. _emit_audit_run_events looks up here
+        # so run events land on the URN the assertion definitions used, even for
+        # models routed through a non-default gateway.
+        self._sqlmesh_urn_by_model_key: Dict[str, str] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlmeshSource":
@@ -706,6 +668,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> SqlmeshSourceReport:
         return self.report
+
+    def _report_tobiko_local_state_fallback(self, reason: str) -> None:
+        self.report.warning(
+            title="Tobiko Cloud state store replaced by a local stub",
+            message="Everything derived from SQLMesh state (last-rebuild operation aspects, row-count profiles, stale-fingerprint detection) is unavailable for this run.",
+            context=reason,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_platform_registration()
@@ -1033,7 +1002,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             # cloud state connection" ConfigError so Context init succeeds
             # against an EnterpriseConfig project. Pure no-op when the project
             # doesn't use Tobiko Cloud.
-            _install_tobiko_local_state_fallback_shim()
+            _install_tobiko_local_state_fallback_shim(
+                on_fallback=self._report_tobiko_local_state_fallback
+            )
 
         # tobikodata reads the cloud token lazily on first state access, not
         # during Context.__init__. The env-var scope must cover the entire
@@ -1065,9 +1036,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 return
 
             try:
-                # Probe capabilities once. The result drives fallback decisions for
-                # freshness and volume assertions later in the pipeline.
-                self._capabilities = _probe_capabilities(sqlmesh_ctx, self.ctx.graph)
+                # Probe capabilities once. The result drives which optional
+                # signals (operation aspects, row-count profiles) can be emitted.
+                self._capabilities = _probe_capabilities(
+                    sqlmesh_ctx, self.ctx.graph, self.report
+                )
                 self.report.has_state_store_access = self._capabilities.has_state
                 self.report.has_warehouse_query_access = (
                     self._capabilities.has_warehouse_query
@@ -1598,6 +1571,19 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+        # Remember the URN under every name an audit-results file might use, so
+        # _emit_audit_run_events links run events to the same URN the assertion
+        # definitions were emitted against — including for models on a
+        # non-default gateway, whose FQN can't be rebuilt from the default
+        # gateway's effective config.
+        for key in (
+            fqn,
+            str(getattr(model, "name", "") or ""),
+            str(getattr(model, "fqn", "") or ""),
+        ):
+            if key:
+                self._sqlmesh_urn_by_model_key[key] = sqlmesh_urn
+
         # Build table-level and column-level lineage, then combine into a single
         # UpstreamLineage aspect. This avoids emitting duplicate aspect writes.
         combined_upstreams: Optional[UpstreamLineageClass] = None
@@ -1684,9 +1670,19 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # semantically meaningful target for the audit; siblings let users
         # navigate from the logical model to its current materialization.
         yield from self._emit_assertions(model, sqlmesh_urn)
-        yield from self._emit_freshness_assertions(model, sqlmesh_urn, sqlmesh_ctx)
-        yield from self._emit_volume_assertions(
-            model, sqlmesh_urn, physical_name, sqlmesh_ctx
+
+        # Freshness and volume monitoring is left to DataHub monitors the user
+        # creates against these two timeseries aspects. We don't synthesise
+        # FRESHNESS / VOLUME assertion definitions: nothing in the connector
+        # (or in Cloud, without an explicit monitor) would ever evaluate them.
+        yield from self._emit_pipeline_operation(
+            sqlmesh_urn=sqlmesh_urn, model=model, sqlmesh_ctx=sqlmesh_ctx
+        )
+        yield from self._emit_row_count_profile(
+            model=model,
+            sqlmesh_urn=sqlmesh_urn,
+            physical_name=physical_name,
+            sqlmesh_ctx=sqlmesh_ctx,
         )
 
     def _is_fingerprint_stale(
@@ -1821,11 +1817,30 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             )
         return fields or None
 
+    def _dep_effective(
+        self,
+        dep_name: str,
+        effective: _EffectiveProjectConfig,
+        sqlmesh_ctx: "SqlmeshContextType",
+    ) -> _EffectiveProjectConfig:
+        """Gateway-effective config that owns a dependency.
+
+        Falls back to the caller's config for undeclared deps, where we have no
+        better signal. Callers must use this — not their own effective — when
+        building a dep's FQN, so the name they filter on is the same name the
+        emitted URN is built from.
+        """
+        dep_model = sqlmesh_ctx.get_model(dep_name)
+        return (
+            self._effective_for_model(dep_model) if dep_model is not None else effective
+        )
+
     def _resolve_dep_urn(
         self,
         dep_name: str,
         effective: _EffectiveProjectConfig,
         sqlmesh_ctx: "SqlmeshContextType",
+        count_undeclared: bool = True,
     ) -> str:
         """
         Map a dependency name to the correct DataHub URN using 3-category logic.
@@ -1840,11 +1855,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         map we resolve via _effective_for_model(dep_model); otherwise we
         fall back to the caller's effective (the dep is undeclared and we
         have no better signal).
+
+        ``count_undeclared`` gates the category-3 report counter. Table lineage
+        visits each dep exactly once, so it counts; column lineage revisits the
+        same deps once per column and must not inflate the number.
         """
         dep_model = sqlmesh_ctx.get_model(dep_name)
-        dep_effective = (
-            self._effective_for_model(dep_model) if dep_model is not None else effective
-        )
+        dep_effective = self._dep_effective(dep_name, effective, sqlmesh_ctx)
         dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
 
         if dep_model is None:
@@ -1852,7 +1869,8 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 "Dep %r not in SQLMesh context; routing lineage to warehouse URN",
                 dep_name,
             )
-            self.report.num_undeclared_upstream_refs += 1
+            if count_undeclared:
+                self.report.num_undeclared_upstream_refs += 1
             return self._make_warehouse_urn(dep_fqn, dep_effective)
 
         kind = getattr(dep_model, "kind", None)
@@ -1890,12 +1908,14 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
         upstreams = []
         for dep in raw_deps:
-            dep_fqn = self._build_logical_fqn(str(dep), effective)
+            dep_name = str(dep)
+            dep_effective = self._dep_effective(dep_name, effective, sqlmesh_ctx)
+            dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
             if not self.config.model_name_pattern.allowed(dep_fqn):
                 continue
             upstreams.append(
                 UpstreamClass(
-                    dataset=self._resolve_dep_urn(str(dep), effective, sqlmesh_ctx),
+                    dataset=self._resolve_dep_urn(dep_name, effective, sqlmesh_ctx),
                     type=DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
@@ -1968,8 +1988,22 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
             upstream_field_urns: List[str] = []
             for upstream_model_name, upstream_cols in deps.items():
+                dep_name = str(upstream_model_name)
+                # Honour model_name_pattern here too; otherwise a model denied
+                # at the table-lineage level reappears as a column-lineage edge.
+                dep_effective = self._dep_effective(dep_name, effective, sqlmesh_ctx)
+                if not self.config.model_name_pattern.allowed(
+                    self._build_logical_fqn(dep_name, dep_effective)
+                ):
+                    continue
                 upstream_dataset_urn = self._resolve_dep_urn(
-                    str(upstream_model_name), effective, sqlmesh_ctx
+                    dep_name,
+                    effective,
+                    sqlmesh_ctx,
+                    # Table lineage already counted this dep once; counting again
+                    # per column would multiply the reported number by the column
+                    # count.
+                    count_undeclared=False,
                 )
                 for upstream_col in upstream_cols:
                     up_col = upstream_col.lower() if convert_lower else upstream_col
@@ -1992,23 +2026,33 @@ class SqlmeshSource(StatefulIngestionSourceBase):
     def _emit_siblings(
         self, sqlmesh_urn: str, warehouse_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # SQLMesh is primary by default (owns model definition, lineage, descriptions)
-        # matching dbt's dbt_is_primary_sibling=True default.
-        if self.config.sqlmesh_is_primary_sibling:
-            primary_urn, secondary_urn = sqlmesh_urn, warehouse_urn
-        else:
-            primary_urn, secondary_urn = warehouse_urn, sqlmesh_urn
+        """Link the SQLMesh entity and its warehouse counterpart as siblings.
+
+        SQLMesh is primary by default (it owns the model definition, lineage and
+        descriptions), matching dbt's ``dbt_is_primary_sibling=True``.
+
+        The SQLMesh entity's aspect is written outright — this connector owns
+        that entity. The warehouse entity is *patched* instead, so a sibling
+        edge added by another connector (dbt, or a second SQLMesh project) isn't
+        clobbered, and the workunit is marked non-authoritative because we are
+        not the source of truth for warehouse metadata. Same split as dbt.
+        """
+        sqlmesh_is_primary = self.config.sqlmesh_is_primary_sibling
 
         # TODO: migrate to SDK V2 when SiblingsClass is supported
         yield MetadataChangeProposalWrapper(
-            entityUrn=primary_urn,
-            aspect=SiblingsClass(siblings=[secondary_urn], primary=True),
+            entityUrn=sqlmesh_urn,
+            aspect=SiblingsClass(siblings=[warehouse_urn], primary=sqlmesh_is_primary),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=secondary_urn,
-            aspect=SiblingsClass(siblings=[primary_urn], primary=False),
-        ).as_workunit()
+        warehouse_patch = DatasetPatchBuilder(warehouse_urn)
+        warehouse_patch.add_sibling(sqlmesh_urn, primary=not sqlmesh_is_primary)
+        for mcp in warehouse_patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
 
     # -------------------------------------------------------------------------
     # Audit → Assertion emission
@@ -2026,6 +2070,15 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 if hasattr(expr, "name") and expr.name
             ]
         except Exception:
+            # Not fatal — the audit still becomes an assertion, just without
+            # per-column targeting — but silently dropping the columns hides a
+            # sqlglot shape we don't handle.
+            logger.warning(
+                "Could not extract audit columns from %r; emitting the audit "
+                "without column targets",
+                col_array,
+                exc_info=True,
+            )
             return []
 
     def _extract_literal_value(self, kw: Dict[str, Any], key: str) -> Optional[str]:
@@ -2079,71 +2132,98 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         emitted = 0
 
         for entry in results:
-            model_name: str = entry.get("model", "")
-            audit_name: str = entry.get("audit", "").lower()
-            columns: List[str] = entry.get("columns", [])
-            status: str = entry.get("status", "skip")
-            failing_rows: int = entry.get("failing_rows", 0)
-
-            if not model_name or not audit_name or status == "skip":
-                continue
-
-            # Build the same SQLMesh URN _emit_assertions used so the derived
-            # assertion hash matches. Requires _ingest_project to have populated
-            # self._resolved_effective so env_suffix_target / env_catalog_mapping
-            # / sqlmesh_platform_instance flow through FQN construction (the
-            # previous synthetic minimal config hardcoded environment="prod"
-            # and dropped these, producing wrong URNs in non-default setups).
-            effective = self._resolved_effective
-            if effective is None:
-                logger.warning(
-                    "Skipping audit run events for %s — _ingest_project must "
-                    "succeed first to populate the resolved project config used "
-                    "for FQN construction.",
-                    model_name,
+            try:
+                events = list(self._audit_run_events_for_entry(entry, run_id, ts_ms))
+            except Exception as e:
+                # One malformed entry must not abort the rest of the file.
+                self.report.warning(
+                    title="Could not emit audit run event",
+                    message="An entry in the audit results file was skipped.",
+                    context=str(entry),
+                    exc=e,
                 )
                 continue
-            fqn = self._build_logical_fqn(model_name, effective)
-            dataset_urn = self._make_sqlmesh_urn(fqn, effective)
-
-            # Suffix matches what _emit_single_audit uses
-            params = _SQLMESH_AUDIT_MAP.get(audit_name)
-            if params and params.uses_columns:
-                # one run event per column
-                for col in columns or [""]:
-                    assertion_urn = self._assertion_urn(dataset_urn, audit_name, col)
-                    yield self._make_run_event(
-                        assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
-                    )
-                    emitted += 1
-                    if status == "fail":
-                        yield from self._emit_incident_for_failure(
-                            assertion_urn=assertion_urn,
-                            dataset_urn=dataset_urn,
-                            run_id=run_id,
-                            ts_ms=ts_ms,
-                            audit_name=audit_name,
-                            failing_rows=failing_rows,
-                        )
-            else:
-                # dataset-level: single run event, suffix = comma-joined columns
-                suffix = ",".join(columns)
-                assertion_urn = self._assertion_urn(dataset_urn, audit_name, suffix)
-                yield self._make_run_event(
-                    assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
-                )
-                emitted += 1
-                if status == "fail":
-                    yield from self._emit_incident_for_failure(
-                        assertion_urn=assertion_urn,
-                        dataset_urn=dataset_urn,
-                        run_id=run_id,
-                        ts_ms=ts_ms,
-                        audit_name=audit_name,
-                        failing_rows=failing_rows,
-                    )
+            emitted += len(events)
+            yield from events
 
         logger.info("Emitted %d assertion run events from %s", emitted, path)
+
+    def _audit_run_events_for_entry(
+        self, entry: Dict[str, Any], run_id: str, ts_ms: int
+    ) -> Iterable[MetadataWorkUnit]:
+        """Turn one audit-results entry into run events (plus incidents on failure)."""
+        model_name: str = entry.get("model", "")
+        audit_name: str = entry.get("audit", "").lower()
+        columns: List[str] = entry.get("columns", [])
+        status: str = entry.get("status", "skip")
+        failing_rows: int = entry.get("failing_rows", 0)
+
+        if not model_name or not audit_name or status == "skip":
+            return
+
+        dataset_urn = self._sqlmesh_urn_for_audit_result(model_name)
+        if dataset_urn is None:
+            return
+
+        # Suffixes must match what _emit_single_audit used, so run events land
+        # on the assertions whose definitions we already emitted.
+        params = _SQLMESH_AUDIT_MAP.get(audit_name)
+        suffixes = (
+            list(columns or [""])
+            if params and params.uses_columns
+            else [",".join(columns)]
+        )
+        for suffix in suffixes:
+            assertion_urn = self._assertion_urn(dataset_urn, audit_name, suffix)
+            yield self._make_run_event(
+                assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
+            )
+            if status == "fail":
+                yield from self._emit_incident_for_failure(
+                    assertion_urn=assertion_urn,
+                    dataset_urn=dataset_urn,
+                    run_id=run_id,
+                    ts_ms=ts_ms,
+                    audit_name=audit_name,
+                    failing_rows=failing_rows,
+                )
+
+    def _sqlmesh_urn_for_audit_result(self, model_name: str) -> Optional[str]:
+        """Resolve the SQLMesh URN an audit result belongs to.
+
+        Prefers the URN cached while the model was emitted: rebuilding it from
+        ``_resolved_effective`` uses the *default* gateway's platform instance
+        and catalog, which is wrong for any model routed through another
+        gateway, and would silently produce run events on a URN no assertion
+        definition exists for.
+        """
+        cached = self._sqlmesh_urn_by_model_key.get(model_name)
+        if cached is not None:
+            return cached
+
+        effective = self._resolved_effective
+        if effective is None:
+            self.report.warning(
+                title="Skipped audit run events for a model",
+                message="No SQLMesh model was ingested in this run, so the audit result cannot be matched to an assertion. Ensure project ingestion succeeds before audit results are read.",
+                context=model_name,
+            )
+            return None
+
+        # Not seen during ingestion: filtered out by model_name_pattern /
+        # model_kind_filter, renamed, or named differently in the results file.
+        # Fall back to the default gateway's config, which is right for
+        # single-gateway projects — the common case.
+        normalized = self._build_logical_fqn(model_name, effective)
+        fallback = self._sqlmesh_urn_by_model_key.get(normalized)
+        if fallback is not None:
+            return fallback
+        self.report.warning(
+            title="Audit result for an un-ingested model",
+            message="No assertion definition was emitted for this model, so its run events may not link to anything. Check model_name_pattern / model_kind_filter against the audit results file.",
+            context=model_name,
+        )
+        return self._make_sqlmesh_urn(normalized, effective)
 
     def _emit_incident_for_failure(
         self,
@@ -2259,101 +2339,6 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-    def _emit_freshness_assertions(
-        self,
-        model: "SqlmeshModel",
-        sqlmesh_urn: str,
-        sqlmesh_ctx: Optional["SqlmeshContextType"] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit two FRESHNESS assertions per model:
-
-          1. ``pipeline_freshness`` — fails when SQLMesh stops rebuilding the
-             fingerprint table on schedule (plan/apply skipped, failed, paused).
-          2. ``upstream_freshness`` — fails when MIN(upstream lastModified) is
-             older than the SLA, signalling that source data is behind.
-
-        Both use the same SLA window (3× the model's cron interval, with a
-        1-hour floor) — separation is purely diagnostic so the Validation tab
-        shows which side broke. Customer-side tuning happens by overriding
-        the assertion on DataHub directly; we don't expose per-model thresholds
-        in config to keep the connector declarative.
-
-        Only emits the assertion **definitions** here. The actual evaluation
-        is performed by DataHub's monitor framework against the dataset's
-        lastModified property (set by the warehouse connector / freshness
-        compute). On OSS without monitors, the assertions appear in the UI
-        but won't fire automatically — a future commit will add explicit
-        AssertionRunEvent emission for OSS users.
-        """
-        if not self.config.emit_freshness_assertions:
-            return
-
-        # External and embedded models have no rebuild schedule — they're
-        # source tables (external) or inlined (embedded). Skip freshness on
-        # them; we'd be asserting against data we don't produce.
-        kind_name = self._get_kind_name(model) or ""
-        if kind_name.upper() in ("EXTERNAL", "EMBEDDED"):
-            return
-
-        unit, multiple = _freshness_sla_for_model(model)
-        schedule = FreshnessAssertionScheduleClass(
-            type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
-            fixedInterval=FixedIntervalScheduleClass(unit=unit, multiple=multiple),
-        )
-
-        for kind, description in (
-            (
-                "pipeline_freshness",
-                "SQLMesh fingerprint table must be rebuilt within "
-                f"{multiple} {unit.lower()}(s) of its cron schedule. Fires "
-                "when plan/apply stops running, signalling pipeline drift.",
-            ),
-            (
-                "upstream_freshness",
-                "Upstream source tables must have been updated within "
-                f"{multiple} {unit.lower()}(s). Fires when raw data feeding "
-                "the model is behind schedule.",
-            ),
-        ):
-            assertion_urn = self._freshness_assertion_urn(sqlmesh_urn, kind)
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.FRESHNESS,
-                source=mce_builder.make_assertion_source(),
-                customProperties=self._anomaly_custom_props(
-                    {
-                        "sqlmesh.freshness_kind": kind,
-                        "sqlmesh.interval_unit": str(
-                            getattr(model, "interval_unit", "") or ""
-                        ),
-                    }
-                ),
-                description=description,
-                freshnessAssertion=FreshnessAssertionInfoClass(
-                    type=FreshnessAssertionTypeClass.DATASET_CHANGE,
-                    entity=sqlmesh_urn,
-                    schedule=schedule,
-                ),
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=StatusClass(removed=False)
-            ).as_workunit()
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=assertion_info
-            ).as_workunit()
-
-        # Once per model, emit an OperationAspect carrying the fingerprint
-        # rebuild timestamp from SQLMesh state. This is the canonical
-        # timeseries that Cloud's Monitor framework reads to evaluate
-        # freshness assertions (the same way warehouse connectors emit
-        # OperationAspect for table modifications). One emission per
-        # model, not per assertion — the timestamp is the same for both
-        # pipeline_freshness and upstream_freshness checks.
-        yield from self._emit_pipeline_operation(
-            sqlmesh_urn=sqlmesh_urn,
-            model=model,
-            sqlmesh_ctx=sqlmesh_ctx,
-        )
-
     def _emit_pipeline_operation(
         self,
         *,
@@ -2363,20 +2348,16 @@ class SqlmeshSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Emit an ``OperationAspect`` carrying the fingerprint rebuild time.
 
-        ``OperationAspect.lastUpdatedTimestamp`` is the canonical timeseries
-        the rest of DataHub (and Cloud's freshness anomaly detector) reads
-        to answer "when was this dataset last touched?". Every warehouse
-        connector emits this aspect for INSERT/UPDATE events on the source
-        table; we do the equivalent for SQLMesh by mapping a fingerprint
-        rebuild to a single ``CUSTOM`` operation at ``snapshot.updated_ts``.
-
-        Cloud's monitor framework then evaluates our FRESHNESS assertion
-        against this timeseries automatically — no AssertionRunEvent
-        emission needed from us. OSS users see the operation history on
-        the dataset's Activity tab.
+        ``OperationAspect.lastUpdatedTimestamp`` is the canonical timeseries the
+        rest of DataHub reads to answer "when was this dataset last touched?".
+        Every warehouse connector emits this aspect for INSERT/UPDATE events on
+        the source table; we do the equivalent for SQLMesh by mapping a
+        fingerprint rebuild to a single ``CUSTOM`` operation at
+        ``snapshot.updated_ts``. Users see the operation history on the
+        dataset's Activity tab, and can point a freshness monitor at it.
 
         Source of the timestamp: ``ctx.snapshots[fqn].updated_ts`` from
-        SQLMesh state. Skipped silently when state is unreachable.
+        SQLMesh state. Skipped when state is unreachable.
         """
         if not self._capabilities.has_state or sqlmesh_ctx is None:
             return
@@ -2414,90 +2395,30 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             entityUrn=sqlmesh_urn, aspect=operation
         ).as_workunit()
 
-    def _freshness_assertion_urn(self, sqlmesh_urn: str, kind: str) -> str:
-        """Stable urn:li:assertion:... for the named freshness assertion."""
-        raw = f"{sqlmesh_urn}:freshness:{kind}"
-        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
-
-    def _volume_assertion_urn(self, sqlmesh_urn: str) -> str:
-        """Stable urn:li:assertion:... for the model's row-count assertion."""
-        raw = f"{sqlmesh_urn}:volume:row_count"
-        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
-
-    def _emit_volume_assertions(
+    def _emit_row_count_profile(
         self,
+        *,
         model: "SqlmeshModel",
         sqlmesh_urn: str,
         physical_name: Optional[str] = None,
         sqlmesh_ctx: Optional["SqlmeshContextType"] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit a VOLUME assertion per model — row count must be >= 1.
+        """Emit ``DatasetProfile.rowCount`` from a ``SELECT COUNT(*)`` on the
+        model's current fingerprint table.
 
-        The "at least one row" floor is universally true for healthy models
-        and detects the most catastrophic failure mode (empty table after
-        rebuild). Tighter expected-value thresholds aren't predictable from
-        the model definition alone — those come from anomaly detection on
-        the run-event history that DataHub monitors accumulate over time.
+        This is the canonical timeseries warehouse profilers populate, so a
+        volume monitor created in DataHub against the SQLMesh entity has real
+        history to work with. Cheap on most warehouses (Snowflake/BigQuery serve
+        it from metadata; DuckDB streams the table); a full scan on
+        Postgres-style engines for huge tables — accepted for now.
 
-        When emit_smart_assertion_anomaly_detection is set, a customProperty
-        marker requests Acryl Cloud's monitor framework to treat the
-        threshold as a baseline rather than a hard rule, so the ML detector
-        flags drops below historical norms even when the count stays >= 1.
-
-        External and embedded models are skipped (no warehouse output to
-        count).
-
-        Also emits an AssertionRunEvent with the observed row count when
-        ``has_warehouse_query`` is true and the fingerprint table name is
-        known — this populates the Validation tab on DataHub without
-        requiring a separate monitor runner. Failures fire an Incident via
-        ``_emit_incident_for_failure`` (gated by ``emit_incidents_on_failure``).
+        External and embedded models are skipped (no materialised output of
+        their own to count).
         """
-        if not self.config.emit_volume_assertions:
-            return
-
         kind_name = self._get_kind_name(model) or ""
         if kind_name.upper() in ("EXTERNAL", "EMBEDDED"):
             return
 
-        assertion_urn = self._volume_assertion_urn(sqlmesh_urn)
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.VOLUME,
-            source=mce_builder.make_assertion_source(),
-            customProperties=self._anomaly_custom_props(
-                {"sqlmesh.volume_kind": "row_count_min"}
-            ),
-            description=(
-                "Row count must be at least 1. Detects catastrophic rebuild "
-                "failures (empty table). Cloud anomaly detection, when "
-                "opted in, flags drops below historical norms."
-            ),
-            volumeAssertion=VolumeAssertionInfoClass(
-                type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
-                entity=sqlmesh_urn,
-                rowCountTotal=RowCountTotalClass(
-                    operator=AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
-                    parameters=AssertionStdParametersClass(
-                        value=AssertionStdParameterClass(
-                            value="1",
-                            type=AssertionStdParameterTypeClass.NUMBER,
-                        ),
-                    ),
-                ),
-            ),
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn, aspect=assertion_info
-        ).as_workunit()
-
-        # Emit a run event with the observed row count so the Validation
-        # tab shows PASS / FAIL instead of "not yet run". Cheap on most
-        # warehouses (Snowflake/BigQuery use INFORMATION_SCHEMA; DuckDB
-        # streams the table); expensive on Postgres-style scans for huge
-        # tables — accept that tradeoff for now.
         if not self._capabilities.has_warehouse_query:
             return
         if sqlmesh_ctx is None:
@@ -2541,6 +2462,8 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 query = f"SELECT COUNT(*) FROM {live_physical_name}"
             else:
                 dialect = getattr(sqlmesh_ctx.engine_adapter, "DIALECT", None)
+                if not isinstance(dialect, str):
+                    dialect = None
                 query = _build_count_query(live_physical_name, dialect=dialect)
             row = sqlmesh_ctx.engine_adapter.fetchone(query)
             row_count = int(row[0]) if row and row[0] is not None else 0
@@ -2550,19 +2473,12 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             self.report.num_profiles_failed += 1
             self.report.warning(
                 title="Row-count query failed; skipping profile",
-                message="Could not query the physical table row count; volume profile skipped for this model.",
+                message="Could not query the physical table row count; the row-count profile is missing for this model.",
                 context=live_physical_name,
                 exc=e,
             )
             return
 
-        # Emit the row count as a DatasetProfile (the canonical timeseries
-        # warehouse profilers populate). Cloud's volume anomaly detector
-        # reads DatasetProfile.rowCount history to baseline against; OSS
-        # users see the value on the dataset's Profile tab. The VOLUME
-        # assertion definition stays unchanged — Monitor evaluates the
-        # static "row_count >= 1" policy against this aspect, and writes
-        # AssertionRunEvent / fires incidents on its own.
         ts_ms = int(time.time() * 1000)
         profile = DatasetProfileClass(
             timestampMillis=ts_ms,
@@ -2572,85 +2488,64 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             entityUrn=sqlmesh_urn, aspect=profile
         ).as_workunit()
 
-    def _anomaly_custom_props(
-        self, base: Optional[Dict[str, str]] = None
-    ) -> Dict[str, str]:
-        """Return customProperties dict with the anomaly-detection opt-in marker
-        applied when config.emit_smart_assertion_anomaly_detection is set.
+    def _audit_native_parameters(self, kw: Dict[str, Any]) -> Optional[str]:
+        """JSON-encode an audit's kwargs as flat key → string pairs.
 
-        Acryl Cloud's monitor framework reads this marker to decide whether
-        to wrap the assertion's static threshold in its ML anomaly detector
-        (so a drop-below-historical-baseline fires even when the static rule
-        passes). The marker is silently ignored on OSS DataHub — assertions
-        still evaluate as static pass/fail.
+        SQLMesh hands audit arguments over as SQLGlot expressions whose default
+        repr is the whole parse tree, so long values are truncated rather than
+        dumped into a custom property.
         """
-        props = dict(base or {})
-        if self.config.emit_smart_assertion_anomaly_detection:
-            props["sqlmesh.anomaly_detection"] = "requested"
-        return props
+        rendered: Dict[str, str] = {}
+        for key, value in (kw or {}).items():
+            text = str(value)
+            rendered[str(key)] = text if len(text) <= 200 else text[:200] + "…"
+        return json.dumps(rendered, sort_keys=True) if rendered else None
 
-    def _emit_sql_audit(
+    def _emit_custom_audit(
         self,
         audit_name: str,
         kw: Dict[str, Any],
+        params: Optional[_AuditAssertionParams],
         dataset_urn: str,
+        *,
+        assertion_urn: str,
+        field_urn: Optional[str] = None,
+        extra_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit an AssertionTypeClass.SQL assertion for a custom / unknown audit.
+        """Emit one SQLMesh audit as an ``AssertionTypeClass.CUSTOM`` assertion.
 
-        Previously these landed as ``DATASET`` + ``_NATIVE_`` operator and
-        appeared on the Validation tab as opaque "native" rows. Emitting as
-        ``SQL`` lets the UI render them as SQL-typed checks and carries the
-        audit kwargs in the statement field for traceability.
+        CUSTOM is the honest type: SQLMesh executes these audits itself as part
+        of ``sqlmesh run`` / ``sqlmesh audit``, and DataHub only records the
+        definition plus whatever results arrive through ``audit_results_path``.
+        Typing them as DATASET or SQL implied DataHub could evaluate them, which
+        it can't — and the SQL variant needed a fake ``SELECT 0`` statement to
+        satisfy the schema.
 
-        Statement: best-effort reconstruction of what SQLMesh will execute.
-        SQLMesh audits parse to SQLGlot expressions inside ``kw``; for an
-        OSS connector we don't have the rendered SQL handy, so we encode
-        the audit invocation as a SQL comment that ends in ``SELECT 0`` so
-        the statement still parses. Cloud's monitor runner ignores the
-        statement when an external runner (SQLMesh CLI) provides results
-        via ``audit_results_path``; the field is informational on the
-        Validation tab.
-
-        Operator + parameters: pinned to ``EQUAL_TO 0``, matching SQLMesh's
-        "audit passes when the violation count is zero" semantics. The
-        ``audit_results_path`` JSON's ``failing_rows`` integer is the
-        ``actualAggValue`` we'd compare against once we emit run events.
+        The audit's semantics (scope / operator / aggregation for the built-ins)
+        and its arguments are carried as custom properties so the check stays
+        inspectable in the UI.
         """
-        assertion_urn = self._assertion_urn(dataset_urn, audit_name, "")
-
-        # Stringify whatever kwargs SQLMesh handed us into a comment block so
-        # the statement is at least a hint to humans inspecting the assertion.
-        # We're explicit about this being a stub — the authoritative SQL is
-        # in the SQLMesh model file. Skip noisy keys (sqlglot Expression
-        # objects render to giant trees by default).
-        kw_lines: List[str] = []
-        for k, v in (kw or {}).items():
-            rendered = str(v)
-            if len(rendered) > 200:
-                rendered = rendered[:200] + "…"
-            kw_lines.append(f"--   {k}: {rendered}")
-        statement = (
-            f"-- SQLMesh audit '{audit_name}'\n"
-            f"-- Authoritative SQL lives in the model definition; this is a stub.\n"
-            + ("\n".join(kw_lines) + "\n" if kw_lines else "")
-            + "SELECT 0"
-        )
+        custom_properties: Dict[str, str] = {"sqlmesh.audit": audit_name}
+        if params is not None:
+            custom_properties["sqlmesh.scope"] = params.scope
+            custom_properties["sqlmesh.operator"] = params.operator
+            custom_properties["sqlmesh.aggregation"] = params.aggregation
+        native_parameters = self._audit_native_parameters(kw)
+        if native_parameters:
+            custom_properties["sqlmesh.native_parameters"] = native_parameters
+        if extra_properties:
+            custom_properties.update(extra_properties)
 
         assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.SQL,
+            type=AssertionTypeClass.CUSTOM,
             source=mce_builder.make_assertion_source(),
-            customProperties=self._anomaly_custom_props({"sqlmesh.audit": audit_name}),
-            sqlAssertion=SqlAssertionInfoClass(
-                type=SqlAssertionTypeClass.METRIC,
+            customProperties=custom_properties,
+            description=f"SQLMesh audit '{audit_name}'. Executed by SQLMesh; results are ingested from audit_results_path.",
+            customAssertion=CustomAssertionInfoClass(
+                type="SQLMesh",
                 entity=dataset_urn,
-                statement=statement,
-                operator=AssertionStdOperatorClass.EQUAL_TO,
-                parameters=AssertionStdParametersClass(
-                    value=AssertionStdParameterClass(
-                        value="0",
-                        type=AssertionStdParameterTypeClass.NUMBER,
-                    ),
-                ),
+                field=field_urn,
+                logic=self._extract_audit_logic(kw),
             ),
         )
         yield MetadataChangeProposalWrapper(
@@ -2660,6 +2555,24 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             entityUrn=assertion_urn, aspect=assertion_info
         ).as_workunit()
 
+    def _extract_audit_logic(self, kw: Dict[str, Any]) -> Optional[str]:
+        """Return the audit's own SQL when SQLMesh exposes it in the kwargs.
+
+        Non-standard audits carry their predicate under ``criteria`` /
+        ``condition``. When neither is present we leave ``logic`` unset rather
+        than inventing a statement — the authoritative SQL lives in the model
+        file.
+        """
+        for key in ("criteria", "condition"):
+            expr = (kw or {}).get(key)
+            if expr is None:
+                continue
+            try:
+                return str(expr.sql())
+            except Exception:
+                return str(expr)
+        return None
+
     def _emit_single_audit(
         self,
         audit_name: str,
@@ -2668,118 +2581,77 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         if params is None:
-            # Unknown / custom audit — emit as AssertionTypeClass.SQL so
-            # the Validation tab renders it as a SQL-typed check rather
-            # than an opaque "_NATIVE_" dataset assertion. The statement
-            # field carries whatever audit kwargs we can extract (commented
-            # so it parses as a SQL no-op) plus a pointer back to the
-            # model definition for the real SQL.
-            yield from self._emit_sql_audit(audit_name, kw, dataset_urn)
+            # Unknown / custom audit: no semantic properties to carry, and no
+            # column targeting since we can't tell which kwarg is a column.
+            yield from self._emit_custom_audit(
+                audit_name,
+                kw,
+                params,
+                dataset_urn,
+                assertion_urn=self._assertion_urn(dataset_urn, audit_name, ""),
+            )
             return
+
+        cols = self._extract_audit_columns(kw)
 
         if params.uses_columns:
             # Column-level: one assertion per column.
-            cols = self._extract_audit_columns(kw)
             for col in cols or [""]:
-                field_urn = (
-                    mce_builder.make_schema_field_urn(dataset_urn, col) if col else None
-                )
-                assertion_urn = self._assertion_urn(dataset_urn, audit_name, col)
-
-                std_params: Optional[AssertionStdParametersClass] = None
-                if audit_name == "unique_values":
-                    std_params = AssertionStdParametersClass(
-                        value=AssertionStdParameterClass(
-                            value="1.0", type=AssertionStdParameterTypeClass.NUMBER
-                        )
-                    )
-                elif audit_name == "accepted_range":
+                extra: Dict[str, str] = {}
+                if audit_name == "accepted_range":
                     min_v = self._extract_literal_value(kw, "min_v")
                     max_v = self._extract_literal_value(kw, "max_v")
-                    std_params = AssertionStdParametersClass(
-                        minValue=AssertionStdParameterClass(
-                            value=min_v or "0",
-                            type=AssertionStdParameterTypeClass.NUMBER,
-                        ),
-                        maxValue=AssertionStdParameterClass(
-                            value=max_v or "0",
-                            type=AssertionStdParameterTypeClass.NUMBER,
-                        ),
-                    )
+                    if min_v is not None:
+                        extra["sqlmesh.min_value"] = min_v
+                    if max_v is not None:
+                        extra["sqlmesh.max_value"] = max_v
                 elif audit_name == "accepted_values":
-                    vals_expr = kw.get("values")
-                    vals = []
-                    if vals_expr is not None:
-                        try:
-                            vals = [str(e.this) for e in vals_expr.expressions]
-                        except Exception:
-                            pass
-                    std_params = AssertionStdParametersClass(
-                        value=AssertionStdParameterClass(
-                            value=str(vals), type=AssertionStdParameterTypeClass.SET
-                        )
-                    )
+                    values = self._extract_expression_values(kw, "values")
+                    if values:
+                        extra["sqlmesh.accepted_values"] = ",".join(values)
 
-                assertion_info = AssertionInfoClass(
-                    type=AssertionTypeClass.DATASET,
-                    source=mce_builder.make_assertion_source(),
-                    customProperties=self._anomaly_custom_props(
-                        {"sqlmesh.audit": audit_name}
+                yield from self._emit_custom_audit(
+                    audit_name,
+                    kw,
+                    params,
+                    dataset_urn,
+                    assertion_urn=self._assertion_urn(dataset_urn, audit_name, col),
+                    field_urn=(
+                        mce_builder.make_schema_field_urn(dataset_urn, col)
+                        if col
+                        else None
                     ),
-                    datasetAssertion=DatasetAssertionInfoClass(
-                        dataset=dataset_urn,
-                        scope=params.scope,
-                        operator=params.operator,
-                        aggregation=params.aggregation,
-                        fields=[field_urn] if field_urn else [],
-                        nativeType=audit_name,
-                        parameters=std_params,
-                    ),
+                    extra_properties=extra,
                 )
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=assertion_urn, aspect=StatusClass(removed=False)
-                ).as_workunit()
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=assertion_urn, aspect=assertion_info
-                ).as_workunit()
-        else:
-            # Dataset-level: one assertion covering all columns.
-            cols = self._extract_audit_columns(kw)
-            col_suffix = ",".join(cols)
-            assertion_urn = self._assertion_urn(dataset_urn, audit_name, col_suffix)
+            return
 
-            std_params = None
-            if params.row_count_threshold:
-                threshold = self._extract_literal_value(kw, "threshold")
-                std_params = AssertionStdParametersClass(
-                    value=AssertionStdParameterClass(
-                        value=threshold or "0",
-                        type=AssertionStdParameterTypeClass.NUMBER,
-                    )
-                )
+        # Dataset-level: one assertion covering all columns the audit names.
+        extra = {}
+        if cols:
+            extra["sqlmesh.fields"] = ",".join(cols)
+        if params.row_count_threshold:
+            threshold = self._extract_literal_value(kw, "threshold")
+            if threshold is not None:
+                extra["sqlmesh.threshold"] = threshold
 
-            field_urns = [
-                mce_builder.make_schema_field_urn(dataset_urn, c) for c in cols
-            ]
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                source=mce_builder.make_assertion_source(),
-                customProperties=self._anomaly_custom_props(
-                    {"sqlmesh.audit": audit_name}
-                ),
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=dataset_urn,
-                    scope=params.scope,
-                    operator=params.operator,
-                    aggregation=params.aggregation,
-                    fields=field_urns,
-                    nativeType=audit_name,
-                    parameters=std_params,
-                ),
+        yield from self._emit_custom_audit(
+            audit_name,
+            kw,
+            params,
+            dataset_urn,
+            assertion_urn=self._assertion_urn(dataset_urn, audit_name, ",".join(cols)),
+            extra_properties=extra,
+        )
+
+    def _extract_expression_values(self, kw: Dict[str, Any], key: str) -> List[str]:
+        """Extract scalar literals from a SQLGlot expression list (e.g. IN values)."""
+        expr = kw.get(key)
+        if expr is None:
+            return []
+        try:
+            return [str(e.this) for e in expr.expressions]
+        except Exception:
+            logger.warning(
+                "Could not extract %r values from audit kwargs", key, exc_info=True
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=StatusClass(removed=False)
-            ).as_workunit()
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=assertion_info
-            ).as_workunit()
+            return []
