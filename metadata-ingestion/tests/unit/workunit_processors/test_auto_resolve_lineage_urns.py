@@ -56,23 +56,34 @@ WH_UPPER = make_dataset_urn("snowflake", "db.schema.DATAHUB")
 _PATCH_TARGET = "datahub.sql_parsing.schema_resolver_provider.provide_schema_resolver"
 
 
-def _resolver(schemas: Dict[str, Dict[str, str]]) -> SchemaResolver:
-    """A graph-less resolver pre-populated with {urn: {column: type}}."""
+def _resolver(
+    schemas: Dict[str, Dict[str, str]], urns: Optional[List[str]] = None
+) -> SchemaResolver:
+    """A graph-less resolver pre-populated with {urn: {column: type}}.
+
+    `urns` adds entities that exist in DataHub with no schemaMetadata: resolvable by URN
+    but with no columns to match against. Seeding urn_aliases alongside the schema cache
+    is what SchemaResolverProvider does during its bulk scroll.
+    """
     resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     for urn, schema in schemas.items():
         resolver.add_raw_schema_info(urn, schema)
+        resolver.urn_aliases.add(urn)
+    for urn in urns or []:
+        resolver.urn_aliases.add(urn)
     return resolver
 
 
 def _make_processor(
     schemas: Dict[str, Dict[str, str]],
+    urns: Optional[List[str]] = None,
 ) -> Tuple[AutoResolveLineageUrnsProcessor, mock.MagicMock, Any]:
     """Patch provide_schema_resolver to a single seeded snowflake resolver.
 
     `schemas` maps existing URN -> column schema; those are the entities SchemaResolver's
     resolve_table matches references against (original + lowercase casing).
     """
-    resolver = _resolver(schemas)
+    resolver = _resolver(schemas, urns)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(
@@ -119,8 +130,9 @@ def _upstream_wu(
 def _run(
     schemas: Dict[str, Dict[str, str]],
     wu: MetadataWorkUnit,
+    urns: Optional[List[str]] = None,
 ) -> MetadataWorkUnit:
-    processor, _provide, patcher = _make_processor(schemas)
+    processor, _provide, patcher = _make_processor(schemas, urns)
     try:
         [out] = list(processor.process(iter([wu])))
         return out
@@ -179,16 +191,15 @@ def test_heals_to_stored_casing_when_warehouse_lowercase(
         (WH_MIXED, WH_UPPER),  # warehouse mixed, upper emitted
     ],
 )
-def test_non_lowercase_stored_unresolved_pending_normalizedurn(
+def test_heals_to_stored_casing_when_warehouse_is_not_lowercase(
     stored: str, emitted: str
 ) -> None:
-    # Until SchemaResolver gains casing-aware resolution (the normalizedUrn follow-up),
-    # resolve_table cannot reach a warehouse stored in UPPER/Mixed casing from a different
-    # BI casing -> the reference is left unchanged and flagged UNRESOLVED.
+    # The alias index maps any casing to the stored URN, so a warehouse keeping an
+    # UPPER/Mixed identity is reachable from any BI casing.
     out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
-    assert _stored_upstream(out) == emitted
+    assert _stored_upstream(out) == stored
     assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
     )
 
 
@@ -199,17 +210,60 @@ def test_keeps_exact_when_exact_entity_exists():
     assert _stored_upstream(out) == UPPER
 
 
-def test_ambiguous_collision_resolves_to_lowercase_pending_normalizedurn():
-    # Both `DB.SCHEMA.TABLE` and `db.schema.table` exist. A BI ref in a third casing
-    # (MIXED) resolves via resolve_table's lowercase attempt to the lowercase entity —
-    # resolve_table has no ambiguous-collision detection, so it does not leave it
-    # unchanged. Restoring collision-safety is part of the normalizedUrn follow-up.
+@pytest.mark.parametrize(
+    "stored_a,stored_b,emitted",  # stored_b is the lowercase-named entity
+    [
+        (UPPER, LOWER, MIXED),
+        (WH_MIXED, WH_LOWER, WH_UPPER),
+    ],
+)
+def test_heals_a_casing_collision_to_the_lowercase_entity(
+    stored_a: str, stored_b: str, emitted: str
+) -> None:
+    # Two real entities differ only by case and the reference matches neither exactly.
+    # The processor asks for prefer_lowercased, so lineage heals to the lowercase-named
+    # entity rather than being left broken.
     out = _run(
-        {UPPER: {"amount": "int"}, LOWER: {"amount": "int"}}, _upstream_wu(MIXED)
+        {stored_a: {"amount": "int"}, stored_b: {"amount": "int"}},
+        _upstream_wu(emitted),
     )
-    assert _stored_upstream(out) == LOWER
+    assert _stored_upstream(out) == stored_b
     assert (
         _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
+    )
+
+
+def test_reports_unresolved_when_a_collision_has_no_lowercase_entity() -> None:
+    # Mixed and UPPER both exist but neither is lowercase-named, so the preference has
+    # nothing to pick and the reference is left alone.
+    out = _run(
+        {WH_MIXED: {"amount": "int"}, WH_UPPER: {"amount": "int"}},
+        _upstream_wu(WH_LOWER),
+    )
+    assert _stored_upstream(out) == WH_LOWER
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    )
+
+
+def test_heals_a_reference_to_a_dataset_that_has_no_schema() -> None:
+    # The entity exists but has no schemaMetadata, so it is absent from the schema cache.
+    # Table-level lineage must still be healed.
+    out = _run({}, _upstream_wu(WH_UPPER), urns=[WH_MIXED])
+    assert _stored_upstream(out) == WH_MIXED
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
+    )
+
+
+def test_does_not_heal_across_environments() -> None:
+    # The configured resolver is PROD. A DEV reference must not be rewritten to the
+    # same-named PROD entity, which would point lineage at the wrong environment.
+    dev_ref = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE", env="DEV")
+    out = _run({LOWER: {"amount": "int"}}, _upstream_wu(dev_ref))
+    assert _stored_upstream(out) == dev_ref
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
     )
 
 
@@ -240,20 +294,6 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     assert _stored_upstream(out) == WH_LOWER
     upstream = _upstream_aspect(out).upstreams[0]
     assert upstream.matchType == LineageMatchTypeClass.EXACT
-
-
-def test_mixedcase_third_casing_resolves_to_lowercase_pending_normalizedurn():
-    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB`. resolve_table's
-    # lowercase attempt hits `datahub`, so it resolves there (no collision detection). The
-    # collision-safe behavior is part of the normalizedUrn follow-up.
-    out = _run(
-        {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
-        _upstream_wu(WH_UPPER),
-    )
-    assert _stored_upstream(out) == WH_LOWER
-    assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
-    )
 
 
 # --- match type discriminator -----------------------------------------------------
@@ -322,6 +362,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
 
     resolver = SchemaResolver(platform="mssql", env="PROD", graph=None)
     resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
+    resolver.urn_aliases.add(mssql_table)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(
@@ -384,8 +425,10 @@ def test_multi_platform_upstreams_both_healed():
 
     sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     sf_resolver.add_raw_schema_info(sf_real, {"amount": "int"})
+    sf_resolver.urn_aliases.add(sf_real)
     rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
     rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
+    rs_resolver.urn_aliases.add(rs_real)
 
     def fake_provide(graph, platform, platform_instance, env, batch_size=100):
         return sf_resolver if platform == "snowflake" else rs_resolver
@@ -465,6 +508,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     )
     resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     resolver.add_raw_schema_info(stored, {"amount": "int"})
+    resolver.urn_aliases.add(stored)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(

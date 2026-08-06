@@ -82,7 +82,52 @@ def test_lookup_flattens_unknown_and_absent_to_empty() -> None:
     assert resolver.lookup(_OTHER) == []
 
 
-def test_count_is_the_number_of_urns_recorded() -> None:
+def test_cache_count_is_the_number_of_urns_recorded() -> None:
     resolver = _loaded(_LOWER, _UPPER, _LOWER)
 
-    assert resolver.count() == 2
+    assert resolver.cache_count() == 2
+
+
+def test_resolve_returns_the_stored_urn_for_a_different_casing() -> None:
+    resolver = _loaded(_LOWER)
+
+    assert resolver.resolve(_UPPER) == _LOWER
+
+
+def test_resolve_returns_an_exact_match_even_when_another_casing_exists() -> None:
+    # An exact hit is never ambiguous: the reference names a real entity, so it stands
+    # regardless of other casings of the same name.
+    resolver = _loaded(_LOWER, _UPPER)
+
+    assert resolver.resolve(_UPPER) == _UPPER
+
+
+def test_resolve_returns_none_when_casings_collide() -> None:
+    resolver = _loaded(_LOWER, _UPPER)
+
+    assert resolver.resolve(_MIXED) is None
+
+
+def test_resolve_returns_none_when_nothing_matches() -> None:
+    resolver = _loaded(_LOWER)
+
+    assert resolver.resolve(_OTHER) is None
+
+
+def test_resolve_prefers_the_lowercased_urn_on_a_collision() -> None:
+    resolver = _loaded(_LOWER, _UPPER)
+
+    assert resolver.resolve(_MIXED, prefer_lowercased=True) == _LOWER
+
+
+def test_resolve_prefers_lowercased_still_declines_when_none_is_lowercased() -> None:
+    # Both stored casings are non-lowercase, so the preference has nothing to pick.
+    resolver = _loaded(_MIXED, _UPPER)
+
+    assert resolver.resolve(_LOWER, prefer_lowercased=True) is None
+
+
+def test_resolve_prefers_lowercased_does_not_override_an_exact_match() -> None:
+    resolver = _loaded(_LOWER, _UPPER)
+
+    assert resolver.resolve(_UPPER, prefer_lowercased=True) == _UPPER
