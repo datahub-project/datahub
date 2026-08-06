@@ -47,6 +47,8 @@ def _delete_secrets_by_name(auth_session: object, names: list) -> None:
     deleted = False
     for secret in res_data["data"]["listSecrets"]["secrets"]:
         if secret["name"] in names:
+            # no_sync_wait: nothing reads state between deletes in this loop;
+            # the explicit wait below covers the whole batch once.
             execute_graphql(
                 auth_session,
                 """mutation deleteSecret($urn: String!) {
@@ -54,6 +56,7 @@ def _delete_secrets_by_name(auth_session: object, names: list) -> None:
                     deleteSecret(urn: $urn)
                 }""",
                 {"urn": secret["urn"]},
+                no_sync_wait=True,
             )
             deleted = True
     if deleted:
@@ -85,12 +88,15 @@ def _delete_ingestion_sources_by_name(auth_session: object, names: list[str]) ->
         if ingestion_source["name"] in names or ingestion_source["name"].startswith(
             _SMOKE_INGESTION_SOURCE_PREFIX
         ):
+            # no_sync_wait: nothing reads state between deletes in this loop;
+            # the explicit wait below covers the whole batch once.
             execute_graphql(
                 auth_session,
                 """mutation deleteIngestionSource($urn: String!) {\n
                     deleteIngestionSource(urn: $urn)
                 }""",
                 {"urn": ingestion_source["urn"]},
+                no_sync_wait=True,
             )
             deleted = True
     if deleted:
@@ -355,7 +361,10 @@ def test_secret_roundtrip_preserves_json_credentials_with_newlines_and_slashes(
             "description": "Test secret with special characters",
         }
     }
-    res_data = execute_graphql(auth_session, query, variables)
+    # no_sync_wait: the immediately-following updateSecret reads the secret
+    # via a direct entity-store lookup (not search), so no wait is needed
+    # before it; the update call below keeps the real wait.
+    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
     assert res_data["data"]["createSecret"] is not None
 
     secret_urn = res_data["data"]["createSecret"]
@@ -424,7 +433,10 @@ Line 10: SQL-like: SELECT * FROM "table" WHERE name = 'O''Brien'"""
             "description": "Testing edge case characters",
         }
     }
-    res_data = execute_graphql(auth_session, query, variables)
+    # no_sync_wait: the immediately-following updateSecret reads the secret
+    # via a direct entity-store lookup (not search), so no wait is needed
+    # before it; the update call below keeps the real wait.
+    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
     assert res_data["data"]["createSecret"] is not None
 
     secret_urn = res_data["data"]["createSecret"]
@@ -569,7 +581,11 @@ def test_create_list_get_ingestion_execution_request(auth_session):
             },
         }
     }
-    res_data = execute_graphql(auth_session, query, variables)
+    # no_sync_wait: the immediately-following createIngestionExecutionRequest
+    # fetches the ingestion source via a direct entity-store batchGetV2 (not
+    # search), so no wait is needed before it; that call keeps the real wait,
+    # ahead of the _ensure_ingestion_source_present check below.
+    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
     assert res_data["data"]["createIngestionSource"] is not None
 
     ingestion_source_urn = res_data["data"]["createIngestionSource"]
