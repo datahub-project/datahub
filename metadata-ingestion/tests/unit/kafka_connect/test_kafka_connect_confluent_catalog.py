@@ -328,6 +328,13 @@ class TestCatalogLineage:
         with patch.object(source, "_get_all_topics_from_kafka_api", return_value=[]):
             assert not source.extract_connector_lineages(manifest)
 
+        assert "exotic_source" in list(source.report.filtered)
+        assert any(
+            "Lineage for Source Connector not supported" in warning.message
+            and any("exotic_source" in ctx for ctx in (warning.context or []))
+            for warning in source.report.warnings
+        )
+
     def test_missing_catalog_topics_falls_back_and_is_reported(self) -> None:
         source = make_cloud_source([{"name": "source_postgres_cdc_01", "topics": []}])
         manifest = make_manifest()

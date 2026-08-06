@@ -249,7 +249,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, catalog_connector, all_cluster_topics
         )
 
-        if catalog_lineages is not None and (connector or catalog_lineages):
+        use_catalog_lineages = catalog_lineages is not None and (
+            connector is not None or bool(catalog_lineages)
+        )
+        if use_catalog_lineages:
             connector_manifest.lineages = catalog_lineages
         elif connector:
             connector_manifest.lineages = connector.extract_lineages()
