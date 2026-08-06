@@ -4222,3 +4222,44 @@ class TestSystemicAbortHandling:
                     list(source._process_event_mode())
 
             assert mock_batch.call_count == 1
+
+
+class TestTotalProcessingFailure:
+    """A run where every attempted document failed is systemic, not bad data."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _run(
+        self, ctx: PipelineContext, failed: int, processed: int
+    ) -> DataHubDocumentsSource:
+        source = DataHubDocumentsSource(ctx, _make_config())
+        with patch.object(source, "_process_batch_mode", return_value=iter([])):
+            source.report.num_documents_failed = failed
+            source.chunking_source.report.num_documents_processed = processed
+            list(source.get_workunits_internal())
+        return source
+
+    def test_all_documents_failed_fails_the_run(self, ctx, mock_graph):
+        # Otherwise the run exits 0 having indexed nothing, and a dependency
+        # break looks identical to "there was nothing to do".
+        with mock_graph:
+            source = self._run(ctx, failed=3, processed=0)
+
+        assert source.report.failures
+
+    def test_partial_failure_does_not_fail_the_run(self, ctx, mock_graph):
+        # Also pins the counter this reads: self.report.num_documents_processed is
+        # only populated in get_report(), so reading it here would still be 0 and
+        # would fail every run that had any per-document error.
+        with mock_graph:
+            source = self._run(ctx, failed=2, processed=5)
+
+        assert not source.report.failures
