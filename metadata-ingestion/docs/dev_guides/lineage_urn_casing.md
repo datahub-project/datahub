@@ -41,21 +41,26 @@ When enabled, the feature inspects each source's lineage before it is sent to Da
 casing of **upstream warehouse references** against the casing DataHub already stores:
 
 - If an entity with the **exact** URN already exists, the reference is left unchanged (`EXACT`).
-- Otherwise, if the reference matches an existing entity when casing is normalized, it is rewritten to
-  that entity's stored URN (`NORMALIZED`).
+- Otherwise, if the reference matches an existing entity when casing is ignored, it is rewritten to
+  that entity's stored URN (`NORMALIZED`). Any stored casing is reachable — lowercase, UPPER, Pascal
+  or Mixed — since matching is on the case-insensitive form of the whole URN.
 - If no existing entity matches, the reference is left unchanged and flagged `UNRESOLVED`.
+- If the reference matches **two** existing entities differing only by case, it is resolved to the
+  **lowercase-named** one (`NORMALIZED`) — the common warehouse default, and better than leaving the
+  edge broken. If none of the colliding entities is lowercase-named, there is no basis to choose and
+  the reference is left unchanged and flagged `UNRESOLVED`.
+
+Matching is on the whole URN, so `platform_instance` and `env` are part of the comparison: a `DEV`
+reference is never healed to a same-named `PROD` entity.
 
 Only references **to** warehouse assets are modified. The entity the aspect is attached to and its
 downstream fields are never touched — the feature respects the casing the warehouse itself reported.
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
-> **Current coverage limit.** Reconciliation currently heals a reference when the warehouse stores the
-> entity in its **lowercased** form (the common Snowflake/BigQuery default) — regardless of how the BI
-> tool cased it. A warehouse that keeps a **non-lowercase** identity (UPPER / Pascal / Mixed) is **not
-> yet** reconciled, and ambiguous case-collisions are not detected. Full any-casing resolution and
-> collision-safety are planned as backend infrastructure; once it lands, this feature picks it up
-> automatically with no config change.
+> **Entities without a schema.** A table-level reference is healed even when DataHub holds no
+> `schemaMetadata` for the entity. Column-level casing cannot be corrected in that case — there are no
+> columns to match against — so field paths are left as the source reported them.
 
 ### What gets fixed
 
