@@ -209,7 +209,9 @@ class TestLinkedDatasetInfo:
             publisher_project_number="111",
             publisher_project_id="publisher-project",
             publisher_dataset="publisher_dataset",
-            subscription_state="STATE_ACTIVE",
+            subscription_state=bigquery_analyticshub_v1.Subscription.State(
+                _DEFAULT_STATE_ACTIVE
+            ),
             link_state="LINKED",
             listing="listing_a",
             publisher_organization="Publisher Inc",

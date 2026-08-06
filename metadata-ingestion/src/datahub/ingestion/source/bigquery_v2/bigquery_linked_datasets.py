@@ -52,8 +52,7 @@ class LinkedDatasetInfo:
     publisher_project_id: Optional[str]
     publisher_dataset: Optional[str]
 
-    # STATE_ACTIVE / STATE_STALE / STATE_INACTIVE
-    subscription_state: Optional[str] = None
+    subscription_state: Optional[bigquery_analyticshub_v1.Subscription.State] = None
     link_state: Optional[str] = None  # Dataset.linkedDatasetMetadata.linkState
     listing: Optional[str] = None
     data_exchange: Optional[str] = None
@@ -86,8 +85,8 @@ class LinkedDatasetInfo:
         listing_or_exchange = self.listing or self.data_exchange
         if listing_or_exchange:
             props["analytics_hub.listing"] = listing_or_exchange
-        if self.subscription_state:
-            props["analytics_hub.subscription_state"] = self.subscription_state
+        if self.subscription_state is not None:
+            props["analytics_hub.subscription_state"] = self.subscription_state.name
         if self.publisher_organization:
             props["analytics_hub.publisher_organization"] = self.publisher_organization
         if self.creation_time:
@@ -311,9 +310,9 @@ class BigQueryLinkedDatasetsHandler:
         ingest as a plain dataset.
         """
         try:
-            state_name = bigquery_analyticshub_v1.Subscription.State(sub.state).name
+            state = bigquery_analyticshub_v1.Subscription.State(sub.state)
         except (ValueError, AttributeError):
-            state_name = None
+            state = None
 
         listing_segment = _last_segment(getattr(sub, "listing", None))
         data_exchange_segment = _last_segment(getattr(sub, "data_exchange", None))
@@ -327,7 +326,7 @@ class BigQueryLinkedDatasetsHandler:
             publisher_project_number=None,
             publisher_project_id=None,
             publisher_dataset=None,
-            subscription_state=state_name,
+            subscription_state=state,
             listing=listing_segment,
             data_exchange=data_exchange_segment,
             publisher_organization=org_display,
@@ -419,9 +418,10 @@ class BigQueryLinkedDatasetsHandler:
 
     def _track_state_counters(self, info: LinkedDatasetInfo) -> None:
         """Increment the per-state counters; STATE_STALE/INACTIVE still emit."""
-        if info.subscription_state == "STATE_STALE":
+        State = bigquery_analyticshub_v1.Subscription.State
+        if info.subscription_state == State.STATE_STALE:
             self.report.num_linked_dataset_state_stale += 1
-        elif info.subscription_state == "STATE_INACTIVE":
+        elif info.subscription_state == State.STATE_INACTIVE:
             self.report.num_linked_dataset_state_inactive += 1
 
     def _build_fine_grained_lineages(
