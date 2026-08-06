@@ -531,3 +531,21 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+_ALIAS_LOWER = "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.events,PROD)"
+_ALIAS_UPPER = "urn:li:dataset:(urn:li:dataPlatform:redshift,MY_DB.PUBLIC.EVENTS,PROD)"
+
+
+def _alias_resolver() -> SchemaResolver:
+    return SchemaResolver(platform="redshift", env="PROD", graph=None)
+
+
+def test_a_urn_can_be_recorded_without_a_schema():
+    resolver = _alias_resolver()
+
+    resolver.urn_aliases.add(_ALIAS_LOWER)
+
+    assert resolver.urn_aliases.lookup(_ALIAS_UPPER) == [_ALIAS_LOWER]
+    # The schema cache must stay empty: a URN we know exists is not a schema we know.
+    assert resolver.schema_count() == 0

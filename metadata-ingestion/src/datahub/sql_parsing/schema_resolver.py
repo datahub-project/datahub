@@ -23,6 +23,7 @@ from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.urn_alias_resolver import UrnAliasResolver
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         self.graph = graph
         self.report = report
+
+        # Case-insensitive URN lookup, for callers that need URN identity rather than
+        # columns. Unlike the schema cache it can hold URNs with no schemaMetadata.
+        # Filled by whoever bulk-loads this resolver; empty otherwise.
+        self.urn_aliases = UrnAliasResolver()
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
