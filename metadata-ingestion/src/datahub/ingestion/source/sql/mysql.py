@@ -151,14 +151,23 @@ _MAX_TRACKED_SESSIONS = 10_000
 # `table_type = 'BASE TABLE'` excludes views, which have NULL table_rows/data_length and would
 # otherwise pass the IS NULL OR clauses — harmless today (loop_profiler_requests only iterates
 # get_table_names, not views) but explicit intent + smaller result set.
+# The size guardrail uses `data_length + index_length`: profiling reads secondary indexes
+# heavily (COUNT(DISTINCT), min/max), so a table with large indexes can be several times
+# the size `data_length` alone implies. This matches what "table size" means on other
+# platforms better than `data_length` alone, at the cost of consistency with
+# add_profile_metadata's sizeInBytes (which uses data_length only) — the guardrail is the
+# more safety-critical of the two, so it gets the broader measure.
+# MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h default),
+# so table_rows/data_length can be up to that stale between ANALYZE TABLEs — the estimate
+# is "as of the last stats refresh," not "as of right now."
 _PROFILE_CANDIDATES_QUERY = """
-SELECT table_name, table_rows, data_length
+SELECT table_name, table_rows, data_length + index_length AS total_size
 FROM information_schema.tables
 WHERE table_schema = :schema
   AND table_type = 'BASE TABLE'
   AND (:table_row_limit IS NULL OR table_rows IS NULL OR table_rows < :table_row_limit)
-  AND (:table_size_limit IS NULL OR data_length IS NULL
-       OR data_length / (1024 * 1024 * 1024) < :table_size_limit)
+  AND (:table_size_limit IS NULL OR data_length IS NULL OR index_length IS NULL
+       OR (data_length + index_length) / (1024 * 1024 * 1024) < :table_size_limit)
 """
 
 
@@ -239,21 +248,22 @@ class MySQLProfilingConfig(GEProfilingConfig):
     # Redeclared with Annotated[...] (not plain Optional[int]) so the SupportedSources metadata
     # is preserved on the subclass field — a plain redeclaration drops it (verified empirically),
     # which would remove `mysql` from MySQL's config JSON schema / docs.
-    profile_table_row_limit: Annotated[Optional[int], SupportedSources(["mysql"])] = (
-        Field(
-            default=None,
-            description="MySQL: profile tables only if their estimated row count is less than this. "
-            "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. The "
-            "estimate comes from `information_schema.tables.table_rows` (InnoDB stats, can be stale).",
-        )
+    profile_table_row_limit: Annotated[
+        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
+    ] = Field(
+        default=None,
+        description="MySQL: profile tables only if their estimated row count is less than this. "
+        "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. The "
+        "estimate comes from `information_schema.tables.table_rows` (InnoDB stats, can be stale).",
     )
-    profile_table_size_limit: Annotated[Optional[int], SupportedSources(["mysql"])] = (
-        Field(
-            default=None,
-            description="MySQL: profile tables only if their size is less than specified GBs. "
-            "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. "
-            "The size comes from `information_schema.tables.data_length`.",
-        )
+    profile_table_size_limit: Annotated[
+        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
+    ] = Field(
+        default=None,
+        description="MySQL: profile tables only if their size is less than specified GBs. "
+        "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. "
+        "The size is `data_length + index_length` from `information_schema.tables` "
+        "(profiling reads secondary indexes heavily).",
     )
 
     # MySQL is a row store on a single primary: profiling throughput is bound by the same buffer

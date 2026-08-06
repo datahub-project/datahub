@@ -38,7 +38,7 @@ class TiDBProfilingConfig(MySQLProfilingConfig):
     # default here would *activate* a guardrail that never ran before, silently dropping profiles
     # for tables over 5M rows using information_schema.tables.table_rows semantics that TiDB
     # (distributed HTAP) does not share with InnoDB. Same failure mode rejected for MySQL in §4.1.
-    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql"])] type.
+    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type.
     #
     # NOTE: TiDB also inherits MySQLSource.generate_profile_candidates (the information_schema
     # query added in PR 2). TiDB's `information_schema.tables.table_rows` depends on ANALYZE TABLE

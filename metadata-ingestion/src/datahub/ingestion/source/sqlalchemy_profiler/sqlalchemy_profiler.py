@@ -1953,7 +1953,6 @@ class SQLAlchemyProfiler:
                         f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                     )
                     self.times_taken.append(time_taken)
-                    self.times_taken_per_table.append((pretty_name, time_taken))
                     return profile
 
             except sa.exc.ArgumentError:
@@ -2009,3 +2008,13 @@ class SQLAlchemyProfiler:
             finally:
                 # Cleanup temp resources using adapter
                 adapter.cleanup(context)
+                # Record elapsed for every table, including failures: the
+                # expensive-tables report exists to surface tables that are too
+                # expensive, and the most expensive ones are precisely those that
+                # OOM/timeout/raise — which exit via the except branches above and
+                # would otherwise never be recorded. `timer` started at the top of
+                # this `with PerfTimer()` block, so elapsed here covers the full
+                # attempt regardless of exit path.
+                self.times_taken_per_table.append(
+                    (pretty_name, timer.elapsed_seconds())
+                )
