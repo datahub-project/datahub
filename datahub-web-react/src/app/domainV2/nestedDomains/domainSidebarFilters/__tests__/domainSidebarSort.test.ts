@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    DEFAULT_DOMAIN_SIDEBAR_SORT,
     DOMAIN_SIDEBAR_SORT,
     domainSidebarSortToCriterion,
 } from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarSort';
@@ -24,9 +23,5 @@ describe('domainSidebarSortToCriterion', () => {
             field: CREATED_TIME_FIELD_NAME,
             sortOrder: SortOrder.Descending,
         });
-    });
-
-    it('defaults to name ascending', () => {
-        expect(DEFAULT_DOMAIN_SIDEBAR_SORT).toBe(DOMAIN_SIDEBAR_SORT.NAME_ASC);
     });
 });

@@ -1,6 +1,6 @@
 import { Avatar, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -41,8 +41,22 @@ function ManageDomainsSidebarInner() {
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const { selectedOwnerUrns, setSelectedOwnerUrns, availableOwners, sortSelection, setSortSelection } =
         useDomainSidebarFilters();
+    const isFirstSortEffectRef = useRef(true);
 
     const isHomeSelected = matchPath(location.pathname, { path: PageRoutes.DOMAINS, exact: true }) !== null;
+
+    // Sort reloads the scroll stream from page 1 — pin the browse list at the top
+    // so results don't land off-screen after the user had scrolled down (Documents).
+    useEffect(() => {
+        if (isFirstSortEffectRef.current) {
+            isFirstSortEffectRef.current = false;
+            return;
+        }
+        const treeScroll = document.querySelector('[data-testid="hierarchical-browse-tree-scroll"]');
+        if (treeScroll instanceof HTMLElement) {
+            treeScroll.scrollTop = 0;
+        }
+    }, [sortSelection]);
 
     const unhideSidebar = useCallback(() => {
         setIsClosed(false);
