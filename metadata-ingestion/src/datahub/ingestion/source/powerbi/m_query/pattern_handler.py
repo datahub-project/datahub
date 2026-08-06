@@ -609,9 +609,11 @@ class AbstractLineage(ABC):
         # lineage is only partial. Report first, then return whatever we did resolve.
         if parsed_result is None:
             if external_upstreams:
-                # Partial lineage: warn (not info) to match the table_error branch below.
-                self.reporter.warning(
-                    title=Constant.SQL_PARSING_FAILURE,
+                # Partial lineage: the rewritten outer BigQuery SQL failed to parse, so
+                # native tables are dropped while federated upstreams survive. Count it as
+                # an EXTERNAL_QUERY parse error (via the helper) so the run summary reflects
+                # the partial loss, matching the other federation parse-failure paths.
+                self._report_external_query_parse_error(
                     message="Fail to parse native sql present in PowerBI M-Query; "
                     "only federated EXTERNAL_QUERY upstreams were resolved.",
                     context=f"table-name={self.table.full_name}, sql={query}",
@@ -625,18 +627,22 @@ class AbstractLineage(ABC):
             return Lineage.empty()
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
+            context = f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}"
+            if external_upstreams:
+                # Same partial-lineage case as above but signalled via table_error rather
+                # than a None result; count it so partial federation runs aren't
+                # under-reported in m_query_external_query_parse_errors.
+                self._report_external_query_parse_error(
+                    message="Fail to parse native sql present in PowerBI M-Query; "
+                    "only federated EXTERNAL_QUERY upstreams were resolved.",
+                    context=context,
+                )
+                return Lineage(upstreams=external_upstreams, column_lineage=[])
             self.reporter.warning(
                 title=Constant.SQL_PARSING_FAILURE,
-                message=(
-                    "Fail to parse native sql present in PowerBI M-Query; "
-                    "only federated EXTERNAL_QUERY upstreams were resolved."
-                    if external_upstreams
-                    else "Fail to parse native sql present in PowerBI M-Query"
-                ),
-                context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
+                message="Fail to parse native sql present in PowerBI M-Query",
+                context=context,
             )
-            if external_upstreams:
-                return Lineage(upstreams=external_upstreams, column_lineage=[])
             return Lineage.empty()
 
         dataplatform_tables.extend(external_upstreams)
