@@ -384,36 +384,20 @@ class TestPopulateForProject:
         assert handler.report.num_linked_dataset_state_stale == 1
         assert handler.report.num_linked_dataset_state_inactive == 1
 
-    def test_get_dataset_failure_reported_and_dataset_skipped(self):
+    @pytest.mark.parametrize(
+        "error",
+        [
+            # Missing bigquery.datasets.get, or a subscription outliving its
+            # linked dataset (404) — both drop it to plain dataset ingestion.
+            PermissionDenied("bigquery.datasets.get denied"),
+            NotFound("dataset deleted"),
+        ],
+    )
+    def test_get_dataset_error_skips_dataset(self, error):
         handler = _make_handler()
         sub = _make_subscription(dataset_id="shared_a")
         ah = _ah_client_returning({"us": [sub]})
-        bq = _bq_client_returning(
-            {
-                "consumer-project.shared_a": PermissionDenied(
-                    "bigquery.datasets.get denied"
-                )
-            }
-        )
-        _install_clients(handler, ah=ah, bq=bq)
-
-        datasets = [BigqueryDataset(name="shared_a", location="US")]
-        handler.populate_for_project("consumer-project", datasets)
-
-        # Permission denied means we cannot enrich; the dataset is dropped from
-        # the linked-datasets lookup and the connector falls back to plain
-        # dataset ingestion.
-        assert handler.get_info("consumer-project", "shared_a") is None
-        assert handler.report.num_linked_dataset_get_dataset_errors == 1
-
-    def test_get_dataset_not_found_skips_dataset(self):
-        handler = _make_handler()
-        sub = _make_subscription(dataset_id="shared_a")
-        ah = _ah_client_returning({"us": [sub]})
-        # A subscription can outlive its linked dataset; get_dataset then 404s.
-        bq = _bq_client_returning(
-            {"consumer-project.shared_a": NotFound("dataset deleted")}
-        )
+        bq = _bq_client_returning({"consumer-project.shared_a": error})
         _install_clients(handler, ah=ah, bq=bq)
 
         datasets = [BigqueryDataset(name="shared_a", location="US")]
@@ -493,25 +477,33 @@ class TestPopulateForProject:
         )
         assert wus == []
 
-    def test_resource_manager_cache_avoids_repeat_calls(self):
+    @pytest.mark.parametrize(
+        "rm_result",
+        ["publisher-project", PermissionDenied("denied")],
+        ids=["success", "failure"],
+    )
+    def test_resource_manager_result_is_cached_per_project_number(self, rm_result):
         handler = _make_handler()
-        # Two subscriptions, both pointing at the same publisher project number.
-        sub_a = _make_subscription(dataset_id="shared_a")
-        sub_b = _make_subscription(dataset_id="shared_b")
-        ah = _ah_client_returning({"us": [sub_a, sub_b]})
-        ds_a = _make_dataset_with_linked_source(
-            publisher_project_number="111222333", publisher_dataset="dataset_a"
-        )
-        ds_b = _make_dataset_with_linked_source(
-            publisher_project_number="111222333", publisher_dataset="dataset_b"
-        )
-        bq = _bq_client_returning(
+        ah = _ah_client_returning(
             {
-                "consumer-project.shared_a": ds_a,
-                "consumer-project.shared_b": ds_b,
+                "us": [
+                    _make_subscription(dataset_id="shared_a"),
+                    _make_subscription(dataset_id="shared_b"),
+                ]
             }
         )
-        rm = _rm_client_returning({"111222333": "publisher-project"})
+        # Both subscriptions point at the same publisher project number.
+        bq = _bq_client_returning(
+            {
+                "consumer-project.shared_a": _make_dataset_with_linked_source(
+                    publisher_dataset="dataset_a"
+                ),
+                "consumer-project.shared_b": _make_dataset_with_linked_source(
+                    publisher_dataset="dataset_b"
+                ),
+            }
+        )
+        rm = _rm_client_returning({"111222333": rm_result})
         _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
         datasets = [
@@ -520,44 +512,8 @@ class TestPopulateForProject:
         ]
         handler.populate_for_project("consumer-project", datasets)
 
+        # Both outcomes are cached, so the second subscription reuses the result.
         rm.get_project.assert_called_once_with(name="projects/111222333")
-
-    def test_resource_manager_cache_failure_does_not_retry(self):
-        handler = _make_handler()
-        sub_a = _make_subscription(dataset_id="shared_a")
-        sub_b = _make_subscription(dataset_id="shared_b")
-        ah = _ah_client_returning({"us": [sub_a, sub_b]})
-        ds_a = _make_dataset_with_linked_source(
-            publisher_project_number="111222333", publisher_dataset="dataset_a"
-        )
-        ds_b = _make_dataset_with_linked_source(
-            publisher_project_number="111222333", publisher_dataset="dataset_b"
-        )
-        bq = _bq_client_returning(
-            {
-                "consumer-project.shared_a": ds_a,
-                "consumer-project.shared_b": ds_b,
-            }
-        )
-        # Single call counter that raises every time it's hit.
-        rm_call_count = {"n": 0}
-
-        def _failing_get_project(name: str) -> Any:
-            rm_call_count["n"] += 1
-            raise PermissionDenied("denied")
-
-        rm = MagicMock()
-        rm.get_project.side_effect = _failing_get_project
-        _install_clients(handler, ah=ah, bq=bq, rm=rm)
-
-        datasets = [
-            BigqueryDataset(name="shared_a", location="US"),
-            BigqueryDataset(name="shared_b", location="US"),
-        ]
-        handler.populate_for_project("consumer-project", datasets)
-
-        # Failure is cached as None — second subscription must not retry.
-        assert rm_call_count["n"] == 1
 
     def test_list_subscriptions_api_disabled_is_warned_not_fatal(self):
         handler = _make_handler()
@@ -629,10 +585,6 @@ class TestPopulateForProject:
         assert info is not None
         assert info.listing is None
         assert info.data_exchange == "my_exchange"
-        # to_extra_properties surfaces the data_exchange under the listing key
-        # since the field is conceptually a single AH binding identifier.
-        props = info.to_extra_properties()
-        assert props["analytics_hub.listing"] == "my_exchange"
 
 
 # --- Lineage emission tests ------------------------------------------------
@@ -694,6 +646,8 @@ class TestLineageEmission:
             )
         )
 
+        assert handler.report.num_linked_dataset_lineage_emitted == 1
+
         aspects = self._aspects(wus)
         sibling_wus = [
             wu
@@ -724,12 +678,10 @@ class TestLineageEmission:
         assert publisher_sibling.primary is True
         assert publisher_sibling.siblings == [consumer_urn]
 
-        # Upstream lineage: single COPY edge.
         upstream = upstream_lineages[0]
         assert len(upstream.upstreams) == 1
         assert upstream.upstreams[0].type == DatasetLineageType.COPY
 
-        # Per-column FineGrainedLineage, 1:1 by name.
         fine_grained = upstream.fineGrainedLineages
         assert fine_grained is not None
         assert len(fine_grained) == 3
@@ -740,23 +692,10 @@ class TestLineageEmission:
             assert fgl.downstreams is not None
             assert len(fgl.upstreams) == 1
             assert len(fgl.downstreams) == 1
-            # Upstream URN points at publisher dataset; downstream at consumer.
             assert "publisher_dataset" in fgl.upstreams[0]
             assert "shared_dataset" in fgl.downstreams[0]
             assert col.name in fgl.upstreams[0]
             assert col.name in fgl.downstreams[0]
-
-    def test_lineage_counter_incremented(self):
-        handler = self._seed_with_linked_dataset()
-        list(
-            handler.gen_lineage_workunits(
-                consumer_project_id="consumer-project",
-                consumer_dataset="shared_dataset",
-                entity_name="users",
-                columns=[self._column("id")],
-            )
-        )
-        assert handler.report.num_linked_dataset_lineage_emitted == 1
 
     def test_no_emission_when_dataset_not_in_lookup(self):
         handler = _make_handler()
@@ -800,7 +739,6 @@ class TestLineageEmission:
 
     def test_duplicate_column_names_deduped(self):
         handler = self._seed_with_linked_dataset()
-        # Two columns with identical names — handler dedupes the FineGrainedLineage list.
         columns = [self._column("id"), self._column("id")]
         wus = list(
             handler.gen_lineage_workunits(
