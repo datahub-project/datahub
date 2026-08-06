@@ -2,6 +2,7 @@ import logging
 from urllib.parse import quote
 
 import pytest
+import tenacity
 
 from tests.test_result_msg import add_datahub_stats
 from tests.utilities.concurrent_test_runner import (
@@ -9,7 +10,7 @@ from tests.utilities.concurrent_test_runner import (
     run_concurrent_tests_with_args,
 )
 from tests.utilities.metadata_operations import get_search_results
-from tests.utils import get_gms_url, with_test_retry
+from tests.utils import get_gms_url
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +92,18 @@ class _OpenApiTransientSkip(AssertionError):
     """Empty search page or stale 404 — skip after retries in read-only tests."""
 
 
-@with_test_retry(max_attempts=3)
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(_OpenApiTransientSkip),
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_fixed(20),
+    reraise=True,
+)
 def _openapi_v3_entity_once(auth_session, entity_type: str) -> None:
     """One attempt: search → OpenAPI GET.
 
-    Raises ``_OpenApiTransientSkip`` for empty/404 races (retry then skip).
-    Raises plain ``AssertionError`` on URN mismatch (must fail the test).
+    Retries only ``_OpenApiTransientSkip`` (empty/404 races). Plain
+    ``AssertionError`` on URN mismatch fails immediately — must not burn
+    retry budget masking a real backend bug.
     """
     search_result = get_search_results(auth_session, entity_type)
     num_entities = search_result["total"]

@@ -199,19 +199,17 @@ def test_delete_parent_domain_immediately_after_child_deletion(auth_session):
         )
         assert res["data"]["createDomain"] == child_urn
 
-        # Delete child then immediately delete parent using the underlying
-        # session directly, bypassing TestSessionWrapper's post-mutation
-        # consistency sleep. This preserves the race window between the
-        # child deletion (MySQL write) and the parent deletion attempt
-        # (OpenSearch child-guard check).
+        # Delete child then immediately delete parent via raw_post,
+        # bypassing TestSessionWrapper's post-mutation consistency sleep.
+        # Preserves the race window between child deletion (MySQL write)
+        # and parent deletion (OpenSearch child-guard check).
         endpoint = f"{auth_session.frontend_url()}/api/v2/graphql"
-        headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
 
         def raw_graphql(query, variables):
-            resp = auth_session._upstream.post(
+            # raw_post skips TestSessionWrapper sync wait (preserves race window).
+            resp = auth_session.raw_post(
                 endpoint,
                 json={"query": query, "variables": variables},
-                headers=headers,
             )
             resp.raise_for_status()
             data = resp.json()
