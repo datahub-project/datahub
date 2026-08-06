@@ -37,20 +37,32 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
+class PublisherRef:
+    """Publisher-side identity for a linked dataset.
+
+    `project_id` is `None` when the publisher project number could not be
+    resolved to an ID (e.g. `resourcemanager.projects.get` denied).
+    """
+
+    project_number: str
+    dataset: str
+    project_id: Optional[str]
+
+
+@dataclass(frozen=True)
 class LinkedDatasetInfo:
     """Resolved BigQuery Sharing metadata for a single linked dataset.
 
-    `publisher_project_id` is `None` when the publisher project number could not
-    be resolved; governance properties still emit but lineage is skipped.
+    `publisher` is `None` when the dataset exposed no source; its `project_id`
+    is `None` when the source was found but could not be resolved. `has_publisher`
+    is the single gate for whether lineage can be emitted.
     """
 
     consumer_project_id: str
     consumer_dataset: str
 
-    publisher_project_number: Optional[str]
-    publisher_project_id: Optional[str]
-    publisher_dataset: Optional[str]
+    publisher: Optional[PublisherRef] = None
 
     subscription_state: Optional[bigquery_analyticshub_v1.Subscription.State] = None
     link_state: Optional[str] = None  # Dataset.linkedDatasetMetadata.linkState
@@ -62,21 +74,19 @@ class LinkedDatasetInfo:
 
     @property
     def has_publisher(self) -> bool:
-        """True when both publisher project ID and dataset were resolved."""
-        return bool(self.publisher_project_id and self.publisher_dataset)
+        return self.publisher is not None and self.publisher.project_id is not None
 
     def to_extra_properties(self) -> Dict[str, str]:
         """Render as `linked_dataset.*` / `analytics_hub.*` custom properties.
 
-        Empty values are dropped.
+        Empty values are dropped; `linked_dataset.link_type` is always present.
         """
         props: Dict[str, str] = {}
 
-        if self.has_publisher:
-            assert self.publisher_project_id is not None
-            assert self.publisher_dataset is not None
+        publisher = self.publisher
+        if publisher is not None and publisher.project_id is not None:
             props["linked_dataset.source"] = (
-                f"{self.publisher_project_id}.{self.publisher_dataset}"
+                f"{publisher.project_id}.{publisher.dataset}"
             )
         props["linked_dataset.link_type"] = "LINKED"
 
@@ -173,9 +183,6 @@ class BigQueryLinkedDatasetsHandler:
             try:
                 subscriptions = list(ah_client.list_subscriptions(parent=parent))
             except PermissionDenied as e:
-                # Opt-in feature: a disabled API wasn't wanted (warn); a missing
-                # grant on a feature the operator enabled is a failure. Any other
-                # reason is unexpected, so let it propagate.
                 if is_service_disabled(e):
                     self.report.warning(
                         title="BigQuery Sharing (Analytics Hub) API not enabled",
@@ -212,7 +219,7 @@ class BigQueryLinkedDatasetsHandler:
                 ):
                     continue
 
-                consumer_dataset = self._consumer_dataset_name(sub, project_id)
+                consumer_dataset = self._consumer_dataset_name(sub)
                 if consumer_dataset is None:
                     continue
                 if not self.filters.is_dataset_allowed(
@@ -231,8 +238,14 @@ class BigQueryLinkedDatasetsHandler:
     def get_info(
         self, project_id: str, dataset_name: str
     ) -> Optional[LinkedDatasetInfo]:
-        """Look up the linked-dataset metadata for a (project, dataset) pair."""
         return self._lookup.get((project_id, dataset_name))
+
+    def emits_copy_lineage(self, project_id: str, dataset_name: str) -> bool:
+        """Whether this (project, dataset) will emit COPY lineage."""
+        if not self.config.include_linked_dataset_lineage:
+            return False
+        info = self._lookup.get((project_id, dataset_name))
+        return info is not None and info.has_publisher
 
     def gen_lineage_workunits(
         self,
@@ -243,19 +256,18 @@ class BigQueryLinkedDatasetsHandler:
     ) -> Iterable[MetadataWorkUnit]:
         """Emit Siblings + UpstreamLineage for one table/view in a linked dataset."""
         info = self._lookup.get((consumer_project_id, consumer_dataset))
-        if info is None:
+        if info is None or info.publisher is None:
             return
-        publisher_project_id = info.publisher_project_id
-        publisher_dataset = info.publisher_dataset
-        if not publisher_project_id or not publisher_dataset:
+        publisher = info.publisher
+        if publisher.project_id is None:
             return
 
         consumer_urn = self.identifiers.gen_dataset_urn(
             consumer_project_id, consumer_dataset, entity_name
         )
         publisher_urn = self.identifiers.gen_dataset_urn(
-            publisher_project_id,
-            publisher_dataset,
+            publisher.project_id,
+            publisher.dataset,
             entity_name,
         )
 
@@ -287,17 +299,14 @@ class BigQueryLinkedDatasetsHandler:
         self.report.num_linked_dataset_lineage_emitted += 1
 
     def _consumer_dataset_name(
-        self, sub: bigquery_analyticshub_v1.Subscription, fallback_project: str
+        self, sub: bigquery_analyticshub_v1.Subscription
     ) -> Optional[str]:
-        """Extract the consumer-side dataset name from a Subscription."""
-        destination = getattr(sub, "destination_dataset", None)
-        if destination is None:
-            return None
-        ref = getattr(destination, "dataset_reference", None)
-        if ref is None:
-            return None
-        dataset_id = getattr(ref, "dataset_id", None)
-        return dataset_id or None
+        """Extract the consumer-side dataset name from a Subscription.
+
+        The destination message and its dataset reference are always present on
+        a proto Subscription; only the dataset ID may be empty.
+        """
+        return sub.destination_dataset.dataset_reference.dataset_id or None
 
     def _resolve_subscription(
         self,
@@ -307,35 +316,9 @@ class BigQueryLinkedDatasetsHandler:
     ) -> Optional[LinkedDatasetInfo]:
         """Resolve publisher refs and build a LinkedDatasetInfo.
 
-        Returns None only when the consumer dataset cannot be read (deleted
-        after listing, or `get_dataset` otherwise failing), leaving it to
-        ingest as a plain dataset.
+        Returns None when the consumer dataset cannot be read; the caller then
+        ingests it as a plain dataset.
         """
-        try:
-            state = bigquery_analyticshub_v1.Subscription.State(sub.state)
-        except (ValueError, AttributeError):
-            state = None
-
-        listing_segment = _last_segment(getattr(sub, "listing", None))
-        data_exchange_segment = _last_segment(getattr(sub, "data_exchange", None))
-        org_display = getattr(sub, "organization_display_name", None) or None
-        creation_time = getattr(sub, "creation_time", None)
-        last_modify_time = getattr(sub, "last_modify_time", None)
-
-        info = LinkedDatasetInfo(
-            consumer_project_id=project_id,
-            consumer_dataset=consumer_dataset,
-            publisher_project_number=None,
-            publisher_project_id=None,
-            publisher_dataset=None,
-            subscription_state=state,
-            listing=listing_segment,
-            data_exchange=data_exchange_segment,
-            publisher_organization=org_display,
-            creation_time=creation_time.isoformat() if creation_time else None,
-            last_modify_time=last_modify_time.isoformat() if last_modify_time else None,
-        )
-
         bq = self._get_bq_client()
         try:
             ds = bq.get_dataset(f"{project_id}.{consumer_dataset}")
@@ -355,7 +338,7 @@ class BigQueryLinkedDatasetsHandler:
 
         # google-cloud-bigquery exposes raw API properties via _properties.
         properties = getattr(ds, "_properties", None) or {}
-        info.link_state = (properties.get("linkedDatasetMetadata") or {}).get(
+        link_state = (properties.get("linkedDatasetMetadata") or {}).get(
             "linkState"
         ) or None
         source = (properties.get("linkedDatasetSource") or {}).get(
@@ -364,17 +347,14 @@ class BigQueryLinkedDatasetsHandler:
         publisher_project_number = source.get("projectId")
         publisher_dataset = source.get("datasetId")
 
-        info.publisher_project_number = publisher_project_number
-        info.publisher_dataset = publisher_dataset
-
+        publisher: Optional[PublisherRef] = None
         if publisher_project_number and publisher_dataset:
-            info.publisher_project_id = self._resolve_publisher_project_id(
-                publisher_project_number
+            publisher = PublisherRef(
+                project_number=publisher_project_number,
+                dataset=publisher_dataset,
+                project_id=self._resolve_publisher_project_id(publisher_project_number),
             )
         else:
-            # We know this is a linked dataset (subscription confirmed, get_dataset
-            # succeeded) yet it exposes no source, so warn rather than silently
-            # produce a LINKED dataset with no lineage.
             self.report.num_linked_dataset_source_unresolved += 1
             self.report.warning(
                 title="Linked dataset source not resolved",
@@ -387,7 +367,21 @@ class BigQueryLinkedDatasetsHandler:
                 context=f"{project_id}.{consumer_dataset}",
             )
 
-        return info
+        creation_time = sub.creation_time
+        last_modify_time = sub.last_modify_time
+
+        return LinkedDatasetInfo(
+            consumer_project_id=project_id,
+            consumer_dataset=consumer_dataset,
+            publisher=publisher,
+            subscription_state=sub.state,
+            link_state=link_state,
+            listing=_last_segment(sub.listing),
+            data_exchange=_last_segment(sub.data_exchange),
+            publisher_organization=sub.organization_display_name or None,
+            creation_time=creation_time.isoformat() if creation_time else None,
+            last_modify_time=last_modify_time.isoformat() if last_modify_time else None,
+        )
 
     def _resolve_publisher_project_id(self, project_number: str) -> Optional[str]:
         """Resolve a publisher project number to its project ID via Cloud RM.
@@ -419,7 +413,6 @@ class BigQueryLinkedDatasetsHandler:
         return resolved
 
     def _track_state_counters(self, info: LinkedDatasetInfo) -> None:
-        """Increment the per-state counters; STATE_STALE/INACTIVE still emit."""
         State = bigquery_analyticshub_v1.Subscription.State
         if info.subscription_state == State.STATE_STALE:
             self.report.num_linked_dataset_state_stale += 1
@@ -469,4 +462,5 @@ class BigQueryLinkedDatasetsHandler:
 __all__ = [
     "BigQueryLinkedDatasetsHandler",
     "LinkedDatasetInfo",
+    "PublisherRef",
 ]

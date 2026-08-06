@@ -479,8 +479,7 @@ class BigQuerySchemaGenerator:
             yield from self.gen_project_id_containers(project_id)
 
         # Populate before the parallel dataset workers start; they read the
-        # lookup concurrently in `_process_schema`. Scope any unexpected failure
-        # to this project so an opt-in enrichment can never abort the run.
+        # lookup concurrently in `_process_schema`.
         if self.linked_datasets_handler is not None:
             try:
                 self.linked_datasets_handler.populate_for_project(
@@ -905,18 +904,12 @@ class BigQuerySchemaGenerator:
     def _emits_linked_dataset_copy_lineage(
         self, project_id: str, dataset_name: str
     ) -> bool:
-        """Whether a view in this dataset gets inline COPY lineage.
-
-        Kept in sync with the emission gate below so callers can suppress the
-        view-definition writer that would otherwise overwrite it.
-        """
-        if (
-            self.linked_datasets_handler is None
-            or not self.config.include_linked_dataset_lineage
-        ):
-            return False
-        info = self.linked_datasets_handler.get_info(project_id, dataset_name)
-        return info is not None and info.has_publisher
+        return (
+            self.linked_datasets_handler is not None
+            and self.linked_datasets_handler.emits_copy_lineage(
+                project_id, dataset_name
+            )
+        )
 
     def _emit_linked_dataset_lineage(
         self,
@@ -925,27 +918,21 @@ class BigQuerySchemaGenerator:
         entity_name: str,
         columns: List[BigqueryColumn],
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit Siblings + UpstreamLineage for one entity in a linked dataset.
-
-        No-op when the dataset is not a linked dataset, when the lineage flag
-        is off, or when the publisher project couldn't be resolved.
-        """
-        if (
-            self.linked_datasets_handler is None
-            or not self.config.include_linked_dataset_lineage
-        ):
+        """Emit Siblings + UpstreamLineage for one entity in a linked dataset."""
+        handler = self.linked_datasets_handler
+        if handler is None or not handler.emits_copy_lineage(project_id, dataset_name):
             return
         try:
-            yield from self.linked_datasets_handler.gen_lineage_workunits(
+            yield from handler.gen_lineage_workunits(
                 consumer_project_id=project_id,
                 consumer_dataset=dataset_name,
                 entity_name=entity_name,
                 columns=columns,
             )
         except Exception as e:
-            # Emission makes no API calls, so a failure is a local data/shape issue
-            # for this entity. Degrade it here instead of letting it surface as the
-            # dataset-wide "unable to get tables" error, which aborts other entities.
+            # Linked-dataset lineage is best-effort enrichment, so any failure
+            # building it is isolated to this entity rather than aborting the
+            # rest of the dataset's tables and views.
             entity_fqn = f"{project_id}.{dataset_name}.{entity_name}"
             self.report.linked_dataset_lineage_emission_errors.append(entity_fqn)
             self.report.warning(

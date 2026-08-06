@@ -23,8 +23,8 @@ def make_subscription(
 ) -> SimpleNamespace:
     """Minimal stand-in for `Subscription`.
 
-    SimpleNamespace avoids the real proto's field typing; the handler only
-    reads attributes via getattr.
+    SimpleNamespace avoids the real proto's field typing. `state` is stored as
+    the enum member the real proto exposes, so the handler reads it directly.
     """
     destination = SimpleNamespace(
         dataset_reference=SimpleNamespace(project_id=project_id, dataset_id=dataset_id)
@@ -33,7 +33,7 @@ def make_subscription(
         name=f"projects/{project_id}/locations/us/subscriptions/sub_1",
         listing=listing,
         data_exchange=data_exchange,
-        state=state,
+        state=bigquery_analyticshub_v1.Subscription.State(state),
         organization_id="987654321",
         organization_display_name=org_display,
         subscriber_contact="ops@example.com",

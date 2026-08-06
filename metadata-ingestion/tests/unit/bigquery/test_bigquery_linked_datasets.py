@@ -13,6 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
     BigQueryLinkedDatasetsHandler,
     LinkedDatasetInfo,
+    PublisherRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -145,9 +146,11 @@ def test_extra_properties_includes_source_when_publisher_resolved():
     info = LinkedDatasetInfo(
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
-        publisher_project_number="111",
-        publisher_project_id="publisher-project",
-        publisher_dataset="publisher_dataset",
+        publisher=PublisherRef(
+            project_number="111",
+            dataset="publisher_dataset",
+            project_id="publisher-project",
+        ),
         subscription_state=bigquery_analyticshub_v1.Subscription.State(
             DEFAULT_STATE_ACTIVE
         ),
@@ -168,9 +171,11 @@ def test_extra_properties_falls_back_to_data_exchange():
     info = LinkedDatasetInfo(
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
-        publisher_project_number="111",
-        publisher_project_id="publisher-project",
-        publisher_dataset="publisher_dataset",
+        publisher=PublisherRef(
+            project_number="111",
+            dataset="publisher_dataset",
+            project_id="publisher-project",
+        ),
         listing=None,
         data_exchange="exchange_a",
     )
@@ -182,9 +187,11 @@ def test_extra_properties_omits_unpopulated_keys():
     info = LinkedDatasetInfo(
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
-        publisher_project_number="111",
-        publisher_project_id="publisher-project",
-        publisher_dataset="publisher_dataset",
+        publisher=PublisherRef(
+            project_number="111",
+            dataset="publisher_dataset",
+            project_id="publisher-project",
+        ),
     )
     props = info.to_extra_properties()
     # Always-emitted keys are present.
@@ -201,9 +208,11 @@ def test_extra_properties_no_source_when_publisher_unresolved():
     info = LinkedDatasetInfo(
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
-        publisher_project_number="111",
-        publisher_project_id=None,
-        publisher_dataset="publisher_dataset",
+        publisher=PublisherRef(
+            project_number="111",
+            dataset="publisher_dataset",
+            project_id=None,
+        ),
         link_state="LINKED",
     )
     props = info.to_extra_properties()
@@ -557,9 +566,11 @@ def _seed_with_linked_dataset(
     handler._lookup[("consumer-project", "shared_dataset")] = LinkedDatasetInfo(
         consumer_project_id="consumer-project",
         consumer_dataset="shared_dataset",
-        publisher_project_number="111222333",
-        publisher_project_id=publisher_project_id,
-        publisher_dataset=publisher_dataset,
+        publisher=PublisherRef(
+            project_number="111222333",
+            dataset=publisher_dataset,
+            project_id=publisher_project_id,
+        ),
     )
     return handler
 
@@ -729,12 +740,12 @@ def test_list_subscriptions_generic_api_error_propagates():
 def test_emission_error_is_recorded_and_not_fatal():
     """A failure inside lineage emission is downgraded to a warning, not raised."""
     handler = MagicMock()
+    handler.emits_copy_lineage.return_value = True
     handler.gen_lineage_workunits.side_effect = ValueError("bad urn")
     report = BigQueryV2Report()
     # Lightweight stand-in for the generator; the guard reads only these attrs.
     gen: Any = SimpleNamespace(
         linked_datasets_handler=handler,
-        config=SimpleNamespace(include_linked_dataset_lineage=True),
         report=report,
     )
 
@@ -773,15 +784,13 @@ def test_emits_copy_lineage_predicate(
     """COPY lineage is claimed only for a resolved linked dataset with the flag on."""
     handler = (
         _seed_with_linked_dataset(
-            publisher_project_id="publisher-project" if publisher_resolved else None
+            config=_make_config(include_linked_dataset_lineage=include_lineage),
+            publisher_project_id="publisher-project" if publisher_resolved else None,
         )
         if with_handler
         else None
     )
-    gen: Any = SimpleNamespace(
-        linked_datasets_handler=handler,
-        config=SimpleNamespace(include_linked_dataset_lineage=include_lineage),
-    )
+    gen: Any = SimpleNamespace(linked_datasets_handler=handler)
     assert (
         BigQuerySchemaGenerator._emits_linked_dataset_copy_lineage(
             gen, "consumer-project", "shared_dataset"
@@ -790,12 +799,12 @@ def test_emits_copy_lineage_predicate(
     )
 
 
-def test_no_lineage_emitted_when_flag_disabled():
-    """With include_linked_dataset_lineage off, emission is skipped entirely."""
+def test_no_lineage_emitted_when_predicate_false():
+    """When emits_copy_lineage is False (flag off or unresolved), emission is skipped."""
     handler = MagicMock()
+    handler.emits_copy_lineage.return_value = False
     gen: Any = SimpleNamespace(
         linked_datasets_handler=handler,
-        config=SimpleNamespace(include_linked_dataset_lineage=False),
         report=BigQueryV2Report(),
     )
     wus = list(

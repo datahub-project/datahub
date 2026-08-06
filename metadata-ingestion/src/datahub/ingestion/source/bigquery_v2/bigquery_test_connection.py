@@ -175,8 +175,6 @@ class BigQueryTestConnection:
         project_ids: List[str],
     ) -> CapabilityReport:
         """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
-        # Build the client inside the test so a construction/credential failure maps
-        # to this capability, not the outer handler's basic_connectivity=False.
         try:
             ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
         except Exception as e:
