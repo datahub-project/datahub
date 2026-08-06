@@ -778,16 +778,6 @@ jobs:
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         run: df -h . && docker images
 
-      - name: Describe Kafka topic partitions (diagnostic)
-        if: steps.retry-check.outputs.parse_result != 'all_passed' && matrix.batch == '0'
-        run: |
-          BROKER=$(docker ps --format '{{.Names}}' | grep broker | head -1)
-          echo "Broker container: $BROKER"
-          for TOPIC in MetadataChangeProposal_v1 MetadataChangeLog_Versioned_v1 MetadataChangeLog_Timeseries_v1; do
-            echo "=== $TOPIC ==="
-            docker exec "$BROKER" kafka-topics --bootstrap-server broker:29092 --describe --topic "$TOPIC" || true
-          done
-
       - name: Disable ES Disk Threshold
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         run: |
