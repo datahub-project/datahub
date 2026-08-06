@@ -29,7 +29,7 @@ ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
 
 EXTERNAL_QUERY_PATTERN = re.compile(
-    rf"\b{EXTERNAL_QUERY_FUNCTION_NAME}\b", re.IGNORECASE
+    rf"\b{EXTERNAL_QUERY_FUNCTION_NAME}\s*\(", re.IGNORECASE
 )
 
 # Inert FROM/JOIN stand-in; original source alias is reused when present.
