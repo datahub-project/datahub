@@ -240,6 +240,35 @@ public class ConfigureDebeziumConnectorStepTest {
   }
 
   @Test
+  public void testExecutableCreateConnectorConflictFallsBackToUpdate() throws Exception {
+    UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
+    HttpClient mockHttpClient = mock(HttpClient.class);
+    HttpResponse<String> existsCheck = mock(HttpResponse.class);
+    HttpResponse<String> createConflict = mock(HttpResponse.class);
+    HttpResponse<String> updateOk = mock(HttpResponse.class);
+
+    // GET reports missing, POST returns 409, PUT update succeeds.
+    when(existsCheck.statusCode()).thenReturn(404);
+    when(createConflict.statusCode()).thenReturn(409);
+    when(createConflict.body())
+        .thenReturn("{\"error_code\":409,\"message\":\"Connector already exists\"}");
+    when(updateOk.statusCode()).thenReturn(200);
+    when(mockHttpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(existsCheck, createConflict, updateOk);
+
+    ConfigureDebeziumConnectorStep step =
+        spy(
+            new ConfigureDebeziumConnectorStep(
+                OP_CONTEXT, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
+    when(step.createHttpClient()).thenReturn(mockHttpClient);
+
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
   public void testExecutableUpdateConnectorSuccess() throws Exception {
     UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
     HttpClient mockHttpClient = mock(HttpClient.class);

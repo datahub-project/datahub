@@ -542,10 +542,20 @@ class TestSearchWhereFilter:
     """Prove --where SQL-like expressions filter correctly against a live instance."""
 
     def test_where_platform_eq(self, auth_session, search_data: SearchTestData):
-        """--where 'platform = snowflake' returns only snowflake entities."""
+        """--where 'platform = snowflake' returns only snowflake entities.
+
+        Query is scoped to this fixture's namespace so parallel migrate/search
+        workers cannot crowd fixture URNs out of a small --limit page.
+        """
         exit_code, stdout, _ = _run_search(
             auth_session,
-            ["*", "--where", "platform = snowflake", "--limit", "20"],
+            [
+                search_data.ns,
+                "--where",
+                "platform = snowflake",
+                "--limit",
+                "20",
+            ],
         )
 
         assert exit_code == 0
@@ -595,12 +605,24 @@ class TestSearchWhereFilter:
         snow_total = json.loads(snow_stdout)["total"]
         bq_total = json.loads(bq_stdout)["total"]
         where_total = json.loads(where_stdout)["total"]
-        where_urns = {
-            r["entity"]["urn"] for r in json.loads(where_stdout)["searchResults"]
-        }
 
         assert where_total >= snow_total
         assert where_total >= bq_total
+
+        # Namespace-scoped page avoids parallel-worker crowding for fixture URN checks.
+        _, scoped_stdout, _ = _run_search(
+            auth_session,
+            [
+                search_data.ns,
+                "--where",
+                "platform IN (snowflake, bigquery)",
+                "--limit",
+                "50",
+            ],
+        )
+        where_urns = {
+            r["entity"]["urn"] for r in json.loads(scoped_stdout)["searchResults"]
+        }
         for urn in (
             search_data.snowflake_dataset_urns + search_data.bigquery_dataset_urns
         ):
