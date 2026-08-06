@@ -247,14 +247,14 @@ public class EbeanRetentionServiceTest {
     EbeanRetentionService<?> svc = spy(retentionService);
     doAnswer(
             inv -> {
-              RetentionService.RetentionContext ctx = inv.getArgument(0);
+              RetentionService.RetentionContext ctx = inv.getArgument(1);
               if (ctx.getUrn().toString().equals(poison)) {
                 throw new RuntimeException("forced delete failure");
               }
               return inv.callRealMethod();
             })
         .when(svc)
-        .executeRetentionDeleteForContext(any());
+        .executeRetentionDeleteForContext(any(), any());
 
     SimpleRetentionKey goodKey = new SimpleRetentionKey(good, "status");
     SimpleRetentionKey poisonKey = new SimpleRetentionKey(poison, "status");

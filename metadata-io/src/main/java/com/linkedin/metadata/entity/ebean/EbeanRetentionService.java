@@ -99,7 +99,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
         int deletedCount = 0;
         for (RetentionContext context : nonEmptyContexts) {
-          int rowsDeleted = executeRetentionDeleteForContext(context);
+          int rowsDeleted = executeRetentionDeleteForContext(opContext, context);
           deletedCount += rowsDeleted;
           if (rowsDeleted > 0) {
             log.debug(
@@ -122,14 +122,17 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
   /**
    * Build and execute the single-pair DELETE for one {@link RetentionContext}. Returns rows deleted
-   * (0 when no version/time condition applies — a no-op, not a failure). Caller owns the
-   * transaction; this method issues one {@code DELETE} against the ambient/current tx.
+   * (0 when no version/time condition applies — a no-op, not a failure). The DELETE is self-scoped
+   * via {@code _txnFactory.runInScope(opContext, ...)} so it routes to the same underlying database
+   * {@code opContext} resolves to regardless of whether the caller is already inside a scope.
    */
   // Package-private (not private) so a test subclass can override it to force a per-context DELETE
   // failure and exercise the per-context isolation path in applyRetentionBatchWithPolicyDefaults.
-  int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
+  int executeRetentionDeleteForContext(
+      @Nonnull OperationContext opContext, @Nonnull RetentionContext context) {
     // Callers resolve the policy before this point (batch path fills it from getRetention; legacy
     // path filters isPresent). Fail loudly with context if that invariant is ever violated.
+    // Validated before opening the scope — it does not touch the DB.
     Retention retentionPolicy =
         context
             .getRetentionPolicy()
@@ -153,6 +156,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     if (retentionPolicy.hasVersion()) {
       Optional<Expression> versionExpr =
           getVersionBasedRetentionQuery(
+              opContext,
               context.getUrn(),
               context.getAspectName(),
               retentionPolicy.getVersion(),
@@ -170,7 +174,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     }
 
     if (hasVersionCondition || hasTimeCondition) {
-      return deleteQuery.delete();
+      // Self-scope the ORM DELETE so it routes to the same underlying database opContext resolves
+      // to even if a future caller invokes this method outside an already-scoped transaction.
+      return _txnFactory.runInScope(opContext, deleteQuery::delete);
     }
     return 0;
   }
@@ -246,7 +252,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       RetentionContext context = withDefaults.get(i);
       try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
         try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
-          int rowsDeleted = executeRetentionDeleteForContext(context);
+          int rowsDeleted = executeRetentionDeleteForContext(opContext, context);
           tx.commit();
           successes.add(keys.get(i));
           if (rowsDeleted > 0) {
@@ -268,29 +274,24 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     return successes;
   }
 
-  // TODO(op-propagation): getMaxVersion runs an unscoped ORM findList(). It is currently safe
-  // because its sole caller (getVersionBasedRetentionQuery) is only reached via
-  // executeRetentionDeleteForContext, which always runs inside an already-scoped
-  // _txnFactory.scope(opContext) (applyRetention / applyRetentionBatchWithPolicyDefaults).
-  //
-  // Threading opContext into getMaxVersion would require adding it to getVersionBasedRetentionQuery
-  // and then to executeRetentionDeleteForContext, which is package-private specifically so
-  // EbeanRetentionServiceTest can mock it (the test stubs
-  // executeRetentionDeleteForContext(any())). Adding an opContext param across that mock boundary
-  // would break the test mock, so the fix is deferred until the test mock is reworked to take
-  // opContext. No ticket exists yet — this rationale is documented inline so a future reader can
-  // pick it up: thread opContext through getMaxVersion -> getVersionBasedRetentionQuery ->
-  // executeRetentionDeleteForContext, and update EbeanRetentionServiceTest's mock accordingly.
-  private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  private long getMaxVersion(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    // Self-scope the ORM findList() so the max-version SELECT routes to the same underlying
+    // database opContext resolves to even if a future caller invokes this outside a scope.
     List<EbeanAspectV2> result =
-        _server
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq("urn", urn)
-            .eq("aspect", aspectName)
-            .orderBy()
-            .desc("version")
-            .findList();
+        _txnFactory.runInScope(
+            opContext,
+            () ->
+                _server
+                    .find(EbeanAspectV2.class)
+                    .where()
+                    .eq("urn", urn)
+                    .eq("aspect", aspectName)
+                    .orderBy()
+                    .desc("version")
+                    .findList());
     if (result.size() == 0) {
       return -1;
     }
@@ -298,12 +299,13 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   }
 
   private Optional<Expression> getVersionBasedRetentionQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nonnull final VersionBasedRetention retention,
       @Nonnull final Optional<Long> maxVersionFromUpdate) {
     long largestVersion =
-        maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn.toString(), aspectName));
+        maxVersionFromUpdate.orElseGet(() -> getMaxVersion(opContext, urn.toString(), aspectName));
 
     if (largestVersion < retention.getMaxVersions()) {
       return Optional.empty();
@@ -382,6 +384,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       @Nonnull OperationContext opContext,
       @Nullable String entityName,
       @Nullable String aspectName) {
+    Objects.requireNonNull(opContext, "opContext");
     log.debug("Applying retention to all records");
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies(opContext);
 
@@ -414,6 +417,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   @Override
   public BulkApplyRetentionResult batchApplyRetentionEntities(
       @Nonnull BulkApplyRetentionArgs args) {
+    Objects.requireNonNull(
+        args.opContext,
+        "opContext must be set on BulkApplyRetentionArgs before calling batchApplyRetentionEntities");
     long startTime = System.currentTimeMillis();
 
     BulkApplyRetentionResult result = new BulkApplyRetentionResult();

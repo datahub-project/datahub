@@ -169,16 +169,47 @@ public class RetentionDrainer {
     // representative key) and used for every entry in that group's apply call.
     // LinkedHashMap (not HashMap) to preserve group insertion order across runs so drain order is
     // deterministic for reproducible logs/debugging.
+    //
+    // Resolver failures (groupKey/resolveOpContext) are non-fatal to the clear step: a key whose
+    // routing context can't be resolved (e.g. cloud TenantRetentionContextResolver on a stray
+    // non-TenantRetentionKey) is dropped from the buffer here so it doesn't re-throw every tick
+    // (infinite retry storm). The OSS SimpleRetentionContextResolver can't throw, so this is a
+    // no-op there, but the file is byte-identical across OSS/fork.
+    Map<RetentionKey, Long> versionByKey = new LinkedHashMap<>();
+    for (Map.Entry<RetentionKey, Long> entry : batch) {
+      versionByKey.put(entry.getKey(), entry.getValue());
+    }
     Map<String, List<RetentionKey>> groups = new LinkedHashMap<>();
     for (RetentionKey key : contextsByKey.keySet()) {
-      groups.computeIfAbsent(contextResolver.groupKey(key), k -> new ArrayList<>()).add(key);
+      try {
+        groups.computeIfAbsent(contextResolver.groupKey(key), k -> new ArrayList<>()).add(key);
+      } catch (RuntimeException e) {
+        log.warn(
+            "Skipping unresolvable retention key urn={} aspect={}; removing from buffer",
+            key.urn(),
+            key.aspectName(),
+            e);
+        buffer.removeIfSame(key, versionByKey.get(key));
+      }
     }
 
     Set<RetentionKey> successes = new HashSet<>();
     for (List<RetentionKey> groupKeys : groups.values()) {
       RetentionKey representative = groupKeys.get(0);
-      OperationContext groupOpContext =
-          contextResolver.resolveOpContext(representative, systemOperationContext);
+      OperationContext groupOpContext;
+      try {
+        groupOpContext = contextResolver.resolveOpContext(representative, systemOperationContext);
+      } catch (RuntimeException e) {
+        log.warn(
+            "Skipping retention group of {} keys; resolver failed to build opContext;"
+                + " removing from buffer",
+            groupKeys.size(),
+            e);
+        for (RetentionKey key : groupKeys) {
+          buffer.removeIfSame(key, versionByKey.get(key));
+        }
+        continue;
+      }
       List<RetentionService.RetentionContext> groupContexts = new ArrayList<>(groupKeys.size());
       for (RetentionKey key : groupKeys) {
         groupContexts.add(contextsByKey.get(key));
