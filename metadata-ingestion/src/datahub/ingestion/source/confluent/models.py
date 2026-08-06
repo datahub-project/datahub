@@ -34,7 +34,7 @@ BM_DUPLICATE_ATTRIBUTE_NAMES: LiteralString = "Stream Catalog entity has duplica
 
 def empty_if_null(value: object) -> object:
     # Catalog returns null rather than [] for unset collections.
-    return value or []
+    return [] if value is None else value
 
 
 _T = TypeVar("_T")
