@@ -259,11 +259,13 @@ class BigQueryLinkedDatasetsHandler:
             entity_name,
         )
 
-        # Non-primary on the consumer side so the publisher becomes primary once
-        # its own project is ingested.
         yield MetadataChangeProposalWrapper(
             entityUrn=consumer_urn,
             aspect=Siblings(primary=False, siblings=[publisher_urn]),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=publisher_urn,
+            aspect=Siblings(primary=True, siblings=[consumer_urn]),
         ).as_workunit()
 
         fine_grained = self._build_fine_grained_lineages(

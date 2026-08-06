@@ -695,20 +695,34 @@ class TestLineageEmission:
         )
 
         aspects = self._aspects(wus)
-        siblings = [a for a in aspects if isinstance(a, Siblings)]
+        sibling_wus = [
+            wu
+            for wu in wus
+            if isinstance(getattr(wu.metadata, "aspect", None), Siblings)
+        ]
         upstream_lineages = [a for a in aspects if isinstance(a, UpstreamLineage)]
-        assert len(siblings) == 1
+        assert len(sibling_wus) == 2
         assert len(upstream_lineages) == 1
 
-        # Siblings: non-primary on consumer side, single sibling URN.
-        sibling = siblings[0]
-        assert sibling.primary is False
-        sibling_urns = sibling.siblings
-        assert sibling_urns is not None
-        assert len(sibling_urns) == 1
-        assert "publisher-project" in sibling_urns[0]
-        assert "publisher_dataset" in sibling_urns[0]
-        assert sibling_urns[0].endswith(",PROD)")
+        # Reciprocal siblings: consumer non-primary pointing at publisher,
+        # publisher primary pointing back at consumer.
+        by_urn: Dict[Any, Any] = {
+            getattr(wu.metadata, "entityUrn", None): getattr(
+                wu.metadata, "aspect", None
+            )
+            for wu in sibling_wus
+        }
+        consumer_urn = next(u for u in by_urn if "shared_dataset" in u)
+        publisher_urn = next(u for u in by_urn if "publisher_dataset" in u)
+
+        consumer_sibling = by_urn[consumer_urn]
+        assert consumer_sibling.primary is False
+        assert consumer_sibling.siblings == [publisher_urn]
+        assert publisher_urn.endswith(",PROD)")
+
+        publisher_sibling = by_urn[publisher_urn]
+        assert publisher_sibling.primary is True
+        assert publisher_sibling.siblings == [consumer_urn]
 
         # Upstream lineage: single COPY edge.
         upstream = upstream_lineages[0]
