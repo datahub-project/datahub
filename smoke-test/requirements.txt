@@ -14,7 +14,7 @@ networkx
 jinja2>=3.0.0,<4.0.0
 # libaries for linting below this
 mypy==1.14.1
-ruff==0.11.7
+ruff==0.15.22
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
 # requests>=2.32.4 required by snowflake-connector-python>=4.4.0 (pyOpenSSL 26+); types stubs track runtime
 # Upper bound matches metadata-ingestion: newer types-requests (e.g. >=2.32.0.20250306) require urllib3>=2,

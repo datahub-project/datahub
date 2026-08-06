@@ -65,7 +65,6 @@ test.describe('CSV Export - Lineage Results', () => {
     lineagePage = new LineageV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      lineageGraphV3: true,
       themeV2Enabled: true,
       themeV2Default: true,
       showNavBarRedesign: true,

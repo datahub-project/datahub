@@ -12,7 +12,7 @@ import javax.annotation.Nullable;
 public class TokenClaims {
 
   public static final String TOKEN_VERSION_CLAIM_NAME = "version";
-  public static final String TOKEN_TYPE_CLAIM_NAME = "type";
+  public static final String TOKEN_TYPE_CLAIM_NAME = TokenClaimNames.TOKEN_TYPE;
   public static final String ACTOR_TYPE_CLAIM_NAME = "actorType";
   public static final String ACTOR_ID_CLAIM_NAME = "actorId";
   public static final String EXPIRATION_CLAIM = "exp";

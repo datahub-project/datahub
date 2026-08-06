@@ -17,9 +17,11 @@ import re
 import time
 from dataclasses import field
 from datetime import datetime
+from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
 
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -56,16 +58,33 @@ from datahub.ingestion.source.unstructured.event_consumer import DocumentEventCo
 
 logger = logging.getLogger(__name__)
 
+# Aspects whose changes can change what a document's embedding should be built
+# from: documentInfo carries the body, the standalone semanticText aspect
+# carries the curated override. Passed to DocumentEventConsumer AND checked in
+# _process_single_event — keep the two filters in lockstep via this constant.
+EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
+
+class DocumentEnumerationError(Exception):
+    """Raised when document enumeration or hydration breaks systemically.
+
+    Distinct from ``GraphError``, which hydration treats as a per-document data
+    problem worth retrying URN by URN. This one means the document set can no
+    longer be trusted, so the run must abort rather than embed a silent subset.
+    """
+
 
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
 
     num_documents_fetched: int = 0
     num_documents_processed: int = 0
+    num_documents_failed: int = 0
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
+    num_documents_skipped_orphaned: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
@@ -81,6 +100,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
         self.num_documents_processed += 1
         self.num_chunks_created += num_chunks
 
+    def report_document_failed(self) -> None:
+        self.num_documents_failed += 1
+
     def report_document_skipped(self) -> None:
         self.num_documents_skipped += 1
 
@@ -95,6 +117,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_skipped_existing_embeddings(self) -> None:
         """Report document skipped because it already has semanticContent for the model."""
         self.num_documents_skipped_existing_embeddings += 1
+
+    def report_document_skipped_orphaned(self) -> None:
+        """Report a URN skipped because it has no resolvable backing entity."""
+        self.num_documents_skipped_orphaned += 1
 
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
@@ -284,11 +310,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # cleanly without processing (this is expected, not a failure).
         if self.lock is not None and not self.lock.acquire():
             self.report.lock_skipped_run = True
-            self.report.report_warning(
+            self.report.warning(
                 title="Run skipped (lock held)",
                 message="Another datahub-documents run is in progress; this run exited "
                 "without processing to avoid duplicate work. Adjust the schedule or "
                 "locking.lock_ttl_seconds if this happens persistently.",
+                log=False,
             )
             return
 
@@ -297,10 +324,34 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_event_mode()
             else:
                 yield from self._process_batch_mode()
+        except DocumentEnumerationError as e:
+            # Already surfaced by the enumeration/hydration path under a specific
+            # title. Adding the generic failure below would give operators two
+            # entries for one problem, the vaguer one last.
+            logger.error(f"Aborting run: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.report_failure(str(e))
+            self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
         finally:
+            # Every attempted document failing the same way is a systemic problem --
+            # a dependency or environment break -- not per-document data. Without
+            # this the run exits 0 having indexed nothing, and the only trace is a
+            # pile of per-document warnings. Same reasoning as the whole-batch
+            # hydration failure above. Read the chunking source's counter directly:
+            # self.report.num_documents_processed is only populated in get_report(),
+            # so it is still stale here.
+            if (
+                self.report.num_documents_failed > 0
+                and self.chunking_source.report.num_documents_processed == 0
+            ):
+                self.report.failure(
+                    title="Every document failed to process",
+                    message="No document could be processed, so nothing was "
+                    "indexed. This usually means a dependency or environment "
+                    "problem rather than bad document data; see the per-document "
+                    "warnings for the underlying error.",
+                    context=f"attempted={self.report.num_documents_failed}",
+                )
             # Save state after processing
             if self.config.incremental.enabled:
                 self._save_state()
@@ -420,8 +471,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             logger.debug("Event missing entityUrn or aspectName, skipping")
             return
 
-        # Filter for documentInfo aspect
-        if aspect_name != "documentInfo":
+        if aspect_name not in EMBED_SOURCE_ASPECT_NAMES:
             return
 
         # Parse aspect data (handles Avro union wrapping)
@@ -434,9 +484,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             )
             return
 
-        # Extract text from documentInfo (contents may be null for partial entities)
-        contents = aspect_dict.get("contents") or {}
-        text = contents.get("text") or ""
+        if aspect_name == "semanticText":
+            # The event carries the override; the document body and source type
+            # live on documentInfo, so fetch it.
+            info_dict = self._fetch_document_info_dict(entity_urn)
+            if info_dict is None:
+                logger.debug(
+                    f"semanticText event for {entity_urn} without readable documentInfo, skipping"
+                )
+                return
+            contents = dict(info_dict.get("contents") or {})
+            contents["semanticText"] = aspect_dict.get("text")
+            # Downstream source-type filtering reads from the documentInfo shape.
+            aspect_dict = info_dict
+        else:
+            # documentInfo event: the override (if any) lives in the standalone
+            # semanticText aspect, so fetch it. Contents may be null for
+            # partial entities.
+            contents = dict(aspect_dict.get("contents") or {})
+            contents["semanticText"] = self._fetch_semantic_text(entity_urn)
+
+        # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        text = self._resolve_embed_text(contents)
 
         if not text:
             logger.debug(f"No text content in document {entity_urn}")
@@ -535,6 +604,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             poll_timeout_seconds=self.config.event_mode.poll_timeout_seconds,
             poll_limit=self.config.event_mode.poll_limit,
             state_handler=self.state_handler,
+            aspect_names=EMBED_SOURCE_ASPECT_NAMES,
         )
 
         try:
@@ -559,6 +629,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
                 return
 
+        except DocumentEnumerationError:
+            # A batch fallback above aborted systemically and already reported a
+            # specific failure. Falling back again would replay a full
+            # enumeration + hydration storm against GMS for the same outcome.
+            raise
         except Exception as e:
             # Catch any errors during event processing and fall back to batch mode
             error_msg = str(e)
@@ -592,6 +667,44 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return json.loads(aspect_data)
         else:
             return {}
+
+    def _fetch_semantic_text(self, document_urn: str) -> Optional[str]:
+        """Read the standalone semanticText aspect (curated embedding-source
+        override), or None when absent.
+
+        On read failure we fall back to embedding the document body: a transient
+        wrong embed self-corrects on a later run because incremental state hashes
+        the embedded value.
+        """
+        from datahub.metadata.schema_classes import SemanticTextClass
+
+        try:
+            aspect = self.graph.get_aspect(
+                entity_urn=document_urn, aspect_type=SemanticTextClass
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to read semanticText for {document_urn}: {e}; "
+                "embedding document text."
+            )
+            return None
+        return aspect.text if aspect else None
+
+    def _fetch_document_info_dict(self, document_urn: str) -> Optional[dict[str, Any]]:
+        """Read the documentInfo aspect as a dict (the MCL payload shape), or
+        None when absent or unreadable."""
+        from datahub.metadata.schema_classes import DocumentInfoClass
+
+        try:
+            aspect = self.graph.get_aspect(
+                entity_urn=document_urn, aspect_type=DocumentInfoClass
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to read documentInfo for {document_urn}: {e}; skipping event."
+            )
+            return None
+        return aspect.to_obj() if aspect else None
 
     def _extract_platform_from_aspect(
         self, aspect_dict: dict[str, Any]
@@ -832,12 +945,87 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return parts[-1]
         return None
 
-    def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
-        """Fetch Document entities from DataHub using GraphQL."""
-        # scrollAcrossEntities uses cursor-based pagination and is not subject to
-        # Elasticsearch's max_result_window limit (default 10,000), unlike offset-based search.
+    # URNs hydrated per GraphQL request. Kept modest so a single response stays
+    # within GMS's GraphQL limits even for large documents.
+    #
+    # Deliberately fixed and independent of the configurable `scroll_batch_size`:
+    # that one sizes an Elasticsearch page of URNs (cheap, tuned for scroll
+    # pressure on ES), this one sizes a payload of full document bodies (tuned
+    # for GMS response size). Tying them together would make raising the scroll
+    # page size silently inflate hydration responses.
+    _HYDRATE_BATCH_SIZE = 100
+
+    def _fetch_documents_graphql(self) -> Iterable[dict[str, Any]]:
+        """Stream Document entities from DataHub with their text content.
+
+        URNs are enumerated (``_scroll_document_urns``) and hydrated
+        (``_hydrate_documents``) lazily, so a single orphaned index entry can no
+        longer abort the whole run and the catalog is never materialized in
+        memory: at most one hydration batch is held at a time.
+
+        Enumeration and hydration own their own error reporting, so failures
+        propagate from here untouched rather than being re-wrapped around a
+        ``yield``.
+        """
+        num_documents = 0
+
+        for entity in self._hydrate_documents(self._scroll_document_urns()):
+            urn = entity.get("urn")
+            if not urn:
+                continue
+
+            # Filter by specific URNs if provided
+            if self.config.document_urns and urn not in self.config.document_urns:
+                continue
+
+            # Extract text content (GraphQL returns null for missing aspects).
+            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            info = entity.get("info") or {}
+            contents = info.get("contents") or {}
+            text = self._resolve_embed_text(contents)
+
+            # Default to NATIVE when sourceType is absent (older documents).
+            source = info.get("source") or {}
+            source_type = source.get("sourceType") or "NATIVE"
+
+            # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+            if not self._should_process_by_source_type(entity, info):
+                continue
+
+            # Skip if no text or too short
+            if not text or (
+                self.config.skip_empty_text and len(text) < self.config.min_text_length
+            ):
+                logger.debug(
+                    f"Skipping document {urn} (empty or too short: {len(text)} chars)"
+                )
+                continue
+
+            num_documents += 1
+            self.report.report_document_fetched()
+            yield {"urn": urn, "text": text, "source_type": source_type}
+
+        logger.info(
+            f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
+        )
+
+    def _scroll_document_urns(self) -> Iterable[str]:
+        """Enumerate Document URNs via scrollAcrossEntities.
+
+        Only the URN is selected here — never an aspect-backed field. An
+        orphaned index entry (a URN present in the search index with no backing
+        entity) would make GMS null the non-null ``SearchResult.entity`` and
+        abort the whole scroll if any aspect field were selected; requesting the
+        URN alone reads it straight off the search hit and stays orphan-safe.
+        Content is resolved separately in ``_hydrate_documents``, where orphans
+        come back null and are skipped.
+
+        scrollAcrossEntities uses cursor-based pagination and is not subject to
+        Elasticsearch's max_result_window limit (default 10,000), unlike
+        offset-based search.
+        """
         query = """
-        query scrollDocuments(
+        query scrollDocumentUrns(
             $scrollId: String,
             $batchSize: Int!,
             $orFilters: [AndFilterInput!]
@@ -858,35 +1046,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             searchResults {
               entity {
                 urn
-                type
-                ... on Document {
-                  info {
-                    contents {
-                      text
-                    }
-                    customProperties {
-                      key
-                      value
-                    }
-                    source {
-                      sourceType
-                    }
-                  }
-                  dataPlatformInstance {
-                    platform {
-                      urn
-                    }
-                  }
-                }
               }
             }
           }
         }
         """
 
-        page_size = self.config.scroll_batch_size
-
-        # Build optional platform filter
         or_filters = None
         if (
             self.config.platform_filter
@@ -907,85 +1072,235 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
-        try:
-            documents = []
-            scroll_id: Optional[str] = None
-            first_iter = True
+        scroll_id: Optional[str] = None
+        first_iter = True
+        while first_iter or scroll_id:
+            # Keep the distributed lock lease alive while scrolling large sets.
+            if self.lock is not None:
+                self.lock.heartbeat()
+            # Throttle between pages (not before the first) to reduce load on
+            # GMS/Elasticsearch when scrolling large document sets.
+            if not first_iter and self.config.scroll_delay_seconds > 0:
+                time.sleep(self.config.scroll_delay_seconds)
+            first_iter = False
 
-            while first_iter or scroll_id:
-                # Keep the distributed lock lease alive while scrolling large document sets.
-                if self.lock is not None:
-                    self.lock.heartbeat()
-                # Throttle between pages (not before the first) to reduce load on
-                # GMS/Elasticsearch when scrolling large document sets.
-                if not first_iter and self.config.scroll_delay_seconds > 0:
-                    time.sleep(self.config.scroll_delay_seconds)
-                first_iter = False
-                variables: dict[str, Any] = {
-                    "batchSize": page_size,
-                    "scrollId": scroll_id,
-                    "orFilters": or_filters,
+            variables: dict[str, Any] = {
+                "batchSize": self.config.scroll_batch_size,
+                "scrollId": scroll_id,
+                "orFilters": or_filters,
+            }
+            response = self.graph.execute_graphql(query, variables)
+            scroll_data = response.get("scrollAcrossEntities")
+            if scroll_data is None:
+                # scrollAcrossEntities is nullable and execute_graphql only
+                # raises when the response carries GraphQL `errors`, so a null
+                # payload arrives here as an ordinary response. It means
+                # enumeration itself broke (vs. an empty page, which is a valid
+                # `searchResults: []`), so abort: a warning would leave the run
+                # free to finish SUCCESS having embedded a silent subset.
+                self.report.failure(
+                    title="Document enumeration returned no scroll payload",
+                    message="scrollAcrossEntities was missing from the GraphQL "
+                    "response, so the document set is incomplete; aborting the "
+                    "run rather than embedding an unknown subset.",
+                )
+                raise DocumentEnumerationError(
+                    "scrollAcrossEntities missing from the GraphQL response"
+                )
+            scroll_id = scroll_data.get("nextScrollId")
+            search_results = scroll_data.get("searchResults") or []
+            logger.debug(
+                f"Scrolled page of {len(search_results)} document URN(s) (scrollId={scroll_id})"
+            )
+            # A full page with no continuation cursor is suspicious: the scroll
+            # likely truncated, so some documents may never be enumerated. The
+            # page itself is usable, so keep embedding what was enumerated, but
+            # fail the run — a warning would let a large silent gap pass as a
+            # successful run.
+            if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
+                self.report.failure(
+                    title="Document enumeration ended without a scroll cursor",
+                    message="A full page returned no nextScrollId; enumeration "
+                    "stopped early and some documents are likely missing from "
+                    "this run.",
+                )
+            for result in search_results:
+                entity = result.get("entity") or {}
+                urn = entity.get("urn")
+                if urn:
+                    yield urn
+
+    def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
+        """Resolve document URNs to entities in batches.
+
+        Consumes ``urns`` lazily in ``_HYDRATE_BATCH_SIZE`` windows so the full
+        catalog is never materialized: enumeration and hydration interleave, one
+        batch at a time.
+
+        Uses the nullable ``entities(urns:)`` query: an orphaned URN comes back
+        as null and is counted and skipped, instead of aborting the run as the
+        non-null ``SearchResult.entity`` in ``scrollAcrossEntities`` would.
+        """
+        query = """
+        query hydrateDocuments($urns: [String!]!) {
+          entities(urns: $urns) {
+            urn
+            type
+            ... on Document {
+              info {
+                contents {
+                  text
+                  semanticText
                 }
-                response = self.graph.execute_graphql(query, variables)
-                scroll_data = response.get("scrollAcrossEntities") or {}
-                scroll_id = scroll_data.get("nextScrollId")
-                search_results = scroll_data.get("searchResults") or []
+                customProperties {
+                  key
+                  value
+                }
+                source {
+                  sourceType
+                }
+              }
+              dataPlatformInstance {
+                platform {
+                  urn
+                }
+              }
+            }
+          }
+        }
+        """
+        urn_iter = iter(urns)
+        while True:
+            # islice pulls one window from the enumerator, so scrolling and
+            # hydration interleave instead of enumerating everything up front.
+            batch = list(islice(urn_iter, self._HYDRATE_BATCH_SIZE))
+            if not batch:
+                break
+            if self.lock is not None:
+                self.lock.heartbeat()
 
-                logger.debug(
-                    f"Fetched page of {len(search_results)} documents (scrollId={scroll_id})"
+            try:
+                response = self.graph.execute_graphql(query, {"urns": batch})
+            except OperationalError:
+                # Transport/outage error — abort rather than silently skipping
+                # every document (which would report success with 0 embeddings).
+                raise
+            except GraphError as batch_error:
+                # One document with an unexpected null in a non-null field (e.g.
+                # DocumentContent.text) makes GMS fail the whole batch. Retry the
+                # batch one URN at a time so a single bad document can't drop the
+                # rest.
+                logger.warning(
+                    f"Batch hydration failed for {len(batch)} URN(s); retrying individually"
+                )
+                hydrated_any = False
+                for entity in self._hydrate_individually(query, batch):
+                    hydrated_any = True
+                    yield entity
+                if not hydrated_any:
+                    # Every URN in the batch failed the same way — a systemic
+                    # error (typically a GraphQL schema mismatch, e.g. the GMS is
+                    # missing a queried field), not per-document data. Abort:
+                    # continuing would repeat batch-fail plus a per-URN retry
+                    # storm for every remaining batch, hammering GMS with O(N)
+                    # doomed requests before the run finally ends.
+                    self.report.failure(
+                        title="Document hydration failed for an entire batch",
+                        message="Every URN in a hydration batch failed to resolve; "
+                        "this usually means a GraphQL schema mismatch (the GMS is "
+                        "missing a queried field) rather than per-document issues.",
+                        context=batch[0],
+                    )
+                    raise DocumentEnumerationError(
+                        "every URN in a hydration batch failed to resolve"
+                    ) from batch_error
+                continue
+
+            entities = response.get("entities") or []
+            if len(entities) != len(batch):
+                # GMS returns exactly one (possibly null) slot per requested URN —
+                # BatchGetEntitiesResolver sizes its array from the input list. Any
+                # other length means the response cannot be aligned with the
+                # request, so nothing in it is trustworthy. That includes an empty
+                # list, which would otherwise read as a batch of orphans.
+                self.report.failure(
+                    title="Document hydration returned an unexpected entity count",
+                    message="GMS returned a different number of entities than URNs "
+                    "requested, so the hydrated document set is incomplete.",
+                    context=f"requested={len(batch)}, returned={len(entities)}",
+                )
+                raise DocumentEnumerationError(
+                    "entities(urns:) length did not match the hydration batch"
                 )
 
-                for result in search_results:
-                    entity = result.get("entity") or {}
-                    urn = entity.get("urn")
+            # Match on each entity's own URN rather than zipping positionally: a
+            # reordered response would otherwise attribute one document's content
+            # to another URN. Requested URNs with no entity in the response are
+            # counted as orphans, never silently dropped.
+            entities_by_urn = {
+                entity["urn"]: entity
+                for entity in entities
+                if entity and entity.get("urn")
+            }
+            if not entities_by_urn:
+                # Right length, but every slot came back null. Unlike a length
+                # mismatch this is interpretable — every requested URN was
+                # unresolvable — and the rest of the catalog may be healthy, so
+                # fail the run without aborting it. A page of index drift must not
+                # take down a run that can still embed everything else.
+                self.report.failure(
+                    title="Document hydration resolved nothing in a batch",
+                    message="Every URN in a hydration batch resolved to null, which "
+                    "is usually a serving problem rather than that many orphans; "
+                    "the batch was skipped and the run continues.",
+                    context=batch[0],
+                )
+            for urn in batch:
+                hydrated = entities_by_urn.get(urn)
+                if hydrated is None:
+                    self._skip_orphaned(urn)
+                    continue
+                yield hydrated
 
-                    if not urn:
-                        continue
-
-                    # Filter by specific URNs if provided
-                    if (
-                        self.config.document_urns
-                        and urn not in self.config.document_urns
-                    ):
-                        continue
-
-                    # Extract text content (GraphQL returns null for missing aspects)
-                    info = entity.get("info") or {}
-                    contents = info.get("contents") or {}
-                    text = contents.get("text") or ""
-
-                    # Default to NATIVE when sourceType is absent (older documents).
-                    source = info.get("source") or {}
-                    source_type = source.get("sourceType") or "NATIVE"
-
-                    # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                    should_process = self._should_process_by_source_type(entity, info)
-                    if not should_process:
-                        continue
-
-                    # Skip if no text or too short
-                    if not text or (
-                        self.config.skip_empty_text
-                        and len(text) < self.config.min_text_length
-                    ):
-                        logger.debug(
-                            f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                        )
-                        continue
-
-                    documents.append(
-                        {"urn": urn, "text": text, "source_type": source_type}
-                    )
-                    self.report.report_document_fetched()
-
-            logger.info(
-                f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
+    def _hydrate_individually(
+        self, query: str, urns: list[str]
+    ) -> Iterable[dict[str, Any]]:
+        """Hydrate URNs one at a time so a single un-resolvable document is
+        skipped instead of failing its whole batch."""
+        for urn in urns:
+            try:
+                response = self.graph.execute_graphql(query, {"urns": [urn]})
+            except OperationalError:
+                raise
+            except GraphError:
+                self.report.warning(
+                    title="Skipped document that failed to hydrate",
+                    message="A document's content could not be resolved from GMS "
+                    "(a non-null field returned null); it was skipped.",
+                    context=urn,
+                )
+                continue
+            # Match by URN for the same reason the batch path does, rather than
+            # trusting the first slot to be the document we asked for.
+            entities = response.get("entities") or []
+            entity = next(
+                (e for e in entities if e and e.get("urn") == urn),
+                None,
             )
-            return documents
+            if entity is None:
+                self._skip_orphaned(urn)
+                continue
+            yield entity
 
-        except Exception as e:
-            logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
-            raise
+    def _skip_orphaned(self, urn: str) -> None:
+        """Record an orphaned index entry (a URN with no resolvable entity)."""
+        self.report.report_document_skipped_orphaned()
+        self.report.warning(
+            title="Skipped orphaned document",
+            message="A document URN is present in the search index but has no "
+            "resolvable entity (likely index/entity-store drift); it was skipped.",
+            context=urn,
+        )
 
     def _should_process(self, document_urn: str, text: str) -> bool:
         """Check if document should be processed based on content hash."""
@@ -1047,6 +1362,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+
+    @staticmethod
+    def _resolve_embed_text(contents: Dict[str, Any]) -> str:
+        """Resolve the text to embed from a contents dict.
+
+        `semanticText` overrides `text` as the embedding source when present, so
+        a curated representation can drive retrieval while the full body stays in
+        `text`. The override lives in the standalone `semanticText` aspect: batch
+        mode still receives it under `contents` because the GraphQL surface maps
+        the aspect there, and event mode injects it into the dict before calling
+        this. Resolving here (rather than in the hash) means the content hash
+        tracks the embedded value: editing `semanticText` re-embeds, and a change
+        to `text` while `semanticText` is set does not.
+        """
+        return contents.get("semanticText") or contents.get("text") or ""
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -1199,8 +1529,16 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.warning(error_msg, exc_info=True)
+            # Structured rather than a bare logger call: a document that silently
+            # produces no semanticContent is invisible to operators otherwise.
+            self.report.report_document_failed()
+            self.report.warning(
+                title="Failed to process document",
+                message="The document could not be partitioned or chunked, so no "
+                "semanticContent was written for it.",
+                context=doc.get("urn", "unknown"),
+                exc=e,
+            )
 
     def get_report(self) -> SourceReport:
         # Forward stats from the chunking sub-component into our report

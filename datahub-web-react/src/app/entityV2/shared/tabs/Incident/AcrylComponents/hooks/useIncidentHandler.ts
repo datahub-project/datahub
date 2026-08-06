@@ -163,7 +163,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 },
             };
             const newInput = _.omit(baseInput, ['state', 'message']);
-            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
+            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'customType']);
             const input = !isAddIncidentMode ? newUpdateInput : newInput;
 
             if (isAddIncidentMode) {

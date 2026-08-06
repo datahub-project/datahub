@@ -227,8 +227,6 @@ class DataResolverBase(ABC):
             )
         )
 
-        logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
-
         return self._access_token
 
     def _is_access_token_expired(self) -> bool:

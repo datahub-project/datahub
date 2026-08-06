@@ -1,3 +1,6 @@
+// If you change these feature cards, also update FEATURE_CARD_SECTION_MD in
+// docs-website/generateDocsDir.ts, which mirrors them as plain markdown for the
+// AI-tools "Copy page" feature.
 import React from "react";
 import FeatureCard from '../FeatureCard'
 import {

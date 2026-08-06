@@ -49,6 +49,19 @@ ResourceType = TypeVar("ResourceType")
 DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
 
 
+def validate_top_n_queries_character_budget(
+    top_n_queries: int, queries_character_limit: int
+) -> None:
+    """Shared by BaseUsageConfig and BigQueryQueriesExtractorConfig, which both
+    accept these two fields but don't share a common base class."""
+    minimum_query_size = 20
+    max_queries = int(queries_character_limit / minimum_query_size)
+    if top_n_queries > max_queries:
+        raise ValueError(
+            f"top_n_queries is set to {top_n_queries} but it can be maximum {max_queries}"
+        )
+
+
 def default_user_urn_builder(email: str) -> str:
     return builder.make_user_urn(email.split("@")[0])
 
@@ -258,13 +271,10 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     @field_validator("top_n_queries", mode="after")
     @classmethod
     def ensure_top_n_queries_is_not_too_big(cls, v: int, info: ValidationInfo) -> int:
-        minimum_query_size = 20
-        values = info.data
-        max_queries = int(values["queries_character_limit"] / minimum_query_size)
-        if v > max_queries:
-            raise ValueError(
-                f"top_n_queries is set to {v} but it can be maximum {max_queries}"
-            )
+        validate_top_n_queries_character_budget(
+            top_n_queries=v,
+            queries_character_limit=info.data["queries_character_limit"],
+        )
         return v
 
 

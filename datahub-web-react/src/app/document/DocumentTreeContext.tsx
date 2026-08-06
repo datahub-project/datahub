@@ -1,5 +1,7 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 
+import { mergeServerChildNode } from '@app/document/utils/documentTreeNodeMerge';
+
 import { DataPlatform, EntityType } from '@types';
 
 /**
@@ -34,12 +36,25 @@ export interface DocumentTreeNode {
     title: string;
     parentUrn: string | null; // null = root
     hasChildren: boolean;
+    /** Best-effort child count for the collapsed-row Pill. May undercount if the
+     * discovery query is capped; prefer `children.length` once children are loaded. */
+    childCount?: number;
     children?: DocumentTreeNode[]; // Loaded children (undefined = not loaded yet, or merged with server)
     isUnpublished?: boolean; // Any non-PUBLISHED lifecycle stage (or legacy state=UNPUBLISHED) — renders as a dashed icon
     isExternal?: boolean; // info.source.sourceType === EXTERNAL — renders the platform logo instead of folder/file
     platform?: DataPlatform | null; // Source platform; consumed by DocumentSourceLogo when isExternal is true
     creator?: DocumentCreator | null; // Resolved actor on info.created.actor — drives the sidebar's Author multi-select
+    /** info.lastModified.time — available on the node for UI; ordering uses searchDocuments sortInput */
+    lastModifiedAt?: number;
 }
+
+export type AddNodeOptions = {
+    /**
+     * Root placement. `start` = optimistic create (show at top under last-modified default).
+     * `end` = deep-link reveal stub (must not jump above the sorted window).
+     */
+    placement?: 'start' | 'end';
+};
 
 interface DocumentTreeContextType {
     // Tree state
@@ -55,7 +70,7 @@ interface DocumentTreeContextType {
     updateNodeTitle: (urn: string, newTitle: string) => void;
     moveNode: (urn: string, newParentUrn: string | null) => void;
     deleteNode: (urn: string) => void;
-    addNode: (node: DocumentTreeNode) => void;
+    addNode: (node: DocumentTreeNode, options?: AddNodeOptions) => void;
     setNodeChildren: (parentUrn: string | null, children: DocumentTreeNode[]) => void;
     appendRootNodes: (nodes: DocumentTreeNode[]) => void;
     appendNodeChildren: (parentUrn: string, nodes: DocumentTreeNode[]) => void;
@@ -224,7 +239,9 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, []);
 
     // Mutation: Add a new node
-    const addNode = useCallback((node: DocumentTreeNode) => {
+    const addNode = useCallback((node: DocumentTreeNode, options?: AddNodeOptions) => {
+        const placement = options?.placement ?? 'end';
+
         setNodes((prev) => {
             const updated = new Map(prev);
             updated.set(node.urn, node);
@@ -254,78 +271,70 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return updated;
         });
 
-        // Add to rootUrns if it's a root node (at the top)
+        // Roots: create uses `start` (newest first with last-modified default).
+        // Deep-link reveal stubs use `end` so they do not jump the sorted window.
         if (node.parentUrn === null) {
-            setRootUrns((prev) => (prev.includes(node.urn) ? prev : [node.urn, ...prev]));
+            setRootUrns((prev) => {
+                const without = prev.filter((u) => u !== node.urn);
+                return placement === 'start' ? [node.urn, ...without] : [...without, node.urn];
+            });
         }
     }, []);
 
-    // Mutation: Set children for a parent node
-    // IMPORTANT: This merges server data with existing local state to preserve optimistic updates
+    // Merge server pages with local state so optimistic nodes and nested loads survive refetch.
     const setNodeChildren = useCallback((parentUrn: string | null, childNodes: DocumentTreeNode[]) => {
         if (parentUrn === null) {
-            // Setting root nodes - merge with existing roots to preserve optimistic updates
             setRootUrns((prevRootUrns) => {
-                // Merge using Map for deduplication
                 const mergedMap = new Map<string, string>();
 
-                // Add server roots first (fresher data)
                 childNodes.forEach((child) => {
                     mergedMap.set(child.urn, child.urn);
                 });
 
-                // Add existing roots not in server response (optimistic)
                 prevRootUrns.forEach((urn) => {
                     if (!mergedMap.has(urn)) {
                         mergedMap.set(urn, urn);
                     }
                 });
 
-                const mergedRootUrns = Array.from(mergedMap.values());
-
-                return mergedRootUrns;
+                return Array.from(mergedMap.values());
             });
 
             setNodes((prev) => {
                 const updated = new Map(prev);
-                childNodes.forEach((child) => updated.set(child.urn, child));
+                childNodes.forEach((child) => {
+                    updated.set(child.urn, mergeServerChildNode(updated.get(child.urn), child));
+                });
                 return updated;
             });
         } else {
-            // Setting children for a specific parent - merge server data with existing local children
             setNodes((prev) => {
                 const updated = new Map(prev);
                 const parent = updated.get(parentUrn);
                 if (parent) {
-                    // Get existing children (might include optimistic updates)
                     const existingChildren = parent.children || [];
-
-                    // Merge strategy: Server data takes precedence, preserve optimistic updates not yet on server
                     const mergedMap = new Map<string, DocumentTreeNode>();
 
-                    // First, add all server children (fresher data from backend)
                     childNodes.forEach((serverChild) => {
-                        mergedMap.set(serverChild.urn, serverChild);
+                        mergedMap.set(serverChild.urn, mergeServerChildNode(updated.get(serverChild.urn), serverChild));
                     });
 
-                    // Then, add existing children that are NOT in server response (optimistic updates)
                     existingChildren.forEach((existingChild) => {
                         if (!mergedMap.has(existingChild.urn)) {
                             mergedMap.set(existingChild.urn, existingChild);
                         }
                     });
 
-                    // Convert back to array (guaranteed unique by URN)
                     const mergedChildren = Array.from(mergedMap.values());
 
                     updated.set(parentUrn, {
                         ...parent,
                         children: mergedChildren,
-                        hasChildren: mergedChildren.length > 0,
+                        hasChildren: mergedChildren.length > 0 || parent.hasChildren,
                     });
+
+                    mergedChildren.forEach((child) => updated.set(child.urn, child));
                 }
-                // Also add all children to the nodes map
-                childNodes.forEach((child) => updated.set(child.urn, child));
                 return updated;
             });
         }
@@ -367,10 +376,22 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
-    // Batch initialization
+    // Batch initialization (page 0 / sort remount). Merge instead of wipe so
+    // optimistic creates and local renames survive search-index lag.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
-        setRootUrns(rootNodes.map((n) => n.urn));
-        setNodes(new Map(rootNodes.map((n) => [n.urn, n])));
+        setRootUrns((prev) => {
+            const serverUrns = rootNodes.map((n) => n.urn);
+            const serverSet = new Set(serverUrns);
+            const localOnly = prev.filter((urn) => !serverSet.has(urn));
+            return [...serverUrns, ...localOnly];
+        });
+        setNodes((prev) => {
+            const updated = new Map(prev);
+            rootNodes.forEach((serverNode) => {
+                updated.set(serverNode.urn, mergeServerChildNode(updated.get(serverNode.urn), serverNode));
+            });
+            return updated;
+        });
     }, []);
 
     // Expansion state helpers

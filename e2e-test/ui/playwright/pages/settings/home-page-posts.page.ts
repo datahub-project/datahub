@@ -83,7 +83,7 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.submitCreateButton.click();
     // Wait for the toast first (confirms API call completed)
     // Then wait for networkidle to ensure page is fully updated
-    await this.waitForToast(TOAST_MESSAGES.CREATED_POST);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.CREATED_POST);
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -92,7 +92,7 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.submitUpdateButton.click();
     // Wait for the toast first (confirms API call completed)
     // Then wait for networkidle to ensure page is fully updated
-    await this.waitForToast(TOAST_MESSAGES.UPDATED_POST);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.UPDATED_POST);
     await this.page.waitForLoadState('networkidle');
   }
 

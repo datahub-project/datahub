@@ -32,12 +32,17 @@ class IdentifierAccessor:
 
 @dataclass
 class DataAccessFunctionDetail:
-    arg_list: dict  # InvokeExpression node dict from NodeIdMap
+    # arg_list (an InvokeExpression subtree) and node_map (the full NodeIdMap)
+    # are both large parse-tree structures. They are kept out of repr because
+    # this object is logged at debug level and embedded in warning contexts on
+    # nearly every table; rendering the whole tree produced multi-GB logs and
+    # heavy transient/retained memory. See repr=False below.
+    arg_list: dict = field(repr=False)  # InvokeExpression node dict from NodeIdMap
     data_access_function_name: (
         str  # matches FunctionName.value (e.g. "Snowflake.Databases")
     )
     identifier_accessor: Optional[IdentifierAccessor]
-    node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
+    node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
 
 

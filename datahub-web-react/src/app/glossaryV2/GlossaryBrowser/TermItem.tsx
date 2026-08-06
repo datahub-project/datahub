@@ -1,26 +1,36 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
+import styled from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
-import {
-    TreeRowContainer,
-    TreeRowIconSlot,
-    TreeRowLeftContent,
-    TreeRowTitle,
-} from '@app/glossaryV2/GlossaryBrowser/treeRow.styles';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { EntityType } from '@types';
 
-// Row chrome (RowContainer/LeftContent/IconSlot/Title) lives in `treeRow.styles.ts`
-// — shared with `NodeItem` so the two leaf-row types stay visually identical.
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 0;
+
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
 
 interface Props {
     term: ChildGlossaryTermFragment;
@@ -30,10 +40,15 @@ interface Props {
     depth: number;
     selectedUrns?: string[];
     iconColor?: string;
+    /**
+     * SaaS: pass lifecycle / version badges here (or compose in a fork wrapper).
+     * OSS uses this for deprecation; shared row never imports SaaS badge components.
+     */
+    afterLabel?: React.ReactNode;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, depth, selectedUrns, iconColor } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, depth, selectedUrns, iconColor, afterLabel } = props;
 
     const history = useHistory();
     const { entityData } = useGlossaryEntityData();
@@ -41,9 +56,6 @@ function TermItem(props: Props) {
     const activeTabPath = useGlossaryActiveTabPath();
     const generateColor = useGenerateGlossaryColorFromPalette();
 
-    // Canonical resolver: term's own colorHex → inherited (passed by the parent NodeItem) →
-    // parentNodes-derived → palette of the term's URN. Keeps the sidebar in sync with the entity
-    // header, list cards, and modal picker.
     const resolvedIconColor = resolveGlossaryEntityColor(term, generateColor, { inheritedColor: iconColor });
     const TermIcon = getGlossaryEntityIcon(EntityType.GlossaryTerm);
 
@@ -60,9 +72,6 @@ function TermItem(props: Props) {
         }
     }
 
-    // Picker variant (AddRelatedTermsModal etc.) selects the term; otherwise
-    // the row navigates to the term's entity page, preserving the active
-    // tab path when the user isn't currently editing documentation.
     function handleRowClick() {
         if (isSelecting) {
             handleSelectTerm();
@@ -75,21 +84,41 @@ function TermItem(props: Props) {
 
     const displayName = entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term);
 
+    const deprecation = isOnEntityPage ? entityData?.deprecation : term.deprecation;
+
+    const deprecationBadge = deprecation?.deprecated ? (
+        <DeprecationSlot>
+            <DeprecationIcon urn={term.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+        </DeprecationSlot>
+    ) : null;
+
+    // SaaS can pass lifecycle/version via `afterLabel`; OSS deprecation composes with it.
+    const resolvedAfterLabel =
+        afterLabel != null || deprecationBadge != null ? (
+            <>
+                {deprecationBadge}
+                {afterLabel}
+            </>
+        ) : undefined;
+
     return (
-        <TreeRowContainer
-            $level={depth}
-            $isSelected={isRowSelected}
-            onClick={handleRowClick}
+        <HierarchicalBrowseTreeRow
+            level={depth}
+            isSelected={isRowSelected}
+            icon={
+                <GlossaryColoredIcon
+                    color={resolvedIconColor}
+                    icon={TermIcon}
+                    size={TREE_ROW_ENTITY_ICON_SIZE}
+                    iconSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
+                />
+            }
+            label={displayName}
+            afterLabel={resolvedAfterLabel}
+            trailing={isMultiSelected ? <SelectedMark /> : undefined}
+            onSelect={handleRowClick}
             data-testid={`glossary-sidebar-term-${term.urn}`}
-        >
-            <TreeRowLeftContent>
-                <TreeRowIconSlot>
-                    <GlossaryColoredIcon color={resolvedIconColor} icon={TermIcon} size={20} iconSize={12} />
-                </TreeRowIconSlot>
-                <TreeRowTitle $isSelected={isRowSelected}>{displayName}</TreeRowTitle>
-            </TreeRowLeftContent>
-            {isMultiSelected && <SelectedMark />}
-        </TreeRowContainer>
+        />
     );
 }
 

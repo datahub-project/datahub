@@ -1,6 +1,9 @@
 package com.linkedin.metadata.config;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.Data;
 
 /**
@@ -16,14 +19,24 @@ import lombok.Data;
  *   <li>If systemMetadataFilterConfig has timestamps configured → use system metadata index
  *   <li>Otherwise → use entity search index
  * </ul>
+ *
+ * <p><b>Per-check mode:</b> {@link #checks} controls whether each check is {@code disabled}, {@code
+ * dry-run}, or {@code active}. Job-level {@link #dryRun} is a safety ceiling — when true, no check
+ * writes regardless of per-check mode.
  */
 @Data
 public class EntityConsistencyConfiguration {
 
+  /** Check ID for orphaned system-metadata / search / graph index documents. */
+  public static final String ORPHAN_INDEX_DOCUMENT_CHECK_ID = "orphan-index-document";
+
   /** Whether the consistency check is enabled */
   private boolean enabled;
 
-  /** Whether to run in dry-run mode (report only, no changes) */
+  /**
+   * Job-level dry-run ceiling. When true, no check applies fixes. When false, each check's {@link
+   * CheckRunConfig#mode} controls whether fixes are applied.
+   */
   private boolean dryRun;
 
   /** Batch size for scanning entities */
@@ -41,7 +54,13 @@ public class EntityConsistencyConfiguration {
   /** Maximum number of entities to process (0 for unlimited) */
   private int limit;
 
-  /** Entity types to check. If empty or null, uses all entity types that have registered checks. */
+  /**
+   * Job-level entity types for default (non-orphan) checks. If empty or null, uses entity types
+   * that have registered default checks.
+   *
+   * <p>System-metadata discovery scope (orphan / SM-filtered scans) uses {@link
+   * SystemMetadataFilterConfig#entityTypes} instead.
+   */
   private List<String> entityTypes;
 
   /**
@@ -54,6 +73,12 @@ public class EntityConsistencyConfiguration {
   private Reprocess reprocess;
 
   /**
+   * Per-check upgrade configuration keyed by check ID. Controls mode (disabled / dry-run / active)
+   * and optional cadence schedule for datahub-upgrade runs.
+   */
+  private Map<String, CheckRunConfig> checks;
+
+  /**
    * System metadata filter configuration - when specified, uses system metadata index for entity
    * selection with timestamp and aspect filtering.
    */
@@ -63,6 +88,73 @@ public class EntityConsistencyConfiguration {
   public static class Reprocess {
     /** Whether to reprocess even if previously completed */
     private boolean enabled;
+  }
+
+  /**
+   * Per-check configuration for the entity-consistency upgrade job.
+   *
+   * <p>Mode defaults to {@link ConsistencyCheckMode#DRY_RUN} when unset. Schedule defaults to
+   * {@link ConsistencyCheckSchedule#EVERY_RUN} when unset (except yaml defaults for specific checks
+   * such as orphan-index-document).
+   */
+  @Data
+  public static class CheckRunConfig {
+    /** disabled | dry-run | active */
+    private String mode;
+
+    /** every-run | daily | weekly | monthly */
+    private String schedule;
+
+    @Nonnull
+    public ConsistencyCheckMode resolvedMode() {
+      return ConsistencyCheckMode.fromString(mode);
+    }
+
+    @Nonnull
+    public ConsistencyCheckSchedule resolvedSchedule() {
+      return ConsistencyCheckSchedule.fromString(schedule);
+    }
+  }
+
+  /**
+   * Resolve per-check config, returning an empty config (dry-run / every-run defaults) when absent.
+   */
+  @Nonnull
+  public CheckRunConfig getCheckRunConfig(@Nonnull String checkId) {
+    if (checks == null) {
+      return new CheckRunConfig();
+    }
+    CheckRunConfig config = checks.get(checkId);
+    return config != null ? config : new CheckRunConfig();
+  }
+
+  /** Resolved mode for a check ID. */
+  @Nonnull
+  public ConsistencyCheckMode getCheckMode(@Nonnull String checkId) {
+    return getCheckRunConfig(checkId).resolvedMode();
+  }
+
+  /** Resolved schedule for a check ID. */
+  @Nonnull
+  public ConsistencyCheckSchedule getCheckSchedule(@Nonnull String checkId) {
+    return getCheckRunConfig(checkId).resolvedSchedule();
+  }
+
+  /**
+   * Whether fixes should be applied for a check, respecting the job-level dry-run ceiling.
+   *
+   * @return true only when job dryRun is false and the check mode is active
+   */
+  public boolean shouldApplyFixes(@Nonnull String checkId) {
+    if (dryRun) {
+      return false;
+    }
+    return getCheckMode(checkId).shouldApplyFixes();
+  }
+
+  @Nonnull
+  public Map<String, CheckRunConfig> getChecksOrEmpty() {
+    return checks != null ? checks : Collections.emptyMap();
   }
 
   /**
@@ -110,6 +202,19 @@ public class EntityConsistencyConfiguration {
     private Boolean includeSoftDeleted;
 
     /**
+     * When true, scroll only system-metadata documents for each entity type's key aspect. Reduces
+     * work for orphan and large-type scans. Defaults to false when unset; upgrade job yaml enables
+     * this by default.
+     */
+    private Boolean keyAspectOnly;
+
+    /**
+     * Entity types to include in system-metadata discovery (orphan scans and other SM-filtered
+     * passes). Empty or null = all registry entity types.
+     */
+    private List<String> entityTypes;
+
+    /**
      * Check if any filter parameters are configured.
      *
      * @return true if system metadata filtering should be used
@@ -117,7 +222,14 @@ public class EntityConsistencyConfiguration {
     public boolean hasAnyConfig() {
       return gePitEpochMs != null
           || lePitEpochMs != null
-          || (aspectFilters != null && !aspectFilters.isEmpty());
+          || (aspectFilters != null && !aspectFilters.isEmpty())
+          || Boolean.TRUE.equals(keyAspectOnly)
+          || (entityTypes != null && !entityTypes.isEmpty());
+    }
+
+    /** Whether this filter restricts discovery to a configured entity-type list. */
+    public boolean hasEntityTypes() {
+      return entityTypes != null && !entityTypes.isEmpty();
     }
 
     /**
@@ -127,6 +239,11 @@ public class EntityConsistencyConfiguration {
      */
     public boolean isIncludeSoftDeleted() {
       return Boolean.TRUE.equals(includeSoftDeleted);
+    }
+
+    /** Whether discovery should use key-aspect system-metadata documents only. */
+    public boolean isKeyAspectOnly() {
+      return Boolean.TRUE.equals(keyAspectOnly);
     }
   }
 

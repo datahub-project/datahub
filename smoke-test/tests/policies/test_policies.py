@@ -6,6 +6,9 @@ import pytest
 from tests.utils import execute_graphql, get_root_urn, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.global_policy_mutator
+
 TEST_POLICY_NAME = "Updated Platform Policy"
 
 

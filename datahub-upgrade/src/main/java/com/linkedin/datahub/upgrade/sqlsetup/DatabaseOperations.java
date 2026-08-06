@@ -135,6 +135,22 @@ public interface DatabaseOperations {
   default void ensureAspectIndexes(Connection connection) throws SQLException {}
 
   /**
+   * Ensures the {@code metadata_aspect_v2} key columns use a case- and byte-exact collation. On
+   * MySQL, {@code CREATE TABLE} sets {@code utf8mb4_bin} but that only applies to freshly created
+   * tables — a table created by an older/other provisioning path with a case-insensitive collation
+   * (e.g. {@code utf8mb4_general_ci}, {@code utf8mb4_0900_ai_ci}) is never corrected, since {@code
+   * CREATE TABLE IF NOT EXISTS} is a no-op when the table already exists. A case-insensitive
+   * collation makes {@code EbeanAspectDao.getNextVersions} read back rows for URNs that differ only
+   * in case from the request keys, which throws and drops the entire MCP batch on the async
+   * consumer path (silent, intermittent ingestion data loss). This aligns such existing tables with
+   * {@code ALTER TABLE ... CONVERT TO} only when the collation is wrong. Defaults to a no-op
+   * (PostgreSQL's default collation is byte-exact, so it is unaffected).
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void ensureAspectTableCollation(Connection connection) throws SQLException {}
+
+  /**
    * Called after table creation to create any indexes that must run outside a transaction (e.g.
    * CONCURRENTLY). Defaults to a no-op.
    *

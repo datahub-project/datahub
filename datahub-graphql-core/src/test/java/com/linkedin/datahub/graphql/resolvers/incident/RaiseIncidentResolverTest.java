@@ -132,7 +132,37 @@ public class RaiseIncidentResolverTest {
       Assert.fail("Expected exception was not thrown");
     } catch (ExecutionException e) {
       Assert.assertEquals(
-          "customType is required: Failed to create incident.", e.getCause().getMessage());
+          "Failed to raise incident: customType is required when type is CUSTOM",
+          e.getCause().getMessage());
+    }
+  }
+
+  @Test
+  public void testCustomTypeBlankRejected() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.CUSTOM);
+    testInput.setCustomType("   ");
+    testInput.setResourceUrn("urn:li:dataset:(test,test,test)");
+    testInput.setTitle("Title");
+    testInput.setDescription("Description");
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+
+    try {
+      resolver.get(mockEnv).get();
+      Assert.fail("Expected exception was not thrown");
+    } catch (ExecutionException e) {
+      Assert.assertEquals(
+          "Failed to raise incident: customType is required when type is CUSTOM",
+          e.getCause().getMessage());
     }
   }
 

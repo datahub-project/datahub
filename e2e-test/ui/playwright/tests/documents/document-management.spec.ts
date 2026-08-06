@@ -21,6 +21,9 @@ const TYPE_RUNBOOK = 'Runbook';
 test.use({ featureName: 'documents' });
 
 test.describe('Document Management', () => {
+  // Create → move → verify (and cascade delete) need more than the default 60s.
+  test.setTimeout(120000);
+
   let documentPage: DocumentPage;
 
   test.beforeEach(async ({ apiMock, page }) => {
