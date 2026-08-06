@@ -74,17 +74,17 @@ def test_mysql_profiling_config_defaults_to_no_guardrail_and_low_concurrency() -
 def test_mysql_profiling_config_schema_lists_mysql_supported() -> None:
     # Redeclaring with Annotated[...] preserves the SupportedSources metadata on the
     # subclass field (a plain redeclaration drops it — verified empirically). MySQL's
-    # config JSON schema must therefore advertise mysql support for both limit fields.
+    # config JSON schema must therefore advertise the platforms that inherit
+    # MySQLProfilingConfig's guardrails: mysql (direct) plus mariadb/doris/tidb, which
+    # inherit MySQLSource.generate_profile_candidates and so genuinely use these limits.
     from datahub.ingestion.source.sql.mysql import MySQLProfilingConfig
 
+    expected = ["mysql", "mariadb", "doris", "tidb"]
     props = MySQLProfilingConfig.model_json_schema()["properties"]
-    assert (
-        "mysql" in props["profile_table_row_limit"]["schema_extra"]["supported_sources"]
-    )
-    assert (
-        "mysql"
-        in props["profile_table_size_limit"]["schema_extra"]["supported_sources"]
-    )
+    for field in ("profile_table_row_limit", "profile_table_size_limit"):
+        assert props[field]["schema_extra"]["supported_sources"] == expected, (
+            f"{field} supported_sources drifted from {expected}"
+        )
 
 
 def test_generate_profile_candidates_returns_get_identifier_strings() -> None:
@@ -277,7 +277,7 @@ def test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sourc
 ):
     # Blocking-2 regression guard: the limit fields on Doris/TiDB are INHERITED from
     # MySQLProfilingConfig (not redeclared), so they must carry MySQLProfilingConfig's
-    # Annotated[Optional[int], SupportedSources(["mysql"])] metadata through to the subclass
+    # Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] metadata through to the subclass
     # JSON schema. A bare-int redeclaration (the bug this guards against) would drop Optional (so
     # `null` is rejected) AND SupportedSources. Checked via the JSON schema — the same surface
     # MySQLProfilingConfig is verified on.

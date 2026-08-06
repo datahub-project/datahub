@@ -100,7 +100,7 @@ class DorisProfilingConfig(MySQLProfilingConfig):
     # default here would *activate* a guardrail that never ran before, silently dropping profiles
     # for tables over 5M rows using information_schema.tables.table_rows semantics that Doris
     # (an MPP engine) does not share with InnoDB. Same failure mode rejected for MySQL in §4.1.
-    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql"])] type, so
+    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type, so
     # `null` is still accepted and the SupportedSources metadata survives (verified in
     # test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sources).
     max_workers: int = Field(
