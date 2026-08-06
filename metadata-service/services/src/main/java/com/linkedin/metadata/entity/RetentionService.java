@@ -12,7 +12,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
-import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -89,7 +89,7 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * the current version is retained—consistent with retention service not being enabled.
    *
    * @param opContext operation context
-   * @param entityNa entity type
+   * @param entityName entity type
    * @param aspectName aspect name
    * @return 1 if no version policy; else version.maxVersions if set
    */

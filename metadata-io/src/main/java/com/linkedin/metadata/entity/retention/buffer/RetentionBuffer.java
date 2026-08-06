@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.retention.buffer;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 

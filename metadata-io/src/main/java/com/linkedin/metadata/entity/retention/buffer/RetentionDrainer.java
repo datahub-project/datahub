@@ -4,6 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.retention.RetentionContextResolver;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;

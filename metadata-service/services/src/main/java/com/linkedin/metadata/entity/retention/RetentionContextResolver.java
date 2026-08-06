@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.retention.buffer;
+package com.linkedin.metadata.entity.retention;
 
 import com.linkedin.common.urn.Urn;
 import io.datahubproject.metadata.context.OperationContext;
@@ -6,8 +6,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Seam for attaching routing metadata to retention buffer keys and reconstructing an {@link
- * OperationContext} for a drained key, so a background {@link RetentionDrainer} can route each
- * drained entry to the same underlying database that produced it.
+ * OperationContext} for a drained key, so a background drainer can route each drained entry to the
+ * same underlying database that produced it.
  *
  * <p>The drainer has no request context of its own — it runs on a scheduler thread. Without this
  * seam, every drained entry would be applied under a single system context and route to one fixed
@@ -15,7 +15,7 @@ import javax.annotation.Nonnull;
  * enough routing metadata at enqueue (when the request {@link OperationContext} is available) to
  * reconstruct a correct context at drain.
  *
- * <p>OSS default {@link SimpleRetentionContextResolver} is a no-op: keys carry no routing metadata
+ * <p>OSS default {@code SimpleRetentionContextResolver} is a no-op: keys carry no routing metadata
  * and {@code resolveOpContext} returns the system context unchanged, matching the single-database
  * deployment. An extension module that routes to multiple databases provides its own implementation
  * (and a matching {@link RetentionKey} subtype).

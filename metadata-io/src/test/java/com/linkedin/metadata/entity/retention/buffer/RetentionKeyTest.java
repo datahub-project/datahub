@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import org.testng.annotations.Test;
 
 public class RetentionKeyTest {

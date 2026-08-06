@@ -11,7 +11,7 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
-import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;

@@ -52,6 +52,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -195,79 +196,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final PreProcessHooks preProcessHooks,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        false,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final boolean cdcModeChangeLog,
-      final PreProcessHooks preProcessHooks,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        cdcModeChangeLog,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final PreProcessHooks preProcessHooks,
-      @Nullable final Integer retry,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        false,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final boolean cdcModeChangeLog,
-      final PreProcessHooks preProcessHooks,
-      @Nullable final Integer retry,
-      final boolean enableBrowseV2,
-      final boolean postCommitRetentionEnabled,
+      @Nonnull final PreProcessHooks preProcessHooks,
+      @Nonnull final EntityServiceConfiguration entityServiceConfiguration,
       @javax.annotation.Nullable
           final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
-    this.alwaysEmitChangeLog = alwaysEmitChangeLog;
-    this.cdcModeChangeLog = cdcModeChangeLog;
+    this.alwaysEmitChangeLog = entityServiceConfiguration.isAlwaysEmitChangeLog();
+    this.cdcModeChangeLog = entityServiceConfiguration.isCdcModeChangeLog();
     this.preProcessHooks = preProcessHooks;
-    ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
-    this.enableBrowseV2 = enableBrowseV2;
-    this.postCommitRetentionEnabled = postCommitRetentionEnabled;
+    ebeanMaxTransactionRetry =
+        entityServiceConfiguration.getRetry() != null
+            ? entityServiceConfiguration.getRetry()
+            : DEFAULT_MAX_TRANSACTION_RETRY;
+    this.enableBrowseV2 = entityServiceConfiguration.isEnableBrowseV2();
+    this.postCommitRetentionEnabled = entityServiceConfiguration.isPostCommitRetentionEnabled();
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }

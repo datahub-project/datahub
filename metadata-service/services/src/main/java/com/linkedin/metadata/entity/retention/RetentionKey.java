@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.retention.buffer;
+package com.linkedin.metadata.entity.retention;
 
 import java.io.Serializable;
 
@@ -7,8 +7,8 @@ import java.io.Serializable;
  * writes should be collapsed to a single "keep max version" entry.
  *
  * <p>Interface (not a record) so an extension module can attach routing metadata without this
- * module knowing that metadata exists. OSS default: {@link SimpleRetentionKey}. Equality is the
- * implementation's responsibility — {@link SimpleRetentionKey#equals}/{@code hashCode} use {@code
+ * module knowing that metadata exists. OSS default: {@code SimpleRetentionKey}. Equality is the
+ * implementation's responsibility — {@code SimpleRetentionKey#equals}/{@code hashCode} use {@code
  * (urn, aspectName)}; an extension module's key must include any routing metadata in
  * equals/hashCode so two requests that target different underlying databases do not coalesce into
  * one buffer entry.

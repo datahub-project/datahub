@@ -26,6 +26,8 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
+import com.linkedin.metadata.entity.retention.RetentionContextResolver;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;

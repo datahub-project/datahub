@@ -43,6 +43,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -102,6 +103,7 @@ public class EntityServiceImplTest {
   private EntityServiceImpl entityService;
   private MetadataChangeProposal testMCP;
   private AspectDao mockAspectDao;
+  private final MetricUtils metricUtils = mock(MetricUtils.class);
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -113,13 +115,14 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mock(AspectDao.class),
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            false,
-            null);
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setRetry(0)
+                .setEnableBrowseV2(true)
+                .setPostCommitRetentionEnabled(false),
+            metricUtils);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -522,13 +525,14 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mock(AspectDao.class),
             mockEventProducer,
-            true, // alwaysEmitChangeLog set to true
-            false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
-            0,
-            true,
-            false,
-            null); // metricUtils
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(true)
+                .setCdcModeChangeLog(false)
+                .setRetry(0)
+                .setEnableBrowseV2(true)
+                .setPostCommitRetentionEnabled(false),
+            metricUtils);
 
     RecordTemplate sameAspect = newAspect;
 
@@ -746,7 +750,14 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                new EntityServiceConfiguration()
+                    .setAlwaysEmitChangeLog(false)
+                    .setRetry(0)
+                    .setEnableBrowseV2(true),
+                metricUtils));
 
     // Mock ingestProposalSync to capture default aspects
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
@@ -827,7 +838,14 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                new EntityServiceConfiguration()
+                    .setAlwaysEmitChangeLog(false)
+                    .setRetry(0)
+                    .setEnableBrowseV2(true),
+                metricUtils));
 
     // Simply stub the method without capturing
     doReturn(Stream.empty())
@@ -941,18 +959,18 @@ public class EntityServiceImplTest {
             any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
-    // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
             mockAspectDao,
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            false,
-            null);
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setRetry(0)
+                .setEnableBrowseV2(true)
+                .setPostCommitRetentionEnabled(false),
+            metricUtils);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -995,13 +1013,14 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mockAspectDao,
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            false,
-            null);
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setRetry(0)
+                .setEnableBrowseV2(true)
+                .setPostCommitRetentionEnabled(false),
+            metricUtils);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -1074,13 +1093,14 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mockAspectDao,
             mock(EventProducer.class),
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            false,
-            null);
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setRetry(0)
+                .setEnableBrowseV2(true)
+                .setPostCommitRetentionEnabled(false),
+            metricUtils);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
     String aspectName = STATUS_ASPECT_NAME;
@@ -1169,7 +1189,14 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                new EntityServiceConfiguration()
+                    .setAlwaysEmitChangeLog(false)
+                    .setRetry(0)
+                    .setEnableBrowseV2(true),
+                metricUtils));
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -1406,13 +1433,14 @@ public class EntityServiceImplTest {
             new EntityServiceImpl(
                 mockAspectDao,
                 mockEventProducer,
-                false,
-                false,
                 mock(PreProcessHooks.class),
-                0,
-                true,
-                false,
-                null));
+                new EntityServiceConfiguration()
+                    .setAlwaysEmitChangeLog(false)
+                    .setCdcModeChangeLog(false)
+                    .setRetry(0)
+                    .setEnableBrowseV2(true)
+                    .setPostCommitRetentionEnabled(false),
+                metricUtils));
 
     // Create test data
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
@@ -1483,13 +1511,14 @@ public class EntityServiceImplTest {
             new EntityServiceImpl(
                 mockAspectDao,
                 mock(EventProducer.class),
-                false,
-                false,
                 mock(PreProcessHooks.class),
-                0,
-                true,
-                false,
-                null));
+                new EntityServiceConfiguration()
+                    .setAlwaysEmitChangeLog(false)
+                    .setCdcModeChangeLog(false)
+                    .setRetry(0)
+                    .setEnableBrowseV2(true)
+                    .setPostCommitRetentionEnabled(false),
+                metricUtils));
     doReturn(Stream.empty())
         .when(service)
         .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
@@ -1613,13 +1642,14 @@ public class EntityServiceImplTest {
     return new EntityServiceImpl(
         mock(AspectDao.class),
         mock(EventProducer.class),
-        false,
-        false,
         mock(PreProcessHooks.class),
-        0,
-        true,
-        postCommitEnabled,
-        null);
+        new EntityServiceConfiguration()
+            .setAlwaysEmitChangeLog(false)
+            .setCdcModeChangeLog(false)
+            .setRetry(0)
+            .setEnableBrowseV2(true)
+            .setPostCommitRetentionEnabled(postCommitEnabled),
+        metricUtils);
   }
 
   private UpdateAspectResult postCommitUpsertResult() {
