@@ -78,9 +78,7 @@ public class DataGenerator {
             mock(AspectDao.class),
             mock(EventProducer.class),
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setEnableBrowseV2(false),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(false),
             mock(MetricUtils.class));
     return new DataGenerator(opContext, mockEntityServiceImpl);
   }
