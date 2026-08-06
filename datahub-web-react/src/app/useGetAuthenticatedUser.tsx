@@ -21,18 +21,19 @@ export function useGetAuthenticatedUser(): AuthenticatedUser | undefined {
         return undefined;
     }
 
-    // UserContext stores the same getMe payload; cast back to the query shape so
-    // consumers retain fields aliased on corpUser when present.
+    // UserContext stores the same getMe payload; cast back to the query shape for
+    // consumers that still expect AuthenticatedUser (CorpUser vs query selection set).
     return {
-        corpUser: user as AuthenticatedUser['corpUser'],
-        platformPrivileges: (platformPrivileges ?? undefined) as AuthenticatedUser['platformPrivileges'],
-    };
+        corpUser: user,
+        platformPrivileges,
+    } as AuthenticatedUser;
 }
 
 /**
- * Return a list of URN corresponding to the currently authenticated user, null if one cannot be found.
+ * Return the URN of the currently authenticated user from the actor cookie.
+ * Throws if the cookie is missing.
  */
-export function useGetAuthenticatedUserUrn() {
+export function useGetAuthenticatedUserUrn(): string {
     const userUrn = Cookies.get(CLIENT_AUTH_COOKIE);
     if (!userUrn) {
         throw new Error('Could not find logged in user.');

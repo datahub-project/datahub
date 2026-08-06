@@ -89,6 +89,20 @@ describe('useGetAuthenticatedUser', () => {
         expect(mockCookiesGet).not.toHaveBeenCalled();
         expect(mockUseUserContext).toHaveBeenCalled();
     });
+
+    it('passes through null platformPrivileges without rewriting', () => {
+        mockUseUserContext.mockReturnValue(loadedUserContext({ platformPrivileges: null }));
+
+        const { result } = renderHook(() => useGetAuthenticatedUser());
+
+        expect(result.current).toEqual({
+            corpUser: {
+                urn: USER_URN,
+                username: 'jdoe',
+            },
+            platformPrivileges: null,
+        });
+    });
 });
 
 describe('useGetAuthenticatedUserUrn', () => {
