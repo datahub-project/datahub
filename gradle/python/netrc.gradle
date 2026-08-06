@@ -5,9 +5,14 @@ ext.validateDatahubNetrc = { String path ->
   if (!path) {
     return
   }
-  // Normalize once so cache key and script see the same file (relative NETRC paths
-  // would otherwise resolve against JVM cwd vs project.exec working dir).
-  def file = new File(path)
+  // Expand ~ (java.io.File does not) and resolve relative paths against the repo
+  // root so cache key + script agree across subprojects / JVM cwd differences.
+  // Missing files are intentionally skipped: mise always exports NETRC even when
+  // docker/snippets/uv/.netrc has not been created yet.
+  def expanded = (path == '~' || path.startsWith('~/') || path.startsWith('~' + File.separator))
+      ? System.getProperty('user.home') + path.substring(1)
+      : path
+  def file = rootProject.file(expanded)
   if (!file.exists()) {
     return
   }
