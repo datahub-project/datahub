@@ -210,4 +210,6 @@ class BigQueryV2Report(
     num_linked_dataset_project_resolve_errors: int = 0
     num_linked_dataset_state_inactive: int = 0
     num_linked_dataset_state_stale: int = 0
-    linked_dataset_lineage_errors: LossyList[str] = field(default_factory=LossyList)
+    linked_dataset_lineage_emission_errors: LossyList[str] = field(
+        default_factory=LossyList
+    )

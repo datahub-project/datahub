@@ -19,6 +19,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
+    BigQuerySchemaGenerator,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
@@ -788,6 +791,41 @@ class TestApiErrorHandling:
         # schema-gen call site, which scopes the failure to the project.
         with pytest.raises(GoogleAPIError):
             handler.populate_for_project("consumer-project", datasets)
+
+
+# --- Lineage emission guard (schema-gen wiring) ---------------------------
+
+
+class TestLineageEmissionGuard:
+    def test_emission_error_is_recorded_and_not_fatal(self):
+        # The guard touches only three attributes of BigQuerySchemaGenerator, so
+        # exercise it with a lightweight stand-in, not the full generator.
+        handler = MagicMock()
+        handler.gen_lineage_workunits.side_effect = ValueError("bad urn")
+        report = BigQueryV2Report()
+        gen = SimpleNamespace(
+            linked_datasets_handler=handler,
+            config=SimpleNamespace(include_linked_dataset_lineage=True),
+            report=report,
+        )
+
+        wus = list(
+            BigQuerySchemaGenerator._emit_linked_dataset_lineage(
+                gen,
+                project_id="consumer-project",
+                dataset_name="shared_dataset",
+                entity_name="active_users",
+                columns=[],
+            )
+        )
+
+        assert wus == []
+        assert list(report.linked_dataset_lineage_emission_errors) == [
+            "consumer-project.shared_dataset.active_users"
+        ]
+        assert any(
+            "Failed to emit linked dataset lineage" in str(w) for w in report.warnings
+        )
 
 
 # --- Smoke test on the dataclass + property accessors ---------------------

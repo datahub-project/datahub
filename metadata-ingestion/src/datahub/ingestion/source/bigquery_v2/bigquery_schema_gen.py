@@ -843,7 +843,7 @@ class BigQuerySchemaGenerator:
             table, columns, project_id, dataset_name
         )
 
-        yield from self._maybe_emit_linked_dataset_lineage(
+        yield from self._emit_linked_dataset_lineage(
             project_id=project_id,
             dataset_name=dataset_name,
             entity_name=table.name,
@@ -891,14 +891,14 @@ class BigQuerySchemaGenerator:
             dataset_name=dataset_name,
         )
 
-        yield from self._maybe_emit_linked_dataset_lineage(
+        yield from self._emit_linked_dataset_lineage(
             project_id=project_id,
             dataset_name=dataset_name,
             entity_name=view.name,
             columns=columns,
         )
 
-    def _maybe_emit_linked_dataset_lineage(
+    def _emit_linked_dataset_lineage(
         self,
         project_id: str,
         dataset_name: str,
@@ -915,12 +915,28 @@ class BigQuerySchemaGenerator:
             or not self.config.include_linked_dataset_lineage
         ):
             return
-        yield from self.linked_datasets_handler.gen_lineage_workunits(
-            consumer_project_id=project_id,
-            consumer_dataset=dataset_name,
-            entity_name=entity_name,
-            columns=columns,
-        )
+        try:
+            yield from self.linked_datasets_handler.gen_lineage_workunits(
+                consumer_project_id=project_id,
+                consumer_dataset=dataset_name,
+                entity_name=entity_name,
+                columns=columns,
+            )
+        except Exception as e:
+            # Emission makes no API calls, so a failure is a local data/shape issue
+            # for this entity. Degrade it here instead of letting it surface as the
+            # dataset-wide "unable to get tables" error, which aborts other entities.
+            entity_fqn = f"{project_id}.{dataset_name}.{entity_name}"
+            self.report.linked_dataset_lineage_emission_errors.append(entity_fqn)
+            self.report.warning(
+                title="Failed to emit linked dataset lineage",
+                message=(
+                    "Could not build BigQuery Sharing lineage for this entity; it "
+                    "is ingested without linked-dataset lineage."
+                ),
+                context=entity_fqn,
+                exc=e,
+            )
 
     def _process_snapshot(
         self,
