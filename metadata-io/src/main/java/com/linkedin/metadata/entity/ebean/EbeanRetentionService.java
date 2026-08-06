@@ -84,47 +84,15 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 })
             .collect(Collectors.toList());
 
-    // Execute separate DELETE statements for each retention context within the same transaction
-    // This provides significantly better index usage (10-20x performance improvement) compared to
-    // a single DELETE with many OR clauses, while maintaining transactional consistency
+    // Separate DELETEs per retention context (better index use than one DELETE with many ORs).
+    // Tx scope depends on caller: legacy in-tx path shares the upsert transaction; when invoked
+    // from the post-commit path (postCommitRetentionEnabled), deletes run outside that upsert tx.
     if (!nonEmptyContexts.isEmpty()) {
       int deletedCount = 0;
       for (RetentionContext context : nonEmptyContexts) {
-        Retention retentionPolicy = context.getRetentionPolicy().get();
-
-        // Build a separate DELETE query for this specific (urn, aspect) pair
-        ExpressionList<EbeanAspectV2> deleteQuery =
-            _server
-                .find(EbeanAspectV2.class)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
-                .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
-                .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
-
-        boolean hasVersionCondition = false;
-        if (retentionPolicy.hasVersion()) {
-          Optional<Expression> versionExpr =
-              getVersionBasedRetentionQuery(
-                  context.getUrn(),
-                  context.getAspectName(),
-                  retentionPolicy.getVersion(),
-                  context.getMaxVersion());
-          if (versionExpr.isPresent()) {
-            deleteQuery.add(versionExpr.get());
-            hasVersionCondition = true;
-          }
-        }
-
-        boolean hasTimeCondition = false;
-        if (retentionPolicy.hasTime()) {
-          deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
-          hasTimeCondition = true;
-        }
-
-        // Execute DELETE immediately for this (urn, aspect) pair if any condition applies
-        if (hasVersionCondition || hasTimeCondition) {
-          int rowsDeleted = deleteQuery.delete();
-          deletedCount += rowsDeleted;
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        deletedCount += rowsDeleted;
+        if (rowsDeleted > 0) {
           log.debug(
               "Deleted {} rows for urn={} aspect={}",
               rowsDeleted,
@@ -140,6 +108,126 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
             nonEmptyContexts.size());
       }
     }
+  }
+
+  /**
+   * Build and execute the single-pair DELETE for one {@link RetentionContext}. Returns rows deleted
+   * (0 when no version/time condition applies — a no-op, not a failure). Caller owns the
+   * transaction; this method issues one {@code DELETE} against the ambient/current tx.
+   */
+  // Package-private (not private) so a test subclass can override it to force a per-context DELETE
+  // failure and exercise the per-context isolation path in applyRetentionBatchWithPolicyDefaults.
+  int executeRetentionDeleteForContext(@Nonnull RetentionContext context) {
+    // Callers resolve the policy before this point (batch path fills it from getRetention; legacy
+    // path filters isPresent). Fail loudly with context if that invariant is ever violated.
+    Retention retentionPolicy =
+        context
+            .getRetentionPolicy()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Missing retention policy for "
+                            + context.getUrn()
+                            + " "
+                            + context.getAspectName()));
+
+    ExpressionList<EbeanAspectV2> deleteQuery =
+        _server
+            .find(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+            .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+            .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION);
+
+    boolean hasVersionCondition = false;
+    if (retentionPolicy.hasVersion()) {
+      Optional<Expression> versionExpr =
+          getVersionBasedRetentionQuery(
+              context.getUrn(),
+              context.getAspectName(),
+              retentionPolicy.getVersion(),
+              context.getMaxVersion());
+      if (versionExpr.isPresent()) {
+        deleteQuery.add(versionExpr.get());
+        hasVersionCondition = true;
+      }
+    }
+
+    boolean hasTimeCondition = false;
+    if (retentionPolicy.hasTime()) {
+      deleteQuery.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
+      hasTimeCondition = true;
+    }
+
+    if (hasVersionCondition || hasTimeCondition) {
+      return deleteQuery.delete();
+    }
+    return 0;
+  }
+
+  /**
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} that applies each (urn, aspect) pair
+   * in its own independent transaction ({@code TxScope.requiresNew}). A poison pair fails and
+   * retries on its own without wedging the rest of the batch, and there is no per-engine savepoint
+   * behavior to reason about — the extra commits are negligible for low-volume background
+   * retention. Returns the contexts that were durably committed — the caller ({@link
+   * com.linkedin.metadata.entity.retention.buffer.RetentionDrainer}) should clear only those keys
+   * from the buffer via {@code removeIfSame}.
+   *
+   * <p>Empty-policy contexts are returned as successes (no-op DELETEs) so their buffer keys are
+   * cleared rather than retried forever.
+   */
+  @Override
+  @WithSpan
+  @Nonnull
+  public List<RetentionContext> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
+    List<RetentionContext> withDefaults =
+        retentionContexts.stream()
+            .map(
+                context -> {
+                  if (context.getRetentionPolicy().isEmpty()) {
+                    Retention retentionPolicy =
+                        getRetention(
+                            opContext, context.getUrn().getEntityType(), context.getAspectName());
+                    return context.toBuilder()
+                        .retentionPolicy(Optional.of(retentionPolicy))
+                        .build();
+                  }
+                  return context;
+                })
+            .collect(Collectors.toList());
+
+    List<RetentionContext> successes = new ArrayList<>(withDefaults.size());
+    if (withDefaults.isEmpty()) {
+      return successes;
+    }
+
+    // One independent transaction per context (TxScope.requiresNew): a poison (urn, aspect) fails
+    // and retries on its own without blocking the rest of the batch, and there is no per-engine
+    // savepoint behavior to reason about. Retention is low-volume background cleanup, so the extra
+    // commits are negligible. Each context is a single bulk DELETE.
+    for (RetentionContext context : withDefaults) {
+      try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
+        int rowsDeleted = executeRetentionDeleteForContext(context);
+        tx.commit();
+        successes.add(context);
+        if (rowsDeleted > 0) {
+          log.debug(
+              "Deleted {} rows for urn={} aspect={}",
+              rowsDeleted,
+              context.getUrn(),
+              context.getAspectName());
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Retention delete failed for urn={} aspect={}; leaving key for retry",
+            context.getUrn(),
+            context.getAspectName(),
+            e);
+      }
+    }
+    return successes;
   }
 
   private long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {

@@ -118,7 +118,9 @@ class TestUsageAggregationAdminSessions:
             baseline = fetch_metric_total(
                 pat_session, gms_url, OUTPUT_BYTES_METRIC, tags
             )
-            generate_openapi_metadata_read_traffic(pat_session, repeat=2)
+            # Slightly more traffic than other admin tests: PAT path + flush
+            # window can miss a 2-request burst under load.
+            generate_openapi_metadata_read_traffic(pat_session, repeat=3)
             wait_for_metric_delta(
                 pat_session,
                 gms_url,
