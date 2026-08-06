@@ -137,7 +137,9 @@ public class EbeanEntityServiceTest
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new com.linkedin.metadata.entity.ebean.PlainAspectTableResolver(),
+            new com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory(server));
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);

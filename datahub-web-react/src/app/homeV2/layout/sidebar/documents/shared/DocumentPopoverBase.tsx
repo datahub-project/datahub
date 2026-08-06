@@ -261,6 +261,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                             hideCreate={hideCreate}
                             multiSelect={multiSelect}
                             checkedUrns={checkedUrns}
+                            loadRoots={false}
                         />
                     </>
                 )}
