@@ -87,11 +87,8 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
-        (application, dataMap) -> {
-          final Status status = new Status(dataMap);
-          application.setExists(!status.isRemoved());
-          application.setStatus(StatusMapper.map(context, status));
-        });
+        (application, dataMap) ->
+            application.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (application, dataMap) ->
