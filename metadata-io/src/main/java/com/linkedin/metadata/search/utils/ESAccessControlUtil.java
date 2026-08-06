@@ -1,12 +1,10 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
-import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
-import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -50,7 +48,7 @@ public class ESAccessControlUtil {
           if (isViewRestrictedEntityType(
                   opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
                   entityType)
-              && !canViewEntity(opContext, searchEntity.getEntity())) {
+              && !EntityAuthorizationUtils.canViewEntity(opContext, searchEntity.getEntity())) {
 
             // Not authorized && restricted response requested
             if (opContext.getSearchContext().isRestrictedSearch()) {
@@ -71,16 +69,8 @@ public class ESAccessControlUtil {
   public static boolean restrictUrn(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
         && !opContext.isSystemAuth()) {
-      return !canViewEntity(opContext, urn);
+      return !EntityAuthorizationUtils.canViewEntity(opContext, urn);
     }
     return false;
-  }
-
-  private static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {
-      return EntityAspectAuthorizationUtils.canViewQueryEntity(
-          opContext, opContext, opContext.getAspectRetriever(), urn);
-    }
-    return AuthUtil.canViewEntity(opContext, urn);
   }
 }

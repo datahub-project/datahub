@@ -332,7 +332,8 @@ input RaiseIncidentInput {
   """
   type: IncidentType!
   """
-  A custom type of incident. Present only if type is 'CUSTOM'
+  A custom type of incident. Required when type is CUSTOM; omit for other incident types.
+  Free-text label naming your incident category (for example ML_LEAKAGE).
   """
   customType: String
   """

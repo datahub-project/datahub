@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Enter a display name.",
     "user.enterEmailError": "Enter your email",
     "user.imageUrlLabel": "Image URL",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "not valid phone number",
     "user.invalidUrlError": "not valid url",
     "user.name": "Person",

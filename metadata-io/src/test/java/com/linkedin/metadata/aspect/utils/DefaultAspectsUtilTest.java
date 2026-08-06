@@ -13,6 +13,8 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
@@ -43,7 +45,9 @@ public class DefaultAspectsUtilTest {
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

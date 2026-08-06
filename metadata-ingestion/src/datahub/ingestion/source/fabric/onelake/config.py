@@ -170,6 +170,15 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter schemas by name. "
+            "Schemas denied by this pattern are skipped entirely, "
+            "including all their tables and views."
+        ),
+    )
+
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(

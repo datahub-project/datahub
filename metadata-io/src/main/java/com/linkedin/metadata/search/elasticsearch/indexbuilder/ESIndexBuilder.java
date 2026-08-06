@@ -735,13 +735,29 @@ public class ESIndexBuilder {
   public void applyMappings(
       @Nonnull OperationContext opContext, ReindexConfig indexState, boolean suppressError)
       throws IOException {
-    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredPropertyAddition()) {
+    if (indexState.isPureMappingsAddition()
+        || indexState.isPureStructuredPropertyAddition()
+        || indexState.isInPlaceMappingParameterUpdate()) {
       log.info("Updating index {} mappings in place.", indexState.name());
       PutMappingRequest request =
           new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
       searchClient.putIndexMapping(opContext, request, requestOptionsLong);
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
+      // Reached when the mappings differ but put-mapping cannot express the diff: not a pure
+      // field addition, not a pure structured-property addition, and not confined to an
+      // in-place updatable parameter. buildIndex passes suppressError=true, so without this
+      // warning the upgrade step reports success while the index mapping is silently left
+      // untouched — the operator sees no reindex and no change.
+      log.warn(
+          "Index: {} - Mapping changes were NOT applied: put-mapping cannot express this diff,"
+              + " so a reindex is required to pick them up."
+              + " requiresReindex={}, enableIndexMappingsReindex={}."
+              + " If reindexing is disabled, enable ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX"
+              + " or the new mappings will keep being ignored.",
+          indexState.name(),
+          indexState.requiresReindex(),
+          indexState.enableIndexMappingsReindex());
       if (!suppressError) {
         log.error(
             "Attempted to apply invalid mappings. Current: {} Target: {}",
