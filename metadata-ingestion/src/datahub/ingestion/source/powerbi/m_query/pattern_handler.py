@@ -580,6 +580,7 @@ class AbstractLineage(ABC):
         # Extract EXTERNAL_QUERY before T-SQL cleanup so regexes do not rewrite
         # USE/GO/SET/DROP inside federation string literals.
         external_upstreams: List[DataPlatformTable] = []
+        external_parse_failed = False
         if (
             platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
             and native_sql_parser.EXTERNAL_QUERY_PATTERN.search(query)
@@ -587,8 +588,13 @@ class AbstractLineage(ABC):
             resolution = self._resolve_external_query_upstreams(query)
             external_upstreams = resolution.upstreams
             query = resolution.rewritten_query
-            if resolution.outer_parse_failed:
-                return Lineage.empty()
+            # Do not early-return when federation extraction failed: the DataHub SQL
+            # aggregator below is more tolerant than the strict sqlglot.parse used for
+            # extraction and may still resolve native BigQuery tables in the same query.
+            # The extraction failure was already reported in
+            # _resolve_external_query_upstreams, so guard the failure branches below
+            # (external_parse_failed) to avoid reporting the same root cause twice.
+            external_parse_failed = resolution.outer_parse_failed
 
         query = native_sql_parser.remove_drop_statement(query)
 
@@ -619,11 +625,14 @@ class AbstractLineage(ABC):
                     context=f"table-name={self.table.full_name}, sql={query}",
                 )
                 return Lineage(upstreams=external_upstreams, column_lineage=[])
-            self.reporter.info(
-                title=Constant.SQL_PARSING_FAILURE,
-                message="Fail to parse native sql present in PowerBI M-Query",
-                context=f"table-name={self.table.full_name}, sql={query}",
-            )
+            if not external_parse_failed:
+                # When external_parse_failed the same failure was already reported at
+                # extraction time; the tolerant reparse simply failed too, so stay silent.
+                self.reporter.info(
+                    title=Constant.SQL_PARSING_FAILURE,
+                    message="Fail to parse native sql present in PowerBI M-Query",
+                    context=f"table-name={self.table.full_name}, sql={query}",
+                )
             return Lineage.empty()
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
@@ -638,11 +647,14 @@ class AbstractLineage(ABC):
                     context=context,
                 )
                 return Lineage(upstreams=external_upstreams, column_lineage=[])
-            self.reporter.warning(
-                title=Constant.SQL_PARSING_FAILURE,
-                message="Fail to parse native sql present in PowerBI M-Query",
-                context=context,
-            )
+            if not external_parse_failed:
+                # Already reported at extraction time when external_parse_failed; don't
+                # report the same root cause twice.
+                self.reporter.warning(
+                    title=Constant.SQL_PARSING_FAILURE,
+                    message="Fail to parse native sql present in PowerBI M-Query",
+                    context=context,
+                )
             return Lineage.empty()
 
         dataplatform_tables.extend(external_upstreams)

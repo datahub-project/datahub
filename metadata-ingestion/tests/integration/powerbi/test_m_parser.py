@@ -1627,6 +1627,61 @@ def test_bigquery_external_query_outer_extraction_parse_failure_warns():
     assert len(reporter.warnings) >= 1
 
 
+@pytest.mark.integration
+def test_bigquery_external_query_extraction_failure_still_resolves_native_tables():
+    # extract_external_queries uses a strict sqlglot.parse that can hard-fail (parse_failed)
+    # even when the more tolerant DataHub aggregator can still resolve the native BigQuery
+    # tables in the same query. The extraction failure is reported once (at extraction
+    # time), and the native upstream must NOT be discarded by an early return.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.extract_external_queries",
+        return_value=native_sql_parser.ExternalQueryExtraction(
+            references=[],
+            rewritten_query="SELECT a FROM my_project.my_dataset.native_table",
+            parse_failed=True,
+        ),
+    ):
+        lineages: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+
+    urns = {dpt.urn for dpt in combine_upstreams_from_lineage(lineages)}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
+    }
+    # Reported exactly once (at extraction); the tolerant native reparse succeeded, so it
+    # must not add a second report for the same root cause.
+    assert reporter.m_query_external_query_parse_errors == 1
+    assert len(reporter.warnings) == 1
+
+
 def test_sqlglot_parser():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[24],
