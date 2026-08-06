@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 
 from pydantic import Field
@@ -15,8 +14,6 @@ from datahub.ingestion.source.kafka.confluent_catalog_constants import (
 )
 from datahub.ingestion.source.kafka.kafka_config import KafkaConfluentCatalogConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-
-logger = logging.getLogger(__name__)
 
 
 class CatalogKafkaTopic(CatalogEntity):

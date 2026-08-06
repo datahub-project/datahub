@@ -24,3 +24,6 @@ LIMIT_PLACEHOLDER: Final[str] = "{limit}"
 OFFSET_PLACEHOLDER: Final[str] = "{offset}"
 
 MAX_ERROR_BODY_CHARS: Final[int] = 500
+
+# Transient Kafka REST failures while listing topics for Confluent Cloud lineage.
+MAX_KAFKA_TOPIC_FETCH_ATTEMPTS: Final[int] = 3

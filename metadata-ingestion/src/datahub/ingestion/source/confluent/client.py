@@ -161,7 +161,11 @@ class ConfluentStreamCatalogClient:
 
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
-            return _CatalogPage([], 0)
+            self.report.failure(
+                message="The Confluent Stream Catalog response is missing a data object",
+                context=context,
+            )
+            return None
 
         if root_key not in data:
             self.report.failure(
@@ -172,7 +176,11 @@ class ConfluentStreamCatalogClient:
 
         entities = data.get(root_key)
         if not isinstance(entities, list):
-            return _CatalogPage([], 0)
+            self.report.failure(
+                message="The Confluent Stream Catalog response field is not a list",
+                context=f"{context}, field={root_key}",
+            )
+            return None
 
         items = [item for item in entities if isinstance(item, dict)]
         return _CatalogPage(items, len(entities))

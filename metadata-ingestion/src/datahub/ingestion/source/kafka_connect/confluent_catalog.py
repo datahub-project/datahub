@@ -1,4 +1,3 @@
-import logging
 from typing import List, Optional
 
 from pydantic import Field
@@ -18,8 +17,6 @@ from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
     CONNECTOR_CATALOG_QUERY,
     CONNECTOR_ROOT_KEY,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class CatalogConnector(CatalogEntity):

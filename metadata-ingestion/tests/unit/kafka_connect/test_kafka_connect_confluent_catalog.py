@@ -1,4 +1,4 @@
-from typing import Dict, Mapping, Optional, Sequence, Set, Type
+from typing import Dict, List, Mapping, Optional, Sequence, Set, Type
 from unittest.mock import Mock, patch
 
 import pytest
@@ -25,6 +25,9 @@ from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
     LINEAGE_SOURCE_PROPERTY,
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.source_connectors import (
+    DebeziumSourceConnector,
+)
 from datahub.metadata.schema_classes import GlobalTagsClass
 
 REGISTRY_LOOKUP = (
@@ -247,8 +250,7 @@ class TestConnectorCatalog:
         assert catalog.get_connector("SOURCE_POSTGRES_01") is None
         assert catalog.report.catalog_connectors_indexed == 2
         assert any(
-            "Case-insensitive Stream Catalog connector lookup is disabled"
-            in warning.message
+            "Case-insensitive Stream Catalog lookup is disabled" in warning.message
             for warning in catalog.report.warnings
         )
 
@@ -573,7 +575,7 @@ class TestCatalogLineage:
 
         derive.assert_not_called()
 
-    def test_kafka_rest_failure_does_not_warn_when_catalog_disabled(self) -> None:
+    def test_kafka_rest_failure_warns_without_catalog_wording(self) -> None:
         source = make_cloud_source()
         source._catalog = None
         source._all_kafka_topics_resolved = False
@@ -584,9 +586,16 @@ class TestCatalogLineage:
         ):
             assert source._get_all_topics_from_kafka_api() is None
 
-        assert source.report.warnings == []
+        assert any(
+            warning.message
+            == "Could not resolve the Kafka REST endpoint for the live-cluster topic list"
+            for warning in source.report.warnings
+        )
+        assert not any(
+            "Stream Catalog" in warning.message for warning in source.report.warnings
+        )
 
-    def test_kafka_rest_failure_warns_when_catalog_enabled(self) -> None:
+    def test_kafka_rest_failure_warns_with_catalog_cross_check_note(self) -> None:
         source = make_cloud_source()
         source._all_kafka_topics_resolved = False
         source._all_kafka_topics_cache = None
@@ -600,6 +609,40 @@ class TestCatalogLineage:
             "Stream Catalog lineage will not be cross-checked" in warning.message
             for warning in source.report.warnings
         )
+
+    def test_kafka_rest_topic_list_is_fetched_once_per_run(self) -> None:
+        source = make_cloud_source()
+        source._catalog = None
+        source._all_kafka_topics_resolved = False
+        source._all_kafka_topics_cache = None
+
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "kind": "KafkaTopicList",
+            "data": [
+                {"topic_name": "orders", "is_internal": False},
+                {"topic_name": "__consumer_offsets", "is_internal": True},
+            ],
+        }
+
+        with (
+            patch.object(
+                source,
+                "_parse_confluent_cloud_info",
+                return_value=("https://pkc.confluent.cloud", "lkc-abc123"),
+            ),
+            patch.object(
+                source,
+                "_get_kafka_auth_headers",
+                return_value={"Authorization": "Basic abc"},
+            ),
+            patch.object(source.kafka_session, "get", return_value=response) as get,
+        ):
+            assert source._get_all_topics_from_kafka_api() == ["orders"]
+            assert source._get_all_topics_from_kafka_api() == ["orders"]
+
+        assert get.call_count == 1
 
     def test_connector_absent_from_catalog_does_not_claim_empty_topics(self) -> None:
         source = make_cloud_source()
@@ -689,3 +732,107 @@ class TestCatalogCreation:
         assert source._catalog is None
         assert len(source.report.warnings) == 1
         assert "Schema Registry endpoint" in source.report.warnings[0].message
+
+
+class TestAvailableTopicsNoneVsEmpty:
+    def test_empty_cluster_list_does_not_fall_back_to_topic_names(self) -> None:
+        manifest = make_manifest(
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.server.name": "myserver",
+                "database.dbname": "mydb",
+                "table.include.list": "public.users",
+            }
+        )
+        manifest.topic_names = ["should-not-be-used"]
+        connector = DebeziumSourceConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = []
+
+        assert connector.available_topics() == []
+
+    def test_unavailable_cluster_list_falls_back_to_topic_names(self) -> None:
+        manifest = make_manifest(
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.server.name": "myserver",
+                "database.dbname": "mydb",
+                "table.include.list": "public.users",
+            }
+        )
+        manifest.topic_names = ["myserver.public.users"]
+        connector = DebeziumSourceConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = None
+
+        assert connector.available_topics() == ["myserver.public.users"]
+
+
+class TestDebeziumEventRouterTopicFiltering:
+    def _make_event_router_connector(
+        self,
+        *,
+        all_cluster_topics: Optional[List[str]],
+        topic_names: Optional[List[str]] = None,
+    ) -> DebeziumSourceConnector:
+        manifest = make_manifest(
+            name="outbox-cdc",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.server.name": "myserver",
+                "database.dbname": "mydb",
+                "table.include.list": "public.outbox",
+                "transforms": "outbox,route",
+                "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": ".*",
+                "transforms.route.replacement": "events.$1",
+            },
+        )
+        if topic_names is not None:
+            manifest.topic_names = topic_names
+        connector = DebeziumSourceConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        connector.all_cluster_topics = all_cluster_topics
+        return connector
+
+    def test_has_event_router_transform(self) -> None:
+        connector = self._make_event_router_connector(all_cluster_topics=None)
+        assert connector._has_event_router_transform()
+
+    def test_filter_topics_uses_empty_cluster_list_not_topic_names(self) -> None:
+        connector = self._make_event_router_connector(
+            all_cluster_topics=[],
+            topic_names=["events.OrderCreated", "unrelated"],
+        )
+
+        assert connector._filter_topics_for_event_router() == []
+
+    def test_filter_topics_keeps_regex_router_prefix_matches(self) -> None:
+        connector = self._make_event_router_connector(
+            all_cluster_topics=[
+                "events.OrderCreated",
+                "events.PaymentCaptured",
+                "other.topic",
+            ]
+        )
+
+        assert connector._filter_topics_for_event_router() == [
+            "events.OrderCreated",
+            "events.PaymentCaptured",
+        ]
+
+    def test_extract_lineages_for_event_router_uses_filtered_topics(self) -> None:
+        connector = self._make_event_router_connector(
+            all_cluster_topics=["events.OrderCreated", "other.topic"]
+        )
+
+        lineages = connector._extract_lineages_for_event_router("postgres", "mydb")
+
+        assert [lineage.target_dataset for lineage in lineages] == [
+            "events.OrderCreated"
+        ]
+        assert lineages[0].source_dataset == "mydb.public.outbox"

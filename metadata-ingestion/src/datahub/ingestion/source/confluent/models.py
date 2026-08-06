@@ -14,12 +14,22 @@ from typing import (
 )
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
-from typing_extensions import TypeAliasType
+from typing_extensions import LiteralString, TypeAliasType
 
 from datahub.ingestion.api.source import SourceReport
 
 # GraphQL's JsonPrimitive scalar.
 BusinessMetadataValue = Union[str, bool, int, float]
+
+BM_COLLISION_WITH_CONNECTOR_CONFIG: LiteralString = (
+    "Ignoring Stream Catalog business metadata attributes whose names collide with "
+    "connector config properties. Rename the attributes in Confluent to emit them."
+)
+BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES: LiteralString = (
+    "Ignoring Stream Catalog business metadata attributes whose names collide with "
+    "topic properties read from the broker. Rename the attributes in Confluent to emit them."
+)
+BM_DUPLICATE_ATTRIBUTE_NAMES: LiteralString = "Stream Catalog entity has duplicate business metadata attribute names; later values win"
 
 
 def empty_if_null(value: object) -> object:
@@ -59,6 +69,17 @@ class CatalogEntity(CatalogModel):
             if attribute.name and attribute.value is not None
         }
 
+    def duplicate_business_metadata_names(self) -> List[str]:
+        seen: Set[str] = set()
+        duplicates: Set[str] = set()
+        for attribute in self.business_metadata:
+            if not attribute.name:
+                continue
+            if attribute.name in seen:
+                duplicates.add(attribute.name)
+            seen.add(attribute.name)
+        return sorted(duplicates)
+
 
 CatalogEntityType = TypeVar("CatalogEntityType", bound=CatalogEntity)
 
@@ -67,9 +88,16 @@ def non_colliding_business_metadata(
     entity: CatalogEntity,
     existing: Mapping[str, str],
     report: SourceReport,
-    collides_with: str,
+    collision_message: LiteralString,
     context: str,
 ) -> Dict[str, str]:
+    duplicates = entity.duplicate_business_metadata_names()
+    if duplicates:
+        report.warning(
+            message=BM_DUPLICATE_ATTRIBUTE_NAMES,
+            context=f"{context}, attributes={duplicates}",
+        )
+
     properties = entity.properties_from_business_metadata()
     if not properties:
         return {}
@@ -77,11 +105,7 @@ def non_colliding_business_metadata(
     collisions = sorted(properties.keys() & existing.keys())
     if collisions:
         report.warning(
-            message=(
-                "Ignoring Stream Catalog business metadata attributes whose names "
-                f"collide with {collides_with}. Rename the attributes in Confluent "
-                "to emit them."
-            ),
+            message=collision_message,
             context=f"{context}, attributes={collisions}",
         )
         properties = {
@@ -121,14 +145,18 @@ class NameIndex(Generic[CatalogEntityType]):
     def report_issues(self, report: SourceReport, entity_label: str) -> None:
         if self.empty_name_count:
             report.warning(
-                message=f"Skipped Stream Catalog {entity_label}s that had an empty name",
-                context=f"count={self.empty_name_count}",
+                message="Skipped Stream Catalog entities that had an empty name",
+                context=f"entity={entity_label}, count={self.empty_name_count}",
             )
         for lowered, variants in self.case_ambiguous.items():
             report.warning(
-                message=f"Case-insensitive Stream Catalog {entity_label} lookup is disabled for a "
-                "name that matches more than one catalog entity; exact-case lookups still work",
-                context=f"name={lowered}, variants={sorted(variants)}",
+                message=(
+                    "Case-insensitive Stream Catalog lookup is disabled for a name that "
+                    "matches more than one catalog entity; exact-case lookups still work"
+                ),
+                context=(
+                    f"entity={entity_label}, name={lowered}, variants={sorted(variants)}"
+                ),
             )
 
 

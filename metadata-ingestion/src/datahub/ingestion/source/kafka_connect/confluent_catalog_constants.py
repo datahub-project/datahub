@@ -22,12 +22,6 @@ CONNECTOR_CATALOG_QUERY: Final[str] = """
     }
     topics {
       name
-      qualifiedName
-      tags
-      business_metadata {
-        name
-        value
-      }
     }
   }
 }

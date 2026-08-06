@@ -131,6 +131,14 @@ class TestCatalogConnectionInheritance:
         assert "confluent_catalog.api_key" in message
         assert "confluent_catalog.api_secret" in message
 
+    def test_inherited_schema_registry_url_must_be_http(self) -> None:
+        with pytest.raises(ValueError, match="schema_registry_url"):
+            make_source_config(
+                catalog={"enabled": True},
+                schema_registry_url="psrc-missing-scheme.confluent.cloud",
+                schema_registry_config={"basic.auth.user.info": "sr-key:sr-secret"},
+            )
+
 
 class TestTopicLookup:
     def test_topic_metadata_is_fetched_once_and_reused(self) -> None:
@@ -209,8 +217,7 @@ class TestTopicLookup:
         assert catalog.get_topic("ORDERS") is None
         assert report.catalog_topics_indexed == 2
         assert any(
-            "Case-insensitive Stream Catalog topic lookup is disabled"
-            in warning.message
+            "Case-insensitive Stream Catalog lookup is disabled" in warning.message
             for warning in report.warnings
         )
 

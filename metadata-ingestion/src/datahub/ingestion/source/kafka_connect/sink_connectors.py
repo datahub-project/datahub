@@ -207,7 +207,7 @@ class SnowflakeSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
-        # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+        # Prefer the live-cluster topic list when resolved (including empty).
         available_topics = set(self.available_topics())
 
         # Get topics the connector subscribes to from its configuration
@@ -378,7 +378,7 @@ class ClickHouseSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse topic2TableMap: {e}")
 
-        # Get available topics
+        # Prefer the live-cluster topic list when resolved (including empty).
         available_topics = set(self.available_topics())
 
         subscribed_topics = set(self.get_topics_from_config())
@@ -1278,7 +1278,7 @@ class JdbcSinkConnector(BaseConnector):
                 f"database={parser.database_name}, schema={parser.schema_name}"
             )
 
-            # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+            # Prefer the live-cluster topic list when resolved (including empty).
             available_topics = set(self.available_topics())
 
             # Get topics the connector subscribes to from its configuration

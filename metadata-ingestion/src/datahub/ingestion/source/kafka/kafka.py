@@ -85,7 +85,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.confluent.models import non_colliding_business_metadata
+from datahub.ingestion.source.confluent.models import (
+    BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
+    non_colliding_business_metadata,
+)
 from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
@@ -1317,7 +1320,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 catalog_topic,
                 custom_props,
                 self.report,
-                collides_with="topic properties read from the broker",
+                collision_message=BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
                 context=f"topic={topic}",
             )
             if properties:
@@ -1386,7 +1389,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if self.consumer:
             self.consumer.close()
         if self.topic_catalog:
-            self.topic_catalog.close()
+            try:
+                self.topic_catalog.close()
+            except Exception:
+                logger.warning("Failed to close Stream Catalog client", exc_info=True)
         # Cleanup any resources when source is closed
         super().close()
 

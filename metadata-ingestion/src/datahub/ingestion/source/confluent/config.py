@@ -49,14 +49,7 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         if not self.enabled:
             return self
 
-        if self.schema_registry_url:
-            if not self.schema_registry_url.startswith(("http://", "https://")):
-                raise ValueError(
-                    "Configuration error: 'schema_registry_url' must be a valid HTTP(S) URL. "
-                    f"Got: '{self.schema_registry_url}'. "
-                    "Expected format: https://psrc-xxxxx.region.provider.confluent.cloud"
-                )
-            self.schema_registry_url = self.schema_registry_url.rstrip("/")
+        self.normalize_schema_registry_url()
 
         if not 1 <= self.page_size <= MAX_PAGE_SIZE:
             raise ValueError(
@@ -71,6 +64,17 @@ class ConfluentStreamCatalogConfig(ConfigModel):
 
         return self
 
+    def normalize_schema_registry_url(self) -> None:
+        if not self.schema_registry_url:
+            return
+        if not self.schema_registry_url.startswith(("http://", "https://")):
+            raise ValueError(
+                "Configuration error: 'schema_registry_url' must be a valid HTTP(S) URL. "
+                f"Got: '{self.schema_registry_url}'. "
+                "Expected format: https://psrc-xxxxx.region.provider.confluent.cloud"
+            )
+        self.schema_registry_url = self.schema_registry_url.rstrip("/")
+
     def validate_connection(self) -> None:
         missing: List[str] = [
             name
@@ -81,15 +85,15 @@ class ConfluentStreamCatalogConfig(ConfigModel):
             )
             if not value
         ]
-        if not missing:
-            return
-
-        raise ValueError(
-            "Configuration error: 'confluent_catalog.enabled' is true but "
-            f"{', '.join(repr(f'confluent_catalog.{name}') for name in missing)} "
-            f"{'is' if len(missing) == 1 else 'are'} not set. "
-            "The Stream Catalog requires a Schema Registry endpoint and API key/secret."
-        )
+        if missing:
+            raise ValueError(
+                "Configuration error: 'confluent_catalog.enabled' is true but "
+                f"{', '.join(repr(f'confluent_catalog.{name}') for name in missing)} "
+                f"{'is' if len(missing) == 1 else 'are'} not set. "
+                "The Stream Catalog requires a Schema Registry endpoint and API key/secret."
+            )
+        # Re-check after inheritance paths that set the URL after model construction.
+        self.normalize_schema_registry_url()
 
     def is_confluent_cloud_endpoint(self) -> bool:
         host = urlparse(self.schema_registry_url or "").hostname or ""

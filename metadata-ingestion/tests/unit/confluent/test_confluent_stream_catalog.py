@@ -226,12 +226,23 @@ class TestConfluentStreamCatalogClient:
         assert [entity.name for entity in entities] == ["orders"]
         assert len(client.report.warnings) == 1
 
-    def test_missing_data_key_yields_nothing(self) -> None:
+    def test_missing_data_key_is_a_failure(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {}
+        client = make_client([response])
 
-        assert fetch(make_client([response])) == []
+        assert fetch(client) == []
+        assert len(client.report.failures) == 1
+
+    def test_non_list_entity_field_is_a_failure(self) -> None:
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"data": {"kafka_topic": {"name": "orders"}}}
+        client = make_client([response])
+
+        assert fetch(client) == []
+        assert len(client.report.failures) == 1
 
     def test_missing_queried_field_is_a_failure(self) -> None:
         response = Mock()
@@ -310,6 +321,20 @@ class TestCatalogEntityHelpers:
             "critical": "True",
             "tier": "1",
         }
+
+    def test_duplicate_business_metadata_names_are_detected(self) -> None:
+        entity = SampleEntity.model_validate(
+            {
+                "name": "orders",
+                "business_metadata": [
+                    {"name": "team", "value": "core"},
+                    {"name": "team", "value": "payments"},
+                ],
+            }
+        )
+
+        assert entity.duplicate_business_metadata_names() == ["team"]
+        assert entity.properties_from_business_metadata() == {"team": "payments"}
 
     def test_lookup_tolerates_case_differences(self) -> None:
         index = index_by_name([SampleEntity(name="Orders")])
