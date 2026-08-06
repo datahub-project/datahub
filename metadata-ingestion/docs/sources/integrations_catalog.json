@@ -480,7 +480,7 @@
       "Data Quality"
     ],
     "connection_type": "Pull",
-    "description": "SQLMesh is an open-source data transformation framework that enables versioned, SQL-native models with built-in audits, lineage, and multi-gateway warehouse support.",
+    "description": "SQLMesh is an open-source data transformation framework for building and operating versioned, SQL-native model pipelines with built-in data quality audits. DataHub ingests SQLMesh models as datasets with schema, column-level lineage, descriptions, tags, and audit assertions, and stitches each model to its warehouse view as a sibling. Multi-gateway projects are supported, with each model's sibling routed to the correct warehouse platform automatically.",
     "img_path": "img/logos/platforms/sqlmesh.png",
     "extra_features": [
       "Patch Lineage",
