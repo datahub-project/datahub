@@ -8,9 +8,13 @@ preventing re-entrancy deadlocks by writing directly to the original stderr.
 import logging
 import sys
 
-# Capture original stderr BEFORE any masking initialization
-# This ensures masking-safe loggers write to unwrapped stderr
-_original_stderr = sys.stderr
+# Capture the *real* stderr (not a proxy). Under celery, ``redirect_stdits_for_logger``
+# replaces ``sys.stderr`` with a ``LoggingProxy`` that re-enters logging; the masking
+# package is typically imported at task time, *after* that redirect has run, so
+# ``sys.stderr`` at import time is already the proxy. ``sys.__stderr__`` is the
+# original stream and is not affected by the redirect. May be ``None`` under
+# pythonw/embedded interpreters; fall back to ``sys.stderr`` then.
+_original_stderr = sys.__stderr__ if sys.__stderr__ is not None else sys.stderr
 
 
 def get_masking_safe_logger(name: str) -> logging.Logger:

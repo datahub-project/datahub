@@ -230,11 +230,12 @@ class TestExceptionMasking:
         # Filter
         masking_filter.filter(record)
 
-        # Exception should be masked
+        # exc_info is left intact (error reporters read it); the masked
+        # traceback text is materialized on exc_text, which formatters emit.
         assert record.exc_info is not None
-        _, exc_value, _ = record.exc_info
-        assert "my_secret_value" not in str(exc_value)
-        assert "***REDACTED:SECRET***" in str(exc_value)
+        assert record.exc_text is not None
+        assert "my_secret_value" not in record.exc_text
+        assert "***REDACTED:SECRET***" in record.exc_text
 
     def test_exception_with_multiple_args(self, registry, masking_filter):
         """Test masking exceptions with multiple args."""
@@ -258,11 +259,11 @@ class TestExceptionMasking:
 
         masking_filter.filter(record)
 
+        # exc_info is left intact; masked traceback text on exc_text.
         assert record.exc_info is not None
-        _, exc_value, _ = record.exc_info
-        exc_str = str(exc_value)
-        assert "value1" not in exc_str
-        assert "value2" not in exc_str
+        assert record.exc_text is not None
+        assert "value1" not in record.exc_text
+        assert "value2" not in record.exc_text
 
 
 class TestMessageTruncation:
@@ -1298,6 +1299,341 @@ class TestHandlerCoverageAndCelerySafety:
             assert unique in terminal.text
         finally:
             redirect_logger.removeHandler(redirect_handler)
+
+
+class TestReviewFixes:
+    """Regression tests for issues raised in code review of the handler-level
+    masking fix. Each test targets a specific defect; together they pin the
+    invariants the fix is supposed to maintain."""
+
+    def setup_method(self):
+        uninstall_masking_filter()
+        SecretRegistry.reset_instance()
+        self._saved_stderr = sys.stderr
+        self._saved_stdout = sys.stdout
+
+    def teardown_method(self):
+        uninstall_masking_filter()
+        sys.stderr = self._saved_stderr
+        sys.stdout = self._saved_stdout
+        SecretRegistry.reset_instance()
+
+    def test_two_handlers_do_not_corrupt_record(self):
+        """Issue 1: filter() mutates record.msg in place. With N handlers each
+        carrying the filter, the record is truncated/masked N times — the
+        second truncation re-truncates the already-truncated text, eats the
+        previous suffix, and reports a wrong byte count. Idempotency sentinel
+        must prevent this."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("SECRET", "secretvalue_xyz")
+
+        root_logger = logging.getLogger()
+        h1 = logging.StreamHandler(StringIO())
+        h2 = logging.StreamHandler(StringIO())
+        h1.setFormatter(logging.Formatter("%(message)s"))
+        h2.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(h1)
+        root_logger.addHandler(h2)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            mf = next(f for f in h1.filters if isinstance(f, SecretMaskingFilter))
+
+            big_msg = "secretvalue_xyz " + "x" * 12000
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg=big_msg,
+                args=(),
+                exc_info=None,
+            )
+            mf.filter(record)
+            first_msg = record.msg
+            # Second handler runs the same record through the filter again.
+            mf.filter(record)
+            assert record.msg == first_msg, "Second filter() call mutated the record"
+            # Exactly one truncation suffix present (not nested).
+            assert record.msg.count("bytes truncated for performance") == 1
+            assert "***REDACTED:SECRET***" in record.msg
+        finally:
+            root_logger.removeHandler(h1)
+            root_logger.removeHandler(h2)
+
+    def test_extra_attributes_are_masked(self):
+        """Issue 2: secrets in extra={} attributes (referenced by Formatter via
+        %(field)s) must be masked. On master the handler stream was repointed at
+        the wrapped stderr so the formatted line was masked; this branch doesn't
+        repoint, so the filter must mask the extra attribute directly."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("DB_PASSWORD", "supersecretvalue")
+
+        capture = StringIO()
+        test_logger = logging.getLogger("test_extra_masking")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(capture)
+        handler.setFormatter(logging.Formatter("%(message)s dsn=%(dsn)s"))
+        test_logger.addHandler(handler)
+        test_logger.setLevel(logging.INFO)
+        test_logger.propagate = False
+
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            test_logger.info("connecting", extra={"dsn": "db://u:supersecretvalue@h"})
+            out = capture.getvalue()
+            assert "supersecretvalue" not in out
+            assert "***REDACTED:DB_PASSWORD***" in out
+        finally:
+            test_logger.removeHandler(handler)
+
+    def test_nested_extra_dict_is_masked(self):
+        """Issue 2 (B): extras containing nested dicts/lists must be masked
+        recursively. A string-only mask would miss extra={"cfg": {"password": ...}}."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("NESTED_PW", "nested_secret_value")
+
+        capture = StringIO()
+        test_logger = logging.getLogger("test_nested_extra_masking")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(capture)
+        handler.setFormatter(logging.Formatter("%(message)s cfg=%(cfg)s"))
+        test_logger.addHandler(handler)
+        test_logger.setLevel(logging.INFO)
+        test_logger.propagate = False
+
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            test_logger.info(
+                "connecting",
+                extra={"cfg": {"password": "nested_secret_value", "host": "h"}},
+            )
+            out = capture.getvalue()
+            assert "nested_secret_value" not in out
+            assert "***REDACTED:NESTED_PW***" in out
+        finally:
+            test_logger.removeHandler(handler)
+
+    def test_extras_container_not_mutated_in_place(self):
+        """Issue 2 (B): masking extras must not mutate the caller's live dict.
+        A config dict that silently becomes ***REDACTED:X*** after the first
+        log line is a nasty bug to chase — build a masked copy and assign that
+        to the record instead."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("CFG_PW", "cfg_secret_value")
+
+        test_logger = logging.getLogger("test_extras_not_mutated")
+        test_logger.handlers.clear()
+        test_logger.setLevel(logging.INFO)
+        test_logger.propagate = False
+
+        caller_cfg = {
+            "password": "cfg_secret_value",
+            "host": "h",
+            "nested": ["a", "cfg_secret_value"],
+        }
+        caller_cfg_snapshot = {
+            "password": "cfg_secret_value",
+            "host": "h",
+            "nested": ["a", "cfg_secret_value"],
+        }
+        try:
+            mf = SecretMaskingFilter(registry)
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="",
+                lineno=0,
+                msg="connecting",
+                args=(),
+                exc_info=None,
+            )
+            record.cfg = caller_cfg
+            mf.filter(record)
+            # The caller's original dict is untouched.
+            assert caller_cfg == caller_cfg_snapshot, (
+                f"Caller's dict was mutated by masking: {caller_cfg!r}"
+            )
+            # The record's copy is masked.
+            assert "cfg_secret_value" not in str(record.cfg)
+            assert "***REDACTED:CFG_PW***" in str(record.cfg)
+        finally:
+            test_logger.handlers.clear()
+
+    def test_extras_self_referential_does_not_hang(self):
+        """Issue 2 (B): extra= can carry self-referential structures. The
+        identity-based cycle guard must prevent infinite recursion (which
+        would hang the logger). The cycle is returned unchanged (residual
+        gap, acceptable — secrets in a cycle are rare and the cycle itself
+        would be unprintable anyway). The primary assertion is no-hang; the
+        secondary is that the non-cyclic top-level leaf IS masked."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("CYCLE_PW", "cycle_secret_value")
+
+        mf = SecretMaskingFilter(registry)
+        cycle_dict: dict = {"host": "h"}
+        cycle_dict["self"] = cycle_dict  # self-reference
+        cycle_dict["pw"] = "cycle_secret_value"
+
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="x",
+            args=(),
+            exc_info=None,
+        )
+        record.cfg = cycle_dict
+        # Must not hang — the cycle guard prevents infinite recursion.
+        mf.filter(record)
+        # The non-cyclic top-level leaf with the secret is masked.
+        assert "***REDACTED:CYCLE_PW***" in str(record.cfg)
+        # Residual gap: the cycle's self-reference points to the original
+        # unmasked dict, so the secret may still appear in the deep str repr.
+        # That is the documented accepted residual — the cycle itself is
+        # unprintable in practice.
+
+    def test_extras_deep_nesting_is_capped(self):
+        """Issue 2 (B): very deep nesting is capped at _MAX_EXTRA_DEPTH to
+        bound hot-path cost. Beyond the cap the value is returned unchanged
+        (residual gap) rather than raising."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("DEEP_PW", "deep_secret_value")
+
+        mf = SecretMaskingFilter(registry)
+        # Build a deeply nested dict past the cap.
+        deep: dict = {"pw": "deep_secret_value"}
+        for _ in range(SecretMaskingFilter._MAX_EXTRA_DEPTH + 5):
+            deep = {"child": deep}
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="x",
+            args=(),
+            exc_info=None,
+        )
+        record.cfg = deep
+        # Must not hang or raise.
+        mf.filter(record)
+
+    def test_json_formatter_with_quote_in_secret(self):
+        """Issue 4: a JSON formatter escapes quotes/backslashes in the secret
+        value. The raw-value regex won't match the escaped form. _expand_keys
+        must include the JSON-escaped variant so the stderr-wrapper path
+        (print(json.dumps(...))) still masks. For LogRecord extras, filter-time
+        masking handles it before formatting; this test pins the _expand_keys
+        variant via the mask_text path."""
+        import json
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        # Secret containing a quote — JSON-escaped form differs from raw.
+        registry.register_secret("Q_TOKEN", 'pa"ss')
+
+        mf = SecretMaskingFilter(registry)
+        # Simulate what a JSON formatter would emit: the secret JSON-escaped.
+        json_line = json.dumps({"pw": 'pa"ss'})
+        masked = mf.mask_text(json_line)
+        assert 'pa"ss' not in masked
+        assert "***REDACTED:Q_TOKEN***" in masked
+
+    def test_post_install_streamhandler_does_not_recurse(self):
+        """Issue 3: a StreamHandler() created after install picks up the
+        wrapped sys.stderr as its default stream. If sys.stderr re-enters
+        logging (celery LoggingProxy), writing to the handler recurses. The
+        fileno() guard must skip wrapping non-real streams so this can't form
+        a cycle. We model the proxy and assert the guard skips it."""
+        import io
+
+        from datahub.masking.masking_filter import _is_real_stream
+
+        class FakeProxy:
+            """Models celery's LoggingProxy: writes re-enter logging."""
+
+            def fileno(self):
+                raise io.UnsupportedOperation("fileno")
+
+            def write(self, s):
+                return len(s)
+
+            def flush(self):
+                pass
+
+        assert _is_real_stream(FakeProxy()) is False
+        assert _is_real_stream(StringIO()) is False  # StringIO has no backing fd
+
+        # A real file-like stream (e.g. a temp file) should be wrappable.
+        import tempfile
+
+        with tempfile.TemporaryFile() as f:
+            assert _is_real_stream(f) is True
+
+    def test_masking_namespace_records_bypass_filter(self):
+        """Issue 4: records from datahub.masking.* loggers must bypass masking
+        in filter() (not just at handler-attach time). After
+        reset_masking_safe_loggers sets propagate=True, those records reach
+        root handlers that carry the filter — the filter must early-return on
+        record.name.startswith('datahub.masking.')."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("M_NS", "maskingns_secret_value")
+
+        capture = StringIO()
+        root_logger = logging.getLogger()
+        handler = logging.StreamHandler(capture)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(handler)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            # Simulate post-teardown state: masking logger propagates to root.
+            masking_logger = logging.getLogger("datahub.masking.test_ns")
+            masking_logger.handlers.clear()
+            masking_logger.propagate = True
+            masking_logger.setLevel(logging.DEBUG)
+            # Log a record that would carry the secret if masked.
+            masking_logger.warning("internal state maskingns_secret_value")
+            out = capture.getvalue()
+            # The masking-namespace record bypasses masking — the secret appears
+            # because masking-internal logs are not masked (by design; they
+            # carry no real secrets). The point is no re-entrancy / no recursion.
+            assert "maskingns_secret_value" in out
+        finally:
+            root_logger.removeHandler(handler)
+            masking_logger.propagate = False
+
+    def test_trailing_dot_does_not_match_maskingfoo(self):
+        """Smaller point: startswith('datahub.masking') would match a
+        hypothetical 'datahub.maskingfoo' logger. The trailing dot prevents
+        that. A maskingfoo logger's records must still be masked."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("FOO", "foosecret_value")
+
+        capture = StringIO()
+        foo_logger = logging.getLogger("datahub.maskingfoo")
+        foo_logger.handlers.clear()
+        foo_logger.propagate = True
+        root_handler = logging.StreamHandler(capture)
+        root_handler.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(root_handler)
+        foo_logger.setLevel(logging.INFO)
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=False)
+            foo_logger.info("connecting with foosecret_value")
+            out = capture.getvalue()
+            assert "foosecret_value" not in out
+            assert "***REDACTED:FOO***" in out
+        finally:
+            logging.getLogger().removeHandler(root_handler)
+            foo_logger.propagate = False
 
 
 if __name__ == "__main__":

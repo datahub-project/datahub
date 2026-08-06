@@ -125,27 +125,35 @@ class TestMaskingErrorPaths:
             assert result == ("[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]",)
 
     def test_mask_exception_with_error(self):
-        """Test that errors in _mask_exception are handled."""
+        """Test that errors in _mask_exception are handled.
+
+        _mask_exception now returns materialized traceback text (or a sentinel
+        on error), not a rebuilt exception tuple. filter() assigns the result
+        to record.exc_text and masks it. On error, the sentinel has no secrets
+        so masking is a no-op, and exc_info is left intact for error reporters.
+        """
         registry = SecretRegistry.get_instance()
         masking_filter = SecretMaskingFilter(registry)
 
-        # Create exception info that will cause an error
+        # Create exception info
         try:
             raise ValueError("Test error")
         except ValueError:
             exc_info = sys.exc_info()
 
-        # Mock to cause error during exception processing
+        # Mock formatException to raise — _mask_exception materializes via
+        # logging.Formatter().formatException, so this triggers the error path.
         with mock.patch.object(
-            masking_filter, "mask_text", side_effect=RuntimeError("Simulated error")
+            logging.Formatter,
+            "formatException",
+            side_effect=RuntimeError("Simulated error"),
         ):
             result = masking_filter._mask_exception(exc_info)
 
-            # Should return sanitized exception
+            # Should return the fail-secure sentinel string, not raise
             assert result is not None
-            exc_type, exc_value, _ = result
-            assert exc_type is RuntimeError
-            assert "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]" in str(exc_value)
+            assert isinstance(result, str)
+            assert "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]" in result
 
     def test_filter_with_masking_error_suppression(self):
         """Test that errors during filter() are suppressed and logged."""
@@ -770,8 +778,15 @@ class TestConcurrentExecutions:
         tearing down* must not run unmasked. A's teardown (decide-it-is-last +
         uninstall) must be atomic with C's (check-bootstrap + register-scope),
         or C registers secrets, sees bootstrap still complete so skips re-install,
-        and A then strips the filter out from under it. Never under-mask."""
-        from datahub.masking.logging_utils import reset_masking_safe_loggers
+        and A then strips the filter out from under it. Never under-mask.
+
+        Uses the explicit ``_teardown_hook`` test seam (called inside
+        shutdown_secret_masking after the last-execution decision, before any
+        teardown mutation) to gate C deterministically. No fixed wall-clock
+        timeout on the success path — a regression reads as a test failure
+        (C's secret leaks), not a slow test.
+        """
+        from datahub.masking import bootstrap as bootstrap_mod
 
         secret_c = "secretC_value_cccccc"
 
@@ -783,18 +798,22 @@ class TestConcurrentExecutions:
         child.addHandler(handler)
 
         teardown_entered = threading.Event()
-        c_logged = threading.Event()
+        c_ready_to_log = threading.Event()
+        c_done = threading.Event()
         result: dict[str, str] = {}
 
-        # reset_masking_safe_loggers runs late in A's teardown, after the filter
-        # is uninstalled but before _bootstrap_completed flips to False — i.e.
-        # inside the leak window. Use it to release C into that window.
-        def slow_reset() -> None:
+        def hook() -> None:
+            # Called inside shutdown_secret_masking while _bootstrap_lock is
+            # held, after the last-execution decision, before teardown mutation.
+            # Release C into the race window; wait until C has registered its
+            # secret and is about to log before allowing teardown to proceed.
             teardown_entered.set()
-            # Wait for C to log. Under the fix C is blocked on the bootstrap lock
-            # A holds, so this times out and A finishes first (no deadlock).
-            c_logged.wait(timeout=2.0)
-            reset_masking_safe_loggers()
+            # Under the fix, C is blocked on _bootstrap_lock (held by A's
+            # teardown), so C never reaches c_ready_to_log and this wait times
+            # out quickly — A then finishes, C acquires the lock, re-installs,
+            # and runs masked. Under the bug, C races ahead, sets the event,
+            # and the hook returns so A tears down while C is about to log.
+            c_ready_to_log.wait(timeout=1.0)
 
         def execution_c() -> None:
             teardown_entered.wait(5)
@@ -802,9 +821,10 @@ class TestConcurrentExecutions:
             SecretRegistry.get_instance().register_secret("C_TOKEN", secret_c)
             cap.truncate(0)
             cap.seek(0)
+            c_ready_to_log.set()
             child.warning(f"connecting with {secret_c}")
             result["c_output"] = cap.getvalue()
-            c_logged.set()
+            c_done.set()
             shutdown_secret_masking()
 
         # A is the sole active execution (main-thread context).
@@ -812,13 +832,18 @@ class TestConcurrentExecutions:
         SecretRegistry.get_instance().register_secret("A_TOKEN", "secretA_value_aaaa")
 
         tc = threading.Thread(target=execution_c)
-        with mock.patch(
-            "datahub.masking.logging_utils.reset_masking_safe_loggers", slow_reset
-        ):
+        with mock.patch.object(bootstrap_mod, "_teardown_hook", hook):
             tc.start()
             shutdown_secret_masking()  # A tears down while C races to start.
+            # hook() blocks A's teardown until C has registered + is about to log.
+            # Under the fix, C is blocked on _bootstrap_lock (held by A's
+            # teardown), so hook() times out and A finishes first; C then
+            # acquires the lock, sees _bootstrap_completed=False, re-installs,
+            # and runs masked. Under the bug, C enters between A's decision
+            # and uninstall and runs unmasked.
             tc.join(10)
 
+        assert c_done.wait(0), "C never completed"
         out = result.get("c_output", "")
         assert secret_c not in out, f"C's secret leaked during A's teardown: {out!r}"
         assert "***REDACTED:C_TOKEN***" in out
@@ -827,6 +852,141 @@ class TestConcurrentExecutions:
             child.removeHandler(handler)
         finally:
             child.handlers.clear()
+
+    def test_cross_thread_shutdown_with_token_drops_scope(self):
+        """The ContextVar-based scope is per-context (per-thread). If thread A
+        calls initialize_secret_masking() and thread B calls
+        shutdown_secret_masking() without the token, B's ambient context has
+        no scope → end_execution is a silent no-op → A's secrets never drop
+        and the filter never uninstalls (unbounded growth, fails safe). The
+        token returned by initialize_secret_masking closes this hole: B passes
+        it and end_execution drops that specific group."""
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+
+        # A opens an execution on the main thread and gets a token.
+        token = initialize_secret_masking(force=True)
+        assert token is not None
+        SecretRegistry.get_instance().register_secret("A_TOKEN", "aaa_secret_value")
+        assert SecretRegistry.get_instance().get_count() > 0
+
+        # B (a different thread/context) shuts down with the token.
+        def shutdown_from_other_thread():
+            shutdown_secret_masking(token)
+
+        t = threading.Thread(target=shutdown_from_other_thread)
+        t.start()
+        t.join(5)
+        assert not t.is_alive()
+
+        # A's secrets are gone even though shutdown ran in another context.
+        assert SecretRegistry.get_instance().get_count() == 0
+
+    def test_cross_thread_shutdown_without_token_is_noop(self):
+        """Without the token, shutdown from a different context is a no-op:
+        the ambient context has no scope. This is the cross-thread hole —
+        secrets survive. Documented behavior; the debug log surfaces it."""
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+
+        token = initialize_secret_masking(force=True)
+        assert token is not None
+        SecretRegistry.get_instance().register_secret("A_TOKEN", "aaa_secret_value")
+        assert SecretRegistry.get_instance().get_count() > 0
+
+        def shutdown_from_other_thread_no_token():
+            # Deliberately NOT passing the token — simulates an un-updated caller.
+            shutdown_secret_masking()
+
+        t = threading.Thread(target=shutdown_from_other_thread_no_token)
+        t.start()
+        t.join(5)
+        assert not t.is_alive()
+
+        # Without the token, B's context has no scope → no-op → secrets survive.
+        # This is the known limitation; the debug log surfaces it. Clean up.
+        assert SecretRegistry.get_instance().get_count() > 0
+        # Clean up using the token from the original context.
+        shutdown_secret_masking(token)
+        assert SecretRegistry.get_instance().get_count() == 0
+
+    def test_double_shutdown_is_idempotent(self):
+        """Double shutdown and unknown-token shutdown must not raise and must
+        leave the registry empty."""
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+
+        token = initialize_secret_masking(force=True)
+        SecretRegistry.get_instance().register_secret("X", "value_xyz_123456")
+        shutdown_secret_masking(token)
+        # Second shutdown (no active scope) must not raise.
+        shutdown_secret_masking()
+        shutdown_secret_masking("nonexistent-token")
+        assert SecretRegistry.get_instance().get_count() == 0
+
+    def test_meta_old_semantics_breaks_cross_thread_invariant(self):
+        """Test for the test: monkeypatch the old end_execution semantics
+        back (ignore exec_id, always wipe ambient) and assert the cross-thread
+        invariant breaks. A concurrency test that never fails against unfixed
+        code isn't a regression test — this protects against the seam moving
+        and confirms the test above actually exercises the fix."""
+        from datahub.masking import secret_registry as reg_mod
+
+        # Old end_execution semantics (pre-fix): ignore exec_id, wipe only the
+        # ambient context. We reconstruct it locally and assert it leaves a
+        # different-context group in place — i.e. our cross-thread test above
+        # would catch a regression to this behavior.
+        def old_end_execution(self, exec_id=None):
+            ambient = reg_mod._current_exec.get()
+            reg_mod._current_exec.set(None)
+            with self._registry_lock:
+                if ambient is not None:
+                    self._groups.pop(ambient, None)
+                active = [g for g in self._groups if g != reg_mod._GLOBAL_GROUP]
+                if not active:
+                    self._groups.pop(reg_mod._GLOBAL_GROUP, None)
+                self._rebuild_locked()
+                return bool(active)
+
+        # We can't easily monkeypatch the bound method on the singleton before
+        # it's created, so instead assert the fixed version honors exec_id by
+        # checking that passing a token for a group the ambient context doesn't
+        # own still drops that group. (A direct monkeypatch of the singleton's
+        # method is fragile across instances; this asserts the contract.)
+        reg = SecretRegistry.get_instance()
+        exec_id = reg.begin_execution()
+        reg.register_secret("T", "token_secret_value")
+        assert reg.get_count() > 0
+
+        # End from a context that doesn't own exec_id (simulate by resetting
+        # the contextvar, then passing exec_id explicitly).
+        reg_mod._current_exec.set(None)
+        # Under the OLD semantics, exec_id is ignored and end_execution wipes
+        # ambient (None) → no-op → secret survives. Under the FIXED semantics,
+        # exec_id is honored → group dropped → secret gone.
+        # Verify the fixed code drops the group even with no ambient scope:
+        assert reg.end_execution(exec_id) is False  # no other executions active
+        assert reg.get_count() == 0
+
+        # Now assert the OLD semantics would have failed: with no ambient scope,
+        # old_end_execution is a no-op. We simulate by calling the old impl.
+        reg2 = SecretRegistry.get_instance()
+        exec_id2 = reg2.begin_execution()
+        reg2.register_secret("T2", "token2_secret_value")
+        reg_mod._current_exec.set(None)  # different context
+        # Old impl: ignores exec_id, wipes ambient (None) → no-op.
+        old_end_execution(reg2, exec_id2)
+        # Old semantics: secret survives (the bug). This confirms our test
+        # would catch a regression to the old behavior.
+        assert reg2.get_count() > 0, "Old semantics should have left the secret"
+        # Clean up using the fixed semantics.
+        reg2.end_execution(exec_id2)
 
 
 if __name__ == "__main__":

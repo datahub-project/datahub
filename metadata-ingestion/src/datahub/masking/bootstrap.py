@@ -83,11 +83,21 @@ def _install_exception_hook(registry: SecretRegistry) -> None:
 def initialize_secret_masking(
     max_message_size: int = 5000,
     force: bool = False,
-) -> None:
+) -> Optional[str]:
     """
     Initialize secret masking infrastructure (logging filter + exception hook).
 
     Secrets register automatically at point-of-read.
+
+    Returns:
+        The execution token (opaque string) for this scope, or ``None`` if
+        masking is disabled. Pass the token to ``shutdown_secret_masking(token)``
+        when tearing down — this is required when the call site that tears down
+        runs in a different thread/context than the one that initialized (e.g.
+        a dispatcher that starts an execution on one thread and finishes it on
+        another). Without the token, shutdown falls back to the ambient
+        context's scope and is a silent no-op if that context has none
+        (secrets then accumulate for the process lifetime — fails safe).
 
     .. deprecated::
         ``force`` is deprecated and ignored. The filter is installed once for the
@@ -106,7 +116,7 @@ def initialize_secret_masking(
             "Sensitive information will be exposed in logs. Only use this for debugging!"
         )
         _bootstrap_completed = True  # Mark as completed to avoid repeated warnings
-        return
+        return None
 
     registry = SecretRegistry.get_instance()
 
@@ -167,20 +177,34 @@ def initialize_secret_masking(
             except Exception as e:
                 _bootstrap_error = e
                 logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
-                return  # Don't raise - graceful degradation
+                return None  # Don't raise - graceful degradation
 
         # Open a secret scope for this execution (idempotent within one context).
         # Secrets registered after this belong to this execution and are dropped
         # by the matching shutdown_secret_masking(), without affecting others.
-        registry.ensure_execution()
+        exec_id = registry.ensure_execution()
+        return exec_id
 
 
-def shutdown_secret_masking() -> None:
+def _teardown_hook() -> None:
+    """Test seam: called at a defined point inside shutdown_secret_masking
+    (after the last-execution decision, before teardown). Tests monkeypatch
+    this to gate concurrent threads deterministically. No-op in production."""
+    return None
+
+
+def shutdown_secret_masking(execution_id: Optional[str] = None) -> None:
     """End the current execution's masking scope.
 
     Drops only this execution's secrets. If other executions are still running,
     masking stays installed (their secrets must keep being masked). Only when the
     last active execution ends do we fully tear down the filter/exception hook.
+
+    Args:
+        execution_id: Token returned by ``initialize_secret_masking``. Pass it
+            when the teardown caller runs in a different thread/context than the
+            initializer (e.g. a dispatcher). Without it, the ambient context's
+            scope is ended — a silent no-op if that context has none.
     """
     global _bootstrap_completed, _bootstrap_error, _original_excepthook
 
@@ -193,10 +217,15 @@ def shutdown_secret_masking() -> None:
         # the filter uninstalled out from under it (running unmasked).
         with _bootstrap_lock:
             # Remove this execution's secrets; bail out if others are still active.
-            if registry.end_execution():
+            if registry.end_execution(execution_id):
                 return
 
             # Last execution finished — fully tear down.
+            # Test seam: tests gate concurrent threads on this point. Keep the
+            # call immediately after the last-execution decision and before any
+            # teardown mutation so the seam's contract is "the race window".
+            _teardown_hook()
+
             uninstall_masking_filter()
 
             # Restore original exception hook

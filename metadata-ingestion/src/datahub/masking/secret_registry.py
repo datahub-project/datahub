@@ -17,6 +17,7 @@ atomically swap in freshly-built dicts; readers (the masking hot path) read thos
 immutable snapshots without a lock.
 """
 
+import json
 import os
 import threading
 import uuid
@@ -47,8 +48,14 @@ def is_masking_enabled() -> bool:
 def _expand_keys(raw_value: str) -> Dict[str, None]:
     """Return all string forms of a secret that should be masked.
 
-    Besides the raw value, this covers repr-escaped forms (for values with
-    escape sequences) and SQLAlchemy-style URL encoding of ``:@/``.
+    Besides the raw value, this covers:
+    - repr-escaped forms (for values with escape sequences)
+    - SQLAlchemy-style URL encoding of ``:@/``
+    - JSON-escaped forms (``json.dumps(v)[1:-1]``) — for secrets printed via
+      ``print(json.dumps(...))`` or emitted by a JSON formatter that serializes
+      before the masking filter sees the record. Extras on a LogRecord are
+      masked at filter time before formatting, so this is mainly for the
+      stdout/stderr wrapper path.
     """
     keys: Dict[str, None] = {raw_value: None}
     if any(c in raw_value for c in ["\n", "\r", "\t", "\\", '"', "'"]):
@@ -60,6 +67,12 @@ def _expand_keys(raw_value: str) -> Dict[str, None]:
     )
     if sqlalchemy_encoded != raw_value:
         keys[sqlalchemy_encoded] = None
+    # JSON-escaped form: json.dumps wraps in quotes and escapes inner chars.
+    # [1:-1] strips the surrounding quotes so we match the value as it appears
+    # inside a serialized object/string field.
+    json_inner = json.dumps(raw_value)[1:-1]
+    if json_inner != raw_value:
+        keys[json_inner] = None
     return keys
 
 
@@ -69,6 +82,10 @@ class SecretRegistry:
     _instance: Optional["SecretRegistry"] = None
     _lock = threading.RLock()
 
+    # Upper bound on the *expanded* key count (raw + repr + sqlalchemy + json
+    # variants per secret), not the number of registered secrets. Adding
+    # _expand_keys variants reduces how many distinct secrets fit; keep this
+    # bound generous because the masking regex is built from these keys.
     MAX_SECRETS = 10000
 
     def __init__(self):
@@ -121,14 +138,38 @@ class SecretRegistry:
             return exec_id
         return self.begin_execution()
 
-    def end_execution(self) -> bool:
+    def end_execution(self, exec_id: Optional[str] = None) -> bool:
         """Drop the current execution's secrets. Returns True if other
-        executions are still active (so the caller should NOT fully tear down)."""
-        exec_id = _current_exec.get()
-        _current_exec.set(None)
+        executions are still active (so the caller should NOT fully tear down).
+
+        If ``exec_id`` is provided, drop that specific execution's group —
+        this allows ``initialize_secret_masking`` and ``shutdown_secret_masking``
+        to be called from different threads/contexts (e.g. a dispatcher that
+        starts an execution on one thread and tears it down on another).
+        Without it, the ambient context's execution is dropped; if the
+        ambient context has no scope, this is a no-op and a debug is logged
+        (the signature of the cross-thread hole — a teardown caller that
+        forgot to pass the token).
+        """
+        ambient_exec_id = _current_exec.get()
+        if exec_id is None:
+            exec_id = ambient_exec_id
+        # Clear the ambient context's scope only if it matches the one we're
+        # ending; a token-based call from another thread must not clobber this
+        # thread's contextvar.
+        if ambient_exec_id is not None and exec_id == ambient_exec_id:
+            _current_exec.set(None)
         with self._registry_lock:
             if exec_id is not None:
                 self._groups.pop(exec_id, None)
+            elif ambient_exec_id is None:
+                logger.debug(
+                    "end_execution called with no ambient execution scope and "
+                    "no explicit exec_id; nothing to drop. If this is a "
+                    "shutdown call, the caller likely started the execution on "
+                    "another thread and should pass the token returned by "
+                    "initialize_secret_masking()."
+                )
             active = [g for g in self._groups if g != _GLOBAL_GROUP]
             if not active:
                 # No real executions left — drop the catch-all bucket too.
@@ -157,7 +198,17 @@ class SecretRegistry:
     # --- Registration (writers) --------------------------------------------
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
-        """Register a secret for masking under the current execution."""
+        """Register a secret for masking under the current execution.
+
+        The secret is owned by the ambient execution scope (set by
+        ``begin_execution``/``ensure_execution``). Secrets registered from a
+        thread/context that never opened an execution scope land in the
+        ``__global__`` catch-all bucket, which is dropped only when no real
+        executions remain — so in a long-lived worker that registers from a
+        non-execution context, those secrets accumulate for the process
+        lifetime (fails safe: over-masking, never leaking). Register from the
+        execution's own context to get per-execution cleanup.
+        """
         if not raw_value or not isinstance(raw_value, str):
             return
         if len(raw_value) < 3:
