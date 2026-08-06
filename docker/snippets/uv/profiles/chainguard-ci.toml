@@ -22,6 +22,11 @@
 
 index-strategy = "unsafe-best-match"
 
+# Remediations can list a version without a linux/aarch64 (or other) wheel for our
+# interpreter; unsafe-best-match then picks that index's sdist over a wheel from
+# Chainguard main / PyPI. Force wheels for packages that must not build from source.
+no-build-package = ["orjson"]
+
 [[index]]
 name = "chainguard-remediated"
 url = "https://libraries.cgr.dev/python-remediated/simple/"
