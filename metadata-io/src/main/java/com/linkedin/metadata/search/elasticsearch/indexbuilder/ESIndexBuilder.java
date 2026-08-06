@@ -963,6 +963,17 @@ public class ESIndexBuilder {
     final long pollStartTimeMillis = documentCountsLastUpdated;
     final long pollStartDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
+    // Stall counter and progress snapshot for the allowDocCountMismatch exit path.
+    float lastProgressPercentage = 0f;
+    int reindexStalledCount = 0;
+    // Source count captured before the loop starts. The source receives writes during reindex
+    // so its live count grows; this snapshot is the stable baseline for the exit conditions.
+    final long initialSourceDocCount = documentCounts.getFirst();
+    final boolean allowMismatch =
+        config.getBuildIndices().isAllowDocCountMismatch()
+            && config.getBuildIndices().isCloneIndices();
+    final float mismatchAllowPercentage =
+        allowMismatch ? config.getBuildIndices().getAllowDocCountMismatchPercentage() : 100f;
 
     while (System.currentTimeMillis() < timeoutAt) {
       log.info(
@@ -1015,6 +1026,61 @@ public class ESIndexBuilder {
           estimatedMinutesRemaining,
           activeTaskId,
           describeReindexTaskStatus(taskStatus));
+
+      // When allowDocCountMismatch=true and cloneIndices=true the source index keeps receiving
+      // writes (pre-process hooks, MAE consumer) during reindex so its document count is always
+      // slightly ahead of the destination. The exact-match condition above can never be satisfied
+      // against a live-write source. These exits allow the loop to complete once the destination
+      // is close enough. cloneIndices=true is required as a safety precondition: the original
+      // index is preserved as a backup, and any missing docs are re-written by the MAE consumer
+      // replaying Kafka events once GMS restarts against the new index.
+      if (allowMismatch) {
+        // Exit 1: destination caught up to the source count at loop start.
+        if (documentCounts.getSecond() >= initialSourceDocCount) {
+          log.info(
+              "Reindex complete (initial-count match): {} -> {} target={} initialSource={} currentSource={}",
+              sourceIndex,
+              destIndex,
+              documentCounts.getSecond(),
+              initialSourceDocCount,
+              documentCounts.getFirst());
+          return new PollReindexResult(true, latestReindexInfo, documentCounts);
+        }
+
+        // Exit 2: destination reached the configured percentage of the live source count.
+        if (progressPercentage >= mismatchAllowPercentage) {
+          log.info(
+              "Reindex complete (threshold): {} -> {} progress={}% threshold={}% "
+                  + "currentSource={} target={} initialSource={}",
+              sourceIndex,
+              destIndex,
+              String.format("%.4f", progressPercentage),
+              mismatchAllowPercentage,
+              documentCounts.getFirst(),
+              documentCounts.getSecond(),
+              initialSourceDocCount);
+          return new PollReindexResult(true, latestReindexInfo, documentCounts);
+        }
+
+        // Exit 3: progress stalled above the threshold for 2+ consecutive iterations.
+        if (Math.abs(progressPercentage - lastProgressPercentage) < 0.001f) {
+          reindexStalledCount++;
+          if (progressPercentage > mismatchAllowPercentage && reindexStalledCount >= 2) {
+            log.info(
+                "Reindex complete (stall): {} -> {} progress={}% stalledIterations={} source={} target={}",
+                sourceIndex,
+                destIndex,
+                String.format("%.4f", progressPercentage),
+                reindexStalledCount,
+                documentCounts.getFirst(),
+                documentCounts.getSecond());
+            return new PollReindexResult(true, latestReindexInfo, documentCounts);
+          }
+        } else {
+          reindexStalledCount = 0;
+        }
+        lastProgressPercentage = progressPercentage;
+      }
 
       // A completed task whose destination is still short of the source dropped documents. Waiting
       // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by
