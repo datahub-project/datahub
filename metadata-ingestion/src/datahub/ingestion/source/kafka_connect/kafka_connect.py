@@ -189,16 +189,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         # For Confluent Cloud, optionally pass the live cluster topic list into
-        # connectors that need it. Source connectors without EventRouter must not
-        # receive the whole-cluster list — that fabricates lineage for every topic.
-        if connector and self._is_confluent_cloud:
-            if self._should_assign_cluster_topics(connector_manifest, connector):
-                all_cluster_topics = self._get_all_topics_from_kafka_api()
-                if all_cluster_topics:
-                    connector.all_cluster_topics = all_cluster_topics
-                    logger.debug(
-                        f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
-                    )
+        # connectors that need it. Plain Debezium/Cloud CDC derive topics from
+        # config (e.g. table.include.list) and must not receive the whole-cluster
+        # list — that fabricates lineage for every topic.
+        if (
+            connector
+            and self._is_confluent_cloud
+            and connector.requires_cluster_topics()
+        ):
+            all_cluster_topics = self._get_all_topics_from_kafka_api()
+            if all_cluster_topics:
+                connector.all_cluster_topics = all_cluster_topics
+                logger.debug(
+                    f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
+                )
 
         if not connector:
             # No handler found for this connector class
@@ -218,17 +222,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_manifest.lineages = connector.extract_lineages()
         connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
         return True  # Always include connectors with handlers
-
-    @staticmethod
-    def _should_assign_cluster_topics(
-        connector_manifest: ConnectorManifest,
-        connector: object,
-    ) -> bool:
-        requires = getattr(connector, "requires_cluster_topics", None)
-        if callable(requires):
-            return bool(requires())
-        # Non-BaseConnector stubs in unit tests: sinks still need the live list.
-        return connector_manifest.type == SINK
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
