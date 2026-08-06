@@ -238,11 +238,15 @@ class SecretRegistry:
         self._secrets = secrets
         self._name_to_value = name_to_value
         self._version += 1
-        # Reset on the condition (at capacity), not the event (a warning
-        # fired). If executions end and free room without draining to zero,
-        # this self-corrects so the next capacity rise can warn again;
-        # without it, _capacity_warned would stay True forever after the
-        # first warning and the real warning would be permanently suppressed.
+        # Reset _capacity_warned on the condition (at capacity), not the
+        # event (a warning fired). When executions end and free room, this
+        # self-corrects so the next capacity rise can warn again; without
+        # it, _capacity_warned would stay True forever after the first
+        # warning and the real warning would be permanently suppressed.
+        # With the >= admit check the union stays under MAX_SECRETS, so
+        # this is False after admits; the warning itself sets the flag
+        # True between rebuilds, suppressing repeats until the next
+        # rebuild (admit or end_execution).
         self._capacity_warned = len(self._secrets) >= self.MAX_SECRETS
 
     # --- Registration (writers) --------------------------------------------
@@ -263,12 +267,19 @@ class SecretRegistry:
           already pending in the current batch (dedup across the batch).
           Not a warning condition — duplicate registration is common.
         - REJECTED: admitting would push the *expanded* key count
-          (``len(self._secrets)``) to >= MAX_SECRETS. Warns once per rise
-          to capacity via ``_capacity_warned``. The capacity bound is on
-          expanded keys (raw + repr + sqlalchemy + json variants), not on
-          the number of registered secrets — counting secrets instead
-          (the old behavior) let a batch of multi-key-expanding values
-          overshoot MAX_SECRETS, which is the unit mismatch this fixes.
+          (``len(self._secrets)``) to >= MAX_SECRETS. Warns, gated by
+          ``_capacity_warned`` to suppress repeats within a capacity
+          episode; ``_rebuild_locked`` clears the flag when the registry
+          drops below capacity so a later rise can warn again. In
+          practice this is one warning per capacity episode; an admit
+          interleaved with rejects can reset the flag, but admits at
+          capacity require a secret whose expanded keys are all already
+          present (``truly_new`` empty), which is rare. The capacity
+          bound is on expanded keys (raw + repr + sqlalchemy + json
+          variants), not on the number of registered secrets — counting
+          secrets instead (the old behavior) let a batch of
+          multi-key-expanding values overshoot MAX_SECRETS, which is the
+          unit mismatch this fixes.
         - ADMITTED: the secret was added to ``group`` and its truly-new
           expanded keys to ``pending_keys``.
 
@@ -282,7 +293,7 @@ class SecretRegistry:
         if raw_value in group or raw_value in pending_keys:
             return _Admit.DUPLICATE
         keys = _expand_keys(raw_value)
-        truly_new = set(keys) - set(self._secrets) - pending_keys
+        truly_new = set(keys) - self._secrets.keys() - pending_keys
         if len(self._secrets) + len(pending_keys) + len(truly_new) >= self.MAX_SECRETS:
             if not self._capacity_warned:
                 logger.warning(
