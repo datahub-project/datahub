@@ -131,8 +131,11 @@ class SecretRegistry:
 
             if _mf._installed_filter is not None:
                 _mf.uninstall_masking_filter()
-        except Exception:
-            pass
+        except Exception as e:
+            # Don't let a teardown failure prevent the singleton reset, but
+            # don't swallow it silently either — masking would stay installed
+            # against a dead registry with no signal.
+            logger.debug("reset_instance: filter teardown failed: %r", e)
 
     # --- Execution scoping (writers) ---------------------------------------
 

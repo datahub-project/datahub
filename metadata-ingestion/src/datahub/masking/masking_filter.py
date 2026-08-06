@@ -324,6 +324,18 @@ class SecretMaskingFilter(logging.Filter):
                 )
             return "[REDACTED: Masking Error]"
 
+    def rebind_registry(self, registry: "SecretRegistry") -> None:
+        """Rebind the registry this filter reads, and force a pattern
+        rebuild on the next mask.
+
+        Used by ``install_masking_filter``'s refresh path when the caller
+        hands in a different registry on a repeat install. Encapsulating
+        the rebind here keeps the invariant (rebind implies version reset)
+        in one place where it can't drift from the install path.
+        """
+        self._registry = registry
+        self._last_version = 0
+
     def _mask_args(self, args: Any) -> Any:
         """Mask secrets in log arguments."""
         if not args:
@@ -791,8 +803,7 @@ def install_masking_filter(
                 "Use SecretRegistry.reset_instance() between installs to "
                 "fully tear down first."
             )
-            _installed_filter._registry = secret_registry
-            _installed_filter._last_version = 0
+            _installed_filter.rebind_registry(secret_registry)
 
         logger.debug("SecretMaskingFilter already installed; refreshed handlers")
         return _installed_filter
