@@ -1,4 +1,7 @@
+import atexit
+import logging
 import ssl
+import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +17,43 @@ from cassandra.cluster import (
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
+
+logger = logging.getLogger(__name__)
+
+# cassandra-driver runs its connections on a process-global reactor thread and tries to
+# stop it with `atexit.register(partial(_cleanup, _global_loop))` executed at module
+# import, while _global_loop is still None. functools.partial binds that None
+# permanently, so the driver's own cleanup is a no-op and the reactor thread is still
+# executing native code while CPython finalizes -- which intermittently segfaults the
+# interpreter (exit 139) after the work has already completed successfully.
+#
+# Cluster.shutdown() does not cover this: the reactor is shared process-wide rather than
+# owned by a Cluster. Calling _cleanup() ourselves supplies the wake-up and bounded join
+# the driver intended. Affects libev and asyncore; the twisted reactor binds correctly.
+_CASSANDRA_REACTOR_MODULES = (
+    "cassandra.io.libevreactor",
+    "cassandra.io.asyncorereactor",
+)
+
+
+def _shutdown_cassandra_reactor_loops() -> None:
+    for module_name in _CASSANDRA_REACTOR_MODULES:
+        # Look the modules up rather than importing them: importing libevreactor on an
+        # install without the C extension raises, and a reactor that was never imported
+        # cannot have started a thread.
+        module = sys.modules.get(module_name)
+        loop = getattr(module, "_global_loop", None) if module is not None else None
+        if loop is None:
+            continue
+        try:
+            loop._cleanup()
+        except Exception as e:
+            # Never raise from an atexit hook; a noisy traceback here would mask the
+            # exit status of an otherwise successful run.
+            logger.debug(f"Could not shut down {module_name} reactor: {e}")
+
+
+atexit.register(_shutdown_cassandra_reactor_loops)
 
 
 @dataclass

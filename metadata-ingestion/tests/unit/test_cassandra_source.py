@@ -1,23 +1,27 @@
 import json
 import logging
 import re
+import sys
+from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple
 
 # Unit tests for CassandraAPI SSL Configuration
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldConverter
 from datahub.ingestion.source.cassandra.cassandra_api import (
+    _CASSANDRA_REACTOR_MODULES,
     CassandraAPI,
     CassandraColumn,
+    _shutdown_cassandra_reactor_loops,
 )
 from datahub.ingestion.source.cassandra.cassandra_config import (
     CassandraSourceConfig,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 
@@ -194,3 +198,36 @@ def test_authenticate_ssl_all_certs():
         mock_cluster.assert_called_once()
         assert mock_cluster.call_args[1].get("ssl_context") == mock_ssl_instance
         report.failure.assert_not_called()
+
+
+def test_reactor_loop_is_shut_down(monkeypatch):
+    """The driver leaves its reactor thread running, which segfaults the interpreter."""
+    loops = {}
+    for module_name in _CASSANDRA_REACTOR_MODULES:
+        loop = MagicMock()
+        monkeypatch.setitem(
+            sys.modules, module_name, SimpleNamespace(_global_loop=loop)
+        )
+        loops[module_name] = loop
+
+    _shutdown_cassandra_reactor_loops()
+
+    for module_name, loop in loops.items():
+        assert loop._cleanup.call_count == 1, module_name
+
+
+def test_reactor_shutdown_never_raises(monkeypatch):
+    """Raising from an atexit hook would corrupt the exit status of a successful run."""
+    exploding = MagicMock()
+    exploding._cleanup.side_effect = RuntimeError("driver internals changed")
+    monkeypatch.setitem(
+        sys.modules,
+        "cassandra.io.libevreactor",
+        SimpleNamespace(_global_loop=exploding),
+    )
+    # A reactor that was never imported must also be tolerated.
+    monkeypatch.delitem(sys.modules, "cassandra.io.asyncorereactor", raising=False)
+
+    _shutdown_cassandra_reactor_loops()
+
+    exploding._cleanup.assert_called_once()
