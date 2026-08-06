@@ -500,7 +500,7 @@ public class AspectDaoTest {
         OperationContext opContext,
         RestoreIndicesArgs args,
         Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
-      return null;
+      throw new UnsupportedOperationException("TestAspectDao does not support streaming");
     }
 
     @Override
