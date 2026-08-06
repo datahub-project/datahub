@@ -39,6 +39,8 @@ import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
@@ -142,8 +144,8 @@ public class EbeanEntityServiceTest
             null,
             List.of(),
             null,
-            new com.linkedin.metadata.entity.ebean.PlainAspectTableResolver(),
-            new com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory(server));
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -163,8 +165,8 @@ public class EbeanEntityServiceTest
             _entityServiceImpl,
             server,
             1000,
-            new com.linkedin.metadata.entity.ebean.PlainAspectTableResolver(),
-            new com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory(server));
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)

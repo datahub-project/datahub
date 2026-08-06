@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -26,10 +27,12 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
+import com.linkedin.metadata.entity.retention.UnresolvableRetentionKeyException;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -96,7 +99,7 @@ public class RetentionDrainerTest {
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     // Batch path returns the committed keys so the drainer clears those keys.
-    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
         new RetentionDrainer(
@@ -112,8 +115,7 @@ public class RetentionDrainerTest {
     drainer.tick();
 
     verify(retentionService, times(1))
-        .applyRetentionBatchWithPolicyDefaults(
-            eq(SYSTEM_CONTEXT), any(List.class), any(List.class));
+        .applyRetentionBatchWithPolicyDefaults(eq(SYSTEM_CONTEXT), any(List.class));
     assertTrue(buffer.drain(10).isEmpty());
   }
 
@@ -128,7 +130,7 @@ public class RetentionDrainerTest {
     RetentionService<?> retentionService = mock(RetentionService.class);
     doThrow(new RuntimeException("retention apply failed"))
         .when(retentionService)
-        .applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+        .applyRetentionBatchWithPolicyDefaults(any(), any());
 
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
     RetentionDrainer drainer =
@@ -165,7 +167,7 @@ public class RetentionDrainerTest {
     RetentionService<?> retentionService = mock(RetentionService.class);
     // Return only the committed key, dropping the failed one — mirrors EbeanRetentionService
     // returning just the keys whose own transaction committed.
-    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(
             invocation -> {
               @SuppressWarnings("unchecked")
@@ -215,7 +217,7 @@ public class RetentionDrainerTest {
 
     drainer.tick();
 
-    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
     assertTrue(buffer.drain(10).size() == 1);
   }
 
@@ -243,7 +245,7 @@ public class RetentionDrainerTest {
 
     drainer.tick();
 
-    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
     assertTrue(buffer.drain(10).size() == 1);
 
     buffer.releaseDrainLock("drain", heldToken);
@@ -266,7 +268,7 @@ public class RetentionDrainerTest {
     retentionBuffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 1L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
-    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
     RetentionDrainer drainer =
         new RetentionDrainer(
@@ -281,16 +283,14 @@ public class RetentionDrainerTest {
 
     drainer.tick();
 
-    ArgumentCaptor<List<RetentionService.RetentionContext>> captor =
-        ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<RetentionBatchEntry>> captor = ArgumentCaptor.forClass(List.class);
     verify(retentionService, times(1))
-        .applyRetentionBatchWithPolicyDefaults(
-            eq(SYSTEM_CONTEXT), any(List.class), captor.capture());
-    List<RetentionService.RetentionContext> applied = captor.getValue();
+        .applyRetentionBatchWithPolicyDefaults(eq(SYSTEM_CONTEXT), captor.capture());
+    List<RetentionBatchEntry> applied = captor.getValue();
     assertEquals(applied.size(), 1);
-    assertEquals(applied.get(0).getUrn(), TEST_URN);
-    assertEquals(applied.get(0).getAspectName(), ASPECT);
-    assertEquals(applied.get(0).getMaxVersion().orElseThrow(), 3L);
+    assertEquals(applied.get(0).context().getUrn(), TEST_URN);
+    assertEquals(applied.get(0).context().getAspectName(), ASPECT);
+    assertEquals(applied.get(0).context().getMaxVersion().orElseThrow(), 3L);
 
     // removeIfSame on success must have cleared the key.
     assertTrue(buffer.drain(10).isEmpty());
@@ -299,10 +299,11 @@ public class RetentionDrainerTest {
   @Test
   @SuppressWarnings("unchecked")
   public void testTickWithRealEbeanServiceClearsNoPolicyKeysFromBuffer() {
-    // Integration guard against the infinite re-drain bug. The drainer passes parallel (keys,
-    // contexts) lists to applyRetentionBatchWithPolicyDefaults. The Ebean override rebuilds each
-    // context with a resolved policy but MUST echo back the ORIGINAL keys (at the committed
-    // index) as successes — else the drainer's successes.contains(originalKey) match fails and
+    // Integration guard against the infinite re-drain bug. The drainer passes a single
+    // List<RetentionBatchEntry> (each entry pairs a key with its context) to
+    // applyRetentionBatchWithPolicyDefaults. The Ebean override rebuilds each context with a
+    // resolved policy but MUST echo back the ORIGINAL keys (at the committed index) as
+    // successes — else the drainer's successes.contains(originalKey) match fails and
     // committed keys re-drain forever. This wires the REAL EbeanRetentionService against H2 (no
     // mocked service) and asserts the buffer is empty after a single tick. If the contract breaks,
     // this test holds 1 entry (the re-drain symptom).
@@ -390,7 +391,7 @@ public class RetentionDrainerTest {
         };
 
     RetentionService<?> retentionService = mock(RetentionService.class);
-    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(
             invocation -> {
               @SuppressWarnings("unchecked")
@@ -436,17 +437,18 @@ public class RetentionDrainerTest {
 
     drainer.tick();
 
-    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
     assertTrue(buffer.drain(10).isEmpty());
   }
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testTickDropsKeyWhenResolverThrows() {
-    // A key whose routing context can't be resolved (resolver throws) must be dropped from the
-    // buffer, not retried forever — otherwise a poison key wedges the drainer in an infinite
-    // re-throw loop. The drainer catches the RuntimeException and removes the key via
-    // removeIfSame so it doesn't re-throw every tick.
+  public void testTickDropsKeyWhenResolverThrowsUnresolvable() {
+    // A key the resolver can PERMANENTLY never resolve (UnresolvableRetentionKeyException — e.g. a
+    // subtype the resolver does not produce, a wiring bug or a stale rolling-deploy entry) must be
+    // dropped from the buffer, not retried forever — otherwise a poison key wedges the drainer in
+    // an infinite re-throw loop. The drainer catches UnresolvableRetentionKeyException and removes
+    // the key via removeIfSame so it doesn't re-throw every tick.
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
         new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
@@ -464,7 +466,7 @@ public class RetentionDrainerTest {
           @Override
           @Nonnull
           public String groupKey(@Nonnull RetentionKey key) {
-            throw new RuntimeException("forced resolver failure");
+            throw new UnresolvableRetentionKeyException("forced permanent resolver failure");
           }
 
           @Override
@@ -483,8 +485,63 @@ public class RetentionDrainerTest {
     drainer.tick();
 
     // The key must have been dropped (not left for infinite retry) and the service never invoked.
-    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
     assertTrue(buffer.drain(10).isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickLeavesKeyQueuedOnTransientResolverFailure() {
+    // A TRANSIENT resolver failure (any RuntimeException other than
+    // UnresolvableRetentionKeyException
+    // — e.g. a temporary lookup error) must NOT drop the key: dropping would silently skip
+    // retention
+    // for that entry. The drainer logs and leaves the key queued so the next tick retries it.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    RetentionContextResolver transientlyFailingResolver =
+        new RetentionContextResolver() {
+          @Override
+          @Nonnull
+          public RetentionKey enrichKey(
+              @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+            return new SimpleRetentionKey(urn.toString(), aspectName);
+          }
+
+          @Override
+          @Nonnull
+          public String groupKey(@Nonnull RetentionKey key) {
+            throw new RuntimeException("forced transient resolver failure");
+          }
+
+          @Override
+          @Nonnull
+          public OperationContext resolveOpContext(
+              @Nonnull RetentionKey key, @Nonnull OperationContext systemOperationContext) {
+            return systemOperationContext;
+          }
+        };
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer,
+            retentionService,
+            SYSTEM_CONTEXT,
+            transientlyFailingResolver,
+            10,
+            60_000L,
+            true,
+            null);
+
+    drainer.tick();
+
+    // The key must REMAIN in the buffer for retry (not dropped), and the service never invoked.
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
+    assertFalse(buffer.drain(10).isEmpty());
   }
 
   @Test
@@ -505,7 +562,7 @@ public class RetentionDrainerTest {
     CountDownLatch serviceProceed = new CountDownLatch(1);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
-    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(
             invocation -> {
               serviceEntered.countDown();
@@ -548,7 +605,7 @@ public class RetentionDrainerTest {
       assertEquals(remaining.get(0).getValue(), Long.valueOf(10L));
 
       // Second tick drains the surviving newer entry.
-      when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+      when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
           .thenAnswer(invocation -> invocation.getArgument(1));
       drainer.tick();
       assertTrue(buffer.drain(10).isEmpty());

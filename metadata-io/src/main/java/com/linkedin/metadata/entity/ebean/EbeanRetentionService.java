@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -204,21 +205,12 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   @WithSpan
   @Nonnull
   public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<RetentionKey> keys,
-      @Nonnull List<RetentionContext> retentionContexts) {
-    if (keys.size() != retentionContexts.size()) {
-      throw new IllegalArgumentException(
-          "keys and retentionContexts must be the same size: keys="
-              + keys.size()
-              + " contexts="
-              + retentionContexts.size());
-    }
-
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionBatchEntry> entries) {
     List<RetentionContext> withDefaults =
-        retentionContexts.stream()
+        entries.stream()
             .map(
-                context -> {
+                e -> {
+                  RetentionContext context = e.context();
                   if (context.getRetentionPolicy().isEmpty()) {
                     Retention retentionPolicy =
                         getRetention(
@@ -231,7 +223,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 })
             .collect(Collectors.toList());
 
-    List<RetentionKey> successes = new ArrayList<>(withDefaults.size());
+    List<RetentionKey> successes = new ArrayList<>(entries.size());
     if (withDefaults.isEmpty()) {
       return successes;
     }
@@ -242,6 +234,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     // echo-back rationale.
     for (int i = 0; i < withDefaults.size(); i++) {
       RetentionContext context = withDefaults.get(i);
+      RetentionKey key = entries.get(i).key(); // original key, echoed back on commit
       // Outer scope routes beginTransaction (and any non-DELETE DB access) via the tenant seam;
       // executeRetentionDeleteForContext re-scopes the DELETE — see applyRetention for the
       // re-entrant nesting rationale.
@@ -249,7 +242,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
         try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
           int rowsDeleted = executeRetentionDeleteForContext(opContext, context);
           tx.commit();
-          successes.add(keys.get(i));
+          successes.add(key);
           if (rowsDeleted > 0) {
             log.debug(
                 "Deleted {} rows for urn={} aspect={}",

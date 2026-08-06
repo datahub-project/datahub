@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -309,15 +310,17 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * Returns the keys that were durably committed — callers should clear only those keys from the
    * buffer.
    *
-   * <p>The drainer passes parallel {@code keys} and {@code retentionContexts} lists (same index
-   * order); the service uses each context for the DELETE and echoes back the original key at each
+   * <p>The drainer passes a single {@code List<RetentionBatchEntry>}; each entry structurally pairs
+   * a {@link RetentionKey} with its {@link RetentionContext}, so the same-size / same-index
+   * invariant between keys and contexts is guaranteed by construction (not by a runtime check). The
+   * service uses each entry's context for the DELETE and echoes back the original key at each
    * committed index. Cross-off in the drainer is by {@link RetentionKey} equals, which is explicit
    * per subtype — so a key subtype that carries routing metadata is matched with that metadata
    * intact (two requests for the same URN routed to different underlying databases do not
    * cross-clear).
    *
    * <p>Default implementation falls back to {@link #applyRetentionWithPolicyDefaults} and returns
-   * the full input {@code keys} list — treating every pair as committed <b>with no per-pair failure
+   * the full input keys list — treating every pair as committed <b>with no per-pair failure
    * isolation</b>. On a backend using this default (e.g. Cassandra) a partial failure that does not
    * throw leaves those keys reported as committed, so the drainer clears them and they are silently
    * under-pruned until the next enqueue re-adds them. Storage-specific subclasses (see {@code
@@ -328,25 +331,16 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * are cleared rather than retried forever.
    *
    * @param opContext operation context
-   * @param keys original buffer keys, parallel to {@code retentionContexts} (same index order)
-   * @param retentionContexts urn, aspect name, and additional context to apply retention for
-   * @return the subset of {@code keys} whose corresponding context was durably committed (empty on
+   * @param entries pairs of (key, context) to apply retention for
+   * @return the subset of keys whose corresponding context was durably committed (empty on
    *     full-batch failure — all keys stay for retry)
    */
   @Nonnull
   public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<RetentionKey> keys,
-      @Nonnull List<RetentionContext> retentionContexts) {
-    if (keys.size() != retentionContexts.size()) {
-      throw new IllegalArgumentException(
-          "keys and retentionContexts must be the same size: keys="
-              + keys.size()
-              + " contexts="
-              + retentionContexts.size());
-    }
-    applyRetentionWithPolicyDefaults(opContext, retentionContexts);
-    return keys;
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionBatchEntry> entries) {
+    applyRetentionWithPolicyDefaults(
+        opContext, entries.stream().map(RetentionBatchEntry::context).collect(Collectors.toList()));
+    return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
   }
 
   /**

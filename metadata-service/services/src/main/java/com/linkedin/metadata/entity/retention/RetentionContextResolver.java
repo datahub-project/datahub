@@ -19,6 +19,13 @@ import javax.annotation.Nonnull;
  * and {@code resolveOpContext} returns the system context unchanged, matching the single-database
  * deployment. An extension module that routes to multiple databases provides its own implementation
  * (and a matching {@link RetentionKey} subtype).
+ *
+ * <p><b>Failure contract.</b> {@link #groupKey} and {@link #resolveOpContext} distinguish permanent
+ * from transient failures: throw {@link UnresolvableRetentionKeyException} for a key that will
+ * <em>never</em> resolve (e.g. a subtype the resolver does not produce — a wiring bug or a stale
+ * rolling-deploy entry). The drainer drops such keys from the buffer so they don't re-throw every
+ * tick. Any other {@link RuntimeException} is treated as transient: the drainer logs it and leaves
+ * the key queued for retry on the next tick, so a transient blip cannot silently skip retention.
  */
 public interface RetentionContextResolver {
 

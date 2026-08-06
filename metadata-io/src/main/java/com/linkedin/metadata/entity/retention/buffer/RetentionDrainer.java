@@ -4,8 +4,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.UnresolvableRetentionKeyException;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
@@ -170,11 +172,12 @@ public class RetentionDrainer {
     // LinkedHashMap (not HashMap) to preserve group insertion order across runs so drain order is
     // deterministic for reproducible logs/debugging.
     //
-    // Resolver failures (groupKey/resolveOpContext) are non-fatal to the clear step: a key whose
-    // routing context can't be resolved (e.g. an extension resolver on a stray
-    // non-matching key subtype) is dropped from the buffer here so it doesn't re-throw every tick
-    // (infinite retry storm). The OSS SimpleRetentionContextResolver can't throw, so this is a
-    // no-op there, but the file is byte-identical across OSS/fork.
+    // Resolver failures are split by intent:
+    //  - UnresolvableRetentionKeyException = permanent (wrong key subtype / wiring bug / stale
+    //    rolling-deploy entry): drop via removeIfSame so it doesn't re-throw every tick.
+    //  - any other RuntimeException = transient (e.g. a temporary lookup error): log and leave the
+    //    key queued so the next tick retries it. Dropping on a transient failure would silently
+    //    skip retention for that entry.
     Map<RetentionKey, Long> versionByKey = new LinkedHashMap<>();
     for (Map.Entry<RetentionKey, Long> entry : batch) {
       versionByKey.put(entry.getKey(), entry.getValue());
@@ -183,13 +186,19 @@ public class RetentionDrainer {
     for (RetentionKey key : contextsByKey.keySet()) {
       try {
         groups.computeIfAbsent(contextResolver.groupKey(key), k -> new ArrayList<>()).add(key);
-      } catch (RuntimeException e) {
+      } catch (UnresolvableRetentionKeyException e) {
         log.warn(
-            "Skipping unresolvable retention key urn={} aspect={}; removing from buffer",
+            "Dropping unresolvable retention key urn={} aspect={}; removing from buffer",
             key.urn(),
             key.aspectName(),
             e);
         buffer.removeIfSame(key, versionByKey.get(key));
+      } catch (RuntimeException e) {
+        log.warn(
+            "Transient resolver failure for retention key urn={} aspect={}; leaving queued for retry",
+            key.urn(),
+            key.aspectName(),
+            e);
       }
     }
 
@@ -199,30 +208,34 @@ public class RetentionDrainer {
       OperationContext groupOpContext;
       try {
         groupOpContext = contextResolver.resolveOpContext(representative, systemOperationContext);
-      } catch (RuntimeException e) {
+      } catch (UnresolvableRetentionKeyException e) {
         log.warn(
-            "Skipping retention group of {} keys; resolver failed to build opContext;"
-                + " removing from buffer",
+            "Dropping retention group of {} unresolvable keys; removing from buffer",
             groupKeys.size(),
             e);
         for (RetentionKey key : groupKeys) {
           buffer.removeIfSame(key, versionByKey.get(key));
         }
         continue;
+      } catch (RuntimeException e) {
+        log.warn(
+            "Transient resolver failure for retention group of {} keys; leaving queued for retry",
+            groupKeys.size(),
+            e);
+        continue;
       }
-      List<RetentionService.RetentionContext> groupContexts = new ArrayList<>(groupKeys.size());
+      List<RetentionBatchEntry> groupEntries = new ArrayList<>(groupKeys.size());
       for (RetentionKey key : groupKeys) {
-        groupContexts.add(contextsByKey.get(key));
+        groupEntries.add(new RetentionBatchEntry(key, contextsByKey.get(key)));
       }
       try {
         successes.addAll(
-            retentionService.applyRetentionBatchWithPolicyDefaults(
-                groupOpContext, groupKeys, groupContexts));
+            retentionService.applyRetentionBatchWithPolicyDefaults(groupOpContext, groupEntries));
       } catch (Exception e) {
         // Whole group failed (tx setup / commit). Nothing durable — the attempted keys stay for
         // retry (malformed keys were already removed above).
         log.warn(
-            "Retention group apply failed for {} keys; leaving for retry", groupContexts.size(), e);
+            "Retention group apply failed for {} keys; leaving for retry", groupEntries.size(), e);
         if (metricUtils != null) {
           metricUtils.increment(RetentionDrainer.class, "retention_drain_failed", 1);
         }

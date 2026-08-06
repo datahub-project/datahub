@@ -15,6 +15,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import com.linkedin.retention.Retention;
@@ -23,6 +24,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -202,7 +204,7 @@ public class EbeanRetentionServiceTest {
 
     List<RetentionKey> committed =
         retentionService.applyRetentionBatchWithPolicyDefaults(
-            opContext, List.of(key), List.of(ctx));
+            opContext, List.of(new RetentionBatchEntry(key, ctx)));
 
     assertEquals(committed.size(), 1);
     // Latest (v0) always survives; only the old below-threshold version is gone.
@@ -224,9 +226,13 @@ public class EbeanRetentionServiceTest {
         List.of(retentionContext(urnA), retentionContext(urnB));
     List<RetentionKey> keys =
         List.of(new SimpleRetentionKey(urnA, "status"), new SimpleRetentionKey(urnB, "status"));
+    List<RetentionBatchEntry> entries = new ArrayList<>(keys.size());
+    for (int i = 0; i < keys.size(); i++) {
+      entries.add(new RetentionBatchEntry(keys.get(i), contexts.get(i)));
+    }
 
     List<RetentionKey> committed =
-        retentionService.applyRetentionBatchWithPolicyDefaults(opContext, keys, contexts);
+        retentionService.applyRetentionBatchWithPolicyDefaults(opContext, entries);
 
     assertEquals(committed.size(), 2);
     assertEquals(versionsFor(urnA, "status"), List.of(0L, 2L));
@@ -261,8 +267,9 @@ public class EbeanRetentionServiceTest {
     List<RetentionKey> committed =
         svc.applyRetentionBatchWithPolicyDefaults(
             opContext,
-            List.of(goodKey, poisonKey),
-            List.of(retentionContext(good), retentionContext(poison)));
+            List.of(
+                new RetentionBatchEntry(goodKey, retentionContext(good)),
+                new RetentionBatchEntry(poisonKey, retentionContext(poison))));
 
     assertEquals(committed.size(), 1);
     assertEquals(committed.get(0), goodKey);
@@ -314,7 +321,8 @@ public class EbeanRetentionServiceTest {
 
     List<RetentionKey> committed =
         svc.applyRetentionBatchWithPolicyDefaults(
-            opContext, List.of(keyA, keyB), List.of(ctxA, ctxB));
+            opContext,
+            List.of(new RetentionBatchEntry(keyA, ctxA), new RetentionBatchEntry(keyB, ctxB)));
 
     assertEquals(committed.size(), 2);
     // Same instance (not a rebuilt copy) -> drainer's successes.contains(originalKey) will match.
