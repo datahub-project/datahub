@@ -54,6 +54,7 @@ class ConfluentStreamCatalogClient:
             if placeholder not in query
         ]
         if missing:
+            # Missing {offset} loops forever; missing {limit} silently truncates.
             self.report.failure(
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
@@ -98,6 +99,7 @@ class ConfluentStreamCatalogClient:
                 if entity is not None:
                     entities.append(entity)
 
+            # raw_count, not filtered len(items): a non-object entry must not look like EOF.
             if page.raw_count < self.config.page_size:
                 break
             offset += self.config.page_size

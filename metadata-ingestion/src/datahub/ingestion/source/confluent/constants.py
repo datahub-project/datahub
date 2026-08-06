@@ -26,6 +26,8 @@ OFFSET_PLACEHOLDER: Final[str] = "{offset}"
 
 MAX_ERROR_BODY_CHARS: Final[int] = 500
 
+# Transient Kafka REST failures while listing topics for Confluent Cloud lineage.
+# urllib3 Retry.total is additional retries after the first attempt.
 MAX_KAFKA_TOPIC_FETCH_ATTEMPTS: Final[int] = 3
 KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES: Final[Tuple[int, ...]] = (
     429,

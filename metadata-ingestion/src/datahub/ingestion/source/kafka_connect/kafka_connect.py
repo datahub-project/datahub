@@ -98,6 +98,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
         # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
+        # Mount retries for transient REST failures (see MAX_KAFKA_TOPIC_FETCH_ATTEMPTS).
         self.kafka_session = self._create_kafka_session()
 
         # Test the connection using appropriate credentials
@@ -157,7 +158,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         # Cache for the live cluster topic list. None = unavailable or not yet fetched;
-        # [] = resolved empty cluster.
+        # [] = resolved empty cluster. See _get_all_topics_from_kafka_api.
         self._all_kafka_topics_cache: Optional[List[str]] = None
         self._all_kafka_topics_resolved: bool = False
 
@@ -235,6 +236,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         all_cluster_topics: Optional[List[str]] = None
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
+            # Catalog cross-check below uses the full list. Only hand it to
+            # connectors that need it for inference (sinks, JDBC, EventRouter).
             if (
                 connector
                 and all_cluster_topics is not None
@@ -657,6 +660,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         context: str,
         exc: Optional[Exception] = None,
     ) -> None:
+        # Always warn: available_topics() consumers need this list with or without
+        # Stream Catalog. Callers pick catalog-suffixed wording when the catalog is on.
         self.report.warning(message=message, context=context, exc=exc)
 
     def _parse_confluent_cloud_info(self) -> tuple[Optional[str], Optional[str]]:
