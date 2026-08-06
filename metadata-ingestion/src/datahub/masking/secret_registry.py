@@ -110,10 +110,29 @@ class SecretRegistry:
 
     @classmethod
     def reset_instance(cls) -> None:
-        """Reset singleton instance (and current execution scope)."""
+        """Reset singleton instance (and current execution scope).
+
+        Also tears down the installed masking filter (lazily) so a
+        subsequent ``install_masking_filter(new_registry)`` picks up the
+        new registry. Without this, the filter survives
+        ``reset_instance()`` and keeps masking with the old (now-stale)
+        registry — masking silently stops working for every secret
+        registered after the reset. Tearing down (rather than just
+        clearing the ``_installed_filter`` global) also removes the old
+        filter from handlers/root, so the next install doesn't attach a
+        second filter alongside the stale one. The lazy import avoids a
+        circular dependency (masking_filter imports this module).
+        """
         with cls._lock:
             cls._instance = None
         _current_exec.set(None)
+        try:
+            from datahub.masking import masking_filter as _mf
+
+            if _mf._installed_filter is not None:
+                _mf.uninstall_masking_filter()
+        except Exception:
+            pass
 
     # --- Execution scoping (writers) ---------------------------------------
 

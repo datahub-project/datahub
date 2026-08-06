@@ -444,19 +444,23 @@ class SecretMaskingFilter(logging.Filter):
 
         A depth cap (``_MAX_EXTRA_DEPTH``) and an identity-based cycle guard
         (``_seen``) bound the recursion: extra= can carry self-referential or
-        very large structures onto the hot path. Beyond the cap or on a cycle we
-        return the value unchanged (residual gap) rather than raise, so logging
-        still proceeds.
+        very large structures onto the hot path. Beyond the cap or on a cycle
+        we return a placeholder string (``"<not masked: ...>"``) rather
+        than the raw value — returning the raw subtree would emit any secret
+        it contains in cleartext, and everything else in this module fails
+        closed. The placeholder also keeps this docstring honest: "return
+        the value unchanged" reads as "we mask less here" when it actually
+        means "we emit the secret."
         """
         if _depth >= self._MAX_EXTRA_DEPTH:
-            return value
+            return "<not masked: depth limit>"
         if isinstance(value, str):
             return self.mask_text(value)
         if isinstance(value, dict):
             if _seen is None:
                 _seen = set()
             if id(value) in _seen:
-                return value  # cycle — return unchanged (residual gap)
+                return "<not masked: cycle>"
             _seen.add(id(value))
             try:
                 return {
@@ -469,7 +473,7 @@ class SecretMaskingFilter(logging.Filter):
             if _seen is None:
                 _seen = set()
             if id(value) in _seen:
-                return value
+                return "<not masked: cycle>"
             _seen.add(id(value))
             try:
                 masked = [
@@ -745,11 +749,12 @@ def install_masking_filter(
       via %s may emit them unmasked unless the output flows through the
       stdout/stderr wrapper.
 
-    Note: the "already installed → refresh" path re-scans handlers but reuses
-    the existing filter instance, so a caller passing a different
-    secret_registry / max_message_size on a repeat call will see those args
-    silently ignored. This is intentional (the filter is process-lifetime)
-    but worth knowing.
+    Note: the "already installed → refresh" path re-scans handlers, re-adds
+    the root-logger filter if something removed it, and rebinds the
+    registry if the caller passed a different one (with a warning).
+    ``max_message_size`` on a repeat call is still ignored (the filter
+    instance is reused); call ``SecretRegistry.reset_instance()`` first
+    for a full re-install with new args.
     """
     global _installed_filter
 
@@ -761,6 +766,34 @@ def install_masking_filter(
     if _installed_filter is not None:
         # Already installed: re-scan to cover handlers added since (fail-open).
         _add_filter_to_existing_handlers(_installed_filter)
+
+        # Re-add the root-logger filter if something removed it (partial
+        # teardown state). Without this, a partially-torn-down state stays
+        # partial: the handler filters are re-scanned but the root-logger
+        # sentinel is gone, so the "already installed?" check on a later call
+        # would re-install from scratch and attach a second filter.
+        if _installed_filter not in root_logger.filters:
+            root_logger.addFilter(_installed_filter)
+
+        # Rebind the registry if the caller passed a different one. Without
+        # this, install(r1) → reset_instance() → install(r2) leaves the
+        # filter masking with r1 (now stale), so r2's secrets leak. The
+        # filter is process-lifetime, but the registry it reads is not —
+        # rebind so the same filter instance reads the new registry, and
+        # reset _last_version to force a pattern rebuild on the next mask.
+        if (
+            secret_registry is not None
+            and secret_registry is not _installed_filter._registry
+        ):
+            logger.warning(
+                "Rebinding SecretMaskingFilter registry on repeat install; "
+                "the previous registry is no longer active. "
+                "Use SecretRegistry.reset_instance() between installs to "
+                "fully tear down first."
+            )
+            _installed_filter._registry = secret_registry
+            _installed_filter._last_version = 0
+
         logger.debug("SecretMaskingFilter already installed; refreshed handlers")
         return _installed_filter
 

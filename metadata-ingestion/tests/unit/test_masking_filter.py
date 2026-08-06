@@ -1466,10 +1466,10 @@ class TestReviewFixes:
     def test_extras_self_referential_does_not_hang(self):
         """Issue 2 (B): extra= can carry self-referential structures. The
         identity-based cycle guard must prevent infinite recursion (which
-        would hang the logger). The cycle is returned unchanged (residual
-        gap, acceptable — secrets in a cycle are rare and the cycle itself
-        would be unprintable anyway). The primary assertion is no-hang; the
-        secondary is that the non-cyclic top-level leaf IS masked."""
+        would hang the logger). The cycle branch returns a placeholder
+        string (``"<not masked: cycle>"``) rather than the raw value —
+        returning the raw subtree would emit any secret it contains in
+        cleartext, and everything else in this module fails closed."""
         registry = SecretRegistry.get_instance()
         registry.clear()
         registry.register_secret("CYCLE_PW", "cycle_secret_value")
@@ -1493,21 +1493,23 @@ class TestReviewFixes:
         mf.filter(record)
         # The non-cyclic top-level leaf with the secret is masked.
         assert "***REDACTED:CYCLE_PW***" in str(record.cfg)
-        # Residual gap: the cycle's self-reference points to the original
-        # unmasked dict, so the secret may still appear in the deep str repr.
-        # That is the documented accepted residual — the cycle itself is
-        # unprintable in practice.
+        # The cycle branch emits a placeholder, NOT the raw subtree, so the
+        # secret does not leak via the cycle's self-reference.
+        assert "cycle_secret_value" not in str(record.cfg)
+        assert "<not masked: cycle>" in str(record.cfg)
 
     def test_extras_deep_nesting_is_capped(self):
         """Issue 2 (B): very deep nesting is capped at _MAX_EXTRA_DEPTH to
-        bound hot-path cost. Beyond the cap the value is returned unchanged
-        (residual gap) rather than raising."""
+        bound hot-path cost. Past the cap the value is replaced with a
+        placeholder string (not the raw subtree), so secrets past the cap
+        don't leak."""
         registry = SecretRegistry.get_instance()
         registry.clear()
         registry.register_secret("DEEP_PW", "deep_secret_value")
 
         mf = SecretMaskingFilter(registry)
-        # Build a deeply nested dict past the cap.
+        # Build a deeply nested dict past the cap, with the secret at the
+        # bottom (past the cap).
         deep: dict = {"pw": "deep_secret_value"}
         for _ in range(SecretMaskingFilter._MAX_EXTRA_DEPTH + 5):
             deep = {"child": deep}
@@ -1523,6 +1525,10 @@ class TestReviewFixes:
         record.cfg = deep
         # Must not hang or raise.
         mf.filter(record)
+        # The cap emits a placeholder, NOT the raw subtree, so the secret
+        # past the cap does not leak.
+        assert "deep_secret_value" not in str(record.cfg)
+        assert "<not masked: depth limit>" in str(record.cfg)
 
     def test_json_formatter_with_quote_in_secret(self):
         """Issue 4: a JSON formatter escapes quotes/backslashes in the secret
@@ -1634,6 +1640,102 @@ class TestReviewFixes:
         finally:
             logging.getLogger().removeHandler(root_handler)
             foo_logger.propagate = False
+
+    def test_reset_instance_tears_down_installed_filter(self):
+        """reset_instance() must tear down the installed filter so a
+        subsequent install(new_registry) masks with the new registry.
+        Without this, the filter survives reset_instance() and keeps
+        masking with the old (now-stale) registry — masking silently
+        stops working for every secret registered after the reset.
+
+        Reproduces the reviewer scenario: install(r1) → reset_instance()
+        → install(r2). On the unfixed tree, r2's secret leaks because the
+        filter still reads r1."""
+        import datahub.masking.masking_filter as mf_mod
+
+        # install(r1) — uses r1, attaches filter1 to handlers/root.
+        r1 = SecretRegistry()
+        r1.clear()
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
+        assert mf_mod._installed_filter is not None
+        filter1 = mf_mod._installed_filter
+        assert filter1._registry is r1
+
+        # reset_instance() — tears down filter1 (removes from handlers,
+        # clears _installed_filter).
+        SecretRegistry.reset_instance()
+        assert mf_mod._installed_filter is None
+
+        # install(r2) — fresh install with a new registry.
+        r2 = SecretRegistry()
+        r2.clear()
+        r2.register_secret("R2_TOKEN", "bbb_secret_2")
+        install_masking_filter(secret_registry=r2, install_stdout_wrapper=False)
+        assert mf_mod._installed_filter is not None
+        assert mf_mod._installed_filter._registry is r2
+        assert mf_mod._installed_filter is not filter1  # new instance, not reused
+
+        # r2's secret is masked by the new filter.
+        mf = mf_mod._installed_filter
+        masked = mf.mask_text("connecting with bbb_secret_2")
+        assert "bbb_secret_2" not in masked
+        assert "***REDACTED:R2_TOKEN***" in masked
+
+        uninstall_masking_filter()
+
+    def test_refresh_rebinds_registry_on_repeat_install(self):
+        """The refresh path (already installed) must rebind the registry
+        when the caller passes a different one, so install(r1) without
+        reset_instance() in between still picks up r2. Belt-and-braces
+        alongside reset_instance() for callers that use the public API
+        twice without resetting."""
+        import datahub.masking.masking_filter as mf_mod
+
+        r1 = SecretRegistry()
+        r1.clear()
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
+        filter1 = mf_mod._installed_filter
+        assert filter1._registry is r1
+
+        # install(r2) WITHOUT reset_instance() — refresh path rebinds.
+        r2 = SecretRegistry()
+        r2.clear()
+        r2.register_secret("R2_TOKEN", "ccc_secret_3")
+        install_masking_filter(secret_registry=r2, install_stdout_wrapper=False)
+        # Same filter instance (process-lifetime), but registry rebound.
+        assert mf_mod._installed_filter is filter1
+        assert filter1._registry is r2
+
+        masked = filter1.mask_text("connecting with ccc_secret_3")
+        assert "ccc_secret_3" not in masked
+        assert "***REDACTED:R2_TOKEN***" in masked
+
+        uninstall_masking_filter()
+
+    def test_refresh_readds_root_logger_filter_if_removed(self):
+        """If something removed the root-logger filter (partial teardown
+        state), the refresh path must re-add it. Without this, a
+        partially-torn-down state stays partial: handler filters are
+        re-scanned but the root-logger sentinel is gone, so a later
+        install would re-install from scratch and attach a second filter."""
+        import datahub.masking.masking_filter as mf_mod
+
+        r1 = SecretRegistry()
+        r1.clear()
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
+        filter1 = mf_mod._installed_filter
+        root_logger = logging.getLogger()
+        assert filter1 in root_logger.filters
+
+        # Simulate partial teardown: remove root-logger filter only.
+        root_logger.removeFilter(filter1)
+        assert filter1 not in root_logger.filters
+
+        # Refresh path re-adds it.
+        install_masking_filter(secret_registry=r1, install_stdout_wrapper=False)
+        assert filter1 in root_logger.filters
+
+        uninstall_masking_filter()
 
 
 if __name__ == "__main__":
