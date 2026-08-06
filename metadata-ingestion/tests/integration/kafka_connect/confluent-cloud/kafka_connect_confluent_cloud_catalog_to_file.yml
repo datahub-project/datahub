@@ -22,10 +22,11 @@ source:
     kafka_api_secret: "admin"
 
     # Stream Catalog: connector -> topic lineage, tags and business metadata.
-    # The mock serves /catalog/graphql from the same host as the Connect API.
+    # Hostname must look like Confluent Cloud so the catalog is not skipped;
+    # the test patches the GraphQL endpoint to the local mock.
     confluent_catalog:
       enabled: true
-      schema_registry_url: "http://localhost:8888"
+      schema_registry_url: "https://psrc-mock.us-east-1.aws.confluent.cloud"
       api_key: "admin"
       api_secret: "admin"
       # Off by default; enabled here so the golden covers catalog-derived lineage.

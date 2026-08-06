@@ -23,9 +23,11 @@ source:
 
     # Stream Catalog with its defaults: tags and business metadata only, so
     # `include_lineage` stays off and lineage keeps resolving source tables.
+    # Hostname must look like Confluent Cloud so the catalog is not skipped;
+    # the test patches the GraphQL endpoint to the local mock.
     confluent_catalog:
       enabled: true
-      schema_registry_url: "http://localhost:8888"
+      schema_registry_url: "https://psrc-mock.us-east-1.aws.confluent.cloud"
       api_key: "admin"
       api_secret: "admin"
 

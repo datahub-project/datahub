@@ -96,6 +96,13 @@ def run_ingest_with_mocked_graph(
             "datahub.ingestion.run.pipeline.DataHubGraph",
             return_value=mock_datahub_graph,
         ),
+        # Recipes use a fake *.confluent.cloud Schema Registry URL so the
+        # Stream Catalog cloud-endpoint guard passes; point GraphQL at the mock.
+        mock.patch(
+            "datahub.ingestion.source.confluent.config.ConfluentStreamCatalogConfig."
+            "get_graphql_endpoint",
+            return_value=f"{CONFLUENT_CLOUD_MOCK_SERVER}/catalog/graphql",
+        ),
     ):
         config_file = (test_resources_dir / recipe_name).resolve()
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)

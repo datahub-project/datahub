@@ -237,11 +237,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
             # Keep the list for catalog cross-check below. Only hand it to
-            # connectors that need it for inference (sinks, EventRouter).
+            # connectors that need it for inference (sinks, JDBC, EventRouter).
             if (
                 connector
                 and all_cluster_topics is not None
-                and self._should_assign_cluster_topics(connector_manifest, connector)
+                and connector.requires_cluster_topics()
             ):
                 connector.all_cluster_topics = all_cluster_topics
                 logger.debug(
@@ -269,17 +269,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
         self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
         return True
-
-    @staticmethod
-    def _should_assign_cluster_topics(
-        connector_manifest: ConnectorManifest,
-        connector: object,
-    ) -> bool:
-        requires = getattr(connector, "requires_cluster_topics", None)
-        if callable(requires):
-            return bool(requires())
-        # Non-BaseConnector stubs in unit tests: sinks still need the live list.
-        return connector_manifest.type == SINK
 
     def _get_catalog_connector(
         self, connector_manifest: ConnectorManifest

@@ -60,8 +60,20 @@ class TestConfluentStreamCatalogConfig:
         assert config.page_size == 0
 
     def test_non_http_schema_registry_url_is_rejected(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="HTTP\\(S\\) URL"):
             make_config(schema_registry_url="psrc-abc123.aws.confluent.cloud")
+
+    def test_http_confluent_cloud_schema_registry_url_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="must use HTTPS"):
+            make_config(
+                schema_registry_url="http://psrc-abc123.us-east-1.aws.confluent.cloud"
+            )
+
+    def test_http_non_cloud_schema_registry_url_is_allowed(self) -> None:
+        # Local/mock registries may use HTTP; cloud-endpoint check skips the catalog.
+        config = make_config(schema_registry_url="http://localhost:8081")
+        assert config.schema_registry_url == "http://localhost:8081"
+        assert not config.is_confluent_cloud_endpoint()
 
     @pytest.mark.parametrize("page_size", [0, 5000])
     def test_out_of_range_page_size_is_rejected(self, page_size: int) -> None:
@@ -103,7 +115,6 @@ class TestConfluentStreamCatalogConfig:
         [
             ("https://psrc-abc123.us-east-1.aws.confluent.cloud", True),
             ("https://schema-registry.internal.example.com", False),
-            ("http://localhost:8081", False),
         ],
     )
     def test_confluent_cloud_endpoints_are_recognised(
@@ -112,6 +123,14 @@ class TestConfluentStreamCatalogConfig:
         config = make_config(schema_registry_url=schema_registry_url)
 
         assert config.is_confluent_cloud_endpoint() is expected
+
+    def test_localhost_http_is_not_confluent_cloud(self) -> None:
+        # Disabled configs skip URL normalization; endpoint check is hostname-based.
+        config = ConfluentStreamCatalogConfig(
+            enabled=False,
+            schema_registry_url="http://localhost:8081",
+        )
+        assert config.is_confluent_cloud_endpoint() is False
 
 
 class TestConfluentStreamCatalogClient:

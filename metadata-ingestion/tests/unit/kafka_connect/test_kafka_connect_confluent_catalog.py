@@ -918,8 +918,11 @@ class TestParseConfluentCloudInfo:
 
 class TestKafkaSessionRetryAdapter:
     def test_kafka_session_mounts_retry_adapter(self) -> None:
+        from requests.adapters import HTTPAdapter
+
         source = make_cloud_source()
         https_adapter = source.kafka_session.get_adapter("https://example.com")
+        assert isinstance(https_adapter, HTTPAdapter)
         assert https_adapter.max_retries.total == 2
         assert 429 in https_adapter.max_retries.status_forcelist
         assert 500 in https_adapter.max_retries.status_forcelist
@@ -1002,7 +1005,11 @@ class TestSinkAvailableTopicsMigration:
         connector.all_cluster_topics = ["orders", "payments", "unrelated"]
 
         lineages = connector.extract_lineages()
-        assert sorted(lineage.source_dataset for lineage in lineages) == [
+        assert sorted(
+            lineage.source_dataset
+            for lineage in lineages
+            if lineage.source_dataset is not None
+        ) == [
             "orders",
             "payments",
         ]

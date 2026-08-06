@@ -24,6 +24,7 @@ from datahub.ingestion.source.kafka_connect.config_constants import (
     parse_topic_to_table_map,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    TransformResult,
     get_transform_pipeline,
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
@@ -31,6 +32,23 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _report_transform_result(
+    report: KafkaConnectSourceReport,
+    connector_name: str,
+    transform_result: TransformResult,
+) -> None:
+    for warning in transform_result.warnings:
+        report.warning(
+            message="Transform warning",
+            context=f"{connector_name}: {warning}",
+        )
+    if transform_result.fallback_used:
+        report.info(
+            f"Complex transforms detected in {connector_name}. "
+            f"Consider using 'generic_connectors' config for explicit mappings."
+        )
 
 
 @dataclass
@@ -92,19 +110,9 @@ class ConfluentS3SinkConnector(BaseConnector):
                 topic_list, self.connector_manifest.config
             )
             transformed_topics = transform_result.topics
-
-            # Log any warnings from transform processing
-            for w in transform_result.warnings:
-                self.report.warning(
-                    message="Transform warning",
-                    context=f"{self.connector_manifest.name}: {w}",
-                )
-
-            if transform_result.fallback_used:
-                self.report.info(
-                    f"Complex transforms detected in {self.connector_manifest.name}. "
-                    f"Consider using 'generic_connectors' config for explicit mappings."
-                )
+            _report_transform_result(
+                self.report, self.connector_manifest.name, transform_result
+            )
 
             lineages: List[KafkaConnectLineage] = list()
             for original_topic, transformed_topic in zip(
@@ -191,6 +199,7 @@ class SnowflakeSinkConnector(BaseConnector):
             topic_list, connector_manifest.config
         )
         transformed_topics = transform_result.topics
+        _report_transform_result(self.report, connector_manifest.name, transform_result)
 
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
@@ -312,6 +321,7 @@ class ClickHouseSinkConnector(BaseConnector):
             topic_list, connector_manifest.config
         )
         transformed_topics = transform_result.topics
+        _report_transform_result(self.report, connector_manifest.name, transform_result)
 
         topics_to_tables: Dict[str, str] = {}
         for original_topic, transformed_topic in zip(
@@ -658,19 +668,9 @@ class BigQuerySinkConnector(BaseConnector):
             topic_list, self.connector_manifest.config
         )
         transformed_topics = transform_result.topics
-
-        # Log any warnings from transform processing
-        for w in transform_result.warnings:
-            self.report.warning(
-                message="Transform warning",
-                context=f"{self.connector_manifest.name}: {w}",
-            )
-
-        if transform_result.fallback_used:
-            self.report.info(
-                f"Complex transforms detected in {self.connector_manifest.name}. "
-                f"Consider using 'generic_connectors' config for explicit mappings."
-            )
+        _report_transform_result(
+            self.report, self.connector_manifest.name, transform_result
+        )
 
         for original_topic, transformed_topic in zip(
             topic_list, transformed_topics, strict=False
@@ -1121,19 +1121,9 @@ class JdbcSinkConnector(BaseConnector):
                 topic_list, self.connector_manifest.config
             )
             transformed_topics = transform_result.topics
-
-            # Log any warnings from transform processing
-            for w in transform_result.warnings:
-                self.report.warning(
-                    message="Transform warning",
-                    context=f"{self.connector_manifest.name}: {w}",
-                )
-
-            if transform_result.fallback_used:
-                self.report.info(
-                    f"Complex transforms detected in {self.connector_manifest.name}. "
-                    f"Consider using 'generic_connectors' config for explicit mappings."
-                )
+            _report_transform_result(
+                self.report, self.connector_manifest.name, transform_result
+            )
 
             # Create lineage for each topic
             for original_topic, transformed_topic in zip(

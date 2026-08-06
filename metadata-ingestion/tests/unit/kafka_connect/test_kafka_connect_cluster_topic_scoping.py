@@ -5,10 +5,14 @@ from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
-    KafkaConnectSourceReport,
 )
+from datahub.ingestion.source.kafka_connect.connector_registry import ConnectorRegistry
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    ConfluentS3SinkConnector,
+)
 from datahub.ingestion.source.kafka_connect.source_connectors import (
+    JDBC_SOURCE_CONNECTOR_CLASS,
     ConfluentJDBCSourceConnector,
     DebeziumSourceConnector,
 )
@@ -46,16 +50,33 @@ def _make_manifest(
     )
 
 
+def _registry_connector(
+    manifest: ConnectorManifest,
+) -> object:
+    source = _make_cloud_source()
+    connector = ConnectorRegistry.get_connector_for_manifest(
+        manifest, source.config, source.report, None
+    )
+    assert connector is not None
+    return connector
+
+
 class TestClusterTopicScoping:
-    def test_should_assign_for_sinks(self) -> None:
+    def test_sinks_require_cluster_topics(self) -> None:
         manifest = _make_manifest(
             name="s3-sink",
             connector_type="sink",
             config={"connector.class": "io.confluent.connect.s3.S3SinkConnector"},
         )
-        assert KafkaConnectSource._should_assign_cluster_topics(manifest, object())
+        connector = _registry_connector(manifest)
+        assert isinstance(connector, ConfluentS3SinkConnector)
+        assert connector.requires_cluster_topics()
 
-    def test_should_assign_for_cloud_jdbc_cdc_sources(self) -> None:
+    def test_cloud_postgres_cdc_dispatches_to_debezium_without_cluster_topics(
+        self,
+    ) -> None:
+        # Registry routes PostgresCdcSource → DebeziumSourceConnector, not JDBC.
+        # Plain CDC derives topics from table.include.list; cluster list not required.
         manifest = _make_manifest(
             name="source_postgres_cdc_01",
             connector_type="source",
@@ -66,14 +87,26 @@ class TestClusterTopicScoping:
                 "table.include.list": "public.orders",
             },
         )
-        connector = ConfluentJDBCSourceConnector(
-            manifest, _make_cloud_source().config, KafkaConnectSourceReport()
-        )
-        assert connector.needs_cluster_topics is True
-        assert connector.requires_cluster_topics() is True
-        assert KafkaConnectSource._should_assign_cluster_topics(manifest, connector)
+        connector = _registry_connector(manifest)
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert not isinstance(connector, ConfluentJDBCSourceConnector)
+        assert not connector.requires_cluster_topics()
 
-    def test_should_assign_for_event_router_sources(self) -> None:
+    def test_traditional_jdbc_source_requires_cluster_topics(self) -> None:
+        manifest = _make_manifest(
+            name="jdbc-source",
+            connector_type="source",
+            config={
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/db",
+                "table.whitelist": "public.orders",
+            },
+        )
+        connector = _registry_connector(manifest)
+        assert isinstance(connector, ConfluentJDBCSourceConnector)
+        assert connector.requires_cluster_topics()
+
+    def test_event_router_debezium_requires_cluster_topics(self) -> None:
         manifest = _make_manifest(
             name="outbox-cdc",
             connector_type="source",
@@ -86,12 +119,11 @@ class TestClusterTopicScoping:
                 "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
             },
         )
-        connector = DebeziumSourceConnector(
-            manifest, _make_cloud_source().config, KafkaConnectSourceReport()
-        )
-        assert KafkaConnectSource._should_assign_cluster_topics(manifest, connector)
+        connector = _registry_connector(manifest)
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert connector.requires_cluster_topics()
 
-    def test_should_not_assign_for_plain_debezium_sources(self) -> None:
+    def test_plain_debezium_does_not_require_cluster_topics(self) -> None:
         manifest = _make_manifest(
             name="pg-cdc",
             connector_type="source",
@@ -102,10 +134,9 @@ class TestClusterTopicScoping:
                 "table.include.list": "public.users",
             },
         )
-        connector = DebeziumSourceConnector(
-            manifest, _make_cloud_source().config, KafkaConnectSourceReport()
-        )
-        assert not KafkaConnectSource._should_assign_cluster_topics(manifest, connector)
+        connector = _registry_connector(manifest)
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert not connector.requires_cluster_topics()
 
     def test_extract_lineages_does_not_assign_whole_cluster_to_plain_debezium(
         self,
@@ -148,24 +179,20 @@ class TestClusterTopicScoping:
 
         assert assigned == [None]
 
-    def test_extract_lineages_assigns_cluster_topics_to_cloud_jdbc_cdc(self) -> None:
-        # Regression: without this assignment available_topics() is [] on Cloud
-        # (topic_names is always empty), and JDBC cloud lineage silently emits nothing.
+    def test_extract_lineages_assigns_cluster_topics_to_traditional_jdbc(self) -> None:
         source = _make_cloud_source()
         manifest = _make_manifest(
-            name="source_postgres_cdc_01",
+            name="jdbc-source",
             connector_type="source",
             config={
-                "connector.class": "PostgresCdcSource",
-                "database.dbname": "ecommerce",
-                "database.server.name": "pg_cdc",
-                "table.include.list": "public.orders",
-                "topic.prefix": "pg_cdc",
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/db",
+                "table.whitelist": "public.orders",
             },
         )
         manifest.topic_names = []
 
-        cluster_topics = ["pg_cdc.public.orders", "unrelated.topic"]
+        cluster_topics = ["db.public.orders", "unrelated.topic"]
         assigned: List[Optional[List[str]]] = []
 
         class CapturingJdbc(ConfluentJDBCSourceConnector):
@@ -196,3 +223,30 @@ class TestClusterTopicScoping:
             assert source.extract_connector_lineages(manifest)
 
         assert assigned == [cluster_topics]
+
+    def test_cloud_cdc_emits_lineage_without_cluster_topics(self) -> None:
+        # Live path: PostgresCdcSource → Debezium; empty topic_names + no
+        # all_cluster_topics still yields table.include.list-based lineage.
+        source = _make_cloud_source()
+        manifest = _make_manifest(
+            name="source_postgres_cdc_01",
+            connector_type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.dbname": "ecommerce",
+                "database.server.name": "pg_cdc",
+                "table.include.list": "public.orders",
+                "topic.prefix": "pg_cdc",
+            },
+        )
+        manifest.topic_names = []
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, source.config, source.report, None
+        )
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert connector.all_cluster_topics is None
+
+        lineages = connector.extract_lineages()
+        assert lineages
+        assert all(lineage.target_dataset for lineage in lineages)

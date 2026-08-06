@@ -229,8 +229,8 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
-    # Cloud JDBC/CDC sources reverse-map from live cluster topics (topic_names is
-    # always empty on Confluent Cloud).
+    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
+    # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
     needs_cluster_topics: ClassVar[bool] = True
 
     # Use imported constants from connector_constants module
