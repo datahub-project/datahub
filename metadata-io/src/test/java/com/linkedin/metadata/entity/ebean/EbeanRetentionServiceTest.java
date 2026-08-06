@@ -16,7 +16,7 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.RetentionKey;
-import com.linkedin.metadata.entity.retention.buffer.SimpleRetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
 import io.datahubproject.metadata.context.OperationContext;

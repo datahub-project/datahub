@@ -28,6 +28,8 @@ import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -37,6 +39,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
@@ -405,5 +412,148 @@ public class RetentionDrainerTest {
     assertEquals(remaining.size(), 1);
     assertEquals(remaining.get(0).getKey(), ownershipKey);
     assertEquals(remaining.get(0).getValue(), Long.valueOf(5L));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickNoOpsOnEmptyBuffer() {
+    // Empty batch (no keys) must no-op: no service call, no exception, buffer stays empty.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer,
+            retentionService,
+            SYSTEM_CONTEXT,
+            new SimpleRetentionContextResolver(),
+            10,
+            60_000L,
+            true,
+            null);
+
+    drainer.tick();
+
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickDropsKeyWhenResolverThrows() {
+    // A key whose routing context can't be resolved (resolver throws) must be dropped from the
+    // buffer, not retried forever — otherwise a poison key wedges the drainer in an infinite
+    // re-throw loop. The drainer catches the RuntimeException and removes the key via
+    // removeIfSame so it doesn't re-throw every tick.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    RetentionContextResolver throwingResolver =
+        new RetentionContextResolver() {
+          @Override
+          @Nonnull
+          public RetentionKey enrichKey(
+              @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+            return new SimpleRetentionKey(urn.toString(), aspectName);
+          }
+
+          @Override
+          @Nonnull
+          public String groupKey(@Nonnull RetentionKey key) {
+            throw new RuntimeException("forced resolver failure");
+          }
+
+          @Override
+          @Nonnull
+          public OperationContext resolveOpContext(
+              @Nonnull RetentionKey key, @Nonnull OperationContext systemOperationContext) {
+            return systemOperationContext;
+          }
+        };
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer, retentionService, SYSTEM_CONTEXT, throwingResolver, 10, 60_000L, true, null);
+
+    drainer.tick();
+
+    // The key must have been dropped (not left for infinite retry) and the service never invoked.
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testConcurrentEnqueueWhileDrainingKeepsNewerVersion() throws Exception {
+    // removeIfSame invariant: drain() takes a non-destructive snapshot, the service applies, then
+    // removeIfSame clears only if the value still matches. If a concurrent merge lands a higher
+    // version between drain() and removeIfSame, removeIfSame(oldVersion) fails and the newer entry
+    // survives for the next tick — no data loss. Timing is forced deterministically by blocking
+    // the service on a latch so the concurrent merge lands while the drain is in flight.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    buffer.merge(key(), 5L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    CountDownLatch serviceEntered = new CountDownLatch(1);
+    CountDownLatch mergeLanded = new CountDownLatch(1);
+    CountDownLatch serviceProceed = new CountDownLatch(1);
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              serviceEntered.countDown();
+              // Wait for the background merge to land a higher version before returning success.
+              mergeLanded.await(5, TimeUnit.SECONDS);
+              serviceProceed.await(5, TimeUnit.SECONDS);
+              @SuppressWarnings("unchecked")
+              List<RetentionKey> keys = invocation.getArgument(1);
+              return keys;
+            });
+
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer,
+            retentionService,
+            SYSTEM_CONTEXT,
+            new SimpleRetentionContextResolver(),
+            10,
+            60_000L,
+            true,
+            null);
+
+    final ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      // tick() blocks inside the service apply (drain snapshot already taken).
+      Future<?> drainFuture = pool.submit(() -> drainer.tick());
+
+      // Wait until the service has been entered, then land a higher version for the same key.
+      assertTrue(serviceEntered.await(5, TimeUnit.SECONDS));
+      buffer.merge(key(), 10L, CoalesceBuffers.KEEP_MAX_LONG);
+      mergeLanded.countDown();
+      serviceProceed.countDown();
+
+      drainFuture.get(10, TimeUnit.SECONDS);
+
+      // The newer version (10) must have survived the first drain — removeIfSame(key, 5) did
+      // not match the current value (10), so the entry stays for the next tick.
+      List<Map.Entry<RetentionKey, Long>> remaining = buffer.drain(10);
+      assertEquals(remaining.size(), 1);
+      assertEquals(remaining.get(0).getValue(), Long.valueOf(10L));
+
+      // Second tick drains the surviving newer entry.
+      when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any(), any()))
+          .thenAnswer(invocation -> invocation.getArgument(1));
+      drainer.tick();
+      assertTrue(buffer.drain(10).isEmpty());
+    } finally {
+      pool.shutdownNow();
+    }
   }
 }

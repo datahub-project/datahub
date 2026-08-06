@@ -11,7 +11,7 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.entity.retention.RetentionKey;
-import com.linkedin.metadata.entity.retention.buffer.SimpleRetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;

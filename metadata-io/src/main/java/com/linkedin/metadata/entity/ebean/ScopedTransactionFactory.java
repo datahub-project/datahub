@@ -46,10 +46,11 @@ public interface ScopedTransactionFactory {
   /**
    * Stack-scoped transaction scope. {@link #close()} MUST be called in LIFO order (innermost scope
    * first). Nesting is supported and expected: an inner scope shadows the outer's tenant on the
-   * same thread; closing the inner scope restores the outer's tenant. Pop-counting / conditional
-   * unscope is NOT supported — an extension MUST NOT close a scope it did not open on the same
-   * thread, and MUST NOT skip closing a scope it opened. Violating LIFO order will silently unscope
-   * an outer transaction mid-batch.
+   * same thread; closing the inner scope restores the outer's tenant. All implementations MUST be
+   * re-entrant: an inner scope opened before the outer closes must restore the outer's tenant on
+   * close. Pop-counting / conditional unscope is NOT supported — an extension MUST NOT close a
+   * scope it did not open on the same thread, and MUST NOT skip closing a scope it opened.
+   * Violating LIFO order will silently unscope an outer transaction mid-batch.
    *
    * <p>Closeable scope; {@link #close()} is narrowed to declare no checked exceptions.
    */

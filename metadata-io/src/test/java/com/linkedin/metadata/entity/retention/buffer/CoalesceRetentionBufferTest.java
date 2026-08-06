@@ -11,6 +11,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffers;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.function.BinaryOperator;

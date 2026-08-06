@@ -5,6 +5,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import org.testng.annotations.Test;
 
 public class RetentionKeyTest {

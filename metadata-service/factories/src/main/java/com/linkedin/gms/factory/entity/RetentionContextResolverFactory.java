@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
-import com.linkedin.metadata.entity.retention.buffer.SimpleRetentionContextResolver;
+import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import javax.annotation.Nonnull;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;

@@ -1,6 +1,5 @@
-package com.linkedin.metadata.entity.retention.buffer;
+package com.linkedin.metadata.entity.retention;
 
-import com.linkedin.metadata.entity.retention.RetentionKey;
 import java.util.Objects;
 
 /**

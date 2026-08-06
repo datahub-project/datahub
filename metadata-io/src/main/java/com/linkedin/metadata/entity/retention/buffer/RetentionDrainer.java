@@ -171,8 +171,8 @@ public class RetentionDrainer {
     // deterministic for reproducible logs/debugging.
     //
     // Resolver failures (groupKey/resolveOpContext) are non-fatal to the clear step: a key whose
-    // routing context can't be resolved (e.g. cloud TenantRetentionContextResolver on a stray
-    // non-TenantRetentionKey) is dropped from the buffer here so it doesn't re-throw every tick
+    // routing context can't be resolved (e.g. an extension resolver on a stray
+    // non-matching key subtype) is dropped from the buffer here so it doesn't re-throw every tick
     // (infinite retry storm). The OSS SimpleRetentionContextResolver can't throw, so this is a
     // no-op there, but the file is byte-identical across OSS/fork.
     Map<RetentionKey, Long> versionByKey = new LinkedHashMap<>();

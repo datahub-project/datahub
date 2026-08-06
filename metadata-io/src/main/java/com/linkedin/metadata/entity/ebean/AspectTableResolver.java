@@ -11,16 +11,21 @@ import javax.annotation.Nonnull;
  *
  * <p>Takes the unqualified base table name (e.g. {@code "metadata_aspect_v2"}) so a single bean
  * serves every raw-SQL table in the deployment; an extension module qualifies it per-request (e.g.
- * per-deployment catalog) without the caller knowing how.
+ * per-tenant catalog) without the caller knowing how.
  */
 public interface AspectTableResolver {
 
   /**
    * Resolve the (optionally qualified) table name to splice into raw SQL.
    *
+   * <p>Implementations MUST return a trusted, compile-time-literal SQL identifier (or a
+   * safely-qualified form of one). The result is spliced raw into SQL, so any untrusted input is an
+   * injection vector.
+   *
    * @param opContext operation context for the current call
    * @param baseTableName unqualified base table name, e.g. {@code "metadata_aspect_v2"}
-   * @return table reference, e.g. {@code " metadata_aspect_v2 "}
+   * @return table reference, e.g. {@code " metadata_aspect_v2 "} or {@code "
+   *     `tenant`.`metadata_aspect_v2` "}
    */
   @Nonnull
   String aspectTable(@Nonnull OperationContext opContext, @Nonnull String baseTableName);

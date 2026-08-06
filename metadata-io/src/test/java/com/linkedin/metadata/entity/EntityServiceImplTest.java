@@ -116,12 +116,7 @@ public class EntityServiceImplTest {
             mock(AspectDao.class),
             mockEventProducer,
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setRetry(0)
-                .setEnableBrowseV2(true)
-                .setPostCommitRetentionEnabled(false),
+            testConfig(),
             metricUtils);
 
     // Create test aspects
@@ -526,12 +521,7 @@ public class EntityServiceImplTest {
             mock(AspectDao.class),
             mockEventProducer,
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(true)
-                .setCdcModeChangeLog(false)
-                .setRetry(0)
-                .setEnableBrowseV2(true)
-                .setPostCommitRetentionEnabled(false),
+            testConfig(true, false),
             metricUtils);
 
     RecordTemplate sameAspect = newAspect;
@@ -758,10 +748,7 @@ public class EntityServiceImplTest {
                 mockAspectDao,
                 mockEventProducer,
                 mock(PreProcessHooks.class),
-                new EntityServiceConfiguration()
-                    .setAlwaysEmitChangeLog(false)
-                    .setRetry(0)
-                    .setEnableBrowseV2(true),
+                testConfig(false, false),
                 metricUtils));
 
     // Mock ingestProposalSync to capture default aspects
@@ -851,10 +838,7 @@ public class EntityServiceImplTest {
                 mockAspectDao,
                 mockEventProducer,
                 mock(PreProcessHooks.class),
-                new EntityServiceConfiguration()
-                    .setAlwaysEmitChangeLog(false)
-                    .setRetry(0)
-                    .setEnableBrowseV2(true),
+                testConfig(false, false),
                 metricUtils));
 
     // Simply stub the method without capturing
@@ -979,12 +963,7 @@ public class EntityServiceImplTest {
             mockAspectDao,
             mockEventProducer,
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setRetry(0)
-                .setEnableBrowseV2(true)
-                .setPostCommitRetentionEnabled(false),
+            testConfig(),
             metricUtils);
 
     // Create RestoreIndicesArgs
@@ -1029,12 +1008,7 @@ public class EntityServiceImplTest {
             mockAspectDao,
             mockEventProducer,
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setRetry(0)
-                .setEnableBrowseV2(true)
-                .setPostCommitRetentionEnabled(false),
+            testConfig(),
             metricUtils);
 
     // Create test inputs
@@ -1109,12 +1083,7 @@ public class EntityServiceImplTest {
             mockAspectDao,
             mock(EventProducer.class),
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setRetry(0)
-                .setEnableBrowseV2(true)
-                .setPostCommitRetentionEnabled(false),
+            testConfig(),
             metricUtils);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
@@ -1212,10 +1181,7 @@ public class EntityServiceImplTest {
                 mockAspectDao,
                 mockEventProducer,
                 mock(PreProcessHooks.class),
-                new EntityServiceConfiguration()
-                    .setAlwaysEmitChangeLog(false)
-                    .setRetry(0)
-                    .setEnableBrowseV2(true),
+                testConfig(false, false),
                 metricUtils));
 
     // Create RestoreIndicesArgs
@@ -1454,12 +1420,7 @@ public class EntityServiceImplTest {
                 mockAspectDao,
                 mockEventProducer,
                 mock(PreProcessHooks.class),
-                new EntityServiceConfiguration()
-                    .setAlwaysEmitChangeLog(false)
-                    .setCdcModeChangeLog(false)
-                    .setRetry(0)
-                    .setEnableBrowseV2(true)
-                    .setPostCommitRetentionEnabled(false),
+                testConfig(),
                 metricUtils));
 
     // Create test data
@@ -1532,12 +1493,7 @@ public class EntityServiceImplTest {
                 mockAspectDao,
                 mock(EventProducer.class),
                 mock(PreProcessHooks.class),
-                new EntityServiceConfiguration()
-                    .setAlwaysEmitChangeLog(false)
-                    .setCdcModeChangeLog(false)
-                    .setRetry(0)
-                    .setEnableBrowseV2(true)
-                    .setPostCommitRetentionEnabled(false),
+                testConfig(),
                 metricUtils));
     doReturn(Stream.empty())
         .when(service)
@@ -1663,13 +1619,26 @@ public class EntityServiceImplTest {
         mock(AspectDao.class),
         mock(EventProducer.class),
         mock(PreProcessHooks.class),
-        new EntityServiceConfiguration()
-            .setAlwaysEmitChangeLog(false)
-            .setCdcModeChangeLog(false)
-            .setRetry(0)
-            .setEnableBrowseV2(true)
-            .setPostCommitRetentionEnabled(postCommitEnabled),
+        testConfig(false, postCommitEnabled),
         metricUtils);
+  }
+
+  // Common EntityServiceConfiguration used across most tests: change-log and post-commit retention
+  // off, browse v2 on, no retry. The overload surfaces the two flags that diverge from this
+  // baseline
+  // (alwaysEmitChangeLog / postCommitRetentionEnabled) at the call site.
+  private static EntityServiceConfiguration testConfig() {
+    return testConfig(false, false);
+  }
+
+  private static EntityServiceConfiguration testConfig(
+      boolean alwaysEmitChangeLog, boolean postCommitRetentionEnabled) {
+    return new EntityServiceConfiguration()
+        .setAlwaysEmitChangeLog(alwaysEmitChangeLog)
+        .setCdcModeChangeLog(false)
+        .setRetry(0)
+        .setEnableBrowseV2(true)
+        .setPostCommitRetentionEnabled(postCommitRetentionEnabled);
   }
 
   private UpdateAspectResult postCommitUpsertResult() {

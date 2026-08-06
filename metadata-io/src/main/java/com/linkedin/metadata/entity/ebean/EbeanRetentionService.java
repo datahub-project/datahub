@@ -96,6 +96,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     // called inside an already-scoped upsert transaction, nesting the same tenant ThreadLocal is
     // benign (sets the same value).
     if (!nonEmptyContexts.isEmpty()) {
+      // Outer scope is intentional: it routes beginTransaction (and any non-DELETE DB access) via
+      // the tenant seam. executeRetentionDeleteForContext re-scopes for the DELETE itself — a
+      // benign same-context nest that all Scope implementations must support (re-entrant).
       try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
         int deletedCount = 0;
         for (RetentionContext context : nonEmptyContexts) {
@@ -233,23 +236,15 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       return successes;
     }
 
-    // One independent transaction per context (TxScope.requiresNew): a poison (urn, aspect) fails
-    // and retries on its own without blocking the rest of the batch, and there is no per-engine
-    // savepoint behavior to reason about. Retention is low-volume background cleanup, so the extra
-    // commits are negligible. Each context is a single bulk DELETE.
-    //
-    // Each per-context transaction is opened inside _txnFactory.scope(opContext) so an extension
-    // module routes the DELETE to the same underlying database opContext resolves to. The scope
-    // is per-context (not per-batch) because a batch may group entries that share a routing
-    // context;
-    // opening it per-context keeps the routing invariant tight and matches the existing
-    // per-context transaction granularity.
-    //
-    // Echo back the ORIGINAL key at each committed index (keys.get(i)), not a reconstructed one.
-    // Cross-off in the drainer is by RetentionKey equals (explicit per subtype), so a key subtype
-    // that carries routing metadata is matched with that metadata intact.
+    // Per-context (not per-batch) scope: a batch may group entries that share a routing context,
+    // so opening the scope per-context keeps the routing invariant tight and matches the
+    // per-context transaction granularity. See the method Javadoc for the requiresNew /
+    // echo-back rationale.
     for (int i = 0; i < withDefaults.size(); i++) {
       RetentionContext context = withDefaults.get(i);
+      // Outer scope routes beginTransaction (and any non-DELETE DB access) via the tenant seam;
+      // executeRetentionDeleteForContext re-scopes the DELETE — see applyRetention for the
+      // re-entrant nesting rationale.
       try (ScopedTransactionFactory.Scope scope = _txnFactory.scope(opContext)) {
         try (Transaction tx = _server.beginTransaction(TxScope.requiresNew())) {
           int rowsDeleted = executeRetentionDeleteForContext(opContext, context);
@@ -543,9 +538,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
     StringBuilder sql =
         new StringBuilder(
-            "SELECT urn, aspect, MAX(version) AS version FROM"
+            "SELECT urn, aspect, MAX(version) AS version FROM "
                 + _tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)
-                + "WHERE 1=1");
+                + " WHERE 1=1");
     if (minVersionCount == null) {
       sql.append(" AND version > 0");
     }
