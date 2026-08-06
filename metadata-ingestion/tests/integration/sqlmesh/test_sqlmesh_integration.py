@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import pathlib
-from typing import Any
+from typing import Any, Iterable, List, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,16 +24,34 @@ import time_machine
 from sqlglot import exp
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sqlmesh.models import _CapabilityProbes
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import SqlmeshSource
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
     DataPlatformInstanceClass,
     SiblingsClass,
     UpstreamLineageClass,
 )
 from datahub.testing import mce_helpers
+
+_AspectT = TypeVar("_AspectT")
+
+
+def _aspects_of_type(
+    workunits: Iterable[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> List[_AspectT]:
+    # wu.metadata is a union (MCE/MCP/MCPW); only MCP/MCPW carry `.aspect`.
+    # Narrowing by isinstance keeps the assertions runtime-safe and mypy-clean.
+    out: List[_AspectT] = []
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, aspect_type):
+            out.append(aspect)
+    return out
+
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -468,11 +486,7 @@ def test_sqlmesh_event_count_and_coverage() -> None:
 
     # Audits on the orders model become CUSTOM assertions (never FRESHNESS/VOLUME,
     # which the rework removed): not_null over two columns + one custom-SQL audit.
-    assertion_infos = [
-        wu.metadata.aspect
-        for wu in workunits
-        if type(getattr(wu.metadata, "aspect", None)).__name__ == "AssertionInfoClass"
-    ]
+    assertion_infos = _aspects_of_type(workunits, AssertionInfoClass)
     assert len(assertion_infos) == 3, (
         f"Expected 3 CUSTOM assertions, got {len(assertion_infos)}"
     )

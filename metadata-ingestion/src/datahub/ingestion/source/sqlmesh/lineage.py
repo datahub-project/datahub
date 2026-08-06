@@ -7,7 +7,7 @@ from typing import (
     Set,
 )
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.sqlmesh.base import SqlmeshSourceBase
 from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContextType,
@@ -95,6 +95,11 @@ class LineageMixin(SqlmeshSourceBase):
             str(getattr(kind, "model_kind_name", "")).upper() == MODEL_KIND_EXTERNAL
         )
         if is_external and self.config.skip_external_models_in_lineage:
+            return self._make_warehouse_urn(dep_fqn, dep_effective)
+        if self._is_filtered_by_kind(dep_model):
+            # Excluded from ingestion by model_kind_filter, so no sqlmesh entity
+            # was emitted for it. Point at the warehouse table instead of a
+            # sqlmesh URN that would dangle.
             return self._make_warehouse_urn(dep_fqn, dep_effective)
         return self._make_sqlmesh_urn(dep_fqn, dep_effective)
 
@@ -211,7 +216,7 @@ class LineageMixin(SqlmeshSourceBase):
                 continue
 
             downstream_col = col_name.lower() if convert_lower else col_name
-            downstream_field_urn = mce_builder.make_schema_field_urn(
+            downstream_field_urn = make_schema_field_urn(
                 model_sqlmesh_urn, downstream_col
             )
 
@@ -238,7 +243,7 @@ class LineageMixin(SqlmeshSourceBase):
                 for upstream_col in sorted(upstream_cols):
                     up_col = upstream_col.lower() if convert_lower else upstream_col
                     upstream_field_urns.append(
-                        mce_builder.make_schema_field_urn(upstream_dataset_urn, up_col)
+                        make_schema_field_urn(upstream_dataset_urn, up_col)
                     )
 
             if upstream_field_urns:

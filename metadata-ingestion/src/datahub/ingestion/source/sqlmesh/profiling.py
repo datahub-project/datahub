@@ -6,7 +6,7 @@ from typing import (
     Optional,
 )
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sqlmesh.base import SqlmeshSourceBase
@@ -33,6 +33,38 @@ logger = logging.getLogger(__name__)
 
 
 class ProfilingMixin(SqlmeshSourceBase):
+    def _is_fingerprint_stale(
+        self,
+        model: "SqlmeshModel",
+        sqlmesh_ctx: Optional["SqlmeshContextType"],
+    ) -> bool:
+        """Whether the model's fingerprint table is older than the staleness threshold.
+
+        Uses the same SQLMesh state lookup as ``_emit_pipeline_operation``
+        (``ctx.snapshots[...].updated_ts``, epoch millis). Returns False when
+        state is unreachable or the snapshot carries no timestamp — unknown is
+        deliberately not reported as stale.
+        """
+        if not self._capabilities.has_state or sqlmesh_ctx is None:
+            return False
+        try:
+            updated_ts = self._snapshot_updated_ts(model, sqlmesh_ctx)
+        except Exception as e:
+            # Returning "not stale" on a read failure is a false negative for a
+            # staleness monitor — the worst failure mode for this feature — so
+            # surface it on the report instead of a silent debug log.
+            self.report.warning(
+                title="Stale-fingerprint check failed for a model",
+                message="Could not read snapshot.updated_ts from SQLMesh state; the model is NOT flagged stale even though staleness could not be determined.",
+                context=str(getattr(model, "name", "?")),
+                exc=e,
+            )
+            return False
+        if updated_ts <= 0:
+            return False
+        threshold_ms = self.config.fingerprint_staleness_threshold_hours * 3_600_000
+        return (int(time.time() * 1000) - updated_ts) > threshold_ms
+
     def _emit_pipeline_operation(
         self,
         *,
@@ -57,13 +89,7 @@ class ProfilingMixin(SqlmeshSourceBase):
             return
 
         try:
-            snapshots = sqlmesh_ctx.snapshots
-            snapshot = snapshots.get(
-                str(getattr(model, "fqn", "") or "")
-            ) or snapshots.get(str(getattr(model, "name", "")))
-            updated_ts = (
-                int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
-            )
+            updated_ts = self._snapshot_updated_ts(model, sqlmesh_ctx)
         except Exception as e:
             self.report.num_operations_skipped += 1
             self.report.warning(
@@ -83,7 +109,7 @@ class ProfilingMixin(SqlmeshSourceBase):
             operationType=OperationTypeClass.CUSTOM,
             customOperationType=OPERATION_FINGERPRINT_REBUILD,
             lastUpdatedTimestamp=updated_ts,
-            actor=mce_builder.make_user_urn(INGEST_ACTOR),
+            actor=make_user_urn(INGEST_ACTOR),
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=sqlmesh_urn, aspect=operation
@@ -152,10 +178,7 @@ class ProfilingMixin(SqlmeshSourceBase):
         snapshot_provided = False
         try:
             if self._capabilities.has_state:
-                snapshots = sqlmesh_ctx.snapshots
-                snapshot = snapshots.get(
-                    str(getattr(model, "fqn", "") or "")
-                ) or snapshots.get(str(getattr(model, "name", "")))
+                snapshot = self._lookup_snapshot(model, sqlmesh_ctx)
                 if snapshot is not None:
                     tn = snapshot.table_name()
                     if tn:

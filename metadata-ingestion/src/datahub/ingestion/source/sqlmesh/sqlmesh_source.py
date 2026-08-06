@@ -1,24 +1,20 @@
-import hashlib
-import json
 import logging
 import re
-import time
 from typing import (
     Any,
     Dict,
     Iterable,
-    List,
     Optional,
-    Set,
 )
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    DatabaseKey,
     SchemaKey,
     add_dataset_to_container,
-    gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -30,11 +26,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_types import (
-    DATAHUB_FIELD_TYPE,
-    resolve_snowflake_modified_type,
-    resolve_sql_type,
-)
 from datahub.ingestion.source.sqlmesh.assertions import AssertionMixin
 from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContext,
@@ -50,37 +41,23 @@ from datahub.ingestion.source.sqlmesh.constants import (
     DEFAULT_GATEWAY,
     ENV_SUFFIX_TARGET_SCHEMA,
     MODEL_KIND_EXTERNAL,
-    PROP_AUDITS,
-    PROP_CRON,
-    PROP_ENVIRONMENT,
     PROP_FINGERPRINT_STALE,
-    PROP_GATEWAY,
-    PROP_GRAIN,
-    PROP_MODEL_KIND,
-    PROP_MODEL_NAME,
-    PROP_PARTITIONED_BY,
-    PROP_PHYSICAL_TABLE,
-    PROP_START,
-    PROP_TIME_COLUMN,
-    PROP_WAREHOUSE,
-    PROP_WAREHOUSE_INSTANCE,
     SNOWFLAKE_PLATFORM,
     SQLMESH_DISPLAY_NAME,
     SQLMESH_LOGO_URL,
     SQLMESH_PLATFORM,
-    SUBTYPE_DATABASE,
-    SUBTYPE_SCHEMA,
-    UNKNOWN_PLATFORM,
 )
+from datahub.ingestion.source.sqlmesh.containers import ContainerMixin
 from datahub.ingestion.source.sqlmesh.lineage import LineageMixin
+from datahub.ingestion.source.sqlmesh.metadata_tests import MetadataTestMixin
 from datahub.ingestion.source.sqlmesh.models import (
     _CapabilityProbes,
     _EffectiveProjectConfig,
-    _MetadataTestSpec,
     _probe_capabilities,
-    parse_model_audits,
 )
 from datahub.ingestion.source.sqlmesh.profiling import ProfilingMixin
+from datahub.ingestion.source.sqlmesh.schema import SchemaMixin
+from datahub.ingestion.source.sqlmesh.siblings import SiblingsMixin
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SqlmeshSourceConfig,
     SqlmeshSourceReport,
@@ -91,23 +68,13 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineageClass,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
-    SchemaFieldDataType,
-)
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass,
-    NullTypeClass,
     PlatformTypeClass,
-    SiblingsClass,
     StatusClass,
-    TestDefinitionClass,
-    TestDefinitionTypeClass,
-    TestInfoClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Dataset
-from datahub.specific.dataset import DatasetPatchBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +91,10 @@ class SqlmeshSource(
     LineageMixin,
     AssertionMixin,
     ProfilingMixin,
+    ContainerMixin,
+    SchemaMixin,
+    MetadataTestMixin,
+    SiblingsMixin,
     StatefulIngestionSourceBase,
 ):
     """
@@ -246,99 +217,9 @@ class SqlmeshSource(
         if self.config.audit_results_path:
             yield from self._emit_audit_run_events(self.config.audit_results_path)
 
-    def _emit_metadata_tests(self) -> Iterable[MetadataWorkUnit]:
-        """Emit governance Metadata Test entities scoped to this project's models.
-
-        The Test entity is part of the core metadata model, so any DataHub
-        instance accepts and stores these definitions; evaluating them requires
-        a deployment with a Metadata Tests runner (DataHub Cloud). The test URN
-        is derived from the platform/instance scope so re-ingestion is
-        idempotent and two projects with distinct ``sqlmesh_platform_instance``
-        values get distinct tests.
-        """
-        platform_urn = mce_builder.make_data_platform_urn(SQLMESH_PLATFORM)
-        conditions: List[Dict[str, Any]] = [
-            {
-                "property": "dataPlatformInstance.platform",
-                "operator": "equals",
-                "value": platform_urn,
-            }
-        ]
-        scope_key = platform_urn
-        scope_label = SQLMESH_DISPLAY_NAME
-        if self.config.sqlmesh_platform_instance:
-            instance_urn = mce_builder.make_dataplatform_instance_urn(
-                SQLMESH_PLATFORM, self.config.sqlmesh_platform_instance
-            )
-            conditions.append(
-                {
-                    "property": "dataPlatformInstance.instance",
-                    "operator": "equals",
-                    "value": instance_urn,
-                }
-            )
-            scope_key = instance_urn
-            scope_label = (
-                f"{SQLMESH_DISPLAY_NAME} ({self.config.sqlmesh_platform_instance})"
-            )
-
-        tests = [
-            _MetadataTestSpec(
-                suffix="documentation",
-                name=f"{scope_label}: models have documentation",
-                description=(
-                    "Every SQLMesh model in this project should carry a description, "
-                    "either from the model definition or added in DataHub."
-                ),
-                rules={
-                    "or": [
-                        {
-                            "property": "datasetProperties.description",
-                            "operator": "exists",
-                        },
-                        {
-                            "property": "editableDatasetProperties.description",
-                            "operator": "exists",
-                        },
-                    ]
-                },
-            ),
-            _MetadataTestSpec(
-                suffix="ownership",
-                name=f"{scope_label}: models have owners",
-                description=(
-                    "Every SQLMesh model in this project should have an owner, "
-                    "either from the model's owner field or assigned in DataHub."
-                ),
-                rules={
-                    "and": [
-                        {"property": "ownership.owners.owner", "operator": "exists"}
-                    ]
-                },
-            ),
-        ]
-        scope_hash = hashlib.md5(scope_key.encode("utf-8")).hexdigest()[:12]
-        for test in tests:
-            definition = {
-                "on": {"types": ["dataset"], "conditions": {"and": conditions}},
-                "rules": test.rules,
-            }
-            yield MetadataChangeProposalWrapper(
-                entityUrn=f"urn:li:test:sqlmesh-{scope_hash}-{test.suffix}",
-                aspect=TestInfoClass(
-                    name=test.name,
-                    category=SQLMESH_DISPLAY_NAME,
-                    description=test.description,
-                    definition=TestDefinitionClass(
-                        type=TestDefinitionTypeClass.JSON,
-                        json=json.dumps(definition, indent=2),
-                    ),
-                ),
-            ).as_workunit()
-
     def _emit_platform_registration(self) -> Iterable[MetadataWorkUnit]:
         """Register the sqlmesh platform in DataHub so entities render with correct branding."""
-        platform_urn = mce_builder.make_data_platform_urn(SQLMESH_PLATFORM)
+        platform_urn = make_data_platform_urn(SQLMESH_PLATFORM)
         yield MetadataChangeProposalWrapper(
             entityUrn=platform_urn,
             aspect=DataPlatformInfoClass(
@@ -529,10 +410,8 @@ class SqlmeshSource(
                     fqn = self._build_logical_fqn(str(model_name_key), model_effective)
                     if not self.config.model_name_pattern.allowed(fqn):
                         continue
-                    if self.config.model_kind_filter:
-                        kind_name = self._get_kind_name(model)
-                        if kind_name and kind_name not in self.config.model_kind_filter:
-                            continue
+                    if self._is_filtered_by_kind(model):
+                        continue
                     all_fqns[fqn] = model
 
                 # Print URN pairs before emitting anything so a --dry-run can
@@ -556,11 +435,6 @@ class SqlmeshSource(
                         )
                         self.report.report_model_failed(fqn, str(e))
 
-                # Release state-sync and evaluator resources so that repeated Context()
-                # calls in the same process (e.g. multi-project recipes) don't accumulate
-                # open connections or file handles.
-                sqlmesh_ctx.close()
-
                 # Project load + model emission completed; post-ingest emitters
                 # (metadata tests, audit run events) are now safe to run.
                 self._ingest_succeeded = True
@@ -575,75 +449,14 @@ class SqlmeshSource(
                     exc=e,
                 )
                 return
-
-    def _emit_containers(
-        self, fqns: Set[str], effective: _EffectiveProjectConfig
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit Database and Schema container entities for the sqlmesh platform."""
-        seen_databases: Set[str] = set()
-        seen_schemas: Set[str] = set()
-
-        for fqn in sorted(fqns):
-            parts = fqn.split(".")
-            if len(parts) >= 3:
-                catalog, schema = parts[0], parts[1]
-            elif len(parts) == 2:
-                catalog, schema = None, parts[0]
-            else:
-                continue  # 1-part name — no containers
-
-            if catalog and catalog not in seen_databases:
-                seen_databases.add(catalog)
-                db_key = DatabaseKey(
-                    platform=SQLMESH_PLATFORM,
-                    instance=effective.sqlmesh_platform_instance,
-                    env=self.config.env,
-                    database=catalog,
-                )
-                yield from gen_containers(
-                    container_key=db_key,
-                    name=catalog,
-                    sub_types=[SUBTYPE_DATABASE],
-                )
-                self.report.num_containers_emitted += 1
-
-            schema_key_str = f"{catalog}.{schema}" if catalog else schema
-            if schema_key_str not in seen_schemas:
-                self.report.num_containers_emitted += 1
-                seen_schemas.add(schema_key_str)
-                if catalog:
-                    db_key = DatabaseKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database=catalog,
-                    )
-                    schema_key = SchemaKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database=catalog,
-                        schema=schema,
-                    )
-                    yield from gen_containers(
-                        container_key=schema_key,
-                        name=schema,
-                        sub_types=[SUBTYPE_SCHEMA],
-                        parent_container_key=db_key,
-                    )
-                else:
-                    schema_key = SchemaKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database="",
-                        schema=schema,
-                    )
-                    yield from gen_containers(
-                        container_key=schema_key,
-                        name=schema,
-                        sub_types=[SUBTYPE_SCHEMA],
-                    )
+            finally:
+                # Always release state-sync/evaluator resources — even on the
+                # failure path — so repeated Context() calls in the same process
+                # (e.g. multi-project recipes) don't leak connections/file handles.
+                try:
+                    sqlmesh_ctx.close()
+                except Exception as e:
+                    logger.debug("Error closing SQLMesh context: %s", e)
 
     def _log_urn_preview(
         self, all_fqns: Dict[str, "SqlmeshModel"], effective: _EffectiveProjectConfig
@@ -722,7 +535,7 @@ class SqlmeshSource(
 
         # Compute the sqlmesh URN up front so _build_column_lineage can use it
         # for field URN construction before the Dataset object is created.
-        sqlmesh_urn = mce_builder.make_dataset_urn_with_platform_instance(
+        sqlmesh_urn = make_dataset_urn_with_platform_instance(
             platform=SQLMESH_PLATFORM,
             name=fqn,
             platform_instance=effective.sqlmesh_platform_instance,
@@ -742,8 +555,8 @@ class SqlmeshSource(
             if key:
                 self._sqlmesh_urn_by_model_key[key] = sqlmesh_urn
 
-        # Build table-level and column-level lineage, then combine into a single
-        # UpstreamLineage aspect. This avoids emitting duplicate aspect writes.
+        # Combine table- and column-level lineage into a single UpstreamLineage
+        # aspect to avoid emitting two competing writes for the same aspect.
         combined_upstreams: Optional[UpstreamLineageClass] = None
         if self.config.include_lineage:
             with self.report.lineage_extraction_sec:
@@ -773,7 +586,6 @@ class SqlmeshSource(
             aspect=StatusClass(removed=False),
         ).as_workunit()
 
-        # Emit the SQLMesh entity on the sqlmesh platform
         dataset = Dataset(
             platform=SQLMESH_PLATFORM,
             name=fqn,
@@ -842,196 +654,3 @@ class SqlmeshSource(
             physical_name=physical_name,
             sqlmesh_ctx=sqlmesh_ctx,
         )
-
-    def _is_fingerprint_stale(
-        self,
-        model: "SqlmeshModel",
-        sqlmesh_ctx: Optional["SqlmeshContextType"],
-    ) -> bool:
-        """Whether the model's fingerprint table is older than the staleness threshold.
-
-        Uses the same SQLMesh state lookup as ``_emit_pipeline_operation``
-        (``ctx.snapshots[...].updated_ts``, epoch millis). Returns False when
-        state is unreachable or the snapshot carries no timestamp — unknown is
-        deliberately not reported as stale.
-        """
-        if not self._capabilities.has_state or sqlmesh_ctx is None:
-            return False
-        try:
-            snapshots = sqlmesh_ctx.snapshots
-            snapshot = snapshots.get(
-                str(getattr(model, "fqn", "") or "")
-            ) or snapshots.get(str(getattr(model, "name", "")))
-            updated_ts = (
-                int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
-            )
-        except Exception as e:
-            # Returning "not stale" on a read failure is a false negative for a
-            # staleness monitor — the worst failure mode for this feature — so
-            # surface it on the report instead of a silent debug log.
-            self.report.warning(
-                title="Stale-fingerprint check failed for a model",
-                message="Could not read snapshot.updated_ts from SQLMesh state; the model is NOT flagged stale even though staleness could not be determined.",
-                context=str(getattr(model, "name", "?")),
-                exc=e,
-            )
-            return False
-        if updated_ts <= 0:
-            return False
-        threshold_ms = self.config.fingerprint_staleness_threshold_hours * 3_600_000
-        return (int(time.time() * 1000) - updated_ts) > threshold_ms
-
-    def _build_custom_properties(
-        self,
-        fqn: str,
-        physical_name: Optional[str],
-        effective: _EffectiveProjectConfig,
-        model: "SqlmeshModel",
-    ) -> Dict[str, str]:
-        props: Dict[str, str] = {
-            PROP_MODEL_NAME: fqn,
-            PROP_ENVIRONMENT: effective.environment,
-            PROP_WAREHOUSE: effective.target_platform or UNKNOWN_PLATFORM,
-        }
-        if effective.gateway:
-            props[PROP_GATEWAY] = effective.gateway
-        if physical_name:
-            props[PROP_PHYSICAL_TABLE] = physical_name
-        if effective.target_platform_instance:
-            props[PROP_WAREHOUSE_INSTANCE] = effective.target_platform_instance
-        kind = getattr(model, "kind", None)
-        if kind is not None:
-            props[PROP_MODEL_KIND] = str(kind)
-
-        cron = getattr(model, "cron", None)
-        if cron:
-            props[PROP_CRON] = str(cron)
-
-        start = getattr(model, "start", None)
-        if start:
-            props[PROP_START] = str(start)
-
-        time_column = getattr(model, "time_column", None)
-        if time_column is not None:
-            try:
-                props[PROP_TIME_COLUMN] = str(time_column.column)
-            except Exception:
-                props[PROP_TIME_COLUMN] = str(time_column)
-
-        model_name = str(getattr(model, "name", "?"))
-        partitioned_by = getattr(model, "partitioned_by", None)
-        if partitioned_by:
-            try:
-                cols = [str(c.name) for c in partitioned_by if hasattr(c, "name")]
-                if cols:
-                    props[PROP_PARTITIONED_BY] = ",".join(cols)
-            except Exception:
-                # Best-effort enrichment: an unexpected partitioned_by shape
-                # just omits the property, but log it so a new SQLMesh version
-                # dropping this isn't invisible.
-                logger.debug(
-                    "Could not extract partitioned_by for %s",
-                    model_name,
-                    exc_info=True,
-                )
-
-        grains = getattr(model, "grains", None)
-        if grains:
-            try:
-                grain_cols = [str(g.name) for g in grains if hasattr(g, "name")]
-                if grain_cols:
-                    props[PROP_GRAIN] = ",".join(grain_cols)
-            except Exception:
-                logger.debug(
-                    "Could not extract grains for %s", model_name, exc_info=True
-                )
-
-        audit_names = [audit.name for audit in parse_model_audits(model)]
-        if audit_names:
-            props[PROP_AUDITS] = ",".join(audit_names)
-
-        return props
-
-    def _resolve_column_type(
-        self, type_str: str, platform: str
-    ) -> Optional[DATAHUB_FIELD_TYPE]:
-        """Resolve a column type, preferring the target platform's own mapping.
-
-        ``resolve_sql_type`` consults a merged cross-platform mapping where the
-        last-registered platform wins on conflicts — so ``TIMESTAMP`` resolves
-        to SQL Server's ``BytesType`` rather than Snowflake's ``TimeType``.
-        These columns describe the resolved warehouse, and the SQLMesh dataset
-        is a sibling of that warehouse entity, so a mismatched type renders
-        confusingly across the pair. Consult the platform-specific resolver
-        first for platforms where the merged mapping is known to conflict.
-        """
-        if type_str and platform.lower() == SNOWFLAKE_PLATFORM:
-            snowflake_type = resolve_snowflake_modified_type(type_str.upper())
-            if snowflake_type is not None:
-                return snowflake_type()
-        return resolve_sql_type(type_str, platform.lower())
-
-    def _build_schema_fields(
-        self, model: "SqlmeshModel", effective: _EffectiveProjectConfig
-    ) -> Optional[List[SchemaField]]:
-        columns_to_types: Dict[str, Any] = (
-            getattr(model, "columns_to_types", None) or {}
-        )
-        if not columns_to_types:
-            logger.debug(
-                "Model %s has no column type information; skipping schema",
-                getattr(model, "name", "?"),
-            )
-            return None
-
-        col_descriptions: Dict[str, str] = (
-            getattr(model, "column_descriptions", None) or {}
-        )
-
-        fields = []
-        for col_name, col_type in columns_to_types.items():
-            type_str = str(col_type) if col_type is not None else ""
-            resolved = self._resolve_column_type(
-                type_str, effective.target_platform or ""
-            )
-            fields.append(
-                SchemaField(
-                    fieldPath=col_name,
-                    type=SchemaFieldDataType(type=resolved or NullTypeClass()),
-                    nativeDataType=type_str,
-                    nullable=True,
-                    description=col_descriptions.get(col_name) or None,
-                )
-            )
-        return fields or None
-
-    def _emit_siblings(
-        self, sqlmesh_urn: str, warehouse_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        """Link the SQLMesh entity and its warehouse counterpart as siblings.
-
-        SQLMesh is primary by default (it owns the model definition, lineage and
-        descriptions), matching dbt's ``dbt_is_primary_sibling=True``.
-
-        The SQLMesh entity's aspect is written outright — this connector owns
-        that entity. The warehouse entity is *patched* instead, so a sibling
-        edge added by another connector (dbt, or a second SQLMesh project) isn't
-        clobbered, and the workunit is marked non-authoritative because we are
-        not the source of truth for warehouse metadata. Same split as dbt.
-        """
-        sqlmesh_is_primary = self.config.sqlmesh_is_primary_sibling
-
-        # TODO: migrate to SDK V2 when SiblingsClass is supported
-        yield MetadataChangeProposalWrapper(
-            entityUrn=sqlmesh_urn,
-            aspect=SiblingsClass(siblings=[warehouse_urn], primary=sqlmesh_is_primary),
-        ).as_workunit()
-
-        warehouse_patch = DatasetPatchBuilder(warehouse_urn)
-        warehouse_patch.add_sibling(sqlmesh_urn, primary=not sqlmesh_is_primary)
-        for mcp in warehouse_patch.build():
-            yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp),
-                mcp_raw=mcp,
-                is_primary_source=False,
-            )

@@ -24,9 +24,14 @@ except ImportError:
     SqlmeshModel = Any  # type: ignore[assignment,misc]
     Snapshot = Any  # type: ignore[assignment,misc]
 
-# The Context type used purely for annotations. Same object as SqlmeshContext
-# when installed, else Any so the string annotations still resolve.
-SqlmeshContextType = SqlmeshContext if SqlmeshContext is not None else Any
+# The Context type used purely for annotations. Uses the same guarded-import
+# idiom as SqlmeshModel/Snapshot above (rather than a ternary) so mypy treats it
+# as a type alias — a `X if cond else Any` expression is a runtime value and is
+# rejected as "not valid as a type" wherever it annotates a parameter.
+try:
+    from sqlmesh import Context as SqlmeshContextType
+except ImportError:
+    SqlmeshContextType = Any  # type: ignore[assignment,misc]
 
 if SqlmeshContext is not None:
     # SQLMesh's ProcessPoolExecutor(mp_context=fork) deadlocks when the DataHub
