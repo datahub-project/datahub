@@ -60,7 +60,7 @@ class TestConfluentStreamCatalogConfig:
         assert config.page_size == 0
 
     def test_non_http_schema_registry_url_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="HTTP\\(S\\) URL"):
+        with pytest.raises(ValueError, match="must use HTTPS"):
             make_config(schema_registry_url="psrc-abc123.aws.confluent.cloud")
 
     def test_http_confluent_cloud_schema_registry_url_is_rejected(self) -> None:
@@ -69,11 +69,9 @@ class TestConfluentStreamCatalogConfig:
                 schema_registry_url="http://psrc-abc123.us-east-1.aws.confluent.cloud"
             )
 
-    def test_http_non_cloud_schema_registry_url_is_allowed(self) -> None:
-        # Local/mock registries may use HTTP; cloud-endpoint check skips the catalog.
-        config = make_config(schema_registry_url="http://localhost:8081")
-        assert config.schema_registry_url == "http://localhost:8081"
-        assert not config.is_confluent_cloud_endpoint()
+    def test_http_schema_registry_url_is_rejected_for_all_endpoints(self) -> None:
+        with pytest.raises(ValueError, match="must use HTTPS to protect credentials"):
+            make_config(schema_registry_url="http://localhost:8081")
 
     @pytest.mark.parametrize("page_size", [0, 5000])
     def test_out_of_range_page_size_is_rejected(self, page_size: int) -> None:

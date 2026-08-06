@@ -67,20 +67,11 @@ class ConfluentStreamCatalogConfig(ConfigModel):
     def normalize_schema_registry_url(self) -> None:
         if not self.schema_registry_url:
             return
-        if not self.schema_registry_url.startswith(("http://", "https://")):
+        if not self.schema_registry_url.startswith("https://"):
             raise ValueError(
-                "Configuration error: 'schema_registry_url' must be a valid HTTP(S) URL. "
+                "Configuration error: 'schema_registry_url' must use HTTPS to protect credentials in transit. "
                 f"Got: '{self.schema_registry_url}'. "
                 "Expected format: https://psrc-xxxxx.region.provider.confluent.cloud"
-            )
-        host = urlparse(self.schema_registry_url).hostname or ""
-        # Catalog credentials must not go to Confluent Cloud over plaintext HTTP.
-        if host.endswith(CONFLUENT_CLOUD_DOMAIN_SUFFIX) and not (
-            self.schema_registry_url.startswith("https://")
-        ):
-            raise ValueError(
-                "Configuration error: 'schema_registry_url' must use HTTPS when pointing "
-                f"at Confluent Cloud. Got: '{self.schema_registry_url}'."
             )
         self.schema_registry_url = self.schema_registry_url.rstrip("/")
 
