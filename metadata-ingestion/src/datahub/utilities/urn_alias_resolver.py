@@ -1,5 +1,18 @@
 from typing import Dict, List, Optional
 
+from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
+
+
+def _has_lowercased_name(urn: str) -> bool:
+    # Only the dataset name can be judged: a URN's scaffolding is mixed case whatever the
+    # entity is called (`dataPlatform`, the env), so `urn == urn.lower()` is never true.
+    try:
+        name = DatasetUrn.from_string(urn).name
+    except InvalidUrnError:
+        return False
+    return name == name.lower()
+
 
 class UrnAliasCache:
     """Stores URNs by their lowercased form, for case-insensitive lookup."""
@@ -43,5 +56,20 @@ class UrnAliasResolver:
         """Stored URNs matching `urn` ignoring case; more than one means ambiguous."""
         return self._cache.get(urn) or []
 
-    def count(self) -> int:
+    def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
+        """The URN DataHub stores for `urn`, or None if there is no single match.
+
+        `prefer_lowercased` resolves a collision between several casings of the same name
+        to the lowercase-named one instead of declining it.
+        """
+        matches = self.lookup(urn)
+        if len(matches) == 1:
+            return matches[0]
+        if urn in matches:
+            return urn
+        if prefer_lowercased:
+            return next((m for m in matches if _has_lowercased_name(m)), None)
+        return None
+
+    def cache_count(self) -> int:
         return self._cache.count()
