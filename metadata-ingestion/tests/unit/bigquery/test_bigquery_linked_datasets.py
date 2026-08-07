@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import GoogleAPIError, NotFound, PermissionDenied
@@ -14,6 +14,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
     BigQueryLinkedDatasetsHandler,
     LinkedDatasetInfo,
     PublisherRef,
+    create_analyticshub_client,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -137,6 +138,43 @@ def _install_clients(
         handler._bq_client = bq
     if rm is not None:
         handler._rm_client = rm
+
+
+# --- Client wiring (credentials) -------------------------------------------
+
+_AH_CLIENT_CLASS = (
+    "datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets"
+    ".bigquery_analyticshub_v1.AnalyticsHubServiceClient"
+)
+
+
+def test_create_analyticshub_client_uses_configured_credentials():
+    # Regression guard: the Analytics Hub client must authenticate as the
+    # configured identity, not silently fall back to ADC.
+    config = _make_config()
+    sentinel = object()
+    with (
+        patch.object(BigQueryV2Config, "get_credentials", return_value=sentinel),
+        patch(_AH_CLIENT_CLASS) as ah_cls,
+    ):
+        create_analyticshub_client(config)
+    kwargs = ah_cls.call_args.kwargs
+    assert kwargs["credentials"] is sentinel
+    assert "DataHub" in kwargs["client_info"].user_agent
+
+
+def test_get_rm_client_delegates_to_config_projects_client():
+    # Regression guard: reuse the credential-aware factory rather than building
+    # a bare ProjectsClient that ignores configured credentials.
+    config = _make_config()
+    handler = _make_handler(config=config)
+    sentinel = object()
+    with patch.object(
+        BigQueryV2Config, "get_projects_client", return_value=sentinel
+    ) as get_projects:
+        result = handler._get_rm_client()
+    assert result is sentinel
+    get_projects.assert_called_once_with()
 
 
 # --- LinkedDatasetInfo tests -----------------------------------------------

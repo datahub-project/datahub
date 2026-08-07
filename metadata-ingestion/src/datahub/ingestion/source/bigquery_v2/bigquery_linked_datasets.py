@@ -3,12 +3,14 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+from google.api_core.gapic_v1.client_info import ClientInfo as GapicClientInfo
 from google.cloud import bigquery, bigquery_analyticshub_v1, resourcemanager_v3
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import DATAHUB_USER_AGENT
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -113,6 +115,20 @@ def _last_segment(resource_name: Optional[str]) -> Optional[str]:
     return resource_name.rsplit("/", 1)[-1] or None
 
 
+def create_analyticshub_client(
+    config: BigQueryV2Config,
+) -> bigquery_analyticshub_v1.AnalyticsHubServiceClient:
+    """Build an Analytics Hub client authenticated as the configured identity.
+
+    Credentials come from the connector config so BigQuery Sharing calls run as
+    the same identity as the rest of the connector..
+    """
+    return bigquery_analyticshub_v1.AnalyticsHubServiceClient(
+        credentials=config.get_credentials(),
+        client_info=GapicClientInfo(user_agent=DATAHUB_USER_AGENT),
+    )
+
+
 class BigQueryLinkedDatasetsHandler:
     """Detect and enrich BigQuery Sharing linked datasets."""
 
@@ -143,12 +159,12 @@ class BigQueryLinkedDatasetsHandler:
 
     def _get_ah_client(self) -> bigquery_analyticshub_v1.AnalyticsHubServiceClient:
         if self._ah_client is None:
-            self._ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
+            self._ah_client = create_analyticshub_client(self.config)
         return self._ah_client
 
     def _get_rm_client(self) -> resourcemanager_v3.ProjectsClient:
         if self._rm_client is None:
-            self._rm_client = resourcemanager_v3.ProjectsClient()
+            self._rm_client = self.config.get_projects_client()
         return self._rm_client
 
     def _get_bq_client(self) -> bigquery.Client:
@@ -459,4 +475,5 @@ __all__ = [
     "BigQueryLinkedDatasetsHandler",
     "LinkedDatasetInfo",
     "PublisherRef",
+    "create_analyticshub_client",
 ]

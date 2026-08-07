@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Union
 
 from google.api_core.exceptions import GoogleAPIError, PermissionDenied
-from google.cloud import bigquery, bigquery_analyticshub_v1
+from google.cloud import bigquery
 
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -11,6 +11,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
+    create_analyticshub_client,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
 from datahub.ingestion.source.bigquery_v2.common import (
@@ -78,7 +81,9 @@ class BigQueryTestConnection:
 
             if connection_conf.include_linked_datasets:
                 linked_datasets_capability = (
-                    BigQueryTestConnection.linked_datasets_capability_test(project_ids)
+                    BigQueryTestConnection.linked_datasets_capability_test(
+                        connection_conf, project_ids
+                    )
                 )
                 _report["LINKED_DATASETS"] = linked_datasets_capability
 
@@ -172,11 +177,12 @@ class BigQueryTestConnection:
 
     @staticmethod
     def linked_datasets_capability_test(
+        connection_conf: BigQueryV2Config,
         project_ids: List[str],
     ) -> CapabilityReport:
         """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
         try:
-            ah_client = bigquery_analyticshub_v1.AnalyticsHubServiceClient()
+            ah_client = create_analyticshub_client(connection_conf)
         except Exception as e:
             return CapabilityReport(
                 capable=False,

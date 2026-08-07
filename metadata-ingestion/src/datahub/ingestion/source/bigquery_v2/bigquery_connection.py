@@ -19,9 +19,12 @@ from datahub.utilities.str_enum import StrEnum
 logger = logging.getLogger(__name__)
 
 
+# Format: "<prod_name>/ver (GPN:<company name>)" per Google's recommended convention.
+DATAHUB_USER_AGENT = f"DataHub/{__version__} (GPN:DataHub)"
+
+
 def _get_bigquery_client_info() -> ClientInfo:
-    # Format: "<prod_name>/ver (GPN:<company name>)" per Google's recommended convention.
-    return ClientInfo(user_agent=f"DataHub/{__version__} (GPN:DataHub)")
+    return ClientInfo(user_agent=DATAHUB_USER_AGENT)
 
 
 class BigQueryAuthType(StrEnum):
@@ -135,6 +138,10 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         Credentials (ADC) from the environment.
         """
         return self._credentials is not None
+
+    def get_credentials(self) -> Optional[Credentials]:
+        """Return the resolved credentials or None."""
+        return self._credentials
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = {**self.extra_client_options}
