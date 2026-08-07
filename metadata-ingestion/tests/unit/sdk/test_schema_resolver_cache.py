@@ -176,8 +176,10 @@ def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
     resolver = _load(graph)
 
     # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
-    assert resolver.urn_aliases.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
-    assert resolver.urn_aliases.lookup(_SCHEMALESS_URN_UPPERCASED) == [_SCHEMALESS_URN]
+    assert resolver.urn_aliases.find_matches(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    assert resolver.urn_aliases.find_matches(_SCHEMALESS_URN_UPPERCASED) == [
+        _SCHEMALESS_URN
+    ]
     # ...but only the one with a schema is in the schema cache.
     assert resolver.schema_count() == 1
 
@@ -190,7 +192,7 @@ def test_provider_skips_the_urn_index_when_no_consumer_needs_it(mock_test_connec
 
     resolver = _load(graph)
 
-    assert resolver.urn_aliases.cache_count() == 0
+    assert resolver.urn_aliases.cached_urn_count() == 0
     # Schemas are loaded either way.
     assert resolver.schema_count() == 1
 

@@ -434,7 +434,7 @@ class AutoResolveLineageUrnsProcessor(
             # escalating to WARNING once large enough to matter.
             # Counted from the alias index, not get_urns(): the latter is derived from the
             # schema cache and would omit every entity that has no schemaMetadata.
-            cache_count = sum(r.urn_aliases.cache_count() for r in resolvers)
+            cache_count = sum(r.urn_aliases.cached_urn_count() for r in resolvers)
             message = (
                 f"Loaded {cache_count} '{platform}' dataset URNs for lineage casing "
                 f"reconciliation."
