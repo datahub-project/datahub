@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.entityclient;
 
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.RestliEntityClient;
@@ -53,7 +54,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       final EntityClientConfig entityClientConfig,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+      final RestliRequestContextResolver restliRequestContextResolver) {
     final Client restClient;
     RestliClientSslConfig sslConfig = buildSslConfig();
     if (gmsUri != null) {
@@ -66,7 +68,8 @@ public class RestliEntityClientFactory {
           DefaultRestliClientFactory.getRestLiClient(
               gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol, null, sslConfig);
     }
-    return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
+    return new RestliEntityClient(
+        restClient, entityClientConfig, metricUtils, restliRequestContextResolver);
   }
 
   @Bean("systemEntityClient")
@@ -80,7 +83,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       final EntityClientCacheConfig entityClientCacheConfig,
       final EntityClientConfig entityClientConfig,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+      final RestliRequestContextResolver restliRequestContextResolver) {
 
     final Client restClient;
     RestliClientSslConfig sslConfig = buildSslConfig();
@@ -95,7 +99,11 @@ public class RestliEntityClientFactory {
               gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol, null, sslConfig);
     }
     return new SystemRestliEntityClient(
-        restClient, entityClientConfig, entityClientCacheConfig, metricUtils);
+        restClient,
+        entityClientConfig,
+        entityClientCacheConfig,
+        metricUtils,
+        restliRequestContextResolver);
   }
 
   private RestliClientSslConfig buildSslConfig() {

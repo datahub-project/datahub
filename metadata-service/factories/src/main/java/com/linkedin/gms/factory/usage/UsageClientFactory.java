@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.usage;
 
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.restli.RestliClientSslConfig;
@@ -66,7 +67,8 @@ public class UsageClientFactory {
   private ConfigurationProvider configurationProvider;
 
   @Bean("usageClient")
-  public RestliUsageClient getUsageClient(MetricUtils metricUtils) {
+  public RestliUsageClient getUsageClient(
+      MetricUtils metricUtils, RestliRequestContextResolver restliRequestContextResolver) {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
@@ -79,7 +81,8 @@ public class UsageClientFactory {
         new ExponentialBackoff(retryInterval),
         numRetries,
         configurationProvider.getCache().getClient().getUsageClient(),
-        metricUtils);
+        metricUtils,
+        restliRequestContextResolver);
   }
 
   private RestliClientSslConfig buildSslConfig() {
