@@ -2,6 +2,7 @@ package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -38,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -330,6 +332,66 @@ public class GroupServiceTest {
     _groupService.migrateGroupMembershipToNativeGroupMembership(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
     verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testMigrateGroupMembershipWritesOriginLast() throws Exception {
+    mockMigrationDependencies();
+
+    _groupService.migrateGroupMembershipToNativeGroupMembership(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
+
+    final ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), captor.capture());
+
+    // Native membership must be granted before the old membership is revoked, because the member
+    // list is read from graph edges derived from GroupMembership. Origin comes last so that an
+    // interrupted run stays re-migratable.
+    assertEquals(
+        captor.getAllValues().stream()
+            .map(MetadataChangeProposal::getAspectName)
+            .collect(Collectors.toList()),
+        ImmutableList.of(
+            NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME, ORIGIN_ASPECT_NAME));
+  }
+
+  @Test
+  public void testMigrateGroupMembershipInterruptedLeavesOriginUnset() throws Exception {
+    mockMigrationDependencies();
+    // Fail the native membership grant specifically: that is the step which used to be sequenced
+    // after the Origin write, so a failure there left members stripped of GroupMembership, never
+    // granted NativeGroupMembership, and permanently ineligible for re-migration.
+    when(_entityClient.ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME.equals(mcp.getAspectName()))))
+        .thenThrow(new RuntimeException("Migration interrupted"));
+
+    assertThrows(
+        () ->
+            _groupService.migrateGroupMembershipToNativeGroupMembership(
+                opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString()));
+
+    // A set Origin permanently disables the migration guard in the Add/RemoveGroupMembers
+    // resolvers, so leaving it unset is what allows the next call to retry the migration.
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
+  }
+
+  private void mockMigrationDependencies() throws Exception {
+    when(_graphClient.getRelatedEntities(
+            eq(EXTERNAL_GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(_entityRelationships);
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+    when(_entityService.exists(any(), eq(USER_URN), eq(true))).thenReturn(true);
   }
 
   @Test

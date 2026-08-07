@@ -258,14 +258,21 @@ public class GroupService implements ActorGroupMembershipService {
       throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    // Get the existing set of users
+    // This runs inline in the Add/RemoveGroupMembers resolvers (required by the DataHub Cloud
+    // upgrade path), so it can be interrupted at any point by a request timeout or client
+    // disconnect. Step order is what makes an interrupted run recoverable rather than lossy:
+    //
+    //  1. The member list comes from the graph, which is derived from the GroupMembership aspect
+    //     (see the IsMemberOfGroup relationship on GroupMembership.pdl). Removing that aspect
+    //     first would destroy the only source a retry could re-read the members from.
+    //  2. Both membership writes are idempotent, so granting native membership before revoking
+    //     the old one is safe and leaves members reachable by either aspect in between.
+    //  3. Origin is written last because a set Origin permanently disables the migration guard in
+    //     the resolvers. Until it lands, an interrupted run simply re-migrates on the next call.
     final List<Urn> userUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
-    // Remove the existing group membership for each user in the group
-    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
-    // Mark the group as a native group
-    createNativeGroupOrigin(opContext, groupUrn);
-    // Add each user as a native group member to the group
     userUrnList.forEach(userUrn -> addUserToNativeGroup(opContext, userUrn, groupUrn));
+    removeExistingGroupMembers(opContext, groupUrn, userUrnList);
+    createNativeGroupOrigin(opContext, groupUrn);
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(
