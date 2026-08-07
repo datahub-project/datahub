@@ -83,7 +83,7 @@ def custom_user_setup(auth_session):
     assert sign_up_response
     assert "error" not in sign_up_response
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     wait_for_user_in_list(admin_session, REVOKE_SUITE_USER_EMAIL, present=True)
 
     # Make user created user is there.
@@ -106,7 +106,7 @@ def custom_user_setup(auth_session):
     assert res_data["data"]
     assert res_data["data"]["removeUser"] is True
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Make user created user is not there.
     res_data = listUsers(admin_session)
@@ -115,7 +115,7 @@ def custom_user_setup(auth_session):
     assert {"username": REVOKE_SUITE_USER_EMAIL} not in res_data["data"]["listUsers"][
         "users"
     ]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     wait_for_user_in_list(admin_session, REVOKE_SUITE_USER_EMAIL, present=False)
 
 
@@ -142,7 +142,7 @@ def test_admin_can_create_list_and_revoke_tokens(auth_session):
     access_token = res_data["data"]["createAccessToken"]["accessToken"]
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     res_data = getAccessTokenMetadata(admin_session, access_token)
     assert res_data
@@ -201,7 +201,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(auth_session):
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Using a super account, list the previously created tokens.
     res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
@@ -248,7 +248,7 @@ def test_non_admin_can_create_list_revoke_tokens(auth_session):
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # User should be able to list his own token
     res_data = listAccessTokens(
@@ -319,7 +319,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_session):
     )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Admin should be able to list other tokens
     user_session.cookies.clear()

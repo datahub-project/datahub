@@ -61,7 +61,7 @@ def revoke_tokens_matching(session, filters: List[Dict[str, Any]]) -> None:
     if tokens:
         for metadata in tokens:
             revoke_access_token(session, metadata["id"])
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
 
 def wait_for_no_tokens_matching(

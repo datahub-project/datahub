@@ -38,7 +38,7 @@ class TestDocumentHierarchyAndSettings:
             }
         }
         grandparent_res = execute_graphql(
-            auth_session, create_mutation, grandparent_vars
+            auth_session, create_mutation, grandparent_vars, no_sync_wait=True
         )
         grandparent_urn = grandparent_res["data"]["createDocument"]
 
@@ -50,7 +50,9 @@ class TestDocumentHierarchyAndSettings:
                 "contents": {"text": "Parent content"},
             }
         }
-        parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+        parent_res = execute_graphql(
+            auth_session, create_mutation, parent_vars, no_sync_wait=True
+        )
         parent_urn = parent_res["data"]["createDocument"]
 
         child_vars = {
@@ -61,7 +63,9 @@ class TestDocumentHierarchyAndSettings:
                 "contents": {"text": "Child content"},
             }
         }
-        child_res = execute_graphql(auth_session, create_mutation, child_vars)
+        child_res = execute_graphql(
+            auth_session, create_mutation, child_vars, no_sync_wait=True
+        )
         child_urn = child_res["data"]["createDocument"]
 
         # Build hierarchy: grandparent -> parent
@@ -73,9 +77,12 @@ class TestDocumentHierarchyAndSettings:
         move_parent_vars = {
             "input": {"urn": parent_urn, "parentDocument": grandparent_urn}
         }
-        execute_graphql(auth_session, move_mutation, move_parent_vars)
+        execute_graphql(
+            auth_session, move_mutation, move_parent_vars, no_sync_wait=True
+        )
 
-        # Build hierarchy: parent -> child
+        # Build hierarchy: parent -> child. No intermediate reads above, so this is
+        # the only write in the batch that needs the normal post-write wait.
         move_child_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
         execute_graphql(auth_session, move_mutation, move_child_vars)
 
@@ -114,8 +121,12 @@ class TestDocumentHierarchyAndSettings:
         delete_mutation = """
             mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": child_urn}, no_sync_wait=True
+        )
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": parent_urn}, no_sync_wait=True
+        )
         execute_graphql(auth_session, delete_mutation, {"urn": grandparent_urn})
 
     def test_document_settings(self, auth_session):
@@ -187,7 +198,7 @@ class TestDocumentHierarchyAndSettings:
         )
         private_urn = private_res["data"]["createDocument"]
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Query and verify custom settings
         private_get_res = execute_graphql(auth_session, get_query, {"urn": private_urn})
@@ -213,7 +224,7 @@ class TestDocumentHierarchyAndSettings:
         assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
         assert update_res["data"]["updateDocumentSettings"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify the update
         updated_get_res = execute_graphql(auth_session, get_query, {"urn": private_urn})
@@ -230,7 +241,9 @@ class TestDocumentHierarchyAndSettings:
         delete_mutation = """
             mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": public_urn})
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": public_urn}, no_sync_wait=True
+        )
         execute_graphql(auth_session, delete_mutation, {"urn": private_urn})
 
     def test_search_ownership_filtering(self, auth_session):
@@ -264,13 +277,17 @@ class TestDocumentHierarchyAndSettings:
                 "state": "PUBLISHED",
             }
         }
-        published_res = execute_graphql(auth_session, create_mutation, published_vars)
+        published_res = execute_graphql(
+            auth_session, create_mutation, published_vars, no_sync_wait=True
+        )
         assert "errors" not in published_res, (
             f"GraphQL errors: {published_res.get('errors')}"
         )
         published_urn = published_res["data"]["createDocument"]
 
-        # Create UNPUBLISHED document (owned by current user by default)
+        # Create UNPUBLISHED document (owned by current user by default). No
+        # intermediate reads above, so only this final write needs the normal wait
+        # before the search-index sleep below.
         unpublished_vars = {
             "input": {
                 "id": unpublished_doc_id,
@@ -325,7 +342,12 @@ class TestDocumentHierarchyAndSettings:
             delete_mutation = """
                 mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
             """
-            execute_graphql(auth_session, delete_mutation, {"urn": published_urn})
+            execute_graphql(
+                auth_session,
+                delete_mutation,
+                {"urn": published_urn},
+                no_sync_wait=True,
+            )
             execute_graphql(auth_session, delete_mutation, {"urn": unpublished_urn})
             pytest.skip("Search index not available")
             return
@@ -362,7 +384,7 @@ class TestDocumentHierarchyAndSettings:
         )
         assert publish_res["data"]["updateDocumentStatus"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
         time.sleep(3)
 
         # Search again - both should still be visible (both PUBLISHED now)
@@ -377,7 +399,9 @@ class TestDocumentHierarchyAndSettings:
         delete_mutation = """
             mutation DeleteDoc($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": published_urn})
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": published_urn}, no_sync_wait=True
+        )
         execute_graphql(auth_session, delete_mutation, {"urn": unpublished_urn})
 
     def test_context_documents_for_dataset(self, auth_session):
@@ -450,7 +474,7 @@ class TestDocumentHierarchyAndSettings:
         update_res = execute_graphql(auth_session, update_mutation, update_vars)
         assert update_res["data"]["updateDocumentRelatedEntities"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Wait for search indexing
         time.sleep(5)
