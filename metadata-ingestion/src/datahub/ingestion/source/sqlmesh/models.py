@@ -52,6 +52,11 @@ def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str
     Splitting on ``.`` and building the Table expression by parts lets
     SQLGlot quote each identifier per dialect.
     """
+    # Imported lazily: sqlglot isn't a base dependency (it arrives only via the
+    # ``[sqlmesh]`` extra's transitive sqlmesh dep), so a module-level import would
+    # break loading this module with base deps — which `datahub check plugins` and
+    # the CI plugin-import validation rely on. This helper only runs on the
+    # row-count profiling path, which already requires the extra to be installed.
     from sqlglot import exp
 
     parts = physical_name.split(".")

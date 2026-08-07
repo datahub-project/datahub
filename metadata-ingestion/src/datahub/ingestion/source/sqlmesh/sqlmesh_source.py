@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 from typing import (
@@ -56,6 +57,7 @@ from datahub.ingestion.source.sqlmesh.models import (
     _probe_capabilities,
 )
 from datahub.ingestion.source.sqlmesh.profiling import ProfilingMixin
+from datahub.ingestion.source.sqlmesh.project_location import resolve_project_location
 from datahub.ingestion.source.sqlmesh.schema import SchemaMixin
 from datahub.ingestion.source.sqlmesh.siblings import SiblingsMixin
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
@@ -240,16 +242,32 @@ class SqlmeshSource(
                 "Install it with: pip install 'acryl-datahub[sqlmesh]'"
             )
 
-        effective = _EffectiveProjectConfig(
-            project_path=self.config.project_path,
-            gateway=self.config.gateway,
-            environment=self.config.environment,
-            target_platform=self.config.target_platform,
-            target_platform_instance=self.config.target_platform_instance,
-            sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
-            default_catalog=self.config.default_catalog,
-            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-        )
+        # A git checkout / S3 download is materialised into a temp dir that must
+        # survive the whole ingestion (the SQLMesh Context reads project files
+        # lazily, not just during __init__), so this stack stays open across
+        # every yield in _ingest_resolved_project below.
+        with contextlib.ExitStack() as location_stack:
+            try:
+                local_project_path = resolve_project_location(
+                    self.config, self.report, location_stack
+                )
+            except Exception as e:
+                self.report.failure(
+                    title="Failed to resolve SQLMesh project location",
+                    message="Could not fetch the SQLMesh project from the configured git_info / s3:// location.",
+                    context=self.config.project_path,
+                    exc=e,
+                )
+                return
+            yield from self._ingest_resolved_project(local_project_path)
+
+    def _ingest_resolved_project(
+        self, local_project_path: str
+    ) -> Iterable[MetadataWorkUnit]:
+        effective = self._effective_from_config()
+        # project_path from config may be an s3:// URI or a repo-relative path;
+        # swap in the resolved local directory SQLMesh actually loads from.
+        effective.project_path = local_project_path
 
         init_kwargs: Dict[str, Any] = {"paths": [effective.project_path]}
         if effective.gateway:

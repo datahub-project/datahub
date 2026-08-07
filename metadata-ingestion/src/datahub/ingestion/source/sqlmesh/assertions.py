@@ -291,12 +291,18 @@ class AssertionMixin(SqlmeshSourceBase):
         fallback = self._sqlmesh_urn_by_model_key.get(normalized)
         if fallback is not None:
             return fallback
+        # The model was filtered out of ingestion (model_name_pattern /
+        # model_kind_filter) or renamed, so no assertion definition was emitted
+        # for it. Fabricating a URN here would attach run events and incidents to
+        # an assertion that doesn't exist — orphaned history that never resolves
+        # in the UI. Skip instead, so audit results only produce run events for
+        # models we actually ingested.
         self.report.warning(
             title="Audit result for an un-ingested model",
-            message="No assertion definition was emitted for this model, so its run events may not link to anything. Check model_name_pattern / model_kind_filter against the audit results file.",
+            message="Skipping its run events: no assertion definition was emitted for this model. Check model_name_pattern / model_kind_filter against the audit results file.",
             context=model_name,
         )
-        return self._make_sqlmesh_urn(normalized, effective)
+        return None
 
     def _emit_incident_for_failure(
         self,

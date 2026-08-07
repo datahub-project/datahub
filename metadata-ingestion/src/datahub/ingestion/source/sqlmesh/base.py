@@ -32,9 +32,9 @@ from datahub.ingestion.source.sqlmesh.models import (
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     MODEL_KIND_TO_SUBTYPE,
-    SQLMESH_TO_DATAHUB_PLATFORM,
     SqlmeshSourceConfig,
     SqlmeshSourceReport,
+    map_sqlmesh_platform,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 
@@ -62,6 +62,25 @@ class SqlmeshSourceBase:
     _warned_column_lineage_unavailable: bool
     _warned_missing_gateways: set
 
+    def _effective_from_config(self) -> _EffectiveProjectConfig:
+        """Build the base _EffectiveProjectConfig straight from ``self.config``.
+
+        The pre-Context-load view of the project (before auto-detection and
+        per-gateway resolution run). Centralised so the several call sites that
+        need this exact ``self.config``-to-model mapping don't drift when a new
+        field is added.
+        """
+        return _EffectiveProjectConfig(
+            project_path=self.config.project_path,
+            gateway=self.config.gateway,
+            environment=self.config.environment,
+            target_platform=self.config.target_platform,
+            target_platform_instance=self.config.target_platform_instance,
+            sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
+            default_catalog=self.config.default_catalog,
+            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+        )
+
     def _detect_target_platform(
         self, sqlmesh_ctx: "SqlmeshContextType", effective: _EffectiveProjectConfig
     ) -> str:
@@ -70,7 +89,14 @@ class SqlmeshSourceBase:
 
         try:
             connection_type = sqlmesh_ctx.connection_config.type_
-            platform = SQLMESH_TO_DATAHUB_PLATFORM.get(connection_type, connection_type)
+            platform = map_sqlmesh_platform(connection_type)
+            if not platform:
+                # A gateway with no connection type_ gives us nothing to map, so
+                # fall through to the report.warning + "unknown" fallback below
+                # rather than silently returning None.
+                raise ValueError(
+                    f"gateway connection has no usable type_: {connection_type!r}"
+                )
             logger.info(
                 "Auto-detected target_platform=%r from gateway connection type %r",
                 platform,
@@ -156,7 +182,7 @@ class SqlmeshSourceBase:
             auto_platform = None
             try:
                 dialect = str(engine_adapters[gw_name].dialect).lower()
-                auto_platform = SQLMESH_TO_DATAHUB_PLATFORM.get(dialect, dialect)
+                auto_platform = map_sqlmesh_platform(dialect)
             except Exception as e:
                 self.report.warning(
                     title="Could not auto-detect target_platform for a gateway",
@@ -222,16 +248,7 @@ class SqlmeshSourceBase:
         if not self._effective_by_gateway:
             # Pre-Context-load paths — return _resolved_effective if set,
             # else a stub so we never raise.
-            return self._resolved_effective or _EffectiveProjectConfig(
-                project_path=self.config.project_path,
-                gateway=self.config.gateway,
-                environment=self.config.environment,
-                target_platform=self.config.target_platform,
-                target_platform_instance=self.config.target_platform_instance,
-                sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
-                default_catalog=self.config.default_catalog,
-                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-            )
+            return self._resolved_effective or self._effective_from_config()
 
         gw_name = None
         if model is not None:
