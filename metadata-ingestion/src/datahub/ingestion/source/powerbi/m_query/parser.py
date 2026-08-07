@@ -45,20 +45,29 @@ _M_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
 # M library functions are always namespaced (Table.Combine, Sql.Database,
 # Json.Document); DAX functions never are.
 _M_NAMESPACED_CALL = re.compile(r"\b[A-Za-z_]\w*\.[A-Za-z_]\w*\s*\(")
-# M-only leading keywords and intrinsic literals.
+# M-only leading keywords and intrinsic literals. `if` is deliberately absent:
+# DAX has an IF() function, while M's is an if/then expression (see below).
 _M_ONLY_SYNTAX = re.compile(
-    r"^\s*(try|each|if|section|shared)\b"
+    r"^\s*(try|each|section|shared)\b"
     r"|#(table|date|datetime|datetimezone|duration|time|binary)\s*\(",
     re.IGNORECASE,
 )
+# M's conditional is `if <cond> then <a> else <b>`; DAX's is the call `IF(a,b,c)`.
+# Requiring `then` is what tells them apart.
+_M_IF_EXPRESSION = re.compile(r"^\s*if\b[\s\S]*?\bthen\b", re.IGNORECASE)
+# Comments must not decide the language: a DAX expression whose comment mentions
+# `let` would otherwise be reported as a failed M-Query and lose its lineage.
+_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
 
 
 def _looks_like_m_query(expression: str) -> bool:
     """Whether *expression* is M-Query (as opposed to a DAX table expression)."""
+    code = _COMMENT.sub(" ", expression)
     return bool(
-        _M_LET_KEYWORD.search(expression)
-        or _M_NAMESPACED_CALL.search(expression)
-        or _M_ONLY_SYNTAX.search(expression)
+        _M_LET_KEYWORD.search(code)
+        or _M_NAMESPACED_CALL.search(code)
+        or _M_ONLY_SYNTAX.search(code)
+        or _M_IF_EXPRESSION.search(code)
     )
 
 
