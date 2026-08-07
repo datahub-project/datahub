@@ -106,6 +106,9 @@ export default function useMetricsSectionExpansion(sort: MetricsSidebarSortValue
                     onExpandModels: (urns) => expandAllSemanticModels(urns),
                     onExpandMetrics: (urns) => expandAllMetrics(urns),
                 });
+            } catch {
+                // Expand-all is best-effort; failed Apollo page loads must not
+                // surface as unhandled rejections from the click handler.
             } finally {
                 setIsExpanding(false);
             }

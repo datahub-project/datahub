@@ -72,11 +72,16 @@ export default function useMetricChildren({ mode, skip, sort = DEFAULT_METRICS_S
 
     const modeKey = mode.kind === 'model' ? mode.modelUrn : mode.parentMetricUrn;
     const modeKind = mode.kind;
+    const resetKey = `${modeKind}:${modeKey}:${sort}`;
 
-    useEffect(() => {
+    // Reset during render so the first query after sort/mode change uses a null
+    // cursor (not the previous page's scrollId with the new sort/filters).
+    const [prevResetKey, setPrevResetKey] = useState(resetKey);
+    if (resetKey !== prevResetKey) {
+        setPrevResetKey(resetKey);
         setScrollId(null);
         setData([]);
-    }, [modeKey, sort]);
+    }
 
     const variables = useMemo(
         () => buildScrollInput(mode, scrollId, sort),
