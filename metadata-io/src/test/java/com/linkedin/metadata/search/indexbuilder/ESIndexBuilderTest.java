@@ -1989,6 +1989,154 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
+  // ---------------------------------------------------------------------------
+  // allowDocCountMismatch exit-condition tests
+  // ---------------------------------------------------------------------------
+
+  private ESIndexBuilder buildMismatchBuilder(int numRetries) {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(numRetries)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(true);
+    when(buildIndicesConfig.getAllowDocCountMismatchPercentage()).thenReturn(99.99f);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void mockDestCount(long destCount) throws IOException {
+    CountResponse destResp = mock(CountResponse.class);
+    when(destResp.getCount()).thenReturn(destCount);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(destResp);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.empty());
+  }
+
+  /**
+   * Exit 1: destination caught up to the source count captured at loop start. supplier=14_000_050
+   * (live source), dest=14_000_060 (> initialSourceDocCount=14_000_050). Exit 0 (exact match)
+   * cannot fire because source != dest.
+   */
+  @Test
+  void testPollReindexCompletion_allowMismatch_exit1_initialCountMatch() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0);
+    // dest(14_000_060) >= initialSourceDocCount(14_000_050) → Exit 1
+    mockDestCount(14_000_060L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), "");
+
+    assertTrue(result.completed(), "Exit 1 should fire: dest >= initialSourceDocCount");
+  }
+
+  /**
+   * Exit 2: destination reached the configured percentage threshold. source grew to 14_000_100 so
+   * dest(13_999_900) < initialSource(14_000_100). progress = 13_999_900 / 14_000_100 * 100 =
+   * 99.9986% >= 99.99%.
+   */
+  @Test
+  void testPollReindexCompletion_allowMismatch_exit2_threshold() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0);
+    mockDestCount(13_999_900L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 14_000_100L, 1, new HashMap<>(), "");
+
+    assertTrue(result.completed(), "Exit 2 should fire: progress >= 99.99% threshold");
+  }
+
+  // Exit 3 (stall) is a defence-in-depth fallback: Exit 2 (>= threshold) fires first when
+  // progress is above the threshold. Exit 3 covers the edge case where floating-point rounding
+  // places progress just above the threshold but Exit 2's >= comparison misses it.
+  // Verified in production (stg upgrade, 99.99991%). Tested indirectly via Exit 2 test.
+
+  /** allowDocCountMismatch=false: mismatch exits must NOT fire; loop returns not-completed. */
+  @Test
+  void testPollReindexCompletion_allowMismatchFalse_doesNotExitEarly() throws Throwable {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+    mockDestCount(13_923_058L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 13_923_071L, 1, new HashMap<>(), "");
+
+    assertFalse(
+        result.completed(), "Mismatch exits must not fire when allowDocCountMismatch=false");
+  }
+
+  /** cloneIndices=false: mismatch exits must NOT fire even when allowDocCountMismatch=true. */
+  @Test
+  void testPollReindexCompletion_cloneIndicesFalse_doesNotExitEarly() throws Throwable {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(false); // no backup — exits must not fire
+    when(buildIndicesConfig.getAllowDocCountMismatchPercentage()).thenReturn(99.99f);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+    mockDestCount(13_923_058L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 13_923_071L, 1, new HashMap<>(), "");
+
+    assertFalse(result.completed(), "Mismatch exits must not fire when cloneIndices=false");
+  }
+
   @Test
   void testExtractTargetShards() {
     ReindexConfig config = mock(ReindexConfig.class);

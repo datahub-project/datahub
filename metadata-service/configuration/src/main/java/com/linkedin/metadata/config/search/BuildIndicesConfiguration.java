@@ -131,6 +131,20 @@ public class BuildIndicesConfiguration {
   // Minimum number of replicas to restore before promoting index (default 1)
   @Builder.Default private int minimumReplicasForPromotion = 1;
 
+  /**
+   * Percentage threshold (0–100) for the {@code allowDocCountMismatch} exit path in {@code
+   * pollReindexCompletion}. The poll loop exits successfully when the destination document count
+   * reaches this percentage of the live source count, even if an exact match is never achieved.
+   * Only used when {@code allowDocCountMismatch=true}.
+   *
+   * <p>Default 99.99 — at most 0.01% of documents may be missing from the destination. The missing
+   * documents are re-written by the MAE consumer replaying Kafka events once GMS restarts against
+   * the new index.
+   *
+   * <p>Set via {@code ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH_PERCENTAGE}.
+   */
+  @Builder.Default private float allowDocCountMismatchPercentage = 99.99f;
+
   /** Validate configuration parameters on bean creation */
   @PostConstruct
   public void validate() {
@@ -218,6 +232,11 @@ public class BuildIndicesConfiguration {
     if (minimumReplicasForPromotion < 0) {
       throw new IllegalArgumentException(
           "minimumReplicasForPromotion must be >= 0, got: " + minimumReplicasForPromotion);
+    }
+    if (allowDocCountMismatchPercentage <= 0 || allowDocCountMismatchPercentage > 100) {
+      throw new IllegalArgumentException(
+          "allowDocCountMismatchPercentage must be between 0 (exclusive) and 100 (inclusive), got: "
+              + allowDocCountMismatchPercentage);
     }
     if (catchUpSqlPageSize <= 0) {
       throw new IllegalArgumentException(
