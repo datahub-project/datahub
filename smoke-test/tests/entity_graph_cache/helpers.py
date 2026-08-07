@@ -738,6 +738,42 @@ def remove_corp_group_membership(
     wait_for_writes_to_sync()
 
 
+def cleanup_group_and_users(
+    auth_session,
+    graph_client: DataHubGraph,
+    group_urn: Optional[str],
+    user_urns: List[str],
+) -> None:
+    """Best-effort teardown for group-membership tests.
+
+    Setup can fail partway — the group may never have been created — and a ``finally`` block
+    that raises would mask the original failure and skip the remaining deletions, leaking
+    users. Each step is therefore isolated and only warns.
+    """
+    if skip_cleanup_enabled():
+        logger.info(
+            "DATAHUB_SKIP_CLEANUP=true — leaving group %s and users %s",
+            group_urn,
+            user_urns,
+        )
+        return
+    if group_urn is not None:
+        if user_urns:
+            try:
+                remove_users_from_native_group(auth_session, group_urn, user_urns)
+            except Exception as exc:
+                logger.warning("Member removal failed for %s: %s", group_urn, exc)
+        try:
+            delete_native_group(auth_session, group_urn)
+        except Exception as exc:
+            logger.warning("Group delete failed for %s: %s", group_urn, exc)
+    for user_urn in user_urns:
+        try:
+            graph_client.hard_delete_entity(user_urn)
+        except Exception as exc:
+            logger.warning("User delete failed for %s: %s", user_urn, exc)
+
+
 def cleanup_domains(auth_session, urns: List[str]) -> None:
     if skip_cleanup_enabled():
         logger.info("DATAHUB_SKIP_CLEANUP=true — leaving domains: %s", urns)

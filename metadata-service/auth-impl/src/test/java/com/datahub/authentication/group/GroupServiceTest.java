@@ -278,12 +278,12 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersNoOpWhenAspectMissing() throws Exception {
+  public void testRemoveGroupMembersNoOpWhenAspectMissing() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(Map.of());
 
-    _groupService.removeExistingNativeGroupMembers(
+    _groupService.removeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
 
     verify(_entityClient, never()).batchIngestProposals(any(), any(), anyBoolean());
@@ -324,26 +324,22 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersNullArguments() {
+  public void testRemoveGroupMembersNullArguments() {
     assertThrows(
-        () ->
-            _groupService.removeExistingNativeGroupMembers(
-                mock(OperationContext.class), null, USER_URN_LIST));
+        () -> _groupService.removeGroupMembers(mock(OperationContext.class), null, USER_URN_LIST));
     assertThrows(
-        () ->
-            _groupService.removeExistingNativeGroupMembers(
-                mock(OperationContext.class), _groupUrn, null));
+        () -> _groupService.removeGroupMembers(mock(OperationContext.class), _groupUrn, null));
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersStripsLegacyMembership() throws Exception {
+  public void testRemoveGroupMembersStripsLegacyMembership() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     // The fixture user belongs to EXTERNAL_GROUP via the legacy groupMembership aspect only. A
     // native-only removal would silently leave them in the group while reporting success.
-    _groupService.removeExistingNativeGroupMembers(
+    _groupService.removeGroupMembers(
         mock(OperationContext.class),
         Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
         USER_URN_LIST);
@@ -356,12 +352,12 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersPasses() throws Exception {
+  public void testRemoveGroupMembersPasses() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingNativeGroupMembers(
+    _groupService.removeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
     verify(_entityClient).batchIngestProposals(any(OperationContext.class), any(), eq(false));
   }

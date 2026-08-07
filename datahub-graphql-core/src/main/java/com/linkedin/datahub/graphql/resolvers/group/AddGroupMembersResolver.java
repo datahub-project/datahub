@@ -80,8 +80,12 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
                 context.getOperationContext(), userUrnList, groupUrn);
             return true;
           } catch (Exception e) {
+            // Preserve the cause: the service names the users that do not exist, and dropping it
+            // leaves the caller unable to tell which URNs were bad.
             throw new RuntimeException(
-                String.format("Failed to add group members to group %s", groupUrnStr));
+                String.format(
+                    "Failed to add group members to group %s: %s", groupUrnStr, e.getMessage()),
+                e);
           }
         },
         this.getClass().getSimpleName(),

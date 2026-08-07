@@ -77,8 +77,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
                     groupUrnStr));
           }
           try {
-            _groupService.removeExistingNativeGroupMembers(
-                context.getOperationContext(), groupUrn, userUrnList);
+            _groupService.removeGroupMembers(context.getOperationContext(), groupUrn, userUrnList);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(e);

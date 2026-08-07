@@ -291,7 +291,15 @@ public class GroupService implements ActorGroupMembershipService {
     return groupInfo;
   }
 
-  public void removeExistingNativeGroupMembers(
+  /**
+   * Removes the given users from the group, revoking membership held through <em>either</em>
+   * aspect. Members of a group that never finished migrating hold only {@code groupMembership};
+   * stripping just {@code nativeGroupMembership} would report success and leave them in the group.
+   *
+   * <p>Contrast {@link #removeExistingGroupMembers}, which is migration-internal and deliberately
+   * revokes only the legacy aspect.
+   */
+  public void removeGroupMembers(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,
       @Nonnull final List<Urn> userUrnList)
@@ -453,8 +461,16 @@ public class GroupService implements ActorGroupMembershipService {
               .collect(Collectors.toList());
       memberUrns.addAll(page);
 
-      // Check the short page first so getTotal() is only read when a full page came back.
-      if (page.size() < GROUP_MEMBER_PAGE_SIZE || memberUrns.size() >= relationships.getTotal()) {
+      // A short page means the graph is genuinely exhausted.
+      if (page.size() < GROUP_MEMBER_PAGE_SIZE) {
+        return memberUrns;
+      }
+      // getTotal() saturates at Elasticsearch's track_total_hits cap, which is the same 10k as the
+      // ceiling below, so it only proves completeness when it comes back under that cap. Treating a
+      // saturated total as "we have them all" would return silently on exactly the oversized groups
+      // the warning exists for.
+      final int total = relationships.getTotal();
+      if (total < MAX_GROUP_MEMBERS_TO_MIGRATE && memberUrns.size() >= total) {
         return memberUrns;
       }
       start += page.size();
@@ -472,6 +488,11 @@ public class GroupService implements ActorGroupMembershipService {
     return memberUrns;
   }
 
+  /**
+   * Revokes only the legacy {@code groupMembership} aspect. Used by the migration, which grants
+   * native membership first and then clears the legacy grant; callers wanting to remove a member
+   * outright want {@link #removeGroupMembers} instead.
+   */
   void removeExistingGroupMembers(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn groupUrn,

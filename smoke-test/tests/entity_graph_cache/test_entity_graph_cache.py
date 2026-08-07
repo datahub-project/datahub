@@ -28,6 +28,7 @@ from tests.entity_graph_cache.helpers import (
     cleanup_containers,
     cleanup_domains,
     cleanup_glossary_entities,
+    cleanup_group_and_users,
     corp_group_urn,
     create_group_without_origin,
     create_native_group,
@@ -607,11 +608,7 @@ def test_add_group_members_adds_every_user_in_one_mutation(auth_session, graph_c
         for user_urn in user_urns:
             assert user_urn in members
     finally:
-        if group_urn is not None:
-            remove_users_from_native_group(auth_session, group_urn, user_urns)
-            delete_native_group(auth_session, group_urn)
-        for user_urn in user_urns:
-            graph_client.hard_delete_entity(user_urn)
+        cleanup_group_and_users(auth_session, graph_client, group_urn, user_urns)
         wait_for_hierarchy_writes()
 
 
@@ -649,12 +646,9 @@ def test_migration_converts_existing_members_when_group_becomes_native(
             auth_session, existing_user, {group_urn: IS_MEMBER_OF_NATIVE_GROUP}
         )
     finally:
-        remove_users_from_native_group(
-            auth_session, group_urn, [existing_user, new_user]
+        cleanup_group_and_users(
+            auth_session, graph_client, group_urn, [existing_user, new_user]
         )
-        delete_native_group(auth_session, group_urn)
-        for user_urn in (existing_user, new_user):
-            graph_client.hard_delete_entity(user_urn)
         wait_for_hierarchy_writes()
 
 
@@ -687,8 +681,7 @@ def test_remove_group_members_revokes_legacy_membership(auth_session, graph_clie
         )
         assert user_urn not in members
     finally:
-        delete_native_group(auth_session, group_urn)
-        graph_client.hard_delete_entity(user_urn)
+        cleanup_group_and_users(auth_session, graph_client, group_urn, [user_urn])
         wait_for_hierarchy_writes()
 
 
