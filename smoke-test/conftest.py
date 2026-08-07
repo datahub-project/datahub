@@ -287,16 +287,21 @@ def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
 
 def aggregate_module_weights(
     items: List[Item], test_weights: Dict[str, float]
-) -> List[Tuple[str, List[Item], float]]:
+) -> List[Tuple[str, List[Item], float, float]]:
     """
-    Group test items by module and aggregate their weights.
+    Group test items by module, splitting each module's weight by execution phase.
+
+    smoke.sh runs each batch as two pytest invocations: non-mutator tests under
+    xdist, then policy mutators serially. Those two buckets cost different
+    amounts of wall clock per second of test time, so they are accumulated
+    separately here and combined by the caller, which knows the worker count.
 
     Args:
         items: List of pytest test items
         test_weights: Dictionary mapping test IDs to durations
 
     Returns:
-        List of (module_path, items_in_module, total_weight) tuples
+        List of (module_path, items_in_module, parallel_seconds, serial_seconds)
     """
 
     # Group items by module (file path)
@@ -306,14 +311,21 @@ def aggregate_module_weights(
         module_path = str(item.fspath)
         modules[module_path].append(item)
 
-    # Calculate total weight for each module
+    # Each item's weight is looked up exactly once, here.
     module_data = []
     for module_path, module_items in modules.items():
-        total_weight = 0.0
+        parallel_seconds = 0.0
+        serial_seconds = 0.0
         for item in module_items:
-            total_weight += get_pytest_test_weight(item, test_weights)
+            weight = get_pytest_test_weight(item, test_weights)
+            if _is_global_policy_mutator(item):
+                serial_seconds += weight
+            else:
+                parallel_seconds += weight
 
-        module_data.append((module_path, module_items, total_weight))
+        module_data.append(
+            (module_path, module_items, parallel_seconds, serial_seconds)
+        )
 
     return module_data
 
@@ -323,7 +335,7 @@ def _is_global_policy_mutator(item: Item) -> bool:
 
 
 def phase_aware_module_weight(
-    items: List[Item], test_weights: Dict[str, float], xdist_workers: int
+    parallel_seconds: float, serial_seconds: float, xdist_workers: int
 ) -> float:
     """Estimate a module's contribution to a batch's *wall clock*, not its total
     test time.
@@ -342,14 +354,6 @@ def phase_aware_module_weight(
     With xdist_workers == 1 this reduces to the plain sum, i.e. the previous
     behaviour, which is correct because both phases are then serial.
     """
-    parallel_seconds = 0.0
-    serial_seconds = 0.0
-    for item in items:
-        weight = get_pytest_test_weight(item, test_weights)
-        if _is_global_policy_mutator(item):
-            serial_seconds += weight
-        else:
-            parallel_seconds += weight
     return parallel_seconds / max(1, xdist_workers) + serial_seconds
 
 
@@ -443,7 +447,7 @@ def pytest_collection_modifyitems(
     # Create weighted tuples for bin-packing: (module_path, weight)
     # We'll also keep track of the items for each module
     module_map = {
-        module_path: module_items for module_path, module_items, _ in module_data
+        module_path: module_items for module_path, module_items, _, _ in module_data
     }
     # Weight by estimated wall clock rather than summed duration -- serial
     # policy-mutator tests cost xdist_workers times more than parallel ones.
@@ -451,9 +455,9 @@ def pytest_collection_modifyitems(
     weighted_modules = [
         (
             module_path,
-            phase_aware_module_weight(module_items, test_weights, xdist_workers),
+            phase_aware_module_weight(parallel_seconds, serial_seconds, xdist_workers),
         )
-        for module_path, module_items, _ in module_data
+        for module_path, _, parallel_seconds, serial_seconds in module_data
     ]
 
     logger.info(
