@@ -228,6 +228,80 @@ class TestSecretRegistryInvalidInputs:
         assert secrets["P#!ss%40word"] == "password"
 
 
+class TestRouteAValidation:
+    """Pin finding 12: the registry refuses to register a value that exactly
+    equals a redaction marker for a registered name (route A). The marker
+    alternative must win for masking to terminate, so such a value would
+    pass through in cleartext; refusing it at registration closes the hole
+    at the source. Below-floor values are refused with a warning (previously
+    silently dropped)."""
+
+    def test_marker_shaped_value_for_registered_name_refused(self):
+        """Registering ``***REDACTED:PW***`` as a value after ``PW`` is a
+        registered name is refused — the marker must win, so the value
+        would pass through in cleartext."""
+        registry = SecretRegistry()
+        registry.clear()
+        registry.register_secret("PW", "s3cret")
+        # Value is the marker for name PW.
+        registry.register_secret("MARKER_VAL", "***REDACTED:PW***")
+        secrets = registry.get_all_secrets()
+        # s3cret is registered; ***REDACTED:PW*** is NOT (refused).
+        assert "s3cret" in secrets
+        assert "***REDACTED:PW***" not in secrets
+
+    def test_marker_shaped_value_for_own_name_refused(self):
+        """Registering ``***REDACTED:SELF***`` under name ``SELF`` is refused
+        — the value is the marker for this very name."""
+        registry = SecretRegistry()
+        registry.clear()
+        registry.register_secret("SELF", "***REDACTED:SELF***")
+        secrets = registry.get_all_secrets()
+        assert "***REDACTED:SELF***" not in secrets
+
+    def test_marker_shaped_value_for_unregistered_name_accepted(self):
+        """Registering ``***REDACTED:GONE***`` when ``GONE`` is NOT a
+        registered name is accepted — the marker alternative for ``GONE``
+        is not in the pattern, so nothing passes through. (The generic
+        fallback would mask it, but only if ``GONE`` were a registered
+        name.) This is the dropped-execution case."""
+        registry = SecretRegistry()
+        registry.clear()
+        # GONE is not registered as a name.
+        registry.register_secret("ORPHAN", "***REDACTED:GONE***")
+        secrets = registry.get_all_secrets()
+        # The value IS registered (no name collision to refuse on).
+        assert "***REDACTED:GONE***" in secrets
+
+    def test_below_floor_value_warns_and_refused(self):
+        """A value below the 3-char floor is refused with a warning
+        (previously silently dropped, so a misconfigured recipe with a
+        2-char password got no signal)."""
+        registry = SecretRegistry()
+        registry.clear()
+        # "ab" is 2 chars, below the 3-char floor.
+        registry.register_secret("SHORT", "ab")
+        secrets = registry.get_all_secrets()
+        assert "ab" not in secrets
+        assert len(secrets) == 0
+
+    def test_oscillation_pair_half_refused(self):
+        """Registering A's marker under name B after A is registered is
+        refused (B's value is the marker for registered name A). The
+        oscillation pair from the property test corpus is half-refused:
+        A registers, B does not."""
+        registry = SecretRegistry()
+        registry.clear()
+        # A registers first (value is marker for B, but B not registered yet).
+        registry.register_secret("A", "***REDACTED:B***")
+        # B is refused: value is marker for registered name A.
+        registry.register_secret("B", "***REDACTED:A***")
+        secrets = registry.get_all_secrets()
+        # A's value is registered; B's is not.
+        assert "***REDACTED:B***" in secrets
+        assert "***REDACTED:A***" not in secrets
+
+
 class TestSecretRegistryMaxSecrets:
     """Test max secrets limit."""
 

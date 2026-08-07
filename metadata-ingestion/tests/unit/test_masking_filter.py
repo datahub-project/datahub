@@ -2763,5 +2763,390 @@ class TestCustomFormatException:
                 uninstall_masking_filter()
 
 
+class TestMaskTextIdempotencyProperty:
+    """The single highest-value test: ``mask_text`` is idempotent AND actually
+    masks. Idempotency alone is satisfied by the identity function, so a
+    regression that silently disables masking makes the first assertion
+    *greener* — the second assertion (no registered value survives) is what
+    catches that. The corpus is built by calling ``register_secret`` directly
+    so a name containing marker syntax is exercised (a recipe-built corpus
+    leaves that branch unexercised and the assertion vacuously green)."""
+
+    def _build_corpus(self, registry):
+        """Register a corpus that stresses the marker/value collision
+        cases the alternation ordering exists to handle."""
+        # A plain secret value.
+        registry.register_secret("PW", "s3cret")
+        # The literal "***" — clears the 3-char length floor and is a
+        # substring of every marker.
+        registry.register_secret("STARS", "***")
+        # Uppercase substrings of REDACTED that appear inside every marker.
+        for nm, val in [
+            ("R_SUB", "RED"),
+            ("EDA_SUB", "EDA"),
+            ("DAC_SUB", "DAC"),
+            ("ACT_SUB", "ACT"),
+            ("CTE_SUB", "CTE"),
+            ("TED_SUB", "TED"),
+        ]:
+            registry.register_secret(nm, val)
+        # A value that is a substring of a registered *name* (unbounded
+        # collision surface — names go into the marker verbatim). The value
+        # must meet the 3-char registration floor or it is silently dropped.
+        registry.register_secret("MY_PASSWORD_VAR", "topsecret")
+        registry.register_secret("NAME_SUBSTRING_VALUE", "PASSWORD")
+        # A name containing marker syntax — only reachable via direct
+        # register_secret, not via config loading.
+        registry.register_secret("weird***REDACTED:X***name", "weird_value")
+        # A marker-shaped value (route A): a registered value that exactly
+        # equals a marker for a registered name. The marker must win for
+        # termination, so this passes through in cleartext — refused at
+        # registration in step 5, but the property test must still pass
+        # (the value either survives or is masked; idempotency holds).
+        registry.register_secret("MARKER_VAL_A", "***REDACTED:PW***")
+        # The two-secret oscillation pair: register A's marker under name B
+        # and B's marker under name A. With values first this oscillates
+        # with period 2 and no fixed point; with markers first it
+        # terminates on the first pass.
+        registry.register_secret("A", "***REDACTED:B***")
+        registry.register_secret("B", "***REDACTED:A***")
+        return [
+            "s3cret",
+            "***",
+            "RED",
+            "EDA",
+            "DAC",
+            "ACT",
+            "CTE",
+            "TED",
+            "topsecret",
+            "PASSWORD",
+            "weird_value",
+            "***REDACTED:PW***",
+            "***REDACTED:A***",
+            "***REDACTED:B***",
+            "plain text with s3cret in the middle",
+            "***REDACTED:PW*** next to s3cret",
+            "weird***REDACTED:X***name here",
+        ]
+
+    def test_mask_text_is_idempotent_and_masks(self):
+        from datahub.masking.masking_filter import REDACTED_FORMAT
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        values = self._build_corpus(registry)
+        mf = SecretMaskingFilter(registry)
+        # Touch every value once so the pattern is built.
+        for v in values:
+            mf.mask_text(v)
+
+        # Route-A values: a registered value that exactly equals a marker
+        # for a *registered name* passes through in cleartext because the
+        # marker alternative must win for termination. Compute them from the
+        # registered names so the test stays correct as the corpus changes.
+        all_secrets = registry.get_all_secrets()
+        registered_names = set(all_secrets.values())
+        all_markers = {REDACTED_FORMAT.format(name=n) for n in registered_names}
+        route_a_values = {v for v in values if v in all_markers}
+        # Sanity: ``***REDACTED:PW***`` and ``***REDACTED:A***`` are route A
+        # (PW and A are registered names, and those markers are in the corpus).
+        # ``***REDACTED:B***`` is NOT route A here: the step-5 validation
+        # refuses to register ``***REDACTED:A***`` under name ``B`` (because A
+        # is already registered), so the oscillation pair is half-refused and
+        # ``***REDACTED:B***`` becomes a normal registered value that masks
+        # to ``***REDACTED:A***``. If this assertion ever fails, the corpus
+        # or the validation changed and the route-A computation needs
+        # revisiting.
+        assert "***REDACTED:PW***" in route_a_values
+        assert "***REDACTED:A***" in route_a_values
+        assert "***REDACTED:B***" not in route_a_values
+
+        # 1. Idempotency: mask_text(mask_text(x)) == mask_text(x) for every
+        #    input, including the oscillation pair and route A. A regression
+        #    that makes this fail surfaces the ordering / dispatch bug.
+        for x in values:
+            once = mf.mask_text(x)
+            twice = mf.mask_text(once)
+            assert twice == once, (
+                f"mask_text not idempotent on {x!r}: once={once!r} twice={twice!r}"
+            )
+
+        # 2. Masks at all: mask_text(v) != v for every non-route-A value.
+        #    The identity function (the regression this catches) leaves v
+        #    unchanged, so this assertion fails for it. Substring matching
+        #    (``v not in mask_text(x)``) is too strong for values that are
+        #    substrings of the marker format (``***``, ``RED``, ...), which
+        #    appear inside every ``***REDACTED:...***`` marker by construction;
+        #    ``mask_text(v) != v`` is the clean expression of "v was
+        #    transformed".
+        for v in values:
+            if v in route_a_values:
+                continue
+            masked = mf.mask_text(v)
+            assert masked != v, (
+                f"mask_text did not transform {v!r}: masking silently disabled?"
+            )
+
+
+class TestNonStrMsgAndFailClosed:
+    """Pin finding 9 (non-str ``record.msg`` is masked) and the fail-closed
+    per-field behaviour of ``filter()`` (each step in its own try; the
+    sentinel is set in ``finally`` so it guards the failure path)."""
+
+    def test_truncation_marker_clamps_to_zero_when_masking_expands(self):
+        """Finding 6: masking can EXPAND the text (a 3-char ``***`` secret
+        becomes ``***REDACTED:STARS***`` = 18 chars). When the original fit
+        but the masked output did not, ``original_len - max_message_size``
+        is negative. The marker must report ``max(0, ...)``, not a negative
+        byte count."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        # Register *** (3 chars). Masking expands it to ***REDACTED:STARS***
+        # (18 chars). Build a message that fits before masking but overruns
+        # after.
+        registry.register_secret("STARS", "***")
+        mf = SecretMaskingFilter(registry, max_message_size=100)
+        # 10 occurrences of "***" = 30 chars, fits in 100. After masking each
+        # becomes 18 chars, so 10 * 18 = 180 chars, overruns 100.
+        msg = "***" * 10
+        assert len(msg) == 30  # fits before masking
+        masked = mf.mask_text(msg)
+        assert len(masked) > 100  # overruns after masking
+        truncated = mf._truncate_message(masked, original_len=len(msg))
+        # The marker reports max(0, 30 - 100) = 0, not -70.
+        assert "[-70 bytes truncated" not in truncated
+        assert "[0 bytes truncated" in truncated
+
+    def test_msg_truncation_skipped_when_args_present(self):
+        """Finding 7: when ``record.args`` is present, ``record.msg`` is a
+        format string. Pre-truncating or final-truncating it before ``%``
+        formatting can sever a ``%s`` placeholder. Mask the format string but
+        skip both truncation stages."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("PW", "s3cret")
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        lg = logging.getLogger("datahub.test.argstrunc")
+        lg.handlers = [h]
+        lg.setLevel(logging.DEBUG)
+        lg.propagate = False
+        try:
+            mf = SecretMaskingFilter(registry, max_message_size=50)
+            h.addFilter(mf)
+            # A format string with a %s placeholder, longer than max_message_size.
+            # If truncated before % formatting, the %s could be severed.
+            fmt = "Connecting to host %s with password s3cret and " + "x" * 100
+            lg.info(fmt, "hostvalue")
+            out = cap.getvalue()
+            # The secret in the format string is masked.
+            assert "s3cret" not in out
+            assert "***REDACTED:PW***" in out
+            # The %s was not severed — "hostvalue" appears in the formatted
+            # output (msg % args succeeded without ValueError).
+            assert "hostvalue" in out
+            # No truncation marker — truncation was skipped because args present.
+            assert "bytes truncated" not in out
+        finally:
+            lg.handlers = []
+
+    def test_dict_msg_is_masked(self):
+        """``logger.info({"password": "s3cret"})`` — the structlog /
+        JSON-logging idiom — is masked via ``_mask_value_recursive``.
+        Previously such a msg was emitted in cleartext by ``getMessage()``
+        because ``filter()`` masked msg only when it was a ``str`` and
+        ``_mask_extras`` skipped it (msg is a standard attribute)."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("PW", "s3cret")
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        lg = logging.getLogger("datahub.test.dictmsg")
+        lg.handlers = [h]
+        lg.setLevel(logging.DEBUG)
+        lg.propagate = False
+        try:
+            mf = SecretMaskingFilter(registry)
+            h.addFilter(mf)
+            lg.info({"password": "s3cret", "ok": "fine"})
+            out = cap.getvalue()
+            assert "s3cret" not in out, f"dict msg secret leaked: {out!r}"
+            assert "***REDACTED:PW***" in out
+        finally:
+            lg.handlers = []
+
+    def test_arbitrary_object_msg_is_masked_only_when_secret_present(self):
+        """An arbitrary object as ``record.msg`` is ``str()``-ed and masked;
+        ``record.msg`` is replaced with the masked string only when masking
+        changed it (type-preserving when there is no secret, sanitizing when
+        there is)."""
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("PW", "s3cret")
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        lg = logging.getLogger("datahub.test.objmsg")
+        lg.handlers = [h]
+        lg.setLevel(logging.DEBUG)
+        lg.propagate = False
+        try:
+            mf = SecretMaskingFilter(registry)
+            h.addFilter(mf)
+
+            # Object whose str() contains the secret.
+            class Obj:
+                def __str__(self):
+                    return "obj with s3cret inside"
+
+            lg.info(Obj())
+            out = cap.getvalue()
+            assert "s3cret" not in out, f"object msg secret leaked: {out!r}"
+            assert "***REDACTED:PW***" in out
+
+            # Object whose str() has no secret: record.msg stays the original
+            # object (type-preserving). We verify by checking that the
+            # emitted text is str(obj) unchanged.
+            class Clean:
+                def __str__(self):
+                    return "clean object"
+
+            clean = Clean()
+            lg.info(clean)
+            out2 = cap.getvalue()
+            # The last line is the clean-object emission; it should contain
+            # the plain str() with no redaction.
+            assert "clean object" in out2
+            assert "***REDACTED" not in out2.splitlines()[-1]
+        finally:
+            lg.handlers = []
+
+    def test_sentinel_set_in_finally_when_step_raises(self):
+        """If a step raises, the field is substituted with
+        ``MASKING_ERROR_MESSAGE`` and the sentinel is still set (in
+        ``finally``), so a second handler does not re-process the record.
+        Previously the sentinel was the last statement inside the try, so a
+        failure path got a full unmasked pass per handler."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("PW", "s3cret")
+        mf = SecretMaskingFilter(registry)
+
+        # Force mask_text to raise once, then revert. We patch the instance
+        # method so the first call raises and subsequent calls succeed.
+        original_mask_text = mf.mask_text
+        calls = {"n": 0}
+
+        def flaky_mask_text(text, pre_truncate_budget=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("forced failure for test")
+            return original_mask_text(text, pre_truncate_budget=pre_truncate_budget)
+
+        mf.mask_text = flaky_mask_text  # type: ignore[assignment]
+
+        record = logging.LogRecord(
+            name="datahub.test.failclosed",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="has s3cret inside",
+            args=None,
+            exc_info=None,
+        )
+        try:
+            assert mf.filter(record) is True
+            # The msg step raised; msg is substituted with the error marker.
+            assert record.msg == mf_mod.MASKING_ERROR_MESSAGE, (
+                f"expected MASKING_ERROR_MESSAGE, got {record.msg!r}"
+            )
+            # The sentinel is set despite the failure, so a second handler
+            # would skip re-processing.
+            assert getattr(record, "_datahub_masked", None) == mf_mod._MASKED
+        finally:
+            mf.mask_text = original_mask_text  # type: ignore[assignment]
+
+
+class TestLockOrderInvariant:
+    """Pin the lock-order invariant between ``_install_lock`` and
+    ``logging._lock``. ``Handler.__init__`` (patched by install) runs under
+    ``logging._lock`` (CPython holds it for ``basicConfig`` / ``dictConfig`` /
+    ``fileConfig``) and calls ``_cover_handler``; install/uninstall take
+    ``_install_lock`` then ``logging._lock`` via ``_snapshot_handler_pairs``.
+    If ``_cover_handler`` took ``_install_lock`` the two orders would invert
+    and deadlock. The leaf lock (``_covered_lock``) breaks the cycle."""
+
+    def test_basicconfig_during_install_does_not_deadlock(self):
+        """``logging.basicConfig`` constructs a ``StreamHandler`` under
+        ``logging._lock``; the patched ``__init__`` then calls
+        ``_cover_handler``. Run concurrently with install/uninstall (which
+        take ``_install_lock`` then ``logging._lock``). Under the old code
+        this deadlocks; under the leaf-lock fix both threads complete."""
+        import datahub.masking.masking_filter as mf_mod
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        errors: list = []
+        stop = threading.Event()
+
+        def basicconfig_loop():
+            # basicConfig acquires logging._lock and constructs a handler,
+            # which under install triggers the patched __init__ -> _cover_handler.
+            while not stop.is_set():
+                try:
+                    # Force a fresh handler each iteration: basicConfig is
+                    # idempotent once a handler exists, so we remove handlers
+                    # first to make it construct again.
+                    root = logging.getLogger()
+                    for h in list(root.handlers):
+                        root.removeHandler(h)
+                    logging.basicConfig(force=True)
+                except Exception as e:
+                    errors.append(e)
+
+        def install_loop():
+            while not stop.is_set():
+                try:
+                    install_masking_filter(registry, install_stdout_wrapper=False)
+                    mf_mod._uninstall_masking_filter()
+                except Exception as e:
+                    errors.append(e)
+
+        try:
+            t1 = threading.Thread(target=basicconfig_loop, name="basicconfig")
+            t2 = threading.Thread(target=install_loop, name="install")
+            t1.start()
+            t2.start()
+            # Let them race briefly. A deadlock hangs the join; the timeout
+            # catches it and we assert the threads are not alive.
+            t2.join(timeout=5.0)
+            stop.set()
+            t1.join(timeout=5.0)
+            t2.join(timeout=2.0)
+            assert not t1.is_alive(), (
+                "basicconfig thread timed out — likely deadlock in "
+                "_cover_handler under logging._lock"
+            )
+            assert not t2.is_alive(), (
+                "install thread timed out — likely deadlock in "
+                "_snapshot_handler_pairs under _install_lock"
+            )
+            assert not errors, f"concurrent basicConfig/install raised: {errors}"
+        finally:
+            stop.set()
+            if mf_mod._installed_filter is not None:
+                mf_mod._uninstall_masking_filter()
+            # Restore a sane root handler config after the basicConfig churn.
+            root = logging.getLogger()
+            for h in list(root.handlers):
+                root.removeHandler(h)
+            logging.basicConfig(level=logging.DEBUG)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

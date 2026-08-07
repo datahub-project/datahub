@@ -19,6 +19,7 @@ Performance:
 - Performance warnings at 100/500 secrets
 """
 
+import contextlib
 import io
 import logging
 import os
@@ -29,6 +30,7 @@ import uuid
 import weakref
 from typing import Any, Dict, List, Optional, TextIO, Tuple
 
+from datahub.masking.constants import REDACTED_FORMAT
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
@@ -80,6 +82,17 @@ _patched_handler_init: Optional[Any] = None
 # then uninstall within the same thread).
 _install_lock = threading.RLock()
 
+# Leaf lock for ``_covered_handlers``. Acquired LAST (after ``_install_lock``
+# and ``logging._lock``) and never held while acquiring either of those, so it
+# cannot be the outer lock in any cycle. Without this, ``_cover_handler`` (called
+# from the ``Handler.__init__`` patch, which runs while CPython holds
+# ``logging._lock`` for ``basicConfig`` / ``dictConfig`` / ``fileConfig``) would
+# take ``_install_lock`` and invert the order against install/uninstall, which
+# take ``_install_lock`` then ``logging._lock`` via ``_snapshot_handler_pairs``.
+# Two threads then deadlock with the logging lock held, so there is no output.
+# A plain ``Lock`` is enough: nothing holding ``_covered_lock`` re-enters it.
+_covered_lock = threading.Lock()
+
 # Weak set of every handler the filter was attached to (via the one-shot
 # scan or the Handler.__init__ hook). Uninstall iterates this in addition to
 # _snapshot_handler_pairs so handlers not on any logger (held by a
@@ -92,7 +105,7 @@ _covered_handlers: "weakref.WeakSet[logging.Handler]" = weakref.WeakSet()
 
 # Constants
 REDACTED_MASKING_NAMESPACE = "datahub.masking."
-REDACTED_FORMAT = "***REDACTED:{name}***"
+
 MASKING_ERROR_MESSAGE = "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"
 
 
@@ -117,10 +130,14 @@ def _is_masking_namespace_name(name: str) -> bool:
 # (not ``object()``) so structured formatters that serialize ``record.__dict__``
 # emit a valid line instead of raising ``TypeError: Object of type object is
 # not JSON serializable`` and dropping the record. Compared by value (``==``)
-# so the guard survives cross-thread ``QueueHandler``/``QueueListener`` and
-# cross-process pickle, where ``is`` would fail on the un-pickled copy.
-# Randomness prevents a caller from forging ``extra={'_datahub_masked': ...}``
-# to disable masking for a record.
+# so the guard survives cross-thread ``QueueHandler``/``QueueListener``
+# within a process, where ``is`` would fail on the un-pickled copy.
+# Cross-process the child's token differs (generated at its own import),
+# so the child re-masks — safe because ``mask_text`` is idempotent (see the
+# marker-alternatives comment in ``_check_and_rebuild_pattern``); the
+# second pass is not merely redundant, it is required for correctness
+# there. Randomness prevents a caller from forging
+# ``extra={'_datahub_masked': ...}`` to disable masking for a record.
 _MASKED = f"_datahub_masked_{uuid.uuid4().hex}"
 CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
 
@@ -195,15 +212,20 @@ class SecretMaskingFilter(logging.Filter):
         self._pattern: Optional[re.Pattern] = None
         self._replacements: Dict[str, str] = {}
         self._last_version: int = 0
-        # Length of the longest expanded key in the compiled pattern. Used by
-        # the two-stage truncation in filter() to pre-truncate to
-        # max_message_size + longest_key before masking, so a secret
-        # starting within the first max_message_size chars is fully contained
-        # in the pre-truncated region (secrets are at most this long) and
-        # gets masked before the final cut. The bound is the longest expanded
-        # key (repr-escaped / JSON-escaped / SQLAlchemy-encoded variants can
-        # be longer than the raw value), not the longest raw secret.
-        self._longest_key_length: int = 0
+        # Length of the longest alternative in the compiled pattern (the
+        # longest expanded value or exact marker), used by two-stage
+        # truncation in ``mask_text`` to pre-truncate to
+        # ``max_message_size + longest_pattern`` before masking, so a secret
+        # starting within the first ``max_message_size`` chars is fully
+        # contained in the pre-truncated region and gets masked before the
+        # final cut. The bound is the longest expanded key (repr-escaped /
+        # JSON-escaped / SQLAlchemy-encoded variants can be longer than the
+        # raw value) and the longest exact marker (``15 + len(name)``),
+        # since markers are alternatives too and severing one at the
+        # pre-cut would un-protect the secret substring inside the fragment.
+        # The generic marker fallback is EXCLUDED — see the bound-exclusion
+        # comment in ``_check_and_rebuild_pattern``.
+        self._longest_pattern_length: int = 0
 
         # Circuit breaker to prevent cascading failures
         self._failure_count = 0
@@ -235,22 +257,84 @@ class SecretMaskingFilter(logging.Filter):
                     self._pattern = None
                     self._replacements = {}
                     self._last_version = current_version
+                    self._longest_pattern_length = 0
                 return
 
-            # Sort by length (longest first) - NOT under lock
+            # Sort by value length (longest first) - NOT under lock. ``re``
+            # is leftmost-then-first: at a given position it tries alternatives
+            # in listing order, so listing longer values first means a longer
+            # secret wins ties against a shorter one at the same position.
             sorted_secrets = sorted(
                 secrets.items(), key=lambda x: len(x[0]), reverse=True
             )
 
-            # Build pattern - NOT under lock
+            # Build pattern - NOT under lock.
+            #
+            # ORDERING IS LOAD-BEARING, not a preference. Register
+            # ``***REDACTED:A***`` under name ``B`` and ``***REDACTED:B***``
+            # under name ``A`` (both reachable by pasting redacted output
+            # back into a recipe). With values first, masking oscillates
+            # with period 2 and has NO fixed point; with markers first it
+            # terminates on the first pass. The ordering is what makes
+            # ``mask_text`` well-defined.
+            #
+            # The ordering claim is FALSE without named-group dispatch:
+            # when a value is marker-shaped the marker and the value are
+            # the *same string*, so no test on the matched text can tell
+            # which alternative won, and a naive ``replacements.get(
+            # match.group(0))`` callback oscillates even with markers
+            # first. The callback dispatches on ``match.lastgroup`` (which
+            # alternative won), not on the matched text, so a marker
+            # alternative passes through untouched and a value alternative
+            # is replaced.
+            #
+            # The generic fallback goes LAST. A marker at position 0 beats
+            # a value matching at position 12 regardless of order
+            # (leftmost wins), so generic-last still protects
+            # dropped-execution markers (whose names are gone from the
+            # registry, so no exact marker alternative exists for them),
+            # AND lets a marker-shaped registered value be masked by the
+            # generic alternative at its own position.
+            #
+            # One accepted fail-open ("route A"): a registered value that
+            # exactly equals a marker for a *registered name* passes through
+            # in cleartext (both alternatives match at the same position
+            # and the marker must win for termination). It is refused at
+            # registration instead — see ``_validate_secret`` in
+            # secret_registry. A per-process nonce in the marker would
+            # close route A but make cross-process idempotency depend on
+            # the only best-effort alternative (the generic fallback), so
+            # it is not adopted.
+            marker_alts = [
+                f"(?P<m{i}>{re.escape(REDACTED_FORMAT.format(name=n))})"
+                for i, (_, n) in enumerate(sorted_secrets)
+            ]
             # CRITICAL: re.escape() ensures secrets with regex metacharacters
-            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex
-            escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-            pattern_str = "|".join(escaped_values)
+            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
+            value_alts = [
+                f"(?P<v{i}>{re.escape(v)})" for i, (v, _) in enumerate(sorted_secrets)
+            ]
+            generic = [r"(?P<g>\*\*\*REDACTED:[^*]{0,256}?\*\*\*)"]
+            pattern_str = "|".join(marker_alts + value_alts + generic)
 
-            # Longest expanded key — sorted_secrets is longest-first, so the
-            # first entry's key length is the bound for two-stage truncation.
-            new_longest_key_length = len(sorted_secrets[0][0]) if sorted_secrets else 0
+            # Bound for two-stage truncation: the longest of (longest value,
+            # longest exact marker). The generic alternative is EXCLUDED:
+            # it is forced, not chosen — you cannot compute the length of a
+            # marker whose name is gone from the registry (the
+            # dropped-execution case the fallback exists for). It is safe
+            # because a marker carries a NAME, not a value, so severing
+            # any marker can never leak a secret substring. (This holds
+            # once the configuration/common.py name-hygiene change lands;
+            # until then a name could carry a value, which is why the N
+            # exact marker alternatives are kept rather than collapsing to
+            # generic-only — they bound the marker length for names that
+            # ARE registered.)
+            longest_value = len(sorted_secrets[0][0])
+            longest_marker = max(
+                (len(REDACTED_FORMAT.format(name=n)) for _, n in sorted_secrets),
+                default=0,
+            )
+            new_longest_pattern_length = max(longest_value, longest_marker)
 
             # Compile regex - NOT under lock (this is the expensive part!)
             try:
@@ -289,7 +373,7 @@ class SecretMaskingFilter(logging.Filter):
                     self._pattern = new_pattern
                     self._replacements = new_replacements
                     self._last_version = current_version
-                    self._longest_key_length = new_longest_key_length
+                    self._longest_pattern_length = new_longest_pattern_length
 
                     if attempt > 0:
                         logger.debug(
@@ -332,14 +416,30 @@ class SecretMaskingFilter(logging.Filter):
                 )
         # Keep using the old pattern rather than crashing - graceful degradation
 
-    def mask_text(self, text: str) -> str:
+    def mask_text(
+        self,
+        text: str,
+        pre_truncate_budget: Optional[int] = None,
+    ) -> str:
         """Mask secrets in text string.
 
-        Public API for masking arbitrary text content. Thread-safe and includes
-        automatic pattern rebuilding, circuit breaker protection, and error handling.
+        Thread-safe, with automatic pattern rebuilding, circuit breaker
+        protection, and error handling.
 
         Args:
-            text: Text content to mask
+            text: Text content to mask.
+            pre_truncate_budget: Optional final-output budget (e.g.
+                ``max_message_size``). When provided AND the pattern has
+                secrets, the input is pre-truncated to
+                ``budget + longest_pattern_length`` under ``_pattern_lock``
+                *after* the rebuild that refreshes ``_longest_pattern_length``,
+                so the pre-cut and the regex use one snapshot by
+                construction — no ordering hazard where the pre-cut could
+                use a stale length and sever a secret that the regex then
+                misses. When ``None`` or no secrets are registered, no
+                pre-truncation happens (existing behaviour for the non-msg
+                call sites: args, exc_text, stack_info, extras, stream
+                wrapper output).
 
         Returns:
             Text with secrets replaced by ***REDACTED:VARIABLE_NAME***
@@ -347,11 +447,24 @@ class SecretMaskingFilter(logging.Filter):
         if not isinstance(text, str) or not text:
             return text
 
-        # Get pattern snapshot (no lock during masking!)
+        # Snapshot pattern, replacements, and longest-pattern length under
+        # one lock, and pre-truncate under the SAME lock. Doing the pre-cut
+        # here (rather than in filter() before mask_text) means the cut uses
+        # the freshly-rebuilt length, not a stale one read before the
+        # rebuild — closing the deterministic leak where a 3000-char PEM
+        # key registered after a 20-char env-var secret would be severed by
+        # a 5020-char pre-cut sized from the stale 20.
         with self._pattern_lock:
             self._check_and_rebuild_pattern()
             pattern = self._pattern
             replacements = self._replacements  # No .copy() needed!
+            longest = self._longest_pattern_length
+            if (
+                pre_truncate_budget is not None
+                and longest > 0
+                and len(text) > pre_truncate_budget + longest
+            ):
+                text = text[: pre_truncate_budget + longest]
 
         # Pattern might be None if no secrets registered
         if pattern is None:
@@ -363,14 +476,20 @@ class SecretMaskingFilter(logging.Filter):
 
         # Mask secrets (outside lock - safe because immutable references)
         try:
-            # Use callback to include variable name in masked output
+            # Dispatch on which alternative won (``match.lastgroup``), not on
+            # the matched text. Marker alternatives (groups named ``m*`` and
+            # the generic ``g``) pass through untouched so masking terminates
+            # on the first pass; value alternatives (``v*``) are replaced.
+            # A text-based dispatch would oscillate when a value is
+            # marker-shaped (the marker and the value are the same string) —
+            # see the ordering comment in ``_check_and_rebuild_pattern``.
             def replace_with_variable_name(match):
-                """Replace matched secret with variable name."""
-                secret_value = match.group(0)
-                # Look up variable name (O(1) dict access)
-                variable_name = replacements.get(secret_value, "UNKNOWN")
-                # Return formatted mask
-                return REDACTED_FORMAT.format(name=variable_name)
+                last = match.lastgroup
+                if last is not None and not last.startswith("v"):
+                    return match.group(0)  # marker: pass through untouched
+                return REDACTED_FORMAT.format(
+                    name=replacements.get(match.group(0), "UNKNOWN")
+                )
 
             masked = pattern.sub(replace_with_variable_name, text)
 
@@ -379,20 +498,6 @@ class SecretMaskingFilter(logging.Filter):
                 self._failure_count = 0
 
             return masked
-
-        except KeyError as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to replacement error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error: {e}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Replacement Error]"
 
         except re.error as e:
             self._failure_count += 1
@@ -585,7 +690,13 @@ class SecretMaskingFilter(logging.Filter):
             return message
 
         base_len = original_len if original_len is not None else len(message)
-        truncated_bytes = base_len - self._max_message_size
+        # ``max(0, ...)``: masking can EXPAND the text (a 3-char ``***`` secret
+        # becomes ``***REDACTED:STARS***`` = 18 chars), so ``original_len -
+        # max_message_size`` can be negative when the original fit but the masked
+        # output did not. A negative byte count in the marker is wrong (it implies
+        # the output grew, which is not "truncation"), so clamp to 0 — the user
+        # sees "0 bytes truncated" rather than "-4997 bytes truncated".
+        truncated_bytes = max(0, base_len - self._max_message_size)
         return (
             f"{message[: self._max_message_size]}\n"
             f"... [{truncated_bytes} bytes truncated for performance]"
@@ -626,6 +737,17 @@ class SecretMaskingFilter(logging.Filter):
         closed. The placeholder also keeps this docstring honest: "return
         the value unchanged" reads as "we mask less here" when it actually
         means "we emit the secret."
+
+        Accepted limitation — namedtuple retyping: the container branch
+        rebuilds via ``type(value)(masked)``, which for a ``namedtuple``
+        produces a plain ``tuple`` (the ``type(seq)`` call bypasses the
+        named constructor) and for a ``defaultdict`` would need
+        ``default_factory`` positionally (a second fix). This means
+        ``extra=`` containers may be retyped by masking. We document rather
+        than fix it: the third-party ``extra=`` content that now reaches the
+        filter is the surface area, and a generic ``type(value)(masked)``
+        does not yield for these. If fixed, note that ``defaultdict`` needs
+        ``default_factory`` positionally, so the dict branch is two fixes.
         """
         if _depth >= self._MAX_EXTRA_DEPTH:
             return "<not masked: depth limit>"
@@ -686,6 +808,55 @@ class SecretMaskingFilter(logging.Filter):
             if isinstance(value, (str, dict, list, tuple, set, frozenset)):
                 record.__dict__[key] = self._mask_value_recursive(value)
 
+    def _mask_record_msg(self, record: logging.LogRecord) -> None:
+        """Step 1 of ``filter()``: mask ``record.msg`` regardless of type.
+
+        ``str`` msg: pre-truncate + mask + truncate (see ``mask_text`` for the
+        bound). dict/list/tuple/set/frozenset msg: route through
+        ``_mask_value_recursive`` so the structlog / JSON-logging idiom
+        (``logger.info({"password": "s3cret"})``) is masked — previously
+        such a msg was emitted in cleartext by ``getMessage()`` because
+        ``filter()`` masked msg only when it was a ``str`` and ``_mask_extras``
+        skipped it (msg is a standard attribute). Arbitrary objects: compute
+        ``str()``, mask it, and replace only if the masked text differs from
+        the plain ``str()`` — type-preserving when there is no secret,
+        sanitizing when there is. We do NOT normalize with
+        ``record.msg = record.getMessage(); record.args = None``: that
+        destroys the format string for every downstream handler in the
+        process (aggregators group on the template; python-json-logger /
+        structlog read msg and args separately) — the same category of
+        invasive global logging mutation this PR exists to correct.
+
+        When ``record.args`` is present, ``record.msg`` is a format string
+        (e.g. ``"Connecting to %s"``), not the final text. Pre-truncating or
+        final-truncating the format string before ``%`` formatting can sever a
+        ``%s`` placeholder, producing ``"Connecting to %*** [N bytes
+        truncated...]"`` — a corrupted format string that then raises
+        ``ValueError`` during ``msg % args``. Mask the format string (a secret
+        could be in it) but skip both truncation stages when args are present;
+        the formatted message is truncated downstream if it flows through the
+        stdout/stderr wrapper, and a format string is rarely long enough to
+        need truncation anyway.
+        """
+        if isinstance(record.msg, str):
+            if record.args:
+                record.msg = self.mask_text(record.msg)
+            else:
+                original_len = len(record.msg)
+                record.msg = self.mask_text(
+                    record.msg, pre_truncate_budget=self._max_message_size
+                )
+                record.msg = self._truncate_message(
+                    record.msg, original_len=original_len
+                )
+        elif isinstance(record.msg, (dict, list, tuple, set, frozenset)):
+            record.msg = self._mask_value_recursive(record.msg)
+        elif record.msg is not None:
+            plain = str(record.msg)
+            masked = self.mask_text(plain)
+            if masked != plain:
+                record.msg = masked
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and mask a log record.
 
@@ -693,13 +864,22 @@ class SecretMaskingFilter(logging.Filter):
         after masking so the same record flowing through multiple handlers
         (each carrying this filter) is not re-masked / re-truncated. The
         token is a random string compared by value so the guard survives
-        cross-thread ``QueueHandler``/``QueueListener`` and cross-process
-        pickle, and so structured formatters that serialize ``record.__dict__``
+        cross-thread ``QueueHandler``/``QueueListener`` within a process,
+        and so structured formatters that serialize ``record.__dict__``
         emit a valid line instead of raising on a non-serializable sentinel.
 
         Defense-in-depth: ``_truncate_message`` is independently idempotent
         (it detects its own suffix marker), so a second masking pass when the
         token guard fails does not re-truncate and corrupt the byte count.
+
+        Fail closed per field: each of the seven numbered steps runs in its
+        own try; a field that raises is substituted with
+        ``MASKING_ERROR_MESSAGE`` and the next step still runs. The
+        idempotency sentinel is set in ``finally`` so it guards the failure
+        path too — a record that raised in step 3 used to get a full
+        unmasked pass per handler (the sentinel was the last statement inside
+        the try), compounding corruption and the N x str() cost on the same
+        record.
         """
         # Re-entrancy / idempotency guard. Records from the masking framework's
         # own loggers bypass masking entirely (their handlers are skipped at
@@ -723,80 +903,87 @@ class SecretMaskingFilter(logging.Filter):
         if not _masking_enabled_cached:
             return True  # Skip all masking and truncation for debugging
 
+        # Each of the seven steps below runs in its own try. If a step raises,
+        # the field it was masking is substituted with ``MASKING_ERROR_MESSAGE``
+        # (fail closed — never an unmasked value) and the next step still runs.
+        # The idempotency sentinel is set in ``finally`` so it guards the
+        # failure path too: a record that failed one step used to get a full
+        # unmasked pass per handler (the sentinel was the last statement
+        # inside the try), compounding corruption and the N x str() cost on
+        # the same record. "Marked as done" is now truthful — every field is
+        # either masked or suppressed.
         try:
-            # 1. Two-stage truncation + masking of record.msg.
-            #
-            #    When secrets are registered, mask_text on a huge message is
-            #    expensive (regex over the whole string) for output truncated to
-            #    max_message_size anyway. Pre-truncate to max_message_size +
-            #    longest_key (no marker) so the regex only scans the region that
-            #    can affect the final output: any secret starting within the
-            #    first max_message_size chars is fully contained (secrets are at
-            #    most longest_key long), so mask_text matches and replaces it;
-            #    anything beyond max_message_size + longest_key is dropped before
-            #    the regex ever sees it. The bound is the longest *expanded* key
-            #    (repr/JSON/SQLAlchemy variants can be longer than the raw value);
-            #    a raw-length bound would cut a JSON-escaped secret at the
-            #    pre-truncate boundary and reintroduce the partial-disclosure bug.
-            #
-            #    The original length is tracked so the final marker reports the
-            #    true overrun (original - max_message_size), not the pre-
-            #    truncated region's overrun (which would mislead the user about
-            #    how much was dropped). When no secrets are registered the pre-
-            #    truncate is skipped: mask_text is a no-op then, so there is no
-            #    performance gain, and skipping preserves the single-stage
-            #    marker semantics.
-            #
-            #    _truncate_message is idempotent (detects its own marker) so a
-            #    second pass when the token guard fails does not re-truncate.
-            if isinstance(record.msg, str):
-                original_len = len(record.msg)
-                if self._longest_key_length > 0:
-                    pre_cut = self._max_message_size + self._longest_key_length
-                    if len(record.msg) > pre_cut:
-                        record.msg = record.msg[:pre_cut]
-                record.msg = self.mask_text(record.msg)
-                record.msg = self._truncate_message(
-                    record.msg, original_len=original_len
-                )
+            # 1. Mask record.msg (any type — see _mask_record_msg).
+            try:
+                self._mask_record_msg(record)
+            except Exception:
+                record.msg = MASKING_ERROR_MESSAGE
 
             # 2. Mask arguments (for formatting)
-            if record.args:
-                record.args = self._mask_args(record.args)
+            try:
+                if record.args:
+                    record.args = self._mask_args(record.args)
+            except Exception:
+                record.args = (MASKING_ERROR_MESSAGE,)
 
             # 3. Mask pre-formatted message if it exists
-            if hasattr(record, "message") and record.message:
-                record.message = self.mask_text(record.message)
+            try:
+                if hasattr(record, "message") and record.message:
+                    record.message = self.mask_text(record.message)
+            except Exception:
+                record.message = MASKING_ERROR_MESSAGE
 
             # 4. Materialize traceback text from exc_info so it can be masked.
             #    exc_info itself is left untouched (error reporters read it).
             #    See _mask_exception for why we do not rebuild the exception.
-            if record.exc_info and not record.exc_text:
-                record.exc_text = self._mask_exception(record.exc_info)
+            try:
+                if record.exc_info and not record.exc_text:
+                    record.exc_text = self._mask_exception(record.exc_info)
+            except Exception:
+                record.exc_text = MASKING_ERROR_MESSAGE
 
             # 5. Mask formatted exception text (pre-existing or just materialized)
-            if record.exc_text:
-                record.exc_text = self.mask_text(record.exc_text)
+            try:
+                if record.exc_text:
+                    record.exc_text = self.mask_text(record.exc_text)
+            except Exception:
+                record.exc_text = MASKING_ERROR_MESSAGE
 
             # 6. Mask stack_info if present (Python 3.2+)
-            if hasattr(record, "stack_info") and record.stack_info:
-                record.stack_info = self.mask_text(record.stack_info)
+            try:
+                if hasattr(record, "stack_info") and record.stack_info:
+                    record.stack_info = self.mask_text(record.stack_info)
+            except Exception:
+                record.stack_info = MASKING_ERROR_MESSAGE
 
             # 7. Mask non-standard attributes (extra={...}). Must run after msg/args
-            #    masking and inside the try so unexpected types from third-party
-            #    libraries do not break logging.
-            self._mask_extras(record)
-
-            # Mark as masked so subsequent handlers skip the work.
-            record._datahub_masked = _MASKED
+            #    masking so a formatter that reads msg/args sees the masked values.
+            try:
+                self._mask_extras(record)
+            except Exception:
+                # _mask_extras already masks per-field; if the whole loop
+                # raises (e.g. __dict__ iteration races), there is no single
+                # field to substitute. Leave extras as they are — fail-closed
+                # is preserved by the per-field sentinel below.
+                pass
 
         except Exception as e:
-            # NEVER let masking break logging
+            # NEVER let masking break logging. The per-step tries above catch
+            # their own exceptions, so reaching here means something truly
+            # unexpected (a non-Exception BaseException, or an error in the
+            # sentinel-setting itself). Log to stderr and continue.
             try:
                 sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
                 sys.stderr.flush()
             except Exception:
                 pass  # Even error reporting failed, continue silently
+        finally:
+            # Set in finally so it guards the failure path: a record that
+            # raised in step 3 still gets the sentinel, so a second handler
+            # does not re-run steps 1-2 (which already succeeded) and
+            # re-mask what was already masked. "Marked as done" is truthful
+            # because every field is either masked or suppressed.
+            record._datahub_masked = _MASKED
 
         return True  # Always let record through
 
@@ -859,6 +1046,23 @@ class StreamMaskingWrapper:
         return getattr(self._original, name)
 
 
+def _acquire_logging_lock():
+    """Context manager for the logging module lock.
+
+    ``logging._lock`` is private and already changed shape once (3.13 dropped
+    ``_acquireLock`` / ``_releaseLock``); it remains an ``RLock`` usable as a
+    context manager on 3.10–3.14+. Fall back to a no-op rather than crashing
+    if a future CPython rename removes ``_lock`` — the snapshot is best-effort
+    against concurrent ``addHandler`` / ``removeHandler``, and a no-op only
+    risks a ``RuntimeError`` on concurrent mutation, which the caller already
+    handles by snapshotting ``list(...)`` before iterating.
+    """
+    lock = getattr(logging, "_lock", None)
+    if lock is None:
+        return contextlib.nullcontext()
+    return lock
+
+
 def _snapshot_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
     """Snapshot ``(logger, handler)`` pairs under the logging module lock.
 
@@ -874,11 +1078,7 @@ def _snapshot_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
     GC'd between the two steps; ``items()`` holds the value reference too.
     ``PlaceHolder`` entries (non-Logger) are filtered out.
     """
-    # ``logging._lock`` is the module-level RLock that ``_acquireLock`` /
-    # ``_releaseLock`` wrap. Those wrappers were removed in Python 3.13,
-    # but ``_lock`` itself remains and is an RLock on 3.10–3.14+, so it
-    # works as a context manager across the whole supported range.
-    with logging._lock:  # type: ignore[attr-defined]
+    with _acquire_logging_lock():
         root = logging.getLogger()
         pairs: List[Tuple[logging.Logger, logging.Handler]] = [
             (root, h) for h in list(root.handlers)
@@ -982,15 +1182,16 @@ def _cover_handler(handler: logging.Handler) -> None:
     tracking, uninstall would miss them and they'd retain the filter.
     The weak set auto-drops GC'd handlers.
 
-    Acquires ``_install_lock`` so the add is serialized with the readers in
-    ``_remove_filter_from_existing_handlers`` (which snapshots the set under
-    the same lock). The GIL makes ``WeakSet.add`` effectively atomic on
-    CPython, but the lock makes that guarantee explicit rather than
-    reasoning about interpreter internals. ``_install_lock`` is an RLock,
-    so calling this from inside ``install_masking_filter`` (which already
-    holds the lock) does not self-deadlock.
+    Acquires ``_covered_lock`` (a leaf lock — see its definition) rather than
+    ``_install_lock``. This is called from the ``Handler.__init__`` patch, which
+    CPython invokes while already holding ``logging._lock`` (for ``basicConfig``
+    / ``dictConfig`` / ``fileConfig``). Taking ``_install_lock`` here would
+    invert the lock order against install/uninstall (which take
+    ``_install_lock`` then ``logging._lock``) and deadlock two threads with the
+    logging lock held. The leaf lock is acquired last by every caller and never
+    held while acquiring either of the others, so it cannot close a cycle.
     """
-    with _install_lock:
+    with _covered_lock:
         try:
             _covered_handlers.add(handler)
         except Exception:
@@ -1058,9 +1259,10 @@ def _remove_filter_from_existing_handlers(masking_filter: SecretMaskingFilter) -
         while masking_filter in handler.filters:
             handler.removeFilter(masking_filter)
     # Handlers we covered but that aren't on any logger. Snapshot the weak
-    # set under the install lock so a concurrent add doesn't mutate it; the
-    # handlers themselves are alive (we hold them via the snapshot).
-    with _install_lock:
+    # set under the leaf lock (same lock ``_cover_handler`` adds under) so a
+    # concurrent add doesn't mutate it; the handlers themselves are alive
+    # (we hold them via the snapshot).
+    with _covered_lock:
         covered = list(_covered_handlers)
     for handler in covered:
         while masking_filter in handler.filters:
@@ -1258,6 +1460,15 @@ def _uninstall_masking_filter() -> None:
     ``install_masking_filter`` (which attaches the filter, wraps streams, and
     installs the ``Handler.__init__`` hook).
 
+    Step-wise tolerant: each mutation runs in its own try so a failure in step
+    two does not skip three through five. A teardown that leaves masking
+    *on* is fail-safe (no leak), so we swallow per-step errors and log them
+    with ``exc_info=True`` rather than raising — raising from cleanup (often
+    reached via ``finally`` or ``atexit``) destroys the original exception.
+    The caller (``shutdown_secret_masking``) clears the bootstrap latch in
+    its own ``finally`` so a partial teardown does not strand the latch
+    ``True`` over a half-torn state.
+
     Module-private: this is the low-level teardown primitive that disarms
     masking process-wide. Callers should go through
     ``shutdown_secret_masking`` (the refcounted lifecycle), which only reaches
@@ -1270,27 +1481,76 @@ def _uninstall_masking_filter() -> None:
     with _install_lock:
         root_logger = logging.getLogger()
 
-        # Remove our instance (identity-based) from the root logger and handlers.
+        # 1. Remove our instance (identity-based) from the root logger.
         if _installed_filter is not None:
-            while _installed_filter in root_logger.filters:
-                root_logger.removeFilter(_installed_filter)
-            _remove_filter_from_existing_handlers(_installed_filter)
+            try:
+                while _installed_filter in root_logger.filters:
+                    root_logger.removeFilter(_installed_filter)
+            except Exception as e:
+                logger.error(
+                    "Failed to remove SecretMaskingFilter from root logger "
+                    "during teardown: %r",
+                    e,
+                    exc_info=True,
+                )
+
+            # 2. Remove from every handler it was attached to.
+            try:
+                _remove_filter_from_existing_handlers(_installed_filter)
+            except Exception as e:
+                logger.error(
+                    "Failed to remove SecretMaskingFilter from handlers "
+                    "during teardown: %r",
+                    e,
+                    exc_info=True,
+                )
+
+            # 3. Drop the installed-filter global so the Handler.__init__ hook
+            # stops attaching to new handlers.
             _installed_filter = None
 
-        # Revert the Handler.__init__ hook so handlers constructed after uninstall
-        # don't auto-attach a (now-None) filter. Done after _installed_filter is
-        # cleared so the hook's pointer read sees None during teardown.
-        _uninstall_handler_init_hook()
+        # 4. Revert the Handler.__init__ hook so handlers constructed after
+        #    uninstall don't auto-attach a (now-None) filter. Done after
+        #    _installed_filter is cleared so the hook's pointer read sees None
+        #    during teardown.
+        try:
+            _uninstall_handler_init_hook()
+        except Exception as e:
+            logger.error(
+                "Failed to revert Handler.__init__ hook during teardown: %r",
+                e,
+                exc_info=True,
+            )
 
-        # Drop the covered-handler tracking set so a re-install starts clean.
-        _covered_handlers.clear()
+        # 5. Drop the covered-handler tracking set so a re-install starts clean.
+        # ``_covered_lock`` (leaf) — see _cover_handler for the lock-order
+        # invariant.
+        try:
+            with _covered_lock:
+                _covered_handlers.clear()
+        except Exception as e:
+            logger.error(
+                "Failed to clear covered-handler set during teardown: %r",
+                e,
+                exc_info=True,
+            )
 
-        # Unwrap stdout/stderr (only if we wrapped them)
-        if isinstance(sys.stdout, StreamMaskingWrapper):
-            sys.stdout = sys.stdout._original
+        # 6. Unwrap stdout/stderr (only if we wrapped them).
+        try:
+            if isinstance(sys.stdout, StreamMaskingWrapper):
+                sys.stdout = sys.stdout._original
+        except Exception as e:
+            logger.error(
+                "Failed to unwrap sys.stdout during teardown: %r", e, exc_info=True
+            )
 
-        if isinstance(sys.stderr, StreamMaskingWrapper):
-            sys.stderr = sys.stderr._original
+        try:
+            if isinstance(sys.stderr, StreamMaskingWrapper):
+                sys.stderr = sys.stderr._original
+        except Exception as e:
+            logger.error(
+                "Failed to unwrap sys.stderr during teardown: %r", e, exc_info=True
+            )
 
         logger.info("Uninstalled SecretMaskingFilter")
 

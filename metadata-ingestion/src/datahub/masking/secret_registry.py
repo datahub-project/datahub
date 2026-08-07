@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Dict, FrozenSet, Optional, Tuple
 
+from datahub.masking.constants import REDACTED_FORMAT
 from datahub.masking.logging_utils import get_masking_safe_logger
 
 logger = get_masking_safe_logger(__name__)
@@ -193,12 +194,18 @@ class SecretRegistry:
                 # Internal caller: bypass the public guard (reset_instance is
                 # tearing down the whole registry, so scopes are going away).
                 _mf._uninstall_masking_filter()
-            # Clear the bootstrap-completed latch so the next
-            # initialize_secret_masking() re-installs instead of
-            # short-circuiting on a stranded True. The lazy import avoids a
-            # circular dependency (bootstrap imports this module).
+            # Restore the excepthook too. ``shutdown_secret_masking`` may have
+            # skipped teardown (peer execution still active on another thread),
+            # leaving us as the only path that drops the filter — without this
+            # call, a hook bound to a dead registry would survive for the rest
+            # of the session. The lazy import avoids a circular dependency
+            # (bootstrap imports this module).
             from datahub.masking import bootstrap as _boot
 
+            _boot._restore_exception_hook()
+            # Clear the bootstrap-completed latch so the next
+            # initialize_secret_masking() re-installs instead of
+            # short-circuiting on a stranded True.
             _boot.reset_bootstrap_state()
         except Exception as e:
             # Don't let a teardown failure prevent the singleton reset, but
@@ -214,15 +221,22 @@ class SecretRegistry:
         Always opens a *distinct* scope — two ``initialize_secret_masking()``
         calls on the same context return different tokens and own different
         groups, so ending one never drops the other's secrets. The ambient
-        contextvar is set to this scope; a later ``begin_execution`` on the
-        same context overwrites it (the latest scope owns ambient
-        registrations), but the earlier token stays valid for its own
-        token-based ``end_execution``.
+        contextvar is set to this scope under ``_registry_lock`` so the
+        contextvar and the ``_groups`` entry are published atomically w.r.t.
+        a concurrent ``register_secret`` on the same thread: without this,
+        ``_current_group_locked`` could read the new ambient via
+        ``_current_exec.get()`` but find the group missing from ``_groups``
+        (the ``setdefault`` hadn't run yet) and route the registration to
+        ``__global__`` instead of the execution's scope — leaking it past
+        the execution's teardown. A later ``begin_execution`` on the same
+        context overwrites the ambient contextvar (the latest scope owns
+        ambient registrations), but the earlier token stays valid for its
+        own token-based ``end_execution``.
         """
         exec_id = uuid.uuid4().hex
         with self._registry_lock:
             self._groups.setdefault(exec_id, {})
-        _current_exec.set(exec_id)
+            _current_exec.set(exec_id)
         return exec_id
 
     def end_execution(self, exec_id: Optional[str] = None) -> bool:
@@ -397,13 +411,56 @@ class SecretRegistry:
         secrets accumulate for the process lifetime (fails safe: over-masking,
         never leaking). Pass the parent execution's ``exec_id`` to get
         per-execution cleanup across threads.
+
+        Validation (finding 12): a value below the 3-char floor is refused with
+        a warning (previously silently dropped, so a misconfigured recipe with
+        a 2-char password got no signal). A value that exactly equals a marker
+        for a *registered name* (``***REDACTED:NAME***``) is refused loudly —
+        this is "route A": the marker alternative must win for masking to
+        terminate, so such a value would pass through in cleartext. Refusing
+        it at registration closes the hole at the source rather than relying
+        on the masking callback to notice.
         """
         if not raw_value or not isinstance(raw_value, str):
             return
         if len(raw_value) < 3:
+            logger.warning(
+                f"Refusing to register secret {variable_name}: value is below "
+                f"the 3-character minimum floor ({len(raw_value)} chars). "
+                f"Short values are not registered because they produce too "
+                f"many false positives in masking. Check the recipe configuration."
+            )
             return
 
         with self._registry_lock:
+            # Route-A check: refuse a value that exactly equals a marker for a
+            # registered name. The marker alternative must win for masking to
+            # terminate (see _check_and_rebuild_pattern), so such a value would
+            # pass through in cleartext. Check against the current name set
+            # (including this call's name, so registering a marker for one's
+            # own name is also refused).
+            marker_for_this_name = REDACTED_FORMAT.format(name=variable_name)
+            if raw_value == marker_for_this_name:
+                logger.warning(
+                    f"Refusing to register secret {variable_name}: value is "
+                    f"the redaction marker for this very name "
+                    f"({marker_for_this_name}). The marker must win over the "
+                    f"value for masking to terminate, so this value would pass "
+                    f"through in cleartext. Rename the variable or change the "
+                    f"value."
+                )
+                return
+            for existing_name in self._name_to_value:
+                if raw_value == REDACTED_FORMAT.format(name=existing_name):
+                    logger.warning(
+                        f"Refusing to register secret {variable_name}: value "
+                        f"is the redaction marker for registered name "
+                        f"{existing_name!r}. The marker must win over the "
+                        f"value for masking to terminate, so this value would "
+                        f"pass through in cleartext."
+                    )
+                    return
+
             group = self._current_group_locked(exec_id)
             result, truly_new = self._admit_locked(
                 variable_name, raw_value, group, set()

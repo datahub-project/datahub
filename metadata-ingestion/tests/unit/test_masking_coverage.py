@@ -4,6 +4,7 @@ Additional tests to increase coverage for masking modules.
 
 import logging
 import os
+import sys
 from io import StringIO
 
 import pytest
@@ -243,19 +244,125 @@ class TestBootstrapEdgeCases:
         assert get_bootstrap_error() is None
 
     def test_initialize_with_disabled_masking(self):
-        """Test initialization when masking is disabled."""
+        """Test initialization when masking is disabled.
+
+        A disabled initialize must NOT latch ``_bootstrap_completed``: that
+        flag means "the filter is installed", and a disabled call installs
+        nothing. Latching True on the disabled branch stranded the flag so
+        a later call with masking enabled short-circuited the install but
+        still returned a token — the caller got the "masking is on" signal
+        with no filter. ``is_bootstrapped()`` is False after a disabled
+        initialize, and a subsequent enabled initialize installs the
+        filter for real.
+        """
         from datahub.masking.bootstrap import is_bootstrapped
 
         os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "true"
         try:
             shutdown_secret_masking()
-            initialize_secret_masking()
-            # Should complete but not actually initialize
+            token = initialize_secret_masking()
+            # Disabled: no token, no filter installed.
+            assert token is None
+            assert not is_bootstrapped()
+
+            # Flip masking back on and initialize again — the filter must
+            # actually install now (the disabled call did not strand the
+            # latch).
+            del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
+            from datahub.masking.secret_registry import is_masking_enabled
+
+            assert is_masking_enabled()
+            token2 = initialize_secret_masking()
+            assert token2 is not None
             assert is_bootstrapped()
         finally:
             if "DATAHUB_DISABLE_SECRET_MASKING" in os.environ:
                 del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
             shutdown_secret_masking()
+
+    def test_shutdown_clears_latch_in_finally_when_teardown_raises(self):
+        """If a teardown step raises, the bootstrap latch is still cleared
+        (in ``finally`` around the teardown steps). Previously the latch
+        was cleared as the last statement inside the try, so a raise
+        stranded it ``True`` over a partially-torn-down filter — the next
+        initialize then short-circuited with masking off."""
+        import datahub.masking.bootstrap as bootstrap_mod
+        from datahub.masking.bootstrap import is_bootstrapped
+
+        # Install for real so teardown has something to tear down.
+        token = initialize_secret_masking()
+        assert token is not None
+        assert is_bootstrapped()
+
+        # Force the uninstall primitive to raise. ``_uninstall_masking_filter``
+        # is step-wise tolerant and swallows its own errors, so patch the
+        # name bootstrap imported to raise before the step-wise body runs.
+        original = bootstrap_mod._uninstall_masking_filter
+
+        def raising_uninstall():
+            raise RuntimeError("forced teardown failure for test")
+
+        bootstrap_mod._uninstall_masking_filter = raising_uninstall  # type: ignore[assignment]
+        try:
+            # shutdown swallows the error (teardown is fail-safe) but the
+            # finally must still clear the latch.
+            shutdown_secret_masking(token)
+            assert not is_bootstrapped(), (
+                "latch stranded True after teardown raised — next initialize "
+                "would short-circuit with masking off"
+            )
+        finally:
+            bootstrap_mod._uninstall_masking_filter = original  # type: ignore[assignment]
+            # Clean up any state the failed teardown left behind.
+            shutdown_secret_masking()
+
+    def test_force_teardown_restores_excepthook_with_peer_scope_active(self):
+        """Finding 10: ``shutdown_secret_masking()`` with no token skips
+        teardown when a peer execution scope is active (e.g. opened on
+        another thread). Previously ``reset_instance()`` then dropped the
+        filter but never restored ``sys.excepthook``, leaving a hook bound
+        to a dead registry. The force-teardown path restores the excepthook
+        unconditionally, and the fixture asserts no leaked scopes."""
+        import datahub.masking.bootstrap as bootstrap_mod
+
+        # Install and capture the original excepthook.
+        original_hook = sys.excepthook
+        token = initialize_secret_masking()
+        assert token is not None
+        # After install, sys.excepthook is the masking hook.
+        assert sys.excepthook is not original_hook
+
+        # Simulate a peer scope opened on "another thread" by adding a group
+        # directly to the registry without setting this thread's contextvar.
+        registry = SecretRegistry.get_instance()
+        peer_exec_id = "peer-scope-for-test"
+        with registry._registry_lock:
+            registry._groups.setdefault(peer_exec_id, {})
+            registry._rebuild_locked()
+
+        # shutdown_secret_masking() with no token: this thread has no ambient
+        # scope, the peer group is active, so it returns True (skips teardown).
+        result = shutdown_secret_masking()
+        assert result is None  # shutdown returns None
+        # The filter is still installed (teardown skipped).
+        import datahub.masking.masking_filter as mf_mod
+
+        assert mf_mod._installed_filter is not None
+        # sys.excepthook is still the masking hook (not restored).
+        assert sys.excepthook is not original_hook
+
+        # Now the force-teardown path (what the fixture uses) tears down
+        # unconditionally and restores the excepthook.
+        bootstrap_mod._force_teardown_secret_masking()
+        assert sys.excepthook is original_hook or sys.excepthook == original_hook
+        assert mf_mod._installed_filter is None
+
+        # Clean up the peer scope so the fixture's has_active_executions
+        # assertion passes.
+        with registry._registry_lock:
+            registry._groups.pop(peer_exec_id, None)
+            registry._rebuild_locked()
+        SecretRegistry.reset_instance()
 
 
 if __name__ == "__main__":

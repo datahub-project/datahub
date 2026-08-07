@@ -24,7 +24,6 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 # of importing some datahub modules will load env variables.
 from datahub.masking.bootstrap import (  # noqa: E402
     is_bootstrapped,
-    shutdown_secret_masking,
 )
 from datahub.masking.secret_registry import SecretRegistry  # noqa: E402
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
@@ -54,11 +53,33 @@ def _reset_secret_masking():
     """Reset process-global secret masking after each test so it can't leak into
     another test's caplog. Global because the leaking test (ingest CLI,
     initialize_secret_masking, SecretStr validation) and the affected test are
-    usually in different files. No-op unless masking was actually active."""
+    usually in different files. No-op unless masking was actually active.
+
+    Uses the force-teardown path (``_force_teardown_secret_masking``) rather
+    than ``shutdown_secret_masking()`` because the latter refuses to uninstall
+    while execution scopes are active (fail-safe in production). A test that
+    opened its scope on another thread leaves a peer group active; the
+    refcounted shutdown then skips teardown, and ``reset_instance`` would
+    drop the filter but leave ``sys.excepthook`` bound to a dead registry. The
+    force path tears down unconditionally and restores the excepthook, so a
+    leaked scope fails the assertion below loudly rather than silently
+    corrupting the next test.
+    """
     yield
     if is_bootstrapped() or SecretRegistry.get_instance().get_count() > 0:
-        shutdown_secret_masking()
+        from datahub.masking.bootstrap import _force_teardown_secret_masking
+
+        _force_teardown_secret_masking()
         SecretRegistry.reset_instance()
+        # A leaked scope (e.g. a test that opened an execution on another
+        # thread and never ended it) would leave the registry with active
+        # executions after teardown. Fail loudly so the leak is visible,
+        # not silently corrupting the next test's caplog.
+        registry = SecretRegistry.get_instance()
+        assert not registry.has_active_executions(), (
+            "leaked execution scope after test teardown — a test opened an "
+            "execution (possibly on another thread) and never ended it"
+        )
 
 
 def pytest_ignore_collect(
