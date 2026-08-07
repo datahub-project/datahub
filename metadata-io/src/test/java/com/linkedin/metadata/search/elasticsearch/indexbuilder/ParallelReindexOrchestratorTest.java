@@ -5,6 +5,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureDetail;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParseResult;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -265,9 +268,6 @@ public class ParallelReindexOrchestratorTest {
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
 
-    // Wait for finalization to complete
-    Thread.sleep(200);
-
     assertEquals(results.size(), 1, "Should have result for test_index");
     assertEquals(
         results.get("test_index"), ReindexResult.REINDEXED, "test_index should be reindexed");
@@ -277,6 +277,145 @@ public class ParallelReindexOrchestratorTest {
             any(OperationContext.class), any(), anyString(), any(), eq(Float.POSITIVE_INFINITY));
     verify(mockIndexBuilder, atLeastOnce())
         .swapAliases(any(OperationContext.class), eq("test_index"), eq(null), anyString());
+  }
+
+  @Test
+  public void testReindexAll_FetchesFailuresOnlyOnDocCountMismatch() throws Exception {
+    ParallelReindexOrchestrator orchestrator = createOrchestratorWithMocks();
+    ReindexConfig config = createReindexConfig("test_index");
+
+    // Source has 1000 docs but temp index only got 900 -> doc-count mismatch (failure path).
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), contains("test_index_")))
+        .thenReturn(900L);
+
+    when(mockIndexBuilder.submitReindexInternal(
+            any(OperationContext.class), any(), anyString(), any(), eq(Float.POSITIVE_INFINITY)))
+        .thenReturn(Map.of("taskId", "node1:12345"));
+
+    GetTaskResponse mockCompletedTask = mock(GetTaskResponse.class);
+    when(mockCompletedTask.isCompleted()).thenReturn(true);
+    when(mockIndexBuilder.getTaskStatusMultiple(any(OperationContext.class), any()))
+        .thenReturn(
+            new ESIndexBuilder.TaskStatusResult(
+                Map.of("node1:12345", mockCompletedTask), Collections.emptySet()));
+
+    TaskFailureDetail failure =
+        new TaskFailureDetail(
+            "test_index", "doc1", "mapper_parsing_exception", "failed to parse field", 0);
+    GetTaskResponse failureTaskResponse = mock(GetTaskResponse.class);
+    when(failureTaskResponse.isCompleted()).thenReturn(true);
+    when(failureTaskResponse.getTaskInfo()).thenReturn(null);
+    when(mockIndexBuilder.getTaskStatusWithFailures(any(OperationContext.class), eq("node1:12345")))
+        .thenReturn(Optional.of(new TaskResultWithFailures(failureTaskResponse, List.of(failure))));
+
+    Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
+
+    assertEquals(results.size(), 1);
+    assertEquals(
+        results.get("test_index"),
+        ReindexResult.FAILED_DOC_COUNT_MISMATCH,
+        "Doc-count mismatch must classify as FAILED_DOC_COUNT_MISMATCH");
+
+    // Failure details are fetched exactly once, only on the failure path.
+    verify(mockIndexBuilder, times(1))
+        .getTaskStatusWithFailures(any(OperationContext.class), eq("node1:12345"));
+
+    Map<String, TaskFailureParseResult> documentFailures =
+        orchestrator.getDocumentFailuresByIndex();
+    assertTrue(documentFailures.containsKey("test_index"));
+    TaskFailureParseResult parseResult = documentFailures.get("test_index");
+    assertEquals(parseResult.totalCount(), 1);
+    assertEquals(parseResult.details().size(), 1);
+    assertEquals(parseResult.details().get(0).documentId(), "doc1");
+    assertEquals(parseResult.details().get(0).causeType(), "mapper_parsing_exception");
+    assertEquals(parseResult.details().get(0).index(), "test_index");
+    assertEquals(parseResult.details().get(0).causeReason(), "failed to parse field");
+    assertEquals(parseResult.details().get(0).shard(), 0);
+  }
+
+  @Test
+  public void testReindexAll_HappyPath_DoesNotFetchTaskFailures() throws Exception {
+    ParallelReindexOrchestrator orchestrator = createOrchestratorWithMocks();
+    ReindexConfig config = createReindexConfig("test_index");
+
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), contains("test_index_")))
+        .thenReturn(1000L);
+
+    when(mockIndexBuilder.submitReindexInternal(
+            any(OperationContext.class), any(), anyString(), any(), eq(Float.POSITIVE_INFINITY)))
+        .thenReturn(Map.of("taskId", "node1:12345"));
+
+    GetTaskResponse mockCompletedTask = mock(GetTaskResponse.class);
+    when(mockCompletedTask.isCompleted()).thenReturn(true);
+    when(mockIndexBuilder.getTaskStatusMultiple(any(OperationContext.class), any()))
+        .thenReturn(
+            new ESIndexBuilder.TaskStatusResult(
+                Map.of("node1:12345", mockCompletedTask), Collections.emptySet()));
+
+    Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
+
+    assertEquals(results.size(), 1);
+    assertEquals(
+        results.get("test_index"),
+        ReindexResult.REINDEXED,
+        "Matching doc counts must classify as REINDEXED");
+
+    // Happy path must not pay the extra ES _tasks failure lookup — the infra is fragile.
+    verify(mockIndexBuilder, never())
+        .getTaskStatusWithFailures(any(OperationContext.class), anyString());
+    assertTrue(
+        orchestrator.getDocumentFailuresByIndex().isEmpty(),
+        "No document failures should be recorded on the happy path");
+
+    verify(mockIndexBuilder, atLeastOnce())
+        .swapAliases(any(OperationContext.class), eq("test_index"), eq(null), anyString());
+  }
+
+  @Test
+  public void testReindexAll_DocCountMismatch_LookupThrowStillReturnsMismatch() throws Exception {
+    ParallelReindexOrchestrator orchestrator = createOrchestratorWithMocks();
+    ReindexConfig config = createReindexConfig("test_index");
+
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getCount(any(OperationContext.class), contains("test_index_")))
+        .thenReturn(900L);
+
+    when(mockIndexBuilder.submitReindexInternal(
+            any(OperationContext.class), any(), anyString(), any(), eq(Float.POSITIVE_INFINITY)))
+        .thenReturn(Map.of("taskId", "node1:12345"));
+
+    GetTaskResponse mockCompletedTask = mock(GetTaskResponse.class);
+    when(mockCompletedTask.isCompleted()).thenReturn(true);
+    when(mockIndexBuilder.getTaskStatusMultiple(any(OperationContext.class), any()))
+        .thenReturn(
+            new ESIndexBuilder.TaskStatusResult(
+                Map.of("node1:12345", mockCompletedTask), Collections.emptySet()));
+
+    // Failure lookup itself blows up — must not change the classified failure result.
+    when(mockIndexBuilder.getTaskStatusWithFailures(any(OperationContext.class), eq("node1:12345")))
+        .thenThrow(new RuntimeException("task lookup failed"));
+
+    Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
+
+    assertEquals(results.size(), 1);
+    assertEquals(
+        results.get("test_index"),
+        ReindexResult.FAILED_DOC_COUNT_MISMATCH,
+        "Failure-lookup errors must not change the classified doc-count-mismatch result");
+    assertTrue(
+        orchestrator.getDocumentFailuresByIndex().isEmpty(),
+        "No document failures should be recorded when the lookup throws");
   }
 
   @Test
@@ -399,9 +538,6 @@ public class ParallelReindexOrchestratorTest {
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
 
-    // Wait for finalization to complete
-    Thread.sleep(200);
-
     // Should succeed without timeout since task completes
     assertEquals(
         results.get("timeout_test"),
@@ -439,9 +575,6 @@ public class ParallelReindexOrchestratorTest {
     Thread.sleep(100);
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
-
-    // Wait for finalization to complete
-    Thread.sleep(200);
 
     assertEquals(
         results.get("mismatch_test"),

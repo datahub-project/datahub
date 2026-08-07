@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
+import com.google.common.base.Throwables;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -9,6 +10,8 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParseResult;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
@@ -81,7 +84,18 @@ public class BuildIndicesStep implements UpgradeStep {
           return executeSequentialReindex(context);
         }
       } catch (Exception e) {
-        log.error("BuildIndicesStep failed.", e);
+        Throwable root = Throwables.getRootCause(e);
+        log.error(
+            "BuildIndicesStep failed. Root cause: [{}] {}",
+            root.getClass().getSimpleName(),
+            root.getMessage(),
+            e);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "%s failed. Root cause: [%s] %s",
+                    id(), root.getClass().getSimpleName(), root.getMessage()));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
@@ -171,22 +185,7 @@ public class BuildIndicesStep implements UpgradeStep {
           new ParallelReindexOrchestrator(
               context.opContext(), services.get(0).getIndexBuilder(), config, circuitBreakerState);
       results.putAll(orchestrator.reindexAll(reindexConfigs));
-      // Check results for any failures (explicit failure statuses only)
-      Map<String, ReindexResult> failures =
-          results.entrySet().stream()
-              .filter((key) -> key.getValue().isFailure())
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      if (!failures.isEmpty()) {
-        log.error(
-            "Parallel reindex completed with {} failures out of {} indices",
-            failures.size(),
-            results.size());
-        failures.forEach(
-            (key, value) -> log.error("Failure index alias {} reason :{}", key, value));
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-      }
-      log.info("Parallel reindex completed successfully for {} indices", results.size());
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      return finishParallelReindex(context, results, orchestrator.getDocumentFailuresByIndex());
     } finally {
       // Shutdown the health check executor gracefully
       log.info("Shutting down HealthCheckPoller executor");
@@ -206,5 +205,37 @@ public class BuildIndicesStep implements UpgradeStep {
         orchestrator.shutdown();
       }
     }
+  }
+
+  UpgradeStepResult finishParallelReindex(
+      UpgradeContext context,
+      Map<String, ReindexResult> results,
+      Map<String, TaskFailureParseResult> documentFailures) {
+    Map<String, ReindexResult> failures =
+        results.entrySet().stream()
+            .filter((entry) -> entry.getValue().isFailure())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (!failures.isEmpty()) {
+      log.error(
+          "Parallel reindex completed with {} failures out of {} indices",
+          failures.size(),
+          results.size());
+      failures.forEach(
+          (key, value) -> {
+            TaskFailureParseResult indexFailures =
+                documentFailures.getOrDefault(key, TaskFailureParseResult.EMPTY);
+            String formatted = TaskFailureParser.formatForLog(indexFailures, 5);
+            log.error("Failure index alias {} reason :{}", key, value);
+            context
+                .report()
+                .addLine(
+                    String.format(
+                        "%s failed: Failure index alias %s reason: %s%s",
+                        id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
+          });
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+    }
+    log.info("Parallel reindex completed successfully for {} indices", results.size());
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
@@ -58,6 +59,7 @@ public class BuildIndicesIncrementalStepTest {
   @Mock private ESIndexBuilder indexBuilder;
   @Mock private ElasticSearchIndexed indexedService;
   @Mock private UpgradeContext upgradeContext;
+  @Mock private UpgradeReport upgradeReport;
   @Mock private Upgrade upgrade;
 
   private OperationContext opContext;
@@ -72,6 +74,7 @@ public class BuildIndicesIncrementalStepTest {
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
+    when(upgradeContext.report()).thenReturn(upgradeReport);
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
     when(entityService.getLatestEnvelopedAspect(any(), any(), any(), any())).thenReturn(null);
     when(entityService.ingestProposal(any(), any(), any(), anyBoolean()))
@@ -177,7 +180,8 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
+    PollReindexResult pollResult =
+        new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),
@@ -278,7 +282,8 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L));
+    PollReindexResult timedOut =
+        new PollReindexResult(false, Map.of(), Pair.of(100L, 50L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString()))
         .thenReturn(timedOut);
@@ -310,7 +315,8 @@ public class BuildIndicesIncrementalStepTest {
     when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
+    PollReindexResult pollResult =
+        new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),
