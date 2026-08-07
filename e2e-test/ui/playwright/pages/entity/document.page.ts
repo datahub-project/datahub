@@ -100,8 +100,19 @@ export class DocumentPage extends BasePage {
   async createNewDocumentViaButton(): Promise<string> {
     await this.expectSidebarVisible();
     await this.expectCreateButtonEnabled();
+    const previousUrn = this.extractDocumentUrnFromUrl(this.page.url());
     await this.clickCreateButton();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // Create is async (mutation + history.push). networkidle alone can resolve while we are
+    // still on the previous document — then setDocumentTitle would rename that doc.
+    await expect
+      .poll(
+        () => {
+          const urn = this.extractDocumentUrnFromUrl(this.page.url());
+          return urn && urn !== previousUrn ? urn : '';
+        },
+        { timeout: TIMEOUTS.LONG },
+      )
+      .not.toBe('');
     return this.extractDocumentUrnFromUrl(this.page.url());
   }
 
@@ -334,6 +345,7 @@ export class DocumentPage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     const childUrn = await this.createDocumentWithTitle(childTitle);
+    expect(childUrn).not.toBe(parentUrn);
 
     // Return to the documents list so both tree rows are mounted before Move.
     await this.navigateToDocuments();
@@ -345,8 +357,14 @@ export class DocumentPage extends BasePage {
     await this.clickTreeItemMenu(childUrn);
     await this.clickMoveOption();
     await this.expectMovePopoverVisible();
-    await this.searchInMovePopover(parentTitle);
-    await this.selectMoveSearchResult(parentTitle);
+    // Pick by URN in the browse tree. Search-by-title is flaky here: the rename often
+    // hasn't hit the search index yet (row still shows "New Document"), which is unrelated
+    // to filters/sort — only the destination identity matters for this helper.
+    const parentRow = this.movePopover.getByTestId(`document-tree-item-${parentUrn}`);
+    await expect(parentRow).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await parentRow.scrollIntoViewIfNeeded();
+    await parentRow.click();
+    await expect(this.moveConfirmButton).toBeEnabled({ timeout: TIMEOUTS.MEDIUM });
     await this.clickMoveConfirmButton();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await this.expectMoveSuccessMessage();

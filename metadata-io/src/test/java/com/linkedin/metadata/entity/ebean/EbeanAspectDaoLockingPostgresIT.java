@@ -73,11 +73,20 @@ public class EbeanAspectDaoLockingPostgresIT {
             EbeanConfiguration.builder().entityWriteAdvisoryLockEnabled(true).build(),
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(primaryDatabase));
     advisoryDao.setConnectionValidated(true);
 
     defaultDao =
-        new EbeanAspectDao(resolver, EbeanConfiguration.testDefault, null, List.of(), null);
+        new EbeanAspectDao(
+            resolver,
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(primaryDatabase));
     defaultDao.setConnectionValidated(true);
 
     opContext = TestOperationContexts.systemContextNoValidate();

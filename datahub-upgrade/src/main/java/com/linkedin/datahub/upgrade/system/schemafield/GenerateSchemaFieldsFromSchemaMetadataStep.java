@@ -21,8 +21,6 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -147,7 +145,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
       }
 
       // re-using for configuring the sql scan
-      RestoreIndicesArgs args =
+      RestoreIndicesArgs argsBuilder =
           new RestoreIndicesArgs()
               .aspectNames(REQUIRED_ASPECTS)
               .batchSize(batchSize)
@@ -156,76 +154,82 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
               .limit(limit);
 
       if (getUrnLike() != null) {
-        args = args.urnLike(getUrnLike());
+        argsBuilder = argsBuilder.urnLike(getUrnLike());
       }
+      // Bind to a final local so the streaming consumer lambda can capture it.
+      final RestoreIndicesArgs args = argsBuilder;
 
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(context.opContext(), args)) {
-        stream
-            .partition(args.batchSize)
-            .forEach(
-                batch -> {
-                  log.info("Processing batch of size {}.", batchSize);
+      aspectDao.streamAspectBatches(
+          context.opContext(),
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    batch -> {
+                      log.info("Processing batch of size {}.", batchSize);
 
-                  AspectsBatch aspectsBatch =
-                      AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext())
-                          .items(
-                              batch
-                                  .flatMap(
-                                      ebeanAspectV2 ->
-                                          EntityUtils.toSystemAspectFromEbeanAspects(
-                                              opContext,
-                                              opContext.getRetrieverContext(),
-                                              Set.of(ebeanAspectV2))
-                                              .stream())
-                                  .map(
-                                      systemAspect ->
-                                          ChangeItemImpl.builder()
-                                              .changeType(ChangeType.UPSERT)
-                                              .urn(systemAspect.getUrn())
-                                              .entitySpec(systemAspect.getEntitySpec())
-                                              .aspectName(systemAspect.getAspectName())
-                                              .aspectSpec(systemAspect.getAspectSpec())
-                                              .recordTemplate(systemAspect.getRecordTemplate())
-                                              .auditStamp(systemAspect.getAuditStamp())
-                                              .systemMetadata(
-                                                  withAppSource(systemAspect.getSystemMetadata()))
-                                              .build(opContext.getAspectRetriever()))
-                                  .collect(Collectors.toList()))
-                          .build(opContext);
+                      AspectsBatch aspectsBatch =
+                          AspectsBatchImpl.builder()
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .items(
+                                  batch
+                                      .flatMap(
+                                          ebeanAspectV2 ->
+                                              EntityUtils.toSystemAspectFromEbeanAspects(
+                                                  opContext,
+                                                  opContext.getRetrieverContext(),
+                                                  Set.of(ebeanAspectV2))
+                                                  .stream())
+                                      .map(
+                                          systemAspect ->
+                                              ChangeItemImpl.builder()
+                                                  .changeType(ChangeType.UPSERT)
+                                                  .urn(systemAspect.getUrn())
+                                                  .entitySpec(systemAspect.getEntitySpec())
+                                                  .aspectName(systemAspect.getAspectName())
+                                                  .aspectSpec(systemAspect.getAspectSpec())
+                                                  .recordTemplate(systemAspect.getRecordTemplate())
+                                                  .auditStamp(systemAspect.getAuditStamp())
+                                                  .systemMetadata(
+                                                      withAppSource(
+                                                          systemAspect.getSystemMetadata()))
+                                                  .build(opContext.getAspectRetriever()))
+                                      .collect(Collectors.toList()))
+                              .build(opContext);
 
-                  // re-ingest the aspects to trigger side effects
-                  entityService.ingestAspects(opContext, aspectsBatch, true, false);
+                      // re-ingest the aspects to trigger side effects
+                      entityService.ingestAspects(opContext, aspectsBatch, true, false);
 
-                  // record progress
-                  Urn lastUrn =
-                      aspectsBatch.getItems().stream()
-                          .reduce((a, b) -> b)
-                          .map(ReadItem::getUrn)
-                          .orElse(null);
-                  if (lastUrn != null) {
-                    log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastUrn.toString()));
-                  }
+                      // record progress
+                      Urn lastUrn =
+                          aspectsBatch.getItems().stream()
+                              .reduce((a, b) -> b)
+                              .map(ReadItem::getUrn)
+                              .orElse(null);
+                      if (lastUrn != null) {
+                        log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastUrn.toString()));
+                      }
 
-                  if (batchDelayMs > 0) {
-                    log.info("Sleeping for {} ms", batchDelayMs);
-                    try {
-                      Thread.sleep(batchDelayMs);
-                    } catch (InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  }
-                });
-      }
+                      if (batchDelayMs > 0) {
+                        log.info("Sleeping for {} ms", batchDelayMs);
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());

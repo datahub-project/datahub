@@ -15,6 +15,7 @@ import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -61,12 +62,15 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
+    final Set<Urn> existingResourceUrns =
+        LabelUtils.existingResourceUrns(context.getOperationContext(), resources, _entityService);
     for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
+      validateInputResource(resource, context, existingResourceUrns);
     }
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
+  private void validateInputResource(
+      ResourceRefInput resource, QueryContext context, Set<Urn> existingResourceUrns) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
 
     if (resource.getSubResource() != null) {
@@ -78,6 +82,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
         context, resourceUrn, _entityClient, _entityService);
     LabelUtils.validateResource(
         context.getOperationContext(),
+        existingResourceUrns,
         resourceUrn,
         resource.getSubResource(),
         resource.getSubResourceType(),

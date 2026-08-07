@@ -41,11 +41,13 @@ def test_get_browse_paths(auth_session, ingest_cleanup_data):
                                }"""
 
     # /prod -- There should be one entity
+    # These are all read-only browse queries with no writes in between, so the
+    # first two skip the sync wait -- only the final query's response needs one.
     variables: Dict[str, Any] = {
         "input": {"type": "DATASET", "path": ["prod"], "start": 0, "count": 100}
     }
 
-    res_data = execute_graphql(auth_session, query, variables)
+    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
 
     browse = res_data["data"]["browse"]
     logger.info(browse)
@@ -61,7 +63,7 @@ def test_get_browse_paths(auth_session, ingest_cleanup_data):
         }
     }
 
-    res_data = execute_graphql(auth_session, query, variables)
+    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
 
     browse = res_data["data"]["browse"]
     assert browse == {

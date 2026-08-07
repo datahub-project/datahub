@@ -57,6 +57,7 @@ const dataProduct: DataProduct = {
             parentDomains: PARENT_DOMAINS,
         },
     },
+    parentDataProducts: [],
 };
 
 describe('getContextPath', () => {

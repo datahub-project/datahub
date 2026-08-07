@@ -201,7 +201,7 @@ def test_ingest_many_versions(graph_client: DataHubGraph, ingest_cleanup_data_bu
         version_set_properties.versioningScheme
         == VersioningSchemeClass.LEXICOGRAPHIC_STRING
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     result = graph_client.execute_graphql(
         """
             query getVersions($urn: String!) {
