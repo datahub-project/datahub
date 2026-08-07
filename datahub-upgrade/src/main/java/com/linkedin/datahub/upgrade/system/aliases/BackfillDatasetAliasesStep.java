@@ -39,6 +39,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -173,7 +174,14 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
       context
           .upgrade()
           .setUpgradeResult(
-              opContext, getUpgradeIdUrn(), entityService, DataHubUpgradeState.SUCCEEDED, null);
+              opContext,
+              getUpgradeIdUrn(),
+              entityService,
+              DataHubUpgradeState.SUCCEEDED,
+              Map.of(
+                  "emitted", String.valueOf(stats.emitted),
+                  "unparseable", String.valueOf(stats.unparseable),
+                  "failed", String.valueOf(stats.failed)));
       log.info("{}: completed. {}", id(), stats);
       context.report().addLine(String.format("%s: completed. %s", id(), stats));
 

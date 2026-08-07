@@ -47,6 +47,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -221,13 +222,19 @@ public class BackfillDatasetAliasesStepTest {
     buildStep(false).executable().apply(mockContext);
 
     capturedProposals(2);
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
     verify(mockUpgrade)
         .setUpgradeResult(
             any(OperationContext.class),
             any(Urn.class),
             any(),
             eq(DataHubUpgradeState.SUCCEEDED),
-            eq(null));
+            captor.capture());
+    // the marker carries the run counts so they outlive the job and can be alerted on
+    assertEquals(captor.getValue().get("emitted"), "2");
+    assertEquals(captor.getValue().get("failed"), "0");
+    assertEquals(captor.getValue().get("unparseable"), "0");
   }
 
   @Test
@@ -244,7 +251,7 @@ public class BackfillDatasetAliasesStepTest {
             any(Urn.class),
             any(),
             eq(DataHubUpgradeState.SUCCEEDED),
-            eq(null));
+            any());
   }
 
   @Test
@@ -269,7 +276,7 @@ public class BackfillDatasetAliasesStepTest {
             any(Urn.class),
             any(),
             eq(DataHubUpgradeState.SUCCEEDED),
-            eq(null));
+            any());
   }
 
   @Test
