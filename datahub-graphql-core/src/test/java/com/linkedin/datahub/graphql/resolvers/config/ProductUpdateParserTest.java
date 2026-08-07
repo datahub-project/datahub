@@ -710,6 +710,33 @@ public class ProductUpdateParserTest {
   }
 
   @Test
+  public void testParseProductUpdateNullPrimaryCtaFallsBackToLegacy() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v2.1\","
+            + "\"title\": \"Cloud Update\","
+            + "\"primaryCtaText\": null,"
+            + "\"primaryCtaLink\": null,"
+            + "\"secondaryCtaText\": null,"
+            + "\"secondaryCtaLink\": null,"
+            + "\"ctaText\": \"Explore DataHub Cloud 2.1\","
+            + "\"ctaLink\": \"https://datahub.com/blog/datahub-cloud-2-1\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertNull(result.getPrimaryCtaText());
+    assertNull(result.getPrimaryCtaLink());
+    assertNull(result.getSecondaryCtaText());
+    assertNull(result.getSecondaryCtaLink());
+    assertEquals(result.getCtaText(), "Explore DataHub Cloud 2.1");
+    assertEquals(result.getCtaLink(), "https://datahub.com/blog/datahub-cloud-2-1");
+  }
+
+  @Test
   public void testParseProductUpdatePrimaryCtaTakesPrecedenceOverLegacy() throws Exception {
     String jsonString =
         "{"
