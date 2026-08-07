@@ -681,7 +681,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return String.format(
         "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor "
             + "FROM%sWHERE urn = :%s AND aspect = :%s AND version = :%s",
-        tableResolver.aspectTable(opContext), urnArg, aspectArg, versionArg);
+        tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME),
+        urnArg,
+        aspectArg,
+        versionArg);
   }
 
   @Nonnull
@@ -767,7 +770,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     sb.append(
         "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor ");
     sb.append("FROM")
-        .append(tableResolver.aspectTable(opContext))
+        .append(tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME))
         .append("WHERE (urn, aspect, version) IN (");
 
     final int end = Math.min(keys.size(), position + keysCount);
@@ -1383,7 +1386,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               server.sqlQuery(
                   "SELECT MIN(version) as min_version, MAX(version) as max_version "
                       + "FROM"
-                      + tableResolver.aspectTable(opContext)
+                      + tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)
                       + "WHERE urn = :urn AND aspect = :aspect");
 
           query.setParameter("urn", urn);

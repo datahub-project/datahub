@@ -1958,7 +1958,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
     _retentionService.deleteRetention(opContext, "corpuser", "status");
     // Invoke batch apply
-    _retentionService.batchApplyRetention(null, null);
+    _retentionService.batchApplyRetention(opContext, null, null);
     assertEquals(
         _entityServiceImpl
             .listLatestAspects(opContext, entityUrn.getEntityType(), aspectName, 0, 10)
