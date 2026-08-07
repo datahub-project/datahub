@@ -48,6 +48,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schemafield.SchemaFieldAliases;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -88,6 +90,27 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    * <p>Same disable/cleanup behavior as {@link #domainEnabled}.
    */
   private boolean ownershipEnabled;
+
+  /** Factories for mirrored aspects — single place to add a third mirrored aspect. */
+  private static final Map<String, Function<DataMap, RecordTemplate>> MIRROR_FACTORIES =
+      Map.of(
+          DOMAINS_ASPECT_NAME, Domains::new,
+          OWNERSHIP_ASPECT_NAME, Ownership::new);
+
+  private record MirrorAspectPolicy(
+      @Nonnull String aspectName, @Nonnull Class<? extends RecordTemplate> aspectClass) {}
+
+  @Nonnull
+  private List<MirrorAspectPolicy> enabledMirrorPolicies() {
+    List<MirrorAspectPolicy> policies = new ArrayList<>();
+    if (domainEnabled) {
+      policies.add(new MirrorAspectPolicy(DOMAINS_ASPECT_NAME, Domains.class));
+    }
+    if (ownershipEnabled) {
+      policies.add(new MirrorAspectPolicy(OWNERSHIP_ASPECT_NAME, Ownership.class));
+    }
+    return policies;
+  }
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -125,12 +148,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     Set<String> aspects = new HashSet<>();
     aspects.add(SCHEMA_METADATA_ASPECT_NAME);
     aspects.add(STATUS_ASPECT_NAME);
-    if (domainEnabled) {
-      aspects.add(DOMAINS_ASPECT_NAME);
-    }
-    if (ownershipEnabled) {
-      aspects.add(OWNERSHIP_ASPECT_NAME);
-    }
+    enabledMirrorPolicies().forEach(policy -> aspects.add(policy.aspectName()));
     return aspects;
   }
 
@@ -183,21 +201,18 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                           retrieverContext.getAspectRetriever()));
     }
 
-    Stream<MCPItem> domainsDeletes =
-        domainEnabled
-            ? buildMirroredAspectDeleteMCPs(
-                mclItems, aspectData, DOMAINS_ASPECT_NAME, retrieverContext.getAspectRetriever())
-            : Stream.empty();
+    Stream<MCPItem> mirroredAspectDeletes =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    buildMirroredAspectDeleteMCPs(
+                        mclItems,
+                        aspectData,
+                        policy.aspectName(),
+                        retrieverContext.getAspectRetriever()));
 
-    Stream<MCPItem> ownershipDeletes =
-        ownershipEnabled
-            ? buildMirroredAspectDeleteMCPs(
-                mclItems, aspectData, OWNERSHIP_ASPECT_NAME, retrieverContext.getAspectRetriever())
-            : Stream.empty();
-
-    return Stream.concat(
-        Stream.concat(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs),
-        Stream.concat(domainsDeletes, ownershipDeletes));
+    return Stream.of(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs, mirroredAspectDeletes)
+        .flatMap(s -> s);
   }
 
   private Stream<ChangeMCP> processUpserts(
@@ -256,30 +271,20 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     buildRemovedSchemaFieldStatusAspect(
                         item, retrieverContext.getAspectRetriever()));
 
-    Stream<ChangeMCP> domainsSideEffects =
-        domainEnabled
-            ? mirrorAspectUpserts(
-                mclItems,
-                aspectData,
-                DOMAINS_ASPECT_NAME,
-                Domains.class,
-                retrieverContext.getAspectRetriever())
-            : Stream.empty();
-
-    Stream<ChangeMCP> ownershipSideEffects =
-        ownershipEnabled
-            ? mirrorAspectUpserts(
-                mclItems,
-                aspectData,
-                OWNERSHIP_ASPECT_NAME,
-                Ownership.class,
-                retrieverContext.getAspectRetriever())
-            : Stream.empty();
+    Stream<ChangeMCP> mirroredAspectSideEffects =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    mirrorAspectUpserts(
+                        mclItems,
+                        aspectData,
+                        policy.aspectName(),
+                        policy.aspectClass(),
+                        retrieverContext.getAspectRetriever()));
 
     return optimizedKeyAspectMCPsConcat(
-        Stream.concat(
-            Stream.concat(schemaFieldSideEffects, statusSideEffects),
-            Stream.concat(domainsSideEffects, ownershipSideEffects)),
+        Stream.of(schemaFieldSideEffects, statusSideEffects, mirroredAspectSideEffects)
+            .flatMap(s -> s),
         removedFieldStatusSideEffects);
   }
 
@@ -426,19 +431,17 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     Stream<ChangeMCP> base =
         buildSchemaFieldKeyMCPsStatic(parentDatasetMetadataSchemaItem, aspectData, aspectRetriever);
 
-    Stream<ChangeMCP> domainsFromSchema =
-        domainEnabled
-            ? mirrorStoredAspectOntoFields(
-                parentDatasetMetadataSchemaItem, aspectData, DOMAINS_ASPECT_NAME, aspectRetriever)
-            : Stream.empty();
+    Stream<ChangeMCP> mirroredFromStored =
+        enabledMirrorPolicies().stream()
+            .flatMap(
+                policy ->
+                    mirrorStoredAspectOntoFields(
+                        parentDatasetMetadataSchemaItem,
+                        aspectData,
+                        policy.aspectName(),
+                        aspectRetriever));
 
-    Stream<ChangeMCP> ownershipFromSchema =
-        ownershipEnabled
-            ? mirrorStoredAspectOntoFields(
-                parentDatasetMetadataSchemaItem, aspectData, OWNERSHIP_ASPECT_NAME, aspectRetriever)
-            : Stream.empty();
-
-    return Stream.concat(base, Stream.concat(domainsFromSchema, ownershipFromSchema));
+    return Stream.concat(base, mirroredFromStored);
   }
 
   private static Stream<ChangeMCP> buildSchemaFieldKeyMCPsStatic(
@@ -749,13 +752,8 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   @Nullable
   private static RecordTemplate toRecordTemplate(
       @Nonnull String aspectName, @Nonnull Aspect stored) {
-    if (DOMAINS_ASPECT_NAME.equals(aspectName)) {
-      return new Domains(new DataMap(stored.data()));
-    }
-    if (OWNERSHIP_ASPECT_NAME.equals(aspectName)) {
-      return new Ownership(new DataMap(stored.data()));
-    }
-    return null;
+    Function<DataMap, RecordTemplate> factory = MIRROR_FACTORIES.get(aspectName);
+    return factory == null ? null : factory.apply(new DataMap(stored.data()));
   }
 
   /**
@@ -766,13 +764,8 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   @Nullable
   private static RecordTemplate copyAspectRecord(
       @Nonnull String aspectName, @Nonnull RecordTemplate aspectRecord) {
-    if (DOMAINS_ASPECT_NAME.equals(aspectName)) {
-      return new Domains(new DataMap(aspectRecord.data()));
-    }
-    if (OWNERSHIP_ASPECT_NAME.equals(aspectName)) {
-      return new Ownership(new DataMap(aspectRecord.data()));
-    }
-    return aspectRecord;
+    Function<DataMap, RecordTemplate> factory = MIRROR_FACTORIES.get(aspectName);
+    return factory == null ? aspectRecord : factory.apply(new DataMap(aspectRecord.data()));
   }
 
   private static Stream<ChangeMCP> mirrorRecordAspectOntoFields(

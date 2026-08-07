@@ -744,16 +744,9 @@ public class SchemaFieldSideEffectTest {
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(
-            Map.of(
-                TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
+    stubSchemaMetadataStored(schemaMetadata);
 
     ChangeItemImpl domainsChangeItem =
         ChangeItemImpl.builder()
@@ -794,16 +787,9 @@ public class SchemaFieldSideEffectTest {
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(false);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(
-            Map.of(
-                TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
+    stubSchemaMetadataStored(schemaMetadata);
 
     ChangeItemImpl domainsChangeItem =
         ChangeItemImpl.builder()
@@ -836,16 +822,9 @@ public class SchemaFieldSideEffectTest {
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(
-            Map.of(
-                TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
+    stubSchemaMetadataStored(schemaMetadata);
 
     ChangeItemImpl domainsChangeItem =
         ChangeItemImpl.builder()
@@ -998,14 +977,9 @@ public class SchemaFieldSideEffectTest {
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data()))));
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1058,11 +1032,7 @@ public class SchemaFieldSideEffectTest {
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
     Ownership ownership = testOwnership();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(OWNERSHIP_ASPECT_NAME, new Aspect(ownership.data()))));
+    stubLatestAspects(Map.of(OWNERSHIP_ASPECT_NAME, new Aspect(ownership.data())));
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1109,8 +1079,7 @@ public class SchemaFieldSideEffectTest {
     SchemaFieldSideEffect test = new SchemaFieldSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(true);
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
     stubSchemaMetadataStored(getTestSchemaMetadata());
 
@@ -1186,8 +1155,7 @@ public class SchemaFieldSideEffectTest {
     SchemaFieldSideEffect test = new SchemaFieldSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
     test.setDomainEnabled(false);
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
     stubSchemaMetadataStored(getTestSchemaMetadata());
 
@@ -1219,14 +1187,9 @@ public class SchemaFieldSideEffectTest {
     test.setDomainEnabled(true);
     SchemaMetadata previousSchema = getTestSchemaMetadataWithRemovedField(); // user_id only
     SchemaMetadata currentSchema = getTestSchemaMetadata(); // user_id + user_name
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data()))));
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1269,14 +1232,9 @@ public class SchemaFieldSideEffectTest {
     test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data()))));
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1316,14 +1274,9 @@ public class SchemaFieldSideEffectTest {
     test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data()))));
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
 
     MCLItem restateItem =
         MCLItemImpl.builder()
@@ -1353,8 +1306,7 @@ public class SchemaFieldSideEffectTest {
     test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
     SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
     systemMetadata.setProperties(
@@ -1363,11 +1315,7 @@ public class SchemaFieldSideEffectTest {
                 com.linkedin.metadata.Constants.APP_SOURCE,
                 com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE)));
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of(TEST_URN, Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data()))));
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1409,14 +1357,9 @@ public class SchemaFieldSideEffectTest {
     test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
     test.setDomainEnabled(true);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
-    Domains domains =
-        new Domains().setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+    Domains domains = testDomains();
 
-    reset(mockAspectRetriever);
-    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(Map.of());
+    stubEmptyAspectFetch();
 
     ChangeItemImpl schemaMetadataChangeItem =
         ChangeItemImpl.builder()
@@ -1467,16 +1410,37 @@ public class SchemaFieldSideEffectTest {
         Set.of(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)",
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"));
+    assertTrue(domainMirrors.stream().allMatch(item -> item instanceof ChangeItemImpl));
+    assertEquals(
+        domainMirrors.stream()
+            .map(item -> item.getAspect(Domains.class).getDomains())
+            .collect(Collectors.toSet()),
+        Set.of(domains.getDomains()));
   }
 
   private void stubSchemaMetadataStored(SchemaMetadata schemaMetadata) {
+    stubLatestAspects(Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data())));
+  }
+
+  private void stubLatestAspects(Map<String, Aspect> aspectsForTestUrn) {
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(
             any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
-        .thenReturn(
-            Map.of(
-                TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
+        .thenReturn(Map.of(TEST_URN, aspectsForTestUrn));
+  }
+
+  private void stubEmptyAspectFetch() {
+    reset(mockAspectRetriever);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
+        .thenReturn(Map.of());
+  }
+
+  private static Domains testDomains() {
+    return new Domains()
+        .setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
   }
 
   private static Ownership testOwnership() {
