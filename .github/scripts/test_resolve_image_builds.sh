@@ -77,6 +77,8 @@ check "smoke-test only" "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
 check "docs and markdown" "" 'CHANGED_FILES=["docs/how/updating-datahub.md","README.md","docs-website/sidebars.js"]'
 check "playwright tests" "" 'CHANGED_FILES=["e2e-test/ui/playwright/tests/a.spec.ts"]'
 check "compose templates only" "" 'CHANGED_FILES=["docker/profiles/docker-compose.gms.yml"]'
+check "quickstart version map" "" 'CHANGED_FILES=["docker/quickstart/quickstart_version_mapping.yaml"]'
+check "datahub-agent-context" "" 'CHANGED_FILES=["datahub-agent-context/tests/unit/a.py"]'
 
 echo "ui code does not rebuild the server"
 check "datahub-web-react" ":datahub-frontend" 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
@@ -88,6 +90,7 @@ check "metadata-io" "${SERVER}" 'CHANGED_FILES=["metadata-io/src/main/java/A.jav
 check "metadata-jobs" "${SERVER}" 'CHANGED_FILES=["metadata-jobs/mae-consumer/src/main/java/A.java"]'
 check "datahub-upgrade" "${SERVER}" 'CHANGED_FILES=["datahub-upgrade/src/main/java/A.java"]'
 check "metadata-service internals" "${SERVER}" 'CHANGED_FILES=["metadata-service/factories/src/main/java/A.java"]'
+check "ingestion-scheduler" "${SERVER}" 'CHANGED_FILES=["ingestion-scheduler/gradle.lockfile"]'
 check "graphql resolvers" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/A.java"]'
 # Compile-only input to the frontend (TS types, erased at runtime). Reusing the
 # published frontend tests an existing client against the new schema instead.
