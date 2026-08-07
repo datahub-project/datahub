@@ -1,9 +1,10 @@
 import json
-from typing import Any, List
+from typing import Any, Dict, List, Tuple
 
 import pytest
 
 from datahub.metadata.schema_classes import (
+    MLHyperParamClass,
     MLModelPropertiesClass,
     OwnerClass,
     OwnershipTypeClass,
@@ -19,7 +20,7 @@ PROP_A = "urn:li:structuredProperty:io.acryl.risk_verdict"
 PROP_B = "urn:li:structuredProperty:io.acryl.last_checked"
 
 
-def _patch_ops(mcp: Any) -> List[dict]:
+def _patch_ops(mcp: Any) -> List[Dict[str, Any]]:
     """Decode the JSON Patch operations carried by a built proposal."""
     value = mcp.aspect.value
     if isinstance(value, bytes):
@@ -86,7 +87,12 @@ def test_structured_properties_target_the_right_aspect() -> None:
     "setter, args, path, expected",
     [
         ("set_name", ("fraud_detector_v3",), "name", "fraud_detector_v3"),
-        ("set_description", ("Card fraud scorer.",), "description", "Card fraud scorer."),
+        (
+            "set_description",
+            ("Card fraud scorer.",),
+            "description",
+            "Card fraud scorer.",
+        ),
         ("set_type", ("gradient-boosted-trees",), "type", "gradient-boosted-trees"),
         (
             "set_external_url",
@@ -97,7 +103,7 @@ def test_structured_properties_target_the_right_aspect() -> None:
     ],
 )
 def test_property_setters_patch_the_expected_path(
-    setter: str, args: tuple, path: str, expected: Any
+    setter: str, args: Tuple[Any, ...], path: str, expected: Any
 ) -> None:
     builder = MLModelPatchBuilder(MODEL_URN)
     getattr(builder, setter)(*args)
@@ -111,28 +117,64 @@ def test_property_setters_patch_the_expected_path(
     assert ops[0]["value"] == expected
 
 
-def test_version_is_patched_as_a_version_tag() -> None:
+def test_version_is_patched_as_a_serialized_version_tag() -> None:
+    """Assert the payload, not just the path.
+
+    A path-only assertion passes even if the VersionTag serializes to something
+    the backend cannot read.
+    """
     builder = MLModelPatchBuilder(MODEL_URN)
     builder.set_version(VersionTagClass(versionTag="3.1.0"))
 
     ops = _patch_ops(list(builder.build())[0])
 
     assert len(ops) == 1
-    assert ops[0]["path"].strip("/") == "version"
+    assert ops[0]["path"] == "/version"
+    assert ops[0]["value"]["versionTag"] == "3.1.0"
+
+
+def test_hyper_params_target_the_canonical_field() -> None:
+    """`hyperParams`, not the deprecated `hyperParameters` map.
+
+    The aspect schema marks `hyperParameters` "deprecated in favor of
+    hyperParams", so a builder writing the old field would leave readers of the
+    canonical one seeing nothing.
+    """
+    builder = MLModelPatchBuilder(MODEL_URN)
+    builder.set_hyper_params([MLHyperParamClass(name="learning_rate", value="0.01")])
+
+    ops = _patch_ops(list(builder.build())[0])
+
+    assert len(ops) == 1
+    assert ops[0]["path"] == "/hyperParams"
+    assert ops[0]["value"] == [{"name": "learning_rate", "value": "0.01"}]
 
 
 def test_ml_features_can_be_added_and_removed_individually() -> None:
-    """Adding one feature must not rewrite the whole array."""
+    """Adding one feature must not rewrite the whole array.
+
+    Paths are compared exactly rather than by substring: a patch aimed at the
+    wrong path still contains the feature URN, so `in` would accept a broken
+    contract.
+    """
     builder = MLModelPatchBuilder(MODEL_URN)
     builder.add_ml_feature(FEATURE_A)
     builder.remove_ml_feature(FEATURE_B)
 
     ops = [op for mcp in builder.build() for op in _patch_ops(mcp)]
-    by_op = {op["op"]: op for op in ops}
 
-    assert set(by_op) == {"add", "remove"}
-    assert FEATURE_A in by_op["add"]["path"]
-    assert FEATURE_B in by_op["remove"]["path"]
+    assert ops == [
+        {
+            "op": "add",
+            "path": f"/mlFeatures/{FEATURE_A}",
+            "value": FEATURE_A,
+        },
+        {
+            "op": "remove",
+            "path": f"/mlFeatures/{FEATURE_B}",
+            "value": {},
+        },
+    ]
 
 
 def test_tags_come_from_the_shared_mixins() -> None:
@@ -149,7 +191,9 @@ def test_tags_come_from_the_shared_mixins() -> None:
 def test_ownership_comes_from_the_shared_mixins() -> None:
     builder = MLModelPatchBuilder(MODEL_URN)
     builder.add_owner(
-        OwnerClass(owner="urn:li:corpuser:ml_eng_alex", type=OwnershipTypeClass.TECHNICAL_OWNER)
+        OwnerClass(
+            owner="urn:li:corpuser:ml_eng_alex", type=OwnershipTypeClass.TECHNICAL_OWNER
+        )
     )
 
     mcps = list(builder.build())
