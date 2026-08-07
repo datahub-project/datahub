@@ -15,7 +15,6 @@ import time
 import uuid
 
 import pytest
-from requests.structures import CaseInsensitiveDict
 
 from tests.consistency_utils import wait_for_writes_to_sync
 
@@ -34,13 +33,8 @@ def execute_graphql(
     """
     payload = {"query": query, "variables": variables or {}}
     url = f"{auth_session.frontend_url()}/api/graphql"
-    if no_sync_wait:
-        headers = CaseInsensitiveDict(
-            {"Authorization": f"Bearer {auth_session.gms_token()}"}
-        )
-        response = auth_session._upstream.post(url, json=payload, headers=headers)
-    else:
-        response = auth_session.post(url, json=payload)
+    post = auth_session.raw_post if no_sync_wait else auth_session.post
+    response = post(url, json=payload)
     response.raise_for_status()
     result = response.json()
     return result

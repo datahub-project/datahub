@@ -291,7 +291,9 @@ def wait_for_writes_to_sync(
 
     Args:
         max_timeout_in_sec: Maximum time to wait in seconds (default: 120)
-        mcp_only: If True, wait for MCP and MCL (ingestion pipeline: proposal + indexing)
+        mcp_only: If True, wait for MCP and MCL -- the proposal being consumed
+            and the resulting change log being indexed. Skips the timeseries MCL
+            consumer, so it is not sufficient for timeseries aspects.
         mae_only: If True, only wait for MCL versioned consumer (entity update tests)
         cdc_only: Ignored (CDC has no dedicated lag endpoint; included for compat)
         consumer_group: When set, wait only for this consumer group's lag (e.g.
@@ -300,16 +302,22 @@ def wait_for_writes_to_sync(
             via the messaging lag API (Kafka usage-event consumer).
         auth_session: Base authenticated test session used for GMS operations.
         legacy_wait: If True, use the old aggregate consumer-group-lag polling.
-            Defaults to False, which instead captures a fixed offset checkpoint
-            at call time and waits only for the consumer to pass it -- immune to
-            the "lag never reaches zero under concurrent writers" problem that
-            aggregate-lag polling has (see wait_for_offsets_to_be_consumed).
+            Defaults to False, which instead captures offset checkpoints and
+            waits for the consumers to pass them -- immune to the "lag never
+            reaches zero under concurrent writers" problem that aggregate-lag
+            polling has (see wait_for_offsets_to_be_consumed).
             Always uses the legacy path when consumer_group is set, since the
-            offset-checkpoint path doesn't cover the usage-event consumer group.
+            offset-checkpoint path doesn't cover the usage-event consumer group,
+            and when DATAHUB_TEST_FORCE_LEGACY_WAIT is set (CI retry attempts).
     """
     if env_vars.get_use_static_sleep():
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
+
+    # CI sets this on retry attempts: a batch that failed once re-runs with the
+    # more conservative wait, so a wait-related flake self-recovers.
+    if env_vars.get_force_legacy_wait():
+        legacy_wait = True
 
     if consumer_group:
         consumers = _endpoints_for_consumer_group(consumer_group)
@@ -480,43 +488,36 @@ def _fetch_detailed_partitions(
     for _group_name, topics in consumer_groups.items():
         for _topic_name, topic_info in topics.items():
             partitions = topic_info.get("partitions") or {}
-            return {
-                int(p): (info["offset"], info.get("lag") or 0)
-                for p, info in partitions.items()
-            }
+            result = {}
+            for p, info in partitions.items():
+                offset = info.get("offset")
+                if offset is None:
+                    # Treat a malformed partition entry like a failed fetch, so
+                    # the caller falls back to the legacy wait rather than
+                    # raising out of the middle of a sync.
+                    logger.warning(
+                        "Partition %s in %s has no offset; falling back to legacy wait",
+                        p,
+                        endpoint,
+                    )
+                    return None
+                result[int(p)] = (offset, info.get("lag") or 0)
+            return result
     return {}
 
 
-def wait_for_offsets_to_be_consumed(
-    consumers: List[str],
-    max_timeout_in_sec: int = 60,
-    poll_interval_sec: float = 0.25,
+def _capture_offset_targets(
+    gms_url: str,
+    consumer_types: List[str],
     auth_session: Optional[_AuthenticatedSession] = None,
-) -> bool:
-    """PROTOTYPE. Wait for consumer offsets to pass a fixed checkpoint captured
-    at call time, instead of polling a continuously-refreshed aggregate lag.
+) -> Optional[dict]:
+    """Capture the current log-end-offset per (consumer_type, partition).
 
-    Args:
-        consumers: subset of "mcp", "mcl", "mcl_timeseries" to wait on.
-        max_timeout_in_sec: safety ceiling.
-        poll_interval_sec: how often to re-check (much finer than the 1s
-            granularity of wait_for_writes_to_sync's poll loop, since each
-            check is now a ~20-50ms HTTP call rather than a ~1.4s CLI spawn).
-        auth_session: base authenticated test session used for GMS operations.
-
-    Returns:
-        True if a checkpoint was established (whether or not every offset was
-        consumed within the timeout). False if the checkpoint fetch itself
-        failed (e.g. a transient 401/connection error) -- the caller should
-        fall back to the legacy lag-polling path rather than trust an empty
-        checkpoint, which would otherwise return near-instantly as if there
-        were nothing to wait for.
+    Returns None if any fetch failed, so callers can distinguish "nothing to
+    wait for" from "couldn't look".
     """
-    start_time = time.time()
-    gms_url = _get_gms_url()
-
     targets: dict = {}
-    for consumer_type in consumers:
+    for consumer_type in consumer_types:
         endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
         partitions = _fetch_detailed_partitions(gms_url, endpoint, auth_session)
         if partitions is None:
@@ -525,12 +526,25 @@ def wait_for_offsets_to_be_consumed(
                 "unreachable); falling back to legacy wait",
                 consumer_type,
             )
-            return False
+            return None
         for partition, (offset, lag) in partitions.items():
             targets[(consumer_type, partition)] = offset + lag
+    return targets
 
+
+def _await_offset_targets(
+    gms_url: str,
+    targets: dict,
+    deadline: float,
+    poll_interval_sec: float,
+    auth_session: Optional[_AuthenticatedSession] = None,
+) -> dict:
+    """Poll until every target offset has been passed, or the deadline hits.
+
+    Returns the targets still outstanding (empty dict means fully consumed).
+    """
     remaining = dict(targets)
-    while remaining and (time.time() - start_time) < max_timeout_in_sec:
+    while remaining and time.time() < deadline:
         time.sleep(poll_interval_sec)
         for consumer_type in {c for (c, _p) in remaining}:
             endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
@@ -541,14 +555,90 @@ def wait_for_offsets_to_be_consumed(
                 key = (consumer_type, partition)
                 if key in remaining and offset >= remaining[key]:
                     del remaining[key]
+    return remaining
+
+
+def wait_for_offsets_to_be_consumed(
+    consumers: List[str],
+    max_timeout_in_sec: int = 60,
+    poll_interval_sec: float = 0.25,
+    auth_session: Optional[_AuthenticatedSession] = None,
+) -> bool:
+    """Wait for consumer offsets to pass a checkpoint, instead of polling a
+    continuously-refreshed aggregate lag (which never converges while other
+    xdist workers keep writing).
+
+    Runs in two phases, because an MCL does not necessarily exist yet when this
+    is called:
+
+      1. Wait for the MCP checkpoint. On the async ingest path (the Python REST
+         sink's ASYNC/ASYNC_BATCH modes, i.e. ingest_file_via_rest), GMS's
+         ingestProposalAsync produces *only* the MCP and returns -- no SQL write
+         and no MCL. The MCL is produced later, by the mce-consumer.
+      2. Only then capture the MCL checkpoint and wait for it. By this point the
+         MCL is guaranteed to be in the topic: the mce-consumer joins the MCL
+         send futures inside its listener (MCLEmitResult.isProduced() calls
+         mclFuture.get(), evaluated by a terminal collect() in produceMCLAsync),
+         so its own offset cannot advance until the MCL is broker-acked.
+
+    Capturing both checkpoints up front instead would be wrong for that path:
+    the MCL checkpoint would be the *pre-write* end-offset, already satisfied on
+    the first tick, so the wait would return without ever covering indexing.
+    Synchronous writes (GraphQL mutations, SYNC_PRIMARY emits) are unaffected --
+    they produce and ack their MCL in-request, so phase 1 is a no-op for them
+    and phase 2 sees their MCL immediately.
+
+    Two carve-outs where phase 2 is not a guarantee: CDC mode
+    (CDC_MCL_PROCESSING_ENABLED=true, default off) produces no MCL inline at all,
+    and an MCL produce failure is swallowed by the consumer, which advances its
+    offset with the SQL written but no MCL.
+
+    Args:
+        consumers: subset of "mcp", "mcl", "mcl_timeseries" to wait on.
+        max_timeout_in_sec: safety ceiling across both phases.
+        poll_interval_sec: how often to re-check (much finer than the 1s
+            granularity of wait_for_writes_to_sync's poll loop, since each
+            check is now a ~20-50ms HTTP call rather than a ~1.4s CLI spawn).
+        auth_session: base authenticated test session used for GMS operations.
+
+    Returns:
+        True if checkpoints were established (whether or not every offset was
+        consumed within the timeout). False if a checkpoint fetch itself
+        failed (e.g. a transient 401/connection error) -- the caller should
+        fall back to the legacy lag-polling path rather than trust an empty
+        checkpoint, which would otherwise return near-instantly as if there
+        were nothing to wait for.
+    """
+    start_time = time.time()
+    deadline = start_time + max_timeout_in_sec
+    gms_url = _get_gms_url()
+
+    mcp_consumers = [c for c in consumers if c == "mcp"]
+    mcl_consumers = [c for c in consumers if c != "mcp"]
+
+    total_targets = 0
+    outstanding: dict = {}
+
+    for phase_consumers in (mcp_consumers, mcl_consumers):
+        if not phase_consumers:
+            continue
+        targets = _capture_offset_targets(gms_url, phase_consumers, auth_session)
+        if targets is None:
+            return False
+        total_targets += len(targets)
+        outstanding.update(
+            _await_offset_targets(
+                gms_url, targets, deadline, poll_interval_sec, auth_session
+            )
+        )
 
     elapsed = time.time() - start_time
-    if remaining:
+    if outstanding:
         logger.warning(
-            f"Timed out after {elapsed:.1f}s waiting for offsets to be consumed: {remaining}"
+            f"Timed out after {elapsed:.1f}s waiting for offsets to be consumed: {outstanding}"
         )
     else:
         logger.info(
-            f"All {len(targets)} target offset(s) consumed after {elapsed:.2f}s"
+            f"All {total_targets} target offset(s) consumed after {elapsed:.2f}s"
         )
     return True

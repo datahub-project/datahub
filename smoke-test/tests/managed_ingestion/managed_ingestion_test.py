@@ -88,8 +88,11 @@ def _delete_ingestion_sources_by_name(auth_session: object, names: list[str]) ->
         if ingestion_source["name"] in names or ingestion_source["name"].startswith(
             _SMOKE_INGESTION_SOURCE_PREFIX
         ):
-            # no_sync_wait: nothing reads state between deletes in this loop;
-            # the explicit wait below covers the whole batch once.
+            # no_sync_wait: only the combined post-loop state matters, and the
+            # explicit wait below covers it. Note the per-source read above
+            # still auto-waits on each iteration, so this saves less here than
+            # the equivalent batching elsewhere; a stale read would just mean
+            # re-deleting an already-deleted source, which is harmless.
             execute_graphql(
                 auth_session,
                 """mutation deleteIngestionSource($urn: String!) {\n

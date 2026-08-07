@@ -185,12 +185,29 @@ def get_use_static_sleep() -> bool:
 def get_elasticsearch_refresh_interval_seconds() -> int:
     """Elasticsearch refresh interval in seconds.
 
-    EXPERIMENT: default lowered from 3 to 1 to match CI's actual GMS configuration
-    (1s bulk-flush period, 1s index refresh interval — see run-quickstart.sh),
-    testing whether the trailing wait in wait_for_writes_to_sync() can be shortened
-    accordingly.
+    This trailing sleep is the last backstop for search-index visibility after
+    the consumer offsets have been awaited, so the library default stays
+    conservative. CI overrides it to 1 on the pytest step in
+    docker-unified.yml, where GMS is started with a 1s bulk-flush period and 1s
+    index refresh interval (see run-quickstart.sh).
     """
-    return int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", "1"))
+    return int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", "3"))
+
+
+def get_force_legacy_wait() -> bool:
+    """Force wait_for_writes_to_sync() onto the legacy aggregate-lag path.
+
+    Set on CI retry attempts so a batch that failed once re-runs with the more
+    conservative wait. Legacy is the wrong *default* -- under full concurrent
+    xdist load, aggregate lag may never converge -- but the right choice on a
+    retry, which runs a smaller filtered set of tests under much less write
+    pressure.
+    """
+    return os.getenv("DATAHUB_TEST_FORCE_LEGACY_WAIT", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 def get_kafka_bootstrap_server() -> str:

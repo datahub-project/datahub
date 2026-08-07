@@ -400,14 +400,8 @@ def _post(
     the final state matters (nothing reads intermediate state) -- wait once
     after the batch instead of paying a full wait on every call.
     """
-    if not no_sync_wait:
-        response = auth_session.post(url, **kwargs)
-        response.raise_for_status()
-        return response
-
-    headers = CaseInsensitiveDict(dict(kwargs.pop("headers", None) or {}))
-    headers["Authorization"] = f"Bearer {auth_session.gms_token()}"
-    response = auth_session._upstream.post(url, headers=headers, **kwargs)
+    post = auth_session.raw_post if no_sync_wait else auth_session.post
+    response = post(url, **kwargs)
     response.raise_for_status()
     return response
 

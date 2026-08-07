@@ -13,7 +13,6 @@ import time
 from typing import Any, Dict, List, Optional, Set
 
 import pytest
-from requests.structures import CaseInsensitiveDict
 
 from tests.consistency_utils import wait_for_writes_to_sync
 
@@ -51,20 +50,15 @@ def ingest_profile(
     (that flag only affects the non-timeseries key-aspect path), so this write
     still goes through Kafka MCL and needs a real wait -- see
     setup_timeseries_data, which waits once after all profiles are ingested.
-    Posts via the underlying session directly to skip TestSessionWrapper's
-    per-call automatic wait_for_writes_to_sync(), since only the combined
-    state after all profiles matters.
+    Uses raw_post to skip TestSessionWrapper's per-call automatic
+    wait_for_writes_to_sync(), since only the combined state after all
+    profiles matters.
     """
     url = f"{auth_session.gms_url()}/openapi/v3/entity/dataset/{TEST_DATASET_URN.replace(':', '%3A').replace('(', '%28').replace(')', '%29').replace(',', '%2C')}/datasetProfile"
     params = {"createIfNotExists": "false", "async": "false"}
     payload = create_dataset_profile(timestamp_millis, row_count, message_id)
 
-    headers = CaseInsensitiveDict(
-        {"Authorization": f"Bearer {auth_session.gms_token()}"}
-    )
-    response = auth_session._upstream.post(
-        url, params=params, json=payload, headers=headers
-    )
+    response = auth_session.raw_post(url, params=params, json=payload)
     assert response.status_code in [200, 201, 202], (
         f"Failed to ingest profile: {response.text}"
     )
