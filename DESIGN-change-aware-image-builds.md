@@ -105,7 +105,12 @@ All of these resolve to "build it", i.e. today's behaviour:
   consumers *and* the Python SDK, so any touch there rebuilds everything
   (AGENTS.md states this). Same for a GraphQL schema change, which would
   otherwise pair a PR-built GMS with a HEAD frontend.
-- **Label override.** `ci-full-build` on the PR forces a full build.
+- **Label override.** A **`build-images`** label on the PR forces a full build of
+  every image, regardless of what changed. Checked first, so the job log reports
+  the human override as the reason rather than whichever condition also matched.
+  Follows the existing label convention in this workflow (`depot`, `publish`,
+  `publish-docker`). This is the escape hatch to reach for when someone suspects
+  the reuse path is serving stale images.
 - **Trigger scope.** Only `pull_request` can reuse; `workflow_dispatch`, `push`
   to master and `release` always build everything.
 - **Tag existence check.** Verify the `quickstart` tag resolves before relying on
