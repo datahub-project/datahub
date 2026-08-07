@@ -8,6 +8,7 @@ from typing import Dict, FrozenSet, List, NamedTuple, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
+    get_invoke_callee_name,
     get_record_field_values,
     resolve_identifier,
 )
@@ -94,13 +95,12 @@ def resolve_to_table_references(
             _Scope(scope_id=root_let_id, let_node=root_let),
         )
     else:
-        # No let scope. Only a plain identifier expression (e.g. `DimDate`) is a
-        # bare sibling reference. Anything with a function call
-        # (RecursivePrimaryExpression / InvokeExpression) is a data-source or
-        # transformation expression — e.g. an unsupported source like
-        # `LOAD_DATA(Source)` — not table-to-table lineage, so skip it.
-        kinds = {node.get("kind") for node in node_map.values()}
-        if kinds & {"RecursivePrimaryExpression", "InvokeExpression"}:
+        # No let scope. A call to an M library function (always namespaced, e.g.
+        # Table.Combine) may still take sibling tables as arguments, so walk it —
+        # wrapping an expression in a `let` must not change the answer. A call to
+        # anything else is an unknown or unsupported source (e.g.
+        # `LOAD_DATA(Source)`) whose arguments are parameters, not tables.
+        if _calls_unknown_function(node_map):
             return []
         # The root is the one node with no parent. Falling back to the lowest id
         # is only an approximation — for `TblA & TblB` it picks the left operand
@@ -152,6 +152,15 @@ def _function_param_names(node: dict) -> FrozenSet[str]:
             if literal:
                 names.add(literal.casefold())
     return frozenset(names)
+
+
+def _calls_unknown_function(node_map: NodeIdMap) -> bool:
+    """Whether the expression invokes a function that is not an M library call."""
+    return any(
+        (callee := get_invoke_callee_name(node_map, node)) is None or "." not in callee
+        for node in node_map.values()
+        if node.get("kind") == "InvokeExpression"
+    )
 
 
 def _root_node_id(node_map: NodeIdMap, parent_by_id: Optional[Dict[int, int]]) -> int:
@@ -292,6 +301,20 @@ def _walk(
                 parameters,
                 unresolved,
             )
+        return
+
+    # -- EachExpression (`each <body>`) — the body is an ordinary expression --
+    if kind == "EachExpression":
+        _walk(
+            node_map,
+            node.get("paired"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+            unresolved,
+        )
         return
 
     # -- Binary expressions (e.g. `TblA & TblB`, `a ?? b`) — walk both operands --
@@ -444,8 +467,12 @@ def _walk_invoke(
         )
         return
 
-    # Unrecognized wrapper (Table.RenameColumns, Table.NestedJoin, etc.).
-    if callee:
+    # Unrecognized *M library* wrapper (Table.RenameColumns, Table.NestedJoin,
+    # ...). Those are always namespaced; a bare callee is an unknown or
+    # unsupported source whose arguments are parameters rather than tables, so
+    # don't descend into them — matching the no-`let` case, so that wrapping an
+    # expression in a `let` cannot change the answer.
+    if callee and "." in callee:
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
             for elem in content.get("elements", []):

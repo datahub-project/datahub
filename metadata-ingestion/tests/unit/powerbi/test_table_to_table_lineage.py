@@ -42,6 +42,16 @@ def _parse(expression: str) -> NodeIdMap:
     return node_map
 
 
+def _refs(expression: str) -> List[str]:
+    """Resolve table references the way production does — with the parent index."""
+    _clear_bridge()
+    parsed = get_bridge().parse_tree(expression)
+    _clear_bridge()
+    return resolve_to_table_references(
+        parsed.node_map, parent_by_id=parsed.parent_by_id
+    )
+
+
 def _config() -> PowerBiDashboardSourceConfig:
     return PowerBiDashboardSourceConfig(
         tenant_id="test-tenant-id",
@@ -136,12 +146,25 @@ def test_genuine_data_source_has_no_table_references() -> None:
     assert resolve_to_table_references(node_map) == []
 
 
-def test_unsupported_function_call_without_let_is_not_a_reference() -> None:
-    # An unsupported source expressed as a bare function call must not be
-    # mistaken for a sibling-table reference (neither the function name nor its
-    # arguments).
-    node_map = _parse("LOAD_DATA(Source)")
-    assert resolve_to_table_references(node_map) == []
+def test_each_body_is_walked() -> None:
+    # `each` bodies are ordinary expressions and routinely reference another
+    # table (`each [d] = List.Max(#"Prev"[d])`); skipping them loses lineage.
+    node_map = _parse('let A = Table.AddColumn(TblA, "c", each TblB) in A')
+    assert resolve_to_table_references(node_map) == ["TblA", "TblB"]
+
+
+def test_wrapper_call_without_let_is_still_walked() -> None:
+    # An M library call is namespaced; its arguments can be sibling tables, and
+    # whether the author wrapped it in a `let` must not change the answer.
+    assert _refs("Table.Combine({tblA, tblB})") == ["tblA", "tblB"]
+
+
+def test_unsupported_function_call_is_not_a_reference_wrapped_or_not() -> None:
+    # An unsupported source must not be mistaken for a sibling-table reference —
+    # neither the function name nor its arguments — and wrapping it in a `let`
+    # must not change that.
+    assert _refs("LOAD_DATA(Source)") == []
+    assert _refs("let X = LOAD_DATA(Source) in X") == []
 
 
 def test_nested_let_outer_variable_is_not_a_reference() -> None:
@@ -171,13 +194,7 @@ def test_join_with_shared_ancestor_has_no_circular_warning(
 def test_binary_expression_without_let_captures_both_operands() -> None:
     # The root of `TblA & TblB` is the ArithmeticExpression, not the lowest node
     # id (which is the left operand). Selecting the root by id dropped TblB.
-    _clear_bridge()
-    parsed = get_bridge().parse_tree("TblA & TblB")
-    _clear_bridge()
-    refs = resolve_to_table_references(
-        parsed.node_map, parent_by_id=parsed.parent_by_id
-    )
-    assert refs == ["TblA", "TblB"]
+    assert _refs("TblA & TblB") == ["TblA", "TblB"]
 
 
 def test_sibling_kept_when_a_nested_let_shadows_its_name() -> None:
