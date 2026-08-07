@@ -101,6 +101,7 @@ class WorkflowMetrics:
     triggering_actor: str | None
     pull_request_number: int | None
     pull_request_url: str | None
+    base_branch: str | None
     head_branch: str | None
     head_sha: str | None
     conclusion: str | None
@@ -133,6 +134,7 @@ class WorkflowMetrics:
             triggering_actor=triggering_actor_obj.get("login"),
             pull_request_number=pr.get("number") if pr else None,
             pull_request_url=pr.get("url") if pr else None,
+            base_branch=(pr.get("base") or {}).get("ref") if pr else None,
             head_branch=data.get("head_branch"),
             head_sha=data.get("head_sha"),
             conclusion=data.get("conclusion"),
