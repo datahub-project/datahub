@@ -75,8 +75,14 @@ PATH_RULES=(
   "docs-website/|"
   "smoke-test/|"
   "e2e-test/|"
-  # Compose templates describe how images are run, not what is in them.
+  # Compose templates and the version map describe how images are run, not what
+  # is in them. Without this a one-file bump of quickstart_version_mapping.yaml
+  # bakes all six images.
   "docker/profiles/|"
+  "docker/quickstart/|"
+  # Standalone Python package: no Dockerfile references it and no other
+  # build.gradle depends on it.
+  "datahub-agent-context/|"
 
   "datahub-web-react/|${UI}"
   "datahub-frontend/|${UI}"
@@ -128,6 +134,8 @@ PATH_RULES=(
   "metadata-jobs/|${SERVER}"
   "datahub-upgrade/|${SERVER}"
   "metadata-integration/|${SERVER}"
+  # A Gradle module consumed only by mae-consumer and metadata-service/factories.
+  "ingestion-scheduler/|${SERVER}"
   "docker/datahub-gms/|${SERVER}"
   "docker/datahub-mae-consumer/|${SERVER}"
   "docker/datahub-mce-consumer/|${SERVER}"
