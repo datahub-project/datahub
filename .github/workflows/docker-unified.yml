@@ -24,6 +24,7 @@ on:
       - ".github/workflows/docker-unified.yml"
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/scripts/check_python_package.py"
@@ -42,6 +43,7 @@ on:
       - ".github/workflows/docker-unified.yml"
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/scripts/check_python_package.py"
@@ -118,7 +120,13 @@ jobs:
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
-      needs_image_build: ${{ steps.image-build-decision.outputs.needs_image_build }}
+      # Gradle modules base_build has to bake; empty means every image in the
+      # quickstart set can be reused as-is.
+      image_build_modules: ${{ steps.image-build-plan.outputs.image_build_modules }}
+      # KEY=VALUE lines pinning each reused image to the floating `quickstart`
+      # tag. Jobs that boot a stack append these to $GITHUB_ENV before calling
+      # run-quickstart.sh; images absent from the map fall back to DATAHUB_VERSION.
+      image_version_env: ${{ steps.image-build-plan.outputs.image_version_env }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -201,42 +209,23 @@ jobs:
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
-      - name: Decide whether images need building
-        id: image-build-decision
+      - name: Resolve which images to build
+        id: image-build-plan
         env:
-          SMOKE_TEST_ONLY: ${{ steps.ci-optimize.outputs.smoke-test-only }}
+          EVENT_NAME: ${{ github.event_name }}
           # Escape hatch: force a full build of every image regardless of what
           # changed. Matches the existing label convention (`depot`, `publish`).
+          # Reach for it when the reuse path is suspected of serving stale images.
           FULL_BUILD_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build-images') }}
-        run: |
-          # Default is to build. The fast path -- reuse the last known-good
-          # `quickstart` images instead of baking a fresh set -- is taken only
-          # when every one of these holds, so anything unexpected keeps today's
-          # behaviour rather than silently testing the wrong images.
-          reason=""
-          if [[ "$FULL_BUILD_LABEL" == "true" ]]; then
-            # Checked first so an explicit human override is reported as such,
-            # rather than being masked by whichever condition also matched.
-            reason="build-images label set"
-          elif [[ "${{ github.event_name }}" != "pull_request" ]]; then
-            reason="not a pull_request (${{ github.event_name }})"
-          elif [[ "$SMOKE_TEST_ONLY" != "true" ]]; then
-            reason="changes can affect an image"
-          elif ! docker manifest inspect "${DOCKER_REGISTRY}/datahub-gms:quickstart" >/dev/null 2>&1; then
-            # Verify the known-good tag actually resolves before relying on it.
-            # Failing here costs one cheap check; failing later costs seven
-            # parallel batch jobs that boot a stack against images that
-            # do not exist.
-            reason="quickstart tag did not resolve in the registry"
-          fi
-
-          if [[ -n "$reason" ]]; then
-            echo "Building images: $reason"
-            echo "needs_image_build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Skipping image build: smoke-test-only change, reusing quickstart images"
-            echo "needs_image_build=false" >> "$GITHUB_OUTPUT"
-          fi
+          IS_FORK: ${{ env.IS_FORK }}
+          PR_PUBLISH: ${{ steps.pr-publish.outputs.publish }}
+          SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+          FRONTEND_CHANGE: ${{ steps.ci-optimize.outputs.frontend-change }}
+          BACKEND_CHANGE: ${{ steps.ci-optimize.outputs.backend-change }}
+          INGESTION_CHANGE: ${{ steps.ci-optimize.outputs.ingestion-change }}
+          ACTIONS_CHANGE: ${{ steps.ci-optimize.outputs.actions-change }}
+        run: .github/scripts/resolve_image_builds.sh
 
       - name: Determine runner type
         id: set-runner
@@ -321,20 +310,38 @@ jobs:
     needs: setup
     timeout-minutes: 60
     if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
+    # This job always runs, even when every image can be reused, because three
+    # downstream jobs gate on it to know that a usable image set exists. When
+    # there is nothing to bake it falls through in seconds and reports an empty
+    # build id, which those jobs read as "pull nothing from depot".
+    env:
+      IMAGE_BUILD_MODULES: ${{ needs.setup.outputs.image_build_modules }}
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
+      - name: Report the image build plan
+        run: |
+          if [[ -z "$IMAGE_BUILD_MODULES" ]]; then
+            echo "Nothing to build -- every image is being reused from the quickstart tag."
+          else
+            echo "Building: $IMAGE_BUILD_MODULES"
+          fi
+
       - name: Set up JDK 21
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "temurin"
           java-version: 21
 
+      # Unconditional: the `uses: ./...` steps below are local actions, which
+      # can only be resolved out of a checked-out workspace.
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: ./.github/actions/restore-dependency-caches
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
@@ -365,22 +372,24 @@ jobs:
           gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Set up Depot CLI
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.IMAGE_BUILD_MODULES != '' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           python-version: "3.11"
           cache: "pip"
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        if: ${{ needs.setup.outputs.docker-login == 'true' && env.IMAGE_BUILD_MODULES != '' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - id: uv-creds
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         uses: ./.github/actions/setup-uv-credentials
         with:
           base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
@@ -391,17 +400,26 @@ jobs:
         # --max-workers=$(nproc): gradle.properties caps workers at 2 (a laptop-safe
         # default); the runner has 4+ vCPU, so that throttles this multi-module build.
         # Same override build-and-test.yml already applies.
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && env.IMAGE_BUILD_MODULES != '' }}
+        env:
+          SMOKE_BUILD_TASK: ${{ needs.setup.outputs.smoke_build_task }}
         run: |
+          # -PbuildModules narrows the bake to the images this PR can affect, and
+          # only applies to the default quickstart set. The other two tasks are
+          # reached only on paths that always build everything (workflow_dispatch,
+          # or a smoke: label picking a different profile), and their module sets
+          # do not match the one the plan was computed against.
+          build_modules_flag=()
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUILD_TASK=":docker:buildImagesAll"
-          elif [[ -n "${{ needs.setup.outputs.smoke_build_task }}" ]]; then
-            BUILD_TASK="${{ needs.setup.outputs.smoke_build_task }}"
+          elif [[ -n "$SMOKE_BUILD_TASK" ]]; then
+            BUILD_TASK="$SMOKE_BUILD_TASK"
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
+            build_modules_flag=("-PbuildModules=$IMAGE_BUILD_MODULES")
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
@@ -410,6 +428,9 @@ jobs:
           ./gradlew --max-workers="$(nproc)" :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Capture build Id
         id: capture-build-id
+        # Skipped when nothing was baked, leaving build_id empty so the jobs
+        # downstream skip their `depot pull` and take every image from the registry.
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' "${{ github.workspace }}/build/build-metadata.json")
@@ -610,7 +631,7 @@ jobs:
           docker images
 
       - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id != '' }}
         run: |
           depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
           docker images
@@ -621,6 +642,16 @@ jobs:
           df -h
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
+
+      - name: Pin reused images to the quickstart tag
+        env:
+          IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
+        run: |
+          # Per-service overrides for the images this PR cannot affect, which are
+          # served from the last set that passed smoke tests on master. Images
+          # absent here fall through to DATAHUB_VERSION and come from the depot
+          # pull above. Empty on a full build.
+          printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
 
       - name: Run quickstart
         env:
@@ -802,7 +833,7 @@ jobs:
           docker images
 
       - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id != '' && steps.retry-check.outputs.parse_result != 'all_passed' }}
         run: |
           depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
           docker images
@@ -814,6 +845,17 @@ jobs:
           df -h
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
+
+      - name: Pin reused images to the quickstart tag
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        env:
+          IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
+        run: |
+          # Per-service overrides for the images this PR cannot affect, which are
+          # served from the last set that passed smoke tests on master. Images
+          # absent here fall through to DATAHUB_VERSION and come from the depot
+          # pull above. Empty on a full build.
+          printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
 
       - name: Run quickstart
         if: steps.retry-check.outputs.parse_result != 'all_passed'
@@ -996,6 +1038,7 @@ jobs:
       # Can't use env.DOCKER_REGISTRY so hardcoding the registry value
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
+      image_version_env: ${{ needs.setup.outputs.image_version_env }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
       # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
