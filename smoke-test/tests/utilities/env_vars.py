@@ -2,6 +2,7 @@
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
 import os
+import re
 from typing import Optional
 
 # ============================================================================
@@ -137,6 +138,12 @@ def get_postgres_password() -> str:
 # ============================================================================
 
 
+# Same gate smoke.sh uses to decide whether to pass -n to pytest. Matched with
+# fullmatch, not $: Python's $ also matches just before a trailing newline, so
+# "3\n" would pass here while bash's =~ ^[1-9][0-9]*$ rejects it.
+_XDIST_WORKERS_PATTERN = re.compile(r"[1-9][0-9]*")
+
+
 def get_batch_count() -> int:
     """Number of test batches for parallel execution."""
     return int(os.getenv("BATCH_COUNT", "1"))
@@ -145,6 +152,26 @@ def get_batch_count() -> int:
 def get_batch_number() -> int:
     """Current batch number (zero-indexed)."""
     return int(os.getenv("BATCH_NUMBER", "0"))
+
+
+def get_pytest_xdist_workers() -> int:
+    """pytest-xdist worker count used for a batch's parallel phase.
+
+    Deliberately mirrors smoke.sh's gate byte for byte::
+
+        if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
+
+    smoke.sh is what decides whether ``-n`` is actually passed, so anything this
+    accepts that the shell rejects would have batch weighting assume parallelism
+    that never happens. That rules out surrounding whitespace and leading zeros
+    (``" 3 "``, ``"03"``), which the shell will not match, and non-ASCII digits
+    like ``"²"``, for which ``str.isdigit()`` is True but ``int()`` raises, and
+    a trailing newline (``"3\n"``), which Python's ``$`` would otherwise accept.
+    Anything unset or not matching means no xdist, i.e. one worker.
+    """
+    if not _XDIST_WORKERS_PATTERN.fullmatch(os.getenv("PYTEST_XDIST_WORKERS", "")):
+        return 1
+    return int(os.environ["PYTEST_XDIST_WORKERS"])
 
 
 def get_test_strategy() -> Optional[str]:
