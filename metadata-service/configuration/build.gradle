@@ -35,6 +35,30 @@ test {
     exclude '**/cigate/GraphqlUsageRegistryCiGateTest.class'
     exclude '**/cigate/OpenApiUsageRegistryCiGateTest.class'
     exclude '**/cigate/RestliUsageRegistryCiGateTest.class'
+    exclude '**/productupdate/ProductUpdateReleaseSyncTest.class'
+}
+
+// The product update JSONs advertise a release, but the release history that makes them stale
+// lives in docs/. Declaring both as inputs of a dedicated task is what makes promoting release
+// notes re-run this gate instead of leaving `test` UP-TO-DATE.
+def productUpdateInputs = files(
+    file("${projectDir}/src/main/resources/product-update.json"),
+    file("${projectDir}/src/main/resources/product-update-saas.json"),
+    file("${rootProject.projectDir}/docs/how/updating-datahub.md"),
+    fileTree("${rootProject.projectDir}/docs/managed-datahub/release-notes") { include '*.md' },
+)
+
+tasks.register('productUpdateReleaseSyncCheck', Test) {
+    description = 'Validate bundled product update ("What\'s New" toast) JSONs advertise the latest release.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/productupdate/ProductUpdateReleaseSyncTest.class'
+    inputs.files productUpdateInputs
+    outputs.file("${layout.buildDirectory.get()}/product-update-release-sync-check.stamp")
+    systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
+    reports.junitXml.required = true
+    reports.html.required = true
 }
 
 // Usage registry CI gates skip when git detects no relevant changes. Force a full scan:
@@ -110,7 +134,7 @@ tasks.register('restLiUsageRegistryCheck', Test) {
     reports.html.required = true
 }
 
-check.dependsOn graphqlUsageRegistryCheck, openApiUsageRegistryCheck, restLiUsageRegistryCheck
+check.dependsOn graphqlUsageRegistryCheck, openApiUsageRegistryCheck, restLiUsageRegistryCheck, productUpdateReleaseSyncCheck
 
 tasks.register('updateGraphqlUsageExemptionSnapshot', JavaExec) {
     dependsOn testClasses
