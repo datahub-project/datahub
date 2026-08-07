@@ -89,12 +89,14 @@ check "metadata-jobs" "${SERVER}" 'CHANGED_FILES=["metadata-jobs/mae-consumer/sr
 check "datahub-upgrade" "${SERVER}" 'CHANGED_FILES=["datahub-upgrade/src/main/java/A.java"]'
 check "metadata-service internals" "${SERVER}" 'CHANGED_FILES=["metadata-service/factories/src/main/java/A.java"]'
 check "graphql resolvers" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/A.java"]'
+# Compile-only input to the frontend (TS types, erased at runtime). Reusing the
+# published frontend tests an existing client against the new schema instead.
+check "graphql schema resource" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
 
-echo "the shared contract rebuilds both sides"
-check "graphql schema resource" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
-check "restli-client (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["metadata-service/restli-client/src/main/java/A.java"]'
-check "entity-registry (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["entity-registry/src/main/java/A.java"]'
-check "li-utils (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
+echo "runtime-shared code rebuilds both sides"
+check "restli-client (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["metadata-service/restli-client/src/main/java/A.java"]'
+check "entity-registry (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["entity-registry/src/main/java/A.java"]'
+check "li-utils (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
 check "metadata-models rebuilds everything" "${ALL}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
 
 echo "ingestion only rebuilds actions"
