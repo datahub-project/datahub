@@ -49,6 +49,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GroupService implements ActorGroupMembershipService {
 
+  private static final int GROUP_MEMBER_PAGE_SIZE = 500;
+
+  /**
+   * Elasticsearch defaults cap offset paging at 10k hits (max_result_window) and stop counting
+   * exact totals at the same point (track_total_hits), so the graph cannot be paged past this with
+   * the relationship API.
+   */
+  private static final int MAX_GROUP_MEMBERS_TO_MIGRATE = 10_000;
+
   private static final ImmutableSet<String> USER_MEMBERSHIP_ASPECTS =
       ImmutableSet.of(
           GROUP_MEMBERSHIP_ASPECT_NAME,
@@ -426,17 +435,41 @@ public class GroupService implements ActorGroupMembershipService {
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    final EntityRelationships relationships =
-        _graphClient.getRelatedEntities(
-            groupUrn.toString(),
-            ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
-            RelationshipDirection.INCOMING,
-            0,
-            500,
-            actorUrnStr);
-    return relationships.getRelationships().stream()
-        .map(EntityRelationship::getEntity)
-        .collect(Collectors.toList());
+    final List<Urn> memberUrns = new ArrayList<>();
+    int start = 0;
+    while (start < MAX_GROUP_MEMBERS_TO_MIGRATE) {
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              groupUrn.toString(),
+              ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              start,
+              GROUP_MEMBER_PAGE_SIZE,
+              actorUrnStr);
+
+      final List<Urn> page =
+          relationships.getRelationships().stream()
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toList());
+      memberUrns.addAll(page);
+
+      // Check the short page first so getTotal() is only read when a full page came back.
+      if (page.size() < GROUP_MEMBER_PAGE_SIZE || memberUrns.size() >= relationships.getTotal()) {
+        return memberUrns;
+      }
+      start += page.size();
+    }
+
+    // Offset paging cannot go further: Elasticsearch caps both max_result_window and its exact hit
+    // count at 10k by default. Members past this point keep their legacy GroupMembership aspect,
+    // which still grants membership and is still removable, so warn rather than fail the migration.
+    log.warn(
+        "Group {} has at least {} members; migrating only the first {}. Remaining members keep the"
+            + " legacy groupMembership aspect.",
+        groupUrn,
+        MAX_GROUP_MEMBERS_TO_MIGRATE,
+        memberUrns.size());
+    return memberUrns;
   }
 
   void removeExistingGroupMembers(

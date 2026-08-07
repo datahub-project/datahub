@@ -541,6 +541,63 @@ public class GroupServiceTest {
   }
 
   @Test
+  public void testGetExistingGroupMembersPagesPastTheFirstPage() {
+    // First page comes back full, so a second page must be requested.
+    final EntityRelationships fullPage = relationshipsPage(0, 500, 501);
+    final EntityRelationships lastPage = relationshipsPage(500, 1, 501);
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            anyInt(),
+            any()))
+        .thenReturn(fullPage);
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            eq(500),
+            anyInt(),
+            any()))
+        .thenReturn(lastPage);
+
+    assertEquals(_groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()).size(), 501);
+  }
+
+  @Test
+  public void testGetExistingGroupMembersStopsAtTheOffsetPagingCeiling() {
+    // A graph that always returns a full page would otherwise loop forever.
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(relationshipsPage(0, 500, Integer.MAX_VALUE));
+
+    assertEquals(
+        _groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()).size(), 10_000);
+  }
+
+  private static EntityRelationships relationshipsPage(int start, int count, int total) {
+    final List<EntityRelationship> page =
+        IntStream.range(0, count)
+            .mapToObj(
+                i ->
+                    new EntityRelationship()
+                        .setEntity(new CorpuserUrn("user" + (start + i) + "@email.com"))
+                        .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))
+            .collect(Collectors.toList());
+    return new EntityRelationships()
+        .setStart(start)
+        .setCount(count)
+        .setTotal(total)
+        .setRelationships(new EntityRelationshipArray(page));
+  }
+
+  @Test
   public void testRemoveExistingGroupMembersNullArguments() {
     assertThrows(
         () ->
