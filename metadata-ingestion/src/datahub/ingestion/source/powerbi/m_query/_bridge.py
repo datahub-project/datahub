@@ -2,12 +2,28 @@ import gzip
 import json
 import logging
 import threading
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 NodeIdMap = dict[int, dict]
+
+
+@dataclass(frozen=True)
+class ParsedMQuery:
+    """A parsed M-Query: the flat node map plus the parser's child -> parent index.
+
+    The AST embeds children inline, so the node map alone can only be walked
+    downward. The parent index lets a caller walk outward — resolving an
+    identifier against its enclosing `let` scopes, or finding the root as the one
+    node with no parent.
+    """
+
+    node_map: NodeIdMap
+    parent_by_id: Dict[int, int]
+
 
 _BUNDLE_PATH = Path(__file__).parent / "mquery_bridge" / "bundle.js.gz"
 
@@ -53,8 +69,12 @@ class MQueryBridge:
         self._ctx.eval(bundle_js)
 
     def parse(self, expression: str) -> NodeIdMap:
+        """Parse an M-Query expression and return just its flat node map."""
+        return self.parse_tree(expression).node_map
+
+    def parse_tree(self, expression: str) -> "ParsedMQuery":
         """
-        Parse an M-Query expression and return a flat node map.
+        Parse an M-Query expression into its node map and parent index.
 
         Each key is a node ID (int); each value is a node dict with at least
         ``kind`` (NodeKind string) and ``id``. Child nodes are embedded inline,
@@ -116,7 +136,13 @@ class MQueryBridge:
                 "M-Query bridge returned ok=true but 'nodeIdMap' is missing from response"
             )
 
-        return {int(node_id): node for node_id, node in node_id_map}
+        return ParsedMQuery(
+            node_map={int(node_id): node for node_id, node in node_id_map},
+            parent_by_id={
+                int(node_id): int(parent_id)
+                for node_id, parent_id in (result.get("parentIdById") or [])
+            },
+        )
 
 
 _bridge_instance: Optional[MQueryBridge] = None

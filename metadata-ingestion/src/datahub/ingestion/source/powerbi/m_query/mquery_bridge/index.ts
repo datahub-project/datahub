@@ -28,13 +28,20 @@ function formatTaskError(err: unknown): string {
 //
 // Wire protocol (always returns a JSON string, never throws into Python):
 //
-//   success: { ok: true,  nodeIdMap: [[id, node], ...] }
+//   success: { ok: true,  nodeIdMap: [[id, node], ...], parentIdById: [[id, parentId], ...] }
 //   failure: { ok: false, error: "Lex: ..." | "Parse: ErrorName: message" }
 //
 // nodeIdMap is an array of [number, object] pairs rather than a plain object
 // because JSON object keys must be strings, and converting integer keys to
 // strings and back on the Python side is error-prone. The Python caller
-// reconstructs dict[int, dict] from these pairs.
+// reconstructs dict[int, dict] from these pairs. parentIdById is emitted the
+// same way.
+//
+// parentIdById is the parser's own child -> parent index. Child nodes are
+// embedded in the AST, so the tree can only be walked downward without it;
+// with it the caller can walk *outward* to resolve an identifier against its
+// enclosing `let` scopes, and can identify the root soundly as the single node
+// that has no parent.
 //
 // Example node (LetExpression root of `let Source = Sql.Database(...) in Source`):
 //   [1, { kind: "LetExpression", id: 1, variableList: { kind: "ArrayWrapper", elements: [...] }, ... }]
@@ -50,7 +57,8 @@ function formatTaskError(err: unknown): string {
             return JSON.stringify({ ok: false, error: `${stage}: ${formatTaskError(err)}` });
         }
         const nodeIdMap = [...result.nodeIdMapCollection.astNodeById.entries()];
-        return JSON.stringify({ ok: true, nodeIdMap });
+        const parentIdById = [...result.nodeIdMapCollection.parentIdById.entries()];
+        return JSON.stringify({ ok: true, nodeIdMap, parentIdById });
     } catch (e) {
         return JSON.stringify({ ok: false, error: String(e) });
     }
