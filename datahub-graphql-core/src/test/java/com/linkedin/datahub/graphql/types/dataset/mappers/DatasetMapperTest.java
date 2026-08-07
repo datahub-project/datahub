@@ -257,12 +257,8 @@ public class DatasetMapperTest {
 
   @Test
   public void testDatasetMapperWithSemanticModelProperties() {
-    final Urn semanticModelUrn =
-        Urn.createFromTuple(Constants.SEMANTIC_MODEL_ENTITY_NAME, "dbt", "analytics.orders", "m");
     final com.linkedin.dataset.SemanticModelProperties input =
-        new com.linkedin.dataset.SemanticModelProperties()
-            .setAlias("orders_ds")
-            .setSemanticModel(semanticModelUrn);
+        new com.linkedin.dataset.SemanticModelProperties().setAlias("orders_ds");
 
     final Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
     aspects.put(
@@ -279,10 +275,8 @@ public class DatasetMapperTest {
 
     Assert.assertNotNull(actual.getSemanticModelProperties());
     Assert.assertEquals(actual.getSemanticModelProperties().getAlias(), "orders_ds");
-    Assert.assertNotNull(actual.getSemanticModelProperties().getSemanticModel());
-    Assert.assertEquals(
-        actual.getSemanticModelProperties().getSemanticModel().getUrn(),
-        semanticModelUrn.toString());
+    // Dataset.semanticModel is resolved via BulkEntitySemanticModelsResolver (graph Contains).
+    Assert.assertNull(actual.getSemanticModel());
   }
 
   @Test

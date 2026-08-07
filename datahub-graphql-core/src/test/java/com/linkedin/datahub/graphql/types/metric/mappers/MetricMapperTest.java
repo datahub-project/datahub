@@ -33,8 +33,6 @@ public class MetricMapperTest {
   private static final String PLATFORM_URN = "urn:li:dataPlatform:dbt";
   private static final String METRIC_URN =
       "urn:li:metric:(urn:li:dataPlatform:dbt,analytics.orders_model,revenue)";
-  private static final String SEMANTIC_MODEL_URN =
-      "urn:li:semanticModel:(urn:li:dataPlatform:dbt,analytics.orders_model,my_model)";
   private static final String ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String PARENT_METRIC_URN =
       "urn:li:metric:(urn:li:dataPlatform:dbt,analytics.orders_model,gross_revenue)";
@@ -98,27 +96,6 @@ public class MetricMapperTest {
       assertEquals(result.getInfo().getCreated().getActor().getUrn(), ACTOR_URN);
       assertNotNull(result.getInfo().getLastModified());
       assertEquals(result.getInfo().getLastModified().getTime(), TEST_TIMESTAMP + 1000L);
-    }
-  }
-
-  @Test
-  public void testMapMetricInfoSemanticModelStub() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    MetricInfo info =
-        new MetricInfo()
-            .setName("Revenue")
-            .setSemanticModel(Urn.createFromString(SEMANTIC_MODEL_URN));
-    addAspect(entityResponse, METRIC_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), eq(metricUrn))).thenReturn(true);
-
-      Metric result = MetricMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getSemanticModel());
-      assertEquals(result.getSemanticModel().getUrn(), SEMANTIC_MODEL_URN);
-      assertEquals(result.getSemanticModel().getType(), EntityType.SEMANTIC_MODEL);
     }
   }
 
