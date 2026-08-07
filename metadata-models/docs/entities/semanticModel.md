@@ -153,18 +153,18 @@ properties — with no semantic-model-specific reimplementation.
 
 ## Relationships with Other Entities
 
-| Relationship | Direction | Target entity | Aspect / edge name                           | Lineage? |
-| ------------ | --------- | ------------- | -------------------------------------------- | -------- |
-| Contains     | outbound  | `dataset`     | `semanticModelInfo.datasets`                 | no       |
-| Contains     | outbound  | `metric`      | `semanticModelInfo.metrics`                  | no       |
-| IsPartOf     | inbound   | `dataset`     | `semanticModelProperties`                    | no       |
-| ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`                   | no       |
-| Consumes     | inbound   | `metric`      | `metricUpstreams.datasetUpstreams` (to SMDs) | yes      |
+| Relationship | Direction | Target entity | Aspect / edge name           | Lineage? |
+| ------------ | --------- | ------------- | ---------------------------- | -------- |
+| Contains     | outbound  | `dataset`     | `semanticModelInfo.datasets` | no       |
+| Contains     | outbound  | `metric`      | `semanticModelInfo.metrics`  | no       |
+| IsPartOf     | inbound   | `dataset`     | `semanticModelProperties`    | no       |
+| ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`   | no       |
 
 The `Contains` edges are derived from the `datasets` / `metrics` URN arrays in `semanticModelInfo`.
 Each logical dataset also carries the reverse `IsPartOf` edge via its
 own `semanticModelProperties` aspect; each metric carries `ModeledBy` via `metricInfo.semanticModel`.
-Lineage traversal uses `metricUpstreams` (Metric → SMD) and each logical dataset's `upstreamLineage`
+Metric → SMD lineage lives on `metricUpstreams.datasetUpstreams` (not on the semantic model) —
+see [Lineage](#lineage) above. Traversal then continues via each logical dataset's `upstreamLineage`
 (SemanticModelDataset → Physical Dataset).
 
 ## Notable Exceptions
