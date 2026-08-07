@@ -71,6 +71,8 @@ public class GraphQLController {
 
   @Inject MetricUtils metricUtils;
 
+  @Inject com.linkedin.datahub.graphql.AspectMappingRegistry aspectMappingRegistry;
+
   @Inject RateLimitEngine rateLimitEngine;
 
   @Inject GraphqlUsageClassificationRegistry graphqlUsageClassificationRegistry;
@@ -314,6 +316,7 @@ public class GraphQLController {
             documentMetadata,
             variables,
             graphqlUsageClassificationRegistry);
+    context.setAspectMappingRegistry(aspectMappingRegistry);
     Span.current()
         .setAttribute(
             ACTOR_URN_ATTR,

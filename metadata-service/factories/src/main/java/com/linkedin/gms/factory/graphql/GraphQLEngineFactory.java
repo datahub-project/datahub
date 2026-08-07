@@ -6,6 +6,7 @@ import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -333,7 +334,25 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
-    return new GmsGraphQLEngine(args).builder().build();
+    // Create the GmsGraphQLEngine and build the GraphQL schema
+    GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);
+    GraphQLEngine graphQLEngine = gmsGraphQLEngine.builder().build();
+
+    // Create the AspectMappingRegistry once from the built schema so entity types can optimize
+    // aspect fetching based on GraphQL field selections.
+    this.aspectMappingRegistry =
+        new AspectMappingRegistry(graphQLEngine.getGraphQL().getGraphQLSchema());
+
+    return graphQLEngine;
+  }
+
+  private AspectMappingRegistry aspectMappingRegistry;
+
+  /** Provides the AspectMappingRegistry bean for use in resolvers and entity types. */
+  @Bean(name = "aspectMappingRegistry")
+  @org.springframework.context.annotation.DependsOn("graphQLEngine")
+  protected AspectMappingRegistry aspectMappingRegistry() {
+    return this.aspectMappingRegistry;
   }
 
   @Bean(name = "graphQLWorkerPool")

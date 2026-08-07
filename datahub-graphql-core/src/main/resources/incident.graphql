@@ -72,83 +72,84 @@ type Incident implements Entity {
   """
   The primary key of the Incident
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The type of incident
   """
-  incidentType: IncidentType!
+  incidentType: IncidentType! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   A custom type of incident. Present only if type is 'CUSTOM'
   """
-  customType: String
+  customType: String @noAspects
 
   """
   An optional title associated with the incident
   """
-  title: String
+  title: String @noAspects
 
   """
   An optional description associated with the incident
   """
-  description: String
+  description: String @noAspects
 
   """
   The status of an incident
   """
-  incidentStatus: IncidentStatus!
+  incidentStatus: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
   @deprecated, use incidentStatus instead
   """
-  status: IncidentStatus!
+  status: IncidentStatus! @noAspects
 
   """
   Optional priority of the incident.
   """
-  priority: IncidentPriority
+  priority: IncidentPriority @noAspects
 
   """
   The users or groups are assigned to resolve the incident
   """
-  assignees: [OwnerType!]
+  assignees: [OwnerType!] @noAspects
 
   """
   The entity that the incident is associated with.
   """
-  entity: Entity!
+  entity: Entity! @noAspects
 
   """
   The source of the incident, i.e. how it was generated
   """
-  source: IncidentSource
+  source: IncidentSource @noAspects
 
   """
   An optional time at which the incident actually started (may be before the date it was raised).
   """
-  startedAt: Long
+  startedAt: Long @noAspects
 
   """
   The time at which the incident was initially created
   """
-  created: AuditStamp!
+  created: AuditStamp! @noAspects
 
   """
   The standard tags for the Incident
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -496,7 +497,7 @@ extend type Dataset {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataJob {
@@ -528,7 +529,7 @@ extend type DataJob {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataFlow {
@@ -560,7 +561,7 @@ extend type DataFlow {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Dashboard {
@@ -592,7 +593,7 @@ extend type Dashboard {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Chart {
@@ -624,5 +625,5 @@ extend type Chart {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }

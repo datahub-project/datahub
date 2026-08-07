@@ -2,12 +2,14 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
+import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
@@ -16,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 @Getter
@@ -29,6 +32,9 @@ public class SpringQueryContext implements QueryContext {
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
   @Nonnull private final RelationshipTraversalContext relationshipTraversalContext;
   private final int maxParentDepth;
+
+  @Nullable private DataFetchingEnvironment dataFetchingEnvironment;
+  @Nullable private AspectMappingRegistry aspectMappingRegistry;
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -83,5 +89,27 @@ public class SpringQueryContext implements QueryContext {
   @Override
   public Optional<RelationshipTraversalContext> getRelationshipTraversalContext() {
     return Optional.of(relationshipTraversalContext);
+  }
+
+  @Override
+  @Nullable
+  public DataFetchingEnvironment getDataFetchingEnvironment() {
+    return dataFetchingEnvironment;
+  }
+
+  @Override
+  public void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment) {
+    this.dataFetchingEnvironment = environment;
+  }
+
+  @Override
+  @Nullable
+  public AspectMappingRegistry getAspectMappingRegistry() {
+    return aspectMappingRegistry;
+  }
+
+  @Override
+  public void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry) {
+    this.aspectMappingRegistry = aspectMappingRegistry;
   }
 }

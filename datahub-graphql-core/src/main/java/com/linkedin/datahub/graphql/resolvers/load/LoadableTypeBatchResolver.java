@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -33,6 +34,11 @@ public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableF
 
   @Override
   public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) {
+    QueryContext context = environment.getContext();
+    if (context != null) {
+      context.setDataFetchingEnvironment(environment);
+    }
+
     final List<K> keys = _keyProvider.apply(environment);
     if (keys == null) {
       return null;

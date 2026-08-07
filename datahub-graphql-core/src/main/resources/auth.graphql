@@ -253,57 +253,58 @@ type AccessTokenMetadata implements Entity {
   """
   The primary key of the access token
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The unique identifier of the token.
   """
-  id: String!
+  id: String! @noAspects
 
   """
   The name of the token, if it exists.
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The description of the token if defined.
   """
-  description: String
+  description: String @noAspects
 
   """
   The actor associated with the Access Token.
   """
-  actorUrn: String!
+  actorUrn: String! @noAspects
 
   """
   The actor who created the Access Token.
   """
-  ownerUrn: String!
+  ownerUrn: String! @noAspects
 
   """
   The owner (CorpUser) who created the Access Token.
   """
-  owner: CorpUser
+  owner: CorpUser @noAspects
 
   """
   The time when token was generated at.
   """
-  createdAt: Long!
+  createdAt: Long! @noAspects
 
   """
   Time when token will be expired.
   """
-  expiresAt: Long
+  expiresAt: Long @noAspects
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -484,54 +485,55 @@ type ServiceAccount implements Entity {
   """
   The primary key of the service account
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The unique name/identifier of the service account.
   """
-  name: String!
+  name: String! @noAspects
 
   """
   The display name of the service account.
   """
-  displayName: String
+  displayName: String @noAspects
 
   """
   An optional description of the service account.
   """
-  description: String
+  description: String @noAspects
 
   """
   The actor URN that created this service account.
   """
-  createdBy: String
+  createdBy: String @noAspects
 
   """
   The time when the service account was created.
   May be null in list operations where full entity details are not fetched.
   """
-  createdAt: Long
+  createdAt: Long @noAspects
 
   """
   The time when the service account was last updated.
   """
-  updatedAt: Long
+  updatedAt: Long @noAspects
 
   """
   The default DataHub View applied when this service account performs searches
   via the MCP server. Null when no default is configured.
   """
-  defaultView: DataHubView
+  defaultView: DataHubView @noAspects
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
