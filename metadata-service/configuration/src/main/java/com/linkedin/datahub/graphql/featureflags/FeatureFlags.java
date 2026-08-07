@@ -74,4 +74,7 @@ public class FeatureFlags {
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
+  // Uses conditional updates on SystemMetadata.version instead of SELECT FOR UPDATE for aspect
+  // writes. Legacy null-version rows fall back to plain updates until stamped.
+  private boolean optimisticLocking = false;
 }

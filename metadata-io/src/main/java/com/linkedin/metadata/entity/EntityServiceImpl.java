@@ -1114,17 +1114,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // store.
                           aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
 
-                          // read #1
-                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
-                          // in
-                          // order
-                          // to ensure that the aspect's version is not modified outside the
-                          // transaction.
-                          // We rely on the retry mechanism if the row is modified and will re-read
-                          // (require the
-                          // lock)
-
-                          // Initial database state from database
+                          // Write-intent read: pin primary. The DAO uses SELECT FOR UPDATE in
+                          // legacy mode and skips the row lock in optimistic mode, where CAS
+                          // detects concurrent changes.
                           final Map<String, Map<String, SystemAspect>> batchAspects =
                               aspectDao.getLatestAspects(opContext, urnAspects, true);
                           final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -3451,12 +3443,32 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           maxVersionsToKeep);
     }
 
-    // save to database
-    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(
-            opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
-    Optional<EntityAspect> versionN = result.getFirst();
-    Optional<EntityAspect> version0 = result.getSecond();
+    final Optional<EntityAspect> versionN;
+    final Optional<EntityAspect> version0;
+    if (aspectDao.isOptimisticLockingEnabled()) {
+      ConditionalSaveResult result =
+          aspectDao.saveLatestAspectConditional(
+              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+      switch (result.getOutcome()) {
+        case SKIPPED_NOOP:
+          return null;
+        case CONFLICT:
+          throw new OptimisticLockConflictException(
+              String.format(
+                  "Optimistic lock conflict on urn=%s aspect=%s: version-0 row changed since read",
+                  writeItem.getUrn(), writeItem.getAspectName()));
+        case UPDATED:
+        default:
+          versionN = result.getInserted();
+          version0 = result.getUpdated();
+      }
+    } else {
+      Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+          aspectDao.saveLatestAspect(
+              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+      versionN = result.getFirst();
+      version0 = result.getSecond();
+    }
 
     return version0
         .map(
