@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipCardinality;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.SemanticModelInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModelRelationship;
@@ -230,6 +231,17 @@ public class SemanticModelMapper {
     }
     result.setDatasets(datasets);
 
+    final List<Metric> metrics;
+    if (pdl.hasMetrics() && pdl.getMetrics() != null) {
+      metrics =
+          pdl.getMetrics().stream()
+              .map(SemanticModelMapper::mapMetricStub)
+              .collect(Collectors.toList());
+    } else {
+      metrics = Collections.emptyList();
+    }
+    result.setMetrics(metrics);
+
     if (pdl.hasRelationships() && pdl.getRelationships() != null) {
       result.setRelationships(
           pdl.getRelationships().stream()
@@ -244,6 +256,13 @@ public class SemanticModelMapper {
     final Dataset result = new Dataset();
     result.setUrn(datasetUrn.toString());
     result.setType(EntityType.DATASET);
+    return result;
+  }
+
+  private static Metric mapMetricStub(final Urn metricUrn) {
+    final Metric result = new Metric();
+    result.setUrn(metricUrn.toString());
+    result.setType(EntityType.METRIC);
     return result;
   }
 

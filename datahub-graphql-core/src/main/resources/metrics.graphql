@@ -251,9 +251,17 @@ type SemanticModel implements EntityWithRelationships & Entity {
   fineGrainedLineages: [FineGrainedLineage!]
 
   """
-  Metrics defined within this SemanticModel (field-resolver in CAT-2566).
+  Metrics defined within this SemanticModel (search-backed, paginated).
+  Filters to root metrics (no parent) belonging to this model.
   """
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Contained entities (logical datasets and metrics) of this SemanticModel.
+  Reads membership from semanticModelInfo.datasets / .metrics, then searches
+  those URNs — used by the lineage explorer (mirrors DataProduct.entities).
+  """
+  entities(input: SearchAcrossEntitiesInput): SearchResults
 
   """
   Ownership metadata of the SemanticModel.
@@ -409,6 +417,11 @@ type SemanticModelInfo {
   than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
   """
   datasets: [Dataset!]!
+  """
+  The metrics defined by this semantic model. Each is a Metric entity that carries a
+  back-reference via `metricInfo.semanticModel`. Containment only — not a lineage edge.
+  """
+  metrics: [Metric!]!
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
