@@ -69,6 +69,7 @@ def resolve_to_data_access_functions(
 def resolve_to_table_references(
     node_map: NodeIdMap,
     parameters: Optional[Dict[str, str]] = None,
+    parent_by_id: Optional[Dict[int, int]] = None,
 ) -> List[str]:
     """
     Find identifier names in the expression that do not resolve to a local `let`
@@ -101,7 +102,10 @@ def resolve_to_table_references(
         kinds = {node.get("kind") for node in node_map.values()}
         if kinds & {"RecursivePrimaryExpression", "InvokeExpression"}:
             return []
-        root_id = min(node_map.keys())
+        # The root is the one node with no parent. Falling back to the lowest id
+        # is only an approximation — for `TblA & TblB` it picks the left operand
+        # and the right one is never walked.
+        root_id = _root_node_id(node_map, parent_by_id)
         root_node = node_map[root_id]
         current_let = {}
         current_let_id = root_id
@@ -128,6 +132,15 @@ def resolve_to_table_references(
     excluded_names = _collect_bound_names(node_map)
     excluded_names |= {name.casefold() for name in (parameters or {})}
     return sorted(name for name in unresolved if name.casefold() not in excluded_names)
+
+
+def _root_node_id(node_map: NodeIdMap, parent_by_id: Optional[Dict[int, int]]) -> int:
+    """The node that has no parent, or the lowest id when parents are unavailable."""
+    if parent_by_id:
+        roots = [node_id for node_id in node_map if node_id not in parent_by_id]
+        if len(roots) == 1:
+            return roots[0]
+    return min(node_map.keys())
 
 
 def _collect_bound_names(node_map: NodeIdMap) -> Set[str]:
@@ -297,6 +310,22 @@ def _walk(
                 accessor_chain,
                 results,
                 seen,
+                parameters,
+                unresolved,
+            )
+        return
+
+    # -- Binary expressions (e.g. `TblA & TblB`, `a ?? b`) — walk both operands --
+    if kind in ("ArithmeticExpression", "NullCoalescingExpression"):
+        for side in ("left", "right"):
+            _walk(
+                node_map,
+                node.get(side),
+                current_let,
+                current_let_id,
+                accessor_chain,
+                results,
+                _fork_seen(seen, unresolved),
                 parameters,
                 unresolved,
             )

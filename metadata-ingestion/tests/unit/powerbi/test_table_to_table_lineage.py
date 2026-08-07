@@ -168,6 +168,18 @@ def test_join_with_shared_ancestor_has_no_circular_warning(
     assert refs == ["SomeSiblingTbl"]
 
 
+def test_binary_expression_without_let_captures_both_operands() -> None:
+    # The root of `TblA & TblB` is the ArithmeticExpression, not the lowest node
+    # id (which is the left operand). Selecting the root by id dropped TblB.
+    _clear_bridge()
+    parsed = get_bridge().parse_tree("TblA & TblB")
+    _clear_bridge()
+    refs = resolve_to_table_references(
+        parsed.node_map, parent_by_id=parsed.parent_by_id
+    )
+    assert refs == ["TblA", "TblB"]
+
+
 def test_lambda_parameter_is_not_a_reference() -> None:
     # Function parameters are unresolved identifiers but not sibling tables, and
     # people name them exactly like dimension tables (Country, Region, Date).

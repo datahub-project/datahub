@@ -18,6 +18,7 @@ from datahub.ingestion.source.powerbi.m_query import (
 from datahub.ingestion.source.powerbi.m_query._bridge import (
     MQueryBridgeError,
     MQueryParseError,
+    ParsedMQuery,
     _clear_bridge,
     get_bridge,
 )
@@ -61,13 +62,13 @@ def _looks_like_m_query(expression: str) -> bool:
     )
 
 
-def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
+def _parse_with_bridge(expression: str, timeout: int) -> ParsedMQuery:
     """Call the bridge and return the NodeIdMap dict.
     Clears the singleton on bridge crash or timeout so the next call gets a fresh context.
     """
     try:
         with threading_timeout(timeout):
-            return get_bridge().parse(expression)
+            return get_bridge().parse_tree(expression)
     except MQueryBridgeError:
         _clear_bridge()
         raise
@@ -131,7 +132,8 @@ def get_upstream_tables(
 
     try:
         with reporter.m_query_parse_timer:
-            node_map = _parse_with_bridge(expression, config.m_query_parse_timeout)
+            parsed = _parse_with_bridge(expression, config.m_query_parse_timeout)
+            node_map = parsed.node_map
     except TimeoutException:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
@@ -230,7 +232,9 @@ def get_upstream_tables(
         if config.extract_table_to_table_lineage:
             try:
                 candidates = mquery_resolver.resolve_to_table_references(
-                    node_map, parameters=parameters
+                    node_map,
+                    parameters=parameters,
+                    parent_by_id=parsed.parent_by_id,
                 )
                 matched_siblings = [
                     sibling.name for sibling in match_sibling_tables(table, candidates)
