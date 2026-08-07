@@ -25,6 +25,7 @@ on:
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
       - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/scripts/check_python_package.py"
@@ -44,6 +45,7 @@ on:
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
       - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
       - ".github/scripts/check_python_package.py"
@@ -127,6 +129,9 @@ jobs:
       # tag. Jobs that boot a stack append these to $GITHUB_ENV before calling
       # run-quickstart.sh; images absent from the map fall back to DATAHUB_VERSION.
       image_version_env: ${{ steps.image-build-plan.outputs.image_version_env }}
+      # Docker repos baked for this run. run-quickstart.sh fails if any of them
+      # resolves to the reused tag instead of this PR's.
+      image_built_repos: ${{ steps.image-build-plan.outputs.image_built_repos }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -208,6 +213,11 @@ jobs:
 
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+
+      # ~1s, and it is the only thing that notices when the path classification
+      # in resolve_image_builds.sh drifts out of sync with the repo layout.
+      - name: Test the image build decision
+        run: .github/scripts/test_resolve_image_builds.sh
 
       - name: Resolve which images to build
         id: image-build-plan
@@ -645,6 +655,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -850,6 +861,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -1023,6 +1035,7 @@ jobs:
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       image_version_env: ${{ needs.setup.outputs.image_version_env }}
+      image_built_repos: ${{ needs.setup.outputs.image_built_repos }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
     secrets: inherit

@@ -55,7 +55,23 @@ quickstart_compose() {
 # tags compose actually resolved. A green test run against a stale image looks
 # identical to a correct one without this.
 echo "Resolved service images:"
-quickstart_compose config --images
+resolved_images=$(quickstart_compose config --images)
+echo "$resolved_images"
+
+# EXPECT_PR_TAGGED_IMAGES lists the docker repos CI built for this run. Each one
+# has to come up on DATAHUB_VERSION; if it resolved to the reused tag instead,
+# the tests would run against binaries that predate the change and still pass,
+# because the reused images are known-good by construction. That is the one
+# failure this whole mechanism has to make loud, so fail here rather than hand a
+# green run back. Unset outside CI, where nothing is reused.
+for repo in ${EXPECT_PR_TAGGED_IMAGES:-}; do
+  resolved=$(echo "$resolved_images" | grep "/${repo}:" || true)
+  if [[ "$resolved" != *":${DATAHUB_VERSION}"* ]]; then
+    echo "ERROR: ${repo} was built for this run but resolved to '${resolved:-<absent>}'," >&2
+    echo "       not a ${DATAHUB_VERSION} tag. The tests would run against a stale image." >&2
+    exit 1
+  fi
+done
 
 quickstart_compose up -d --quiet-pull --wait --wait-timeout 900
 
