@@ -45,20 +45,30 @@ EVERYTHING="${SERVER} ${UI} ${ACTIONS}"
 # First matching prefix wins, so specific prefixes precede general ones. An
 # empty module list means the path cannot change any image.
 #
-# The UI column is not guesswork. `./gradlew :docker:buildImagesQuickstart
-# --dry-run -PbuildModules=:datahub-frontend` lists exactly what the frontend
-# image compiles, and it is a narrow set: datahub-web-react, entity-registry,
-# li-utils, metadata-auth, metadata-events, metadata-models,
-# metadata-operation-context, metadata-utils, and five metadata-service
-# subprojects. It does NOT compile metadata-io, metadata-jobs, datahub-upgrade,
-# metadata-dao-impl or datahub-graphql-core -- so server-side business logic in
-# those does not change the frontend image, and rebuilding it there is waste.
+# These images exist to be integration-tested, so the question each rule answers
+# is "can this change alter what the running process does" -- NOT "does this
+# change appear anywhere in that image's compile graph". The two differ, and
+# conflating them is expensive. Compile-only breakage is the job of the lint and
+# build workflows; it should not cost an image rebuild here.
 #
-# The one non-Gradle edge: datahub-web-react/codegen.yml reads
-# ../datahub-graphql-core/src/main/resources/*.graphql to generate TypeScript
-# types, so the GraphQL schema is a frontend build input even though
-# datahub-graphql-core is not a frontend dependency. Resolver code in that same
-# project is server business logic and is treated as such.
+# The clearest case is the GraphQL schema. datahub-web-react/codegen.yml reads
+# ../datahub-graphql-core/src/main/resources/*.graphql, so the schema is a
+# compile input to the frontend -- but it only generates TypeScript types, which
+# are erased at runtime. The queries the frontend actually sends come from its
+# own src/**/*.graphql documents. A rebuilt frontend is therefore runtime
+# equivalent to the published one, and reusing it buys a better test: an
+# existing client against the new schema, which is what every rolling upgrade
+# looks like and what would catch a breaking schema change. (The compile side is
+# covered by datahub-web-react-lint, whose path filter now includes the schema.)
+#
+# The runtime column is otherwise taken from the Gradle graph reported by
+# `./gradlew :docker:buildImagesQuickstart --dry-run
+# -PbuildModules=:datahub-frontend`, since the Play app genuinely executes the
+# shared libraries it links: entity-registry, li-utils, metadata-auth,
+# metadata-events, metadata-models, metadata-operation-context, metadata-utils
+# and five metadata-service subprojects. It does not link metadata-io,
+# metadata-jobs, datahub-upgrade, metadata-dao-impl or datahub-graphql-core, so
+# server-side business logic in those cannot change how the frontend behaves.
 PATH_RULES=(
   # Cannot end up inside any image.
   "docs/|"
@@ -85,8 +95,8 @@ PATH_RULES=(
   # frontend compiles, and the Python classes baked into the actions image.
   "metadata-models/|${EVERYTHING}"
 
-  # The schema is the contract between the two sides, so both rebuild.
-  "datahub-graphql-core/src/main/resources/|${SERVER} ${UI}"
+  # Schema and resolvers alike: GraphQL executes in GMS. See the note above on
+  # why a schema change does not rebuild the frontend.
   "datahub-graphql-core/|${SERVER}"
 
   # Frontend-facing slices of metadata-service.
