@@ -39,24 +39,22 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PublisherRef:
-    """Publisher-side identity for a linked dataset.
+    """Publisher-side identity for a resolved linked dataset.
 
-    `project_id` is `None` when the publisher project number could not be
-    resolved to an ID (e.g. `resourcemanager.projects.get` denied).
+    Only constructed once the publisher project number resolves to an ID, so
+    `project_id` is always populated.
     """
 
-    project_number: str
     dataset: str
-    project_id: Optional[str]
+    project_id: str
 
 
 @dataclass(frozen=True)
 class LinkedDatasetInfo:
     """Resolved BigQuery Sharing metadata for a single linked dataset.
 
-    `publisher` is `None` when the dataset exposed no source; its `project_id`
-    is `None` when the source was found but could not be resolved. `has_publisher`
-    is the single gate for whether lineage can be emitted.
+    `publisher` is `None` when the dataset exposed no source, or project
+    ID could not be resolved to an ID.
     """
 
     consumer_project_id: str
@@ -73,8 +71,9 @@ class LinkedDatasetInfo:
     last_modify_time: Optional[str] = None
 
     @property
-    def has_publisher(self) -> bool:
-        return self.publisher is not None and self.publisher.project_id is not None
+    def can_emit_lineage(self) -> bool:
+        """Whether linked dataset has a resolved publisher and can emit COPY lineage."""
+        return self.publisher is not None
 
     def to_extra_properties(self) -> Dict[str, str]:
         """Render as `linked_dataset.*` / `analytics_hub.*` custom properties.
@@ -84,7 +83,7 @@ class LinkedDatasetInfo:
         props: Dict[str, str] = {}
 
         publisher = self.publisher
-        if publisher is not None and publisher.project_id is not None:
+        if publisher is not None:
             props["linked_dataset.source"] = (
                 f"{publisher.project_id}.{publisher.dataset}"
             )
@@ -238,11 +237,11 @@ class BigQueryLinkedDatasetsHandler:
         return self._lookup.get((project_id, dataset_name))
 
     def emits_copy_lineage(self, project_id: str, dataset_name: str) -> bool:
-        """Whether this (project, dataset) will emit COPY lineage."""
+        """Whether linked dataset will emit COPY lineage."""
         if not self.config.include_linked_dataset_lineage:
             return False
         info = self._lookup.get((project_id, dataset_name))
-        return info is not None and info.has_publisher
+        return info is not None and info.can_emit_lineage
 
     def gen_lineage_workunits(
         self,
@@ -256,8 +255,6 @@ class BigQueryLinkedDatasetsHandler:
         if info is None or info.publisher is None:
             return
         publisher = info.publisher
-        if publisher.project_id is None:
-            return
 
         consumer_urn = self.identifiers.gen_dataset_urn(
             consumer_project_id, consumer_dataset, entity_name
@@ -345,11 +342,14 @@ class BigQueryLinkedDatasetsHandler:
 
         publisher: Optional[PublisherRef] = None
         if publisher_project_number and publisher_dataset:
-            publisher = PublisherRef(
-                project_number=publisher_project_number,
-                dataset=publisher_dataset,
-                project_id=self._resolve_publisher_project_id(publisher_project_number),
+            publisher_project_id = self._resolve_publisher_project_id(
+                publisher_project_number
             )
+            if publisher_project_id is not None:
+                publisher = PublisherRef(
+                    dataset=publisher_dataset,
+                    project_id=publisher_project_id,
+                )
         else:
             self.report.num_linked_dataset_source_unresolved += 1
             self.report.warning(

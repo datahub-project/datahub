@@ -147,7 +147,6 @@ def test_extra_properties_includes_source_when_publisher_resolved():
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
         publisher=PublisherRef(
-            project_number="111",
             dataset="publisher_dataset",
             project_id="publisher-project",
         ),
@@ -172,7 +171,6 @@ def test_extra_properties_falls_back_to_data_exchange():
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
         publisher=PublisherRef(
-            project_number="111",
             dataset="publisher_dataset",
             project_id="publisher-project",
         ),
@@ -188,7 +186,6 @@ def test_extra_properties_omits_unpopulated_keys():
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
         publisher=PublisherRef(
-            project_number="111",
             dataset="publisher_dataset",
             project_id="publisher-project",
         ),
@@ -208,11 +205,7 @@ def test_extra_properties_no_source_when_publisher_unresolved():
     info = LinkedDatasetInfo(
         consumer_project_id="c-proj",
         consumer_dataset="shared_dataset",
-        publisher=PublisherRef(
-            project_number="111",
-            dataset="publisher_dataset",
-            project_id=None,
-        ),
+        publisher=None,
         link_state="LINKED",
     )
     props = info.to_extra_properties()
@@ -377,7 +370,7 @@ def test_linked_dataset_without_source_is_warned_and_kept():
 
     info = handler.get_info("consumer-project", "shared_a")
     assert info is not None
-    assert info.has_publisher is False
+    assert info.can_emit_lineage is False
     assert handler.report.num_linked_dataset_source_unresolved == 1
     assert len(handler.report.warnings) == 1
 
@@ -404,8 +397,8 @@ def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
     info = handler.get_info("consumer-project", "shared_a")
     # Dataset is still recognised as linked (governance properties emit).
     assert info is not None
-    # But publisher project ID was not resolved — has_publisher is False.
-    assert info.has_publisher is False
+    # But publisher project ID was not resolved, so no lineage can be emitted.
+    assert info.can_emit_lineage is False
     assert handler.report.num_linked_dataset_project_resolve_errors == 1
 
     # And lineage emission is a no-op on this dataset.
@@ -562,15 +555,16 @@ def _seed_with_linked_dataset(
     publisher_dataset: str = "publisher_dataset",
 ) -> BigQueryLinkedDatasetsHandler:
     handler = _make_handler(config=config)
+    publisher = (
+        PublisherRef(dataset=publisher_dataset, project_id=publisher_project_id)
+        if publisher_project_id is not None
+        else None
+    )
     # Populate the lookup directly to exercise emission without detection.
     handler._lookup[("consumer-project", "shared_dataset")] = LinkedDatasetInfo(
         consumer_project_id="consumer-project",
         consumer_dataset="shared_dataset",
-        publisher=PublisherRef(
-            project_number="111222333",
-            dataset=publisher_dataset,
-            project_id=publisher_project_id,
-        ),
+        publisher=publisher,
     )
     return handler
 
