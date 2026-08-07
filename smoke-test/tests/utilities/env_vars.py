@@ -2,6 +2,7 @@
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
 import os
+import re
 from typing import Optional
 
 # ============================================================================
@@ -137,6 +138,10 @@ def get_postgres_password() -> str:
 # ============================================================================
 
 
+# Same gate smoke.sh uses to decide whether to pass -n to pytest.
+_XDIST_WORKERS_PATTERN = re.compile(r"^[1-9][0-9]*$")
+
+
 def get_batch_count() -> int:
     """Number of test batches for parallel execution."""
     return int(os.getenv("BATCH_COUNT", "1"))
@@ -150,14 +155,20 @@ def get_batch_number() -> int:
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 
-    smoke.sh passes ``-n $PYTEST_XDIST_WORKERS`` when this is a positive
-    integer, so batch weighting uses it to tell parallel work from serial.
-    Anything unset or malformed means no xdist, i.e. one worker.
+    Deliberately mirrors smoke.sh's gate byte for byte::
+
+        if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
+
+    smoke.sh is what decides whether ``-n`` is actually passed, so anything this
+    accepts that the shell rejects would have batch weighting assume parallelism
+    that never happens. That rules out surrounding whitespace and leading zeros
+    (``" 3 "``, ``"03"``), which the shell will not match, and non-ASCII digits
+    like ``"²"``, for which ``str.isdigit()`` is True but ``int()`` raises.
+    Anything unset or not matching means no xdist, i.e. one worker.
     """
-    raw = os.getenv("PYTEST_XDIST_WORKERS", "").strip()
-    if not raw.isdigit():
+    if not _XDIST_WORKERS_PATTERN.match(os.getenv("PYTEST_XDIST_WORKERS", "")):
         return 1
-    return max(1, int(raw))
+    return int(os.environ["PYTEST_XDIST_WORKERS"])
 
 
 def get_test_strategy() -> Optional[str]:
