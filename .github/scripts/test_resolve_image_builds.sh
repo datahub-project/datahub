@@ -97,7 +97,9 @@ echo "runtime-shared code rebuilds both sides"
 check "restli-client (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["metadata-service/restli-client/src/main/java/A.java"]'
 check "entity-registry (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["entity-registry/src/main/java/A.java"]'
 check "li-utils (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
-check "metadata-models rebuilds everything" "${ALL}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
+# Generated data types, not executable code: clients emit only what their own
+# code populates, and MCL carries aspects as an opaque blob.
+check "metadata-models rebuilds server only" "${SERVER}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
 
 echo "ingestion only rebuilds actions"
 check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'

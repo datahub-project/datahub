@@ -91,9 +91,15 @@ PATH_RULES=(
   "metadata-ingestion/|${ACTIONS}"
   "metadata-ingestion-modules/|${ACTIONS}"
 
-  # PDL regenerates data templates for the JVM images, the restli client the
-  # frontend compiles, and the Python classes baked into the actions image.
-  "metadata-models/|${EVERYTHING}"
+  # The model defines what the server does -- entity registry, validation,
+  # storage -- so the server images genuinely behave differently. Clients do
+  # not. The frontend only ever emits model objects its own code populates, so
+  # an older build emits a valid subset; if its populating code changed,
+  # datahub-frontend/** fires anyway, and if a PDL change breaks it, that is a
+  # compile failure the build jobs report in seconds. Actions is likewise
+  # unaffected: MCL carries the aspect as an opaque GenericAspect blob (bytes +
+  # contentType), so routing a brand new aspect type needs no generated class.
+  "metadata-models/|${SERVER}"
 
   # Schema and resolvers alike: GraphQL executes in GMS. See the note above on
   # why a schema change does not rebuild the frontend.
