@@ -70,7 +70,7 @@ public enum ProductUpdateFlavor {
    * historical {@code ## 1.3.0} convention, plus optional annotations after the version.
    */
   private static final Pattern VERSIONED_HEADING =
-      Pattern.compile("(?m)^##\\s+(v?\\d+(?:[._]\\d+)+)(?:\\s+.*)?$");
+      Pattern.compile("(?m)^##[ \\t]+(v?\\d+(?:[._]\\d+)+)(?:[ \\t]+[^\\r\\n]*)?$");
 
   /** A released cloud release note, e.g. "v_2_1_0.md". Skips "next.md". */
   private static final Pattern VERSIONED_NOTE_FILE = Pattern.compile("(v_[\\d_]+)\\.md");
