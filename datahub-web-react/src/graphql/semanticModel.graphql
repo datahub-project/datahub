@@ -118,6 +118,11 @@ fragment semanticModelInfoFields on SemanticModelInfo {
     datasets {
         ...modelDatasetFields
     }
+    metrics {
+        urn
+        type
+        ...modelMetricFields
+    }
     relationships {
         ...semanticModelRelationshipFields
     }
@@ -226,6 +231,29 @@ query getSemanticModelMetricsPage($urn: String!, $input: ScrollAcrossEntitiesInp
                     ... on Metric {
                         ...modelMetricFields
                     }
+                }
+            }
+        }
+    }
+}
+
+query getSemanticModelEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    semanticModel(urn: $urn) {
+        urn
+        type
+        exists
+        info {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
                 }
             }
         }
