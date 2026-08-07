@@ -3,6 +3,8 @@ from typing import List, Optional, Tuple
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     KafkaAuditHeaderClass,
+    MLHyperParamClass as MLHyperParam,
+    MLMetricClass as MLMetric,
     MLModelPropertiesClass as MLModelProperties,
     SystemMetadataClass,
     VersionTagClass as VersionTag,
@@ -91,14 +93,25 @@ class MLModelPatchBuilder(
         )
         return self
 
-    def set_hyper_parameters(
-        self, hyper_parameters: dict
+    def set_hyper_params(
+        self, hyper_params: List[MLHyperParam]
     ) -> "MLModelPatchBuilder":
         self._add_patch(
             MLModelProperties.ASPECT_NAME,
             "add",
-            path=("hyperParameters",),
-            value=hyper_parameters,
+            path=("hyperParams",),
+            value=hyper_params,
+        )
+        return self
+
+    def set_training_metrics(
+        self, training_metrics: List[MLMetric]
+    ) -> "MLModelPatchBuilder":
+        self._add_patch(
+            MLModelProperties.ASPECT_NAME,
+            "add",
+            path=("trainingMetrics",),
+            value=training_metrics,
         )
         return self
 
