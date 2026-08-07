@@ -645,6 +645,12 @@ fragment siblingSearchDatasetFields on Dataset {
     health {
         ...entityHealth
     }
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
     lastOperation: operations(limit: 1) {
         lastUpdatedTimestamp
         timestampMillis
@@ -652,6 +658,21 @@ fragment siblingSearchDatasetFields on Dataset {
     statsSummary {
         queryCountLast30Days
         uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
     }
     siblings {
         isPrimary
