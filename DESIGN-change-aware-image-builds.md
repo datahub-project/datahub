@@ -41,101 +41,105 @@ For scale: the batch-balancing work in #18960 fought over ~1.5-4 min. This is
   conditional, `smoke_build_task`, selects a *compose profile* from a PR label —
   it is not change detection.
 
-## Design
+## Design (revised)
 
-Skip the image build entirely when the diff cannot affect any image, and point
-the smoke-test job at the last known-good `quickstart` tag instead.
+**Do not skip `base_build`.** Three jobs declare `needs: [..., base_build]` — they
+gate on it because they need to know *a usable set of images exists*. Skipping it
+breaks that contract and forces every downstream job to cope with a missing
+build id.
 
-1. **`ci-optimization`** — add a `smoke-test-only` output:
-   true when `smoke-test` changed and `frontend`, `backend`, `ingestion` and
-   `docker` did **not**. Mirrors the existing `*-only` outputs.
+Instead, keep `base_build` always running and make it **fly through when there is
+nothing to build**. Its contract becomes:
 
-2. **`setup`** — derive `needs_image_build`:
-   `false` only when `smoke-test-only` is true, the trigger is `pull_request`,
-   and the backstop is not engaged. `true` otherwise (the safe default).
+> `base_build` outputs one resolved image tag per container. Quickstart consumes
+> that map and does not care whether a tag was just built or reused.
 
-3. **`base_build`** — add `needs.setup.outputs.needs_image_build == 'true'` to
-   its `if`.
+Per image, independently:
+- affected by this PR's diff → build it, tag with the PR tag
+- not affected → reuse the floating `quickstart` tag (the last set that passed
+  smoke tests on master)
 
-4. **smoke-test job** — when `needs_image_build != 'true'`, skip `depot pull`
-   and set `DATAHUB_VERSION=quickstart` so `run-quickstart.sh` pulls the
-   known-good images.
+A smoke-test-only PR builds nothing and the job finishes in seconds, but it still
+*runs*, still produces a complete tag map, and every downstream `needs:` is
+satisfied unchanged.
 
-## Backstops (the point of the exercise)
+### This is already expressible — no compose redesign needed
 
-Every one of these falls back to today's behaviour — a full build:
+Every service in `docker/profiles/` resolves its image as:
 
-- **Default-safe derivation.** `needs_image_build` is false *only* for an
-  explicit allowlisted case. Anything unrecognised builds.
-- **Label override.** A `ci-full-build` label on the PR forces the full path,
-  for when someone suspects the fast path is lying.
-- **Trigger scope.** `workflow_dispatch`, `push` to master and `release` always
-  full-build. Only `pull_request` can take the fast path.
-- **Tag existence check.** `setup` verifies the `quickstart` tag actually
-  resolves in the registry before choosing the fast path; if it does not (never
-  published, registry hiccup, retention), fall back to building. Without this
-  the fast path fails *late*, inside seven parallel batch jobs, instead of early.
-- **No change to the retry path.** A re-run that lands on the slow path still
-  behaves exactly as today.
+```
+${DATAHUB_<SVC>_IMAGE:-<repo>/<name>}:${DATAHUB_<SVC>_VERSION:-${DATAHUB_VERSION:-quickstart}}
+```
 
-## Deliberately out of scope
+So a **per-service version override already exists**, falling back to the global
+`DATAHUB_VERSION`:
 
-Per-service selection (e.g. build only GMS when only `metadata-service`
-changed) is the tempting next step and is **not** in this change. The blocker is
-schema coupling: `metadata-models` PDL changes regenerate Avro/GraphQL/schema
-classes consumed by GMS, the frontend, both consumers *and* the Python SDK, so
-any PDL touch forces a full rebuild (AGENTS.md says as much). A GraphQL schema
-change likewise means a PR-built GMS cannot safely pair with a HEAD frontend.
-That work needs an explicit "these paths force a full rebuild" set and should
-land only after the pull-from-HEAD path has proven itself.
+| service | override var |
+| --- | --- |
+| GMS | `DATAHUB_GMS_VERSION` |
+| MAE consumer | `DATAHUB_MAE_VERSION` |
+| MCE consumer | `DATAHUB_MCE_VERSION` |
+| upgrade | `DATAHUB_UPDATE_VERSION` |
+| frontend | **none — global `DATAHUB_VERSION` only** |
 
-## Validation
+`base_build` emits these; `run-quickstart.sh` passes them through. The only gap is
+the frontend, which needs a `DATAHUB_FRONTEND_VERSION` added to the compose
+templates (one line per profile, matching the pattern already used by the others).
 
-This cannot be verified locally — it only exercises on real CI. Minimum bar
-before merge:
+### Why this beats the skip approach
 
-1. A PR touching only `smoke-test/**` → `base_build` skipped, batches green,
-   and the ~9.3m saving visible in the critical path.
-2. A PR touching `metadata-service/**` → full build, unchanged behaviour.
-3. A PR touching both → full build.
-4. The `ci-full-build` label on case 1 → full build.
-5. Confirm the images the fast path ran against were genuinely the `quickstart`
-   tag, by asserting the resolved tag in the job log — not merely that tests
-   passed, since they would also pass against a stale local image.
+- No downstream job changes. `needs: [base_build]` keeps meaning what it meant.
+- Per-service granularity falls out naturally, rather than being an all-or-nothing
+  switch — a frontend-only PR can rebuild just the frontend.
+- The unit of correctness is explicit and inspectable: a tag map in the job output,
+  which CI can assert on.
 
-## IMPORTANT: downstream consumers of `base_build` (found mid-implementation)
+## Backstops
 
-Three jobs declare `needs: [..., base_build]`, so skipping it affects all of them:
+All of these resolve to "build it", i.e. today's behaviour:
 
-| job | consumes | behaviour when `base_build` is skipped |
-| --- | --- | --- |
-| `pytest_tests` | `base_build.outputs.build_id` for `depot pull` | `if:` uses `always() && !failure() && !cancelled()`, and a *skipped* need is not a failure, so the job still runs. Needs the `DATAHUB_VERSION` fallback (below). |
-| `playwright_test` | passes `depot_build_id` into the reusable workflow | `depot_build_id` becomes `''`, and the reusable workflow already treats empty as "build images locally". Correct, but it would rebuild — **cancelling the saving for that job**. Needs the same `quickstart`-tag treatment. |
-| `java_integration_tests` | `base_build.outputs.build_id` | **Not yet checked.** Must be verified before this ships. |
-
-There is already precedent for `base_build` being skipped — it does not run on fork
-PRs (`use_depot_cache != 'true'`), and the smoke-test job builds locally instead.
-That path is the model to follow, but note it *builds* rather than *pulls*, which
-is the opposite of what we want here.
+- **Default-safe per image.** An image is reused only when its filter is
+  explicitly false. Anything unrecognised is built.
+- **Schema coupling forces a full build.** `metadata-models` / PDL changes
+  regenerate Avro/GraphQL/schema classes consumed by GMS, the frontend, both
+  consumers *and* the Python SDK, so any touch there rebuilds everything
+  (AGENTS.md states this). Same for a GraphQL schema change, which would
+  otherwise pair a PR-built GMS with a HEAD frontend.
+- **Label override.** `ci-full-build` on the PR forces a full build.
+- **Trigger scope.** Only `pull_request` can reuse; `workflow_dispatch`, `push`
+  to master and `release` always build everything.
+- **Tag existence check.** Verify the `quickstart` tag resolves before relying on
+  it; if not, build. Fails cheaply in one job instead of inside seven parallel
+  batch jobs.
 
 ## State of this branch
 
 Done:
 - `ci-optimization`: `smoke-test-only` output.
-- `setup`: `image-build-decision` step + `needs_image_build` output, with all four
-  backstops (non-PR triggers, image-affecting changes, `ci-full-build` label,
-  registry tag-existence check).
-- `base_build`: gated on `needs_image_build == 'true'`.
+- `setup`: `image-build-decision` step + `needs_image_build` output, with the
+  trigger/label/tag-existence backstops. Still useful as the coarse "can we reuse
+  anything at all" signal.
+- `base_build` gating was added and then **reverted** — under this design it must
+  always run.
 
-Not done — **the branch is not runnable as-is**:
-- `pytest_tests`: skip `depot pull` and point `DATAHUB_VERSION` at `quickstart`
-  when the build was skipped. There are two `DATAHUB_VERSION` lines in this job
-  (currently ~804 and ~843); both need it.
-- `playwright_test`: same treatment, or it silently rebuilds locally and eats the
-  saving.
-- `java_integration_tests`: determine whether it can tolerate a skipped build.
-- Verify `docker manifest inspect` works on the setup runner without a registry
-  login (it may need `docker login` first, or should use the registry API instead).
+Next:
+1. Add `DATAHUB_FRONTEND_VERSION` to the frontend compose templates.
+2. In `base_build`, compute the per-image build/reuse decision and emit a tag map
+   output (one entry per container).
+3. Have `pytest_tests`, `playwright_test` and `java_integration_tests` consume the
+   map instead of `DATAHUB_VERSION` alone.
+4. Make the depot build target only the images that need building.
+5. Confirm `docker manifest inspect` works on the setup runner without a registry
+   login, or use the registry API instead.
 
-Do not open a PR until the three downstream jobs are handled — gating `base_build`
-alone would leave them pulling a build id that does not exist.
+## Validation
+
+Only exercises on real CI. Minimum bar before merge:
+
+1. smoke-test-only PR → nothing built, tag map is all `quickstart`, batches green,
+   ~9.3m off the critical path.
+2. `metadata-service/**` PR → GMS and consumers rebuilt, frontend reused.
+3. `metadata-models/**` PR → everything rebuilt (schema coupling).
+4. `ci-full-build` label on case 1 → everything rebuilt.
+5. Assert the *resolved tags* in the job log — passing tests alone would not
+   distinguish a correct reuse from silently running against stale images.
