@@ -295,18 +295,32 @@ public class GroupService implements ActorGroupMembershipService {
       return;
     }
 
+    // Both aspects grant membership (they are merged in SessionActorIdentity and queried together
+    // by the UI), and a group that never finished migrating still has members holding only the
+    // legacy one. Stripping only the native aspect would report success while leaving those
+    // members in the group with their access intact.
     final Map<Urn, EntityResponse> entityResponses =
         batchGetUserAspectsNoCache(
-            opContext, userUrns, Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+            opContext,
+            userUrns,
+            Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final NativeGroupMembership nativeGroupMembership =
-          toNativeGroupMembership(entityResponses.get(userUrn));
+      final EntityResponse entityResponse = entityResponses.get(userUrn);
+
+      final NativeGroupMembership nativeGroupMembership = toNativeGroupMembership(entityResponse);
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
         proposals.add(
             buildSynchronousMetadataChangeProposal(
                 userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
+      }
+
+      final GroupMembership groupMembership = toGroupMembership(entityResponse);
+      if (groupMembership.getGroups().remove(groupUrn)) {
+        proposals.add(
+            buildSynchronousMetadataChangeProposal(
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
       }
     }
     if (!proposals.isEmpty()) {

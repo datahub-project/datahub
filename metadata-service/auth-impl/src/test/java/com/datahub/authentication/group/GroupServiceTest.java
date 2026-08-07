@@ -336,17 +336,23 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership()
-      throws Exception {
+  public void testRemoveExistingNativeGroupMembersStripsLegacyMembership() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
+    // The fixture user belongs to EXTERNAL_GROUP via the legacy groupMembership aspect only. A
+    // native-only removal would silently leave them in the group while reporting success.
     _groupService.removeExistingNativeGroupMembers(
         mock(OperationContext.class),
         Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
         USER_URN_LIST);
-    verify(_entityClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+
+    verify(_entityClient)
+        .batchIngestProposals(
+            any(OperationContext.class),
+            argThat(mcps -> allHaveAspect(mcps, GROUP_MEMBERSHIP_ASPECT_NAME)),
+            eq(false));
   }
 
   @Test
