@@ -18,6 +18,51 @@ extend type Query {
   List SemanticModels (paginated).
   """
   getSemanticModels(input: GetRootEntitiesInput!): GetSemanticModelsResult
+
+  """
+  Fetch the SemanticModel that contains each of the given member entities (metrics /
+  logical datasets), in bulk. Membership is resolved from the graph `Contains` edge
+  written by `semanticModelInfo.datasets` / `.metrics`.
+  """
+  bulkEntitySemanticModels(
+    input: BulkEntitySemanticModelsInput!
+  ): BulkEntitySemanticModelsResult!
+}
+
+"""
+Input for fetching the SemanticModels containing a set of member entities.
+"""
+input BulkEntitySemanticModelsInput {
+  """
+  The urns of the entities to fetch SemanticModels for (metrics and/or datasets).
+  """
+  urns: [String!]!
+}
+
+"""
+Result for fetching the SemanticModels containing a set of member entities.
+"""
+type BulkEntitySemanticModelsResult {
+  """
+  The owning SemanticModel for each requested entity, one entry per requested urn.
+  """
+  entities: [EntitySemanticModel!]!
+}
+
+"""
+The SemanticModel containing a single member entity, if any.
+"""
+type EntitySemanticModel {
+  """
+  The urn of the member entity.
+  """
+  urn: String!
+
+  """
+  The SemanticModel that contains the entity, or null when the entity is not a member
+  of any SemanticModel.
+  """
+  semanticModel: SemanticModel
 }
 
 """
@@ -94,7 +139,9 @@ type Metric implements EntityWithRelationships & Entity {
   metricUpstreams: MetricUpstreams @aspectMapping(aspects: ["metricUpstreams"])
 
   """
-  The SemanticModel that defines this Metric.
+  The SemanticModel that contains this Metric, resolved from the graph `Contains` edge
+  written by `semanticModelInfo.metrics`. Null when the metric is not a member of any
+  SemanticModel.
   """
   semanticModel: SemanticModel @aspectMapping(aspects: ["metricInfo"])
 
@@ -446,13 +493,9 @@ SemanticModel, i.e. a Dataset carrying the `Semantic Model Dataset` subtype.
 type SemanticModelProperties {
   """
   Logical alias used to reference this dataset within its owning semantic model.
+  Containment itself lives on `semanticModelInfo.datasets`; see `Dataset.semanticModel`.
   """
   alias: String!
-
-  """
-  The SemanticModel that this Dataset is a logical dataset of.
-  """
-  semanticModel: SemanticModel
 }
 
 """
@@ -542,11 +585,18 @@ type AiContext {
 
 extend type Dataset {
   """
-  Present when this Dataset carries the `Semantic Model Dataset` subtype: identifies the owning
-  SemanticModel and the alias by which it is referenced within that model.
+  Present when this Dataset carries the `Semantic Model Dataset` subtype: the local alias by
+  which it is referenced within its owning semantic model's join paths.
   """
   semanticModelProperties: SemanticModelProperties
     @aspectMapping(aspects: ["semanticModelProperties"])
+
+  """
+  The SemanticModel that contains this Dataset, resolved from the graph `Contains` edge
+  written by `semanticModelInfo.datasets`. Null when the dataset is not a member of any
+  SemanticModel.
+  """
+  semanticModel: SemanticModel
 }
 
 extend type SchemaFieldEntity {
