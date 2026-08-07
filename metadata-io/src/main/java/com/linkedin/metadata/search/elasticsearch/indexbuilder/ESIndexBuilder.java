@@ -930,6 +930,10 @@ public class ESIndexBuilder {
    * re-query the live source (stable since writes are blocked). For incremental reindex where
    * writes continue to the source, pass a fixed snapshot: {@code () -> snapshotCount}.
    *
+   * <p>When counts match but a resolvable ES task reports it is still running, polling continues —
+   * a mid-copy sample of {@code dest == expected} must not complete. Status unavailable (blank task
+   * id, or 404 after ES purged a finished task) allows count-equality success.
+   *
    * @param sourceIndex the source index name (for logging and stall-retry resubmission)
    * @param destIndex the destination index name
    * @param expectedCountSupplier supplies the expected doc count; called each poll iteration
@@ -987,34 +991,53 @@ public class ESIndexBuilder {
               currentTime - pollStartTimeMillis,
               latestCounts.getFirst() - latestCounts.getSecond());
 
-      if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
-        log.info(
-            "Reindex {} -> {} complete. Doc count: {}",
-            sourceIndex,
-            destIndex,
-            documentCounts.getFirst());
-        return new PollReindexResult(true, latestReindexInfo, documentCounts);
-      }
-
-      float progressPercentage =
-          documentCounts.getFirst() > 0
-              ? (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst()
-              : 0;
-
       // Read the ES _reindex task itself rather than inferring only from doc counts: doc-count-only
       // monitoring cannot tell a still-running reindex apart from one that finished while dropping
       // documents (version conflicts, and any bulk failures the task's own retries could not clear,
       // are skipped because the request uses setAbortOnVersionConflict(false)). Logging the task
-      // counters turns an opaque timeout into an actionable diagnosis.
+      // counters turns an opaque timeout into an actionable diagnosis. Also used below to reject a
+      // mid-copy sample where dest briefly equals the expected count while the task is still
+      // running — once swap and poll share the same launch-time expected count, that sample would
+      // otherwise falsely complete.
       final Optional<GetTaskResponse> taskStatus = tryGetReindexTaskStatus(opContext, activeTaskId);
-      log.warn(
-          "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes. Reindex task [{}]: {}",
-          documentCounts.getFirst(),
-          documentCounts.getSecond(),
-          progressPercentage,
-          estimatedMinutesRemaining,
-          activeTaskId,
-          describeReindexTaskStatus(taskStatus));
+
+      if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
+        // When status is present and the task is still running, keep polling. Status unavailable
+        // (blank task id on resume, or 404 after ES purged a finished task) falls through to
+        // count-equality success.
+        if (taskStatus.map(status -> !status.isCompleted()).orElse(false)) {
+          log.info(
+              "Document counts match for {} -> {} ({}), but reindex task [{}] is still running: {}. Continuing to poll.",
+              sourceIndex,
+              destIndex,
+              documentCounts.getFirst(),
+              activeTaskId,
+              describeReindexTaskStatus(taskStatus));
+        } else {
+          log.info(
+              "Reindex {} -> {} complete. Doc count: {}. Reindex task [{}]: {}",
+              sourceIndex,
+              destIndex,
+              documentCounts.getFirst(),
+              activeTaskId,
+              describeReindexTaskStatus(taskStatus));
+          return new PollReindexResult(true, latestReindexInfo, documentCounts);
+        }
+      } else {
+        float progressPercentage =
+            documentCounts.getFirst() > 0
+                ? (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst()
+                : 0;
+
+        log.warn(
+            "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes. Reindex task [{}]: {}",
+            documentCounts.getFirst(),
+            documentCounts.getSecond(),
+            progressPercentage,
+            estimatedMinutesRemaining,
+            activeTaskId,
+            describeReindexTaskStatus(taskStatus));
+      }
 
       // A completed task whose destination is still short of the source dropped documents. Waiting
       // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by

@@ -59,6 +59,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Operations / Elasticsearch ZDU)** Incremental (zero-downtime) reindex Phase 1 now validates the alias swap against the **launch-time source document count**, not a live alias count. Live writes during the copy are expected and are covered by Phase 2 catch-up after the swap. A failed swap marks the index `FAILED` and deletes the next index so the following system-update run reindexes from scratch instead of retrying a doomed swap. Reindex polling also waits for the ES `_reindex` task to finish (when status is available) before treating matching doc counts as complete, so a mid-copy sample cannot falsely finish Phase 1.
+
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
 ## v1.7.0
