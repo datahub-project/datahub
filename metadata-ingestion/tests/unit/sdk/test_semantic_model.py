@@ -435,7 +435,7 @@ def test_logical_dataset_field_ai_context_only_when_non_empty() -> None:
 def test_end_to_end_semantic_model_with_metrics() -> None:
     """Build a small model with two logical datasets, a relationship, and two
     metrics (one derived from the other), then assert the full aspect set and
-    the lineage wiring (Metric -> SemanticModel -> Logical Dataset -> Physical).
+    the lineage wiring (Metric -> Logical Dataset -> Physical; SM is a container).
     """
     model_urn_str = (
         "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)"
@@ -497,6 +497,28 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         upstreams=["urn:li:dataset:(urn:li:dataPlatform:snowflake,raw.customers,PROD)"],
     )
 
+    total_revenue = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=model_urn_str,
+        name="Total Revenue",
+        expression=DialectExpressionInput(
+            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
+        ),
+        upstream_datasets=[orders_ds.urn],
+        ai_context=AiContextInput(synonyms=["revenue"]),
+    )
+    double_revenue = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="double_revenue",
+        semantic_model=model_urn_str,
+        name="Double Revenue",
+        expression="2 * total_revenue",
+        derived_from=[total_revenue.urn],
+    )
+
     model = SemanticModel(
         platform="snowflake",
         path="analytics",
@@ -504,6 +526,7 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         name="Orders Model",
         description="Orders semantic model",
         datasets=[orders_ds, customers_ds],
+        metrics=[total_revenue.urn, double_revenue.urn],
         relationships=[
             SemanticModelRelationshipInput(
                 from_alias="ORDERS",
@@ -515,32 +538,12 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         ],
     )
 
-    total_revenue = Metric(
-        platform="snowflake",
-        path="analytics",
-        id="total_revenue",
-        semantic_model=str(model.urn),
-        name="Total Revenue",
-        expression=DialectExpressionInput(
-            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
-        ),
-        ai_context=AiContextInput(synonyms=["revenue"]),
-    )
-    double_revenue = Metric(
-        platform="snowflake",
-        path="analytics",
-        id="double_revenue",
-        semantic_model=str(model.urn),
-        name="Double Revenue",
-        expression="2 * total_revenue",
-        derived_from=[total_revenue.urn],
-    )
-
     # --- Semantic model aspects ---
     model_aspects = _aspects_by_name(model)
     assert isinstance(model_aspects["status"], StatusClass)
     info = model_aspects["semanticModelInfo"]
     assert info.datasets == [str(orders_ds.urn), str(customers_ds.urn)]
+    assert info.metrics == [str(total_revenue.urn), str(double_revenue.urn)]
     assert info.relationships is not None and len(info.relationships) == 1
     assert info.relationships[0].from_ == "ORDERS"
     assert info.relationships[0].to == "CUSTOMERS"
@@ -555,8 +558,6 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         assert props.semanticModel == str(model.urn)
         assert "schemaMetadata" in ds_aspects
         assert "upstreamLineage" in ds_aspects
-        # A dataset never carries metricUpstreams; assert the logical dataset's
-        # actual back-ref is present instead.
         assert ds_aspects["semanticModelProperties"].semanticModel == str(model.urn)
 
     # Field-anchored annotations exist for every field.
@@ -578,8 +579,11 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     assert tr_aspects["aiContext"].synonyms == ["revenue"]
     assert isinstance(tr_aspects["metricRelationships"], MetricRelationshipsClass)
     assert tr_aspects["metricRelationships"].derivedFrom == []
-    # No metricUpstreams for semantic-model-backed metrics.
-    assert "metricUpstreams" not in tr_aspects
+    # Metric → SMD lineage via metricUpstreams.
+    assert "metricUpstreams" in tr_aspects
+    assert [
+        e.destinationUrn for e in tr_aspects["metricUpstreams"].datasetUpstreams
+    ] == [str(orders_ds.urn)]
 
     dr_aspects = _aspects_by_name(double_revenue)
     assert dr_aspects["metricInfo"].expression.dialects[0].dialect == (
@@ -591,14 +595,17 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     # No aiContext when none provided.
     assert "aiContext" not in dr_aspects
 
-    # --- Lineage chain wiring ---
-    # Metric -> SemanticModel (ModeledBy) via metricInfo.semanticModel.
+    # --- Lineage / containment wiring ---
+    # Containment: Metric ↔ SemanticModel (ModeledBy / metrics array).
     assert total_revenue.semantic_model == str(model.urn)
     assert double_revenue.semantic_model == str(model.urn)
-    # SemanticModel -> Logical Datasets (Contains) via semanticModelInfo.datasets.
+    assert str(total_revenue.urn) in model.metrics
+    assert str(double_revenue.urn) in model.metrics
+    # Containment: SemanticModel → Logical Datasets.
     assert str(orders_ds.urn) in model.datasets
     assert str(customers_ds.urn) in model.datasets
-    # Logical Dataset -> Physical (upstreamLineage).
+    # Lineage: Metric → Logical Dataset → Physical.
+    assert total_revenue.upstream_datasets == [str(orders_ds.urn)]
     assert orders_ds.upstreams is not None
     assert customers_ds.upstreams is not None
     assert (

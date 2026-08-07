@@ -27,6 +27,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import (
     DatasetUrn,
+    MetricUrn,
     SchemaFieldUrn,
     SemanticModelUrn,
     Urn,
@@ -65,6 +66,7 @@ __all__ = [
     "AiContextInput",
     "DialectExpressionInput",
     "MetricExpressionInputType",
+    "MetricInputType",
     "SemanticFieldInput",
     "SemanticModel",
     "SemanticModelDataset",
@@ -115,6 +117,7 @@ class SemanticFieldInput:
 SemanticModelDatasetInputType: TypeAlias = Union[
     str, DatasetUrn, "SemanticModelDataset"
 ]
+MetricInputType: TypeAlias = Union[str, MetricUrn]
 
 
 @dataclass
@@ -135,22 +138,21 @@ class SemanticModel(
     HasStructuredProperties,
     Entity,
 ):
-    """A semantic model: a logical grouping of datasets with dimensional context.
+    """A semantic model: a container of logical datasets, relationships, and metrics.
 
-    The semantic model is the bridge between raw datasets and the business
-    metrics calculated over them. Each logical dataset it exposes is its own
-    ``dataset`` entity (subtype ``Semantic Model Dataset``) carrying a
-    ``semanticModelProperties`` back-reference; metrics point back at the model
-    via ``metricInfo.semanticModel`` (the ``ModeledBy`` lineage edge).
+    The semantic model groups logical datasets (with dimensional context) and
+    the business metrics calculated over them. Each logical dataset it
+    exposes is its own ``dataset`` entity (subtype ``Semantic Model Dataset``)
+    carrying a ``semanticModelProperties`` back-reference; metrics point back
+    at the model via ``metricInfo.semanticModel`` (``ModeledBy``, non-lineage)
+    and are also enumerated on ``semanticModelInfo.metrics``.
 
     The canonical lineage chain is::
 
-        Metric -> SemanticModel -> Logical Dataset -> Physical Dataset
+        Metric -> Logical Dataset -> Physical Dataset
 
-    expressed entirely by ``metricInfo.semanticModel`` (ModeledBy),
-    ``semanticModelInfo.datasets`` (Contains), and each logical dataset's own
-    ``upstreamLineage``. Do not populate ``metricUpstreams`` for
-    semantic-model-backed metrics.
+    expressed by ``metricUpstreams.datasetUpstreams`` (Metric → SMD) and each
+    logical dataset's own ``upstreamLineage`` (SMD → Physical). 
 
     Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
@@ -177,6 +179,7 @@ class SemanticModel(
         last_modified: Optional[datetime] = None,
         native_definition: Optional[str] = None,
         datasets: Optional[Sequence[SemanticModelDatasetInputType]] = None,
+        metrics: Optional[Sequence[MetricInputType]] = None,
         relationships: Optional[Sequence[SemanticModelRelationshipInput]] = None,
         ai_context: Optional[AiContextInput] = None,
         owners: Optional[OwnersInputType] = None,
@@ -227,6 +230,8 @@ class SemanticModel(
         # already-populated alias on each SemanticModelDataset.
         if datasets is not None:
             self.set_datasets(datasets)
+        if metrics is not None:
+            self.set_metrics(metrics)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
@@ -325,6 +330,29 @@ class SemanticModel(
         # Normalize so a bare dataset URN string isn't iterated character-by-char.
         for dataset in as_input_list(datasets):
             self.add_dataset(dataset)
+
+    @property
+    def metrics(self) -> List[str]:
+        props = self._ensure_model_props()
+        return list(props.metrics) if props.metrics else []
+
+    def add_metric(self, metric: MetricInputType) -> None:
+        """Attach a metric URN to this model's containment list.
+
+        Insertion order is preserved across re-emits. The metric entity itself
+        should still set ``metricInfo.semanticModel`` as the reverse pointer.
+        """
+        metric_urn = str(metric)
+        props = self._ensure_model_props()
+        if props.metrics is None:
+            props.metrics = []
+        if metric_urn not in props.metrics:
+            props.metrics.append(metric_urn)
+
+    def set_metrics(self, metrics: Sequence[MetricInputType]) -> None:
+        self._ensure_model_props().metrics = []
+        for metric in as_input_list(metrics):
+            self.add_metric(metric)
 
     @property
     def relationships(self) -> Optional[List[SemanticModelRelationshipClass]]:

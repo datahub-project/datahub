@@ -45,12 +45,14 @@ from datahub.metadata.schema_classes import (
     DialectClass,
     DialectExpressionClass,
     DimensionClass,
+    EdgeClass,
     ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
+    MetricUpstreamsClass,
     MySqlDDLClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -99,8 +101,11 @@ class SnowflakeSemanticModelMapper:
     back-reference and a ``schemaMetadata`` projection of its dimension/fact
     columns; per-field semantic metadata is layered on each column's
     ``schemaField`` via ``semanticFieldAnnotation``. ``METRIC`` columns become
-    first-class ``metric`` entities linked back to the model (``ModeledBy``).
-    Lineage flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``.
+    first-class ``metric`` entities linked back to the model (``ModeledBy``,
+    containment). The SemanticModel is a container of its datasets and metrics;
+    lineage flows ``Metric -> Logical Dataset -> Physical Dataset`` via
+    ``metricUpstreams.datasetUpstreams`` and each logical dataset's
+    ``upstreamLineage``.
     """
 
     platform = "snowflake"
@@ -152,6 +157,17 @@ class SnowflakeSemanticModelMapper:
             semantic_view=semantic_view,
         )
 
+        metric_urns = [
+            self.identifiers.gen_metric_urn(
+                occurrence.name,
+                semantic_view.name,
+                schema_name,
+                db_name,
+                logical_table=key.logical_table_upper,
+            )
+            for key, occurrence in distinct_metrics.items()
+        ]
+
         # Semantic model entity.
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn, aspect=StatusClass(removed=False)
@@ -159,7 +175,9 @@ class SnowflakeSemanticModelMapper:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=self._build_semantic_model_info(semantic_view, logical_dataset_urns),
+            aspect=self._build_semantic_model_info(
+                semantic_view, logical_dataset_urns, metric_urns
+            ),
         ).as_workunit()
 
         yield from self._gen_common_entity_aspects(
@@ -197,6 +215,7 @@ class SnowflakeSemanticModelMapper:
                 view_scoped_metrics=view_scoped_metrics,
                 shadowed_metric_names=shadowed_metric_names,
                 model_urn=model_urn,
+                logical_dataset_urns=logical_dataset_urns,
                 semantic_view=semantic_view,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -206,6 +225,7 @@ class SnowflakeSemanticModelMapper:
         self,
         semantic_view: SnowflakeSemanticView,
         logical_dataset_urns: "Dict[str, str]",
+        metric_urns: List[str],
     ) -> SemanticModelInfoClass:
         return SemanticModelInfoClass(
             name=semantic_view.name,
@@ -218,6 +238,7 @@ class SnowflakeSemanticModelMapper:
                 else None
             ),
             datasets=list(logical_dataset_urns.values()),
+            metrics=list(metric_urns),
             relationships=self._build_relationships(semantic_view),
         )
 
@@ -339,9 +360,10 @@ class SnowflakeSemanticModelMapper:
         semantic_view: SnowflakeSemanticView,
     ) -> Dict[str, List[FineGrainedLineageClass]]:
         # Group non-metric FGLs by their downstream schemaField's parent dataset
-        # (the logical dataset that owns the column). Metric FGLs are dropped:
-        # metric lineage flows Metric -> SemanticModel -> Logical Dataset, with
-        # no metricUpstreams for semantic-model-backed metrics.
+        # (the logical dataset that owns the column). Metric FGLs are dropped
+        # here: metric lineage is authored on the metric entity's
+        # metricUpstreams aspect (Metric -> Logical Dataset), not as a
+        # schemaField FGL on the logical dataset.
         #
         # A column that is a METRIC on a given logical table is emitted as a metric
         # entity, not a schemaField on that logical dataset, so an FGL onto it would
@@ -646,6 +668,7 @@ class SnowflakeSemanticModelMapper:
         view_scoped_metrics: Dict[str, SemanticViewColumnMetadata],
         shadowed_metric_names: Set[str],
         model_urn: str,
+        logical_dataset_urns: "Dict[str, str]",
         semantic_view: SnowflakeSemanticView,
         schema_name: str,
         db_name: str,
@@ -719,13 +742,65 @@ class SnowflakeSemanticModelMapper:
         # Always emit metricRelationships (even with empty derivedFrom) so
         # hasParentMetric is indexed as false - the /metrics sidebar lists root
         # metrics via hasParentMetric=false. These metrics have no parent, so
-        # parentMetric is left unset. metricUpstreams is intentionally not
-        # emitted: lineage flows Metric -> SemanticModel (ModeledBy) -> Logical
-        # Dataset (Contains) -> Physical Dataset (upstreamLineage).
+        # parentMetric is left unset.
         yield MetadataChangeProposalWrapper(
             entityUrn=metric_urn,
             aspect=MetricRelationshipsClass(derivedFrom=derived_from),
         ).as_workunit()
+
+        dataset_upstreams = self._metric_dataset_upstreams(
+            occurrence=occurrence,
+            logical_table=logical_table,
+            logical_dataset_urns=logical_dataset_urns,
+        )
+        if dataset_upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=metric_urn,
+                aspect=MetricUpstreamsClass(datasetUpstreams=dataset_upstreams),
+            ).as_workunit()
+
+    def _metric_dataset_upstreams(
+        self,
+        occurrence: SemanticViewColumnMetadata,
+        logical_table: Optional[str],
+        logical_dataset_urns: "Dict[str, str]",
+    ) -> List[EdgeClass]:
+        """Resolve the Semantic Model Dataset URNs this metric reads from.
+
+        Table-bound metrics have exactly one SMD upstream (their logical table).
+        View-scoped/derived metrics may reference multiple logical tables via
+        qualified column refs in their expression; those become SMD upstreams.
+        Metrics that only reference other metrics (no table/column refs) return
+        an empty list — lineage reaches SMDs transitively via ``derivedFrom``.
+        """
+        if logical_table is not None:
+            dataset_urn = logical_dataset_urns.get(logical_table)
+            if dataset_urn:
+                return [EdgeClass(destinationUrn=dataset_urn)]
+            return []
+
+        if not occurrence.expression:
+            return []
+        try:
+            parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
+        except sqlglot.errors.SqlglotError:
+            # Parse failures are already reported by `_derived_from_metrics`
+            # (same expression, same metric); don't double-count here.
+            return []
+
+        # Qualified TABLE.col refs whose TABLE is a known logical dataset become
+        # Metric → SMD edges. Unqualified refs are metric-to-metric (handled by
+        # derivedFrom) or ambiguous, so they are skipped here.
+        upstream_urns: Dict[str, EdgeClass] = {}
+        for column in parsed.find_all(sqlglot.expressions.Column):
+            if not column.table:
+                continue
+            dataset_urn = logical_dataset_urns.get(column.table.upper())
+            if dataset_urn:
+                upstream_urns.setdefault(
+                    dataset_urn, EdgeClass(destinationUrn=dataset_urn)
+                )
+        return [upstream_urns[urn] for urn in sorted(upstream_urns)]
 
     def _derived_from_metrics(
         self,
@@ -1021,8 +1096,9 @@ class SnowflakeSemanticModelMapper:
     ) -> Tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]:
         # Retained for the unit test that exercises the routing heuristic in
         # isolation; production routing goes through _route_lineages, which
-        # drops metric FGLs (no metricUpstreams) and groups the rest by their
-        # downstream schemaField's parent logical dataset.
+        # drops metric FGLs (metric → SMD lineage is authored on
+        # metricUpstreams) and groups the rest by their downstream
+        # schemaField's parent logical dataset.
         model_lineages: List[FineGrainedLineageClass] = []
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:

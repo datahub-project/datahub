@@ -302,6 +302,8 @@ def test_semantic_model_info_datasets_and_field_grouping():
     assert info.description == "Sales semantic view"
     # datasets is now an array of dataset URNs (one per logical table).
     assert set(info.datasets) == {orders_urn, customers_urn}
+    # metrics containment list is populated from distinct metrics (may be empty).
+    assert info.metrics is not None
 
     # Each logical dataset is a dataset entity with the SEMANTIC_MODEL_DATASET
     # subtype and a semanticModelProperties back-reference to the model.
@@ -502,10 +504,18 @@ def test_metric_entities_emitted_with_derived_from_relationships():
         assert relationships[0].derivedFrom == []
         assert relationships[0].parentMetric is None
 
-    # Metrics backed by a semanticModel must not carry metricUpstreams;
-    # lineage flows Metric -> SemanticModel -> Logical Dataset -> Physical.
-    for urn in (revenue_urn, count_urn, avg_urn):
-        assert not _aspects_for(workunits, urn, MetricUpstreamsClass)
+    # View-scoped metrics with qualified table refs get Metric → SMD lineage.
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    for urn in (revenue_urn, count_urn):
+        upstreams = _aspects_for(workunits, urn, MetricUpstreamsClass)
+        assert len(upstreams) == 1
+        assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
+    # Derived metric with only metric-to-metric refs has no direct SMD upstreams.
+    assert not _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
+
+    # SemanticModelInfo.metrics enumerates all metrics (containment).
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert set(info.metrics) == {revenue_urn, count_urn, avg_urn}
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -621,14 +631,18 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
         )
     )
     metric_urn = mapper.identifiers.gen_metric_urn(
-        "total_revenue", semantic_view.name, _SCHEMA, _DB
+        "total_revenue",
+        semantic_view.name,
+        _SCHEMA,
+        _DB,
+        logical_table="ORDERS",
     )
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
 
     # The dimension FGL is re-homed onto the logical dataset's upstreamLineage;
-    # the metric FGL is dropped (no metricUpstreams for semantic-model metrics).
+    # the metric FGL is dropped (metric → SMD lineage is on metricUpstreams).
     logical_upstream_lineages = _aspects_for(
         workunits, orders_logical_urn, UpstreamLineageClass
     )
@@ -638,10 +652,14 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     assert [u.dataset for u in upstream_lineage.upstreams] == [orders_dataset_urn]
     assert upstream_lineage.fineGrainedLineages == [dimension_fgl]
 
-    # The model carries no upstreamLineage in the new model.
+    # The model carries no upstreamLineage (it is a container, not a lineage hop).
     assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
-    # And the metric carries no metricUpstreams.
-    assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    # Table-bound metric has Metric → SMD lineage via metricUpstreams.
+    metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    assert len(metric_upstreams) == 1
+    assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
+        orders_logical_urn
+    ]
 
 
 def test_lineage_routing_scoped_by_table_for_shared_metric_fact_name():
@@ -1397,7 +1415,12 @@ def test_shadowed_metric_name_fine_grained_lineage_lands_on_logical_dataset():
     )[0]
     assert upstream_lineage.fineGrainedLineages == [revenue_fgl]
 
-    assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    # View-scoped metric with qualified `orders.amount` gets Metric → ORDERS SMD.
+    metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    assert len(metric_upstreams) == 1
+    assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
+        orders_logical_urn
+    ]
 
 
 def test_same_named_metrics_on_different_tables_emit_distinct_entities():
