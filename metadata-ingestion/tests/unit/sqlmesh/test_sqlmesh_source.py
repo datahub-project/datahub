@@ -1980,7 +1980,9 @@ class TestTobikoCloudConfig:
         """Mirrors the k8s projected secret rotation pattern: the file is
         re-read only after the TTL cache is invalidated."""
 
-        _get_tobiko_token_file_cache().clear()
+        cache = _get_tobiko_token_file_cache()
+        assert cache is not None  # cachetools is installed in the test env
+        cache.clear()
         token_file = tmp_path / "tok"
         token_file.write_text("first\n")
 
@@ -1999,8 +2001,21 @@ class TestTobikoCloudConfig:
 
         # After TTL expiry (simulated by clearing the cache), the next resolve
         # observes the new content.
-        _get_tobiko_token_file_cache().clear()
+        cache = _get_tobiko_token_file_cache()
+        assert cache is not None
+        cache.clear()
         assert _read_tobiko_cloud_token_file(str(token_file)) == "second"
+
+    def test_read_token_file_without_cachetools_falls_back_uncached(self, tmp_path):
+        # When cachetools isn't installed the getter returns None; the read must
+        # still work (uncached) rather than raising NameError on cachetools.
+        token_file = tmp_path / "tok"
+        token_file.write_text("tok-value\n")
+        with patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_config._get_tobiko_token_file_cache",
+            return_value=None,
+        ):
+            assert _read_tobiko_cloud_token_file(str(token_file)) == "tok-value"
 
 
 class TestTobikoCloudStateFallback:

@@ -126,3 +126,12 @@ class TestConfigValidation:
                 project_path="s3://bucket/proj",
                 aws_connection={"aws_region": "us-east-1"},
             )
+
+    @pytest.mark.parametrize("bare", ["s3://bucket", "s3://bucket/"])
+    def test_s3_bare_bucket_rejected(self, bare: str) -> None:
+        # A bare bucket would download the whole bucket into a temp dir.
+        with pytest.raises(ValidationError, match="key prefix"):
+            _config(
+                project_path=bare,
+                aws_connection={"aws_region": "us-east-1"},
+            )
