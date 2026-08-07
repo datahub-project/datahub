@@ -234,7 +234,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 f"Token response content: {str(token_response.content)}"
             )
             logger.error(error_str)
-            self.report.report_failure("get_token", error_str)
+            self.report.failure(
+                message="Failed to get token from Azure AD",
+                context=error_str,
+            )
             click.echo("Error: Token response invalid")
             exit()
 
@@ -293,7 +296,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 datahub_corp_group_urn = self._map_azure_ad_group_to_urn(azure_ad_group)
                 if not datahub_corp_group_urn:
                     error_str = f"Failed to extract DataHub Group Name from Azure AD Group named {azure_ad_group.get('displayName')}. Skipping..."
-                    self.report.report_failure("azure_ad_group_mapping", error_str)
+                    self.report.failure(
+                        message="Failed to extract DataHub Group Name from Azure AD Group",
+                        context=error_str,
+                    )
                     continue
                 self._add_group_members_to_group_membership(
                     datahub_corp_group_urn,
@@ -367,7 +373,10 @@ class AzureADSource(StatefulIngestionSourceBase):
         user_urn = self._map_azure_ad_user_to_urn(azure_ad_user)
         if not user_urn:
             error_str = f"Failed to extract DataHub Username from Azure ADUser {azure_ad_user.get('displayName')}. Skipping..."
-            self.report.report_failure("azure_ad_user_mapping", error_str)
+            self.report.failure(
+                message="Failed to extract DataHub Username from Azure AD User",
+                context=error_str,
+            )
         else:
             self.azure_ad_groups_users.append(azure_ad_user)
             # update/create the GroupMembership aspect for this group member.
@@ -446,7 +455,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
-                self.report.report_failure("_get_azure_ad_data_", error_str)
+                self.report.failure(
+                    message="Failed to get data from Azure AD Graph API",
+                    context=error_str,
+                )
                 raise Exception(f"Unable to get {url}, error {response.status_code}")
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
@@ -463,7 +475,10 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
         if error_str is not None:
             logger.error(error_str)
-            self.report.report_failure(mapping_identifier, error_str)
+            self.report.failure(
+                message="Failed to extract identity from Azure AD",
+                context=f"{mapping_identifier}: {error_str}",
+            )
         return result, error_str
 
     def _map_azure_ad_groups(self, azure_ad_groups):
@@ -471,7 +486,11 @@ class AzureADSource(StatefulIngestionSourceBase):
             try:
                 yield from self._map_azure_ad_group(azure_ad_group)
             except Exception as e:
-                self.report.report_failure("azure_ad_group", str(e))
+                self.report.failure(
+                    message="Failed to map Azure AD group",
+                    context="azure_ad_group",
+                    exc=e,
+                )
 
     def _map_azure_ad_group(self, azure_ad_group):
         # Resolve group name and apply filters before building the URN.
@@ -483,10 +502,12 @@ class AzureADSource(StatefulIngestionSourceBase):
         # exception contract (which other callers rely on).
         raw_name = azure_ad_group.get(self.config.azure_ad_response_to_groupname_attr)
         if raw_name is None:
-            self.report.report_failure(
-                "azure_ad_group_mapping",
-                f"Attribute '{self.config.azure_ad_response_to_groupname_attr}' not found in group response. "
-                f"Check azure_ad_response_to_groupname_attr in your config.",
+            self.report.failure(
+                message="Attribute not found in Azure AD group response",
+                context=(
+                    f"azure_ad_response_to_groupname_attr="
+                    f"{self.config.azure_ad_response_to_groupname_attr!r}"
+                ),
             )
             return
         try:

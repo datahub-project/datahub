@@ -1249,6 +1249,7 @@ fragment platformFields on DataPlatform {
         type
         displayName
         datasetNameDelimiter
+        logical
         logoUrl
     }
     displayName
@@ -1267,6 +1268,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     properties {
         displayName
         datasetNameDelimiter
+        logical
         logoUrl
     }
     displayName
@@ -1565,6 +1567,20 @@ fragment entityDisplayNameFields on Entity {
     ... on OwnershipTypeEntity {
         info {
             name
+        }
+    }
+    ... on Document {
+        info {
+            title
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_admin_credentials, get_frontend_url, login_as
+from tests.utils import get_frontend_url
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +285,10 @@ def create_user(session, email, password):
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token
+    # Snapshot admin cookies before /signUp overwrites them. Prefer restore over a
+    # fresh admin login_as — parallel xdist workers otherwise stampede /logIn and
+    # can get intermittent 400s while also invalidating each other's sessions.
+    admin_cookies = session.cookies.copy()
     # Create a new user using the invite token
     sign_up_json = {
         "fullName": "Test User",
@@ -297,11 +301,12 @@ def create_user(session, email, password):
     sign_up_response.raise_for_status()
     assert sign_up_response
     assert "error" not in sign_up_response
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
+    # /signUp rotates cookies to the new user; put the admin cookies back on the
+    # same session object so callers (including TestSessionWrapper) stay admin.
     session.cookies.clear()
-    (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = login_as(admin_user, admin_pass)
-    return admin_session
+    session.cookies.update(admin_cookies)
+    return session
 
 
 def remove_user(session, urn):
@@ -313,7 +318,7 @@ def remove_user(session, urn):
     }
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return response.json()
 
 
@@ -330,7 +335,7 @@ def create_group(session, name):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createGroup"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["createGroup"]
 
 
@@ -347,7 +352,7 @@ def remove_group(session, urn):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["removeGroup"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["removeGroup"]
 
 
@@ -364,7 +369,7 @@ def assign_user_to_group(session, group_urn, user_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["addGroupMembers"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["addGroupMembers"]
 
 
@@ -382,7 +387,7 @@ def assign_role(session, role_urn, actor_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["batchAssignRole"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["batchAssignRole"]
 
 
@@ -442,7 +447,7 @@ def create_metadata_policy(
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
         f"createPolicy failed: {res_data}"
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["createPolicy"]
 
 
@@ -484,7 +489,7 @@ def create_user_policy(
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["createPolicy"]
 
 
@@ -506,7 +511,7 @@ def remove_policy(urn, session):
     assert res_data["data"]["deletePolicy"]
     assert res_data["data"]["deletePolicy"] == urn
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def list_policies(session):
@@ -647,7 +652,7 @@ def clear_polices(
     logger.info(f"Policy cleanup complete. Deleted {deleted_count} test policies")
 
     if deleted_count > 0:
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
 
 def remove_secret(session, urn):
@@ -659,4 +664,4 @@ def remove_secret(session, urn):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
     response.raise_for_status()
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)

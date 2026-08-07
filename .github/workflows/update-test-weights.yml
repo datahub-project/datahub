@@ -23,17 +23,24 @@ jobs:
     if: github.repository == 'datahub-project/datahub'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      create_pr: ${{ steps.decide.outputs.create_pr }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          # Always base the weight-refresh PR off the default branch, even when
+          # dispatched from a feature branch, so the PR contains only test-weight
+          # changes and not the dispatch branch's local commits.
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Download smoke test artifacts
         env:
@@ -208,6 +215,7 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
 
       - name: Create pull request
+        id: create-pr
         if: steps.decide.outputs.create_pr == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -215,14 +223,15 @@ jobs:
           # Concatenate whichever PR body sections were generated (empty files contribute nothing)
           PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md 2>/dev/null)
 
-          # Create PR
-          gh pr create \
+          # Create PR (gh pr create prints the PR URL to stdout)
+          PR_URL=$(gh pr create \
             --title "chore(test): Update test weights from CI runs ($(date +%Y-%m-%d))" \
             --body "$PR_BODY" \
             --head "$BRANCH_NAME" \
-            --base master
+            --base "${{ github.event.repository.default_branch }}")
 
-          echo "✓ Pull request created successfully"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "✓ Pull request created successfully: $PR_URL"
 
       - name: Summary
         if: always()
@@ -260,3 +269,56 @@ jobs:
             echo ""
             echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  notify-slack:
+    name: Notify Slack
+    needs: update-weights
+    if: always() && github.repository == 'datahub-project/datahub'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post Slack notification
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+          CHANNEL: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
+          PR_URL: ${{ needs.update-weights.outputs.pr_url }}
+          CREATE_PR: ${{ needs.update-weights.outputs.create_pr }}
+          JOB_STATUS: ${{ needs.update-weights.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_BOT_TOKEN" ]; then
+            echo "CI_NOTIFIER_SLACK_BOT_TOKEN not set; skipping Slack notification."
+            exit 0
+          fi
+          if [ -z "$CHANNEL" ]; then
+            echo "BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL not set; skipping Slack notification."
+            exit 0
+          fi
+
+          # Decide what (if anything) to post:
+          #   - workflow failed/timed out  -> failure notification with a link to the run
+          #   - workflow succeeded + PR made -> success notification with a link to the PR
+          #   - workflow succeeded, no PR   -> nothing to surface (below threshold); skip
+          if [ "$JOB_STATUS" = "failure" ] || [ "$JOB_STATUS" = "timed_out" ]; then
+            MESSAGE=":x: *Update Test Weights* workflow failed — <${RUN_URL}|view run>"
+          elif [ "$JOB_STATUS" = "success" ] && [ "$CREATE_PR" = "true" ] && [ -n "$PR_URL" ]; then
+            MESSAGE=":white_check_mark: *Update Test Weights* created a test-weight refresh PR — <${PR_URL}|view PR>"
+          else
+            echo "Nothing to notify (status=$JOB_STATUS, create_pr=$CREATE_PR)."
+            exit 0
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg channel "$CHANNEL" \
+            --arg text "$MESSAGE" \
+            '{channel: $channel, text: $text, mrkdwn: true, unfurl_links: false, unfurl_media: false}')
+
+          RESPONSE=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "$PAYLOAD" \
+            https://slack.com/api/chat.postMessage)
+
+          echo "Slack response: $RESPONSE"
+          echo "$RESPONSE" | jq -e '.ok == true' > /dev/null \
+            || { echo "Slack chat.postMessage call failed"; exit 1; }

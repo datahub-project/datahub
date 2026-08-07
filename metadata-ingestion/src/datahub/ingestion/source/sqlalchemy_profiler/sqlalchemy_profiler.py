@@ -1569,6 +1569,7 @@ class SQLAlchemyProfiler:
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
+        row_count: Optional[int] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         """Generate a single dataset profile."""
@@ -1590,6 +1591,7 @@ class SQLAlchemyProfiler:
             custom_sql=custom_sql,
             pretty_name=pretty_name,
             partition=partition,
+            row_count=row_count,
         )
 
         # Get platform-specific adapter
@@ -1646,7 +1648,9 @@ class SQLAlchemyProfiler:
                                 dict(limit=self.config.limit, offset=self.config.offset)
                             ),
                         )
-                    elif custom_sql:
+                    elif custom_sql or context.is_sampled:
+                        # GE profiler uses custom_sql for sampling; SQLAlchemy
+                        # adapter sets context.is_sampled via temp table
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )

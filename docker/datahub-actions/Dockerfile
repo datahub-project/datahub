@@ -52,6 +52,9 @@ RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -64,8 +67,9 @@ ARG DEFAULT_INDEX_URL=""
 ARG EXTRA_INDEX_URLS=""
 RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
     mkdir -p $HOME/.config/uv && \
-    if [ "${UV_PROFILE}" = "custom" ]; then \
-        DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    if [ "${UV_PROFILE}" = "custom" ] || [ -n "${EXTRA_INDEX_URLS}" ]; then \
+        PROFILES_DIR=/tmp/uv-config/profiles BASE_PROFILE="${UV_PROFILE}" UV_PROFILE="${UV_PROFILE}" DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" \
+          python3 /tmp/uv-config/generate-config.py > $HOME/.config/uv/uv.toml; \
     else \
         cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
     fi
@@ -155,7 +159,7 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (standard s3 with PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -200,7 +204,7 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -245,7 +249,7 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -298,8 +302,12 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
@@ -320,14 +328,18 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with base extras (network enabled, can install more at runtime)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -375,8 +387,12 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
@@ -397,14 +413,18 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -445,9 +465,13 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
@@ -465,9 +489,12 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install ONLY datahub-actions into the default venv (not metadata-ingestion)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove before strip_pip removes pip.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).

@@ -6,11 +6,13 @@ import static org.apache.commons.codec.digest.DigestUtils.sha256Hex;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -125,5 +127,28 @@ public class SchemaFieldUtils {
           .collect(Collectors.joining("."));
     }
     return fieldPath;
+  }
+
+  /**
+   * Parse a schemaField URN into its parent (dataset) URN and field path.
+   *
+   * @param schemaFieldUrn a schemaField URN
+   * @return an Optional of (parent URN, field path), empty if the URN is not a schemaField or
+   *     cannot be parsed
+   */
+  public static Optional<Pair<Urn, String>> parseSchemaFieldUrn(Urn schemaFieldUrn) {
+    if (!schemaFieldUrn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)) {
+      return Optional.empty();
+    }
+
+    try {
+      SchemaFieldKey key =
+          (SchemaFieldKey)
+              EntityKeyUtils.convertUrnToEntityKeyInternal(
+                  schemaFieldUrn, SchemaFieldKey.dataSchema());
+      return Optional.of(Pair.of(key.getParent(), key.getFieldPath()));
+    } catch (Exception e) {
+      return Optional.empty();
+    }
   }
 }

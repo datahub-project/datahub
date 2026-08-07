@@ -69,17 +69,17 @@ task installDev(type: Exec) {
 task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "ruff check tests/ && " +
-        "ruff format --check tests/ && " +
-        "mypy tests/"
+        "ruff check . && " +
+        "ruff format --check . && " +
+        "mypy ."
 }
 
 task pythonLintFix(type: Exec, dependsOn: installDev) {
-    commandLine 'bash', '-c',
+  commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-        "ruff check --fix tests/ && " +
-        "ruff format tests/ && " +
-        "mypy tests/"
+        "ruff check --fix . && " +
+        "ruff format . && " +
+        "mypy ."
 }
 
 /**

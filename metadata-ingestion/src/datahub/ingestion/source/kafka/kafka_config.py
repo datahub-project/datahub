@@ -1,12 +1,21 @@
 from typing import Dict, Optional
 
-from pydantic import Field
+from pydantic import Field, PositiveFloat, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+)
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_MAX_MESSAGES_PER_TOPIC,
+    DEFAULT_MAX_SAMPLE_TIME_SECONDS,
+    DEFAULT_SAMPLE_SIZE,
+    OffsetResetStrategy,
+    SamplingStrategy,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -14,6 +23,47 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class SchemaResolutionFallback(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Enable comprehensive schema resolution with multiple fallback strategies for topics where schema registry lookup fails.",
+    )
+
+    sample_timeout_seconds: PositiveFloat = Field(
+        default=2.0,
+        description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference. Must be positive.",
+    )
+    offset_reset_strategy: OffsetResetStrategy = Field(
+        default=OffsetResetStrategy.HYBRID,
+        description="Where to start reading when sampling messages for schema inference: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest). Distinct from the profiler's `sampling_strategy`.",
+    )
+    max_messages_per_topic: PositiveInt = Field(
+        default=DEFAULT_MAX_MESSAGES_PER_TOPIC,
+        description="Maximum number of messages to sample per topic for record name extraction and schema inference. Must be positive.",
+    )
+
+
+class ProfilerConfig(GEProfilingConfig):
+    max_sample_time_seconds: PositiveInt = Field(
+        default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
+        description="Maximum time to spend sampling messages in seconds. Must be positive.",
+    )
+    sampling_strategy: SamplingStrategy = Field(
+        default=SamplingStrategy.LATEST,
+        description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
+    )
+    batch_size: PositiveInt = Field(
+        default=DEFAULT_BATCH_SIZE,
+        description="Number of messages to fetch in a single batch (for more efficient reading). Must be positive.",
+    )
+
+    sample_size: PositiveInt = Field(
+        default=DEFAULT_SAMPLE_SIZE,
+        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process. Must be positive.",
+    )
 
 
 class KafkaSourceConfig(
@@ -21,9 +71,13 @@ class KafkaSourceConfig(
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
-    connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
+    connection: KafkaConsumerConnectionConfig = Field(
+        default_factory=KafkaConsumerConnectionConfig
+    )
 
-    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    topic_patterns: AllowDenyPattern = Field(
+        default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    )
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
@@ -45,6 +99,7 @@ class KafkaSourceConfig(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
+
     meta_mapping: Dict = Field(
         default={},
         description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
@@ -64,6 +119,10 @@ class KafkaSourceConfig(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
+    schema_resolution: SchemaResolutionFallback = Field(
+        default_factory=SchemaResolutionFallback,
+        description="Configuration for comprehensive schema resolution with multiple fallback strategies.",
+    )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,
         description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
@@ -76,3 +135,13 @@ class KafkaSourceConfig(
         default=None,
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
     )
+    profiling: ProfilerConfig = Field(
+        default_factory=ProfilerConfig,
+        description="Settings for message sampling and profiling",
+    )
+
+    def is_profiling_enabled(self) -> bool:
+        """Check if profiling is enabled, respecting operation_config like SQL connectors."""
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )

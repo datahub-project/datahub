@@ -47,8 +47,12 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
+    SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
+    SAP_ANALYTICAL_MODEL = "Analytic Model"
+    SAP_LOCAL_TABLE = "Local Table"
+    SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -87,6 +91,9 @@ class DatasetContainerSubTypes(StrEnum):
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
     DREMIO_FOLDER = "Dremio Folder"
+    # SAP Datasphere — value matches the freeform string previously emitted by the
+    # connector so existing golden files do not churn.
+    SAP_DATASPHERE_SPACE = "Space"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
@@ -210,11 +217,21 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # SAP Datasphere: each flow is its own DataFlow with one DataJob per target.
+    SAP_DATA_FLOW = "Data Flow"
+    SAP_REPLICATION_FLOW = "Replication Flow"
+    SAP_TRANSFORMATION_FLOW = "Transformation Flow"
+    SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
+    # SAP Datasphere flow tasks (one task per target within a flow).
+    SAP_DATA_FLOW_TASK = "Data Flow Task"
+    SAP_REPLICATION_TASK = "Replication Task"
+    SAP_TRANSFORMATION_TASK = "Transformation Task"
+    SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types

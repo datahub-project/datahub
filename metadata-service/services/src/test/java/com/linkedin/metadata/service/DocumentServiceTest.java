@@ -1,20 +1,27 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.Owner;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
+import com.linkedin.common.SemanticText;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.SearchEntity;
@@ -28,6 +35,9 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -38,7 +48,126 @@ public class DocumentServiceTest {
   private static final Urn TEST_PARENT_URN = UrnUtils.getUrn("urn:li:document:parent-document");
   private static final Urn TEST_ASSET_URN = UrnUtils.getUrn("urn:li:dataset:test-dataset");
   private static final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
+  private static final OperationContext USER_OP_CONTEXT =
       TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+  @Test
+  public void testCreateDocumentDeniedWithoutAuthorization() {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.assertThrows(
+        ServiceAuthorizationException.class,
+        () ->
+            service.createDocument(
+                USER_OP_CONTEXT,
+                "unauthorized-document",
+                List.of("tutorial"),
+                "Title",
+                null,
+                null,
+                "Content",
+                null,
+                null,
+                null,
+                null,
+                TEST_USER_URN));
+    verifyNoInteractions(mockClient);
+  }
+
+  @Test
+  public void testCreateDocumentWithCreateOnlyAuthorizationIncludesOwnership() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+    final Owner owner = new Owner().setOwner(TEST_USER_URN).setType(OwnershipType.TECHNICAL_OWNER);
+
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorizedEntityUrns(
+                      USER_OP_CONTEXT, CREATE, List.of(TEST_DOCUMENT_URN)))
+          .thenReturn(true);
+
+      service.createDocument(
+          USER_OP_CONTEXT,
+          "test-document",
+          List.of("tutorial"),
+          "Title",
+          null,
+          null,
+          "Content",
+          null,
+          null,
+          null,
+          null,
+          List.of(owner),
+          TEST_USER_URN);
+
+      authUtilMock.verify(
+          () ->
+              AuthUtil.isAuthorizedEntityUrns(USER_OP_CONTEXT, CREATE, List.of(TEST_DOCUMENT_URN)));
+      authUtilMock.verify(
+          () ->
+              AuthUtil.isAuthorizedEntityUrns(USER_OP_CONTEXT, UPDATE, List.of(TEST_DOCUMENT_URN)),
+          Mockito.never());
+    }
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient)
+        .batchIngestProposals(eq(USER_OP_CONTEXT), proposalsCaptor.capture(), eq(false));
+
+    final MetadataChangeProposal ownershipProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(proposal -> Constants.OWNERSHIP_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    final Ownership ownership =
+        GenericRecordUtils.deserializeAspect(
+            ownershipProposal.getAspect().getValue(),
+            ownershipProposal.getAspect().getContentType(),
+            Ownership.class);
+    Assert.assertEquals(ownership.getOwners(), List.of(owner));
+  }
+
+  @Test
+  public void testGetDocumentDeniedWithoutAuthorization() {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.assertThrows(
+        ServiceAuthorizationException.class,
+        () -> service.getDocumentInfo(USER_OP_CONTEXT, TEST_DOCUMENT_URN));
+    verifyNoInteractions(mockClient);
+  }
+
+  @Test
+  public void testUpdateDocumentDeniedWithoutAuthorization() {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.assertThrows(
+        ServiceAuthorizationException.class,
+        () ->
+            service.updateDocumentContents(
+                USER_OP_CONTEXT, TEST_DOCUMENT_URN, "Updated content", null, null, TEST_USER_URN));
+    verifyNoInteractions(mockClient);
+  }
+
+  @Test
+  public void testDeleteDocumentDeniedWithoutAuthorization() {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.assertThrows(
+        ServiceAuthorizationException.class,
+        () -> service.deleteDocument(USER_OP_CONTEXT, TEST_DOCUMENT_URN));
+    verifyNoInteractions(mockClient);
+  }
 
   @Test
   public void testCreateArticleSuccess() throws Exception {
@@ -180,6 +309,72 @@ public class DocumentServiceTest {
     // Verify batch ingest was called
     verify(mockClient, times(1))
         .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+  }
+
+  @Test
+  public void testUpdateArticleContentsDoesNotWriteSemanticTextUnlessProvided() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentContents(
+        opContext, TEST_DOCUMENT_URN, "New content", null, null, TEST_USER_URN);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
+    final MetadataChangeProposal infoProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(
+                proposal -> Constants.DOCUMENT_INFO_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    final DocumentInfo updatedInfo =
+        GenericRecordUtils.deserializeAspect(
+            infoProposal.getAspect().getValue(),
+            infoProposal.getAspect().getContentType(),
+            DocumentInfo.class);
+    Assert.assertEquals(updatedInfo.getContents().getText(), "New content");
+    Assert.assertTrue(
+        proposalsCaptor.getValue().stream()
+            .noneMatch(
+                proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName())));
+  }
+
+  @Test
+  public void testUpdateArticleContentsUpdatesSemanticTextWhenProvided() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentContents(
+        opContext,
+        TEST_DOCUMENT_URN,
+        "User-owned content",
+        "User-owned content",
+        null,
+        null,
+        TEST_USER_URN);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
+    final MetadataChangeProposal semanticTextProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(
+                proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    final SemanticText updatedSemanticText =
+        GenericRecordUtils.deserializeAspect(
+            semanticTextProposal.getAspect().getValue(),
+            semanticTextProposal.getAspect().getContentType(),
+            SemanticText.class);
+    Assert.assertEquals(updatedSemanticText.getText(), "User-owned content");
   }
 
   @Test
@@ -339,10 +534,10 @@ public class DocumentServiceTest {
 
     final DocumentInfo info = new DocumentInfo();
     info.setTitle("Test Article");
+    info.setContents(new DocumentContents().setText("Test content"));
 
     final EnvelopedAspect aspect = new EnvelopedAspect();
-    aspect.setValue(
-        new com.linkedin.entity.Aspect(GenericRecordUtils.serializeAspect(info).data()));
+    aspect.setValue(new com.linkedin.entity.Aspect(info.data()));
 
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, aspect);

@@ -211,8 +211,8 @@ def calculate_median_weights(
         median = statistics.median(durations)
         results.append({key_name: test_id, "duration": f"{median:.3f}s"})
 
-    # Sort by duration descending
-    results.sort(key=lambda x: float(x["duration"][:-1]), reverse=True)
+    # Sort alphabetically by test identifier for stable, reviewable diffs.
+    results.sort(key=lambda x: x[key_name])
 
     return results
 
@@ -316,28 +316,6 @@ def main():
             json.dump(weights, f, indent=2)
             f.write("\n")
         print(f"Wrote {len(weights)} {label} weights to: {output_path}")
-
-    # Print top 5 longest tests for each type
-    if cypress_weights:
-        print("\n" + "=" * 60)
-        print("Top 5 longest Cypress tests:")
-        print("=" * 60)
-        for i, test in enumerate(cypress_weights[:5], 1):
-            print(f"{i}. {test['filePath']}: {test['duration']}")
-
-    if pytest_weights:
-        print("\n" + "=" * 60)
-        print("Top 5 longest Pytest tests:")
-        print("=" * 60)
-        for i, test in enumerate(pytest_weights[:5], 1):
-            print(f"{i}. {test['testId']}: {test['duration']}")
-
-    if gradle_weights:
-        print("\n" + "=" * 60)
-        print("Top 5 longest Gradle tests:")
-        print("=" * 60)
-        for i, test in enumerate(gradle_weights[:5], 1):
-            print(f"{i}. {test['testId']}: {test['duration']}")
 
     print("\n" + "=" * 60)
     print("Done!")

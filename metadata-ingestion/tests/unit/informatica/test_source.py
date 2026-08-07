@@ -1519,8 +1519,10 @@ class TestSourceLifecycle:
         assert len(source.report.warnings) == 1
         w = source.report.warnings[0]
         assert w.title == "Taskflow step DAG missing for some Taskflows"
-        assert "Asset - export" in "".join(w.message or [])
-        assert "1/3" in "".join(w.message or [])
+        assert "Asset - export" in w.message
+        context_str = " ".join(w.context or [])
+        assert "taskflows_with_steps=1" in context_str
+        assert "taskflows_scanned=3" in context_str
 
     def test_summarize_taskflow_steps_silent_on_full_coverage(self):
         source = _make_source()

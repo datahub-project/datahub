@@ -6,7 +6,7 @@ metric_registry:
       value_unit: count
       emit_when: always
     # Report-driven (recordReportedUsage); not request-path api_calls.
-    mcp_queries:
+    mcp_query:
       merge_kind: additive
       value_unit: count
       emit_when: reported

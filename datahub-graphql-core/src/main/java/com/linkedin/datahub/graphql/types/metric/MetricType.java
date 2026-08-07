@@ -50,6 +50,7 @@ public class MetricType implements SearchableEntityType<Metric, String> {
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           Constants.SUB_TYPES_ASPECT_NAME,
           Constants.DOCUMENTATION_ASPECT_NAME,
+          Constants.AI_CONTEXT_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
           Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
 

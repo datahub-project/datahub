@@ -2260,13 +2260,22 @@
       "type" : "string",
       "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
     }, {
+      "name" : "logical",
+      "type" : "boolean",
+      "doc" : "Whether datasets on this platform are logical models (hand-authored, no ingestion source).",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN"
+      }
+    }, {
       "name" : "logoUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "The URL for a logo associated with the platform",
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "dataPlatformInfo"
+      "name" : "dataPlatformInfo",
+      "schemaVersion" : 2
     }
   }, "com.linkedin.dataplatform.PlatformType", {
     "type" : "record",
@@ -3021,8 +3030,7 @@
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
-                    "name" : "corpUserInfo",
-                    "schemaVersion" : 2
+                    "name" : "corpUserInfo"
                   }
                 }, {
                   "type" : "record",

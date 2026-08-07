@@ -48,18 +48,27 @@ type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
     const { t } = useTranslation('lineage');
-    const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities, setDisplayVersion } =
-        useContext(LineageNodesContext);
+    const {
+        rootUrn,
+        hideTransformations,
+        showDataProcessInstances,
+        showGhostEntities,
+        outputPortsOnly,
+        setDisplayVersion,
+        setCollapseColumnsVersion,
+    } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
     const { fitView, setNodes } = useReactFlow();
 
-    // Clear manual drag flags so the recompute re-lays-out every node from scratch, then bump the
-    // display version to trigger that recompute.
+    // Clear manual drag flags so the recompute re-lays-out every node from scratch, collapse
+    // columns so nodes are back at their default size, then bump the display version to trigger
+    // that recompute.
     const onRedraw = useCallback(() => {
         setNodes((nodes) => nodes.map((n) => ({ ...n, data: { ...n.data, dragged: false } })));
+        setCollapseColumnsVersion((version) => version + 1);
         setDisplayVersion(([version, urns]) => [version + 1, urns]);
-    }, [setNodes, setDisplayVersion]);
+    }, [setNodes, setCollapseColumnsVersion, setDisplayVersion]);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [visiblePanel, setVisiblePanel] = useState<PanelType | null>(null);
@@ -77,7 +86,12 @@ export default function LineageControls() {
         return () => {};
     }, [isExpanded]);
 
-    const isFilterActive = isLineageFilterActive({ hideTransformations, showDataProcessInstances, showGhostEntities });
+    const isFilterActive =
+        isLineageFilterActive({
+            hideTransformations,
+            showDataProcessInstances,
+            showGhostEntities,
+        }) || outputPortsOnly;
 
     return (
         <StyledPanel position="top-left">

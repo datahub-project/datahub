@@ -1,0 +1,30 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/quality/column-accuracy.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+apiVersion: v3.1.0
+schema:
+  - name: Air_Quality
+    description: Air quality of the city of New York
+    authoritativeDefinitions:
+      - url: https://catalog.data.gov/dataset/air-quality
+        type: Reference definition on Data.gov
+    dataGranularityDescription: Raw records
+    physicalType: table
+    properties:
+    - name: DataValue
+      businessName: Measured value
+      logicalType: number
+      physicalType: float(3,2)
+      quality:
+      - type: sql
+        query: select count(*) from Air_Quality where DataValue <= 0 or DataValue >= 500
+        mustBe: 0
+        description: This column should contain positive values under 500
+        dimension: accuracy
+        severity: error
+        businessImpact: operational

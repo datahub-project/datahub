@@ -18,8 +18,8 @@ public class UsageMetricRegistryTest {
     UsageMetricRegistry registry = UsageMetricRegistry.loadBundled(loader, java.util.List.of());
     Assert.assertFalse(registry.apiUsageMetrics().isEmpty());
     Assert.assertTrue(registry.apiUsageMetrics().containsKey("api_calls"));
-    Assert.assertTrue(registry.apiUsageMetrics().containsKey("mcp_queries"));
-    Assert.assertTrue(registry.apiUsageMetrics().get("mcp_queries").emitWhen().isReportDriven());
+    Assert.assertTrue(registry.apiUsageMetrics().containsKey("mcp_query"));
+    Assert.assertTrue(registry.apiUsageMetrics().get("mcp_query").emitWhen().isReportDriven());
   }
 
   @Test

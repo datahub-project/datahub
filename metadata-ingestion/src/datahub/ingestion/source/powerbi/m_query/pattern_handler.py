@@ -188,10 +188,12 @@ def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
     pbi_columns: Optional[List[Column]],
 ) -> List[ColumnLineageInfo]:
-    """sqlglot returns downstream column names in the upstream's case (Oracle is
-    lowercase), but PowerBI fields keep their original casing in the API
-    response. Without this remap, the downstream schemaField URN does not
-    resolve and the column-level edge points to a non-existent field."""
+    """sqlglot returns downstream column names in the parsed SQL's casing (driven
+    by the query's aliases and the source dialect's identifier folding), but
+    PowerBI fields keep their original casing from the API response. Without this
+    remap the downstream schemaField URN does not resolve and the column-level
+    edge points to a non-existent field. Applied for every SQL-parsing path via
+    parse_custom_sql (native-query, ODBC, and the two/three-step patterns)."""
     if not column_lineage or not pbi_columns:
         return column_lineage
 
@@ -458,10 +460,17 @@ class AbstractLineage(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=(
-                parsed_result.column_lineage
-                if parsed_result.column_lineage is not None
-                else []
+            # sqlglot returns downstream columns in the SQL's alias casing, which
+            # rarely matches the casing PowerBI stores its fields in. Remap in this
+            # shared SQL-parsing path so the downstream column resolves to the real
+            # PowerBI field regardless of the platform driving the parse.
+            column_lineage=_remap_column_lineage_to_pbi_fields(
+                (
+                    parsed_result.column_lineage
+                    if parsed_result.column_lineage is not None
+                    else []
+                ),
+                self.table.columns,
             ),
         )
 
@@ -893,19 +902,12 @@ class OracleLineage(AbstractLineage):
 
         # `default_database` is None for the default 2-part URN shape; set, it
         # produces 3-part URNs matching `add_database_name_to_urn: true`.
-        lineage = self.parse_custom_sql(
+        return self.parse_custom_sql(
             query=query,
             server=server,
             database=default_database,
             schema=default_schema,
             platform_detail=platform_detail,
-        )
-        return Lineage(
-            upstreams=lineage.upstreams,
-            column_lineage=_remap_column_lineage_to_pbi_fields(
-                lineage.column_lineage,
-                self.table.columns,
-            ),
         )
 
     def _sql_has_unqualified_tables(self, query: str) -> bool:

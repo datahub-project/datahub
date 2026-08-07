@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Egyes címkék a következő forrásból származnak: {{platform}}. Ezek az ütemezett adatbetöltés során rendszeresen újraszinkronizálódnak.",
     "tagTermRenderer.tagsNotEditable": "Egyes címkék nem szerkeszthetők.",
     "usageStatsRenderer.hasColumnStats": "Rendelkezik oszlopstatisztikával",
-    "usageStatsRenderer.noColumnStats": "Nincs oszlopstatisztika"
+    "usageStatsRenderer.noColumnStats": "Nincs oszlopstatisztika",
+    "fieldLogical.andMore": "és {{count}} további",
+    "fieldLogical.logicalParentInfo": "A logikai modell azon oszlopa, amely meghatározza ennek az oszlopnak a metaadatait. A logikai szülő oszlopának metaadataiban végzett módosítások automatikusan átöröklődnek erre az oszlopra.",
+    "fieldLogical.logicalParentTitle": "Logikai szülő",
+    "fieldLogical.physicalChildrenInfo": "Ennek a logikai modell oszlopnak a fizikai megvalósításai. Ennek az oszlopnak a metaadataiban végzett módosítások automatikusan átöröklődnek ezekre a gyermekoszlopokra.",
+    "fieldLogical.physicalChildrenTitle": "Fizikai gyermekek",
+    "fieldLogical.viewAllPhysicalChildren": "Összes fizikai gyermek megtekintése"
 }
