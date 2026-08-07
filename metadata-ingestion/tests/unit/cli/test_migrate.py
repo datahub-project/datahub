@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     EditableSchemaFieldInfoClass,
@@ -879,22 +880,21 @@ class TestMigrateContainers:
         assert instances[0].instance == make_dataplatform_instance_urn(
             "snowflake", "newinst"
         )
-        # Migration emits to the regenerated destination URN, never the source,
-        # so assert on shape: exactly one destination, and no malformed source
-        # leaked through.
-        emitted_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
-        assert len(emitted_urns) == 1, (
-            f"expected exactly one destination container, got {emitted_urns}"
+        # Migration emits to the regenerated destination URN, never the source.
+        # Derive the expected destination the same way _migrate_containers does,
+        # so this pins *which* container migrated rather than just how many --
+        # a malformed one migrating by mistake would produce a different guid.
+        expected_key = DatabaseKey.model_validate(
+            migratable["aspects"]["containerProperties"]["value"]["customProperties"]
         )
-        assert emitted_urns.isdisjoint(
-            {
-                "urn:li:container:noaspects",
-                "urn:li:container:nosubtypes",
-                "urn:li:container:emptytypenames",
-                "urn:li:container:noprops",
-                "urn:li:container:goodguid",
-            }
-        ), f"emitted to a source URN rather than the destination: {emitted_urns}"
+        expected_key.instance = "newinst"
+        expected_dst = f"urn:li:container:{expected_key.guid()}"
+
+        emitted_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
+        assert emitted_urns == {expected_dst}, (
+            f"expected only the valid container to migrate, to {expected_dst}; "
+            f"got {emitted_urns}"
+        )
 
 
 # --- checkpoint / resume ---
