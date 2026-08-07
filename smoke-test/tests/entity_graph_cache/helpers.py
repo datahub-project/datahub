@@ -23,6 +23,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
+    CorpGroupInfoClass,
     CorpUserInfoClass,
     DomainPropertiesClass,
     GlossaryNodeInfoClass,
@@ -598,6 +599,58 @@ def create_native_group(auth_session, group_id: str) -> str:
     assert group_urn
     wait_for_writes_to_sync()
     return group_urn
+
+
+def create_group_without_origin(graph_client: DataHubGraph, group_id: str) -> str:
+    """Emit a corpGroup that has no ``origin`` aspect.
+
+    ``createGroup`` always writes ``origin=NATIVE``, which permanently disables the
+    migration guard in Add/RemoveGroupMembersResolver. Emitting only CorpGroupInfo
+    reproduces a legacy/SSO-ingested group, so the next addGroupMembers or
+    removeGroupMembers triggers the inline GroupMembership -> NativeGroupMembership
+    migration. Returns the group URN.
+    """
+    urn = corp_group_urn(group_id)
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=CorpGroupInfoClass(
+                admins=[],
+                members=[],
+                groups=[],
+                displayName=group_id,
+                description="Origin-less group for migration coverage",
+            ),
+        )
+    )
+    wait_for_writes_to_sync()
+    return urn
+
+
+def wait_for_corp_group_members_absent(
+    auth_session,
+    group_urn: str,
+    absent_member_urns: List[str],
+    timeout_seconds: float = 25.0,
+    poll_interval_seconds: float = 1.0,
+) -> List[str]:
+    """Poll corpGroup INCOMING membership until the given members are gone.
+
+    The presence-based helper cannot express removal: a single read could pass
+    simply because the write had not landed yet.
+    """
+    absent = set(absent_member_urns)
+    deadline = time.monotonic() + timeout_seconds
+    last: List[str] = []
+    while time.monotonic() < deadline:
+        last = query_corp_group_incoming_member_urns(auth_session, group_urn)
+        if not absent & set(last):
+            return last
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        "Timed out waiting for corpGroup members to be removed: "
+        f"still_present={sorted(absent & set(last))}, last={last}"
+    )
 
 
 def create_test_corp_user(graph_client: DataHubGraph, username: str) -> str:
