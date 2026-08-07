@@ -74,13 +74,10 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           }
 
           try {
-            // Add each user to the group
             final List<Urn> userUrnList =
                 input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-            userUrnList.forEach(
-                userUrn ->
-                    _groupService.addUserToNativeGroup(
-                        context.getOperationContext(), userUrn, groupUrn));
+            _groupService.addUsersToNativeGroup(
+                context.getOperationContext(), userUrnList, groupUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

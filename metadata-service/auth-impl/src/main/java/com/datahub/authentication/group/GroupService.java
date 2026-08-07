@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -188,24 +189,73 @@ public class GroupService implements ActorGroupMembershipService {
       @Nonnull final Urn userUrn,
       @Nonnull final Urn groupUrn) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
+    addUsersToNativeGroup(opContext, Collections.singletonList(userUrn), groupUrn);
+  }
+
+  /**
+   * Adds every supplied user to the group in a fixed number of round trips — one existence check,
+   * one aspect read and one batched write — rather than three per user.
+   */
+  public void addUsersToNativeGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<Urn> userUrnList,
+      @Nonnull final Urn groupUrn) {
+    addUsersToNativeGroup(opContext, userUrnList, groupUrn, true);
+  }
+
+  /**
+   * @param requireUsersExist when true, a user that does not exist fails the whole call before
+   *     anything is written. The migration path passes false: its member list comes from graph
+   *     edges that can outlive a hard-deleted user, and failing there would leave the group
+   *     permanently unable to complete migration.
+   */
+  private void addUsersToNativeGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<Urn> userUrnList,
+      @Nonnull final Urn groupUrn,
+      final boolean requireUsersExist) {
+    Objects.requireNonNull(userUrnList, "userUrnList must not be null");
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
-    // Verify the user exists
-    if (!_entityService.exists(opContext, userUrn, true)) {
-      throw new RuntimeException("Failed to add member to group. User does not exist.");
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Set<Urn> existingUsers = _entityService.exists(opContext, userUrns, true);
+    if (requireUsersExist && !existingUsers.containsAll(userUrns)) {
+      final Set<Urn> missingUsers = new LinkedHashSet<>(userUrns);
+      missingUsers.removeAll(existingUsers);
+      throw new RuntimeException(
+          String.format("Failed to add members to group. Users do not exist: %s", missingUsers));
+    }
+
+    final Set<Urn> targetUsers =
+        userUrns.stream()
+            .filter(existingUsers::contains)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    if (targetUsers.isEmpty()) {
+      log.warn("No existing users to add to group {}; skipping", groupUrn);
+      return;
     }
 
     try {
-      NativeGroupMembership nativeGroupMembership =
-          loadNativeGroupMembershipForUpdate(opContext, userUrn);
-      // Handle the duplicate case.
-      nativeGroupMembership.getNativeGroups().remove(groupUrn);
-      nativeGroupMembership.getNativeGroups().add(groupUrn);
+      final Map<Urn, EntityResponse> entityResponses =
+          batchGetUserAspectsNoCache(
+              opContext, targetUsers, Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
 
-      final MetadataChangeProposal proposal =
-          buildSynchronousMetadataChangeProposal(
-              userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
-      _entityClient.ingestProposal(opContext, proposal);
+      final List<MetadataChangeProposal> proposals = new ArrayList<>(targetUsers.size());
+      for (Urn userUrn : targetUsers) {
+        final NativeGroupMembership nativeGroupMembership =
+            toNativeGroupMembership(entityResponses.get(userUrn));
+        // Handle the duplicate case.
+        nativeGroupMembership.getNativeGroups().remove(groupUrn);
+        nativeGroupMembership.getNativeGroups().add(groupUrn);
+        proposals.add(
+            buildSynchronousMetadataChangeProposal(
+                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
+      }
+      _entityClient.batchIngestProposals(opContext, proposals, false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
@@ -240,16 +290,27 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(
+            opContext, userUrns, Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
       final NativeGroupMembership nativeGroupMembership =
-          loadNativeGroupMembershipForUpdate(opContext, userUrn);
+          toNativeGroupMembership(entityResponses.get(userUrn));
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership));
       }
+    }
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
     }
   }
 
@@ -270,7 +331,7 @@ public class GroupService implements ActorGroupMembershipService {
     //  3. Origin is written last because a set Origin permanently disables the migration guard in
     //     the resolvers. Until it lands, an interrupted run simply re-migrates on the next call.
     final List<Urn> userUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
-    userUrnList.forEach(userUrn -> addUserToNativeGroup(opContext, userUrn, groupUrn));
+    addUsersToNativeGroup(opContext, userUrnList, groupUrn, false);
     removeExistingGroupMembers(opContext, groupUrn, userUrnList);
     createNativeGroupOrigin(opContext, groupUrn);
   }
@@ -372,37 +433,26 @@ public class GroupService implements ActorGroupMembershipService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
-    final Set<Urn> userUrns = new HashSet<>(userUrnList);
+    final Set<Urn> userUrns = new LinkedHashSet<>(userUrnList);
+    if (userUrns.isEmpty()) {
+      return;
+    }
+
+    final Map<Urn, EntityResponse> entityResponses =
+        batchGetUserAspectsNoCache(opContext, userUrns, Set.of(GROUP_MEMBERSHIP_ASPECT_NAME));
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (Urn userUrn : userUrns) {
-      final GroupMembership groupMembership = loadGroupMembershipForUpdate(opContext, userUrn);
+      final GroupMembership groupMembership = toGroupMembership(entityResponses.get(userUrn));
       if (groupMembership.getGroups().remove(groupUrn)) {
-        final MetadataChangeProposal proposal =
+        proposals.add(
             buildSynchronousMetadataChangeProposal(
-                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership);
-        _entityClient.ingestProposal(opContext, proposal);
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
       }
     }
-  }
-
-  private NativeGroupMembership loadNativeGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) throws Exception {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext,
-                Collections.singleton(userUrn),
-                Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toNativeGroupMembership(entityResponse);
-  }
-
-  private GroupMembership loadGroupMembershipForUpdate(
-      @Nonnull OperationContext opContext, @Nonnull Urn userUrn)
-      throws RemoteInvocationException, URISyntaxException {
-    final EntityResponse entityResponse =
-        batchGetUserAspectsNoCache(
-                opContext, Collections.singleton(userUrn), Set.of(GROUP_MEMBERSHIP_ASPECT_NAME))
-            .get(userUrn);
-    return toGroupMembership(entityResponse);
+    if (!proposals.isEmpty()) {
+      _entityClient.batchIngestProposals(opContext, proposals, false);
+    }
   }
 
   private NativeGroupMembership toNativeGroupMembership(@Nullable EntityResponse entityResponse) {
