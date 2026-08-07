@@ -3,7 +3,7 @@
 # fresh image or can reuse the floating `quickstart` tag -- the last image set
 # that passed smoke tests on master (published by the publish_images job).
 #
-# Writes two GitHub outputs:
+# Writes three GitHub outputs:
 #
 #   image_build_modules  Comma-separated Gradle modules for base_build to bake.
 #                        Empty means there is nothing to build; base_build still
@@ -12,6 +12,9 @@
 #                        `quickstart`. Jobs that boot a stack append these to
 #                        $GITHUB_ENV; compose reads them as per-service
 #                        overrides of DATAHUB_VERSION.
+#   image_built_repos    Space-separated docker repo names that were baked, so
+#                        run-quickstart.sh can assert compose actually resolved
+#                        them to this PR's tag rather than the reused one.
 #
 # Reuse is opt-in per image and everything unrecognised falls through to "build
 # it", so a misclassification costs build time rather than silently running the
@@ -103,9 +106,6 @@ path_is_classified() {
   return 1
 }
 
-# Note the deliberate omission of .github/**: a workflow change can alter build
-# args or the build graph itself, and that is exactly the change you want built
-# rather than reused.
 changed_files=()
 while IFS= read -r path; do
   [[ -n "${path}" ]] || continue
@@ -164,6 +164,7 @@ elif ((${#unclassified[@]})); then
 fi
 
 build_modules=()
+build_repos=()
 version_env=()
 summary=()
 
@@ -187,6 +188,7 @@ for entry in "${IMAGES[@]}"; do
 
   if [[ "${decision}" == "build" ]]; then
     build_modules+=("${module}")
+    build_repos+=("${repo}")
     summary+=("| \`${repo}\` | build | ${why} |")
     echo "build ${repo}: ${why}"
   else
@@ -206,6 +208,7 @@ fi
 
 {
   echo "image_build_modules=${joined_modules}"
+  echo "image_built_repos=${build_repos[*]-}"
   echo "image_version_env<<IMAGE_VERSION_ENV_EOF"
   if ((${#version_env[@]})); then
     printf '%s\n' "${version_env[@]}"

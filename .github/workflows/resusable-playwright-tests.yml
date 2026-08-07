@@ -51,6 +51,11 @@ on:
         required: false
         type: string
         default: ""
+      image_built_repos:
+        description: "Space-separated docker repos the caller built for this run. run-quickstart.sh fails if any resolves to a reused tag instead of datahub_version."
+        required: false
+        type: string
+        default: ""
       send_posthog_metrics:
         description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
         required: false
@@ -167,6 +172,7 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).
           PROFILE_NAME: ${{ inputs.profile_name }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ inputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
