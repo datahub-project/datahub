@@ -1765,10 +1765,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Unique guid for dataset
   No longer to be used as the Dataset display name. Use properties.name instead
   """
-  name: String!
-    @aspectMapping(
-      aspects: ["datasetProperties", "editableDatasetProperties", "datasetKey"]
-    )
+  name: String! @aspectMapping(aspects: ["datasetProperties", "datasetKey"])
 
   """
   An additional set of read only properties

@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.inject.name.Named;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
@@ -71,7 +72,7 @@ public class GraphQLController {
 
   @Inject MetricUtils metricUtils;
 
-  @Inject com.linkedin.datahub.graphql.AspectMappingRegistry aspectMappingRegistry;
+  @Inject AspectMappingRegistry aspectMappingRegistry;
 
   @Inject RateLimitEngine rateLimitEngine;
 

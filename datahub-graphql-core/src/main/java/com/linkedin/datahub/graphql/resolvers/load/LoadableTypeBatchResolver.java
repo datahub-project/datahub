@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.LoadableType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -34,17 +37,27 @@ public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableF
 
   @Override
   public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) {
-    QueryContext context = environment.getContext();
-    if (context != null) {
-      context.setDataFetchingEnvironment(environment);
-    }
-
     final List<K> keys = _keyProvider.apply(environment);
     if (keys == null) {
       return null;
     }
+
+    QueryContext context = environment.getContext();
+    AspectLoadContext loadContext = null;
+    if (context != null) {
+      loadContext =
+          AspectUtils.computeLoadContext(
+              context.getAspectMappingRegistry(),
+              _loadableType.name(),
+              environment.getSelectionSet().getFields());
+      context.mergeAspectLoadContext(_loadableType.name(), loadContext);
+    }
+
     final DataLoader<K, T> loader =
         environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
+    if (loadContext != null) {
+      return loader.loadMany(keys, Collections.nCopies(keys.size(), loadContext));
+    }
     return loader.loadMany(keys);
   }
 }

@@ -336,23 +336,18 @@ public class GraphQLEngineFactory {
 
     // Create the GmsGraphQLEngine and build the GraphQL schema
     GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);
-    GraphQLEngine graphQLEngine = gmsGraphQLEngine.builder().build();
-
-    // Create the AspectMappingRegistry once from the built schema so entity types can optimize
-    // aspect fetching based on GraphQL field selections.
-    this.aspectMappingRegistry =
-        new AspectMappingRegistry(graphQLEngine.getGraphQL().getGraphQLSchema());
-
-    return graphQLEngine;
+    return gmsGraphQLEngine.builder().build();
   }
 
-  private AspectMappingRegistry aspectMappingRegistry;
-
-  /** Provides the AspectMappingRegistry bean for use in resolvers and entity types. */
+  /**
+   * Builds AspectMappingRegistry from the GraphQLEngine schema. Takes an explicit engine dependency
+   * so Spring creates the registry after the schema exists (no config-field side effect).
+   */
   @Bean(name = "aspectMappingRegistry")
-  @org.springframework.context.annotation.DependsOn("graphQLEngine")
-  protected AspectMappingRegistry aspectMappingRegistry() {
-    return this.aspectMappingRegistry;
+  @Nonnull
+  protected AspectMappingRegistry aspectMappingRegistry(
+      @Qualifier("graphQLEngine") final GraphQLEngine engine) {
+    return new AspectMappingRegistry(engine.getGraphQL().getGraphQLSchema());
   }
 
   @Bean(name = "graphQLWorkerPool")

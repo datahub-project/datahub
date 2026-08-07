@@ -4,7 +4,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -50,7 +49,6 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySet
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
@@ -433,22 +431,6 @@ public class SearchTestUtils {
           public int getMaxParentDepth() {
             return 50;
           }
-
-          @Override
-          public DataFetchingEnvironment getDataFetchingEnvironment() {
-            return null;
-          }
-
-          @Override
-          public void setDataFetchingEnvironment(DataFetchingEnvironment environment) {}
-
-          @Override
-          public AspectMappingRegistry getAspectMappingRegistry() {
-            return null;
-          }
-
-          @Override
-          public void setAspectMappingRegistry(AspectMappingRegistry aspectMappingRegistry) {}
         });
   }
 

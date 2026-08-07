@@ -4,10 +4,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
-import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
 import graphql.schema.SelectedField;
 import java.util.Collections;
 import java.util.List;
@@ -22,20 +21,10 @@ public class AspectUtilsTest {
   private static final String KEY_ASPECT = "datasetKey";
 
   @Test
-  public void testOptimizedAspectsWhenContextComplete() {
+  public void testOptimizedAspectsWhenLoadContextPresent() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = ImmutableSet.of("aspect1", "aspect2");
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1", "aspect2")));
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -48,27 +37,9 @@ public class AspectUtilsTest {
   }
 
   @Test
-  public void testFallbackWhenDataFetchingEnvironmentNull() {
+  public void testFallbackWhenAspectLoadContextNull() {
     QueryContext mockContext = mock(QueryContext.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(null);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-
-    Set<String> result =
-        AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
-
-    assertEquals(result, ALL_ASPECTS);
-    verify(mockRegistry, never()).getRequiredAspects(anyString(), anyList());
-  }
-
-  @Test
-  public void testFallbackWhenAspectMappingRegistryNull() {
-    QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(null);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE)).thenReturn(null);
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -77,19 +48,9 @@ public class AspectUtilsTest {
   }
 
   @Test
-  public void testFallbackWhenRegistryReturnsNull() {
+  public void testFallbackWhenLoadContextFetchAll() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(null);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE)).thenReturn(AspectLoadContext.fetchAll());
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -100,18 +61,8 @@ public class AspectUtilsTest {
   @Test
   public void testAlwaysIncludesKeyAspect() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = ImmutableSet.of("aspect1");
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1")));
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -125,18 +76,8 @@ public class AspectUtilsTest {
   @Test
   public void testHandlesEmptyRequiredAspects() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = Collections.emptySet();
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(Collections.emptySet()));
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -149,18 +90,8 @@ public class AspectUtilsTest {
   @Test
   public void testMultipleAlwaysIncludeAspects() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = ImmutableSet.of("aspect1");
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1")));
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(
@@ -176,18 +107,8 @@ public class AspectUtilsTest {
   @Test
   public void testNoAlwaysIncludeAspects() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = ImmutableSet.of("aspect1", "aspect2");
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1", "aspect2")));
 
     Set<String> result = AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS);
 
@@ -200,18 +121,8 @@ public class AspectUtilsTest {
   @Test
   public void testDeduplicatesAspects() {
     QueryContext mockContext = mock(QueryContext.class);
-    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet = mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = mock(AspectMappingRegistry.class);
-
-    List<SelectedField> fields = Collections.emptyList();
-    Set<String> requiredAspects = ImmutableSet.of("aspect1", KEY_ASPECT);
-
-    when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    when(mockSelectionSet.getFields()).thenReturn(fields);
-    when(mockRegistry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(requiredAspects);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1", KEY_ASPECT)));
 
     Set<String> result =
         AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
@@ -220,5 +131,34 @@ public class AspectUtilsTest {
     assertEquals(result.size(), 2);
     assertTrue(result.contains("aspect1"));
     assertTrue(result.contains(KEY_ASPECT));
+  }
+
+  @Test
+  public void testComputeLoadContextFromRegistry() {
+    AspectMappingRegistry registry = mock(AspectMappingRegistry.class);
+    List<SelectedField> fields = Collections.emptyList();
+    when(registry.getRequiredAspects(ENTITY_TYPE, fields)).thenReturn(ImmutableSet.of("aspect1"));
+
+    AspectLoadContext loadContext = AspectUtils.computeLoadContext(registry, ENTITY_TYPE, fields);
+
+    assertFalse(loadContext.isFetchAll());
+    assertEquals(loadContext.getRequiredAspects(), ImmutableSet.of("aspect1"));
+  }
+
+  @Test
+  public void testComputeLoadContextFallbackWhenRegistryNull() {
+    AspectLoadContext loadContext =
+        AspectUtils.computeLoadContext(null, ENTITY_TYPE, Collections.emptyList());
+    assertTrue(loadContext.isFetchAll());
+  }
+
+  @Test
+  public void testUnionKeyContexts() {
+    AspectLoadContext a = AspectLoadContext.of(ImmutableSet.of("ownership"));
+    AspectLoadContext b = AspectLoadContext.of(ImmutableSet.of("dataPlatformInstance"));
+    AspectLoadContext union = AspectUtils.unionKeyContexts(List.of(a, b, "ignored"));
+    assertNotNull(union);
+    assertTrue(union.getRequiredAspects().contains("ownership"));
+    assertTrue(union.getRequiredAspects().contains("dataPlatformInstance"));
   }
 }

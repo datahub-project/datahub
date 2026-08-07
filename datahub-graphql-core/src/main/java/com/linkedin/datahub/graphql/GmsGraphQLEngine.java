@@ -357,6 +357,7 @@ import com.linkedin.datahub.graphql.types.template.PageTemplateType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -3762,7 +3763,16 @@ public class GmsGraphQLEngine {
                           String.format(
                               "Batch loading entities of type: %s, keys: %s",
                               graphType.name(), keys));
-                      return graphType.batchLoad(keys, context.getContext());
+                      // Union per-load AspectLoadContext key contexts into the request-scoped
+                      // accumulator before batchLoad. Resolvers also merge at enqueue time; this
+                      // covers any load path that only passes key context.
+                      QueryContext qc = context.getContext();
+                      AspectLoadContext fromKeys =
+                          AspectUtils.unionKeyContexts(context.getKeyContextsList());
+                      if (qc != null && fromKeys != null) {
+                        qc.mergeAspectLoadContext(graphType.name(), fromKeys);
+                      }
+                      return graphType.batchLoad(keys, qc);
                     } catch (Exception e) {
                       log.error(
                           String.format(

@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.types.LoadableType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,18 +38,27 @@ public class LoadableTypeResolver<T, K> implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<T> get(DataFetchingEnvironment environment) {
-    QueryContext context = environment.getContext();
-    if (context != null) {
-      context.setDataFetchingEnvironment(environment);
-    }
-
     final K key = _keyProvider.apply(environment);
     if (key == null) {
       return null;
     }
+
+    QueryContext context = environment.getContext();
+    AspectLoadContext loadContext = null;
+    if (context != null) {
+      loadContext =
+          AspectUtils.computeLoadContext(
+              context.getAspectMappingRegistry(),
+              _loadableType.name(),
+              environment.getSelectionSet().getFields());
+      context.mergeAspectLoadContext(_loadableType.name(), loadContext);
+    }
+
     final DataLoader<K, ?> loader =
         environment.getDataLoaderRegistry().getDataLoader(_loadableType.name());
-    return loader.load(key).thenApply(result -> unwrapLoadResult(result, key));
+    CompletableFuture<?> future =
+        loadContext != null ? loader.load(key, loadContext) : loader.load(key);
+    return future.thenApply(result -> unwrapLoadResult(result, key));
   }
 
   /**

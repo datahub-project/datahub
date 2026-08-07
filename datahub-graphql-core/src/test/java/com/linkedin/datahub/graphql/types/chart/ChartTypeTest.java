@@ -7,7 +7,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.AspectMappingRegistry;
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.entity.EntityResponse;
@@ -15,9 +15,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.execution.DataFetcherResult;
-import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -34,20 +31,12 @@ public class ChartTypeTest {
   public void testBatchLoadWithOptimizedAspects() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet =
-        Mockito.mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = Mockito.mock(AspectMappingRegistry.class);
 
     Urn chartUrn = Urn.createFromString(TEST_CHART_URN);
-    List<SelectedField> fields = Collections.emptyList();
     Set<String> optimizedAspects = ImmutableSet.of("chartKey", "chartInfo");
 
-    Mockito.when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    Mockito.when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    Mockito.when(mockSelectionSet.getFields()).thenReturn(fields);
-    Mockito.when(mockRegistry.getRequiredAspects("Chart", fields)).thenReturn(optimizedAspects);
+    Mockito.when(mockContext.getAspectLoadContext("Chart"))
+        .thenReturn(AspectLoadContext.of(optimizedAspects));
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -86,19 +75,11 @@ public class ChartTypeTest {
   public void testBatchLoadFallsBackWhenRegistryReturnsNull() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet =
-        Mockito.mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = Mockito.mock(AspectMappingRegistry.class);
 
     Urn chartUrn = Urn.createFromString(TEST_CHART_URN);
-    List<SelectedField> fields = Collections.emptyList();
 
-    Mockito.when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    Mockito.when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    Mockito.when(mockSelectionSet.getFields()).thenReturn(fields);
-    Mockito.when(mockRegistry.getRequiredAspects("Chart", fields)).thenReturn(null);
+    Mockito.when(mockContext.getAspectLoadContext("Chart"))
+        .thenReturn(AspectLoadContext.fetchAll());
 
     Mockito.when(mockClient.batchGetV2(any(), any(), any(), any()))
         .thenReturn(

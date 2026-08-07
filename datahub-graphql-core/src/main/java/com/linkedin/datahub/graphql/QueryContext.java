@@ -5,9 +5,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
-import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Provided as input to GraphQL resolvers; used to carry information about GQL request context. */
@@ -55,32 +55,36 @@ public interface QueryContext {
   }
 
   /**
-   * Returns the {@link DataFetchingEnvironment} associated with the current GraphQL request. Used
-   * to optimize aspect fetching based on selected fields.
-   *
-   * @return the DataFetchingEnvironment, or null if not available
-   */
-  @Nullable
-  DataFetchingEnvironment getDataFetchingEnvironment();
-
-  /**
-   * Sets the {@link DataFetchingEnvironment} for the current GraphQL request. Typically called by
-   * GraphQL resolvers before entity batch loads.
-   */
-  void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment);
-
-  /**
    * Returns the {@link AspectMappingRegistry} for optimizing aspect fetching based on GraphQL field
    * selections.
    *
    * @return the AspectMappingRegistry, or null if not available
    */
   @Nullable
-  AspectMappingRegistry getAspectMappingRegistry();
+  default AspectMappingRegistry getAspectMappingRegistry() {
+    return null;
+  }
 
   /**
    * Sets the {@link AspectMappingRegistry} for this context. Typically called during context
    * initialization.
    */
-  void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry);
+  default void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry) {}
+
+  /**
+   * Merges a per-field {@link AspectLoadContext} into the request-scoped union for {@code
+   * entityTypeName}. Resolvers call this before DataLoader {@code load} so aliased sibling fields
+   * with disjoint selections contribute to one batch aspect set.
+   */
+  default void mergeAspectLoadContext(
+      @Nonnull String entityTypeName, @Nonnull AspectLoadContext loadContext) {}
+
+  /**
+   * Returns the request-scoped unioned {@link AspectLoadContext} for {@code entityTypeName}, or
+   * null if no resolver contributed a selection for this type.
+   */
+  @Nullable
+  default AspectLoadContext getAspectLoadContext(@Nonnull String entityTypeName) {
+    return null;
+  }
 }

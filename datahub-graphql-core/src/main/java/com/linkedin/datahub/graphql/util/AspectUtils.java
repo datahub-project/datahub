@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.util;
 
+import com.linkedin.datahub.graphql.AspectLoadContext;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
-import java.util.Collections;
-import java.util.HashSet;
+import graphql.schema.SelectedField;
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -17,13 +21,51 @@ public class AspectUtils {
   private AspectUtils() {}
 
   /**
-   * Determines optimal aspects to fetch based on GraphQL field selections. Falls back to
-   * defaultAspects if optimization isn't possible (missing registry, unmapped fields, etc).
+   * Computes the aspect selection for a single GraphQL field invocation from its selection set.
+   * Resolvers should merge the result into {@link QueryContext} before enqueueing a DataLoader load
+   * so sibling aliased fields contribute to a request-scoped union.
+   */
+  @Nonnull
+  public static AspectLoadContext computeLoadContext(
+      @Nullable final AspectMappingRegistry registry,
+      @Nonnull final String entityTypeName,
+      @Nullable final Collection<SelectedField> selectedFields) {
+    if (registry == null || selectedFields == null) {
+      return AspectLoadContext.fetchAll();
+    }
+    return AspectLoadContext.fromRequiredAspects(
+        registry.getRequiredAspects(entityTypeName, selectedFields));
+  }
+
+  /**
+   * Unions key-context {@link AspectLoadContext} values from a DataLoader batch. Null or non-{@link
+   * AspectLoadContext} entries are ignored; an empty contribution list returns null.
+   */
+  @Nullable
+  public static AspectLoadContext unionKeyContexts(@Nullable final List<Object> keyContexts) {
+    if (keyContexts == null || keyContexts.isEmpty()) {
+      return null;
+    }
+    AspectLoadContext union = null;
+    for (Object keyContext : keyContexts) {
+      if (!(keyContext instanceof AspectLoadContext)) {
+        continue;
+      }
+      AspectLoadContext loadContext = (AspectLoadContext) keyContext;
+      union = union == null ? loadContext : union.union(loadContext);
+    }
+    return union;
+  }
+
+  /**
+   * Determines optimal aspects to fetch based on the request-scoped aspect load context for {@code
+   * entityTypeName}. Falls back to {@code defaultAspects} when no selection was accumulated (e.g.
+   * direct {@code batchLoad} outside DataLoader, missing registry contributions).
    *
-   * <p>Usage in entity type batchLoad: Set<String> aspects =
+   * <p>Usage in entity type batchLoad: Set&lt;String&gt; aspects =
    * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
    *
-   * @param context the QueryContext containing AspectMappingRegistry and DataFetchingEnvironment
+   * @param context the QueryContext carrying the per-entity-type {@link AspectLoadContext} union
    * @param entityTypeName the GraphQL type name (e.g., "Dataset", "CorpUser")
    * @param defaultAspects the full set of aspects to use as fallback
    * @param alwaysIncludeAspects aspects to always include (e.g., key aspects)
@@ -36,38 +78,13 @@ public class AspectUtils {
       @Nonnull final Set<String> defaultAspects,
       @Nonnull final String... alwaysIncludeAspects) {
 
-    // Check if we have the necessary context for optimization
-    if (context.getDataFetchingEnvironment() == null
-        || context.getAspectMappingRegistry() == null) {
-      log.debug(
-          "DataFetchingEnvironment or AspectMappingRegistry not available for {}, fetching all aspects",
-          entityTypeName);
+    AspectLoadContext loadContext = context.getAspectLoadContext(entityTypeName);
+    if (loadContext == null) {
+      log.debug("AspectLoadContext not available for {}, fetching all aspects", entityTypeName);
       return defaultAspects;
     }
 
-    // Attempt to determine required aspects from GraphQL field selections
-    Set<String> requiredAspects =
-        context
-            .getAspectMappingRegistry()
-            .getRequiredAspects(
-                entityTypeName, context.getDataFetchingEnvironment().getSelectionSet().getFields());
-
-    // If we couldn't determine required aspects (e.g., unmapped field), fall back to all aspects
-    if (requiredAspects == null) {
-      log.debug(
-          "Could not determine required aspects for {}, falling back to fetching all aspects",
-          entityTypeName);
-      return defaultAspects;
-    }
-
-    // Successfully optimized - build the minimal aspect set
-    Set<String> optimizedAspects = new HashSet<>(requiredAspects);
-
-    // Add any aspects that should always be included
-    if (alwaysIncludeAspects != null && alwaysIncludeAspects.length > 0) {
-      Collections.addAll(optimizedAspects, alwaysIncludeAspects);
-    }
-
+    Set<String> optimizedAspects = loadContext.resolve(defaultAspects, alwaysIncludeAspects);
     log.debug("Fetching optimized aspect set for {}: {}", entityTypeName, optimizedAspects);
     return optimizedAspects;
   }

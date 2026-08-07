@@ -7,6 +7,7 @@ import graphql.schema.GraphQLDirective;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLSchema;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
  * ["aspectName"]) - declares which aspects a field needs - @noAspects - indicates a field needs no
  * aspects (computed fields, custom resolvers)
  *
- * <p>To use in entity types, add one line to batchLoad: Set<String> aspects =
+ * <p>To use in entity types, add one line to batchLoad: Set&lt;String&gt; aspects =
  * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
  *
  * <p>If any field lacks a mapping directive, getRequiredAspects returns null and the entity type
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectMappingRegistry {
   private final Map<String, Set<String>> fieldToAspects = new HashMap<>();
+  private final Set<String> warnedUnmappedFields = ConcurrentHashMap.newKeySet();
 
   public AspectMappingRegistry(GraphQLSchema schema) {
     buildMappingFromSchema(schema);
@@ -39,6 +41,9 @@ public class AspectMappingRegistry {
         .values()
         .forEach(
             type -> {
+              // Only object types carry field definitions with @aspectMapping / @noAspects.
+              // Interfaces/unions are skipped: concrete implementing types own the annotations,
+              // and SelectedField.getObjectTypeNames() already attributes fields to those types.
               if (type instanceof GraphQLObjectType) {
                 GraphQLObjectType objectType = (GraphQLObjectType) type;
                 String typeName = objectType.getName();
@@ -71,7 +76,7 @@ public class AspectMappingRegistry {
                             String key = typeName + "." + fieldName;
                             fieldToAspects.put(key, new HashSet<>());
                             log.debug(
-                                "Mapped {}.{} to to request no specific aspects.",
+                                "Mapped {}.{} to request no specific aspects.",
                                 typeName,
                                 fieldName);
                           }
@@ -92,7 +97,7 @@ public class AspectMappingRegistry {
    */
   @Nullable
   public Set<String> getRequiredAspects(
-      String typeName, List<graphql.schema.SelectedField> requestedFields) {
+      String typeName, Collection<graphql.schema.SelectedField> requestedFields) {
     Set<String> aspects = new HashSet<>();
 
     for (graphql.schema.SelectedField field : requestedFields) {
@@ -118,8 +123,15 @@ public class AspectMappingRegistry {
         log.debug("Field {} mapped to aspects: {}", key, fieldAspects);
       } else {
         // Unmapped field - fallback to all aspects to be conservative
-        log.debug(
-            "Field {} has no @aspectMapping or @noAspects directives, will fetch all aspects", key);
+        if (warnedUnmappedFields.add(key)) {
+          log.warn(
+              "Field {} has no @aspectMapping or @noAspects directives, will fetch all aspects",
+              key);
+        } else {
+          log.debug(
+              "Field {} has no @aspectMapping or @noAspects directives, will fetch all aspects",
+              key);
+        }
         return null;
       }
     }

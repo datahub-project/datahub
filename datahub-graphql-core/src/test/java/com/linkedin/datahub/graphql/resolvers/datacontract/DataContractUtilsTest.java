@@ -71,24 +71,6 @@ public class DataContractUtilsTest {
               public int getMaxParentDepth() {
                 return 50;
               }
-
-              @Override
-              public com.linkedin.datahub.graphql.AspectMappingRegistry getAspectMappingRegistry() {
-                return null;
-              }
-
-              @Override
-              public void setAspectMappingRegistry(
-                  com.linkedin.datahub.graphql.AspectMappingRegistry aspectMappingRegistry) {}
-
-              @Override
-              public graphql.schema.DataFetchingEnvironment getDataFetchingEnvironment() {
-                return null;
-              }
-
-              @Override
-              public void setDataFetchingEnvironment(
-                  graphql.schema.DataFetchingEnvironment environment) {}
             },
             testUrn);
     Assert.assertTrue(result);

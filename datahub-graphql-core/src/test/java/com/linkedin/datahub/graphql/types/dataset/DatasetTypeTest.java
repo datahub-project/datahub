@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.AspectMappingRegistry;
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -22,10 +22,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
-import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,20 +45,12 @@ public class DatasetTypeTest {
   public void testBatchLoadWithOptimizedAspects() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet =
-        Mockito.mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = Mockito.mock(AspectMappingRegistry.class);
 
     Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
-    List<SelectedField> fields = Collections.emptyList();
     Set<String> optimizedAspects = ImmutableSet.of("datasetKey", "datasetProperties");
 
-    Mockito.when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    Mockito.when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    Mockito.when(mockSelectionSet.getFields()).thenReturn(fields);
-    Mockito.when(mockRegistry.getRequiredAspects("Dataset", fields)).thenReturn(optimizedAspects);
+    Mockito.when(mockContext.getAspectLoadContext("Dataset"))
+        .thenReturn(AspectLoadContext.of(optimizedAspects));
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -112,19 +100,11 @@ public class DatasetTypeTest {
   public void testBatchLoadFallsBackToAllAspects() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet mockSelectionSet =
-        Mockito.mock(DataFetchingFieldSelectionSet.class);
-    AspectMappingRegistry mockRegistry = Mockito.mock(AspectMappingRegistry.class);
 
     Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
-    List<SelectedField> fields = Collections.emptyList();
 
-    Mockito.when(mockContext.getDataFetchingEnvironment()).thenReturn(mockEnv);
-    Mockito.when(mockContext.getAspectMappingRegistry()).thenReturn(mockRegistry);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(mockSelectionSet);
-    Mockito.when(mockSelectionSet.getFields()).thenReturn(fields);
-    Mockito.when(mockRegistry.getRequiredAspects("Dataset", fields)).thenReturn(null);
+    Mockito.when(mockContext.getAspectLoadContext("Dataset"))
+        .thenReturn(AspectLoadContext.fetchAll());
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -175,8 +155,7 @@ public class DatasetTypeTest {
 
     Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
 
-    Mockito.when(mockContext.getDataFetchingEnvironment()).thenReturn(null);
-    Mockito.when(mockContext.getAspectMappingRegistry()).thenReturn(null);
+    Mockito.when(mockContext.getAspectLoadContext("Dataset")).thenReturn(null);
 
     Mockito.when(
             mockClient.batchGetV2(

@@ -3,45 +3,34 @@ package com.linkedin.datahub.graphql.util;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
-import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 /**
- * Concurrency characterization for aspect optimization.
- *
- * <p>{@link QueryContext} carries a single mutable {@code DataFetchingEnvironment}. Multiple entity
- * loaders can run within one request, so we verify the safety invariants that must hold regardless
- * of interleaving:
- *
- * <ul>
- *   <li>{@link AspectUtils#getOptimizedAspects} never returns {@code null}.
- *   <li>The always-include key aspect is always present when optimization succeeds.
- *   <li>When the registry cannot resolve a selection, it falls back to the full default set.
- * </ul>
+ * Concurrency coverage for request-scoped {@link AspectLoadContext} unions. Multiple entity loaders
+ * may merge selections into one {@link QueryContext} concurrently; the union must remain complete
+ * and {@link AspectUtils#getOptimizedAspects} must never return null.
  */
 public class AspectUtilsConcurrencyTest {
 
   private static final Set<String> DEFAULT_ASPECTS =
       ImmutableSet.of("datasetKey", "datasetProperties", "ownership", "globalTags", "status");
 
-  /** Minimal context that emulates SpringQueryContext's mutable DFE/registry storage. */
-  private static final class MutableContext implements QueryContext {
-    private final AtomicReference<DataFetchingEnvironment> dfe = new AtomicReference<>();
+  private static final class AccumulatingContext implements QueryContext {
+    private final ConcurrentHashMap<String, AspectLoadContext> aspectLoadContexts =
+        new ConcurrentHashMap<>();
     private final AspectMappingRegistry registry;
 
-    MutableContext(AspectMappingRegistry registry) {
+    AccumulatingContext(AspectMappingRegistry registry) {
       this.registry = registry;
     }
 
@@ -76,40 +65,27 @@ public class AspectUtilsConcurrencyTest {
     }
 
     @Override
-    public DataFetchingEnvironment getDataFetchingEnvironment() {
-      return dfe.get();
-    }
-
-    @Override
-    public void setDataFetchingEnvironment(DataFetchingEnvironment environment) {
-      dfe.set(environment);
-    }
-
-    @Override
     public AspectMappingRegistry getAspectMappingRegistry() {
       return registry;
     }
 
     @Override
     public void setAspectMappingRegistry(AspectMappingRegistry aspectMappingRegistry) {}
-  }
 
-  private DataFetchingEnvironment dfeReturning(Set<String> resolvedAspects, boolean fallback) {
-    DataFetchingEnvironment env = Mockito.mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet selectionSet = Mockito.mock(DataFetchingFieldSelectionSet.class);
-    Mockito.when(env.getSelectionSet()).thenReturn(selectionSet);
-    Mockito.when(selectionSet.getFields()).thenReturn(List.of());
-    return env;
+    @Override
+    public void mergeAspectLoadContext(String entityTypeName, AspectLoadContext loadContext) {
+      aspectLoadContexts.merge(entityTypeName, loadContext, AspectLoadContext::union);
+    }
+
+    @Override
+    public AspectLoadContext getAspectLoadContext(String entityTypeName) {
+      return aspectLoadContexts.get(entityTypeName);
+    }
   }
 
   @Test
-  public void testSafetyInvariantsUnderConcurrentDfeMutation() throws Exception {
-    AspectMappingRegistry registry = Mockito.mock(AspectMappingRegistry.class);
-    // Registry always resolves to a minimal set for this test's selection.
-    Mockito.when(registry.getRequiredAspects(Mockito.eq("Dataset"), Mockito.anyList()))
-        .thenReturn(ImmutableSet.of("datasetProperties"));
-
-    MutableContext context = new MutableContext(registry);
+  public void testSafetyInvariantsUnderConcurrentMerge() throws Exception {
+    AccumulatingContext context = new AccumulatingContext(null);
 
     int threads = 16;
     int iterations = 200;
@@ -118,14 +94,16 @@ public class AspectUtilsConcurrencyTest {
     ConcurrentLinkedQueue<String> violations = new ConcurrentLinkedQueue<>();
 
     for (int t = 0; t < threads; t++) {
+      final int threadId = t;
       pool.submit(
           () -> {
             try {
               start.await();
               for (int i = 0; i < iterations; i++) {
-                // Each iteration overwrites the shared DFE, then resolves — emulating many
-                // concurrent entity loaders sharing one request context.
-                context.setDataFetchingEnvironment(dfeReturning(Set.of(), false));
+                AspectLoadContext contribution =
+                    AspectLoadContext.of(
+                        ImmutableSet.of(threadId % 2 == 0 ? "ownership" : "dataPlatformInstance"));
+                context.mergeAspectLoadContext("Dataset", contribution);
                 Set<String> result =
                     AspectUtils.getOptimizedAspects(
                         context, "Dataset", DEFAULT_ASPECTS, "datasetKey");
@@ -144,16 +122,16 @@ public class AspectUtilsConcurrencyTest {
     pool.shutdown();
     assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS), "threads did not finish");
     assertTrue(violations.isEmpty(), "Safety violations: " + violations);
+
+    Set<String> finalAspects =
+        AspectUtils.getOptimizedAspects(context, "Dataset", DEFAULT_ASPECTS, "datasetKey");
+    assertTrue(finalAspects.contains("ownership"), finalAspects.toString());
+    assertTrue(finalAspects.contains("dataPlatformInstance"), finalAspects.toString());
   }
 
   @Test
-  public void testFallbackWhenRegistryReturnsNullUnderConcurrency() throws Exception {
-    AspectMappingRegistry registry = Mockito.mock(AspectMappingRegistry.class);
-    // Simulate an unmapped field: registry returns null -> must fall back to full set.
-    Mockito.when(registry.getRequiredAspects(Mockito.eq("Dataset"), Mockito.anyList()))
-        .thenReturn(null);
-
-    MutableContext context = new MutableContext(registry);
+  public void testFallbackWhenFetchAllUnderConcurrency() throws Exception {
+    AccumulatingContext context = new AccumulatingContext(null);
 
     int threads = 8;
     ExecutorService pool = Executors.newFixedThreadPool(threads);
@@ -166,7 +144,7 @@ public class AspectUtilsConcurrencyTest {
             try {
               start.await();
               for (int i = 0; i < 200; i++) {
-                context.setDataFetchingEnvironment(dfeReturning(Set.of(), true));
+                context.mergeAspectLoadContext("Dataset", AspectLoadContext.fetchAll());
                 Set<String> result =
                     AspectUtils.getOptimizedAspects(
                         context, "Dataset", DEFAULT_ASPECTS, "datasetKey");
