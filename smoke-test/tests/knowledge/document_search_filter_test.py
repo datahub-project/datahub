@@ -15,11 +15,16 @@ import time
 import uuid
 
 import pytest
+import tenacity
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import with_test_retry
+from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
+
+# Same env-driven timing as with_test_retry(), but scoped to a single retryable
+# condition (see _fetch_related_documents) rather than any exception.
+_RETRY_SLEEP, _RETRY_TIMES = get_sleep_info()
 
 
 def execute_graphql(
@@ -91,7 +96,16 @@ def _create_document(
     return urn
 
 
-@with_test_retry()
+class _DocumentNotIndexedYet(Exception):
+    """The document is not visible in the graph index yet -- worth retrying."""
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(_RETRY_TIMES),
+    wait=tenacity.wait_fixed(_RETRY_SLEEP),
+    retry=tenacity.retry_if_exception_type(_DocumentNotIndexedYet),
+    reraise=True,
+)
 def _fetch_related_documents(auth_session, dataset_urn: str, expected_doc_urn: str):
     """Read an entity's relatedDocuments, retrying until the document shows up.
 
@@ -100,6 +114,10 @@ def _fetch_related_documents(auth_session, dataset_urn: str, expected_doc_urn: s
     Waiting on the consumer offset does not cover the indexing step, and a fixed
     sleep is just a guess at how long that takes on any given runner -- retry
     instead, matching test_scroll_lineage.py::_assert_lineage_edges.
+
+    Only the not-yet-indexed case retries. An HTTP error or a GraphQL error
+    payload is not transient, so it propagates on the first attempt rather than
+    costing every genuine failure the full retry budget.
     """
     related_query = """
         query GetDatasetDocs($urn: String!, $input: RelatedDocumentsInput!) {
@@ -127,11 +145,12 @@ def _fetch_related_documents(auth_session, dataset_urn: str, expected_doc_urn: s
 
     # Context-only document SHOULD appear in relatedDocuments. This is the key
     # distinction: relatedDocuments shows context docs, global search does not.
-    assert expected_doc_urn in found_urns, (
-        f"Context-only document {expected_doc_urn} SHOULD appear in relatedDocuments. "
-        f"Found: {found_urns}. "
-        f"Context documents are meant to be discovered through their related entities."
-    )
+    if expected_doc_urn not in found_urns:
+        raise _DocumentNotIndexedYet(
+            f"Context-only document {expected_doc_urn} SHOULD appear in relatedDocuments. "
+            f"Found: {found_urns}. "
+            f"Context documents are meant to be discovered through their related entities."
+        )
     return related_docs
 
 
