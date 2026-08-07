@@ -316,7 +316,7 @@ public class EntityUtils {
     final Map<String, Set<String>> missingAspectVersions;
     if (txContext.shouldFallbackToDatabaseMaxVersion()) {
       log.warn(
-          "DuplicateKey failures reached fallback threshold ({}), using database max(version)+1",
+          "Retry failures reached fallback threshold and last error was DuplicateKey ({}); using database max(version)+1",
           TransactionContext.DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES);
       precalculatedVersions = Map.of();
       missingAspectVersions = urnAspects;

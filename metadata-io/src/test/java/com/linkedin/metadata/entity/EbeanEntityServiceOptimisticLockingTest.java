@@ -285,5 +285,14 @@ public class EbeanEntityServiceOptimisticLockingTest {
                 .getLatestAspectsForUrn(opContext, urn, java.util.Set.of(aspectName), false)
                 .get(aspectName);
     assertTrue(latest.isRemoved());
+
+    // The plain UPDATE must stamp SystemMetadata.version so subsequent writes use CAS instead of
+    // falling back to last-writer-wins again.
+    EntityAspect after = aspectDao.getAspect(opContext, urn.toString(), aspectName, 0L);
+    assertNotNull(after);
+    assertNotNull(
+        SystemMetadataUtils.parseSystemMetadata(after.getSystemMetadata()).getVersion(),
+        "expected the legacy row's update to stamp SystemMetadata.version, enabling CAS on"
+            + " subsequent writes");
   }
 }

@@ -263,7 +263,8 @@ abstract class EbeanOptimisticLockingDialectIT {
           });
     }
 
-    assertTrue(bothRead.await(45, TimeUnit.SECONDS));
+    assertTrue(
+        bothRead.await(45, TimeUnit.SECONDS), "bothRead timed out; firstError=" + firstError.get());
     writeGate.countDown();
     assertTrue(done.await(90, TimeUnit.SECONDS));
     pool.shutdownNow();
@@ -496,7 +497,8 @@ abstract class EbeanOptimisticLockingDialectIT {
           }
         });
 
-    assertTrue(bothRead.await(45, TimeUnit.SECONDS));
+    assertTrue(
+        bothRead.await(45, TimeUnit.SECONDS), "bothRead timed out; firstError=" + firstError.get());
     writeGate.countDown();
     assertTrue(done.await(90, TimeUnit.SECONDS));
     pool.shutdownNow();

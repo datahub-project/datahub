@@ -227,7 +227,10 @@ public interface AspectDao {
 
     if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
       SystemAspect currentVersion0 = latestAspect.getDatabaseAspect().get();
-      String expectedVersion = currentVersion0.getSystemMetadata().getVersion();
+      String expectedVersion =
+          Optional.ofNullable(currentVersion0.getSystemMetadata())
+              .map(SystemMetadata::getVersion)
+              .orElse(null);
 
       if (expectedVersion == null) {
         Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =

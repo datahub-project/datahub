@@ -21,6 +21,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -903,9 +904,11 @@ public class EbeanAspectDaoTest {
           },
           mock(AspectsBatch.class),
           2);
-      throw new AssertionError("expected RetryLimitReached");
-    } catch (RetryLimitReached expected) {
-      // expected
+      throw new AssertionError("expected DatabaseTransactionConflictException");
+    } catch (DatabaseTransactionConflictException expected) {
+      // OL exhaustion must surface as this specific subtype: RestliUtils,
+      // GlobalControllerExceptionHandler, and DataHubDataFetcherExceptionHandler all key off it
+      // to produce a 503 + Retry-After instead of a generic 500.
     }
 
     verify(metricUtils, org.mockito.Mockito.atLeastOnce())
@@ -979,7 +982,73 @@ public class EbeanAspectDaoTest {
   }
 
   @Test
-  public void testGetNextVersionsComputesMaxOnDuplicateKeyFallback() {
+  public void testSaveLatestAspectConditionalNullSystemMetadataFallsBackToLegacy() {
+    // Distinct from testSaveLatestAspectConditionalNullVersionFallsBackToLegacy above: that test
+    // covers a row whose SystemMetadata is present but has no version field. Here the database
+    // aspect's SystemMetadata itself is null (permitted by the SystemAspect contract, e.g.
+    // EnvelopedSystemAspect#getSystemMetadata is @Nullable), which used to NPE while reading
+    // expectedVersion before a null check was added.
+    EbeanAspectDao optimisticDao = newOptimisticDao();
+    String urn = "urn:li:corpuser:testOptLockNullSystemMetadata";
+
+    // Seed a real row so the legacy fallback's updateAspect() has something to update.
+    SystemMetadata seedSysMeta = new SystemMetadata();
+    seedSysMeta.setVersion("1");
+    SystemAspect seed =
+        new EbeanSystemAspect(
+            null,
+            UrnUtils.getUrn(urn),
+            STATUS_ASPECT_NAME,
+            opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+            new Status().setRemoved(false),
+            seedSysMeta,
+            AuditStampUtils.createDefaultAuditStamp(),
+            null,
+            null,
+            null);
+    optimisticDao.insertAspect(opContext, null, seed, ASPECT_LATEST_VERSION);
+
+    SystemAspect currentVersion0 = mock(SystemAspect.class);
+    when(currentVersion0.getSystemMetadata()).thenReturn(null);
+    when(currentVersion0.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+
+    SystemAspect latestAspect = mock(SystemAspect.class);
+    when(latestAspect.getDatabaseAspect()).thenReturn(Optional.of(currentVersion0));
+
+    SystemMetadata newSysMeta = new SystemMetadata();
+    newSysMeta.setVersion("1");
+    SystemAspect newAspect =
+        new EbeanSystemAspect(
+            null,
+            UrnUtils.getUrn(urn),
+            STATUS_ASPECT_NAME,
+            opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
+            new Status().setRemoved(true),
+            newSysMeta,
+            AuditStampUtils.createDefaultAuditStamp(),
+            null,
+            null,
+            null);
+
+    ConditionalSaveResult result =
+        optimisticDao.saveLatestAspectConditional(opContext, null, latestAspect, newAspect, 1);
+
+    assertEquals(result.getOutcome(), ConditionalWriteOutcome.UPDATED);
+    EntityAspect after =
+        optimisticDao
+            .batchGet(
+                opContext,
+                Set.of(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)),
+                false)
+            .get(new EntityAspectIdentifier(urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+    assertNotNull(after);
+    assertTrue(after.getMetadata().contains("\"removed\":true"));
+  }
+
+  @Test
+  public void testGetNextVersionsComputesMaxWithHistory() {
     EbeanAspectDao optimisticDao = newOptimisticDao();
     String urn = "urn:li:corpuser:testOptLockGetNextFallback";
     insertAspectWithSystemMetadata(
@@ -1223,8 +1292,8 @@ public class EbeanAspectDaoTest {
     EntityAspect history1 = optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 1L);
     EntityAspect history2 = optimisticDao.getAspect(opContext, urn, STATUS_ASPECT_NAME, 2L);
     assertTrue(
-        history1 != null || history2 != null,
-        "expected at least one history row when maxVersionsToKeep > 1");
+        history1 != null && history2 != null,
+        "expected both history rows (versions 1 and 2) with maxVersionsToKeep=5 and two writes");
   }
 
   /**
