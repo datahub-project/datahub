@@ -68,7 +68,9 @@ def _create_document(
     }
     # Callers wait once (wait_for_writes_to_sync) after creating all documents
     # for a test, so intermediate creates/status-updates don't need to sync.
-    result = execute_graphql(auth_session, create_mutation, variables, no_sync_wait=True)
+    result = execute_graphql(
+        auth_session, create_mutation, variables, no_sync_wait=True
+    )
     assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
     urn = result["data"]["createDocument"]
 
