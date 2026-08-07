@@ -324,9 +324,8 @@ class BigQueryLinkedDatasetsHandler:
             self.report.warning(
                 title="Cannot read linked dataset metadata",
                 message=(
-                    "`get_dataset` failed on a linked dataset, so it is ingested "
-                    "without BigQuery Sharing enrichment. The dataset may have been "
-                    "deleted after listing, or `bigquery.datasets.get` may be missing."
+                    "`get_dataset` failed with an unexpected API error, so this "
+                    "linked dataset is ingested without BigQuery Sharing enrichment."
                 ),
                 context=f"{project_id}.{consumer_dataset}",
                 exc=e,
