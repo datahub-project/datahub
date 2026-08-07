@@ -32,10 +32,10 @@ Core metadata is stored in the `metricInfo` aspect:
 - **`expression`** — the metric formula expressed in one or more SQL dialects. Each `DialectExpression` pairs
   a `Dialect` enum value with the raw SQL string.
 
-Semantic-model membership is not stored on `metricInfo`. Metrics belonging to a semantic model
-are listed on that model's `semanticModelInfo.metrics` (`Contains`). Reverse lookup uses the
-graph index. Metrics ingested without a semantic model (e.g. thin catalog-only metrics from BI
-tools) simply omit that membership.
+- **`semanticModel`** — optional URN of the owning SemanticModel. Authoritative membership
+  pointer (`ModeledBy`, non-lineage). Search-indexed as `semanticModel` / `hasSemanticModel`.
+  Metrics ingested without a semantic model (e.g. thin catalog-only metrics from BI tools)
+  leave this unset.
 
 ### AI Context
 
@@ -66,16 +66,16 @@ The metric entity reuses these standard governance aspects: `ownership`, `domain
 
 | Relationship           | Direction | Target entity   | Aspect / edge name                 | Lineage? |
 | ---------------------- | --------- | --------------- | ---------------------------------- | -------- |
-| Contains (inbound)     | inbound   | `semanticModel` | `semanticModelInfo.metrics`        | no       |
+| ModeledBy              | outbound  | `semanticModel` | `metricInfo.semanticModel`         | no       |
 | IsPartOf               | outbound  | `metric`        | `metricRelationships`              | no       |
 | DerivedFrom            | outbound  | `metric`        | `metricRelationships`              | yes      |
 | RelatedTo              | outbound  | `metric`        | `metricRelationships`              | no       |
 | Consumes (dataset)     | outbound  | `dataset`       | `metricUpstreams.datasetUpstreams` | yes      |
 | Consumes (schemaField) | outbound  | `schemaField`   | `metricUpstreams.fieldUpstreams`   | yes      |
 
-Semantic-model membership is inbound only: a metric appears in
-`semanticModelInfo.metrics` on its owning model (`Contains`, non-lineage). There is no
-`metricInfo.semanticModel` field.
+Semantic-model membership is member-side only: `metricInfo.semanticModel` (`ModeledBy`,
+non-lineage) is the single source of truth. Listing a model's metrics is an ES filter on
+`hasSemanticModel`.
 
 Metric-to-dataset and metric-to-column lineage are carried by the dedicated `metricUpstreams`
 aspect. `datasetUpstreams` and `fieldUpstreams` are independently optional so ingestion sources

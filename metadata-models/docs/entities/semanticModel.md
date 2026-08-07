@@ -34,16 +34,14 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   `CREATE SEMANTIC VIEW` DDL, the dbt `semantic_model` YAML, or the Databricks
   `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
   parsed by DataHub.
-- **`datasets`** — array of `dataset` URNs: the logical datasets that this semantic model exposes.
-  Each is a full `dataset` entity carrying the `Semantic Model Dataset` subtype. This is the
-  single source of truth for dataset membership (same pattern as `dataProductProperties.assets`).
-  See [Logical Datasets as Dataset Entities](#logical-datasets-as-dataset-entities) below.
-- **`metrics`** — array of `metric` URNs: the metrics defined by this semantic model. This is the
-  single source of truth for metric membership; there is no reverse pointer on `metricInfo`.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-alias, to-alias, join columns, optional
   name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
   AI context). The from/to aliases refer to each logical dataset's `semanticModelProperties.alias`.
+
+Membership of datasets and metrics is **not** stored on `semanticModelInfo`. It lives on the
+member side — see [Logical Datasets as Dataset Entities](#logical-datasets-as-dataset-entities)
+and the [Metric](metric.md) entity docs.
 
 ### AI Context
 
@@ -70,8 +68,10 @@ makes independent search, governance, and lineage possible without reimplementin
 - **`semanticModelProperties`** aspect — the semantic-model-specific facet on top of the standard
   Dataset aspects:
   - **`alias`** — the logical alias used to reference this dataset within its owning semantic
-    model's `SemanticModelRelationship` join paths. Containment itself lives only on
-    `semanticModelInfo.datasets`; reverse lookup uses the graph index on `Contains`.
+    model's `SemanticModelRelationship` join paths.
+  - **`semanticModel`** — authoritative URN of the owning SemanticModel (`IsPartOf`, non-lineage).
+    Search-indexed as `semanticModel` / `hasSemanticModel`. Listing a model's datasets is an ES
+    filter on this field.
 - **`viewProperties`** aspect (standard, already registered on `dataset`) — holds the native SQL
   (`viewLogic`) when the logical dataset is backed by a view or inline query, exactly as it does
   for any other view-backed dataset.
@@ -114,9 +114,9 @@ and `upstreamLineage.upstreams` carries one `Upstream` entry per physical table 
 
 ### Lineage
 
-The SemanticModel is a container of its logical datasets and metrics (similar to a
-DataProduct), not a lineage hop. In the lineage explorer it renders as a bounding box around its
-members. The canonical lineage chain for a semantic-model-backed metric is:
+The SemanticModel is a container of its logical datasets and metrics (similar to Domains), not a
+lineage hop. In the lineage explorer it renders as a bounding box around its members. The
+canonical lineage chain for a semantic-model-backed metric is:
 
 `Metric → Logical Dataset (Semantic Model Dataset) → Physical Dataset`
 
@@ -125,13 +125,13 @@ Model Dataset URN(s) the metric reads from (`Consumes`, `isLineage: true`). Opti
 `metricUpstreams.fieldUpstreams` with the corresponding `schemaField` URNs for column-level
 lineage.
 
-**Metric ↔ semantic model** — membership is stored only on `semanticModelInfo.metrics`
-(`Contains`). That list drives bounding-box membership in the lineage explorer. Reverse lookup
-("which semantic model contains this metric") uses the graph index.
+**Metric ↔ semantic model** — membership is stored only on `metricInfo.semanticModel`
+(`ModeledBy`, non-lineage). That field drives search/filter/facet and bounding-box membership
+in the lineage explorer.
 
 **Semantic model ↔ logical dataset** — membership is stored only on
-`semanticModelInfo.datasets` (`Contains`). Each logical dataset keeps `semanticModelProperties.alias`
-for join edges; reverse lookup uses the graph index.
+`semanticModelProperties.semanticModel` (`IsPartOf`, non-lineage). Each logical dataset also keeps
+`semanticModelProperties.alias` for join edges.
 
 **Logical dataset → physical source** — standard `upstreamLineage` aspect on the logical dataset
 (the same aspect every dataset already uses), populated with one `Upstream` entry per physical
@@ -153,14 +153,13 @@ properties — with no semantic-model-specific reimplementation.
 
 ## Relationships with Other Entities
 
-| Relationship | Direction | Target entity | Aspect / edge name           | Lineage? |
-| ------------ | --------- | ------------- | ---------------------------- | -------- |
-| Contains     | outbound  | `dataset`     | `semanticModelInfo.datasets` | no       |
-| Contains     | outbound  | `metric`      | `semanticModelInfo.metrics`  | no       |
+| Relationship | Direction | Target entity | Aspect / edge name                      | Lineage? |
+| ------------ | --------- | ------------- | --------------------------------------- | -------- |
+| IsPartOf     | inbound   | `dataset`     | `semanticModelProperties.semanticModel` | no       |
+| ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`              | no       |
 
-The `Contains` edges are derived from the `datasets` / `metrics` URN arrays in `semanticModelInfo`
-— the single source of truth for membership (mirroring `dataProductProperties.assets`). There are
-no reverse membership fields on metrics or logical datasets. Metric → SMD lineage lives on
+Membership is member-side only (same pattern as Domains / Tags / Owners). There are no
+`datasets` / `metrics` arrays on `semanticModelInfo`. Metric → SMD lineage lives on
 `metricUpstreams.datasetUpstreams` (not on the semantic model) — see [Lineage](#lineage) above.
 Traversal then continues via each logical dataset's `upstreamLineage`
 (SemanticModelDataset → Physical Dataset).

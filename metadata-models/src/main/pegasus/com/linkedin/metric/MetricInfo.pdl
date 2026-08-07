@@ -2,13 +2,14 @@ namespace com.linkedin.metric
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
 
 /**
  * Core information about a Metric entity.
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 6
+  "schemaVersion": 7
 }
 record MetricInfo includes ExternalReference {
 
@@ -60,6 +61,22 @@ record MetricInfo includes ExternalReference {
     }
   }
   lastModified: optional AuditStamp
+
+  /**
+   * Authoritative link from this metric to its owning SemanticModel.
+   * Containment only — not a lineage edge. Listing a semantic model's
+   * metrics is an ES filter on `hasSemanticModel`.
+   */
+  @Relationship = {
+    "name": "ModeledBy",
+    "entityTypes": [ "semanticModel" ]
+  }
+  @Searchable = {
+    "fieldName": "semanticModel",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasSemanticModel"
+  }
+  semanticModel: optional Urn
 
   /**
    * The SQL expression used to compute this metric, in one or more dialects.
