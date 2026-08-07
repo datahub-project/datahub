@@ -448,35 +448,11 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
                     "type": "TRANSFORMED"
                 }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),count)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD),count)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD),status)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view,PROD),status)"
-                    ],
-                    "confidenceScore": 1.0
-                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1781857543492,
+        "lastObserved": 1786115722246,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -514,12 +490,12 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "includes:\n  - orders.count\n  - orders.status",
+            "viewLogic": "includes:\n  - count\n  - status",
             "viewLanguage": "YAML"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1781865165814,
+        "lastObserved": 1786115722246,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }

@@ -488,7 +488,9 @@ class CubeEntity(BaseModel):
                 is_measure=is_measure,
                 title=member.title,
                 is_primary_key=member.is_primary_key,
-                member_references=[r.get("member", "") for r in member.member_references],
+                member_references=[
+                    r.get("member", "") for r in member.member_references
+                ],
                 column_references=[
                     CubeColumnReference(
                         schema_name=ref.schema_name,
