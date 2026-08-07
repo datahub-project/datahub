@@ -147,6 +147,19 @@ def get_batch_number() -> int:
     return int(os.getenv("BATCH_NUMBER", "0"))
 
 
+def get_pytest_xdist_workers() -> int:
+    """pytest-xdist worker count used for a batch's parallel phase.
+
+    smoke.sh passes ``-n $PYTEST_XDIST_WORKERS`` when this is a positive
+    integer, so batch weighting uses it to tell parallel work from serial.
+    Anything unset or malformed means no xdist, i.e. one worker.
+    """
+    raw = os.getenv("PYTEST_XDIST_WORKERS", "").strip()
+    if not raw.isdigit():
+        return 1
+    return max(1, int(raw))
+
+
 def get_test_strategy() -> Optional[str]:
     """Test execution strategy (e.g., 'cypress')."""
     return os.getenv("TEST_STRATEGY")
