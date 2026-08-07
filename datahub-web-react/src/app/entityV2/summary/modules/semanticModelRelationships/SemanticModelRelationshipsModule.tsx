@@ -26,8 +26,10 @@ import {
 type EntityDataWithRelationships = {
     platform?: DataPlatform | null;
     info?: {
-        datasets?: Dataset[] | null;
         relationships?: SemanticModelRelationship[] | null;
+    } | null;
+    entities?: {
+        searchResults?: Array<{ entity?: Entity | null } | null> | null;
     } | null;
 };
 
@@ -171,11 +173,16 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
 
     const datasetsByName = useMemo(() => {
         const map = new Map<string, Dataset>();
-        (typedData?.info?.datasets ?? []).forEach((dataset) =>
-            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset),
-        );
+        (typedData?.entities?.searchResults ?? []).forEach((result) => {
+            const entity = result?.entity;
+            if (entity?.type !== EntityType.Dataset) {
+                return;
+            }
+            const dataset = entity as Dataset;
+            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset);
+        });
         return map;
-    }, [typedData?.info?.datasets]);
+    }, [typedData?.entities?.searchResults]);
 
     if (!relationships.length) {
         return (

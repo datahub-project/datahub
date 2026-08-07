@@ -31,6 +31,10 @@ fragment modelDatasetFields on Dataset {
     }
     semanticModelProperties {
         alias
+        semanticModel {
+            urn
+            type
+        }
     }
     schema {
         fields {
@@ -115,14 +119,6 @@ fragment semanticModelInfoFields on SemanticModelInfo {
         }
     }
     nativeDefinition
-    datasets {
-        ...modelDatasetFields
-    }
-    metrics {
-        urn
-        type
-        ...modelMetricFields
-    }
     relationships {
         ...semanticModelRelationshipFields
     }
@@ -165,6 +161,18 @@ fragment semanticModelFields on SemanticModel {
         instructions
         examples
         customInstructions
+    }
+    entities(input: { types: [DATASET], count: 100, query: "*" }) {
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    ...modelDatasetFields
+                }
+            }
+        }
     }
     metrics(input: { count: 20, query: "*" }) {
         total
