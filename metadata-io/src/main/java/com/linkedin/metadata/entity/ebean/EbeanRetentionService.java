@@ -206,7 +206,11 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   @Nonnull
   public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
       @Nonnull OperationContext opContext, @Nonnull List<RetentionBatchEntry> entries) {
-    List<RetentionContext> withDefaults =
+    // Rebuild entries with resolved policies, keeping each key bound to its own context throughout
+    // the pipeline. This preserves the structural pairing RetentionBatchEntry guarantees at the
+    // API boundary — a separate withDefaults list paired back to entries by raw index would
+    // silently misalign if the stream were ever filtered/sorted/deduplicated.
+    List<RetentionBatchEntry> withDefaults =
         entries.stream()
             .map(
                 e -> {
@@ -215,11 +219,11 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                     Retention retentionPolicy =
                         getRetention(
                             opContext, context.getUrn().getEntityType(), context.getAspectName());
-                    return context.toBuilder()
-                        .retentionPolicy(Optional.of(retentionPolicy))
-                        .build();
+                    return new RetentionBatchEntry(
+                        e.key(),
+                        context.toBuilder().retentionPolicy(Optional.of(retentionPolicy)).build());
                   }
-                  return context;
+                  return e;
                 })
             .collect(Collectors.toList());
 
@@ -232,9 +236,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     // so opening the scope per-context keeps the routing invariant tight and matches the
     // per-context transaction granularity. See the method Javadoc for the requiresNew /
     // echo-back rationale.
-    for (int i = 0; i < withDefaults.size(); i++) {
-      RetentionContext context = withDefaults.get(i);
-      RetentionKey key = entries.get(i).key(); // original key, echoed back on commit
+    for (RetentionBatchEntry e : withDefaults) {
+      RetentionContext context = e.context();
+      RetentionKey key = e.key(); // original key, echoed back on commit
       // Outer scope routes beginTransaction (and any non-DELETE DB access) via the tenant seam;
       // executeRetentionDeleteForContext re-scopes the DELETE — see applyRetention for the
       // re-entrant nesting rationale.

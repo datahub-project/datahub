@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.retention.buffer;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
+import com.linkedin.metadata.buffer.CoalesceBuffers;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
@@ -12,7 +13,9 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +73,23 @@ public class RetentionDrainer {
 
   private final boolean enabled;
   @Nullable private final MetricUtils metricUtils;
+
+  /**
+   * Transient-resolver-failure backoff. When {@code groupKey} / {@code resolveOpContext} throws a
+   * non-permanent {@link RuntimeException}, the key is removed from the buffer and re-merged after
+   * {@link #TRANSIENT_BACKOFF_TICKS} ticks. Without this, a persistently-failing key would occupy
+   * the first page of every {@link CoalesceBuffer#drain} (drain is non-destructive and returns the
+   * same first page until {@code removeIfSame} clears it), starving every key behind it. With
+   * backoff, the failing key is out of the buffer during the backoff window so {@code drain}
+   * returns the keys behind it and they progress. The key is re-merged at the start of the next
+   * tick once its backoff expires, so a transient blip self-heals and a persistent failure just
+   * retries at a slower rate rather than wedging the drainer.
+   */
+  static final long TRANSIENT_BACKOFF_TICKS = 5L;
+
+  private long currentTick = 0L;
+  private final Map<RetentionKey, Long> transientRetryAt = new HashMap<>();
+  private final Map<RetentionKey, Long> transientRetryVersion = new HashMap<>();
 
   public RetentionDrainer(
       @Nonnull CoalesceBuffer<RetentionKey, Long> buffer,
@@ -132,6 +152,24 @@ public class RetentionDrainer {
   }
 
   private void drainBatch() {
+    currentTick++;
+    // Re-merge keys whose transient backoff has expired so they retry on this tick. They were
+    // removed from the buffer when the transient failure was caught, so drain() will now surface
+    // them again alongside any other queued keys.
+    if (!transientRetryAt.isEmpty()) {
+      Iterator<Map.Entry<RetentionKey, Long>> it = transientRetryAt.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<RetentionKey, Long> e = it.next();
+        if (e.getValue() <= currentTick) {
+          Long version = transientRetryVersion.remove(e.getKey());
+          it.remove();
+          if (version != null) {
+            buffer.merge(e.getKey(), version, CoalesceBuffers.KEEP_MAX_LONG);
+          }
+        }
+      }
+    }
+
     List<Map.Entry<RetentionKey, Long>> batch = buffer.drain(batchSize);
     if (batch.isEmpty()) {
       return;
@@ -175,9 +213,11 @@ public class RetentionDrainer {
     // Resolver failures are split by intent:
     //  - UnresolvableRetentionKeyException = permanent (wrong key subtype / wiring bug / stale
     //    rolling-deploy entry): drop via removeIfSame so it doesn't re-throw every tick.
-    //  - any other RuntimeException = transient (e.g. a temporary lookup error): log and leave the
-    //    key queued so the next tick retries it. Dropping on a transient failure would silently
-    //    skip retention for that entry.
+    //  - any other RuntimeException = transient (e.g. a temporary lookup error): move the key to a
+    //    backoff limbo (removed from the buffer so other queued keys progress) and re-merge it
+    //    after TRANSIENT_BACKOFF_TICKS ticks for retry. Dropping on a transient failure would
+    //    silently skip retention for that entry; leaving it in-place would starve the keys behind
+    //    it (drain is non-destructive and returns the same first page until removeIfSame clears).
     Map<RetentionKey, Long> versionByKey = new LinkedHashMap<>();
     for (Map.Entry<RetentionKey, Long> entry : batch) {
       versionByKey.put(entry.getKey(), entry.getValue());
@@ -195,10 +235,15 @@ public class RetentionDrainer {
         buffer.removeIfSame(key, versionByKey.get(key));
       } catch (RuntimeException e) {
         log.warn(
-            "Transient resolver failure for retention key urn={} aspect={}; leaving queued for retry",
+            "Transient resolver failure for retention key urn={} aspect={}; backing off for {}"
+                + " ticks and leaving it out of the buffer so other queued keys progress",
             key.urn(),
             key.aspectName(),
+            TRANSIENT_BACKOFF_TICKS,
             e);
+        buffer.removeIfSame(key, versionByKey.get(key));
+        transientRetryAt.put(key, currentTick + TRANSIENT_BACKOFF_TICKS);
+        transientRetryVersion.put(key, versionByKey.get(key));
       }
     }
 
@@ -219,9 +264,16 @@ public class RetentionDrainer {
         continue;
       } catch (RuntimeException e) {
         log.warn(
-            "Transient resolver failure for retention group of {} keys; leaving queued for retry",
+            "Transient resolver failure for retention group of {} keys; backing off for {} ticks"
+                + " and leaving them out of the buffer so other queued keys progress",
             groupKeys.size(),
+            TRANSIENT_BACKOFF_TICKS,
             e);
+        for (RetentionKey key : groupKeys) {
+          buffer.removeIfSame(key, versionByKey.get(key));
+          transientRetryAt.put(key, currentTick + TRANSIENT_BACKOFF_TICKS);
+          transientRetryVersion.put(key, versionByKey.get(key));
+        }
         continue;
       }
       List<RetentionBatchEntry> groupEntries = new ArrayList<>(groupKeys.size());

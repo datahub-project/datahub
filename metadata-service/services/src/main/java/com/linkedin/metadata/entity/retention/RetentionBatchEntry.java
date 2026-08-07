@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.retention;
 
 import com.linkedin.metadata.entity.RetentionService;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 
 /**
@@ -10,4 +11,9 @@ import javax.annotation.Nonnull;
  * the way parallel {@code List<RetentionKey>} / {@code List<RetentionContext>} lists can.
  */
 public record RetentionBatchEntry(
-    @Nonnull RetentionKey key, @Nonnull RetentionService.RetentionContext context) {}
+    @Nonnull RetentionKey key, @Nonnull RetentionService.RetentionContext context) {
+  public RetentionBatchEntry {
+    Objects.requireNonNull(key, "key");
+    Objects.requireNonNull(context, "context");
+  }
+}

@@ -108,7 +108,7 @@ public class IngestRetentionPoliciesUpgradeStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(mockRetentionService, never()).batchApplyRetention(eq(OP_CONTEXT), any(), any());
+    verify(mockRetentionService, never()).batchApplyRetention(any(), any(), any());
     verify(mockEntityService, times(1)).ingestProposal(any(), any(), any(), eq(false));
     verify(mockRetentionService, atLeastOnce()).setRetention(any(), any(), any(), any());
     verify(mockRetentionService).setRetention(any(OperationContext.class), eq("*"), eq("*"), any());
@@ -150,7 +150,7 @@ public class IngestRetentionPoliciesUpgradeStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(mockRetentionService, never()).batchApplyRetention(eq(OP_CONTEXT), any(), any());
+    verify(mockRetentionService, never()).batchApplyRetention(any(), any(), any());
   }
 
   @Test
@@ -258,7 +258,7 @@ public class IngestRetentionPoliciesUpgradeStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(mockRetentionService, never()).setRetention(any(), any(), any(), any());
-    verify(mockRetentionService, never()).batchApplyRetention(eq(OP_CONTEXT), any(), any());
+    verify(mockRetentionService, never()).batchApplyRetention(any(), any(), any());
   }
 
   @Test
@@ -455,6 +455,6 @@ public class IngestRetentionPoliciesUpgradeStepTest {
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(mockRetentionService, times(1))
         .batchApplyRetention(eq(OP_CONTEXT), eq("dataset"), eq("schemaMetadata"));
-    verify(mockRetentionService, never()).batchApplyRetention(eq(OP_CONTEXT), eq(null), eq(null));
+    verify(mockRetentionService, never()).batchApplyRetention(any(), eq(null), eq(null));
   }
 }

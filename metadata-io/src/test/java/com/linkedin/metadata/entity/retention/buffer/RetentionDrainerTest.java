@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.retention.buffer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -9,7 +10,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
@@ -506,15 +507,17 @@ public class RetentionDrainerTest {
   @SuppressWarnings("unchecked")
   public void testTickLeavesKeyQueuedOnTransientResolverFailure() {
     // A TRANSIENT resolver failure (any RuntimeException other than
-    // UnresolvableRetentionKeyException
-    // — e.g. a temporary lookup error) must NOT drop the key: dropping would silently skip
-    // retention
-    // for that entry. The drainer logs and leaves the key queued so the next tick retries it.
+    // UnresolvableRetentionKeyException — e.g. a temporary lookup error) must NOT drop the key:
+    // dropping would silently skip retention for that entry. The drainer moves the key to a
+    // backoff limbo (removed from the buffer so other queued keys progress) and re-merges it after
+    // TRANSIENT_BACKOFF_TICKS ticks for retry. This test proves the key survives the transient
+    // failure — it is re-merged and applied once the transient condition clears.
     hazelcastInstance = newIsolatedInstance();
     CoalesceBuffer<RetentionKey, Long> buffer =
         new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
     buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
 
+    AtomicInteger groupCalls = new AtomicInteger(0);
     RetentionContextResolver transientlyFailingResolver =
         new RetentionContextResolver() {
           @Override
@@ -527,7 +530,10 @@ public class RetentionDrainerTest {
           @Override
           @Nonnull
           public String groupKey(@Nonnull RetentionKey key) {
-            throw new RuntimeException("forced transient resolver failure");
+            if (groupCalls.getAndIncrement() == 0) {
+              throw new RuntimeException("forced transient resolver failure");
+            }
+            return "default";
           }
 
           @Override
@@ -539,6 +545,12 @@ public class RetentionDrainerTest {
         };
 
     RetentionService<?> retentionService = mock(RetentionService.class);
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
+            });
     RetentionDrainer drainer =
         new RetentionDrainer(
             buffer,
@@ -550,11 +562,140 @@ public class RetentionDrainerTest {
             true,
             null);
 
+    // Tick 1: transient failure → key moved to backoff limbo (out of the buffer), service never
+    // invoked. Buffer is empty because the key is in backoff, not dropped.
+    drainer.tick();
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
+
+    // Tick through the backoff window: the key is re-merged and, now that the resolver succeeds,
+    // applied and cleared. The key survived the transient failure — it was not silently dropped.
+    for (long i = 0; i < RetentionDrainer.TRANSIENT_BACKOFF_TICKS; i++) {
+      drainer.tick();
+    }
+    verify(retentionService, times(1)).applyRetentionBatchWithPolicyDefaults(any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickDropsGroupWhenResolveOpContextThrowsUnresolvable() {
+    // resolveOpContext() permanent failure (UnresolvableRetentionKeyException) must drop the
+    // WHOLE group (all keys that share the routing context), not retry forever. Mirrors the
+    // groupKey() permanent-failure contract but exercises the distinct resolveOpContext() code
+    // path in drainBatch.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    RetentionContextResolver throwingResolver =
+        new RetentionContextResolver() {
+          @Override
+          @Nonnull
+          public RetentionKey enrichKey(
+              @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+            return new SimpleRetentionKey(urn.toString(), aspectName);
+          }
+
+          @Override
+          @Nonnull
+          public String groupKey(@Nonnull RetentionKey key) {
+            return "default";
+          }
+
+          @Override
+          @Nonnull
+          public OperationContext resolveOpContext(
+              @Nonnull RetentionKey key, @Nonnull OperationContext systemOperationContext) {
+            throw new UnresolvableRetentionKeyException(
+                "forced permanent resolveOpContext failure");
+          }
+        };
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer, retentionService, SYSTEM_CONTEXT, throwingResolver, 10, 60_000L, true, null);
+
     drainer.tick();
 
-    // The key must REMAIN in the buffer for retry (not dropped), and the service never invoked.
+    // The whole group must have been dropped (not left for infinite retry); service never invoked.
     verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
-    assertFalse(buffer.drain(10).isEmpty());
+    assertTrue(buffer.drain(10).isEmpty());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testTickLeavesGroupQueuedOnTransientResolveOpContextFailure() {
+    // resolveOpContext() transient failure (plain RuntimeException) must NOT drop the group:
+    // the group's keys are moved to a backoff limbo (removed from the buffer so other queued keys
+    // progress) and re-merged after TRANSIENT_BACKOFF_TICKS ticks for retry. Mirrors the groupKey()
+    // transient contract but exercises the distinct resolveOpContext() code path. Proves the keys
+    // survive the transient failure — they are re-merged and applied once the condition clears.
+    hazelcastInstance = newIsolatedInstance();
+    CoalesceBuffer<RetentionKey, Long> buffer =
+        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+
+    AtomicInteger resolveCalls = new AtomicInteger(0);
+    RetentionContextResolver transientlyFailingResolver =
+        new RetentionContextResolver() {
+          @Override
+          @Nonnull
+          public RetentionKey enrichKey(
+              @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+            return new SimpleRetentionKey(urn.toString(), aspectName);
+          }
+
+          @Override
+          @Nonnull
+          public String groupKey(@Nonnull RetentionKey key) {
+            return "default";
+          }
+
+          @Override
+          @Nonnull
+          public OperationContext resolveOpContext(
+              @Nonnull RetentionKey key, @Nonnull OperationContext systemOperationContext) {
+            if (resolveCalls.getAndIncrement() == 0) {
+              throw new RuntimeException("forced transient resolveOpContext failure");
+            }
+            return systemOperationContext;
+          }
+        };
+
+    RetentionService<?> retentionService = mock(RetentionService.class);
+    when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<RetentionBatchEntry> entries = invocation.getArgument(1);
+              return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
+            });
+    RetentionDrainer drainer =
+        new RetentionDrainer(
+            buffer,
+            retentionService,
+            SYSTEM_CONTEXT,
+            transientlyFailingResolver,
+            10,
+            60_000L,
+            true,
+            null);
+
+    // Tick 1: transient resolveOpContext failure → group moved to backoff limbo, service never
+    // invoked, buffer empty.
+    drainer.tick();
+    verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
+
+    // Tick through the backoff window: the key is re-merged and, now that resolveOpContext
+    // succeeds, applied and cleared. The key survived the transient failure.
+    for (long i = 0; i < RetentionDrainer.TRANSIENT_BACKOFF_TICKS; i++) {
+      drainer.tick();
+    }
+    verify(retentionService, times(1)).applyRetentionBatchWithPolicyDefaults(any(), any());
+    assertTrue(buffer.drain(10).isEmpty());
   }
 
   @Test
@@ -617,14 +758,18 @@ public class RetentionDrainerTest {
       assertEquals(remaining.size(), 1);
       assertEquals(remaining.get(0).getValue(), Long.valueOf(10L));
 
-      // Second tick drains the surviving newer entry.
-      when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
-          .thenAnswer(
+      // Second tick drains the surviving newer entry. Use doAnswer().when() (not
+      // when().thenAnswer())
+      // so the re-stub does not invoke the first (latch) answer during recording — that invocation
+      // would run the latch lambda with Mockito's null recording-args and NPE on entries.stream().
+      doAnswer(
               invocation -> {
                 @SuppressWarnings("unchecked")
                 List<RetentionBatchEntry> entries = invocation.getArgument(1);
                 return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
-              });
+              })
+          .when(retentionService)
+          .applyRetentionBatchWithPolicyDefaults(any(), any());
       drainer.tick();
       assertTrue(buffer.drain(10).isEmpty());
     } finally {
