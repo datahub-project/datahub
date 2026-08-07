@@ -492,7 +492,7 @@ class CubeEntity(BaseModel):
                     f"{r['cube']}.{r['member']}" if r.get("cube") else r["member"]
                     for r in member.member_references
                     if r.get("member")
-                ],                
+                ],
                 column_references=[
                     CubeColumnReference(
                         schema_name=ref.schema_name,
@@ -517,7 +517,9 @@ class CubeEntity(BaseModel):
                 CubeTableReference(schema_name=ref.schema_name, table=ref.table)
                 for ref in entity.table_references
             ],
-            cube_references=[r["cube"] for r in entity.cube_references if r.get("cube")],
+            cube_references=[
+                r["cube"] for r in entity.cube_references if r.get("cube")
+            ],
             joins=_build_joins(entity.joins),
             hierarchies=_build_hierarchies(entity.hierarchies),
             folders=_build_folders(entity.folders, entity.nested_folders),
