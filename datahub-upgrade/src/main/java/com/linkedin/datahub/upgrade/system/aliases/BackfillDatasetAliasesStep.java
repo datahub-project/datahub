@@ -53,8 +53,10 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Scans Elasticsearch for datasets whose {@code lowercasedUrn} is absent and emits an MCP for
  * each, leaving the writes to mce-consumer. The query is self-narrowing, so an interrupted run
  * resumes simply by running again — there is no checkpoint. The SUCCEEDED marker on {@code
- * urn:li:dataHubUpgrade:dataset-aliases-v1} gates case-insensitive resolution and means every
- * matching dataset had an MCP emitted, so it is written only when the scroll is exhausted.
+ * urn:li:dataHubUpgrade:dataset-aliases-v1} gates case-insensitive resolution and is written when
+ * the scroll is exhausted. A urn that fails to emit is logged and counted but does not stop the
+ * scan, so the marker can cover a run with a non-zero failure count; {@code reprocess.enabled}
+ * re-runs the scan to pick those up.
  */
 @Slf4j
 public class BackfillDatasetAliasesStep implements UpgradeStep {
@@ -161,6 +163,13 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
         }
       } while (scrollId != null);
 
+      if (stats.failed > 0) {
+        log.warn(
+            "{}: {} dataset(s) failed to emit; re-run with reprocess enabled to retry them.",
+            id(),
+            stats.failed);
+      }
+
       context
           .upgrade()
           .setUpgradeResult(
@@ -222,8 +231,14 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     proposal.setSystemMetadata(backfillSystemMetadata());
     proposal.setAspect(
         GenericRecordUtils.serializeAspect(new Aliases().setLowercasedUrn(lowercasedUrn)));
-    entityService.ingestProposal(opContext, proposal, auditStamp, true);
-    stats.emitted++;
+    try {
+      entityService.ingestProposal(opContext, proposal, auditStamp, true);
+      stats.emitted++;
+    } catch (Exception e) {
+      // don't stop the whole step because of one bad urn or one bad ingestion
+      log.warn("{}: failed to emit aliases for {}", id(), urn, e);
+      stats.failed++;
+    }
   }
 
   private static Filter missingLowercasedUrnFilter() {
@@ -258,10 +273,11 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
   private static final class RunStats {
     private long emitted;
     private long unparseable;
+    private long failed;
 
     @Override
     public String toString() {
-      return String.format("emitted=%d, unparseable=%d", emitted, unparseable);
+      return String.format("emitted=%d, unparseable=%d, failed=%d", emitted, unparseable, failed);
     }
   }
 }
