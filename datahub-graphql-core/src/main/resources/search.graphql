@@ -216,6 +216,13 @@ input LineageFlags {
   a large amount of additional hops to occur and should be used with caution.
   """
   ignoreAsHops: [EntityTypeToPlatforms!]
+
+  """
+  Whether to include lineage results for entities that have no entity of their own, rather than
+  dropping them. Such entities are returned as a urn and entity type only, as there is nothing to
+  hydrate them from, and filters evaluated by the search index cannot be applied to them.
+  """
+  includeGhostEntities: Boolean
 }
 
 input EntityTypeToPlatforms {

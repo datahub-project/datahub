@@ -1287,7 +1287,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
@@ -1306,7 +1307,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
   }
 
   @Test

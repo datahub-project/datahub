@@ -26,4 +26,15 @@ record LineageFlags {
       * a large amount of additional hops to occur and should be used with caution.
       */
       ignoreAsHops: optional map[string, array[Urn]]
+
+    /**
+     * Include lineage results for entities that have no entity of their own, rather than dropping
+     * them. Lineage graphs routinely point at such entities -- fine-grained lineage writes graph
+     * edges without materializing the schema fields they connect -- and joining lineage results
+     * against the entity index silently discards every one of them.
+     *
+     * These entities cannot be hydrated, so they are returned as a urn and entity type only, and
+     * filters that are evaluated by the search index cannot be applied to them.
+     */
+    includeGhostEntities: optional boolean = false
 }
