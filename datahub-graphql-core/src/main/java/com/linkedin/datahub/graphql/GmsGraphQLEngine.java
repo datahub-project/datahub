@@ -170,7 +170,6 @@ import com.linkedin.datahub.graphql.resolvers.logical.LinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.UnlinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.UpdateLogicalModelSchemaResolver;
-import com.linkedin.datahub.graphql.resolvers.metrics.BulkEntitySemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.ListSemanticModelEntitiesResolver;
@@ -993,9 +992,6 @@ public class GmsGraphQLEngine {
             DatasetStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DatasetStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
-        .addDataLoader(
-            BulkEntitySemanticModelsResolver.LOADER_NAME,
-            BulkEntitySemanticModelsResolver::createDataLoader)
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -1254,7 +1250,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("dataProduct", getResolver(dataProductType))
                 .dataFetcher(
                     "bulkEntityDataProducts", new BulkEntityDataProductsResolver(this.entityClient))
-                .dataFetcher("bulkEntitySemanticModels", new BulkEntitySemanticModelsResolver())
                 .dataFetcher("application", getResolver(applicationType))
                 .dataFetcher(
                     "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
@@ -1994,9 +1989,6 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             dataPlatformType,
                             (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
-                    .dataFetcher(
-                        "semanticModel",
-                        BulkEntitySemanticModelsResolver.fieldResolver(semanticModelType.name()))
                     .dataFetcher(
                         "container",
                         new LoadableTypeResolver<>(
@@ -4164,7 +4156,14 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher(
                     "semanticModel",
-                    BulkEntitySemanticModelsResolver.fieldResolver(semanticModelType.name()))
+                    new LoadableTypeResolver<>(
+                        semanticModelType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getSemanticModel() != null
+                              ? m.getSemanticModel().getUrn()
+                              : null;
+                        }))
                 .dataFetcher(
                     "childMetrics", new MetricChildMetricsResolver(entityClient, viewService))
                 .dataFetcher(
@@ -4229,26 +4228,17 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
     builder.type(
-        "SemanticModelInfo",
+        "SemanticModelProperties",
         typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "datasets",
-                    new LoadableTypeBatchResolver<>(
-                        datasetType,
-                        env ->
-                            ((SemanticModelInfo) env.getSource())
-                                .getDatasets().stream()
-                                    .map(Dataset::getUrn)
-                                    .collect(Collectors.toList())))
-                .dataFetcher(
-                    "metrics",
-                    new LoadableTypeBatchResolver<>(
-                        metricType,
-                        env ->
-                            ((SemanticModelInfo) env.getSource())
-                                .getMetrics().stream()
-                                    .map(Metric::getUrn)
-                                    .collect(Collectors.toList()))));
+            typeWiring.dataFetcher(
+                "semanticModel",
+                new LoadableTypeResolver<>(
+                    semanticModelType,
+                    env -> {
+                      final SemanticModelProperties smp = env.getSource();
+                      return smp.getSemanticModel() != null
+                          ? smp.getSemanticModel().getUrn()
+                          : null;
+                    })));
   }
 }

@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.EntityEdge;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.MetricInfo;
+import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -76,6 +77,12 @@ public class MetricMapper {
       final com.linkedin.metric.MetricInfo pdlInfo =
           new com.linkedin.metric.MetricInfo(envelopedInfo.getValue().data());
       result.setInfo(mapMetricInfo(pdlInfo));
+      if (pdlInfo.hasSemanticModel() && pdlInfo.getSemanticModel() != null) {
+        final SemanticModel semanticModelStub = new SemanticModel();
+        semanticModelStub.setUrn(pdlInfo.getSemanticModel().toString());
+        semanticModelStub.setType(EntityType.SEMANTIC_MODEL);
+        result.setSemanticModel(semanticModelStub);
+      }
     }
 
     final EnvelopedAspect envelopedRelationships =

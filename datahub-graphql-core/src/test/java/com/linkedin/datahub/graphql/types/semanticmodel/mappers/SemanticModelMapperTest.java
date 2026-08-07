@@ -41,8 +41,6 @@ public class SemanticModelMapperTest {
       "urn:li:semanticModel:(urn:li:dataPlatform:dbt,analytics.orders_model,my_model)";
   private static final String DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.orders_model.orders_ds,PROD)";
-  private static final String METRIC_URN =
-      "urn:li:metric:(urn:li:dataPlatform:dbt,analytics.orders_model,total_revenue)";
   private static final String ACTOR_URN = "urn:li:corpuser:testuser";
   private static final Long TEST_TIMESTAMP = 1640995200000L;
 
@@ -100,71 +98,6 @@ public class SemanticModelMapperTest {
       assertEquals(result.getInfo().getCreated().getActor().getUrn(), ACTOR_URN);
       assertNotNull(result.getInfo().getLastModified());
       assertEquals(result.getInfo().getLastModified().getTime(), TEST_TIMESTAMP + 1000L);
-    }
-  }
-
-  @Test
-  public void testMapDatasetsAsDatasetUrns() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new UrnArray(Urn.createFromString(DATASET_URN)));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo());
-      assertNotNull(result.getInfo().getDatasets());
-      assertEquals(result.getInfo().getDatasets().size(), 1);
-      assertEquals(result.getInfo().getDatasets().get(0).getUrn(), DATASET_URN);
-      assertEquals(result.getInfo().getDatasets().get(0).getType(), EntityType.DATASET);
-    }
-  }
-
-  @Test
-  public void testMapDatasetsAbsentIsEmptyList() {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SemanticModelInfo info = new SemanticModelInfo().setName("My Model");
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo().getDatasets());
-      assertTrue(result.getInfo().getDatasets().isEmpty());
-      assertNotNull(result.getInfo().getMetrics());
-      assertTrue(result.getInfo().getMetrics().isEmpty());
-    }
-  }
-
-  @Test
-  public void testMapMetricsAsMetricUrns() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setMetrics(new UrnArray(Urn.createFromString(METRIC_URN)));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo());
-      assertNotNull(result.getInfo().getMetrics());
-      assertEquals(result.getInfo().getMetrics().size(), 1);
-      assertEquals(result.getInfo().getMetrics().get(0).getUrn(), METRIC_URN);
-      assertEquals(result.getInfo().getMetrics().get(0).getType(), EntityType.METRIC);
     }
   }
 

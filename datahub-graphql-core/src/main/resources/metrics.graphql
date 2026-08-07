@@ -18,51 +18,6 @@ extend type Query {
   List SemanticModels (paginated).
   """
   getSemanticModels(input: GetRootEntitiesInput!): GetSemanticModelsResult
-
-  """
-  Fetch the SemanticModel that contains each of the given member entities (metrics /
-  logical datasets), in bulk. Membership is resolved from the graph `Contains` edge
-  written by `semanticModelInfo.datasets` / `.metrics`.
-  """
-  bulkEntitySemanticModels(
-    input: BulkEntitySemanticModelsInput!
-  ): BulkEntitySemanticModelsResult!
-}
-
-"""
-Input for fetching the SemanticModels containing a set of member entities.
-"""
-input BulkEntitySemanticModelsInput {
-  """
-  The urns of the entities to fetch SemanticModels for (metrics and/or datasets).
-  """
-  urns: [String!]!
-}
-
-"""
-Result for fetching the SemanticModels containing a set of member entities.
-"""
-type BulkEntitySemanticModelsResult {
-  """
-  The owning SemanticModel for each requested entity, one entry per requested urn.
-  """
-  entities: [EntitySemanticModel!]!
-}
-
-"""
-The SemanticModel containing a single member entity, if any.
-"""
-type EntitySemanticModel {
-  """
-  The urn of the member entity.
-  """
-  urn: String!
-
-  """
-  The SemanticModel that contains the entity, or null when the entity is not a member
-  of any SemanticModel.
-  """
-  semanticModel: SemanticModel
 }
 
 """
@@ -138,9 +93,8 @@ type Metric implements EntityWithRelationships & Entity {
   metricUpstreams: MetricUpstreams
 
   """
-  The SemanticModel that contains this Metric, resolved from the graph `Contains` edge
-  written by `semanticModelInfo.metrics`. Null when the metric is not a member of any
-  SemanticModel.
+  The SemanticModel that owns this Metric, from `metricInfo.semanticModel`.
+  Null when the metric is not a member of any SemanticModel.
   """
   semanticModel: SemanticModel
 
@@ -305,8 +259,8 @@ type SemanticModel implements EntityWithRelationships & Entity {
 
   """
   Contained entities (logical datasets and metrics) of this SemanticModel.
-  Reads membership from semanticModelInfo.datasets / .metrics, then searches
-  those URNs — used by the lineage explorer (mirrors DataProduct.entities).
+  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`
+  (same pattern as Domain.entities). Used by the lineage explorer.
   """
   entities(input: SearchAcrossEntitiesInput): SearchResults
 
@@ -458,17 +412,6 @@ type SemanticModelInfo {
   The native definition of the semantic model (e.g., YAML config, SQL DDL).
   """
   nativeDefinition: String
-  """
-  The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
-  right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
-  than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
-  """
-  datasets: [Dataset!]!
-  """
-  The metrics defined by this semantic model. Membership is stored only here (containment,
-  not a lineage edge); reverse lookup uses the graph `Contains` index.
-  """
-  metrics: [Metric!]!
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
@@ -483,9 +426,13 @@ SemanticModel, i.e. a Dataset carrying the `Semantic Model Dataset` subtype.
 type SemanticModelProperties {
   """
   Logical alias used to reference this dataset within its owning semantic model.
-  Containment itself lives on `semanticModelInfo.datasets`; see `Dataset.semanticModel`.
   """
   alias: String!
+
+  """
+  The SemanticModel that this Dataset is a logical dataset of (member-side membership).
+  """
+  semanticModel: SemanticModel
 }
 
 """
@@ -575,17 +522,10 @@ type AiContext {
 
 extend type Dataset {
   """
-  Present when this Dataset carries the `Semantic Model Dataset` subtype: the local alias by
-  which it is referenced within its owning semantic model's join paths.
+  Present when this Dataset carries the `Semantic Model Dataset` subtype: identifies the owning
+  SemanticModel and the alias by which it is referenced within that model.
   """
   semanticModelProperties: SemanticModelProperties
-
-  """
-  The SemanticModel that contains this Dataset, resolved from the graph `Contains` edge
-  written by `semanticModelInfo.datasets`. Null when the dataset is not a member of any
-  SemanticModel.
-  """
-  semanticModel: SemanticModel
 }
 
 extend type SchemaFieldEntity {
