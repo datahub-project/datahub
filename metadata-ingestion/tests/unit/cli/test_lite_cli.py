@@ -6,6 +6,7 @@ import yaml
 from click.testing import CliRunner
 
 from datahub.cli import config_utils, lite_cli
+from datahub.telemetry import telemetry
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def test_get_lite_config_reads_lite_only_config(
     expected = {
         "type": "duckdb",
         "config": {"file": str(config_path.parent / "custom.duckdb")},
+        "forward_to": None,
     }
     config_path.write_text(yaml.safe_dump({"lite": expected}))
 
@@ -53,7 +55,7 @@ def test_init_persists_default_config_when_missing(
     config_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(lite_cli.telemetry, "telemetry_instance", MagicMock())
+    monkeypatch.setattr(telemetry, "telemetry_instance", MagicMock())
     lite = MagicMock()
     lite.location.return_value = str(config_path.parent / "lite" / "datahub.duckdb")
     monkeypatch.setattr(lite_cli, "_get_datahub_lite", lambda: lite)
