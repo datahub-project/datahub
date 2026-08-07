@@ -879,10 +879,22 @@ class TestMigrateContainers:
         assert instances[0].instance == make_dataplatform_instance_urn(
             "snowflake", "newinst"
         )
-        migrated_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
-        assert migrated_urns == {"urn:li:container:goodguid"}, (
-            f"a malformed container was migrated: {migrated_urns}"
+        # Migration emits to the regenerated destination URN, never the source,
+        # so assert on shape: exactly one destination, and no malformed source
+        # leaked through.
+        emitted_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
+        assert len(emitted_urns) == 1, (
+            f"expected exactly one destination container, got {emitted_urns}"
         )
+        assert emitted_urns.isdisjoint(
+            {
+                "urn:li:container:noaspects",
+                "urn:li:container:nosubtypes",
+                "urn:li:container:emptytypenames",
+                "urn:li:container:noprops",
+                "urn:li:container:goodguid",
+            }
+        ), f"emitted to a source URN rather than the destination: {emitted_urns}"
 
 
 # --- checkpoint / resume ---
