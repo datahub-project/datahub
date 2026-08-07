@@ -254,12 +254,12 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 context.getUrn(),
                 context.getAspectName());
           }
-        } catch (Exception e) {
+        } catch (Exception ex) {
           log.warn(
               "Retention delete failed for urn={} aspect={}; leaving key for retry",
               context.getUrn(),
               context.getAspectName(),
-              e);
+              ex);
         }
       }
     }
