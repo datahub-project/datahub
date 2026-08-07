@@ -1,7 +1,9 @@
 import json as _json
 import os
 import pathlib
+import subprocess
 import sys
+import textwrap
 import time
 import types
 from pathlib import Path
@@ -20,7 +22,12 @@ from datahub.ingestion.source.sqlmesh.compat import (
     _install_tobiko_local_state_fallback_shim,
     _scoped_tobiko_cloud_env,
 )
-from datahub.ingestion.source.sqlmesh.constants import SQLMESH_PLATFORM
+from datahub.ingestion.source.sqlmesh.constants import (
+    PROP_GRAIN,
+    PROP_PARTITIONED_BY,
+    PROP_TIME_COLUMN,
+    SQLMESH_PLATFORM,
+)
 from datahub.ingestion.source.sqlmesh.models import (
     _build_count_query,
     _CapabilityProbes,
@@ -28,8 +35,8 @@ from datahub.ingestion.source.sqlmesh.models import (
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SqlmeshSourceConfig,
+    _get_tobiko_token_file_cache,
     _read_tobiko_cloud_token_file,
-    _tobiko_token_file_cache,
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
     SqlmeshSource,
@@ -983,19 +990,17 @@ class TestAuditResultUrnResolution:
         assert SQLMESH_PLATFORM in urn
         assert "dim_developer" in urn
 
-    def test_cache_miss_falls_back_and_warns(self):
+    def test_cache_miss_for_un_ingested_model_skips_and_warns(self):
         source = _make_source()
         model = _make_mock_model("star.dim_developer")
         _run_project(source, {"star.dim_developer": model}, {})
 
         before = len(list(source.report.warnings))
         urn = source._sqlmesh_urn_for_audit_result("star.not_ingested")
-        # Still resolves to a structurally valid sqlmesh URN via the default
-        # gateway's effective config, and surfaces a warning so the un-linked
-        # result is visible.
-        assert urn is not None
-        assert SQLMESH_PLATFORM in urn
-        assert "not_ingested" in urn
+        # No assertion definition was emitted for this model, so fabricating a
+        # URN would attach orphaned run events/incidents to a non-existent
+        # assertion. Skip (return None) and surface a warning instead.
+        assert urn is None
         assert len(list(source.report.warnings)) > before
 
     def test_no_model_ingested_returns_none_and_warns(self):
@@ -1975,7 +1980,7 @@ class TestTobikoCloudConfig:
         """Mirrors the k8s projected secret rotation pattern: the file is
         re-read only after the TTL cache is invalidated."""
 
-        _tobiko_token_file_cache.clear()
+        _get_tobiko_token_file_cache().clear()
         token_file = tmp_path / "tok"
         token_file.write_text("first\n")
 
@@ -1994,7 +1999,7 @@ class TestTobikoCloudConfig:
 
         # After TTL expiry (simulated by clearing the cache), the next resolve
         # observes the new content.
-        _tobiko_token_file_cache.clear()
+        _get_tobiko_token_file_cache().clear()
         assert _read_tobiko_cloud_token_file(str(token_file)) == "second"
 
 
@@ -2269,3 +2274,114 @@ class TestScopedTobikoCloudEnv:
             assert os.environ[token_key] == "stale-ambient-token"
         finally:
             os.environ.pop(token_key, None)
+
+
+class TestBuildCustomProperties:
+    """Covers time_column / partitioned_by / grains extraction in
+    _build_custom_properties, including the fallback and warning paths."""
+
+    @staticmethod
+    def _model(**attrs: object) -> MagicMock:
+        # Only the fields _build_custom_properties reads matter; the rest are
+        # stable no-ops so the extracted property values are unambiguous.
+        model = MagicMock()
+        model.name = "myschema.orders"
+        model.kind = None
+        model.cron = None
+        model.start = None
+        model.time_column = None
+        model.partitioned_by = []
+        model.grains = []
+        model.audits = []
+        for key, value in attrs.items():
+            setattr(model, key, value)
+        return model
+
+    def test_time_column_with_column_attr(self) -> None:
+        source = _make_source()
+        eff = _effective(source)
+
+        class _TimeCol:
+            column = "event_ts"
+
+        props = source._build_custom_properties(
+            "myschema.orders", None, eff, self._model(time_column=_TimeCol())
+        )
+        assert props[PROP_TIME_COLUMN] == "event_ts"
+
+    def test_time_column_without_column_attr_falls_back_to_str(self) -> None:
+        # A shape with no ``.column`` stringifies directly rather than being dropped.
+        source = _make_source()
+        eff = _effective(source)
+        props = source._build_custom_properties(
+            "myschema.orders", None, eff, self._model(time_column="ts_raw")
+        )
+        assert props[PROP_TIME_COLUMN] == "ts_raw"
+
+    def test_partitioned_by_and_grains_named_items(self) -> None:
+        source = _make_source()
+        eff = _effective(source)
+
+        class _Named:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+        props = source._build_custom_properties(
+            "myschema.orders",
+            None,
+            eff,
+            self._model(
+                partitioned_by=[_Named("ds"), _Named("region")],
+                grains=[_Named("order_id")],
+            ),
+        )
+        assert props[PROP_PARTITIONED_BY] == "ds,region"
+        assert props[PROP_GRAIN] == "order_id"
+
+    def test_malformed_partitioned_by_hits_warning_path_and_omits_property(
+        self,
+    ) -> None:
+        source = _make_source()
+        eff = _effective(source)
+
+        class _RaisingName:
+            @property
+            def name(self) -> str:
+                raise ValueError("unexpected shape")
+
+        # The extraction fails soft: the property is omitted rather than
+        # crashing the model's emission.
+        props = source._build_custom_properties(
+            "myschema.orders", None, eff, self._model(partitioned_by=[_RaisingName()])
+        )
+        assert PROP_PARTITIONED_BY not in props
+
+
+class TestBaseDepImportability:
+    """The ``[sqlmesh]`` extra (sqlmesh, cachetools, boto3, GitPython) is excluded
+    from pyproject, so ``datahub check plugins`` and the CI plugin-import validation
+    load the source class with *base* deps only. This guards against a new top-level
+    import of an extra-only package silently breaking that (which would flip sqlmesh
+    from a cleanly-disabled plugin into a hard CI import failure)."""
+
+    def test_source_module_imports_without_optional_deps(self) -> None:
+        code = textwrap.dedent(
+            """
+            import builtins
+            _blocked = {"boto3", "botocore", "cachetools", "sqlmesh", "git", "gitdb"}
+            _real_import = builtins.__import__
+
+            def _guard(name, *args, **kwargs):
+                if name.split(".")[0] in _blocked:
+                    raise ModuleNotFoundError(name.split(".")[0])
+                return _real_import(name, *args, **kwargs)
+
+            builtins.__import__ = _guard
+            import datahub.ingestion.source.sqlmesh.sqlmesh_source  # noqa: F401
+            import datahub.ingestion.source.sqlmesh.project_location  # noqa: F401
+            """
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True
+        )
+        assert result.returncode == 0, result.stderr

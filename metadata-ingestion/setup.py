@@ -771,7 +771,9 @@ plugins: Dict[str, Set[str]] = {
     # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
     # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
     # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
-    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib},
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
+    | aws_common
+    | {"GitPython>2,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib

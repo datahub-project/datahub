@@ -6,6 +6,55 @@ API—no running SQLMesh server is required. It emits Dataset entities on the
 view (Snowflake, BigQuery, DuckDB, etc.) as a sibling, so DataHub merges both into a
 single unified view in the UI.
 
+### Prerequisites
+
+- Python 3.9 or later
+- The `sqlmesh` Python package installed in the ingestion environment:
+  `pip install 'acryl-datahub[sqlmesh]'`
+- Read access to the SQLMesh project directory (config files and model SQL)
+- If using a remote gateway (Snowflake, BigQuery, etc.), valid gateway credentials
+  in the SQLMesh project config—the source plugin loads the SQLMesh context which opens
+  a connection to resolve model metadata
+
+The rest of this section covers the concepts and setup you need before configuring
+a recipe.
+
+#### Project location: local, S3, or Git
+
+`project_path` accepts three kinds of location, so the SQLMesh project does not have to
+be checked out next to the ingestion process:
+
+- **Local directory** (default) — a filesystem path, e.g. `project_path: /opt/sqlmesh_project`.
+- **S3 prefix** — `project_path: s3://my-bucket/sqlmesh_project` with an `aws_connection`
+  block for credentials. The entire prefix is downloaded to a temporary directory for the
+  run, so the whole project tree (config, `models/`, `audits/`, `macros/`, seeds) must live
+  under that prefix.
+- **Git repository** — a `git_info` block shallow-clones the repo (authenticated with an SSH
+  deploy key); `project_path` is then interpreted _relative to the checkout_ (`.`, the
+  default, is the repo root; use a subdirectory such as `sqlmesh/` when the project isn't at
+  the root).
+
+```yaml
+# S3
+source:
+  type: sqlmesh
+  config:
+    project_path: s3://my-bucket/sqlmesh_project
+    aws_connection:
+      aws_region: us-east-1
+      # aws_access_key_id / aws_secret_access_key, aws_role, or an instance profile
+
+# Git
+source:
+  type: sqlmesh
+  config:
+    git_info:
+      repo: https://github.com/my-org/my-sqlmesh-repo
+      branch: main
+      deploy_key_file: /secrets/sqlmesh_deploy_key
+    project_path: sqlmesh # relative to the repo root
+```
+
 #### Fingerprint table abstraction
 
 SQLMesh internally manages model versions through **fingerprint tables**—versioned physical
@@ -395,13 +444,3 @@ the same workflow so the freshness `OperationAspect` reflects the
 just-completed rebuild, and so the optional `audit_results_path` JSON
 (if you produce one with `sqlmesh audit --output`) shows the latest
 pass/fail.
-
-### Prerequisites
-
-- Python 3.9 or later
-- The `sqlmesh` Python package installed in the ingestion environment:
-  `pip install 'acryl-datahub[sqlmesh]'`
-- Read access to the SQLMesh project directory (config files and model SQL)
-- If using a remote gateway (Snowflake, BigQuery, etc.), valid gateway credentials
-  in the SQLMesh project config—the connector loads the SQLMesh context which opens
-  a connection to resolve model metadata

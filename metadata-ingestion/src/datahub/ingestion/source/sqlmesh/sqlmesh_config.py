@@ -4,20 +4,44 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import cachetools
 from pydantic import Field, field_validator, model_validator
+
+# cachetools ships only with the ``[sqlmesh]`` extra. Guard the import so this
+# module still loads with base deps (see the aws_common note below and the
+# token-file cache); when absent the token cache is simply never built because
+# the code path that needs it requires the extra to be installed anyway.
+try:
+    import cachetools
+except ImportError:
+    pass
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     TransparentSecretStr,
 )
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+
+# is_s3_uri is pure-stdlib (safe to import with base deps); AwsConnectionConfig
+# pulls in boto3, which only ships with the ``[sqlmesh]`` / aws extras. Import it
+# under a guard so this module (and therefore the whole connector) still imports
+# with base deps — `datahub check plugins` and the CI plugin-import validation
+# load the source class without installing the extra. When boto3 is absent the
+# ``aws_connection`` field's forward ref stays unresolved (the model is only
+# fully built once someone actually configures S3, which requires boto3 anyway).
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
+
+try:
+    from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+except ImportError:
+    pass
+
 from datahub.ingestion.source.sqlmesh.constants import (
     SNOWFLAKE_PLATFORM,
     SQLMESH_PLATFORM,
@@ -38,6 +62,20 @@ SQLMESH_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "gcp_postgres": "postgres",
     "motherduck": "duckdb",
 }
+
+
+def map_sqlmesh_platform(raw: Optional[str]) -> Optional[str]:
+    """Map a SQLMesh connection type / adapter dialect to a DataHub platform.
+
+    Single source of truth for the ``SQLMESH_TO_DATAHUB_PLATFORM`` lookup so the
+    default-gateway path (connection type_) and the per-gateway path (adapter
+    dialect) can't drift if the mapping ever gains normalisation or new keys.
+    Returns ``None`` unchanged so callers keep their own not-found handling.
+    """
+    if raw is None:
+        return None
+    return SQLMESH_TO_DATAHUB_PLATFORM.get(raw, raw)
+
 
 # Maps SQLMesh model kind names to DataHub dataset subtypes. Also the closed
 # set of values accepted by ``model_kind_filter`` (see VALID_MODEL_KINDS).
@@ -78,24 +116,42 @@ def _reject_sqlmesh_target_platform(v: Optional[str]) -> Optional[str]:
 # secret mounts pick up rotated tokens without a process restart, while still
 # avoiding a disk read on every ingest.
 _TOBIKO_TOKEN_FILE_CACHE_TTL_SEC = 60
-_tobiko_token_file_cache: cachetools.TTLCache = cachetools.TTLCache(
-    maxsize=8, ttl=_TOBIKO_TOKEN_FILE_CACHE_TTL_SEC
-)
 _tobiko_token_file_cache_lock = threading.Lock()
+# Built on first use. cachetools ships only in the ``[sqlmesh]`` extra, so
+# importing it at module load would make the whole connector unimportable with
+# base deps — which breaks `datahub check plugins` (and the CI plugin-import
+# validation) whenever the extra isn't installed.
+_tobiko_token_file_cache: Optional["cachetools.TTLCache"] = None
 
 
-@cachetools.cached(_tobiko_token_file_cache, lock=_tobiko_token_file_cache_lock)
+def _get_tobiko_token_file_cache() -> "cachetools.TTLCache":
+    global _tobiko_token_file_cache
+    if _tobiko_token_file_cache is None:
+        _tobiko_token_file_cache = cachetools.TTLCache(
+            maxsize=8, ttl=_TOBIKO_TOKEN_FILE_CACHE_TTL_SEC
+        )
+    return _tobiko_token_file_cache
+
+
 def _read_tobiko_cloud_token_file(path: str) -> str:
+    cache = _get_tobiko_token_file_cache()
+    with _tobiko_token_file_cache_lock:
+        cached = cache.get(path)
+    if cached is not None:
+        return cached
     # Surface a config-actionable error naming the key, rather than letting a
     # raw FileNotFoundError/PermissionError abort ingestion with an opaque trace.
-    # (cachetools does not cache exceptions, so a transient failure isn't stuck.)
+    # Failures are not cached, so a transient IO error isn't stuck.
     try:
-        return Path(path).read_text(encoding="utf-8").strip()
+        value = Path(path).read_text(encoding="utf-8").strip()
     except (OSError, UnicodeDecodeError) as e:
         raise ValueError(
             f"Could not read tobiko_cloud_token_file at {path!r}: {e}. "
             "Verify the path, file permissions, and that it is UTF-8 text."
         ) from e
+    with _tobiko_token_file_cache_lock:
+        cache[path] = value
+    return value
 
 
 @dataclass
@@ -117,6 +173,11 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
     num_assertions_failed: int = 0
     num_profiles_failed: int = 0
     num_operations_skipped: int = 0
+
+    # Remote project sourcing (git clone / s3 download). Only set when
+    # project_path points at a remote location.
+    git_checkout: Optional[str] = None
+    num_project_files_downloaded: int = 0
 
     # Config flags surfaced in report (matches Snowflake/BigQuery pattern)
     include_column_lineage: bool = False
@@ -197,7 +258,30 @@ class SqlmeshSourceConfig(
     LowerCaseDatasetUrnConfigMixin,
 ):
     project_path: str = Field(
-        description="Path to the SQLMesh project directory.",
+        default=".",
+        description=(
+            "Location of the SQLMesh project. One of: a local directory path; an "
+            "``s3://bucket/prefix`` pointing at the project tree (requires "
+            "``aws_connection``); or — when ``git_info`` is set — a path *relative "
+            "to the cloned repository* (``.``, the default, is the repo root)."
+        ),
+    )
+    aws_connection: Optional["AwsConnectionConfig"] = Field(
+        default=None,
+        description=(
+            "AWS connection details for loading the project from an ``s3://`` "
+            "``project_path``. Required whenever ``project_path`` is an S3 URI. "
+            "The entire prefix is downloaded to a temp directory for the run."
+        ),
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description=(
+            "Git repository to shallow-clone (authenticated with an SSH deploy "
+            "key) and load the SQLMesh project from. When set, ``project_path`` is "
+            "interpreted relative to the checkout (e.g. ``project_path: sqlmesh/`` "
+            "for a project in a repo subdirectory)."
+        ),
     )
     gateway: Optional[str] = Field(
         default=None,
@@ -405,7 +489,7 @@ class SqlmeshSourceConfig(
             "definition are silently skipped.\n\n"
             "Expected JSON format::\n\n"
             "  {\n"
-            '    "metadata": {"generated_at": "<ISO-8601 timestamp>"},\n'
+            '    "metadata": {"generated_at": "2024-01-01T00:00:00Z"},\n'
             '    "results": [\n'
             "      {\n"
             '        "model": "myschema.orders",\n'
@@ -551,6 +635,20 @@ class SqlmeshSourceConfig(
         if (values.get("target_platform") or "").lower() == SNOWFLAKE_PLATFORM:
             values.setdefault("convert_urns_to_lowercase", True)
         return values
+
+    @model_validator(mode="after")
+    def validate_project_location(self) -> "SqlmeshSourceConfig":
+        project_is_s3 = is_s3_uri(self.project_path)
+        if self.git_info is not None and project_is_s3:
+            raise ValueError(
+                "project_path cannot be an s3:// URI when git_info is set; with "
+                "git_info it must be a path relative to the cloned repository."
+            )
+        if project_is_s3 and self.aws_connection is None:
+            raise ValueError(
+                "aws_connection is required because project_path is an s3:// URI."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_tobiko_cloud_token(self) -> "SqlmeshSourceConfig":

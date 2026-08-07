@@ -18,7 +18,7 @@ UI):
   `accepted_range`, `accepted_values`) and any unrecognised audit name becomes
   an `AssertionType.CUSTOM` assertion with `customAssertion.type = "SQLMesh"`.
 - Useful semantics (scope / operator / aggregation / fields / kwargs) are
-  carried as custom properties. The connector does **not** invent a SQL
+  carried as custom properties. The source plugin does **not** invent a SQL
   statement for DataHub to evaluate — SQLMesh executes the audits.
 - Pass/fail history comes from an external `audit_results_path` JSON
   (`sqlmesh audit --output`). Failures can emit Incidents when
@@ -26,7 +26,7 @@ UI):
 
 #### Freshness and volume signals
 
-The connector does **not** emit `FRESHNESS` or `VOLUME` assertion definitions
+The source plugin does **not** emit `FRESHNESS` or `VOLUME` assertion definitions
 (there is no Cloud path that auto-attaches a monitor to an ingested assertion).
 Instead it emits the timeseries signals users can point monitors at:
 
@@ -40,7 +40,7 @@ properties for reference; they are **not** mapped into a freshness SLA.
 
 #### Stateful ingestion
 
-When `stateful_ingestion.enabled: true`, the connector tracks emitted URNs across runs
+When `stateful_ingestion.enabled: true`, the source plugin tracks emitted URNs across runs
 and soft-deletes entities that have been removed from the SQLMesh project.
 
 ### Limitations
@@ -49,10 +49,10 @@ and soft-deletes entities that have been removed from the SQLMesh project.
   schema extraction when `columns_to_types` is defined, but column-level lineage is
   not available.
 - **Audit run results**: Pass/fail status on the Validation tab requires an external
-  JSON results file (`audit_results_path`). The connector does not execute audits
+  JSON results file (`audit_results_path`). The source plugin does not execute audits
   itself at ingestion time.
-- **Sibling merging**: Sibling stitching requires the warehouse connector to be running
-  and producing URNs that match this connector's output. Verify URN alignment using
+- **Sibling merging**: Sibling stitching requires the warehouse source plugin to be running
+  and producing URNs that match this source plugin's output. Verify URN alignment using
   `preview_urns: true` before full ingestion. The warehouse sibling edge is patched
   (not overwritten) so an existing dbt sibling relationship is preserved.
 
@@ -61,7 +61,7 @@ and soft-deletes entities that have been removed from the SQLMesh project.
 #### URNs do not stitch with warehouse entities
 
 Run with `preview_urns: true` to print a sample of generated sqlmesh and warehouse URN
-pairs before emitting. Compare these against the URNs your warehouse connector produces.
+pairs before emitting. Compare these against the URNs your warehouse source plugin produces.
 Common causes:
 
 - `target_platform_instance` mismatch — must be identical in both recipes
@@ -87,7 +87,7 @@ gateway, your `config.yaml` contains a relative `database:` path (e.g. `db/mypro
 SQLMesh resolves this path against the working directory of the process that loads it, not
 against `project_path`.
 
-Run the connector from the SQLMesh project directory:
+Run the source plugin from the SQLMesh project directory:
 
 ```bash
 cd /path/to/sqlmesh_project
