@@ -809,7 +809,7 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
-          PYTEST_XDIST_WORKERS: "3"
+          PYTEST_XDIST_WORKERS: "4"
           # GMS here runs with a 1s bulk-flush and 1s index refresh interval
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
           # The library default stays conservative for other environments.
