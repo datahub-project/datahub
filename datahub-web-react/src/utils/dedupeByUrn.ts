@@ -1,5 +1,6 @@
 // When the same urn appears more than once, prefer the entry where isPropagated is false, since a manually
 // applied entry should win over one that arrived via automated propagation. Ties keep the first occurrence.
+// The result preserves first-seen urn order, not the order of the winning entries.
 export function dedupeByUrn<T>(items: T[], getUrn: (item: T) => string, isPropagated?: (item: T) => boolean): T[] {
     const bestByUrn = new Map<string, T>();
     const urnOrder: string[] = [];
