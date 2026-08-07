@@ -819,20 +819,17 @@ class TestMigrateContainers:
         """
         from datahub.cli.migrate import _migrate_containers
 
+        good_props = {
+            "platform": "snowflake",
+            "instance": "oldinst",
+            "env": "PROD",
+            "database": "db1",
+        }
         migratable = {
             "urn": "urn:li:container:goodguid",
             "aspects": {
                 "subTypes": {"value": {"typeNames": ["Database"]}},
-                "containerProperties": {
-                    "value": {
-                        "customProperties": {
-                            "platform": "snowflake",
-                            "instance": "oldinst",
-                            "env": "PROD",
-                            "database": "db1",
-                        }
-                    }
-                },
+                "containerProperties": {"value": {"customProperties": good_props}},
             },
         }
         mock_get.return_value = [
@@ -884,9 +881,7 @@ class TestMigrateContainers:
         # Derive the expected destination the same way _migrate_containers does,
         # so this pins *which* container migrated rather than just how many --
         # a malformed one migrating by mistake would produce a different guid.
-        expected_key = DatabaseKey.model_validate(
-            migratable["aspects"]["containerProperties"]["value"]["customProperties"]
-        )
+        expected_key = DatabaseKey.model_validate(good_props)
         expected_key.instance = "newinst"
         expected_dst = f"urn:li:container:{expected_key.guid()}"
 
