@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(Metadata Model / Semantic Model)** Containment is now single-direction on the container. `MetricInfo.semanticModel` and `SemanticModelProperties.semanticModel` have been removed; membership is expressed only via `SemanticModelInfo.datasets` and `SemanticModelInfo.metrics` (`Contains`). Reverse lookup ("which semantic model contains this metric/dataset") uses the graph index. Logical datasets still carry `semanticModelProperties.alias` for join edges. **Action:** Re-ingest semantic models so membership is written on `semanticModelInfo`; update any custom emitters or GraphQL clients that wrote or read the removed reverse fields.
+
 - **(Ingestion / SQL Profiling)** The legacy Great Expectations SQL profiler has been removed. The SQLAlchemy profiler — the default since v1.1.0 and at feature parity for dataset- and column-level metrics — is now the only SQL profiler. The `profiling.method` config option and the `acryl-datahub[profiling-ge]` install extra no longer exist. Recipes that still set `profiling.method` (`ge` or `sqlalchemy`) emit a deprecation warning and ignore the field, profiling with SQLAlchemy instead; for Unity Catalog, `profiling.method: ge` is now rejected (use `sqlalchemy` or `analyze`). **Action:** remove `profiling.method` from your recipes and drop the `profiling-ge` extra from your install command. This is unrelated to — and does not affect — the separate Great Expectations integration (`acryl-datahub[great-expectations]` / the `datahub-gx-plugin` package) that ingests GX validation results into DataHub.
 
 ### Known Issues

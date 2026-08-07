@@ -73,10 +73,10 @@ record SemanticModelInfo includes ExternalReference {
 
   /**
    * The logical datasets that this semantic model exposes. Each is a `dataset` entity in its
-   * own right, carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect
-   * (alias + back-reference to this semantic model). Field-level projection and semantics live
-   * on that Dataset's `schemaMetadata` (structural) and per-field `semanticFieldAnnotation`
-   * (semantic) aspects.
+   * own right, carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties`
+   * aspect (local alias for join edges). Membership is stored only here — there is no reverse
+   * pointer on the dataset. Field-level projection and semantics live on that Dataset's
+   * `schemaMetadata` (structural) and per-field `semanticFieldAnnotation` (semantic) aspects.
    */
   @Relationship = {
     "/*": {
@@ -95,8 +95,9 @@ record SemanticModelInfo includes ExternalReference {
   datasets: array[Urn] = [ ]
 
   /**
-   * The metrics defined by this semantic model. Each is a `metric` entity that carries a
-   * back-reference via `metricInfo.semanticModel`.
+   * The metrics defined by this semantic model. Membership is stored only here — there is no
+   * reverse pointer on the metric. Reverse lookup ("which semantic model contains this metric")
+   * uses the graph index on the `Contains` relationship.
    */
   @Relationship = {
     "/*": {
