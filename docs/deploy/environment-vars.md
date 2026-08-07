@@ -1183,6 +1183,9 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### Metadata Change Proposal Configuration
 
+Lag-based MCP / Kafka ingest throttling (`MCP_*` throttle flags below) is documented in
+[GMS Rate Limiting — MCP / Kafka ingest throttling](./gms-rate-limiting.md#mcp--kafka-ingest-throttling).
+
 | Environment Variable                          | Default    | Description                                    | Components        |
 | --------------------------------------------- | ---------- | ---------------------------------------------- | ----------------- |
 | `MCP_CONSUMER_BATCH_ENABLED`                  | `true`     | Enable MCP consumer batch processing           | GMS, MCE Consumer |
