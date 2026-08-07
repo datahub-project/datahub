@@ -804,6 +804,78 @@ class TestMigrateContainers:
         )
         emitter.emit_mcp.assert_not_called()
 
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_skips_containers_missing_aspects(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """Containers without subTypes/containerProperties are skipped, not fatal.
+
+        The listing covers every container in the env, so it can include ones
+        still being written or ones that never had these aspects. They are not
+        migration candidates, and must not abort the containers that are.
+        """
+        from datahub.cli.migrate import _migrate_containers
+
+        migratable = {
+            "urn": "urn:li:container:goodguid",
+            "aspects": {
+                "subTypes": {"value": {"typeNames": ["Database"]}},
+                "containerProperties": {
+                    "value": {
+                        "customProperties": {
+                            "platform": "snowflake",
+                            "instance": "oldinst",
+                            "env": "PROD",
+                            "database": "db1",
+                        }
+                    }
+                },
+            },
+        }
+        mock_get.return_value = [
+            {"urn": "urn:li:container:noaspects", "aspects": {}},
+            {
+                "urn": "urn:li:container:nosubtypes",
+                "aspects": {"containerProperties": {"value": {"customProperties": {}}}},
+            },
+            {
+                "urn": "urn:li:container:emptytypenames",
+                "aspects": {
+                    "subTypes": {"value": {"typeNames": []}},
+                    "containerProperties": {"value": {"customProperties": {}}},
+                },
+            },
+            {
+                "urn": "urn:li:container:noprops",
+                "aspects": {"subTypes": {"value": {"typeNames": ["Database"]}}},
+            },
+            migratable,
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+
+        # The one valid container still migrates.
+        instances = [
+            c.args[0].aspect
+            for c in emitter.emit_mcp.call_args_list
+            if isinstance(c.args[0].aspect, DataPlatformInstanceClass)
+        ]
+        assert instances, "valid container was not migrated"
+        assert instances[-1].instance == make_dataplatform_instance_urn(
+            "snowflake", "newinst"
+        )
+
 
 # --- checkpoint / resume ---
 

@@ -172,6 +172,34 @@ def _run_entity_migration(
     return _run_migration(graph, pairs, options)
 
 
+def _first_sub_type(container: Dict[str, Any]) -> Optional[str]:
+    """First declared subType of a container, or None if it has none.
+
+    A container mid-write (or one whose subTypes aspect was never populated)
+    shows up in the env-wide listing without this aspect, so callers must treat
+    a missing value as "not a migration candidate" rather than an error.
+    """
+    type_names = (
+        container.get("aspects", {})
+        .get("subTypes", {})
+        .get("value", {})
+        .get("typeNames")
+    )
+    if not type_names:
+        return None
+    return type_names[0]
+
+
+def _custom_properties(container: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """customProperties from a container's containerProperties aspect, or None."""
+    return (
+        container.get("aspects", {})
+        .get("containerProperties", {})
+        .get("value", {})
+        .get("customProperties")
+    )
+
+
 def _migrate_containers(
     env: str,
     platform: str,
@@ -194,10 +222,21 @@ def _migrate_containers(
     skipped_count = 0
     try:
         for container in progressbar.progressbar(containers, redirect_stdout=True):
-            subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
-            customProperties = container["aspects"]["containerProperties"]["value"][
-                "customProperties"
-            ]
+            # _get_containers_for_migration returns every container in the env,
+            # including ones this migration will filter out below. Reading the
+            # aspects defensively keeps an unrelated container -- one still being
+            # written, or one that legitimately has no subTypes -- from aborting
+            # the whole run before should_migrate() ever gets to skip it.
+            subType = _first_sub_type(container)
+            customProperties = _custom_properties(container)
+            if subType is None or customProperties is None:
+                log.debug(
+                    f"{container.get('urn')} is missing subTypes/containerProperties, "
+                    "skipping.. (not a migration candidate)"
+                )
+                skipped_count += 1
+                continue
+
             if not should_migrate(customProperties):
                 log.debug(
                     f"{container['urn']} does not match filter criteria, skipping.. "
