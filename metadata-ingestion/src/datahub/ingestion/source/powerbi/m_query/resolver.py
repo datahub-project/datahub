@@ -467,12 +467,15 @@ def _walk_invoke(
         )
         return
 
-    # Unrecognized *M library* wrapper (Table.RenameColumns, Table.NestedJoin,
-    # ...). Those are always namespaced; a bare callee is an unknown or
-    # unsupported source whose arguments are parameters rather than tables, so
-    # don't descend into them — matching the no-`let` case, so that wrapping an
-    # expression in a `let` cannot change the answer.
-    if callee and "." in callee:
+    # Unrecognized wrapper (Table.RenameColumns, Table.NestedJoin, ...) — descend
+    # into its arguments to reach the source underneath.
+    #
+    # When collecting *table references* only, skip bare callees: M library
+    # functions are always namespaced, so a bare callee is an unknown or
+    # unsupported source whose arguments are parameters rather than sibling
+    # tables. Data-access resolution must still descend, or a pipeline that wraps
+    # an already-bound warehouse source in such a call loses its lineage.
+    if callee and (unresolved is None or "." in callee):
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
             for elem in content.get("elements", []):

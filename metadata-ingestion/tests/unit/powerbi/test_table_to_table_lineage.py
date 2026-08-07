@@ -20,6 +20,7 @@ from datahub.ingestion.source.powerbi.m_query._bridge import (
     get_bridge,
 )
 from datahub.ingestion.source.powerbi.m_query.resolver import (
+    resolve_to_data_access_functions,
     resolve_to_table_references,
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
@@ -685,6 +686,35 @@ def test_external_and_sibling_edges_share_one_upstream_aspect() -> None:
     assert any("d1.SiblingTable" in urn for urn in datasets)
 
 
+def test_dropped_references_are_counted_through_the_real_pipeline() -> None:
+    # The counters must reflect what the expression actually referenced. Driving
+    # this through extract_lineage (not the mapper helper) is the point: the
+    # parser must not pre-filter candidates out of the report.
+    config = _config()
+    child = Table(
+        name="Child",
+        full_name="d1.Child",
+        expression="let Source = Table.Combine({Ghost, Child}) in Source",
+    )
+    _dataset_with_tables([child])
+    reporter = PowerBiDashboardSourceReport()
+    mapper = Mapper(
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+        reporter=reporter,
+        dataplatform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    mapper.extract_lineage(
+        child, "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Child,PROD)", MagicMock()
+    )
+
+    assert reporter.m_query_table_to_table_unmatched == 1  # Ghost
+    assert reporter.m_query_table_to_table_self_reference == 1  # Child
+
+
 def test_extract_lineage_emits_transformed_upstream_edge() -> None:
     # End-to-end through the mapper: a sibling reference must become an
     # UpstreamClass of type TRANSFORMED pointing at the sibling's dataset URN.
@@ -710,3 +740,15 @@ def test_extract_lineage_emits_transformed_upstream_edge() -> None:
         and edge.dataset == "urn:li:dataset:(urn:li:dataPlatform:powerbi,d1.Base,PROD)"
         for edge in edges
     )
+
+
+def test_bare_invoke_does_not_hide_external_data_source() -> None:
+    # An unrecognized *bare* callee must not stop data-access resolution: the
+    # sibling-reference rules that skip such callees apply only to table-reference
+    # collection, never to external warehouse lineage.
+    node_map = _parse(
+        'let Source = Sql.Database("srv","db"){[Schema="dbo",Item="t"]}[Data],'
+        " W = LOAD_DATA(Source) in W"
+    )
+    found = resolve_to_data_access_functions(node_map)
+    assert [d.data_access_function_name for d in found] == ["Sql.Database"]

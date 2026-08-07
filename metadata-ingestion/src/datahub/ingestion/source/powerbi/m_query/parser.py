@@ -228,7 +228,8 @@ def get_upstream_tables(
         #
         # Contained separately: a defect here must not discard the external
         # data-source lineage already collected above.
-        matched_siblings: List[str] = []
+        candidates: List[str] = []
+        matched_sibling_ref = False
         if config.extract_table_to_table_lineage:
             try:
                 candidates = mquery_resolver.resolve_to_table_references(
@@ -236,9 +237,10 @@ def get_upstream_tables(
                     parameters=parameters,
                     parent_by_id=parsed.parent_by_id,
                 )
-                matched_siblings = [
-                    sibling.name for sibling in match_sibling_tables(table, candidates)
-                ]
+                # Only a real sibling counts as lineage for the accounting below,
+                # but the mapper receives every candidate so it can report the
+                # unmatched and self-referencing ones.
+                matched_sibling_ref = bool(match_sibling_tables(table, candidates))
             except Exception as e:
                 reporter.m_query_table_reference_errors += 1
                 reporter.warning(
@@ -252,9 +254,8 @@ def get_upstream_tables(
         else:
             reporter.m_query_table_to_table_disabled += 1
 
-        matched_sibling_ref = bool(matched_siblings)
-        if matched_siblings:
-            lineages.append(Lineage(powerbi_table_upstreams=matched_siblings))
+        if candidates:
+            lineages.append(Lineage(powerbi_table_upstreams=candidates))
 
         if data_source_found or matched_sibling_ref:
             reporter.m_query_resolver_successes += 1
