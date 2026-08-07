@@ -138,8 +138,10 @@ def get_postgres_password() -> str:
 # ============================================================================
 
 
-# Same gate smoke.sh uses to decide whether to pass -n to pytest.
-_XDIST_WORKERS_PATTERN = re.compile(r"^[1-9][0-9]*$")
+# Same gate smoke.sh uses to decide whether to pass -n to pytest. Matched with
+# fullmatch, not $: Python's $ also matches just before a trailing newline, so
+# "3\n" would pass here while bash's =~ ^[1-9][0-9]*$ rejects it.
+_XDIST_WORKERS_PATTERN = re.compile(r"[1-9][0-9]*")
 
 
 def get_batch_count() -> int:
@@ -163,10 +165,11 @@ def get_pytest_xdist_workers() -> int:
     accepts that the shell rejects would have batch weighting assume parallelism
     that never happens. That rules out surrounding whitespace and leading zeros
     (``" 3 "``, ``"03"``), which the shell will not match, and non-ASCII digits
-    like ``"²"``, for which ``str.isdigit()`` is True but ``int()`` raises.
+    like ``"²"``, for which ``str.isdigit()`` is True but ``int()`` raises, and
+    a trailing newline (``"3\n"``), which Python's ``$`` would otherwise accept.
     Anything unset or not matching means no xdist, i.e. one worker.
     """
-    if not _XDIST_WORKERS_PATTERN.match(os.getenv("PYTEST_XDIST_WORKERS", "")):
+    if not _XDIST_WORKERS_PATTERN.fullmatch(os.getenv("PYTEST_XDIST_WORKERS", "")):
         return 1
     return int(os.environ["PYTEST_XDIST_WORKERS"])
 
