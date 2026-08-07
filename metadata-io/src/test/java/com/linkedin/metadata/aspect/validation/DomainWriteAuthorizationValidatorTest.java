@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
@@ -16,6 +17,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.DomainWriteAuthorizationUtils;
@@ -24,6 +26,7 @@ import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
@@ -73,12 +76,24 @@ public class DomainWriteAuthorizationValidatorTest {
     domainWriteUtilsMock
         .when(
             () ->
+                DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
+                    any(), any(), any(), any()))
+        .thenCallRealMethod();
+    domainWriteUtilsMock
+        .when(
+            () ->
                 DomainWriteAuthorizationUtils.shouldUseProposedDomainsForMatch(
                     anyBoolean(), anyBoolean(), anyBoolean()))
         .thenCallRealMethod();
     domainWriteUtilsMock
         .when(() -> DomainWriteAuthorizationUtils.resolveApiOperation(any(), anyBoolean()))
         .thenCallRealMethod();
+    domainWriteUtilsMock
+        .when(() -> DomainWriteAuthorizationUtils.hasDomainMembership(any()))
+        .thenCallRealMethod();
+    domainWriteUtilsMock
+        .when(() -> DomainWriteAuthorizationUtils.loadPersistedDomains(any(), any(), any()))
+        .thenReturn(Map.of());
 
     aspectRetriever = mock(AspectRetriever.class);
     retrieverContext = mock(RetrieverContext.class);
@@ -218,10 +233,49 @@ public class DomainWriteAuthorizationValidatorTest {
         .when(
             () ->
                 DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
-                    eq(patchItem), eq(aspectRetriever), any()))
+                    eq(patchItem), eq(aspectRetriever), any(), any()))
         .thenReturn(null);
 
     assertEquals(validate(patchItem).count(), 1);
+  }
+
+  @Test
+  public void testPatchUsesBeforeAfterEditHelper() {
+    TestMCP patchItem =
+        TestMCP.builder()
+            .urn(DATASET_URN)
+            .entitySpec(entitySpec)
+            .aspectSpec(domainsAspectSpec)
+            .changeType(ChangeType.PATCH)
+            .build();
+    Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    Domains after = new Domains().setDomains(new UrnArray(List.of(DOMAIN_Y)));
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, true));
+    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(DATASET_URN)), any()))
+        .thenReturn(
+            Map.of(DATASET_URN, Map.of("domains", new com.linkedin.entity.Aspect(before.data()))));
+    domainWriteUtilsMock
+        .when(() -> DomainWriteAuthorizationUtils.loadPersistedDomains(any(), any(), any()))
+        .thenReturn(Map.of(DATASET_URN, before));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
+                    eq(patchItem), eq(aspectRetriever), any(), eq(before)))
+        .thenReturn(after);
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+                    eq(session), eq(DATASET_URN), eq(before), eq(after)))
+        .thenReturn(true);
+
+    assertEquals(validate(patchItem).count(), 0);
+    domainWriteUtilsMock.verify(
+        () ->
+            DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+                eq(session), eq(DATASET_URN), eq(before), eq(after)));
   }
 
   @Test
@@ -245,13 +299,19 @@ public class DomainWriteAuthorizationValidatorTest {
         .when(
             () ->
                 DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
-                    eq(upsert), eq(aspectRetriever), any()))
-        .thenReturn(upsertDomains);
+                    eq(upsert), eq(aspectRetriever), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Map<Urn, Domains> proposedSoFar = invocation.getArgument(2);
+              proposedSoFar.put(DATASET_URN, upsertDomains);
+              return upsertDomains;
+            });
     domainWriteUtilsMock
         .when(
             () ->
                 DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
-                    eq(patchItem), eq(aspectRetriever), any()))
+                    eq(patchItem), eq(aspectRetriever), any(), any()))
         .thenReturn(patchDomains);
     domainWriteUtilsMock
         .when(
@@ -266,12 +326,8 @@ public class DomainWriteAuthorizationValidatorTest {
     domainWriteUtilsMock
         .when(
             () ->
-                DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-                    eq(session),
-                    eq(DATASET_URN),
-                    eq(ApiOperation.CREATE),
-                    eq(true),
-                    eq(patchDomains)))
+                DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+                    eq(session), eq(DATASET_URN), eq(upsertDomains), eq(patchDomains)))
         .thenReturn(true);
 
     assertEquals(
@@ -282,8 +338,112 @@ public class DomainWriteAuthorizationValidatorTest {
         0);
     domainWriteUtilsMock.verify(
         () ->
+            DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+                eq(session), eq(DATASET_URN), eq(upsertDomains), eq(patchDomains)));
+  }
+
+  @Test
+  public void testPatchWithBeforeButUnresolvableAfterFailsClosed() {
+    TestMCP patchItem =
+        TestMCP.builder()
+            .urn(DATASET_URN)
+            .entitySpec(entitySpec)
+            .aspectSpec(domainsAspectSpec)
+            .changeType(ChangeType.PATCH)
+            .build();
+    Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, true));
+    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(DATASET_URN)), any()))
+        .thenReturn(
+            Map.of(DATASET_URN, Map.of("domains", new com.linkedin.entity.Aspect(before.data()))));
+    domainWriteUtilsMock
+        .when(() -> DomainWriteAuthorizationUtils.loadPersistedDomains(any(), any(), any()))
+        .thenReturn(Map.of(DATASET_URN, before));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
+                    eq(patchItem), eq(aspectRetriever), any(), eq(before)))
+        .thenReturn(null);
+
+    assertEquals(validate(patchItem).count(), 1);
+    domainWriteUtilsMock.verify(
+        () -> DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(any(), any(), any(), any()),
+        Mockito.never());
+  }
+
+  @Test
+  public void testPreCommitCreateUsesCreatePrivilegeNotEditOnly() {
+    ChangeMCP change = mock(ChangeMCP.class);
+    when(change.getAspectName()).thenReturn("domains");
+    when(change.getUrn()).thenReturn(DATASET_URN);
+    when(change.getPreviousAspect(Domains.class)).thenReturn(null);
+    Domains after = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    when(change.getAspect(Domains.class)).thenReturn(after);
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, false));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                    eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(after)))
+        .thenReturn(true);
+
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY, List.of(change), retrieverContext, session)
+            .count(),
+        0);
+    domainWriteUtilsMock.verify(
+        () ->
             DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-                eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(patchDomains)));
+                eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(after)));
+    domainWriteUtilsMock.verify(
+        () -> DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(any(), any(), any(), any()),
+        Mockito.never());
+  }
+
+  @Test
+  public void testPreCommitExistingDomainsUsesBeforeAfterEdit() {
+    ChangeMCP change = mock(ChangeMCP.class);
+    when(change.getAspectName()).thenReturn("domains");
+    when(change.getUrn()).thenReturn(DATASET_URN);
+    Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    Domains after = new Domains().setDomains(new UrnArray(List.of(DOMAIN_Y)));
+    when(change.getPreviousAspect(Domains.class)).thenReturn(before);
+    when(change.getAspect(Domains.class)).thenReturn(after);
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, true));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+                    eq(session), eq(DATASET_URN), eq(before), eq(after)))
+        .thenReturn(true);
+
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY, List.of(change), retrieverContext, session)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testPreCommitSkipsWhenSessionNull() {
+    ChangeMCP change = mock(ChangeMCP.class);
+    when(change.getAspectName()).thenReturn("domains");
+    Stream<?> results =
+        validator.validatePreCommitAspectsWithAuth(
+            OperationFingerprint.EMPTY, List.of(change), retrieverContext, null);
+    assertEquals(results.count(), 0);
+  }
+
+  @Test
+  public void testShouldSkipUserDomainAuth_nullSession() {
+    assertTrue(DomainWriteAuthorizationValidator.shouldSkipUserDomainAuth(null));
   }
 
   @Test

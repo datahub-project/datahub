@@ -431,6 +431,37 @@ public class AuthUtilTest {
   }
 
   @Test
+  public void testPatchAlwaysRequiresEditEntity() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyPatch"), "");
+    Authentication editOnly = new Authentication(new Actor(ActorType.USER, "editOnlyPatch"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(TEST_ENTITY_1)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+    Pair<ChangeType, Urn> patch = Pair.of(ChangeType.PATCH, TEST_ENTITY_1);
+    Map<Urn, Boolean> missing = Map.of(TEST_ENTITY_1, false);
+    Map<Urn, Boolean> exists = Map.of(TEST_ENTITY_1, true);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(patch), missing),
+        Map.of(patch, 403),
+        "PATCH never uses CREATE_ENTITY even when entity is missing");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(patch), missing),
+        Map.of(patch, 200),
+        "PATCH on missing entity still requires EDIT_ENTITY");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(patch), exists),
+        Map.of(patch, 200),
+        "PATCH on existing entity requires EDIT_ENTITY");
+  }
+
+  @Test
   public void testExistenceAwareMissingMapKeyFallsBackToHistoricalMapping() {
     Authentication createOnly =
         new Authentication(new Actor(ActorType.USER, "createOnlyMissingKey"), "");

@@ -12,6 +12,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
@@ -108,6 +109,33 @@ public class DomainWriteAuthorizationUtilsTest {
     assertEquals(
         DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.CREATE, false),
         ApiOperation.UPDATE);
+  }
+
+  @Test
+  public void testResolveApiOperation_patchAlwaysUpdate() {
+    assertEquals(
+        DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, false),
+        ApiOperation.UPDATE);
+    assertEquals(
+        DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, true),
+        ApiOperation.UPDATE);
+  }
+
+  @Test
+  public void testHasDomainMembership() {
+    assertFalse(DomainWriteAuthorizationUtils.hasDomainMembership(null));
+    assertFalse(DomainWriteAuthorizationUtils.hasDomainMembership(new Domains()));
+    assertTrue(
+        DomainWriteAuthorizationUtils.hasDomainMembership(
+            new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)))));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_nullAfterWithBeforeDenies() {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    Domains before = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(session, DATASET_URN, before, null));
   }
 
   @Test

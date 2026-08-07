@@ -13,8 +13,9 @@ import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -22,14 +23,14 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
 import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -43,9 +44,9 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Helpers for domain-separated writers: privilege selection by entity existence, and authorizing
- * writes while matching domain-scoped policies against <em>proposed</em> domains when the domains
- * aspect is being established.
+ * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
+ * resolution (including PATCH apply), and authorizing writes against domain-scoped Create/Edit
+ * policies (including before/after Edit reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -201,10 +202,12 @@ public final class DomainWriteAuthorizationUtils {
         return entityExists ? UPDATE : CREATE;
       case CREATE:
         return UPDATE;
+      case PATCH:
+        // PATCH never uses CREATE_ENTITY — always Edit Entity.
+        return UPDATE;
       case UPSERT:
       case UPDATE:
       case RESTATE:
-      case PATCH:
         return entityExists ? UPDATE : CREATE;
       case DELETE:
         return com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -213,9 +216,40 @@ public final class DomainWriteAuthorizationUtils {
     }
   }
 
+  /** Whether {@code domains} carries at least one domain URN. */
+  public static boolean hasDomainMembership(@Nullable Domains domains) {
+    return domains != null && domains.hasDomains() && !domains.getDomains().isEmpty();
+  }
+
+  /**
+   * Authorize domain-scoped {@code EDIT_ENTITY} for a domains write given before/after membership.
+   *
+   * <ul>
+   *   <li>No before domains: match against after only (first-domains pattern).
+   *   <li>Before domains present: policy must allow both before and after.
+   * </ul>
+   */
+  public static boolean isAuthorizedDomainsEdit(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Urn urn,
+      @Nullable Domains beforeDomains,
+      @Nullable Domains afterDomains) {
+    if (hasDomainMembership(beforeDomains)) {
+      if (afterDomains == null) {
+        return false;
+      }
+      if (!isAuthorizedEntityWrite(session, urn, UPDATE, true, beforeDomains)) {
+        return false;
+      }
+      return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+    }
+    return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+  }
+
   /**
    * Resolves proposed Domains for one batch item using any earlier in-batch Domains for the same
-   * URN as prior, then stores the result in {@code proposedSoFar} when non-null.
+   * URN as prior (falling back to {@code persistedFallback}), then stores the result in {@code
+   * proposedSoFar} when non-null.
    *
    * <p>Callers must pass items in batch order so UPSERT→PATCH (and similar) chains correctly.
    */
@@ -224,16 +258,59 @@ public final class DomainWriteAuthorizationUtils {
       @Nonnull BatchItem item,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Map<Urn, Domains> proposedSoFar) {
+    return resolveAndAccumulateProposedDomains(item, aspectRetriever, proposedSoFar, null);
+  }
+
+  @Nullable
+  public static Domains resolveAndAccumulateProposedDomains(
+      @Nonnull BatchItem item,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Map<Urn, Domains> proposedSoFar,
+      @Nullable Domains persistedFallback) {
     if (!DOMAINS_ASPECT_NAME.equals(item.getAspectName())) {
       return null;
     }
     Domains prior = proposedSoFar.get(item.getUrn());
+    if (prior == null) {
+      prior = persistedFallback;
+    }
     Aspect priorAspect = prior == null ? null : new Aspect(prior.data());
     Domains domains = resolveProposedDomainsForItem(item, aspectRetriever, priorAspect);
     if (domains != null) {
       proposedSoFar.put(item.getUrn(), domains);
     }
     return domains;
+  }
+
+  /**
+   * Load persisted {@code domains} for the given URNs (batch per entity type). Missing aspects map
+   * to null.
+   */
+  @Nonnull
+  public static Map<Urn, Domains> loadPersistedDomains(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    }
+    Map<String, Set<Urn>> byEntityType =
+        urns.stream()
+            .collect(
+                Collectors.groupingBy(Urn::getEntityType, Collectors.toCollection(HashSet::new)));
+    Map<Urn, Domains> result = new HashMap<>();
+    for (Set<Urn> typeUrns : byEntityType.values()) {
+      Map<Urn, Map<String, Aspect>> latest =
+          aspectRetriever.getLatestAspectObjects(
+              operationContext, typeUrns, Set.of(DOMAINS_ASPECT_NAME));
+      for (Urn urn : typeUrns) {
+        Aspect aspect = latest.getOrDefault(urn, Map.of()).get(DOMAINS_ASPECT_NAME);
+        result.put(
+            urn,
+            aspect == null ? null : RecordUtils.toRecordTemplate(Domains.class, aspect.data()));
+      }
+    }
+    return result;
   }
 
   /**
@@ -279,7 +356,9 @@ public final class DomainWriteAuthorizationUtils {
       @Nonnull OperationContext opContext,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Collection<MetadataChangeProposal> mcps) {
-    Map<Urn, Domains> proposed = extractProposedDomainsFromMcps(entityRegistry, mcps);
+    Map<Urn, Domains> proposed =
+        accumulateProposedDomainsFromMcps(
+            opContext, entityRegistry, opContext.getAspectRetriever(), mcps);
     if (proposed.isEmpty()) {
       return;
     }
@@ -311,48 +390,55 @@ public final class DomainWriteAuthorizationUtils {
     }
   }
 
+  /**
+   * Resolve proposed domains from raw MCPs, including PATCH (via {@link PatchItemImpl}), with
+   * in-batch prior chaining and persisted domains as fallback.
+   */
   @Nonnull
-  public static Map<Urn, Domains> extractProposedDomainsFromMcps(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<MetadataChangeProposal> mcps) {
-    Map<Urn, Domains> proposed = new HashMap<>();
-    for (MetadataChangeProposal mcp : mcps) {
-      if (mcp.getAspectName() == null
-          || !DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())
-          || mcp.getAspect() == null) {
-        continue;
-      }
-      Urn urn = mcp.getEntityUrn();
-      if (urn == null) {
-        try {
+  public static Map<Urn, Domains> accumulateProposedDomainsFromMcps(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<MetadataChangeProposal> mcps) {
+    List<MetadataChangeProposal> domainsMcps =
+        mcps.stream()
+            .filter(
+                mcp ->
+                    mcp.getAspectName() != null
+                        && DOMAINS_ASPECT_NAME.equals(mcp.getAspectName())
+                        && mcp.getAspect() != null)
+            .collect(Collectors.toList());
+    if (domainsMcps.isEmpty()) {
+      return Map.of();
+    }
+
+    Set<Urn> urns = new HashSet<>();
+    List<BatchItem> items = new ArrayList<>();
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L);
+    for (MetadataChangeProposal mcp : domainsMcps) {
+      try {
+        Urn urn = mcp.getEntityUrn();
+        if (urn == null) {
           urn =
               EntityKeyUtils.getUrnFromProposal(
                   mcp, entityRegistry.getEntitySpec(mcp.getEntityType()).getKeyAspectSpec());
-        } catch (Exception e) {
-          log.warn(
-              "Failed to derive entity URN from domains MCP (entityType={}): {}",
-              mcp.getEntityType(),
-              e.toString());
-          continue;
         }
-      }
-      try {
-        if (ChangeType.PATCH.equals(mcp.getChangeType())
-            || GenericRecordUtils.JSON_PATCH.equals(mcp.getAspect().getContentType())) {
-          // PATCH payloads are not Domains records; resolved at auth time via PatchItemImpl.
-          continue;
-        }
-        AspectSpec aspectSpec =
-            entityRegistry.getEntitySpec(mcp.getEntityType()).getAspectSpec(DOMAINS_ASPECT_NAME);
-        if (aspectSpec == null) {
-          continue;
-        }
-        RecordTemplate template =
-            GenericRecordUtils.deserializeAspect(
-                mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        proposed.put(urn, RecordUtils.toRecordTemplate(Domains.class, template.data()));
+        urns.add(urn);
+        items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
       } catch (Exception e) {
-        log.warn("Failed to deserialize proposed domains aspect for urn={}: {}", urn, e.toString());
+        log.warn(
+            "Failed to build batch item for domains MCP (entityType={}): {}",
+            mcp.getEntityType(),
+            e.toString());
       }
+    }
+
+    Map<Urn, Domains> persisted = loadPersistedDomains(operationContext, aspectRetriever, urns);
+    Map<Urn, Domains> proposed = new HashMap<>();
+    for (BatchItem item : items) {
+      resolveAndAccumulateProposedDomains(
+          item, aspectRetriever, proposed, persisted.get(item.getUrn()));
     }
     return proposed;
   }

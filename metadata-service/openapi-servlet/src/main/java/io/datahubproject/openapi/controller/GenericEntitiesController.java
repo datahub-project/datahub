@@ -749,11 +749,6 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 
     MetadataChangeProposal mcp =
@@ -763,6 +758,16 @@ public abstract class GenericEntitiesController<
             .setAspectName(aspectSpec.getName())
             .setChangeType(ChangeType.PATCH)
             .setAspect(GenericRecordUtils.serializePatch(patch, objectMapper));
+
+    List<Pair<MetadataChangeProposal, Integer>> denied =
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, entityRegistry, List.of(mcp))
+            .stream()
+            .filter(p -> p.getSecond() != HttpStatus.SC_OK)
+            .collect(Collectors.toList());
+    if (!denied.isEmpty()) {
+      throw new UnauthorizedException(
+          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+    }
 
     IngestResult result =
         entityService.ingestProposal(

@@ -168,7 +168,29 @@ a domain that is not on the policy filter, fails authorization for domain-scoped
 
 After `domains` is persisted, later edits match against the stored domain. Using `CREATE_ENTITY`
 against an entity that already exists is denied for create-only principals (OpenAPI and Rest.li
-authorize each URN with existence-aware create vs edit checks).
+authorize each URN with existence-aware create vs edit checks). Moving domains via a `domains`
+**PATCH** requires Edit Entity on both the before and after domains — see [Domain-scoped Edit
+Entity and `domains` PATCH](#domain-scoped-edit-entity-and-domains-patch).
+
+###### Domain-scoped Edit Entity and `domains` PATCH
+
+`ChangeType.PATCH` always requires **Edit Entity** (`EDIT_ENTITY`) — never **Create Entity**, even when
+the target entity is missing. Domain-scoped writers that PATCH the `domains` aspect are authorized
+as follows:
+
+| Before `domains` | After (resolved patch) | Policy match                                                                             |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| Present          | Present                | Actor must be allowed for **both** before and after domain sets                          |
+| Absent           | Present                | Actor must be allowed for the **after** domains only (first-domains / establish pattern) |
+
+Authorization runs on the request thread in `validateProposed` (with an early apply of the JSON
+patch against current or in-batch prior domains). On **sync** writes, the same before/after Edit
+check runs again inside the DB transaction after the pipeline converts PATCH → UPSERT
+(`validatePreCommit`). On **async** ingest, the MCE consumer uses the system principal: user
+domain auth is **not** re-evaluated there — the API/`validateProposed` check before Kafka is the
+authoritative user authorization (same pattern as other aspect auth plugins).
+
+Elevated writers with unscoped Edit Entity continue to pass both checks without a domain filter.
 
 ###### Example: create a dataset in Domain X (Python SDK)
 
