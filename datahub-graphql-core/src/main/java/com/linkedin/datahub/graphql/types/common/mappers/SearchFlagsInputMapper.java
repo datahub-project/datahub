@@ -52,6 +52,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getIncludeSoftDeleted() != null) {
       result.setIncludeSoftDeleted(searchFlags.getIncludeSoftDeleted());
     }
+    if (searchFlags.getIncludeGhostEntities() != null) {
+      result.setIncludeGhostEntities(searchFlags.getIncludeGhostEntities());
+    }
     if (searchFlags.getIncludeRestricted() != null) {
       result.setIncludeRestricted(searchFlags.getIncludeRestricted());
     }

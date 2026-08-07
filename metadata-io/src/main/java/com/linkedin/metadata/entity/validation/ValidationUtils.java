@@ -12,6 +12,7 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -200,13 +202,20 @@ public class ValidationUtils {
                       lineageSearchResult.getLineageSearchPath(), SetMode.IGNORE_NULL)
                   .setNumEntities(lineageSearchResult.getNumEntities());
 
+          // Ghost entities have nothing in SQL to exist, so enforcing existence would drop exactly
+          // the results the caller asked to keep
+          boolean includeGhostEntities =
+              Optional.ofNullable(opContext.getSearchContext().getSearchFlags())
+                  .map(SearchFlags::isIncludeGhostEntities)
+                  .orElse(false);
+
           LineageSearchEntityArray validatedEntities =
               validateSearchUrns(
                       opContext,
                       lineageSearchResult.getEntities(),
                       LineageSearchEntity::getEntity,
                       entityService,
-                      true,
+                      !includeGhostEntities,
                       true)
                   .collect(Collectors.toCollection(LineageSearchEntityArray::new));
           validatedLineageSearchResult.setEntities(validatedEntities);

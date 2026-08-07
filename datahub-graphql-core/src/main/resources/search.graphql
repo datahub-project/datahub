@@ -173,6 +173,13 @@ input SearchFlags {
   includeSoftDeleted: Boolean
 
   """
+  Whether to include lineage results for entities that have no entity of their own, rather than
+  dropping them. Such entities are returned as a urn and entity type only, as there is nothing to
+  hydrate them from, and filters evaluated by the search index cannot be applied to them.
+  """
+  includeGhostEntities: Boolean
+
+  """
   Whether to include restricted entities
   """
   includeRestricted: Boolean

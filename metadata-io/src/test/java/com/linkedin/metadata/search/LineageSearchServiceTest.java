@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,7 +11,9 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -34,6 +37,12 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -994,6 +1003,66 @@ public class LineageSearchServiceTest {
     // should have used null for entitiesExploredPerHopLimit since lineageFlags is null.
     // This is verified by the fact that the method executes successfully
     // and the cache key is created with null for the entitiesExploredPerHopLimit value.
+  }
+
+  /** One relationship, far below the lightning threshold. */
+  private static List<LineageRelationship> oneRelationship() {
+    return Collections.singletonList(
+        new LineageRelationship()
+            .setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,topic,PROD)"))
+            .setType("DownstreamOf")
+            .setDegree(1));
+  }
+
+  private static Filter parentFilter(Condition condition, boolean negated, String value) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(buildCriterion("parent", condition, negated, value)))));
+  }
+
+  @Test
+  public void testCanDoLightningForGhostEntities() {
+    List<LineageRelationship> tinyResult = oneRelationship();
+    Filter filter = QueryUtils.newFilter("platform", "urn:li:dataPlatform:kafka");
+
+    // Below the threshold the entity index path is still preferred...
+    assertFalse(_lineageSearchService.canDoLightning(tinyResult, "*", filter, null, false));
+    // ...but ghost entities are only reachable here, so take it whatever the result size
+    assertTrue(_lineageSearchService.canDoLightning(tinyResult, "*", filter, null, true));
+
+    // Filters this path cannot answer from a urn keep it off, ghosts or not
+    Filter unsupported = QueryUtils.newFilter("description", "anything");
+    assertFalse(_lineageSearchService.canDoLightning(tinyResult, "*", unsupported, null, true));
+  }
+
+  @Test
+  public void testPassesParentCriteria() {
+    Urn warehouseColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD),id)");
+    Urn dbtColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD),id)");
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
+
+    assertTrue(LineageSearchService.passesParentCriteria(warehouseColumn, null));
+
+    // Excluding columns on dbt nodes, which the graph walks through rather than drawing
+    Filter notDbt = parentFilter(Condition.CONTAIN, true, "urn:li:dataPlatform:dbt");
+    assertTrue(LineageSearchService.passesParentCriteria(warehouseColumn, notDbt));
+    assertFalse(LineageSearchService.passesParentCriteria(dbtColumn, notDbt));
+    // Nothing to read a parent from, so only a negated criterion lets it through
+    assertTrue(LineageSearchService.passesParentCriteria(dataset, notDbt));
+
+    // Excluding one specific node, as siblings drawn folded into another node are
+    Filter notSibling =
+        parentFilter(
+            Condition.EQUAL, true, "urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+    assertFalse(LineageSearchService.passesParentCriteria(dbtColumn, notSibling));
+    assertTrue(LineageSearchService.passesParentCriteria(warehouseColumn, notSibling));
   }
 
   private EntityLineageResult createMockEntityLineageResult() {
