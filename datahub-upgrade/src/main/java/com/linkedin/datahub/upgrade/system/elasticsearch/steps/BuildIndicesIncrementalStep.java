@@ -450,6 +450,25 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           nextIndexName,
           phase,
           e);
+      // If the alias update succeeded and then an exception was observed (or reporting failed),
+      // deleting nextIndexName would remove the live backing index. Treat "already swapped" as
+      // success and skip cleanup.
+      try {
+        if (indexBuilder.getBackingIndices(opContext, config.name()).contains(nextIndexName)) {
+          log.warn(
+              "Alias {} already points to {} after swap exception; treating as success and"
+                  + " skipping cleanup.",
+              config.name(),
+              nextIndexName);
+          return true;
+        }
+      } catch (Exception verifyException) {
+        log.warn(
+            "Unable to verify alias target after swap failure for {} -> {}: {}",
+            config.name(),
+            nextIndexName,
+            verifyException.getMessage());
+      }
     }
     failAndCleanUp(context, upgradeState, config.name(), nextIndexName, indexBuilder);
     return false;
