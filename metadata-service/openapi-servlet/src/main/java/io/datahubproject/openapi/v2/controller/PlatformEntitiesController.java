@@ -1,12 +1,10 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
@@ -97,7 +95,9 @@ public class PlatformEntitiesController {
       Ingest Authorization Checks
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+                opContext, opContext.getEntityRegistry(), proposals)
+            .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {

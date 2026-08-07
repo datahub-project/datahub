@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import ClickOutside from '@app/shared/ClickOutside';
+import { SearchResultsDropdown } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
@@ -14,20 +15,6 @@ import { EntityType } from '@types';
 
 const SearchWrapper = styled.div`
     position: relative;
-`;
-
-const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
-    padding: 8px;
-    position: absolute;
-    max-height: 210px;
-    overflow: auto;
-    width: calc(100% - 24px);
-    left: 12px;
-    top: 45px;
-    z-index: 1;
 `;
 
 const LoadingWrapper = styled.div`
@@ -48,10 +35,6 @@ const SearchResult = styled(Link)`
         background-color: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.text};
     }
-`;
-
-const InputWrapper = styled.div`
-    padding: 12px;
 `;
 
 const IconWrapper = styled.span`
@@ -83,17 +66,15 @@ export default function MetricsSearch() {
     return (
         <SearchWrapper>
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <InputWrapper>
-                    <SearchBar
-                        placeholder={t('metrics.searchPlaceholder')}
-                        value={searchInput}
-                        onChange={setSearchInput}
-                        onFocus={() => setIsSearchBarFocused(true)}
-                        data-testid="metrics-sidebar-search-input"
-                    />
-                </InputWrapper>
+                <SearchBar
+                    placeholder={t('metrics.searchPlaceholder')}
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    onFocus={() => setIsSearchBarFocused(true)}
+                    data-testid="metrics-sidebar-search-input"
+                />
                 {isSearchBarFocused && (loading || !!searchResults?.length) && (
-                    <ResultsWrapper>
+                    <SearchResultsDropdown>
                         {loading && (
                             <LoadingWrapper>
                                 <Loader size="md" />
@@ -112,7 +93,7 @@ export default function MetricsSearch() {
                                     {entityRegistry.getDisplayName(result.type, result)}
                                 </SearchResult>
                             ))}
-                    </ResultsWrapper>
+                    </SearchResultsDropdown>
                 )}
             </ClickOutside>
         </SearchWrapper>

@@ -724,6 +724,20 @@ class TestSessionWrapper:
     def gms_url(self):
         return self._gms_url
 
+    def raw_post(self, url, **kwargs):
+        """POST via the underlying session without the post-mutation sync wait.
+
+        Use when a test must fire back-to-back writes (race windows) or measure
+        read-after-write without ``wait_for_writes_to_sync``. Still injects the
+        Bearer token like intercepted ``post``.
+        """
+        if "headers" not in kwargs:
+            kwargs["headers"] = CaseInsensitiveDict()
+        else:
+            kwargs["headers"] = dict(kwargs["headers"])
+        kwargs["headers"].update({"Authorization": f"Bearer {self._gms_token}"})
+        return self._upstream.post(url, **kwargs)
+
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
             logger.info("TestSessionWrapper sync wait.")
