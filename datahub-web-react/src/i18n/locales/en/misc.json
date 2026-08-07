@@ -88,6 +88,7 @@
     "sidebarSort.nameAtoZ": "Name A to Z",
     "sidebarSort.nameZtoA": "Name Z to A",
     "sidebarSort.lastModified": "Last modified",
+    "sidebarSort.created": "Recently created",
     "sidebarAddFilter.label": "Filter",
     "context.import.back": "Back",
     "context.import.buttonTooltip": "Import Documents",
