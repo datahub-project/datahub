@@ -99,8 +99,12 @@ def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
             pass
 
 
+# Retry for the low-level GAPIC listing path
+_LISTING_RETRY = create_vertex_retry_without_429()
+
+
 class _GapicPagedFn(Protocol[T_co]):
-    def __call__(self, *, request: object) -> Iterable[T_co]:
+    def __call__(self, *, request: object, retry: api_retry.Retry) -> Iterable[T_co]:
         pass
 
 
@@ -108,9 +112,10 @@ def rate_limited_paged_call(
     gapic_fn: _GapicPagedFn[T],
     request: object,
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    retry: api_retry.Retry = _LISTING_RETRY,
 ) -> Iterable[T]:
     with rate_limiter:
-        pager = gapic_fn(request=request)
+        pager = gapic_fn(request=request, retry=retry)
     if hasattr(pager, "_method"):
         _orig = pager._method
 

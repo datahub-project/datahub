@@ -69,9 +69,10 @@ def test_rate_limited_paged_call_acquires_token_on_first_page() -> None:
         def __exit__(self, *_):
             return False
 
-    result = rate_limited_paged_call(gapic_fn, "req", CountingLimiter())
+    retry = create_vertex_retry_without_429()
+    result = rate_limited_paged_call(gapic_fn, "req", CountingLimiter(), retry=retry)
 
-    gapic_fn.assert_called_once_with(request="req")
+    gapic_fn.assert_called_once_with(request="req", retry=retry)
     assert tokens == [1]
     assert result is pager
 
@@ -105,6 +106,19 @@ def test_rate_limited_paged_call_patches_method_for_subsequent_pages() -> None:
     result._method("arg")
     assert tokens == [1, 1]  # second page consumed another token
     original_method.assert_called_once_with("arg")
+
+
+def test_rate_limited_paged_call_threads_transient_retry_by_default() -> None:
+    """Transient 5xx errors are retried on the GAPIC listing path, but 429 is not."""
+    pager = MagicMock()
+    del pager._method
+    gapic_fn = MagicMock(return_value=pager)
+
+    rate_limited_paged_call(gapic_fn, "req", nullcontext())
+
+    retry = gapic_fn.call_args.kwargs["retry"]
+    assert retry._predicate(ServiceUnavailable("unavailable"))
+    assert not retry._predicate(ResourceExhausted("quota exceeded"))
 
 
 # ---------------------------------------------------------------------------
