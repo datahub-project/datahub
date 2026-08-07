@@ -1,5 +1,5 @@
 - Start Date: 2026-08-07
-- RFC PR: (after opening the RFC PR, update this with a link to it and update the file name)
+- RFC PR: https://github.com/datahub-project/datahub/pull/18966
 - Discussion Issue: none
 - Implementation PR(s): none
 
@@ -275,4 +275,3 @@ systems continue to work unchanged.
 - [DataHub Metadata Standard](https://github.com/datahub-project/datahub/blob/master/docs/metadata-standards.md)
 - [DataHub RFC template](https://github.com/datahub-project/rfcs/blob/main/templates/000-template.md)
 - [DataHub lineage API tutorial](https://github.com/datahub-project/datahub/blob/master/docs/api/tutorials/lineage.md)
-
