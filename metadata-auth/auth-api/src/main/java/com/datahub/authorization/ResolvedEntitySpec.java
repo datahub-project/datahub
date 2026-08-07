@@ -16,7 +16,7 @@ import lombok.ToString;
 @ToString
 public class ResolvedEntitySpec {
   @Getter private final EntitySpec spec;
-  private final Map<EntityFieldType, FieldResolver> fieldResolvers;
+  @Getter private final Map<EntityFieldType, FieldResolver> fieldResolvers;
 
   public Set<String> getFieldValues(EntityFieldType entityFieldType) {
     if (!fieldResolvers.containsKey(entityFieldType)) {

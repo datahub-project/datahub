@@ -1284,7 +1284,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // do final pre-commit checks with previous aspect value
                           ValidationExceptionCollection exceptions =
                               AspectsBatch.validatePreCommit(
-                                  opContext, changeMCPs, opContext.getRetrieverContext());
+                                  opContext,
+                                  changeMCPs,
+                                  opContext.getRetrieverContext(),
+                                  opContext);
 
                           List<Pair<ChangeMCP, Set<AspectValidationException>>>
                               failedUpsertResults = new ArrayList<>();
@@ -3165,7 +3168,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                           .auditStamp(auditStamp)
                                           .build(opContext.getAspectRetriever()))
                               .collect(Collectors.toList()),
-                          opContext.getRetrieverContext());
+                          opContext.getRetrieverContext(),
+                          opContext);
                   if (!preCommitExceptions.isEmpty()) {
                     throw new ValidationException(
                         collectMetrics(opContext.getMetricUtils().orElse(null), preCommitExceptions)

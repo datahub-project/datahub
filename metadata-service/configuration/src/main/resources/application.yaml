@@ -1893,6 +1893,9 @@ metadataChangeProposal:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
+    aspectAuthorization:
+      domainWrite:
+        enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:
