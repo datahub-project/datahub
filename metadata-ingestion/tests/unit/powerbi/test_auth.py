@@ -100,7 +100,10 @@ def assert_certificate_credential(
 ) -> MsalCertificateCredential:
     assert isinstance(credential, dict)
     assert credential["thumbprint"] == key_and_certificate.thumbprint
-    assert "-----BEGIN PRIVATE KEY-----" in credential["private_key"]
+    # Re-serialization to unencrypted PKCS8 is deterministic, so the emitted key
+    # must be byte-identical to the fixture's PKCS8 PEM regardless of the input
+    # encoding (traditional format, encrypted, etc.).
+    assert credential["private_key"] == key_and_certificate.key_pem
     assert credential["public_certificate"] == key_and_certificate.certificate_pem
     return credential
 
@@ -151,10 +154,9 @@ def test_traditional_format_key_normalized_to_pkcs8(
         certificate_data=key_and_certificate.traditional_key_pem
         + key_and_certificate.certificate_pem
     )
-    credential = assert_certificate_credential(
+    assert_certificate_credential(
         build_msal_client_credential(config), key_and_certificate
     )
-    assert "-----BEGIN RSA PRIVATE KEY-----" not in credential["private_key"]
 
 
 def test_certificate_chain_selects_certificate_matching_key(
@@ -228,11 +230,9 @@ def test_encrypted_key_with_passphrase(
         + key_and_certificate.certificate_pem,
         certificate_password=KEY_PASSPHRASE,
     )
-    credential = assert_certificate_credential(
+    assert_certificate_credential(
         build_msal_client_credential(config), key_and_certificate
     )
-    # The key is re-serialized unencrypted for MSAL.
-    assert "ENCRYPTED" not in credential["private_key"]
 
 
 def test_encrypted_key_wrong_passphrase(

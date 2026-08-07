@@ -20,6 +20,21 @@ export const POWERBI_CLIENT_ID: RecipeField = {
     rules: null,
 };
 
+function clientSecretOrCertificateValidator({ getFieldValue }) {
+    return {
+        validator(_, value) {
+            const certificateData = getFieldValue('certificate_data');
+            if (!value && !certificateData) {
+                return Promise.reject(new Error('Either Client Secret or Certificate PEM is required'));
+            }
+            if (value && certificateData) {
+                return Promise.reject(new Error('Configure either Client Secret or Certificate PEM, not both'));
+            }
+            return Promise.resolve();
+        },
+    };
+}
+
 export const POWERBI_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
     label: 'Client Secret',
@@ -29,7 +44,7 @@ export const POWERBI_CLIENT_SECRET: RecipeField = {
     fieldPath: 'source.config.client_secret',
     placeholder: 'client secret',
     required: false,
-    rules: null,
+    rules: [clientSecretOrCertificateValidator],
 };
 
 export const POWERBI_CERTIFICATE_DATA: RecipeField = {
@@ -40,7 +55,7 @@ export const POWERBI_CERTIFICATE_DATA: RecipeField = {
         'PEM content containing both the private key and the certificate registered on the Azure AD application, if using certificate-based authentication instead of a client secret. Newlines may be escaped as \\n.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.certificate_data',
-    placeholder: '-----BEGIN PRIVATE KEY-----\\n...',
+    placeholder: '-----BEGIN PRIVATE KEY-----\\n...\\n-----BEGIN CERTIFICATE-----\\n...',
     required: false,
     rules: null,
 };

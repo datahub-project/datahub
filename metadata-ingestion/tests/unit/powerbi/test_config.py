@@ -134,11 +134,17 @@ class TestPowerBiConfig:
             {
                 "tenant_id": "fake",
                 "client_id": "foo",
-                "certificate_data": "-----BEGIN PRIVATE KEY-----\n...",
+                # Escaped newlines (as stored in single-line secrets) must be
+                # normalized to real newlines at parse time.
+                "certificate_data": r"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
                 "certificate_password": "passphrase",
             }
         )
         assert config.certificate_data is not None
+        assert (
+            config.certificate_data.get_secret_value()
+            == "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        )
 
     def test_no_auth_method_invalid(self):
         with pytest.raises(ValueError, match="No authentication method configured"):
