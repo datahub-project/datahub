@@ -231,10 +231,6 @@ jobs:
           PR_PUBLISH: ${{ steps.pr-publish.outputs.publish }}
           SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
           CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
-          FRONTEND_CHANGE: ${{ steps.ci-optimize.outputs.frontend-change }}
-          BACKEND_CHANGE: ${{ steps.ci-optimize.outputs.backend-change }}
-          INGESTION_CHANGE: ${{ steps.ci-optimize.outputs.ingestion-change }}
-          ACTIONS_CHANGE: ${{ steps.ci-optimize.outputs.actions-change }}
         run: .github/scripts/resolve_image_builds.sh
 
       - name: Determine runner type

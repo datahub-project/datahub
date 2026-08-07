@@ -54,8 +54,6 @@ check() {
     GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
     env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
     PR_PUBLISH=false SMOKE_BUILD_TASK= \
-    FRONTEND_CHANGE=false BACKEND_CHANGE=false \
-    INGESTION_CHANGE=false ACTIONS_CHANGE=false \
     "$@" "${UNDER_TEST}" >/dev/null 2>&1
 
   local actual
@@ -71,43 +69,51 @@ check() {
     "${name}" "${expected:-<none>}" "${actual:-<none>}"
 }
 
-ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions"
+SERVER=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job"
+ALL="${SERVER},:datahub-frontend,:datahub-actions"
 
-echo "reuse paths"
-check "smoke-test only builds nothing" \
-  "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
-check "docs and markdown build nothing" \
-  "" 'CHANGED_FILES=["docs/how/updating-datahub.md","README.md","docs-website/sidebars.js"]'
-check "playwright tests build nothing" \
-  "" 'CHANGED_FILES=["e2e-test/ui/playwright/tests/a.spec.ts"]'
-check "frontend only builds the frontend" \
-  ":datahub-frontend" FRONTEND_CHANGE=true 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
-check "ingestion only builds actions" \
-  ":datahub-actions" INGESTION_CHANGE=true 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py"]'
-check "actions only builds actions" \
-  ":datahub-actions" ACTIONS_CHANGE=true 'CHANGED_FILES=["datahub-actions/src/x.py"]'
+echo "nothing that reaches an image"
+check "smoke-test only" "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
+check "docs and markdown" "" 'CHANGED_FILES=["docs/how/updating-datahub.md","README.md","docs-website/sidebars.js"]'
+check "playwright tests" "" 'CHANGED_FILES=["e2e-test/ui/playwright/tests/a.spec.ts"]'
+check "compose templates only" "" 'CHANGED_FILES=["docker/profiles/docker-compose.gms.yml"]'
 
-echo "couplings"
-check "backend rebuilds every image" \
-  "${ALL}" BACKEND_CHANGE=true 'CHANGED_FILES=["metadata-service/factories/a.java"]'
-check "metadata-models rebuilds every image" \
-  "${ALL}" BACKEND_CHANGE=true INGESTION_CHANGE=true 'CHANGED_FILES=["metadata-models/src/main/pegasus/a.pdl"]'
-check "graphql schema rebuilds the frontend too" \
-  "${ALL}" BACKEND_CHANGE=true 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
+echo "ui code does not rebuild the server"
+check "datahub-web-react" ":datahub-frontend" 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
+check "datahub-frontend play app" ":datahub-frontend" 'CHANGED_FILES=["datahub-frontend/app/auth/Auth.java"]'
+check "frontend dockerfile" ":datahub-frontend" 'CHANGED_FILES=["docker/datahub-frontend/Dockerfile"]'
+
+echo "server business logic does not rebuild the ui"
+check "metadata-io" "${SERVER}" 'CHANGED_FILES=["metadata-io/src/main/java/A.java"]'
+check "metadata-jobs" "${SERVER}" 'CHANGED_FILES=["metadata-jobs/mae-consumer/src/main/java/A.java"]'
+check "datahub-upgrade" "${SERVER}" 'CHANGED_FILES=["datahub-upgrade/src/main/java/A.java"]'
+check "metadata-service internals" "${SERVER}" 'CHANGED_FILES=["metadata-service/factories/src/main/java/A.java"]'
+check "graphql resolvers" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/A.java"]'
+
+echo "the shared contract rebuilds both sides"
+check "graphql schema resource" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
+check "restli-client (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["metadata-service/restli-client/src/main/java/A.java"]'
+check "entity-registry (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["entity-registry/src/main/java/A.java"]'
+check "li-utils (frontend compiles it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
+check "metadata-models rebuilds everything" "${ALL}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
+
+echo "ingestion only rebuilds actions"
+check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
+check "datahub-actions" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/src/x.py"]'
+check "shared docker snippets" ":datahub-actions" 'CHANGED_FILES=["docker/snippets/ingestion_base"]'
 
 echo "unclassified paths force a full build"
-check "root build.gradle" \
-  "${ALL}" 'CHANGED_FILES=["build.gradle"]'
-check "smoke-test plus root build.gradle" \
-  "${ALL}" 'CHANGED_FILES=["smoke-test/tests/a_test.py","build.gradle"]'
-check "gradle wrapper" \
-  "${ALL}" 'CHANGED_FILES=["gradle/wrapper/gradle-wrapper.properties"]'
-check "buildSrc" \
-  "${ALL}" 'CHANGED_FILES=["buildSrc/src/main/java/A.java"]'
-check "workflow definitions" \
-  "${ALL}" 'CHANGED_FILES=[".github/workflows/docker-unified.yml"]'
-check "a brand new top-level module" \
-  "${ALL}" 'CHANGED_FILES=["some-new-module/src/A.java"]'
+check "root build.gradle" "${ALL}" 'CHANGED_FILES=["build.gradle"]'
+check "smoke-test plus root build.gradle" "${ALL}" 'CHANGED_FILES=["smoke-test/tests/a_test.py","build.gradle"]'
+check "gradle wrapper" "${ALL}" 'CHANGED_FILES=["gradle/wrapper/gradle-wrapper.properties"]'
+check "buildSrc" "${ALL}" 'CHANGED_FILES=["buildSrc/src/main/java/A.java"]'
+check "workflow definitions" "${ALL}" 'CHANGED_FILES=[".github/workflows/docker-unified.yml"]'
+check "shared docker build machinery" "${ALL}" 'CHANGED_FILES=["docker/build.gradle"]'
+check "a brand new top-level module" "${ALL}" 'CHANGED_FILES=["some-new-module/src/A.java"]'
+
+echo "combinations union rather than override"
+check "ui plus server business logic" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["datahub-web-react/src/App.tsx","metadata-io/src/main/java/A.java"]'
+check "ingestion plus ui" ":datahub-frontend,:datahub-actions" 'CHANGED_FILES=["datahub-web-react/src/App.tsx","metadata-ingestion/src/datahub/x.py"]'
 
 echo "backstops"
 check "build-images label" \

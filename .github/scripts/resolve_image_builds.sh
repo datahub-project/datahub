@@ -36,72 +36,111 @@ IMAGES=(
   ":datahub-actions|datahub-actions|DATAHUB_ACTIONS_VERSION|-slim"
 )
 
-# Whether this PR's diff can change the contents of one image.
-#
-# The couplings that are easy to get wrong, and why they are drawn this way:
-#   - a backend change rebuilds the frontend too, because the GraphQL schema and
-#     the generated metadata model are inputs to the frontend build; pairing a
-#     PR-built GMS with a HEAD frontend would test a combination that does not
-#     exist anywhere.
-#   - the actions image pip-installs ../metadata-ingestion at build time, so
-#     ingestion and metadata-model changes land in it.
-# The `backend` filter already covers metadata-models/** and docker/**, so
-# schema changes and Dockerfile changes rebuild everything through it.
-image_is_affected() {
-  case "$1" in
-  :metadata-service:war | :datahub-upgrade | :metadata-jobs:mae-consumer-job | :metadata-jobs:mce-consumer-job)
-    [[ "${BACKEND_CHANGE}" == "true" ]]
-    ;;
-  :datahub-frontend)
-    [[ "${FRONTEND_CHANGE}" == "true" || "${BACKEND_CHANGE}" == "true" ]]
-    ;;
-  :datahub-actions)
-    [[ "${ACTIONS_CHANGE}" == "true" || "${INGESTION_CHANGE}" == "true" || "${BACKEND_CHANGE}" == "true" ]]
-    ;;
-  *)
-    # An image nobody classified. Build it.
-    return 0
-    ;;
-  esac
-}
+SERVER=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-job :metadata-jobs:mce-consumer-job"
+UI=":datahub-frontend"
+ACTIONS=":datahub-actions"
+EVERYTHING="${SERVER} ${UI} ${ACTIONS}"
 
-# Every path prefix whose effect on the images is known: either it provably
-# cannot change image contents, or one of the ci-optimization filters already
-# claims it. Deciding "this image is unaffected" is only sound when every
-# changed file is accounted for -- plenty of paths affect every image without
-# belonging to any feature filter (the root build.gradle, gradle/**,
-# buildSrc/**, or a new top-level module nobody has classified yet), and those
-# have to force a full build.
+# Which images a changed path can affect: "<prefix>|<space separated modules>".
+# First matching prefix wins, so specific prefixes precede general ones. An
+# empty module list means the path cannot change any image.
 #
-# .github/** is deliberately absent: a workflow change can alter build args or
-# the build graph itself, which is exactly the change you want built rather than
-# reused.
+# The UI column is not guesswork. `./gradlew :docker:buildImagesQuickstart
+# --dry-run -PbuildModules=:datahub-frontend` lists exactly what the frontend
+# image compiles, and it is a narrow set: datahub-web-react, entity-registry,
+# li-utils, metadata-auth, metadata-events, metadata-models,
+# metadata-operation-context, metadata-utils, and five metadata-service
+# subprojects. It does NOT compile metadata-io, metadata-jobs, datahub-upgrade,
+# metadata-dao-impl or datahub-graphql-core -- so server-side business logic in
+# those does not change the frontend image, and rebuilding it there is waste.
 #
-# Keep this in sync with the filters in ci-optimization/action.yml. Forgetting
-# to add a path here costs a full build, which is merely slow; the reverse would
-# ship stale images.
-CLASSIFIED_PREFIXES=(
-  # Cannot end up inside a docker image.
-  "docs/" "docs-website/" "smoke-test/" "e2e-test/"
-  # Claimed by the frontend filter.
-  "datahub-frontend/" "datahub-web-react/"
-  # Claimed by the actions filter.
-  "datahub-actions/"
-  # Claimed by the ingestion filter.
-  "metadata-ingestion/" "metadata-ingestion-modules/"
-  # Claimed by the backend filter.
-  "docker/" "metadata-models/" "datahub-upgrade/" "entity-registry/"
-  "li-utils/" "metadata-auth/" "metadata-dao-impl/" "metadata-events/"
-  "metadata-io/" "metadata-jobs/" "metadata-service/" "metadata-utils/"
-  "metadata-operation-context/" "metadata-integration/" "datahub-graphql-core/"
+# The one non-Gradle edge: datahub-web-react/codegen.yml reads
+# ../datahub-graphql-core/src/main/resources/*.graphql to generate TypeScript
+# types, so the GraphQL schema is a frontend build input even though
+# datahub-graphql-core is not a frontend dependency. Resolver code in that same
+# project is server business logic and is treated as such.
+PATH_RULES=(
+  # Cannot end up inside any image.
+  "docs/|"
+  "docs-website/|"
+  "smoke-test/|"
+  "e2e-test/|"
+  # Compose templates describe how images are run, not what is in them.
+  "docker/profiles/|"
+
+  "datahub-web-react/|${UI}"
+  "datahub-frontend/|${UI}"
+  "docker/datahub-frontend/|${UI}"
+
+  "datahub-actions/|${ACTIONS}"
+  "docker/datahub-actions/|${ACTIONS}"
+  "docker/datahub-ingestion/|${ACTIONS}"
+  "docker/datahub-ingestion-base/|${ACTIONS}"
+  # Only the ingestion and actions Dockerfiles inline these.
+  "docker/snippets/|${ACTIONS}"
+  "metadata-ingestion/|${ACTIONS}"
+  "metadata-ingestion-modules/|${ACTIONS}"
+
+  # PDL regenerates data templates for the JVM images, the restli client the
+  # frontend compiles, and the Python classes baked into the actions image.
+  "metadata-models/|${EVERYTHING}"
+
+  # The schema is the contract between the two sides, so both rebuild.
+  "datahub-graphql-core/src/main/resources/|${SERVER} ${UI}"
+  "datahub-graphql-core/|${SERVER}"
+
+  # Frontend-facing slices of metadata-service.
+  "metadata-service/auth-config/|${SERVER} ${UI}"
+  "metadata-service/configuration/|${SERVER} ${UI}"
+  "metadata-service/restli-api/|${SERVER} ${UI}"
+  "metadata-service/restli-client/|${SERVER} ${UI}"
+  "metadata-service/restli-client-api/|${SERVER} ${UI}"
+  "metadata-service/|${SERVER}"
+
+  # Shared libraries the frontend compiles.
+  "entity-registry/|${SERVER} ${UI}"
+  "li-utils/|${SERVER} ${UI}"
+  "metadata-auth/|${SERVER} ${UI}"
+  "metadata-events/|${SERVER} ${UI}"
+  "metadata-operation-context/|${SERVER} ${UI}"
+  "metadata-utils/|${SERVER} ${UI}"
+  "vendor/|${SERVER} ${UI}"
+
+  # Server-side business logic. This is the case the whole split exists for.
+  "metadata-io/|${SERVER}"
+  "metadata-dao-impl/|${SERVER}"
+  "metadata-jobs/|${SERVER}"
+  "datahub-upgrade/|${SERVER}"
+  "metadata-integration/|${SERVER}"
+  "docker/datahub-gms/|${SERVER}"
+  "docker/datahub-mae-consumer/|${SERVER}"
+  "docker/datahub-mce-consumer/|${SERVER}"
+  "docker/datahub-upgrade/|${SERVER}"
+
+  # Anything else under docker/ is shared build machinery.
+  "docker/|${EVERYTHING}"
 )
 
-path_is_classified() {
-  local path="$1" prefix
+# Accumulated set of modules the diff can affect. Anything not matched by a rule
+# above is unclassified -- the root build.gradle, gradle/**, buildSrc/**,
+# .github/**, a brand new top-level module -- and forces a full build, because
+# "this image is unaffected" is only sound when every changed file is accounted
+# for. .github/** is deliberately absent from the rules: a workflow change can
+# alter build args or the build graph, which is exactly what you want built.
+affected=""
+unclassified=()
+
+classify_path() {
+  local path="$1" rule prefix modules
   # Markdown never reaches an image, wherever it lives.
   [[ "${path}" == *.md ]] && return 0
-  for prefix in "${CLASSIFIED_PREFIXES[@]}"; do
-    [[ "${path}" == "${prefix}"* ]] && return 0
+  for rule in "${PATH_RULES[@]}"; do
+    prefix="${rule%%|*}"
+    modules="${rule#*|}"
+    if [[ "${path}" == "${prefix}"* ]]; then
+      affected="${affected} ${modules}"
+      return 0
+    fi
   done
   return 1
 }
@@ -112,10 +151,13 @@ while IFS= read -r path; do
   changed_files+=("${path}")
 done < <(jq -r '.[]?' <<<"${CHANGED_FILES:-[]}" 2>/dev/null)
 
-unclassified=()
 for path in ${changed_files[@]+"${changed_files[@]}"}; do
-  path_is_classified "${path}" || unclassified+=("${path}")
+  classify_path "${path}" || unclassified+=("${path}")
 done
+
+module_is_affected() {
+  [[ " ${affected} " == *" $1 "* ]]
+}
 
 # Resolve a tag against Docker Hub using an anonymous pull token. The setup
 # runner has no docker login, and these repos are public, so this avoids
@@ -136,7 +178,7 @@ tag_exists() {
 }
 
 # Reasons to bake the whole set, checked before any per-image reasoning so the
-# log names the override rather than whichever filter also happened to match.
+# log names the override rather than whichever rule also happened to match.
 full_build_reason=""
 if [[ "${FULL_BUILD_LABEL}" == "true" ]]; then
   full_build_reason="the build-images label is set"
@@ -175,7 +217,7 @@ for entry in "${IMAGES[@]}"; do
   decision="build"
   if [[ -n "${full_build_reason}" ]]; then
     why="${full_build_reason}"
-  elif image_is_affected "${module}"; then
+  elif module_is_affected "${module}"; then
     why="affected by this diff"
   elif ! tag_exists "${DOCKER_REGISTRY}/${repo}" "${reuse_tag}"; then
     # Cheaper to discover here than inside seven parallel batch jobs that boot a
