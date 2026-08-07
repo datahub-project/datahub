@@ -157,9 +157,26 @@ class AssertionMixin(SqlmeshSourceBase):
             )
             return
 
-        generated_at = AuditResultsMetadata.model_validate(
-            payload.get(AUDIT_RESULT_METADATA) or {}
-        ).generated_at
+        # A syntactically valid file whose top level is not an object (a list,
+        # string, number) would make payload.get(...) raise — warn and skip
+        # instead, mirroring the per-entry fail-soft behaviour below.
+        if not isinstance(payload, dict):
+            self.report.warning(
+                title="Audit results file is not a JSON object",
+                message="Skipping audit run event emission.",
+                context=f"{path}: top-level JSON is {type(payload).__name__}",
+            )
+            return
+
+        # A malformed metadata block must not abort every result in the file;
+        # fall back to an empty generated_at, which the parse below turns into
+        # wall-clock time with a warning.
+        try:
+            generated_at = AuditResultsMetadata.model_validate(
+                payload.get(AUDIT_RESULT_METADATA) or {}
+            ).generated_at
+        except Exception:
+            generated_at = ""
         try:
             parsed = datetime.fromisoformat(generated_at)
             # A naive generated_at (no offset) would otherwise be interpreted in
