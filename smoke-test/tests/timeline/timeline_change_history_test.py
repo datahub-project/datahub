@@ -330,7 +330,7 @@ def timeline_urns(graph_client):
         graph_client,
         MetadataChangeProposalWrapper(entityUrn=urns.sp_urn, aspect=sp_def),
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # --- Dataset ---
     graph_client.emit_mcp(
@@ -415,7 +415,7 @@ def timeline_urns(graph_client):
         )
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     yield urns
 
