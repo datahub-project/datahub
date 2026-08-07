@@ -126,7 +126,7 @@ Model Dataset URN(s) the metric reads from (`Consumes`, `isLineage: true`). Opti
 lineage.
 
 **Metric ↔ semantic model** — `metricInfo.semanticModel` (`ModeledBy`) and
-`semanticModelInfo.metrics` (`Contains`) are membership lists. They drive the bounding-box 
+`semanticModelInfo.metrics` (`Contains`) are membership lists. They drive the bounding-box
 membership in the lineage explorer and search facets.
 
 **Semantic model ↔ logical dataset** — `semanticModelInfo.datasets` (`Contains`)
@@ -161,7 +161,7 @@ properties — with no semantic-model-specific reimplementation.
 | ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`                   | no       |
 | Consumes     | inbound   | `metric`      | `metricUpstreams.datasetUpstreams` (to SMDs) | yes      |
 
-The `Contains` edges are derived from the `datasets` / `metrics` URN arrays in `semanticModelInfo`. 
+The `Contains` edges are derived from the `datasets` / `metrics` URN arrays in `semanticModelInfo`.
 Each logical dataset also carries the reverse `IsPartOf` edge via its
 own `semanticModelProperties` aspect; each metric carries `ModeledBy` via `metricInfo.semanticModel`.
 Lineage traversal uses `metricUpstreams` (Metric → SMD) and each logical dataset's `upstreamLineage`
