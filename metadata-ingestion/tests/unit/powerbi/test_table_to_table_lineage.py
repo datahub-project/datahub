@@ -180,6 +180,18 @@ def test_binary_expression_without_let_captures_both_operands() -> None:
     assert refs == ["TblA", "TblB"]
 
 
+def test_sibling_kept_when_a_nested_let_shadows_its_name() -> None:
+    # `DimDate` is a genuine sibling reference in the outer scope. A nested `let`
+    # that happens to bind the same name must not suppress it — scoping is per
+    # scope chain, not per expression.
+    node_map = _parse(
+        "let Result = Table.Combine({DimDate, Other}),"
+        " Nested = let DimDate = 1 in DimDate"
+        " in Result"
+    )
+    assert resolve_to_table_references(node_map) == ["DimDate", "Other"]
+
+
 def test_lambda_parameter_is_not_a_reference() -> None:
     # Function parameters are unresolved identifiers but not sibling tables, and
     # people name them exactly like dimension tables (Country, Region, Date).
