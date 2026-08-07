@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     EditableSchemaFieldInfoClass,
@@ -803,6 +804,92 @@ class TestMigrateContainers:
             rest_emitter=emitter,
         )
         emitter.emit_mcp.assert_not_called()
+
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_skips_containers_missing_aspects(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """Containers without subTypes/containerProperties are skipped, not fatal.
+
+        The listing covers every container in the env, so it can include ones
+        still being written or ones that never had these aspects. They are not
+        migration candidates, and must not abort the containers that are.
+        """
+        from datahub.cli.migrate import _migrate_containers
+
+        good_props = {
+            "platform": "snowflake",
+            "instance": "oldinst",
+            "env": "PROD",
+            "database": "db1",
+        }
+        migratable = {
+            "urn": "urn:li:container:goodguid",
+            "aspects": {
+                "subTypes": {"value": {"typeNames": ["Database"]}},
+                "containerProperties": {"value": {"customProperties": good_props}},
+            },
+        }
+        mock_get.return_value = [
+            {"urn": "urn:li:container:noaspects", "aspects": {}},
+            {
+                "urn": "urn:li:container:nosubtypes",
+                "aspects": {"containerProperties": {"value": {"customProperties": {}}}},
+            },
+            {
+                "urn": "urn:li:container:emptytypenames",
+                "aspects": {
+                    "subTypes": {"value": {"typeNames": []}},
+                    "containerProperties": {"value": {"customProperties": {}}},
+                },
+            },
+            {
+                "urn": "urn:li:container:noprops",
+                "aspects": {"subTypes": {"value": {"typeNames": ["Database"]}}},
+            },
+            migratable,
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+
+        # Exactly one container migrates -- the valid one. Asserting the count,
+        # not just "at least one", is what catches a malformed container being
+        # migrated instead of skipped.
+        instances = [
+            c.args[0].aspect
+            for c in emitter.emit_mcp.call_args_list
+            if isinstance(c.args[0].aspect, DataPlatformInstanceClass)
+        ]
+        assert len(instances) == 1, (
+            f"expected only the valid container to migrate, got {len(instances)}"
+        )
+        assert instances[0].instance == make_dataplatform_instance_urn(
+            "snowflake", "newinst"
+        )
+        # Migration emits to the regenerated destination URN, never the source.
+        # Derive the expected destination the same way _migrate_containers does,
+        # so this pins *which* container migrated rather than just how many --
+        # a malformed one migrating by mistake would produce a different guid.
+        expected_key = DatabaseKey.model_validate(good_props)
+        expected_key.instance = "newinst"
+        expected_dst = f"urn:li:container:{expected_key.guid()}"
+
+        emitted_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
+        assert emitted_urns == {expected_dst}, (
+            f"expected only the valid container to migrate, to {expected_dst}; "
+            f"got {emitted_urns}"
+        )
 
 
 # --- checkpoint / resume ---
