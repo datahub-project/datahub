@@ -77,6 +77,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.BulkEntityDataProducts
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.ParentDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetOperationsStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
@@ -152,6 +153,7 @@ import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
@@ -191,6 +193,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MoveDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
@@ -370,6 +373,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
@@ -445,6 +449,7 @@ public class GmsGraphQLEngine {
   private final GitVersion gitVersion;
   private final boolean supportsImpactAnalysis;
   private final TimeseriesAspectService timeseriesAspectService;
+  private final EntitySearchService entitySearchService;
   private final TimelineService timelineService;
   private final NativeUserService nativeUserService;
   private final GroupService groupService;
@@ -591,6 +596,7 @@ public class GmsGraphQLEngine {
     this.gitVersion = args.gitVersion;
     this.supportsImpactAnalysis = args.supportsImpactAnalysis;
     this.timeseriesAspectService = args.timeseriesAspectService;
+    this.entitySearchService = args.entitySearchService;
     this.timelineService = args.timelineService;
     this.nativeUserService = args.nativeUserService;
     this.groupService = args.groupService;
@@ -972,6 +978,15 @@ public class GmsGraphQLEngine {
             DashboardStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            EntityHealthBatchLoader.LOADER_NAME,
+            context ->
+                EntityHealthBatchLoader.createDataLoader(
+                    this.entityClient,
+                    this.graphClient,
+                    timeseriesAspectService,
+                    this.entitySearchService,
+                    context))
         .addDataLoader(
             DatasetStatsSummaryBatchLoader.LOADER_NAME,
             context ->
@@ -1419,6 +1434,10 @@ public class GmsGraphQLEngine {
                   new UpdateLogicalModelSchemaResolver(this.entityClient, this.graphClient))
               .dataFetcher(
                   "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
+              .dataFetcher(
+                  "moveDataProduct",
+                  new MoveDataProductResolver(
+                      this.entityService, this.entityClient, this.dataProductService))
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
               .dataFetcher(
                   "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
@@ -1547,7 +1566,8 @@ public class GmsGraphQLEngine {
                   "createDataProduct",
                   new CreateDataProductResolver(this.dataProductService, this.entityService))
               .dataFetcher(
-                  "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
+                  "updateDataProduct",
+                  new UpdateDataProductResolver(this.dataProductService, this.entityClient))
               .dataFetcher(
                   "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
               .dataFetcher(
@@ -2024,7 +2044,8 @@ public class GmsGraphQLEngine {
                             graphClient,
                             timeseriesAspectService,
                             new EntityHealthResolver.Config(
-                                true, true, featureFlags.isShowTestsInHealthIcon())))
+                                true, true, featureFlags.isShowTestsInHealthIcon()),
+                            featureFlags))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -2512,7 +2533,8 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true, false))));
+                        new EntityHealthResolver.Config(false, true, false),
+                        featureFlags)));
     builder.type(
         "DashboardInfo",
         typeWiring ->
@@ -2658,7 +2680,8 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true, false))));
+                        new EntityHealthResolver.Config(false, true, false),
+                        featureFlags)));
     builder.type(
         "ChartInfo",
         typeWiring ->
@@ -2886,7 +2909,8 @@ public class GmsGraphQLEngine {
                             entityClient,
                             graphClient,
                             timeseriesAspectService,
-                            new EntityHealthResolver.Config(false, true, false))))
+                            new EntityHealthResolver.Config(false, true, false),
+                            featureFlags)))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2975,7 +2999,8 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true, false))));
+                        new EntityHealthResolver.Config(false, true, false),
+                        featureFlags)));
   }
 
   /**
@@ -3349,6 +3374,8 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+                .dataFetcher(
+                    "parentDataProducts", new ParentDataProductsResolver(this.entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
@@ -3357,6 +3384,20 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient)));
+    builder.type(
+        "DataProductProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "parentDataProduct",
+                new LoadableTypeResolver<>(
+                    dataProductType,
+                    (env) -> {
+                      final com.linkedin.datahub.graphql.generated.DataProductProperties props =
+                          env.getSource();
+                      return props.getParentDataProduct() != null
+                          ? props.getParentDataProduct().getUrn()
+                          : null;
+                    })));
   }
 
   private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {
@@ -3367,6 +3408,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(

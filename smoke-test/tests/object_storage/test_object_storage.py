@@ -70,7 +70,7 @@ def documentation_dataset_urn(graph_client) -> Generator[str, None, None]:
             aspect=DatasetPropertiesClass(name="object-storage-smoke-test"),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     yield urn
     graph_client.hard_delete_entity(urn)
 

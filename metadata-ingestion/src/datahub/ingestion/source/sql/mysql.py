@@ -376,8 +376,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
-            # MySQL upper-cases information_schema labels; MariaDB keeps the
-            # selected case. Unpack positionally so access is case-independent.
+            # MySQL upper-cases information_schema labels; MariaDB/Doris/TiDB keep
+            # the selected case — unpack positionally so access is case-independent.
             for table_schema, table_name, data_length in conn.execute(
                 text(
                     "SELECT table_schema, table_name, data_length "
