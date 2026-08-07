@@ -316,9 +316,7 @@ jobs:
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
     timeout-minutes: 60
-    # Skipped for smoke-test-only PRs, which reuse the last known-good quickstart
-    # images (see the image-build-decision step in setup).
-    if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.needs_image_build == 'true' }} # On fork, smoke test job does the build since depot cache is not available
+    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
