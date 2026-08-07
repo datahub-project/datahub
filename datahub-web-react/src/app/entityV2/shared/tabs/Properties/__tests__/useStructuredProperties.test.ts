@@ -91,23 +91,25 @@ describe('useStructuredProperties', () => {
         vi.clearAllMocks();
     });
 
-    it('derives field-level rows directly from fieldProperties without relying on entity-with-schema query', () => {
-        const fieldProperties = {
-            properties: [buildStructuredPropertiesEntry('testProp', 'value1')],
+    it('derives field-level rows directly from fieldEntity without relying on entity-with-schema query', () => {
+        const fieldEntity = {
+            structuredProperties: {
+                properties: [buildStructuredPropertiesEntry('testProp', 'value1')],
+            },
         } as any;
 
         const { result } = renderHook(() =>
-            useStructuredProperties(entityRegistry, FIELD_PATH, undefined, fieldProperties),
+            useStructuredProperties(entityRegistry, FIELD_PATH, undefined, fieldEntity),
         );
 
-        // the query should be skipped since fieldProperties was already provided
+        // the query should be skipped since fieldEntity was already provided
         expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(true);
         expect(result.current.loading).toBe(false);
         expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
         expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'testProp' });
     });
 
-    it('falls back to the entity-with-schema query when fieldProperties is not provided', () => {
+    it('falls back to the entity-with-schema query when fieldEntity is not provided', () => {
         mockUseGetEntityWithSchema.mockReturnValue({
             entityWithSchema: {
                 schemaMetadata: {
@@ -129,7 +131,7 @@ describe('useStructuredProperties', () => {
 
         const { result } = renderHook(() => useStructuredProperties(entityRegistry, FIELD_PATH, undefined));
 
-        // the query should not be skipped since fieldProperties was not provided
+        // the query should not be skipped since fieldEntity was not provided
         expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(false);
         expect(result.current.loading).toBe(true);
         expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
