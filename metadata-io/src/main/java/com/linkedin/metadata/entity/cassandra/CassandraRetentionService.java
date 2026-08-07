@@ -70,7 +70,11 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   @WithSpan
-  protected void applyRetention(List<RetentionContext> retentionContexts) {
+  // opContext is accepted for signature parity with the Ebean impl and is available for future
+  // CQL-level tenant routing; currently unused because Cassandra routing is keyspace-based and
+  // handled elsewhere (keyspace selection happens at the session/cluster level, not per-statement).
+  protected void applyRetention(
+      @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {
 
     List<RetentionContext> nonEmptyContexts =
         retentionContexts.stream()
@@ -101,7 +105,10 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   @WithSpan
-  public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
+  public void batchApplyRetention(
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName) {
     // TODO: This method is not actually batching anything. Cassandra makes it complicated.
     log.debug("Applying retention to all records");
     List<EntityAspectIdentifier> candidates = queryCandidates(entityName, aspectName);
@@ -134,6 +141,7 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
       retentionPolicy.ifPresent(
           retention ->
               applyRetention(
+                  opContext,
                   List.of(
                       RetentionContext.builder()
                           .urn(urn)

@@ -6,7 +6,12 @@ source:
     database: your_database
     username: root
     password: ""
-    
+
+    # Optional: Doris multi-catalog (Iceberg / Hive / Paimon / …)
+    # catalog: iceberg_catalog
+    # platform_instance: iceberg_catalog
+    # Or: database: iceberg_catalog.db_ods
+
     # Optional: Schema/Table Filtering
     # schema_pattern:
     #   allow: ["^production_.*"]
@@ -14,14 +19,14 @@ source:
     # table_pattern:
     #   allow: ["^fact_.*", "^dim_.*"]
     #   deny: [".*_backup$"]
-    
+
     # Optional: Data Profiling
     # Note: Doris types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are
     # automatically excluded from field-level profiling
     # profiling:
     #   enabled: true
     #   profile_table_level_only: false
-    
+
     # Optional: Stateful Ingestion (tracks previously ingested entities)
     # stateful_ingestion:
     #   enabled: true

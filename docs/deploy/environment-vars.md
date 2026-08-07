@@ -273,12 +273,17 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_RETRY_INITIAL_BACKOFF_MS`   | `50`                                  | Initial backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
 | `EBEAN_RETRY_MAX_BACKOFF_MS`       | `1000`                                | Maximum backoff delay (ms) for deadlock/serialization retries                              | GMS, MCE Consumer, System Update |
 | `EBEAN_RETRY_AFTER_SECONDS`        | `1`                                   | Retry-After hint (seconds) on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li) | GMS, MCE Consumer, System Update |
+| `OPTIMISTIC_LOCKING_ENABLED`       | `false`                               | Use CAS on `SystemMetadata.version` instead of `SELECT FOR UPDATE` for aspect writes       | GMS, MCE Consumer, System Update |
+
+Optimistic locking is configured independently for each process. Legacy rows without a
+`SystemMetadata.version` use a plain update until the next write stamps a version. The flag is
+ignored when `entityService.impl=cassandra`.
 
 #### EBean read pool (optional)
 
 See [Primary storage read pool](primary-storage-read-pool.md) for architecture, routing rules, and examples.
 
-GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
+GMS can route **non-locking** entity-aspect reads (`forUpdate=false`) to a separate connection pool. Writes, transactions, write-intent reads (including optimistic-locking CAS reads), and `FOR UPDATE` reads always use the primary pool. The read pool uses **JDBC read-only** connections (`readOnly=true`).
 
 | Environment Variable                        | Default                           | Description                                                                 | Components |
 | ------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- | ---------- |
@@ -1178,6 +1183,9 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### Metadata Change Proposal Configuration
 
+Lag-based MCP / Kafka ingest throttling (`MCP_*` throttle flags below) is documented in
+[GMS Rate Limiting — MCP / Kafka ingest throttling](./gms-rate-limiting.md#mcp--kafka-ingest-throttling).
+
 | Environment Variable                          | Default    | Description                                    | Components        |
 | --------------------------------------------- | ---------- | ---------------------------------------------- | ----------------- |
 | `MCP_CONSUMER_BATCH_ENABLED`                  | `true`     | Enable MCP consumer batch processing           | GMS, MCE Consumer |
@@ -1336,28 +1344,29 @@ Reference Links:
 
 #### Optional OIDC Configuration
 
-| Environment Variable                        | Default               | Description                                                              | Components |
-| ------------------------------------------- | --------------------- | ------------------------------------------------------------------------ | ---------- |
-| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                  | Frontend   |
-| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim    | Frontend   |
-| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                     | Frontend   |
-| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint              | Frontend   |
-| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist | Frontend   |
-| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                | Frontend   |
-| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile      | Frontend   |
-| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.     | Frontend   |
-| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.   | Frontend   |
-| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                        | Frontend   |
-| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                       | Frontend   |
-| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                       | Frontend   |
-| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                        | Frontend   |
-| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                       | Frontend   |
-| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                        | Frontend   |
-| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                     | Frontend   |
-| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                          | Frontend   |
-| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                               | Frontend   |
-| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                          | Frontend   |
-| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                          | Frontend   |
+| Environment Variable                        | Default               | Description                                                                                                           | Components |
+| ------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                                                               | Frontend   |
+| `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim                                                 | Frontend   |
+| `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                                                                  | Frontend   |
+| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint                                                           | Frontend   |
+| `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist                                              | Frontend   |
+| `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                                                             | Frontend   |
+| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile                                                   | Frontend   |
+| `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                | Comma-separated list of required groups, from the OIDC groups claim.                                                  | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL`      | `null`                | URL to redirect denied users (required groups or IdP access_denied). Takes precedence over the access-denied message. | Frontend   |
+| `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                | Message shown to users when denied access for missing required groups.                                                | Frontend   |
+| `AUTH_OIDC_GROUPS_CLAIM`                    | `groups`              | The OIDC claim to extract groups information from                                                                     | Frontend   |
+| `AUTH_OIDC_RESPONSE_TYPE`                   | `null`                | OIDC response type                                                                                                    | Frontend   |
+| `AUTH_OIDC_RESPONSE_MODE`                   | `null`                | OIDC response mode                                                                                                    | Frontend   |
+| `AUTH_OIDC_USE_NONCE`                       | `null`                | Whether to use nonce in OIDC flow                                                                                     | Frontend   |
+| `AUTH_OIDC_CUSTOM_PARAM_RESOURCE`           | `null`                | Custom resource parameter for OIDC                                                                                    | Frontend   |
+| `AUTH_OIDC_READ_TIMEOUT`                    | `null`                | OIDC read timeout                                                                                                     | Frontend   |
+| `AUTH_OIDC_CONNECT_TIMEOUT`                 | `null`                | OIDC connect timeout                                                                                                  | Frontend   |
+| `AUTH_OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS` | `false`               | Whether to extract claims from JWT access token                                                                       | Frontend   |
+| `AUTH_OIDC_PREFERRED_JWS_ALGORITHM`         | `null`                | Which JWS algorithm to use                                                                                            | Frontend   |
+| `AUTH_OIDC_ACR_VALUES`                      | `null`                | OIDC ACR values                                                                                                       | Frontend   |
+| `AUTH_OIDC_GRANT_TYPE`                      | `null`                | OIDC grant type                                                                                                       | Frontend   |
 
 ### Authentication Methods Configuration
 

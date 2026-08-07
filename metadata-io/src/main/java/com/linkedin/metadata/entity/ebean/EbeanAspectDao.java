@@ -21,8 +21,10 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
+import com.linkedin.metadata.entity.AspectWriteDisabledException;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.OptimisticLockConflictException;
 import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -45,12 +47,12 @@ import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
+import io.ebean.SqlUpdate;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
-import jakarta.persistence.Table;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -81,6 +83,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final PrimaryStorageResolver primaryStorageResolver;
 
+  /**
+   * Resolves the aspect table name spliced into the hand-built raw SQL below. Ebean ORM queries are
+   * already table-agnostic and do not use this.
+   */
+  @Nonnull private final AspectTableResolver tableResolver;
+
+  /**
+   * Seam for beginning transactions and scoping non-transactional work against an {@link
+   * OperationContext}, so an extension module can route each operation to the correct underlying
+   * database without this class knowing how.
+   */
+  @Nonnull private final ScopedTransactionFactory txnFactory;
+
   @Setter private boolean connectionValidated = false;
 
   // Flag used to make sure the dao isn't writing aspects
@@ -100,6 +115,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
   @Nonnull private final TransactionRetryPolicy transactionRetryPolicy;
+  private final boolean optimisticLocking;
+
+  public enum Dialect {
+    MYSQL,
+    POSTGRES,
+    H2_OR_OTHER
+  }
+
+  @Getter @Nonnull private final Dialect dialect;
 
   // Whether the primary store is PostgreSQL. The deterministic-lock-order work below (ORDER BY on
   // FOR UPDATE reads, the up-front lock in deleteUrn) targets PostgreSQL, whose default plan can
@@ -119,13 +143,58 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       EbeanConfiguration ebeanConfiguration,
       MetricUtils metricUtils,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
-      @Nullable AspectSizeValidationConfiguration validationConfig) {
+      @Nullable AspectSizeValidationConfiguration validationConfig,
+      boolean optimisticLocking) {
+    this(
+        primaryStorageResolver,
+        ebeanConfiguration,
+        metricUtils,
+        systemAspectValidators,
+        validationConfig,
+        new PlainAspectTableResolver(),
+        new PassThroughScopedTransactionFactory(primaryStorageResolver.resolveEbeanPrimary()),
+        optimisticLocking);
+  }
+
+  public EbeanAspectDao(
+      @Nonnull final PrimaryStorageResolver primaryStorageResolver,
+      EbeanConfiguration ebeanConfiguration,
+      MetricUtils metricUtils,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
+      @Nullable AspectSizeValidationConfiguration validationConfig,
+      @Nonnull AspectTableResolver tableResolver,
+      @Nonnull ScopedTransactionFactory txnFactory) {
+    this(
+        primaryStorageResolver,
+        ebeanConfiguration,
+        metricUtils,
+        systemAspectValidators,
+        validationConfig,
+        tableResolver,
+        txnFactory,
+        false);
+  }
+
+  public EbeanAspectDao(
+      @Nonnull final PrimaryStorageResolver primaryStorageResolver,
+      EbeanConfiguration ebeanConfiguration,
+      MetricUtils metricUtils,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
+      @Nullable AspectSizeValidationConfiguration validationConfig,
+      @Nonnull AspectTableResolver tableResolver,
+      @Nonnull ScopedTransactionFactory txnFactory,
+      boolean optimisticLocking) {
     this.primaryStorageResolver = primaryStorageResolver;
+    this.tableResolver = tableResolver;
+    this.txnFactory = txnFactory;
     this.server = primaryStorageResolver.resolveEbeanPrimary();
     // Resolve the engine from Ebean's own detection (live connection metadata), not the JDBC
     // url/driver string — correct even for Aurora Postgres or the AWS JDBC wrapper. Advisory locks
     // and the ORDER BY lock-ordering below are Postgres-specific.
-    this.isPostgres = resolvePlatform(server) == Platform.POSTGRES;
+    Platform platform = resolvePlatform(server);
+    this.isPostgres = platform == Platform.POSTGRES;
+    this.optimisticLocking = optimisticLocking;
+    this.dialect = resolveDialect(platform, optimisticLocking);
     String resolvedBatchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
@@ -152,6 +221,31 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
+    if (optimisticLocking) {
+      log.info("EbeanAspectDao optimistic locking enabled (dialect={})", dialect);
+    }
+  }
+
+  @Override
+  public boolean isOptimisticLockingEnabled() {
+    return optimisticLocking;
+  }
+
+  @Nonnull
+  private static Dialect resolveDialect(
+      @Nonnull Platform platform, boolean optimisticLockingEnabled) {
+    return switch (platform) {
+      case POSTGRES, POSTGRES9, COCKROACH -> Dialect.POSTGRES;
+      case MYSQL, MYSQL55, MARIADB -> Dialect.MYSQL;
+      case H2, HSQLDB -> Dialect.H2_OR_OTHER;
+      default -> {
+        if (optimisticLockingEnabled) {
+          throw new IllegalStateException(
+              "Optimistic locking requires MySQL or PostgreSQL; unsupported platform=" + platform);
+        }
+        yield Dialect.H2_OR_OTHER;
+      }
+    };
   }
 
   /**
@@ -196,33 +290,41 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
       return;
     }
-    // Transaction-scoped: without an active transaction the advisory lock would auto-commit and
-    // release immediately. All real callsites run inside runInTransactionWithRetry; if that ever
-    // isn't the case, skip the lock with a warning rather than abort the caller's write.
-    if (!hasActiveTransaction("lockUrnsForWrite")) {
-      return;
-    }
-    // Acquire all the advisory locks in ONE round trip. Sort first so every transaction presents
-    // the keys in the same order (advisory locks can self-deadlock across transactions otherwise),
-    // then lock them in a single statement over a VALUES list — a logical-model link can carry
-    // hundreds/thousands of urns, and a round trip per urn would swamp the DB. The VALUES scan
-    // evaluates the (void-returning) function once per row, in list order. Result discarded.
-    final List<String> sortedUrns = urns.stream().distinct().sorted().collect(Collectors.toList());
-    final StringBuilder sql =
-        new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
-    for (int i = 0; i < sortedUrns.size(); i++) {
-      if (i > 0) {
-        sql.append(", ");
-      }
-      sql.append("(:u").append(i).append(")");
-    }
-    sql.append(") as v(urn)");
-    final SqlQuery lockQuery =
-        server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
-    for (int i = 0; i < sortedUrns.size(); i++) {
-      lockQuery.setParameter("u" + i, sortedUrns.get(i));
-    }
-    lockQuery.findList();
+    txnFactory.runInScope(
+        opContext,
+        () -> {
+          // Transaction-scoped: without an active transaction the advisory lock would auto-commit
+          // and release immediately. All real callsites run inside runInTransactionWithRetry; if
+          // that ever isn't the case, skip the lock with a warning rather than abort the caller's
+          // write.
+          if (!hasActiveTransaction("lockUrnsForWrite")) {
+            return null;
+          }
+          // Acquire all the advisory locks in ONE round trip. Sort first so every transaction
+          // presents the keys in the same order (advisory locks can self-deadlock across
+          // transactions otherwise), then lock them in a single statement over a VALUES list — a
+          // logical-model link can carry hundreds/thousands of urns, and a round trip per urn would
+          // swamp the DB. The VALUES scan evaluates the (void-returning) function once per row, in
+          // list order. Result discarded.
+          final List<String> sortedUrns =
+              urns.stream().distinct().sorted().collect(Collectors.toList());
+          final StringBuilder sql =
+              new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
+          for (int i = 0; i < sortedUrns.size(); i++) {
+            if (i > 0) {
+              sql.append(", ");
+            }
+            sql.append("(:u").append(i).append(")");
+          }
+          sql.append(") as v(urn)");
+          final SqlQuery lockQuery =
+              server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
+          for (int i = 0; i < sortedUrns.size(); i++) {
+            lockQuery.setParameter("u" + i, sortedUrns.get(i));
+          }
+          lockQuery.findList();
+          return null;
+        });
   }
 
   /**
@@ -247,6 +349,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void setWritable(boolean canWrite) {
     this.canWrite = canWrite;
+  }
+
+  private void ensureWritableForOptimisticWrite() {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      throw new AspectWriteDisabledException(READ_ONLY_LOG);
+    }
   }
 
   private boolean validateConnection() {
@@ -275,10 +384,99 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return Optional.empty();
     }
 
-    EbeanAspectV2 ebeanAspectV2 = EbeanAspectV2.fromEntityAspect(aspect.asLatest());
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          EbeanAspectV2 ebeanAspectV2 = EbeanAspectV2.fromEntityAspect(aspect.asLatest());
 
-    saveEbeanAspect(txContext, ebeanAspectV2, false);
-    return Optional.of(ebeanAspectV2.toEntityAspect());
+          saveEbeanAspect(txContext, ebeanAspectV2, false);
+          return Optional.of(ebeanAspectV2.toEntityAspect());
+        });
+  }
+
+  @Override
+  @Nonnull
+  public Optional<EntityAspect> updateAspectConditional(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect newAspect,
+      @Nullable String expectedSystemMetadataVersion) {
+    validateConnection();
+    ensureWritableForOptimisticWrite();
+
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          EntityAspect entityAspect = newAspect.asLatest();
+          SqlUpdate update =
+              server
+                  .sqlUpdate(
+                      buildConditionalUpdateSql(
+                          dialect, tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)))
+                  .setParameter("metadata", entityAspect.getMetadata())
+                  .setParameter("systemMetadata", entityAspect.getSystemMetadata())
+                  .setParameter("createdOn", entityAspect.getCreatedOn())
+                  .setParameter("createdBy", entityAspect.getCreatedBy())
+                  .setParameter("createdFor", entityAspect.getCreatedFor())
+                  .setParameter("urn", entityAspect.getUrn())
+                  .setParameter("aspect", entityAspect.getAspect())
+                  .setParameter("expectedVersion", expectedSystemMetadataVersion);
+
+          Transaction tx = txContext != null ? txContext.tx() : null;
+          boolean restoreBatchMode = false;
+          boolean priorBatchMode = false;
+          if (tx != null) {
+            priorBatchMode = tx.isBatchMode();
+            if (priorBatchMode) {
+              tx.flush();
+              tx.setBatchMode(false);
+              restoreBatchMode = true;
+            }
+          }
+
+          int modified;
+          try {
+            modified = tx != null ? server.execute(update, tx) : update.execute();
+          } finally {
+            if (restoreBatchMode) {
+              tx.setBatchMode(priorBatchMode);
+            }
+          }
+
+          incrementOptimisticMetric("optimistic_lock_update_attempt");
+          if (modified == 0) {
+            incrementOptimisticMetric("optimistic_lock_update_conflict");
+            return Optional.empty();
+          }
+          return Optional.of(entityAspect);
+        });
+  }
+
+  @VisibleForTesting
+  @Nonnull
+  public String buildConditionalUpdateSql(@Nonnull Dialect sqlDialect) {
+    return buildConditionalUpdateSql(sqlDialect, " metadata_aspect_v2 ");
+  }
+
+  @Nonnull
+  private static String buildConditionalUpdateSql(
+      @Nonnull Dialect sqlDialect, @Nonnull String aspectTable) {
+    String versionPredicate =
+        switch (sqlDialect) {
+          case POSTGRES -> "(systemmetadata::jsonb ->> 'version') = :expectedVersion";
+          case MYSQL -> "systemmetadata->>'$.version' = :expectedVersion";
+            // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring
+            // match is a TEST-ONLY approximation and can false-positive/negative vs real JSON
+            // path equality — do not treat H2 CAS results as production dialect coverage.
+          case H2_OR_OTHER -> "INSTR(CAST(systemmetadata AS VARCHAR), "
+              + "CONCAT('\"version\":\"', :expectedVersion, '\"')) > 0";
+        };
+    return "UPDATE"
+        + aspectTable
+        + "SET metadata = :metadata, systemmetadata = :systemMetadata, "
+        + "createdon = :createdOn, createdby = :createdBy, createdfor = :createdFor "
+        + "WHERE urn = :urn AND aspect = :aspect AND version = 0 AND "
+        + versionPredicate;
   }
 
   @Override
@@ -291,13 +489,97 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
+      if (optimisticLocking) {
+        throw new AspectWriteDisabledException(READ_ONLY_LOG);
+      }
       return Optional.empty();
     }
 
-    EbeanAspectV2 ebeanAspectV2 = EbeanAspectV2.fromEntityAspect(aspect.withVersion(version));
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          EbeanAspectV2 ebeanAspectV2 = EbeanAspectV2.fromEntityAspect(aspect.withVersion(version));
 
-    saveEbeanAspect(txContext, ebeanAspectV2, true);
-    return Optional.of(ebeanAspectV2.toEntityAspect());
+          try {
+            saveEbeanAspect(txContext, ebeanAspectV2, true);
+            return Optional.of(ebeanAspectV2.toEntityAspect());
+          } catch (DuplicateKeyException e) {
+            if (optimisticLocking && version == ASPECT_LATEST_VERSION) {
+              throwOnDuplicateKeyInsertConflict(aspect, e);
+            }
+            throw e;
+          } catch (PersistenceException e) {
+            if (optimisticLocking && version == ASPECT_LATEST_VERSION && isDuplicateKeyCause(e)) {
+              throwOnDuplicateKeyInsertConflict(aspect, e);
+            }
+            throw e;
+          }
+        });
+  }
+
+  /**
+   * Concurrent version-0 inserts race on the unique key. PostgreSQL aborts the open transaction on
+   * DuplicateKey (SQLState {@code 25P02} in-failed-sql-transaction), so in-transaction CAS recovery
+   * is not viable — convert to {@link OptimisticLockConflictException} and let the outer retry loop
+   * re-read and re-apply in a fresh transaction.
+   */
+  private void throwOnDuplicateKeyInsertConflict(
+      @Nonnull SystemAspect aspect, @Nonnull PersistenceException original) {
+    incrementOptimisticMetric("optimistic_lock_insert_fallback");
+    throw new OptimisticLockConflictException(
+        String.format(
+            "Optimistic lock conflict on concurrent v0 insert urn=%s aspect=%s",
+            aspect.getUrn(), aspect.getAspectName()),
+        original);
+  }
+
+  private static final int MAX_DUPLICATE_KEY_CAUSE_DEPTH = 10;
+  private static final String SQLSTATE_UNIQUE_VIOLATION = "23505";
+  private static final int MYSQL_ER_DUP_ENTRY = 1062;
+
+  @VisibleForTesting
+  static boolean isDuplicateKeyCause(@Nonnull PersistenceException exception) {
+    Throwable cause = exception;
+    int depth = 0;
+    while (cause != null && depth < MAX_DUPLICATE_KEY_CAUSE_DEPTH) {
+      if (cause instanceof DuplicateKeyException) {
+        return true;
+      }
+      if (cause instanceof SQLException sqlException
+          && isUniqueConstraintSqlException(sqlException)) {
+        return true;
+      }
+      String name = cause.getClass().getName();
+      if (name.contains("DuplicateKey") || name.contains("UniqueConstraint")) {
+        return true;
+      }
+      cause = cause.getCause();
+      depth++;
+    }
+    return false;
+  }
+
+  private static boolean isUniqueConstraintSqlException(@Nonnull SQLException sqlException) {
+    for (SQLException current = sqlException;
+        current != null;
+        current = current.getNextException()) {
+      if (SQLSTATE_UNIQUE_VIOLATION.equals(current.getSQLState())
+          || current.getErrorCode() == MYSQL_ER_DUP_ENTRY) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private void incrementOptimisticMetric(@Nonnull String name) {
+    if (metricUtils != null) {
+      metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
+    }
+  }
+
+  @Override
+  public void incrementOptimisticLockMetric(@Nonnull String name) {
+    incrementOptimisticMetric(name);
   }
 
   private void saveEbeanAspect(
@@ -328,43 +610,53 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       boolean forUpdate) {
     validateConnection();
 
-    Set<EbeanAspectV2.PrimaryKey> keys =
-        urnAspects.entrySet().stream()
-            .flatMap(
-                entry ->
-                    entry.getValue().stream()
-                        .map(
-                            aspect ->
-                                new EbeanAspectV2.PrimaryKey(
-                                    entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
-            .collect(Collectors.toSet());
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          Set<EbeanAspectV2.PrimaryKey> keys =
+              urnAspects.entrySet().stream()
+                  .flatMap(
+                      entry ->
+                          entry.getValue().stream()
+                              .map(
+                                  aspect ->
+                                      new EbeanAspectV2.PrimaryKey(
+                                          entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+                  .collect(Collectors.toSet());
 
-    // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
-    // (range_optimizer_max_mem_size)
-    final List<EbeanAspectV2> results =
-        batchGet(opContext, keys, queryKeysCount, forUpdate && canWrite);
-    return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
+          // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
+          // (range_optimizer_max_mem_size)
+          final List<EbeanAspectV2> results =
+              batchGet(opContext, keys, queryKeysCount, forUpdate && canWrite);
+          return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
+        });
   }
 
   @Override
   public long countEntities(@Nonnull OperationContext opContext) {
     validateConnection();
-    return server
-        .find(EbeanAspectV2.class)
-        .setDistinct(true)
-        .select(EbeanAspectV2.URN_COLUMN)
-        .findCount();
+    return txnFactory.runInScope(
+        opContext,
+        () ->
+            server
+                .find(EbeanAspectV2.class)
+                .setDistinct(true)
+                .select(EbeanAspectV2.URN_COLUMN)
+                .findCount());
   }
 
   @Override
   public boolean checkIfAspectExists(
       @Nonnull OperationContext opContext, @Nonnull String aspectName) {
     validateConnection();
-    return server
-        .find(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .exists();
+    return txnFactory.runInScope(
+        opContext,
+        () ->
+            server
+                .find(EbeanAspectV2.class)
+                .where()
+                .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+                .exists());
   }
 
   @Override
@@ -382,11 +674,17 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   public EntityAspect getAspect(
       @Nonnull OperationContext opContext, @Nonnull final EntityAspectIdentifier key) {
     validateConnection();
-    EbeanAspectV2.PrimaryKey primaryKey =
-        new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
-    EbeanAspectV2 ebeanAspect =
-        primaryStorageResolver.resolveEbean(opContext, false).find(EbeanAspectV2.class, primaryKey);
-    return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          EbeanAspectV2.PrimaryKey primaryKey =
+              new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
+          EbeanAspectV2 ebeanAspect =
+              primaryStorageResolver
+                  .resolveEbean(opContext, false)
+                  .find(EbeanAspectV2.class, primaryKey);
+          return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
+        });
   }
 
   @Override
@@ -400,13 +698,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    server
-        .createQuery(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspect)
-        .eq(EbeanAspectV2.VERSION_COLUMN, version)
-        .delete();
+    txnFactory.runInScope(
+        opContext,
+        () ->
+            server
+                .createQuery(EbeanAspectV2.class)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+                .eq(EbeanAspectV2.ASPECT_COLUMN, aspect)
+                .eq(EbeanAspectV2.VERSION_COLUMN, version)
+                .delete());
   }
 
   @Override
@@ -420,56 +721,68 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return 0;
     }
 
-    Urn urnObj = UrnUtils.getUrn(urn);
-    String keyAspectName = opContext.getKeyAspectName(urnObj);
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          Urn urnObj = UrnUtils.getUrn(urn);
+          String keyAspectName = opContext.getKeyAspectName(urnObj);
 
-    // Opt-in Postgres entity-write serialization (advisory lock), taken before any row locks. No-op
-    // unless enabled on a Postgres store; when on, it serializes this delete against a concurrent
-    // multi-row write (e.g. logical-model linking) on the same entity.
-    lockUrnsForWrite(opContext, List.of(urn));
+          // Opt-in Postgres entity-write serialization (advisory lock), taken before any row locks.
+          // No-op unless enabled on a Postgres store; when on, it serializes this delete against a
+          // concurrent multi-row write (e.g. logical-model linking) on the same entity.
+          lockUrnsForWrite(opContext, List.of(urn));
 
-    // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version) order —
-    // the same order the upsert write path uses for its FOR UPDATE reads. The bulk DELETEs below
-    // otherwise lock rows in the engine's scan order (physical/CTID order on PostgreSQL), unrelated
-    // to key order, so a concurrent multi-row FOR UPDATE write and this hard-delete could acquire
-    // overlapping rows in opposite orders and deadlock. The explicit ORDER BY (not the query's
-    // natural order) is what makes PostgreSQL place a Sort below its LockRows node so locks are
-    // actually taken in key order. On MySQL/InnoDB the bulk DELETEs already lock the primary-key
-    // rows in index order, so no up-front lock is needed and this block is skipped. The lock query
-    // hydrates only this one urn's rows (bounded by its aspect/version count) purely to take the
-    // locks. (canWrite is guaranteed true by the early return above.)
-    if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
-      // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the matched
-      // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the locks.
-      server
-          .find(EbeanAspectV2.class)
-          .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
-          .where()
-          .eq(EbeanAspectV2.URN_COLUMN, urn)
-          .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
-          .forUpdate()
-          .findList();
-    }
+          // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
+          // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
+          // DELETEs below otherwise lock rows in the engine's scan order (physical/CTID order on
+          // PostgreSQL), unrelated to key order, so a concurrent multi-row FOR UPDATE write and
+          // this
+          // hard-delete could acquire overlapping rows in opposite orders and deadlock. The
+          // explicit
+          // ORDER BY (not the query's natural order) is what makes PostgreSQL place a Sort below
+          // its
+          // LockRows node so locks are actually taken in key order. On MySQL/InnoDB the bulk
+          // DELETEs
+          // already lock the primary-key rows in index order, so no up-front lock is needed and
+          // this
+          // block is skipped. The lock query hydrates only this one urn's rows (bounded by its
+          // aspect/version count) purely to take the locks. (canWrite is guaranteed true by the
+          // early return above.)
+          if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
+            // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the
+            // matched
+            // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
+            // locks.
+            server
+                .find(EbeanAspectV2.class)
+                .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn)
+                .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
+                .forUpdate()
+                .findList();
+          }
 
-    // First, delete all non-key aspects
-    int nonKeyCount =
-        server
-            .createQuery(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn)
-            .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-            .delete();
+          // First, delete all non-key aspects
+          int nonKeyCount =
+              server
+                  .createQuery(EbeanAspectV2.class)
+                  .where()
+                  .eq(EbeanAspectV2.URN_COLUMN, urn)
+                  .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                  .delete();
 
-    // Then, delete the key aspect
-    int keyCount =
-        server
-            .createQuery(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn)
-            .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-            .delete();
+          // Then, delete the key aspect
+          int keyCount =
+              server
+                  .createQuery(EbeanAspectV2.class)
+                  .where()
+                  .eq(EbeanAspectV2.URN_COLUMN, urn)
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                  .delete();
 
-    return nonKeyCount + keyCount;
+          return nonKeyCount + keyCount;
+        });
   }
 
   @Override
@@ -483,20 +796,25 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return Collections.emptyMap();
     }
 
-    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
-        keys.stream()
-            .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
-            .collect(Collectors.toSet());
-    final List<EbeanAspectV2> records;
-    if (queryKeysCount == 0) {
-      records = batchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpdate);
-    } else {
-      records = batchGet(opContext, ebeanKeys, queryKeysCount, forUpdate);
-    }
-    return records.stream()
-        .collect(
-            Collectors.toMap(
-                record -> record.getKey().toAspectIdentifier(), EbeanAspectV2::toEntityAspect));
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          final Set<EbeanAspectV2.PrimaryKey> ebeanKeys =
+              keys.stream()
+                  .map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier)
+                  .collect(Collectors.toSet());
+          final List<EbeanAspectV2> records;
+          if (queryKeysCount == 0) {
+            records = batchGet(opContext, ebeanKeys, ebeanKeys.size(), forUpdate);
+          } else {
+            records = batchGet(opContext, ebeanKeys, queryKeysCount, forUpdate);
+          }
+          return records.stream()
+              .collect(
+                  Collectors.toMap(
+                      record -> record.getKey().toAspectIdentifier(),
+                      EbeanAspectV2::toEntityAspect));
+        });
   }
 
   /**
@@ -521,11 +839,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     int position = 0;
 
     List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
+    boolean lockRows = forUpdate && canWrite && !optimisticLocking;
     // Only when we actually take row locks: sort by primary key so all transactions acquire locks
     // in the same (urn, aspect, version) order. Unordered keys under FOR UPDATE cause lock-order
     // deadlocks between concurrent writers ("Deadlock found when trying to get lock"). Non-locking
     // reads take no row locks, so sorting them would be wasted work.
-    if (forUpdate && canWrite) {
+    if (lockRows) {
       keyList.sort(
           Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
               .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
@@ -581,12 +900,25 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       final int keysCount,
       final int position,
       boolean forUpdate) {
+    boolean writeIntent = forUpdate;
+    boolean lockRows = writeIntent && canWrite && !optimisticLocking;
+    return batchGetSelectString(opContext, keys, keysCount, position, lockRows, writeIntent);
+  }
+
+  @Nonnull
+  protected List<EbeanAspectV2> batchGetSelectString(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean lockRows,
+      boolean writeIntent) {
 
     if (batchGetMethod.equals("IN")) {
-      return batchGetIn(opContext, keys, keysCount, position, forUpdate);
+      return batchGetIn(opContext, keys, keysCount, position, lockRows, writeIntent);
     }
 
-    return batchGetUnion(opContext, keys, keysCount, position, forUpdate);
+    return batchGetUnion(opContext, keys, keysCount, position, lockRows, writeIntent);
   }
 
   /**
@@ -594,6 +926,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * UNION'd with other SELECT statements.
    */
   private String batchGetSelectString(
+      @Nonnull final OperationContext opContext,
       final int selectId,
       @Nonnull final String urn,
       @Nonnull final String aspect,
@@ -611,8 +944,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     return String.format(
         "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor "
-            + "FROM %s WHERE urn = :%s AND aspect = :%s AND version = :%s",
-        EbeanAspectV2.class.getAnnotation(Table.class).name(), urnArg, aspectArg, versionArg);
+            + "FROM%sWHERE urn = :%s AND aspect = :%s AND version = :%s",
+        tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME),
+        urnArg,
+        aspectArg,
+        versionArg);
   }
 
   @Nonnull
@@ -621,7 +957,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position,
-      boolean forUpdate) {
+      boolean lockRows,
+      boolean writeIntent) {
     validateConnection();
 
     // Build one SELECT per key and then UNION ALL the results. This can be much more performant
@@ -642,6 +979,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     for (int index = position; index < end; index++) {
       sb.append(
           batchGetSelectString(
+              opContext,
               index - position,
               keys.get(index).getUrn(),
               keys.get(index).getAspect(),
@@ -654,7 +992,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     // Add FOR UPDATE clause only once at the end of the entire statement
-    if (forUpdate && canWrite) {
+    if (lockRows) {
       // Defense-in-depth: PostgreSQL rejects FOR UPDATE with UNION, and the constructor already
       // coerces PostgreSQL to the IN batch-get. This guards against a future regression routing a
       // locking read through the UNION path on PostgreSQL.
@@ -668,16 +1006,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query =
-        primaryStorageResolver
-            .resolveEbean(opContext, forUpdate)
-            .find(EbeanAspectV2.class)
-            .setRawSql(rawSql);
+        resolveBatchGetDatabase(opContext, writeIntent).find(EbeanAspectV2.class).setRawSql(rawSql);
 
     for (Map.Entry<String, Object> param : params.entrySet()) {
       query.setParameter(param.getKey(), param.getValue());
     }
 
-    return query.findList();
+    return txnFactory.runInScope(opContext, query::findList);
   }
 
   @Nonnull
@@ -686,7 +1021,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position,
-      boolean forUpdate) {
+      boolean lockRows,
+      boolean writeIntent) {
     validateConnection();
 
     // Build a single SELECT with IN clause using composite key comparison
@@ -696,7 +1032,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final StringBuilder sb = new StringBuilder();
     sb.append(
         "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor ");
-    sb.append("FROM metadata_aspect_v2 WHERE (urn, aspect, version) IN (");
+    sb.append("FROM")
+        .append(tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME))
+        .append("WHERE (urn, aspect, version) IN (");
 
     final int end = Math.min(keys.size(), position + keysCount);
     final Map<String, Object> params = new HashMap<>();
@@ -720,7 +1058,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     sb.append(")");
 
-    if (forUpdate && canWrite) {
+    if (lockRows) {
       // On PostgreSQL, ORDER BY forces a Sort/ordered-scan below the LockRows executor node, so row
       // locks are acquired in (urn, aspect, version) order instead of physical/CTID scan order,
       // preventing lock-order deadlocks between concurrent writers. MySQL/InnoDB already locks the
@@ -736,16 +1074,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query =
-        primaryStorageResolver
-            .resolveEbean(opContext, forUpdate)
-            .find(EbeanAspectV2.class)
-            .setRawSql(rawSql);
+        resolveBatchGetDatabase(opContext, writeIntent).find(EbeanAspectV2.class).setRawSql(rawSql);
 
     for (Map.Entry<String, Object> param : params.entrySet()) {
       query.setParameter(param.getKey(), param.getValue());
     }
 
-    return query.findList();
+    return txnFactory.runInScope(opContext, query::findList);
+  }
+
+  @VisibleForTesting
+  @Nonnull
+  Database resolveBatchGetDatabase(@Nonnull OperationContext opContext, boolean writeIntent) {
+    return primaryStorageResolver.resolveEbean(opContext, writeIntent);
   }
 
   @Override
@@ -759,113 +1100,155 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     validateConnection();
 
-    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
-    final PagedList<EbeanAspectV2> pagedList =
-        server
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.KEY_ID)
-            .where()
-            .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-            .setFirstRow(start)
-            .setMaxRows(pageSize)
-            .orderBy()
-            .asc(EbeanAspectV2.URN_COLUMN)
-            .findPagedList();
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
+          final PagedList<EbeanAspectV2> pagedList =
+              server
+                  .find(EbeanAspectV2.class)
+                  .select(EbeanAspectV2.KEY_ID)
+                  .where()
+                  .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+                  .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+                  .setFirstRow(start)
+                  .setMaxRows(pageSize)
+                  .orderBy()
+                  .asc(EbeanAspectV2.URN_COLUMN)
+                  .findPagedList();
 
-    final List<String> urns =
-        pagedList.getList().stream()
-            .map(entry -> entry.getKey().getUrn())
-            .collect(Collectors.toList());
+          final List<String> urns =
+              pagedList.getList().stream()
+                  .map(entry -> entry.getKey().getUrn())
+                  .collect(Collectors.toList());
 
-    return toListResult(urns, null, pagedList, start);
+          return toListResult(urns, null, pagedList, start);
+        });
   }
 
   @Nonnull
   @Override
   public Integer countAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike) {
-    ExpressionList<EbeanAspectV2> exp =
-        server
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.KEY_ID)
-            .where()
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          ExpressionList<EbeanAspectV2> exp =
+              server
+                  .find(EbeanAspectV2.class)
+                  .select(EbeanAspectV2.KEY_ID)
+                  .where()
+                  .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
 
-    if (urnLike != null) {
-      exp = exp.like(EbeanAspectV2.URN_COLUMN, urnLike);
-    }
-    return exp.findCount();
+          if (urnLike != null) {
+            exp = exp.like(EbeanAspectV2.URN_COLUMN, urnLike);
+          }
+          return exp.findCount();
+        });
   }
 
   @Nonnull
   @Override
   public Integer countAspect(@Nonnull OperationContext opContext, final RestoreIndicesArgs args) {
-    return buildExpressionList(args, true).findCount();
+    return txnFactory.runInScope(opContext, () -> buildExpressionList(args, true).findCount());
   }
 
-  /**
-   * Warning this inner Streams must be closed
-   *
-   * @param args
-   * @return
-   */
-  @Nonnull
+  @Nullable
   @Override
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext, final RestoreIndicesArgs args) {
-    // Use default for existing RestoreIndices operations
-    return streamAspectBatches(opContext, args, null);
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    // Use the database default isolation for existing RestoreIndices operations.
+    return streamAspectBatches(opContext, args, null, consumer);
   }
 
   /**
-   * Stream aspects ordered by URN/aspect for optimal Elasticsearch document batching. Supports
-   * configurable transaction isolation level to optimize for different use cases: - LoadIndices can
-   * use READ_UNCOMMITTED for faster scanning
+   * Consume-in-scope streaming of aspects ordered by URN/aspect for optimal Elasticsearch document
+   * batching, with an optional transaction isolation override (e.g. LoadIndices scans with {@link
+   * TxIsolation#READ_UNCOMMITTED}).
+   *
+   * <p>{@code findStream()} is lazy — its JDBC cursor pulls rows as {@code consumer} iterates the
+   * stream, so the cursor's connection has to stay routed for the whole consumption when an
+   * extension routes queries to different backend databases. We get that from Ebean itself rather
+   * than by holding an explicit transaction open across the consumer:
+   *
+   * <ul>
+   *   <li><b>Default path ({@code isolationLevel == null}) — {@link
+   *       ScopedTransactionFactory#scope}, no explicit transaction.</b> Ebean opens its <i>own</i>
+   *       implicit read-only transaction for the {@code findStream()} query, routed from the
+   *       ambient scope. Crucially that implicit transaction is <b>not thread-current</b>, so any
+   *       nested query the {@code consumer} runs (e.g. {@code getLatestAspects}, {@code
+   *       ingestProposal}) opens a <i>separate</i> implicit transaction on its own connection —
+   *       instead of colliding with the still-open cursor ("another command is already in
+   *       progress") or forcing every per-batch side effect into one long-lived transaction. The
+   *       scope only has to stay open across consumption so those nested lookups still route
+   *       correctly.
+   *   <li><b>Isolation path ({@code isolationLevel != null}) — explicit {@link
+   *       ScopedTransactionFactory#begin}.</b> An isolation override can only ride a real
+   *       transaction, which becomes thread-current — so callers on this path (only LoadIndices)
+   *       must not run nested aspect queries inside the {@code consumer}. LoadIndices does not: its
+   *       consumer only converts rows and writes to Elasticsearch.
+   * </ul>
+   *
+   * <p>The implicit read-only query transaction is created by ebean-core (pinned {@code 15.5.2},
+   * identical at the public {@code 15.1.0} tag) in <a
+   * href="https://github.com/ebean-orm/ebean/blob/15.1.0/ebean-core/src/main/java/io/ebeaninternal/server/core/OrmQueryRequest.java#L204-L214">{@code
+   * OrmQueryRequest#initTransIfRequired}</a>.
    *
    * @param args Stream arguments and filters
    * @param isolationLevel Optional isolation level override (null = database default)
-   * @return PartitionedStream of aspects ordered by URN/aspect
+   * @param consumer processes the partitioned stream inside the scope and returns a result; it must
+   *     fully consume the stream before returning
+   * @return whatever {@code consumer} returns
    */
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext,
-      final RestoreIndicesArgs args,
-      final TxIsolation isolationLevel) {
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nullable final TxIsolation isolationLevel,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    if (isolationLevel != null) {
+      // An isolation override can only ride a real transaction. It becomes thread-current, so the
+      // cursor and any nested query would share one connection — safe only because this path's sole
+      // caller (LoadIndices) runs no nested aspect queries in its consumer.
+      try (Transaction tx =
+              txnFactory.begin(opContext, TxScope.requiresNew().setIsolation(isolationLevel));
+          PartitionedStream<EbeanAspectV2> partitioned =
+              PartitionedStream.<EbeanAspectV2>builder()
+                  .delegateStream(buildStreamQuery(args))
+                  .build()) {
+        final R result = consumer.apply(partitioned);
+        tx.commit();
+        return result;
+      }
+    }
+    // Default path: keep a routing scope open (not a transaction). Ebean's own implicit read-only
+    // transaction for findStream() is not thread-current, so nested queries the consumer runs get
+    // their own connection (see javadoc).
+    try (ScopedTransactionFactory.Scope scope = txnFactory.scope(opContext);
+        PartitionedStream<EbeanAspectV2> partitioned =
+            PartitionedStream.<EbeanAspectV2>builder()
+                .delegateStream(buildStreamQuery(args))
+                .build()) {
+      return consumer.apply(partitioned);
+    }
+  }
+
+  @Nonnull
+  private Stream<EbeanAspectV2> buildStreamQuery(@Nonnull final RestoreIndicesArgs args) {
     ExpressionList<EbeanAspectV2> exp = buildExpressionList(args, false);
     if (args.limit > 0) {
       exp = exp.setMaxRows(args.limit);
     }
-
-    int start = args.urnBasedPagination ? 0 : args.start;
-
-    // Execute with specific transaction isolation level
-    Stream<EbeanAspectV2> stream;
-    if (isolationLevel == TxIsolation.READ_UNCOMMITTED) {
-      // Use explicit transaction scope for READ_UNCOMMITTED to override default
-      try (Transaction transaction =
-          server.beginTransaction(TxScope.requiresNew().setIsolation(isolationLevel))) {
-        stream =
-            exp.orderBy()
-                .asc(EbeanAspectV2.URN_COLUMN)
-                .orderBy()
-                .asc(EbeanAspectV2.ASPECT_COLUMN)
-                .setFirstRow(start)
-                .findStream(); // Transaction auto-closes when stream completes
-      }
-    } else {
-      // For READ_COMMITTED and other levels, use standard approach
-      stream =
-          exp.orderBy()
-              .asc(EbeanAspectV2.URN_COLUMN)
-              .orderBy()
-              .asc(EbeanAspectV2.ASPECT_COLUMN)
-              .setFirstRow(start)
-              .findStream();
-    }
-
-    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
+    final int start = args.urnBasedPagination ? 0 : args.start;
+    return exp.orderBy()
+        .asc(EbeanAspectV2.URN_COLUMN)
+        .orderBy()
+        .asc(EbeanAspectV2.ASPECT_COLUMN)
+        .setFirstRow(start)
+        .findStream();
   }
 
   private ExpressionList<EbeanAspectV2> buildExpressionList(
@@ -917,6 +1300,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return exp;
   }
 
+  /**
+   * TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
+   * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
+   * OperationContext} to scope against. It runs against the single configured primary regardless of
+   * which routing context is in effect. A downstream module routing to different backend databases
+   * must either block this path while its routing mode is active, or wait for it to be wired —
+   * thread an {@link OperationContext} through this method (and {@code
+   * AspectDao#streamAspectBatchesForMigration}) to close the gap.
+   */
   @Override
   @Nonnull
   public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
@@ -993,6 +1385,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   /**
    * Warning the stream must be closed
    *
+   * <p>TODO(op-propagation): Not routed through {@link ScopedTransactionFactory}: the {@code
+   * AspectDao} contract marks this method {@code @OperationContextExempt}, so there is no {@link
+   * OperationContext} to scope against. It runs against the single configured primary regardless of
+   * which routing context is in effect. A downstream module routing to different backend databases
+   * must either block this path while its routing mode is active, or wait for it to be wired —
+   * thread an {@link OperationContext} through this method (and {@code
+   * AspectDao#streamAspectBatchesForMigration}) to close the gap.
+   *
    * @param entityName
    * @param aspectName
    * @return
@@ -1017,17 +1417,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   public Iterable<String> listAllUrns(
       @Nonnull OperationContext opContext, int start, int pageSize) {
     validateConnection();
-    PagedList<EbeanAspectV2> ebeanAspects =
-        server
-            .find(EbeanAspectV2.class)
-            .setDistinct(true)
-            .select(EbeanAspectV2.URN_COLUMN)
-            .orderBy()
-            .asc(EbeanAspectV2.URN_COLUMN)
-            .setFirstRow(start)
-            .setMaxRows(pageSize)
-            .findPagedList();
-    return ebeanAspects.getList().stream().map(EbeanAspectV2::getUrn).collect(Collectors.toList());
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          PagedList<EbeanAspectV2> ebeanAspects =
+              server
+                  .find(EbeanAspectV2.class)
+                  .setDistinct(true)
+                  .select(EbeanAspectV2.URN_COLUMN)
+                  .orderBy()
+                  .asc(EbeanAspectV2.URN_COLUMN)
+                  .setFirstRow(start)
+                  .setMaxRows(pageSize)
+                  .findPagedList();
+          return ebeanAspects.getList().stream()
+              .map(EbeanAspectV2::getUrn)
+              .collect(Collectors.toList());
+        });
   }
 
   @Override
@@ -1042,29 +1448,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     validateConnection();
 
-    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
-    final PagedList<EbeanAspectV2> pagedList =
-        server
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.ALL_COLUMNS)
-            .where()
-            .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-            .eq(EbeanAspectV2.VERSION_COLUMN, version)
-            .setFirstRow(start)
-            .setMaxRows(pageSize)
-            .orderBy()
-            .asc(EbeanAspectV2.URN_COLUMN)
-            .findPagedList();
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
+          final PagedList<EbeanAspectV2> pagedList =
+              server
+                  .find(EbeanAspectV2.class)
+                  .select(EbeanAspectV2.ALL_COLUMNS)
+                  .where()
+                  .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+                  .eq(EbeanAspectV2.VERSION_COLUMN, version)
+                  .setFirstRow(start)
+                  .setMaxRows(pageSize)
+                  .orderBy()
+                  .asc(EbeanAspectV2.URN_COLUMN)
+                  .findPagedList();
 
-    final List<String> aspects =
-        pagedList.getList().stream().map(EbeanAspectV2::getMetadata).collect(Collectors.toList());
-    final ListResultMetadata listResultMetadata =
-        toListResultMetadata(
-            pagedList.getList().stream()
-                .map(EbeanAspectDao::toExtraInfo)
-                .collect(Collectors.toList()));
-    return toListResult(aspects, listResultMetadata, pagedList, start);
+          final List<String> aspects =
+              pagedList.getList().stream()
+                  .map(EbeanAspectV2::getMetadata)
+                  .collect(Collectors.toList());
+          final ListResultMetadata listResultMetadata =
+              toListResultMetadata(
+                  pagedList.getList().stream()
+                      .map(EbeanAspectDao::toExtraInfo)
+                      .collect(Collectors.toList()));
+          return toListResult(aspects, listResultMetadata, pagedList, start);
+        });
   }
 
   @Override
@@ -1120,7 +1532,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       // connection already has an active transaction ("Cannot change transaction isolation level in
       // the middle of a transaction"). READ COMMITTED remains the effective level via pool defaults
       // on the metadata DataSource where configured.
-      try (Transaction transaction = server.beginTransaction(TxScope.requiresNew())) {
+      try (Transaction transaction = txnFactory.begin(opContext, TxScope.requiresNew())) {
         transaction.setBatchMode(true);
         result = block.apply(transactionContext.tx(transaction));
         if (result.isCommitOrRollback()) {
@@ -1128,10 +1540,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         } else {
           transaction.rollback();
         }
+        transactionContext.success();
         break;
       } catch (PersistenceException exception) {
+        boolean optimisticConflict = exception instanceof OptimisticLockConflictException;
+        if (optimisticConflict) {
+          incrementOptimisticMetric("optimistic_lock_retry");
+        }
         if (exception instanceof DuplicateKeyException) {
-          if (batch != null
+          if (!optimisticLocking
+              && batch != null
               && batch.getItems().stream()
                   .allMatch(
                       a ->
@@ -1147,7 +1565,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         if (metricUtils != null)
           metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
 
-        boolean backoff = transactionRetryPolicy.shouldBackoff(exception);
+        boolean backoff = optimisticConflict || transactionRetryPolicy.shouldBackoff(exception);
         SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(exception);
         transactionContext.addException(exception);
         // Sleep only when another attempt will run — skip delay before exhaustion throw.
@@ -1186,7 +1604,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       if (metricUtils != null)
         metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailedAfterRetries"), 1);
       RuntimeException last = transactionContext.lastException();
-      if (transactionRetryPolicy.shouldBackoff(last)) {
+      boolean optimisticConflict = last instanceof OptimisticLockConflictException;
+      if (optimisticConflict) {
+        incrementOptimisticMetric("optimistic_lock_retry_exhausted");
+      }
+      if (optimisticConflict || transactionRetryPolicy.shouldBackoff(last)) {
         SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(last);
         String sqlState = matchedSql != null ? matchedSql.getSQLState() : null;
         throw new DatabaseTransactionConflictException(
@@ -1232,30 +1654,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String aspectName) {
     validateConnection();
 
-    // Use SQL aggregation to get both min and max in a single query
-    SqlQuery query =
-        server.sqlQuery(
-            "SELECT MIN(version) as min_version, MAX(version) as max_version "
-                + "FROM metadata_aspect_v2 "
-                + "WHERE urn = :urn AND aspect = :aspect");
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          // Use SQL aggregation to get both min and max in a single query
+          SqlQuery query =
+              server.sqlQuery(
+                  "SELECT MIN(version) as min_version, MAX(version) as max_version "
+                      + "FROM"
+                      + tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)
+                      + "WHERE urn = :urn AND aspect = :aspect");
 
-    query.setParameter("urn", urn);
-    query.setParameter("aspect", aspectName);
+          query.setParameter("urn", urn);
+          query.setParameter("aspect", aspectName);
 
-    SqlRow result = query.findOne();
+          SqlRow result = query.findOne();
 
-    if (result == null) {
-      return Pair.of(-1L, -1L);
-    }
+          if (result == null) {
+            return Pair.of(-1L, -1L);
+          }
 
-    Long minVersion = result.getLong("min_version");
-    Long maxVersion = result.getLong("max_version");
-    if (minVersion == null || maxVersion == null) {
-      // MySQL returns a row with NULL MIN/MAX when no versions exist for urn+aspect.
-      return Pair.of(-1L, -1L);
-    }
+          Long minVersion = result.getLong("min_version");
+          Long maxVersion = result.getLong("max_version");
+          if (minVersion == null || maxVersion == null) {
+            // MySQL returns a row with NULL MIN/MAX when no versions exist for urn+aspect.
+            return Pair.of(-1L, -1L);
+          }
 
-    return Pair.of(minVersion, maxVersion);
+          return Pair.of(minVersion, maxVersion);
+        });
   }
 
   @Override
@@ -1264,6 +1691,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String urn,
       @Nonnull final String aspectName) {
     return getVersionRange(opContext, urn, aspectName).getSecond();
+  }
+
+  @VisibleForTesting
+  @Nonnull
+  Database resolveGetNextVersionsDatabase(
+      @Nonnull OperationContext opContext, boolean lockLatestForWrite) {
+    return lockLatestForWrite
+        ? primaryStorageResolver.resolveEbeanPrimary()
+        : primaryStorageResolver.resolveEbean(opContext, false);
   }
 
   /**
@@ -1277,77 +1713,94 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nonnull Map<String, Set<String>> urnAspects,
       boolean lockLatestForWrite) {
+    return getNextVersions(opContext, null, urnAspects, lockLatestForWrite);
+  }
+
+  @Override
+  public Map<String, Map<String, Long>> getNextVersions(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull Map<String, Set<String>> urnAspects,
+      boolean lockLatestForWrite) {
     validateConnection();
 
-    List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
 
-    // initialize with default next version of 0
-    Map<String, Map<String, Long>> result =
-        new HashMap<>(
-            urnAspects.entrySet().stream()
-                .map(
-                    entry -> {
-                      Map<String, Long> defaultNextVersion = new HashMap<>();
-                      entry
-                          .getValue()
-                          .forEach(
-                              aspectName -> {
-                                defaultNextVersion.put(aspectName, ASPECT_LATEST_VERSION);
-                                forUpdateKeys.add(
-                                    new EbeanAspectV2.PrimaryKey(
-                                        entry.getKey(), aspectName, ASPECT_LATEST_VERSION));
-                              });
-                      return Map.entry(entry.getKey(), defaultNextVersion);
-                    })
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+          // initialize with default next version of 0
+          Map<String, Map<String, Long>> result =
+              new HashMap<>(
+                  urnAspects.entrySet().stream()
+                      .map(
+                          entry -> {
+                            Map<String, Long> defaultNextVersion = new HashMap<>();
+                            entry
+                                .getValue()
+                                .forEach(
+                                    aspectName -> {
+                                      defaultNextVersion.put(aspectName, ASPECT_LATEST_VERSION);
+                                      forUpdateKeys.add(
+                                          new EbeanAspectV2.PrimaryKey(
+                                              entry.getKey(), aspectName, ASPECT_LATEST_VERSION));
+                                    });
+                            return Map.entry(entry.getKey(), defaultNextVersion);
+                          })
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-    // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
-    // max(version) was invalidated
-    if (canWrite && lockLatestForWrite) {
-      // Acquire the version-0 row locks in canonical key order so concurrent writers never lock
-      // overlapping rows in opposite orders. The Java-side sort covers MySQL/InnoDB (which locks
-      // the
-      // primary-key IN-list in index order); on PostgreSQL a bare idIn(...).forUpdate() would lock
-      // in
-      // physical scan order, so the explicit ORDER BY is added to place a Sort below the LockRows
-      // node and force key-order lock acquisition.
-      Collections.sort(forUpdateKeys);
-      final Query<EbeanAspectV2> lockQuery =
-          server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
-      if (isPostgres) {
-        lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
-      }
-      lockQuery.forUpdate().findList();
-    }
+          // forUpdate is required to avoid duplicate key violations (it is used as an indication
+          // that the max(version) was invalidated
+          if (canWrite && lockLatestForWrite && !optimisticLocking) {
+            // Acquire the version-0 row locks in canonical key order so concurrent writers never
+            // lock overlapping rows in opposite orders. The Java-side sort covers MySQL/InnoDB
+            // (which locks the primary-key IN-list in index order); on PostgreSQL a bare
+            // idIn(...).forUpdate() would lock in physical scan order, so the explicit ORDER BY is
+            // added to place a Sort below the LockRows node and force key-order lock acquisition.
+            Collections.sort(forUpdateKeys);
+            final Query<EbeanAspectV2> lockQuery =
+                server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).query();
+            if (isPostgres) {
+              lockQuery.orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH);
+            }
+            lockQuery.forUpdate().findList();
+          }
 
-    // Write path must read max(version) from primary to avoid stale replica counts after forUpdate.
-    Database versionDatabase = primaryStorageResolver.resolveEbean(opContext, lockLatestForWrite);
-    Junction<EbeanAspectV2> queryJunction =
-        versionDatabase
-            .find(EbeanAspectV2.class)
-            .select("urn, aspect, max(version)")
-            .where()
-            .in("urn", urnAspects.keySet())
-            .or();
+          // Write path must read max(version) from primary to avoid stale replica counts after
+          // forUpdate.
+          Database versionDatabase = resolveGetNextVersionsDatabase(opContext, lockLatestForWrite);
+          Junction<EbeanAspectV2> queryJunction =
+              versionDatabase
+                  .find(EbeanAspectV2.class)
+                  .select("urn, aspect, max(version)")
+                  .where()
+                  .in("urn", urnAspects.keySet())
+                  .or();
 
-    ExpressionList<EbeanAspectV2> exp = null;
-    for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
-      if (exp == null) {
-        exp = queryJunction.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
-      } else {
-        exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
-      }
-    }
+          ExpressionList<EbeanAspectV2> exp = null;
+          for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
+            if (exp == null) {
+              exp =
+                  queryJunction
+                      .and()
+                      .eq("urn", entry.getKey())
+                      .in("aspect", entry.getValue())
+                      .endAnd();
+            } else {
+              exp = exp.and().eq("urn", entry.getKey()).in("aspect", entry.getValue()).endAnd();
+            }
+          }
 
-    if (exp == null) {
-      return result;
-    }
+          if (exp == null) {
+            return result;
+          }
 
-    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+          List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
-    mergeNextVersionsFromDb(result, dbResults);
+          mergeNextVersionsFromDb(result, dbResults);
 
-    return result;
+          return result;
+        });
   }
 
   /**
@@ -1443,20 +1896,26 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       long startTimeMillis,
       long endTimeMillis) {
     validateConnection();
-    List<EbeanAspectV2> ebeanAspects =
-        primaryStorageResolver
-            .resolveEbean(opContext, false)
-            .find(EbeanAspectV2.class)
-            .select(EbeanAspectV2.ALL_COLUMNS)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-            .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
-            .inRange(
-                EbeanAspectV2.CREATED_ON_COLUMN,
-                new Timestamp(startTimeMillis),
-                new Timestamp(endTimeMillis))
-            .findList();
-    return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          List<EbeanAspectV2> ebeanAspects =
+              primaryStorageResolver
+                  .resolveEbean(opContext, false)
+                  .find(EbeanAspectV2.class)
+                  .select(EbeanAspectV2.ALL_COLUMNS)
+                  .where()
+                  .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+                  .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+                  .inRange(
+                      EbeanAspectV2.CREATED_ON_COLUMN,
+                      new Timestamp(startTimeMillis),
+                      new Timestamp(endTimeMillis))
+                  .findList();
+          return ebeanAspects.stream()
+              .map(EbeanAspectV2::toEntityAspect)
+              .collect(Collectors.toList());
+        });
   }
 
   private Map<String, SystemAspect> toAspectMap(
