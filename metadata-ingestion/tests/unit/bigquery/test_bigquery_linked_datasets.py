@@ -718,6 +718,28 @@ def test_duplicate_column_names_deduped():
     assert len(upstream.fineGrainedLineages) == 1
 
 
+def test_empty_columns_emit_copy_lineage_without_finegrained():
+    """A linked entity with no columns still emits reciprocal siblings and a
+    COPY upstream, but no column-level lineage."""
+    handler = _seed_with_linked_dataset()
+    wus = list(
+        handler.gen_lineage_workunits(
+            consumer_project_id="consumer-project",
+            consumer_dataset="shared_dataset",
+            entity_name="users",
+            columns=[],
+        )
+    )
+    sibling_wus = [
+        wu for wu in wus if isinstance(getattr(wu.metadata, "aspect", None), Siblings)
+    ]
+    upstreams = [a for a in _aspects(wus) if isinstance(a, UpstreamLineage)]
+    assert len(sibling_wus) == 2
+    assert len(upstreams) == 1
+    assert upstreams[0].upstreams[0].type == DatasetLineageType.COPY
+    assert upstreams[0].fineGrainedLineages is None
+
+
 # --- API error path -------------------------------------------------------
 
 
