@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 5
+  "schemaVersion": 6
 }
 record SemanticModelInfo includes ExternalReference {
 
@@ -81,8 +81,7 @@ record SemanticModelInfo includes ExternalReference {
   @Relationship = {
     "/*": {
       "name": "Contains",
-      "entityTypes": [ "dataset" ],
-      "isLineage": true
+      "entityTypes": [ "dataset" ]
     }
   }
   @Searchable = {
@@ -94,6 +93,26 @@ record SemanticModelInfo includes ExternalReference {
     }
   }
   datasets: array[Urn] = [ ]
+
+  /**
+   * The metrics defined by this semantic model. Each is a `metric` entity that carries a
+   * back-reference via `metricInfo.semanticModel`.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "metric" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "metrics",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasMetrics",
+      "queryByDefault": false
+    }
+  }
+  metrics: array[Urn] = [ ]
 
   /**
    * Join relationships between the datasets of this semantic model.

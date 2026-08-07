@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 4
+  "schemaVersion": 5
 }
 record MetricInfo includes ExternalReference {
 
@@ -63,12 +63,12 @@ record MetricInfo includes ExternalReference {
   lastModified: optional AuditStamp
 
   /**
-   * The semantic model that defines this metric.
+   * The semantic model that defines this metric. Containment back-reference only —
+   * not a lineage edge.
    */
   @Relationship = {
     "name": "ModeledBy",
-    "entityTypes": [ "semanticModel" ],
-    "isLineage": true
+    "entityTypes": [ "semanticModel" ]
   }
   @Searchable = {
     "fieldName": "semanticModel",

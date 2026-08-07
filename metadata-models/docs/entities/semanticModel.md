@@ -37,6 +37,8 @@ Core metadata is stored in the `semanticModelInfo` aspect:
 - **`datasets`** — array of `dataset` URNs: the logical datasets that this semantic model exposes.
   Each is a full `dataset` entity carrying the `Semantic Model Dataset` subtype. See
   [Logical Datasets as Dataset Entities](#logical-datasets-as-dataset-entities) below.
+- **`metrics`** — array of `metric` URNs: the metrics defined by this semantic model. Each metric
+  also carries a reverse pointer via `metricInfo.semanticModel`.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-alias, to-alias, join columns, optional
   name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
@@ -112,17 +114,24 @@ and `upstreamLineage.upstreams` carries one `Upstream` entry per physical table 
 
 ### Lineage
 
-The canonical lineage chain for a semantic-model-backed metric is:
+The SemanticModel is a container of its logical datasets and metrics (similar to a
+DataProduct), not a lineage hop. In the lineage explorer it renders as a bounding box around its
+members. The canonical lineage chain for a semantic-model-backed metric is:
 
-`Metric → SemanticModel → Logical Dataset (Semantic Model Dataset) → Physical Dataset`
+`Metric → Logical Dataset (Semantic Model Dataset) → Physical Dataset`
 
-**Metric → semantic model** — metrics that declare `metricInfo.semanticModel` pointing at this
-entity appear as downstream nodes via the `ModeledBy` lineage edge. Do not also populate
-`metricUpstreams` for these metrics; that aspect is reserved for metrics without a semantic model.
+**Metric → logical dataset** — populate `metricUpstreams.datasetUpstreams` with the Semantic
+Model Dataset URN(s) the metric reads from (`Consumes`, `isLineage: true`). Optionally populate
+`metricUpstreams.fieldUpstreams` with the corresponding `schemaField` URNs for column-level
+lineage.
 
-**Semantic model → logical dataset** — the `Contains` relationship, derived from
-`semanticModelInfo.datasets`, is a lineage edge (`isLineage: true`). Each logical dataset is an
-upstream of the semantic model.
+**Metric ↔ semantic model** — `metricInfo.semanticModel` (`ModeledBy`) and
+`semanticModelInfo.metrics` (`Contains`) are membership lists. They drive the bounding-box 
+membership in the lineage explorer and search facets.
+
+**Semantic model ↔ logical dataset** — `semanticModelInfo.datasets` (`Contains`)
+and each logical dataset's `semanticModelProperties.semanticModel` (`IsPartOf`) are likewise
+member datasets.
 
 **Logical dataset → physical source** — standard `upstreamLineage` aspect on the logical dataset
 (the same aspect every dataset already uses), populated with one `Upstream` entry per physical
@@ -144,16 +153,19 @@ properties — with no semantic-model-specific reimplementation.
 
 ## Relationships with Other Entities
 
-| Relationship | Direction | Target entity | Aspect / edge name        | Lineage? |
-| ------------ | --------- | ------------- | ------------------------- | -------- |
-| Contains     | outbound  | `dataset`     | `semanticModelInfo`       | yes      |
-| IsPartOf     | inbound   | `dataset`     | `semanticModelProperties` | no       |
-| ModeledBy    | inbound   | `metric`      | `metricInfo`              | yes      |
+| Relationship | Direction | Target entity | Aspect / edge name                           | Lineage? |
+| ------------ | --------- | ------------- | -------------------------------------------- | -------- |
+| Contains     | outbound  | `dataset`     | `semanticModelInfo.datasets`                 | no       |
+| Contains     | outbound  | `metric`      | `semanticModelInfo.metrics`                  | no       |
+| IsPartOf     | inbound   | `dataset`     | `semanticModelProperties`                    | no       |
+| ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`                   | no       |
+| Consumes     | inbound   | `metric`      | `metricUpstreams.datasetUpstreams` (to SMDs) | yes      |
 
-The `Contains` edges are derived from the `datasets` URN array in `semanticModelInfo` and are
-lineage edges; each target logical dataset also carries the reverse `IsPartOf` edge via its own
-`semanticModelProperties` aspect. Each logical dataset's own `upstreamLineage` aspect provides the
-physical lineage graph traversal path (table-level and column-level) from there onward.
+The `Contains` edges are derived from the `datasets` / `metrics` URN arrays in `semanticModelInfo`. 
+Each logical dataset also carries the reverse `IsPartOf` edge via its
+own `semanticModelProperties` aspect; each metric carries `ModeledBy` via `metricInfo.semanticModel`.
+Lineage traversal uses `metricUpstreams` (Metric → SMD) and each logical dataset's `upstreamLineage`
+(SemanticModelDataset → Physical Dataset).
 
 ## Notable Exceptions
 
