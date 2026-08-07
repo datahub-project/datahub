@@ -652,6 +652,45 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testSwapThrowingAndAliasVerifyFails_marksFailedWithoutCleanup() throws Throwable {
+    // If getBackingIndices itself fails after a swap exception, we cannot tell whether the alias
+    // already points at nextIndexName. Deleting would risk removing the live backing index — mark
+    // FAILED without cleanup instead.
+    IncrementalReindexResult incrementalResult =
+        new IncrementalReindexResult(
+            NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(incrementalResult);
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            anyString()))
+        .thenReturn(new PollReindexResult(true, Map.of(), Pair.of(100L, 100L)));
+    when(indexBuilder.validateAndSwapAlias(
+            any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME), anyLong()))
+        .thenThrow(new RuntimeException("alias update acknowledged but client timed out"));
+    // First call resolves the old backing index before reindex; second is the post-swap verify.
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(INDEX_NAME)))
+        .thenReturn(Set.of("datasetindex_v2_old"))
+        .thenThrow(new RuntimeException("getAliases timed out"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    Map<String, String> persisted = captureLastPersistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(persisted, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.FAILED));
+    verify(indexBuilder, never())
+        .deleteActionWithRetry(any(OperationContext.class), eq(NEXT_INDEX_NAME));
+  }
+
+  @Test
   public void testRerunAfterSwapFailureReindexesInsteadOfNoOpRetry() throws Throwable {
     // End-to-end: run 1 reindexes then fails the swap; run 2 (fed run 1's persisted state) must
     // REINDEX from scratch. Resuming instead would re-poll a target already satisfied by the

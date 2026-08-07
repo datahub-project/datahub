@@ -463,11 +463,17 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           return true;
         }
       } catch (Exception verifyException) {
+        // Verification itself failed — we cannot tell whether the alias already points at
+        // nextIndexName. Mark FAILED without deleting so we never remove a potentially live
+        // backing index; retention / the next fresh-start run will reclaim orphans.
         log.warn(
-            "Unable to verify alias target after swap failure for {} -> {}: {}",
+            "Unable to verify alias target after swap failure for {} -> {}. Marking FAILED"
+                + " without cleanup to avoid deleting a potentially live backing index.",
             config.name(),
             nextIndexName,
-            verifyException.getMessage());
+            verifyException);
+        markFailed(context, upgradeState, config.name());
+        return false;
       }
     }
     failAndCleanUp(context, upgradeState, config.name(), nextIndexName, indexBuilder);
@@ -475,11 +481,25 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   }
 
   /**
-   * Marks an index FAILED, checkpoints, and deletes its next index.
+   * Marks an index FAILED and checkpoints, without deleting the next index.
    *
    * <p>FAILED is the state that guarantees recovery: it is neither skipped (only COMPLETED and
    * DUAL_WRITE_DISABLED are) nor resumed (resumption requires IN_PROGRESS), so the following run
    * takes the fresh-start branch and reindexes. Mutates {@code upgradeState} in place.
+   */
+  private void markFailed(
+      UpgradeContext context, Map<String, String> upgradeState, String indexName) {
+    upgradeState.put(
+        IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    checkpoint(context, upgradeState, DataHubUpgradeState.FAILED);
+  }
+
+  /**
+   * Marks an index FAILED, checkpoints, and deletes its next index.
+   *
+   * <p>See {@link #markFailed} for why FAILED is the recovery state. Mutates {@code upgradeState}
+   * in place.
    */
   private void failAndCleanUp(
       UpgradeContext context,
@@ -487,10 +507,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       String indexName,
       String nextIndexName,
       ESIndexBuilder indexBuilder) {
-    upgradeState.put(
-        IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS),
-        IncrementalReindexState.Status.FAILED.name());
-    checkpoint(context, upgradeState, DataHubUpgradeState.FAILED);
+    markFailed(context, upgradeState, indexName);
     try {
       indexBuilder.deleteActionWithRetry(opContext, nextIndexName);
       log.info("Cleaned up failed next index: {}", nextIndexName);
