@@ -179,12 +179,7 @@ def _first_sub_type(container: Dict[str, Any]) -> Optional[str]:
     shows up in the env-wide listing without this aspect, so callers must treat
     a missing value as "not a migration candidate" rather than an error.
     """
-    type_names = (
-        container.get("aspects", {})
-        .get("subTypes", {})
-        .get("value", {})
-        .get("typeNames")
-    )
+    type_names = _aspect_value(container, "subTypes").get("typeNames")
     if not type_names:
         return None
     return type_names[0]
@@ -192,12 +187,20 @@ def _first_sub_type(container: Dict[str, Any]) -> Optional[str]:
 
 def _custom_properties(container: Dict[str, Any]) -> Optional[Dict[str, str]]:
     """customProperties from a container's containerProperties aspect, or None."""
-    return (
-        container.get("aspects", {})
-        .get("containerProperties", {})
-        .get("value", {})
-        .get("customProperties")
-    )
+    return _aspect_value(container, "containerProperties").get("customProperties")
+
+
+def _aspect_value(container: Dict[str, Any], aspect_name: str) -> Dict[str, Any]:
+    """The `value` payload of one aspect, or {} if absent or explicitly null.
+
+    `.get(key, {})` is not enough here: these payloads come off the wire, so a
+    key can be present with a null value, and the default only applies when the
+    key is missing. Coalesce at every level so a malformed entry is skipped
+    rather than raising.
+    """
+    aspects = container.get("aspects") or {}
+    aspect = aspects.get(aspect_name) or {}
+    return aspect.get("value") or {}
 
 
 def _migrate_containers(

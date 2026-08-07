@@ -865,15 +865,23 @@ class TestMigrateContainers:
             rest_emitter=emitter,
         )
 
-        # The one valid container still migrates.
+        # Exactly one container migrates -- the valid one. Asserting the count,
+        # not just "at least one", is what catches a malformed container being
+        # migrated instead of skipped.
         instances = [
             c.args[0].aspect
             for c in emitter.emit_mcp.call_args_list
             if isinstance(c.args[0].aspect, DataPlatformInstanceClass)
         ]
-        assert instances, "valid container was not migrated"
-        assert instances[-1].instance == make_dataplatform_instance_urn(
+        assert len(instances) == 1, (
+            f"expected only the valid container to migrate, got {len(instances)}"
+        )
+        assert instances[0].instance == make_dataplatform_instance_urn(
             "snowflake", "newinst"
+        )
+        migrated_urns = {c.args[0].entityUrn for c in emitter.emit_mcp.call_args_list}
+        assert migrated_urns == {"urn:li:container:goodguid"}, (
+            f"a malformed container was migrated: {migrated_urns}"
         )
 
 
