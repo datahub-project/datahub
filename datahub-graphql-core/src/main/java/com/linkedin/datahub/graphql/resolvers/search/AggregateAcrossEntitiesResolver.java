@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
@@ -49,7 +49,8 @@ public class AggregateAcrossEntitiesResolver
     final AggregateAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), AggregateAcrossEntitiesInput.class);
 
-    final List<String> entityNames = getEntityNames(input.getTypes());
+    final List<String> entityNames =
+        getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());

@@ -1028,6 +1028,30 @@ public class TimeseriesAspectServiceUnitTest {
   }
 
   @Test
+  public void testBatchGetAspectValuesZeroLimitDoesNotDivideByZero() throws IOException {
+    // limit=0 survives applyLimit as 0 (it is neither negative nor above max), so it reaches the
+    // batched path and is used as the divisor when deriving the sub-batch size. A caller asking
+    // for zero documents should get empty lists, matching size(0) on the per-URN path.
+    Urn urn1 = UrnUtils.getUrn("urn:li:dataset:123");
+    Urn urn2 = UrnUtils.getUrn("urn:li:dataset:456");
+
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext,
+            new HashSet<>(Arrays.asList(urn1, urn2)),
+            "dataset",
+            "datasetProfile",
+            null,
+            null,
+            0,
+            null,
+            null);
+
+    verify(searchClient, never()).search(any(), any(), any());
+    Assert.assertTrue(result.isEmpty());
+  }
+
+  @Test
   public void testBatchGetAspectValuesSubBatchFailure() throws IOException {
     // When searchClient.search throws, the failed URN is still present with emptyList.
     String urnString = "urn:li:dataset:123";

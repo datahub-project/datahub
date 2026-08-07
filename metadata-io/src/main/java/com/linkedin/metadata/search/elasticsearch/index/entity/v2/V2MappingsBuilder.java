@@ -7,6 +7,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsear
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PATH;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -396,7 +397,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
   private static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxLength) {
     Map<String, Object> mappingForField = getMappingsForKeyword();
     // ignore_above is character-based; convert configured byte limit to a byte-safe char threshold
-    mappingForField.put("ignore_above", ESUtils.keywordIgnoreAboveForMaxBytes(keywordMaxLength));
+    mappingForField.put(IGNORE_ABOVE, ESUtils.keywordIgnoreAboveForMaxBytes(keywordMaxLength));
     return mappingForField;
   }
 
@@ -414,12 +415,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-    // Byte-safe ignore_above: an oversized value (e.g. a large document body) is skipped from the
-    // keyword parent instead of failing the whole document write, while the tokenized `.delimited`
-    // sub-field below — which has no per-term limit and is what full-text queries actually target —
-    // still indexes the value in full. See ESUtils.KEYWORD_IGNORE_ABOVE for the char-vs-byte
-    // reason.
-    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
+    mappingForField.put(IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
@@ -445,8 +441,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    subFields.put(
-        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
+    subFields.put(KEYWORD, ImmutableMap.of(TYPE, KEYWORD, IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }

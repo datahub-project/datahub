@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.event.PgQueueEventProducer;
+import com.linkedin.metadata.event.PgQueueGenericProducer;
 import com.linkedin.metadata.event.PgQueueUsageEventPublisher;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.queue.MetadataQueueStore;
@@ -60,10 +61,12 @@ public class PgQueueProducerFactoriesTest {
 
     PgQueueUsageEventPublisherConfiguration configuration =
         new PgQueueUsageEventPublisherConfiguration();
-    UsageEventPublisher publisher =
-        configuration.pgQueueUsageEventPublisher(
+    PgQueueGenericProducer genericProducer =
+        configuration.dataHubUsageGenericProducer(
             mock(MetadataQueueStore.class), pgPropsProvider, configProvider);
+    UsageEventPublisher publisher = configuration.pgQueueUsageEventPublisher(genericProducer);
 
+    assertNotNull(genericProducer);
     assertNotNull(publisher);
     assertTrue(publisher instanceof PgQueueUsageEventPublisher);
   }

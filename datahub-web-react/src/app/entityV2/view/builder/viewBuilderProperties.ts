@@ -76,7 +76,7 @@ export const viewBuilderProperties: Property[] = [
         get description() {
             return i18next.t('shared.query-builder:prop.domainDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.MULTIPLE,
@@ -132,9 +132,23 @@ export const viewBuilderProperties: Property[] = [
         get description() {
             return i18next.t('shared.query-builder:prop.containerDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Container],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'parentDocument',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.parentDocument');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.parentDocumentDesc');
+        },
+        valueType: ValueTypeId.URN_HIERARCHY,
+        valueOptions: {
+            entityTypes: [EntityType.Document],
             mode: SelectInputMode.MULTIPLE,
         },
     },

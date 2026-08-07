@@ -453,4 +453,31 @@ describe('getDefaultFieldOperatorType', () => {
         expect(getDefaultFieldOperatorType(enumField)).toBe(FilterOperatorType.EQUALS);
         expect(getDefaultFieldOperatorType(booleanField)).toBe(FilterOperatorType.EQUALS);
     });
+
+    it('should return WITHIN for domains, container, and parentDocument fields', () => {
+        const domainsField: FilterField = {
+            field: 'domains',
+            displayName: 'Domain',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        const containerField: FilterField = {
+            field: 'container',
+            displayName: 'Container',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        const parentDocumentField: FilterField = {
+            field: 'parentDocument',
+            displayName: 'Parent Document',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        expect(getDefaultFieldOperatorType(domainsField)).toBe(FilterOperatorType.WITHIN);
+        expect(getDefaultFieldOperatorType(containerField)).toBe(FilterOperatorType.WITHIN);
+        expect(getDefaultFieldOperatorType(parentDocumentField)).toBe(FilterOperatorType.WITHIN);
+    });
 });

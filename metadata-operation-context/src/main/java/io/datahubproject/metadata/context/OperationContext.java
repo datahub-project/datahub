@@ -23,10 +23,12 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
+import io.opentelemetry.context.Scope;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -507,7 +509,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public <T> T withSpan(String name, Supplier<T> operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      return systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        return systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       return operation.get();
     }
@@ -515,7 +519,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
 
   public void withSpan(String name, Runnable operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       operation.run();
     }

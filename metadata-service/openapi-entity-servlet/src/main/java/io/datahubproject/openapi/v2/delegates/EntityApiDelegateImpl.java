@@ -1,15 +1,16 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -204,7 +205,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+          opContext, EXISTS, List.of(entityUrn))) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
@@ -269,7 +271,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+          opContext, EXISTS, List.of(entityUrn))) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
@@ -297,6 +300,11 @@ public class EntityApiDelegateImpl<I, O, S> {
             _authorizationChain,
             auth,
             true);
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, DELETE, List.of(entityUrn))) {
+      throw new UnauthorizedException(
+          auth.getActor().toUrnStr() + " is unauthorized to delete entity " + entityUrn);
+    }
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
     _v1Controller.deleteEntities(
         opContext, auth.getActor().toUrnStr(), Set.of(entityUrn), false, false);
@@ -642,7 +650,10 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+    // Document access can be inherited from each bridge source, which cannot be evaluated at the
+    // entity-type level. The result-level check below authorizes every returned document.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entitySpec.getName()))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
     }
@@ -671,7 +682,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }

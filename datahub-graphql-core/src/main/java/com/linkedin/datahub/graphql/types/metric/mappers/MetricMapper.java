@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.MetricInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -190,6 +191,13 @@ public class MetricMapper {
               context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedAiContext = aspects.get(Constants.AI_CONTEXT_ASPECT_NAME);
+    if (envelopedAiContext != null) {
+      result.setAiContext(
+          AiContextMapper.map(
+              new com.linkedin.common.AiContext(envelopedAiContext.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedBrowsePathsV2 =
         aspects.get(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     if (envelopedBrowsePathsV2 != null) {
@@ -219,9 +227,6 @@ public class MetricMapper {
     }
     if (pdl.hasExpression() && pdl.getExpression() != null) {
       result.setExpression(MetricExpressionMapper.map(pdl.getExpression()));
-    }
-    if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(AiContextMapper.map(pdl.getAiContext()));
     }
     return result;
   }
