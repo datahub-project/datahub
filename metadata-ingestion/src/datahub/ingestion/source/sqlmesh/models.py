@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sqlmesh.compat import SqlmeshContextType, SqlmeshModel
 from datahub.ingestion.source.sqlmesh.constants import (
-    AUDIT_STATUS_SKIP,
     ENV_SUFFIX_TARGET_SCHEMA,
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceReport
@@ -24,20 +23,23 @@ class AuditResultsMetadata(BaseModel):
 
 class AuditResultEntry(BaseModel):
     # One entry from the ``results`` array of a SQLMesh audit-results file.
+    # model/audit/status are required: an entry missing them is malformed and
+    # must fail validation so it lands on the warning path in
+    # _emit_audit_run_events rather than being silently skipped as an empty one.
     # audit/status are normalised to lowercase so downstream comparisons against
     # the lowercase audit map and status literals can't miss on casing.
     model_config = ConfigDict(extra="ignore")
 
-    model: str = ""
-    audit: str = ""
+    model: str
+    audit: str
     columns: List[str] = Field(default_factory=list)
-    status: str = AUDIT_STATUS_SKIP
+    status: str
     failing_rows: int = 0
 
     @field_validator("audit", "status", mode="after")
     @classmethod
     def _lowercase(cls, v: str) -> str:
-        return v.lower() if isinstance(v, str) else v
+        return v.lower()
 
 
 def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str:

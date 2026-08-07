@@ -25,6 +25,9 @@ class ContainerMixin(SqlmeshSourceBase):
         seen_databases: Set[str] = set()
         seen_schemas: Set[str] = set()
 
+        instance = effective.sqlmesh_platform_instance
+        env = self.config.env
+
         for fqn in sorted(fqns):
             parts = fqn.split(".")
             catalog: Optional[str]
@@ -35,55 +38,40 @@ class ContainerMixin(SqlmeshSourceBase):
             else:
                 continue  # 1-part name — no containers
 
-            if catalog and catalog not in seen_databases:
-                seen_databases.add(catalog)
+            # Build the database key once per iteration and reuse it as both the
+            # database container and the schema's parent — a schema with no
+            # catalog just has no parent (gen_containers accepts None).
+            db_key: Optional[DatabaseKey] = None
+            if catalog:
                 db_key = DatabaseKey(
                     platform=SQLMESH_PLATFORM,
-                    instance=effective.sqlmesh_platform_instance,
-                    env=self.config.env,
+                    instance=instance,
+                    env=env,
                     database=catalog,
                 )
-                yield from gen_containers(
-                    container_key=db_key,
-                    name=catalog,
-                    sub_types=[SUBTYPE_DATABASE],
-                )
-                self.report.num_containers_emitted += 1
+                if catalog not in seen_databases:
+                    seen_databases.add(catalog)
+                    yield from gen_containers(
+                        container_key=db_key,
+                        name=catalog,
+                        sub_types=[SUBTYPE_DATABASE],
+                    )
+                    self.report.num_containers_emitted += 1
 
             schema_key_str = f"{catalog}.{schema}" if catalog else schema
             if schema_key_str not in seen_schemas:
                 self.report.num_containers_emitted += 1
                 seen_schemas.add(schema_key_str)
-                if catalog:
-                    db_key = DatabaseKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database=catalog,
-                    )
-                    schema_key = SchemaKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database=catalog,
-                        schema=schema,
-                    )
-                    yield from gen_containers(
-                        container_key=schema_key,
-                        name=schema,
-                        sub_types=[SUBTYPE_SCHEMA],
-                        parent_container_key=db_key,
-                    )
-                else:
-                    schema_key = SchemaKey(
-                        platform=SQLMESH_PLATFORM,
-                        instance=effective.sqlmesh_platform_instance,
-                        env=self.config.env,
-                        database="",
-                        schema=schema,
-                    )
-                    yield from gen_containers(
-                        container_key=schema_key,
-                        name=schema,
-                        sub_types=[SUBTYPE_SCHEMA],
-                    )
+                schema_key = SchemaKey(
+                    platform=SQLMESH_PLATFORM,
+                    instance=instance,
+                    env=env,
+                    database=catalog or "",
+                    schema=schema,
+                )
+                yield from gen_containers(
+                    container_key=schema_key,
+                    name=schema,
+                    sub_types=[SUBTYPE_SCHEMA],
+                    parent_container_key=db_key,
+                )

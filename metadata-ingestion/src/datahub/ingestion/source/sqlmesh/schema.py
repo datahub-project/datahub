@@ -71,44 +71,45 @@ class SchemaMixin(SqlmeshSourceBase):
 
         time_column = getattr(model, "time_column", None)
         if time_column is not None:
-            try:
-                props[PROP_TIME_COLUMN] = str(time_column.column)
-            except Exception:
-                props[PROP_TIME_COLUMN] = str(time_column)
+            # SQLMesh wraps the time column in an object exposing ``.column``;
+            # older/other shapes stringify directly. Check the attribute rather
+            # than swallowing every error so a real bug still surfaces.
+            column = getattr(time_column, "column", None)
+            props[PROP_TIME_COLUMN] = str(column if column is not None else time_column)
 
         model_name = str(getattr(model, "name", "?"))
-        partitioned_by = getattr(model, "partitioned_by", None)
+        partitioned_by = self._extract_named_list(model, "partitioned_by", model_name)
         if partitioned_by:
-            try:
-                cols = [str(c.name) for c in partitioned_by if hasattr(c, "name")]
-                if cols:
-                    props[PROP_PARTITIONED_BY] = ",".join(cols)
-            except Exception:
-                # Best-effort enrichment: an unexpected partitioned_by shape
-                # just omits the property, but warn (not debug) so a new SQLMesh
-                # version dropping this surfaces without raising the log level.
-                logger.warning(
-                    "Could not extract partitioned_by for %s",
-                    model_name,
-                    exc_info=True,
-                )
-
-        grains = getattr(model, "grains", None)
+            props[PROP_PARTITIONED_BY] = partitioned_by
+        grains = self._extract_named_list(model, "grains", model_name)
         if grains:
-            try:
-                grain_cols = [str(g.name) for g in grains if hasattr(g, "name")]
-                if grain_cols:
-                    props[PROP_GRAIN] = ",".join(grain_cols)
-            except Exception:
-                logger.warning(
-                    "Could not extract grains for %s", model_name, exc_info=True
-                )
+            props[PROP_GRAIN] = grains
 
         audit_names = [audit.name for audit in parse_model_audits(model)]
         if audit_names:
             props[PROP_AUDITS] = ",".join(audit_names)
 
         return props
+
+    def _extract_named_list(
+        self, model: "SqlmeshModel", attr: str, model_name: str
+    ) -> Optional[str]:
+        # partitioned_by and grains are both lists of column-like objects
+        # exposing ``.name``; extract them the same way.
+        values = getattr(model, attr, None)
+        if not values:
+            return None
+        try:
+            names = [str(v.name) for v in values if hasattr(v, "name")]
+        except Exception:
+            # Best-effort enrichment: an unexpected shape just omits the
+            # property, but warn (not debug) so a new SQLMesh version dropping
+            # this surfaces without raising the log level.
+            logger.warning(
+                "Could not extract %s for %s", attr, model_name, exc_info=True
+            )
+            return None
+        return ",".join(names) if names else None
 
     def _resolve_column_type(
         self, type_str: str, platform: str

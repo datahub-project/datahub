@@ -1,4 +1,3 @@
-import logging
 from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -6,8 +5,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sqlmesh.base import SqlmeshSourceBase
 from datahub.metadata.schema_classes import SiblingsClass
 from datahub.specific.dataset import DatasetPatchBuilder
-
-logger = logging.getLogger(__name__)
 
 
 class SiblingsMixin(SqlmeshSourceBase):
