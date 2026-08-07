@@ -2,6 +2,13 @@ import { get } from 'lodash';
 
 import { FieldType, FilterRecipeField, FilterRule, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
+// The include_* toggles default to true in the connector config, so reflect that
+// in the form when the recipe hasn't set the field explicitly.
+const getBooleanValueWithTrueDefault = (fieldPath: string) => (recipe: any) => {
+    const value = get(recipe, fieldPath);
+    return value === undefined || value === null ? true : value;
+};
+
 export const SQLMESH_PROJECT_PATH: RecipeField = {
     name: 'project_path',
     label: 'Project Path',
@@ -136,10 +143,7 @@ export const SQLMESH_INCLUDE_SCHEMA: RecipeField = {
         'Emit column schema metadata for each model. Disable to reduce volume when schema is already captured by a warehouse connector.',
     type: FieldType.BOOLEAN,
     fieldPath: includeSchemaPath,
-    getValueFromRecipeOverride: (recipe: any) => {
-        const value = get(recipe, includeSchemaPath);
-        return value === undefined || value === null ? true : value;
-    },
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeSchemaPath),
     rules: null,
 };
 
@@ -152,10 +156,7 @@ export const SQLMESH_INCLUDE_LINEAGE: RecipeField = {
         'Emit model-to-model lineage derived from SQLMesh DAG dependencies. Disable if lineage is managed by another connector.',
     type: FieldType.BOOLEAN,
     fieldPath: includeLineagePath,
-    getValueFromRecipeOverride: (recipe: any) => {
-        const value = get(recipe, includeLineagePath);
-        return value === undefined || value === null ? true : value;
-    },
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeLineagePath),
     rules: null,
 };
 
@@ -168,10 +169,7 @@ export const SQLMESH_INCLUDE_COLUMN_LINEAGE: RecipeField = {
         'Emit column-level lineage derived from SQLMesh SQL parsing (via SQLGlot). Disable for very large projects where per-column analysis is too slow.',
     type: FieldType.BOOLEAN,
     fieldPath: includeColumnLineagePath,
-    getValueFromRecipeOverride: (recipe: any) => {
-        const value = get(recipe, includeColumnLineagePath);
-        return value === undefined || value === null ? true : value;
-    },
+    getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeColumnLineagePath),
     rules: null,
 };
 
@@ -184,16 +182,5 @@ export const SQLMESH_AUDIT_RESULTS_PATH: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.audit_results_path',
     placeholder: '/path/to/audit_results.json',
-    rules: null,
-};
-
-export const SQLMESH_REMOVE_STALE_METADATA: RecipeField = {
-    name: 'stateful_ingestion.remove_stale_metadata',
-    label: 'Remove Stale Metadata',
-    helper: 'Soft-delete entities no longer present in the project',
-    tooltip:
-        'When stateful ingestion is enabled, soft-delete SQLMesh entities that are no longer present in the project between runs.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.stateful_ingestion.remove_stale_metadata',
     rules: null,
 };

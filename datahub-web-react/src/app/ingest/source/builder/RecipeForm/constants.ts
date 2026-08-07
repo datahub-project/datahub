@@ -830,7 +830,6 @@ export const RECIPE_FIELDS: RecipeFields = {
             SQLMESH_INCLUDE_LINEAGE,
             SQLMESH_INCLUDE_COLUMN_LINEAGE,
             SQLMESH_AUDIT_RESULTS_PATH,
-            STATEFUL_INGESTION_ENABLED,
             SQLMESH_REMOVE_STALE_METADATA,
         ],
         filterSectionTooltip: 'Include or exclude specific SQLMesh models from ingestion by name pattern.',

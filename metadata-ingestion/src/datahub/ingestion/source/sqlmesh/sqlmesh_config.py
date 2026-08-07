@@ -13,7 +13,10 @@ from pydantic import Field, field_validator, model_validator
 try:
     import cachetools
 except ImportError:
-    pass
+    # Bind to None (rather than leaving the name unbound) so the token-file read
+    # path can detect the missing dep and fall back to an uncached read instead
+    # of raising a bare NameError.
+    cachetools = None  # type: ignore[assignment]
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -124,7 +127,12 @@ _tobiko_token_file_cache_lock = threading.Lock()
 _tobiko_token_file_cache: Optional["cachetools.TTLCache"] = None
 
 
-def _get_tobiko_token_file_cache() -> "cachetools.TTLCache":
+def _get_tobiko_token_file_cache() -> "Optional[cachetools.TTLCache]":
+    # Returns None when cachetools isn't installed (base deps only); callers then
+    # read the token uncached. In practice reaching here means the [sqlmesh] extra
+    # is installed (so cachetools is present) — this is purely defensive.
+    if cachetools is None:
+        return None
     global _tobiko_token_file_cache
     if _tobiko_token_file_cache is None:
         _tobiko_token_file_cache = cachetools.TTLCache(
@@ -135,10 +143,11 @@ def _get_tobiko_token_file_cache() -> "cachetools.TTLCache":
 
 def _read_tobiko_cloud_token_file(path: str) -> str:
     cache = _get_tobiko_token_file_cache()
-    with _tobiko_token_file_cache_lock:
-        cached = cache.get(path)
-    if cached is not None:
-        return cached
+    if cache is not None:
+        with _tobiko_token_file_cache_lock:
+            cached = cache.get(path)
+        if cached is not None:
+            return cached
     # Surface a config-actionable error naming the key, rather than letting a
     # raw FileNotFoundError/PermissionError abort ingestion with an opaque trace.
     # Failures are not cached, so a transient IO error isn't stuck.
@@ -149,8 +158,9 @@ def _read_tobiko_cloud_token_file(path: str) -> str:
             f"Could not read tobiko_cloud_token_file at {path!r}: {e}. "
             "Verify the path, file permissions, and that it is UTF-8 text."
         ) from e
-    with _tobiko_token_file_cache_lock:
-        cache[path] = value
+    if cache is not None:
+        with _tobiko_token_file_cache_lock:
+            cache[path] = value
     return value
 
 
@@ -648,6 +658,17 @@ class SqlmeshSourceConfig(
             raise ValueError(
                 "aws_connection is required because project_path is an s3:// URI."
             )
+        if project_is_s3:
+            # Require an explicit key prefix. A bare bucket (s3://bucket or
+            # s3://bucket/) would download the entire bucket into a temp dir,
+            # pulling unrelated objects and potentially exhausting disk/runtime.
+            _, _, rest = self.project_path.partition("://")
+            _bucket, _, key = rest.partition("/")
+            if not key.strip("/"):
+                raise ValueError(
+                    "project_path must include a key prefix pointing at the SQLMesh "
+                    "project (e.g. s3://my-bucket/sqlmesh_project), not a bare bucket."
+                )
         return self
 
     @model_validator(mode="after")
