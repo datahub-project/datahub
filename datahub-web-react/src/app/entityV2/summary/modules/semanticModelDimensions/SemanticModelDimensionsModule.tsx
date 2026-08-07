@@ -20,8 +20,8 @@ import { DataPlatform, Dataset, EntityType, SchemaField, SemanticFieldType } fro
 
 type EntityDataWithDatasets = {
     platform?: DataPlatform | null;
-    info?: {
-        datasets?: Dataset[] | null;
+    entities?: {
+        searchResults?: Array<{ entity?: Dataset | null } | null> | null;
     } | null;
 };
 
@@ -119,7 +119,9 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const fallbackPlatform = typedData?.platform;
 
     const groups: DimensionGroup[] = useMemo(() => {
-        return (typedData?.info?.datasets ?? [])
+        return (typedData?.entities?.searchResults ?? [])
+            .map((result) => result?.entity)
+            .filter((entity): entity is Dataset => entity?.type === EntityType.Dataset)
             .map((dataset): DimensionGroup | null => {
                 const fields = (dataset.schema?.fields ?? []).filter(
                     (field) => field.schemaFieldEntity?.semanticFieldAnnotation?.type === SemanticFieldType.Dimension,
@@ -135,7 +137,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
                 };
             })
             .filter((group): group is DimensionGroup => group !== null);
-    }, [typedData?.info?.datasets, fallbackPlatform]);
+    }, [typedData?.entities?.searchResults, fallbackPlatform]);
 
     if (!groups.length) {
         return (
