@@ -25,6 +25,7 @@ on:
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
       - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/resolve_smoke_test_filter.sh"
       - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
@@ -45,6 +46,7 @@ on:
       - ".github/scripts/send_failed_tests_to_posthog.py"
       - ".github/scripts/docker_helpers.sh"
       - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/resolve_smoke_test_filter.sh"
       - ".github/scripts/test_resolve_image_builds.sh"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
@@ -132,6 +134,9 @@ jobs:
       # Docker repos baked for this run. run-quickstart.sh fails if any of them
       # resolves to the reused tag instead of this PR's.
       image_built_repos: ${{ steps.image-build-plan.outputs.image_built_repos }}
+      # Test modules to run when the diff is smoke tests and nothing else.
+      # Empty means the full suite.
+      smoke_test_modules: ${{ steps.smoke-test-filter.outputs.smoke_test_modules }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -217,7 +222,15 @@ jobs:
       # ~1s, and it is the only thing that notices when the path classification
       # in resolve_image_builds.sh drifts out of sync with the repo layout.
       - name: Test the image build decision
-        run: .github/scripts/test_resolve_image_builds.sh
+        run: |
+          .github/scripts/test_resolve_image_builds.sh
+          .github/scripts/test_resolve_smoke_test_filter.sh
+
+      - name: Resolve the smoke test filter
+        id: smoke-test-filter
+        env:
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+        run: .github/scripts/resolve_smoke_test_filter.sh
 
       - name: Resolve which images to build
         id: image-build-plan
@@ -511,13 +524,19 @@ jobs:
     needs: setup
     outputs:
       pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
+    env:
+      SMOKE_TEST_MODULES: ${{ needs.setup.outputs.smoke_test_modules }}
     steps:
       - id: set-batch-count
         # Tests are split simply to ensure the configured number of batches for parallelization. This may need some
         # increase as a new tests added increase the duration where an additional parallel batch helps.
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
         run: |
-          if [[ "${{ env.IS_FORK }}" == "true" ]]; then
+          if [[ -n "$SMOKE_TEST_MODULES" ]]; then
+            # A filtered run bypasses conftest's batching entirely, so extra
+            # batches would each re-run the same narrowed set.
+            echo "python_batch_count=1" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ env.IS_FORK }}" == "true" ]]; then
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
@@ -888,6 +907,18 @@ jobs:
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         run: ./gradlew :metadata-ingestion:install
 
+      - name: Write the smoke test filter
+        id: smoke-filter-file
+        if: ${{ steps.retry-check.outputs.parse_result != 'all_passed' && needs.setup.outputs.smoke_test_modules != '' }}
+        env:
+          SMOKE_TEST_MODULES: ${{ needs.setup.outputs.smoke_test_modules }}
+        run: |
+          path="${GITHUB_WORKSPACE}/smoke-test-filter.txt"
+          printf '%s' "$SMOKE_TEST_MODULES" > "$path"
+          echo "Narrowing the suite to:"
+          cat "$path"
+          echo "path=${path}" >> "$GITHUB_OUTPUT"
+
       - name: Pytest smoke tests
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         env:
@@ -902,7 +933,10 @@ jobs:
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
           # The library default stays conservative for other environments.
           ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
-          FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
+          # A retry's failed-module list wins: it is a subset of whatever this
+          # run was already scoped to. Otherwise fall back to the smoke-test
+          # filter, which is empty for anything but a smoke-test-only diff.
+          FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || steps.smoke-filter-file.outputs.path || '' }}
           # On a retry, fall back to the conservative aggregate-lag wait. It is
           # the wrong default (under full concurrent load the lag may never
           # reach zero) but the right choice here: a retry runs a smaller
