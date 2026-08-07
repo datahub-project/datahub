@@ -52,6 +52,7 @@ import io.ebean.test.LoggedSql;
 import jakarta.persistence.PersistenceException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,15 @@ public class EbeanAspectDaoTest {
             new PassThroughScopedTransactionFactory(server));
   }
 
+  /**
+   * Snapshot {@link LoggedSql#stop()} without streaming the live buffer. Under {@code
+   * parallel="classes"}, other suites can mutate the process-global LoggedSql list and cause {@link
+   * java.util.ConcurrentModificationException} on stream/spliterator.
+   */
+  private static List<String> snapshotStoppedSql() {
+    return Arrays.asList(LoggedSql.stop().toArray(new String[0]));
+  }
+
   @AfterMethod
   public void cleanup() {
     // Shutdown Database instance to prevent thread pool and connection leaks
@@ -108,7 +118,7 @@ public class EbeanAspectDaoTest {
                     "urn:li:corpuser:orderby", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)))
         .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
         .findList();
-    final String sql = String.join(" ", LoggedSql.stop()).toLowerCase();
+    final String sql = String.join(" ", snapshotStoppedSql()).toLowerCase();
     assertTrue(sql.contains("order by"), "embedded-id orderBy must emit a SQL ORDER BY clause");
     assertFalse(sql.contains("key.urn"), "embedded-id path must resolve to columns, not 'key.urn'");
   }
@@ -163,7 +173,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
     if (canWrite) {
@@ -198,7 +208,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(str -> str.contains("testGetLatestAspectsForUpdate"))
             .toList();
     assertEquals(
@@ -241,7 +251,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(
                 str ->
                     str.contains("testbatchGetForUpdate1")

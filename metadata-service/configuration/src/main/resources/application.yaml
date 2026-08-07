@@ -1436,6 +1436,9 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT:0}
+    reprocess:
+      # Force re-run for the current MCP domain/ownership fingerprint even if already SUCCEEDED
+      enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS:false}
   assertionEntityField:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
@@ -1908,6 +1911,10 @@ metadataChangeProposal:
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
+      domain:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED:false}
+      ownership:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED:false}
     dataProductUnset:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
     aliases:

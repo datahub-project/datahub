@@ -148,6 +148,7 @@ public class NonBlockingConfigs {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
+      final ConfigurationProvider configurationProvider,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
@@ -155,9 +156,27 @@ public class NonBlockingConfigs {
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit,
+      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.reprocess.enabled}")
+          final boolean reprocessEnabled) {
+    var schemaFieldSideEffects =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isDomainEnabled();
+    boolean ownershipEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isOwnershipEnabled();
     return new GenerateSchemaFieldsFromSchemaMetadata(
-        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+        opContext,
+        entityService,
+        aspectDao,
+        enabled,
+        batchSize,
+        delayMs,
+        limit,
+        reprocessEnabled,
+        domainEnabled,
+        ownershipEnabled);
   }
 
   @Bean
