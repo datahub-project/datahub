@@ -22,9 +22,12 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
@@ -88,11 +91,24 @@ public class EbeanEntityServiceOptimisticLockingTest {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
-        new EntityServiceImpl(aspectDao, mockProducer, false, false, preProcessHooks, true);
+        new EntityServiceImpl(
+            aspectDao,
+            mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setEnableBrowseV2(true),
+            null);
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
     // Keep only current version so history-insert races are out of scope for EntityService tests.
     EbeanRetentionService<ChangeItemImpl> retentionService =
-        new EbeanRetentionService<>(entityService, server, 1000);
+        new EbeanRetentionService<>(
+            entityService,
+            server,
+            1000,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
     entityService.setRetentionService(retentionService);
 
     opContext =

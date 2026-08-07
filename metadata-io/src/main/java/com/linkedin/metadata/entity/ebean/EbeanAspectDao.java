@@ -411,7 +411,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           SqlUpdate update =
               server
                   .sqlUpdate(
-                      buildConditionalUpdateSql(dialect, tableResolver.aspectTable(opContext)))
+                      buildConditionalUpdateSql(
+                          dialect, tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)))
                   .setParameter("metadata", entityAspect.getMetadata())
                   .setParameter("systemMetadata", entityAspect.getSystemMetadata())
                   .setParameter("createdOn", entityAspect.getCreatedOn())
