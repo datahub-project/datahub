@@ -61,6 +61,7 @@ public class ESUtilsTest {
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
     Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -93,6 +94,19 @@ public class ESUtilsTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(dateWithDotsDefinition.data()))));
+
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
 
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
@@ -911,6 +925,230 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropEqualsValue() {
+    // URN parents are already keyword (no normalizer); EQUAL must not append .keyword.
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward", Condition.EQUAL, "urn:li:corpuser:jdoe");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"structuredProperties.steward\" : [\n"
+            + "      \"urn:li:corpuser:jdoe\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.steward\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testToKeywordFieldSkipsKeywordSuffixWhenStructuredPropertyDefinitionMissing()
+      throws URISyntaxException {
+    // Transient aspect miss must not fall back to the STRING-like ".keyword" append — that returns
+    // empty for URN/DATE/NUMBER parents (no usable .keyword subfield). Prefer the parent field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    String resolved =
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss",
+            false,
+            missingRetriever);
+
+    assertEquals(resolved, "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldStripsCallerKeywordSuffixWhenDefinitionMissing()
+      throws URISyntaxException {
+    // If the caller already appended .keyword and definition lookup fails, strip the subfield so
+    // typed parents (URN/DATE/NUMBER) are not queried on a missing multi-field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss.keyword",
+            false,
+            missingRetriever),
+        "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersStringKeyword() {
+    // Callers sometimes pass an already-resolved versioned ES path. Definition lookup cannot use
+    // that path as an FQN; infer STRING from the type segment and keep .keyword.
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.hello.00000000000001.string",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.hello.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersUrnParent() {
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.owner_ref.00000000000001.urn",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedUrnSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.steward",
+            false,
+            aspectRetriever),
+        "structuredProperties.steward");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedDateSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.date_here.with_dot",
+            false,
+            aspectRetriever),
+        "structuredProperties.date_here_with_dot");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedUrnSkipsKeywordSuffix() throws URISyntaxException {
+    Urn versionedUrnSp = Urn.createFromString("urn:li:structuredProperty:owner.ref");
+    AspectRetriever versionedUrnRetriever = mock(AspectRetriever.class);
+    when(versionedUrnRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition versionedUrnDef = new StructuredPropertyDefinition();
+    versionedUrnDef.setVersion("00000000000001");
+    versionedUrnDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    versionedUrnDef.setQualifiedName("owner.ref");
+    when(versionedUrnRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(versionedUrnSp)), anySet()))
+        .thenReturn(
+            Map.of(
+                versionedUrnSp,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(versionedUrnDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.owner.ref",
+            false,
+            versionedUrnRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetrieverV1),
+        "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnknownValueTypeAppendsKeywordSuffix() throws URISyntaxException {
+    // UNKNOWN follows the STRING-like path (usesKeywordSubfield=true) so filters still target
+    // .keyword.
+    Urn unknownUrn = Urn.createFromString("urn:li:structuredProperty:mystery");
+    AspectRetriever unknownRetriever = mock(AspectRetriever.class);
+    when(unknownRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition unknownDef = new StructuredPropertyDefinition();
+    unknownDef.setVersion(null, SetMode.REMOVE_IF_NULL);
+    unknownDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "other"));
+    unknownDef.setQualifiedName("mystery");
+    when(unknownRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(unknownUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                unknownUrn,
+                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(unknownDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.mystery",
+            false,
+            unknownRetriever),
+        "structuredProperties.mystery.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldNonStructuredPropertyAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class), "myTestField", false, aspectRetriever),
+        "myTestField.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldSkipKeywordSuffixFlag() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            true,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten");
   }
 
   @Test

@@ -15,7 +15,7 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     JobContainerSubTypes,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,

@@ -36,10 +36,10 @@ import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -255,8 +255,8 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private SystemEntityClient systemEntityClient;
 
   @MockitoBean
-  @Qualifier("s3Util")
-  private S3Util s3Util;
+  @Qualifier("objectStorageClient")
+  private ObjectStorageClient objectStorageClient;
 
   @MockitoBean private EntityVersioningService entityVersioningService;
 
@@ -402,7 +402,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
     setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
     setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
-    setField(factoryWithAnalytics, "s3Util", s3Util);
+    setField(factoryWithAnalytics, "objectStorageClient", objectStorageClient);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
 
     // When
@@ -460,7 +460,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(dataHubFileService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
-    assertNotNull(s3Util);
+    assertNotNull(objectStorageClient);
     assertNotNull(entityVersioningService);
     assertNotNull(metricUtils);
   }
@@ -516,12 +516,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testS3UtilIntegration() {
-    // Verify S3Util is properly injected and available
-    assertNotNull(s3Util, "S3Util should be injected into GraphQLEngineFactory");
-
-    // Verify S3Util is passed to the GraphQL engine
-    assertNotNull(graphQLEngine, "GraphQLEngine should be created with S3Util");
+  public void testObjectStorageClientIntegration() {
+    assertNotNull(
+        objectStorageClient, "ObjectStorageClient should be injected into GraphQLEngineFactory");
+    assertNotNull(graphQLEngine, "GraphQLEngine should be created with ObjectStorageClient");
   }
 
   private void setField(Object target, String fieldName, Object value) {

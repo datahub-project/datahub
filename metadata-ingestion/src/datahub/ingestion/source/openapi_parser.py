@@ -121,9 +121,10 @@ def get_swag_json(
 def get_url_basepath(sw_dict: dict) -> str:
     if "basePath" in sw_dict:
         return sw_dict["basePath"]
-    if "servers" in sw_dict:
-        # When the API path doesn't match the OAS path
-        return sw_dict["servers"][0]["url"]
+    if sw_dict.get("servers"):
+        # When the API path doesn't match the OAS path.
+        # Some specs declare "servers": [] or entries without a "url" key.
+        return sw_dict["servers"][0].get("url", "")
 
     return ""
 

@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.exception;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,6 +18,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
 
+  /**
+   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
+   * ValidationException} → {@link IllegalArgumentException} → {@link
+   * DatabaseTransactionConflictException} → {@link IllegalStateException} → {@link
+   * RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because {@code
+   * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
+   */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
       DataFetcherExceptionHandlerParameters handlerParameters) {
@@ -22,70 +32,99 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
     ResultPath path = handlerParameters.getPath();
 
-    DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-    String message = DEFAULT_ERROR_MESSAGE;
-
-    IllegalArgumentException illException =
-        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
-    if (illException != null) {
-      log.error("Failed to execute", illException);
-      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = extractErrorMessage(illException);
-    }
-
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
       log.error("Failed to execute", graphQLException);
-      errorCode = graphQLException.errorCode();
-      message = extractErrorMessage(graphQLException);
+      return completedResult(
+          extractErrorMessage(graphQLException),
+          graphQLException.errorCode(),
+          path,
+          sourceLocation);
     }
 
     ValidationException validationException =
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (validationException != null) {
       log.error("Failed to execute", validationException);
-      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = extractErrorMessage(validationException);
+      return completedResult(
+          extractErrorMessage(validationException),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation);
+    }
+
+    IllegalArgumentException illException =
+        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
+    if (illException != null) {
+      log.error("Failed to execute", illException);
+      return completedResult(
+          extractErrorMessage(illException),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation);
+    }
+
+    DatabaseTransactionConflictException conflictException =
+        findFirstThrowableCauseOfClass(exception, DatabaseTransactionConflictException.class);
+    if (conflictException != null) {
+      log.warn("Failed to execute", conflictException);
+      String top = conflictException.getMessage();
+      String message = (top != null && !top.isEmpty()) ? top : DEFAULT_ERROR_MESSAGE;
+      return completedResult(
+          message, DataHubGraphQLErrorCode.SERVICE_UNAVAILABLE, path, sourceLocation);
     }
 
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
-    if (message.equals(DEFAULT_ERROR_MESSAGE) && illegalStateException != null) {
+    if (illegalStateException != null) {
       log.error("Failed to execute", illegalStateException);
-      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-      message = extractErrorMessage(illegalStateException);
+      return completedResult(
+          extractErrorMessage(illegalStateException),
+          DataHubGraphQLErrorCode.SERVER_ERROR,
+          path,
+          sourceLocation);
     }
 
     RuntimeException runtimeException =
         findFirstThrowableCauseOfClass(exception, RuntimeException.class);
-    if (message.equals(DEFAULT_ERROR_MESSAGE) && runtimeException != null) {
+    if (runtimeException != null) {
       log.error("Failed to execute", runtimeException);
-      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
-      message = extractErrorMessage(runtimeException);
+      return completedResult(
+          extractErrorMessage(runtimeException),
+          DataHubGraphQLErrorCode.SERVER_ERROR,
+          path,
+          sourceLocation);
     }
 
-    if (illException == null
-        && graphQLException == null
-        && validationException == null
-        && illegalStateException == null
-        && runtimeException == null) {
-      log.error("Failed to execute", exception);
+    log.error("Failed to execute", exception);
+    return completedResult(
+        DEFAULT_ERROR_MESSAGE, DataHubGraphQLErrorCode.SERVER_ERROR, path, sourceLocation);
+  }
+
+  private static <T extends Throwable> T findFirstThrowableCauseOfClass(
+      Throwable throwable, Class<T> clazz) {
+    while (throwable != null) {
+      if (clazz.isInstance(throwable)) {
+        return clazz.cast(throwable);
+      }
+      Throwable cause = throwable.getCause();
+      if (cause == null || cause == throwable) {
+        break;
+      }
+      throwable = cause;
     }
+    return null;
+  }
+
+  private CompletableFuture<DataFetcherExceptionHandlerResult> completedResult(
+      String message,
+      DataHubGraphQLErrorCode errorCode,
+      ResultPath path,
+      SourceLocation sourceLocation) {
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
     return CompletableFuture.completedFuture(
         DataFetcherExceptionHandlerResult.newResult().error(error).build());
-  }
-
-  <T extends Throwable> T findFirstThrowableCauseOfClass(Throwable throwable, Class<T> clazz) {
-    while (throwable != null) {
-      if (clazz.isInstance(throwable)) {
-        return (T) throwable;
-      } else {
-        throwable = throwable.getCause();
-      }
-    }
-    return null;
   }
 
   /**
@@ -98,15 +137,13 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private String extractErrorMessage(Throwable exception) {
     StringBuilder message = new StringBuilder();
 
-    // Start with the top-level message
     String topLevelMessage = exception.getMessage();
     if (topLevelMessage != null && !topLevelMessage.isEmpty()) {
       message.append(topLevelMessage);
     }
 
-    // Walk the exception chain to find root causes
     Throwable cause = exception.getCause();
-    java.util.List<String> causeMessages = new java.util.ArrayList<>();
+    List<String> causeMessages = new ArrayList<>();
 
     while (cause != null && cause != cause.getCause()) {
       String causeMessage = cause.getMessage();
@@ -119,7 +156,6 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       cause = cause.getCause();
     }
 
-    // Append root cause messages
     if (!causeMessages.isEmpty()) {
       if (message.length() > 0) {
         message.append(". ");

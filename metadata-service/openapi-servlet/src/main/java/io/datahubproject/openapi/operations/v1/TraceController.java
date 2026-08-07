@@ -4,9 +4,9 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.config.messaging.KafkaOrPgQueueMessagingTransportCondition;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -98,7 +98,8 @@ public class TraceController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, traceRequestV1.keySet())) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, READ, traceRequestV1.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "

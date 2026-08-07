@@ -68,6 +68,26 @@ public class DataProductService {
       @Nullable String id,
       @Nullable String name,
       @Nullable String description) {
+    return createDataProduct(opContext, id, name, description, null);
+  }
+
+  /**
+   * Creates a new Data Product with an optional parent.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param name optional name of the DataProduct
+   * @param description optional description of the DataProduct
+   * @param parentDataProduct optional parent Data Product URN
+   * @return the urn of the newly created DataProduct
+   */
+  public Urn createDataProduct(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable Urn parentDataProduct) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
@@ -89,6 +109,7 @@ public class DataProductService {
     final DataProductProperties properties = new DataProductProperties();
     properties.setName(name, SetMode.IGNORE_NULL);
     properties.setDescription(description, SetMode.IGNORE_NULL);
+    properties.setParentDataProduct(parentDataProduct, SetMode.IGNORE_NULL);
 
     // 3. Write the new dataProduct to GMS, return the new URN.
     try {
@@ -121,6 +142,23 @@ public class DataProductService {
       @Nonnull Urn urn,
       @Nullable String name,
       @Nullable String description) {
+    return updateDataProduct(opContext, urn, name, description, null);
+  }
+
+  /**
+   * Updates an existing DataProduct. If a provided field is null, the previous value will be kept.
+   * When {@code parentDataProduct} is non-null it is written; clearing the parent is done via
+   * {@code moveDataProduct}.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   */
+  public Urn updateDataProduct(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable Urn parentDataProduct) {
     Objects.requireNonNull(urn, "urn must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
@@ -139,6 +177,9 @@ public class DataProductService {
     }
     if (description != null) {
       properties.setDescription(description);
+    }
+    if (parentDataProduct != null) {
+      properties.setParentDataProduct(parentDataProduct);
     }
 
     // 3. Write changes to GMS
