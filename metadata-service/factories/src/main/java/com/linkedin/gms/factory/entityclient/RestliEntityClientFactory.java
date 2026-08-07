@@ -6,6 +6,7 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.gms.factory.restli.RestliRequestContextResolverFactory;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.restli.RestliClientSslConfig;
@@ -17,9 +18,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 /** The Java Entity Client should be preferred if executing within the GMS service. */
 @Configuration
+@Import(RestliRequestContextResolverFactory.class)
 @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
 public class RestliEntityClientFactory {
 

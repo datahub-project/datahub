@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.usage;
 
 import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.restli.RestliRequestContextResolverFactory;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -16,8 +17,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import(RestliRequestContextResolverFactory.class)
 public class UsageClientFactory {
 
   @Value("${datahub.gms.host:localhost}")
