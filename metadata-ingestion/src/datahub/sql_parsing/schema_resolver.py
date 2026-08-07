@@ -88,8 +88,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         # Case-insensitive URN lookup, for callers that need URN identity rather than
         # columns. Unlike the schema cache it can hold URNs with no schemaMetadata.
-        # Filled by whoever bulk-loads this resolver; empty otherwise.
-        self.urn_aliases = UrnAliasResolver()
+        # Filled by whoever bulk-loads this resolver; with a graph it also resolves
+        # references the bulk load never covered, the trade-off resolve_table makes.
+        self.urn_aliases = UrnAliasResolver(graph=graph)
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
