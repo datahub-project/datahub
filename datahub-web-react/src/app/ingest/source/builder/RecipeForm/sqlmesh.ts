@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { get, omit, set } from 'lodash';
 
 import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
@@ -11,9 +12,12 @@ const getBooleanValueWithTrueDefault = (fieldPath: string) => (recipe: any) => {
 
 export const SQLMESH_PROJECT_PATH: RecipeField = {
     name: 'project_path',
-    label: 'Project Path',
-    tooltip:
-        'Filesystem path to the SQLMesh project directory (the folder containing config.py/config.yaml and the models/ directory). Must be readable by the machine running ingestion.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.projectPath.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.projectPath.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.project_path',
     placeholder: '/path/to/sqlmesh_project',
@@ -23,8 +27,12 @@ export const SQLMESH_PROJECT_PATH: RecipeField = {
 
 export const SQLMESH_ENVIRONMENT: RecipeField = {
     name: 'environment',
-    label: 'Environment',
-    tooltip: 'The SQLMesh environment to ingest from (e.g. prod, dev). Defaults to prod.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.environment.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.environment.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.environment',
     placeholder: 'prod',
@@ -33,9 +41,12 @@ export const SQLMESH_ENVIRONMENT: RecipeField = {
 
 export const SQLMESH_GATEWAY: RecipeField = {
     name: 'gateway',
-    label: 'Gateway',
-    tooltip:
-        "SQLMesh gateway name. Defaults to the project's default gateway. Required when reading state from Tobiko Cloud, since the gateway determines which state connection is used.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.gateway.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.gateway.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.gateway',
     placeholder: 'my_gateway',
@@ -44,9 +55,12 @@ export const SQLMESH_GATEWAY: RecipeField = {
 
 export const SQLMESH_TARGET_PLATFORM: RecipeField = {
     name: 'target_platform',
-    label: 'Target Platform',
-    tooltip:
-        'The warehouse platform SQLMesh writes to (e.g. snowflake, bigquery, databricks). Auto-detected from the gateway connection when left blank — only set this if auto-detection is wrong. Must match the platform in your warehouse connector recipe so sibling URNs stitch correctly.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.targetPlatform.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.targetPlatform.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.target_platform',
     placeholder: 'snowflake',
@@ -55,9 +69,12 @@ export const SQLMESH_TARGET_PLATFORM: RecipeField = {
 
 export const SQLMESH_TARGET_PLATFORM_INSTANCE: RecipeField = {
     name: 'target_platform_instance',
-    label: 'Target Platform Instance',
-    tooltip:
-        'Platform instance for the target warehouse. Must exactly match the platform_instance configured in your warehouse connector recipe so sibling URNs stitch correctly.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.targetPlatformInstance.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.targetPlatformInstance.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.target_platform_instance',
     placeholder: 'prod_snowflake',
@@ -66,9 +83,12 @@ export const SQLMESH_TARGET_PLATFORM_INSTANCE: RecipeField = {
 
 export const SQLMESH_DEFAULT_CATALOG: RecipeField = {
     name: 'default_catalog',
-    label: 'Default Catalog',
-    tooltip:
-        "Default catalog (database) prepended to two-part model names (schema.model) so warehouse sibling URNs are three-part (catalog.schema.table). Set this when your warehouse connector emits three-part URNs but SQLMesh model names omit the catalog. Example: 'analytics' turns 'star.dim_developer' into 'analytics.star.dim_developer'.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.defaultCatalog.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.defaultCatalog.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.default_catalog',
     placeholder: 'analytics',
@@ -77,9 +97,12 @@ export const SQLMESH_DEFAULT_CATALOG: RecipeField = {
 
 export const SQLMESH_TOBIKO_CLOUD_TOKEN: RecipeField = {
     name: 'tobiko_cloud_token',
-    label: 'Tobiko Cloud Token',
-    tooltip:
-        'Tobiko Cloud API token. Set this when the project runs against Tobiko Cloud and DataHub should read from the real cloud state store. Requires Gateway to be set. Leave blank for local SQLMesh projects.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.tobikoCloudToken.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.tobikoCloudToken.tooltip');
+    },
     type: FieldType.SECRET,
     fieldPath: 'source.config.tobiko_cloud_token',
     placeholder: 'tobiko_cloud_token',
@@ -89,11 +112,17 @@ export const SQLMESH_TOBIKO_CLOUD_TOKEN: RecipeField = {
 const modelAllowFieldPath = 'source.config.model_name_pattern.allow';
 export const SQLMESH_MODEL_ALLOW: RecipeField = {
     name: 'model_name_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Regex patterns for model names to include. Matched against the fully qualified model name.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.modelAllow.tooltip');
+    },
     placeholder: 'analytics.star.*',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: modelAllowFieldPath,
     rules: null,
     section: 'Models',
@@ -104,11 +133,17 @@ export const SQLMESH_MODEL_ALLOW: RecipeField = {
 const modelDenyFieldPath = 'source.config.model_name_pattern.deny';
 export const SQLMESH_MODEL_DENY: RecipeField = {
     name: 'model_name_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Regex patterns for model names to exclude. Deny patterns take precedence over allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.modelDeny.tooltip');
+    },
     placeholder: 'analytics.staging.*',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: modelDenyFieldPath,
     rules: null,
     section: 'Models',
@@ -118,8 +153,12 @@ export const SQLMESH_MODEL_DENY: RecipeField = {
 
 export const SQLMESH_ENV: RecipeField = {
     name: 'env',
-    label: 'DataHub Environment',
-    tooltip: 'The DataHub environment (Fabric) that emitted dataset URNs are stamped with, e.g. PROD, DEV.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.env.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.env.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.env',
     placeholder: 'PROD',
@@ -129,9 +168,12 @@ export const SQLMESH_ENV: RecipeField = {
 const includeSchemaPath = 'source.config.include_schema';
 export const SQLMESH_INCLUDE_SCHEMA: RecipeField = {
     name: 'include_schema',
-    label: 'Include Schema',
-    tooltip:
-        'Emit column schema metadata for each model. Disable to reduce volume when schema is already captured by a warehouse connector.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeSchema.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeSchema.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeSchemaPath,
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeSchemaPath),
@@ -141,9 +183,12 @@ export const SQLMESH_INCLUDE_SCHEMA: RecipeField = {
 const includeLineagePath = 'source.config.include_lineage';
 export const SQLMESH_INCLUDE_LINEAGE: RecipeField = {
     name: 'include_lineage',
-    label: 'Include Lineage',
-    tooltip:
-        'Emit model-to-model lineage derived from SQLMesh DAG dependencies. Disable if lineage is managed by another connector.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeLineage.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeLineagePath,
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeLineagePath),
@@ -153,9 +198,12 @@ export const SQLMESH_INCLUDE_LINEAGE: RecipeField = {
 const includeColumnLineagePath = 'source.config.include_column_lineage';
 export const SQLMESH_INCLUDE_COLUMN_LINEAGE: RecipeField = {
     name: 'include_column_lineage',
-    label: 'Include Column Lineage',
-    tooltip:
-        'Emit column-level lineage derived from SQLMesh SQL parsing (via SQLGlot). Disable for very large projects where per-column analysis is too slow.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeColumnLineage.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.includeColumnLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: includeColumnLineagePath,
     getValueFromRecipeOverride: getBooleanValueWithTrueDefault(includeColumnLineagePath),
@@ -164,9 +212,12 @@ export const SQLMESH_INCLUDE_COLUMN_LINEAGE: RecipeField = {
 
 export const SQLMESH_AUDIT_RESULTS_PATH: RecipeField = {
     name: 'audit_results_path',
-    label: 'Audit Results Path',
-    tooltip:
-        'Path to a JSON file containing SQLMesh audit pass/fail results. When set, the connector emits assertion run events so pass/fail status appears on the Data Quality tab. The file must exist at ingestion time.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.auditResultsPath.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.auditResultsPath.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.audit_results_path',
     placeholder: '/path/to/audit_results.json',
@@ -177,8 +228,12 @@ const statefulIngestionEnabledPath = 'source.config.stateful_ingestion.enabled';
 const removeStaleMetadataPath = 'source.config.stateful_ingestion.remove_stale_metadata';
 export const SQLMESH_REMOVE_STALE_METADATA: RecipeField = {
     name: 'stateful_ingestion.remove_stale_metadata',
-    label: 'Remove Stale Metadata',
-    tooltip: 'Soft-delete SQLMesh entities that are no longer present in the project between runs.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.removeStaleMetadata.label');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:sqlmesh.removeStaleMetadata.tooltip');
+    },
     type: FieldType.BOOLEAN,
     // Bind the toggle to stateful_ingestion.enabled: remove_stale_metadata is a no-op
     // unless stateful ingestion is on, so the setter flips both together to avoid an
