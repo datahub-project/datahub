@@ -7,7 +7,9 @@ import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -236,6 +238,31 @@ public class BackfillDatasetAliasesStepTest {
 
     verify(mockEntityService, never())
         .ingestProposal(any(OperationContext.class), any(), any(), eq(true));
+    verify(mockUpgrade)
+        .setUpgradeResult(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq(DataHubUpgradeState.SUCCEEDED),
+            eq(null));
+  }
+
+  @Test
+  public void testEmitFailureDoesNotStopTheScan() {
+    stubScroll(page(null, URN_MIXED_CASE, URN_OTHER));
+    doThrow(new RuntimeException("kafka down"))
+        .when(mockEntityService)
+        .ingestProposal(
+            eq(OP_CONTEXT),
+            argThat(p -> UrnUtils.getUrn(URN_MIXED_CASE).equals(p.getEntityUrn())),
+            any(),
+            eq(true));
+
+    UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // the second urn is still attempted after the first one fails
+    capturedProposals(2);
     verify(mockUpgrade)
         .setUpgradeResult(
             any(OperationContext.class),
