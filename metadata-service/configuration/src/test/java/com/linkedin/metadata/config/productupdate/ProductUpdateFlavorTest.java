@@ -19,12 +19,13 @@ public class ProductUpdateFlavorTest {
             "## Next",
             "Draft release notes for the upcoming version.",
             "## v1.7.0",
-            "## v1.5.0",
+            "## 1.8.0 — LTS",
+            "## v1.5.0 (2026-03-24)",
             // Hotfix sections are listed after the minor release they patch.
             "## v1.5.0.7"));
 
     Assert.assertEquals(
-        ProductUpdateFlavor.CORE.latestRelease(repoRoot), ReleaseVersion.parse("v1.7.0").get());
+        ProductUpdateFlavor.CORE.latestRelease(repoRoot), ReleaseVersion.parse("v1.8.0").get());
   }
 
   @Test

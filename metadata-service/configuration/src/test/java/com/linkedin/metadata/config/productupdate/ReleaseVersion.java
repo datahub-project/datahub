@@ -21,7 +21,7 @@ public final class ReleaseVersion implements Comparable<ReleaseVersion> {
   private static final List<String> SEPARATOR_SPELLINGS = List.of(".", "-", "_");
 
   /** Matches a multi-component version anywhere in free text, e.g. "Explore version v1.7.0". */
-  public static final Pattern VERSION_TOKEN = Pattern.compile("v?\\d+(?:[._]\\d+)+");
+  private static final Pattern VERSION_TOKEN = Pattern.compile("v?\\d+(?:[._]\\d+)+");
 
   private final List<Integer> components;
 

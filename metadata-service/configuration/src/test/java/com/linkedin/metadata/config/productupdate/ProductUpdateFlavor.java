@@ -65,8 +65,12 @@ public enum ProductUpdateFlavor {
     }
   };
 
-  /** A released section in updating-datahub.md, e.g. "## v1.7.0". Skips the "## Next" draft. */
-  private static final Pattern VERSIONED_HEADING = Pattern.compile("(?m)^##\\s+(v[\\d._]+)\\s*$");
+  /**
+   * A released section in updating-datahub.md. Supports both the current {@code ## v1.7.0} and
+   * historical {@code ## 1.3.0} convention, plus optional annotations after the version.
+   */
+  private static final Pattern VERSIONED_HEADING =
+      Pattern.compile("(?m)^##\\s+(v?\\d+(?:[._]\\d+)+)(?:\\s+.*)?$");
 
   /** A released cloud release note, e.g. "v_2_1_0.md". Skips "next.md". */
   private static final Pattern VERSIONED_NOTE_FILE = Pattern.compile("(v_[\\d_]+)\\.md");

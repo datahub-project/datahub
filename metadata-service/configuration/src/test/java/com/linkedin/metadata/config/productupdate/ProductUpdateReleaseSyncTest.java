@@ -30,7 +30,7 @@ public class ProductUpdateReleaseSyncTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  /** Required by ProductUpdateParser; the toast never renders if any is absent. */
+  /** Mirrors ProductUpdateParser's required-field contract; the toast never renders if absent. */
   private static final List<String> REQUIRED_FIELDS = List.of("enabled", "id", "title");
 
   private static final Pattern BUNDLED_IMAGE =
@@ -168,10 +168,10 @@ public class ProductUpdateReleaseSyncTest {
       @Nonnull ReleaseVersion declared,
       @Nonnull ReleaseVersion latest) {
     return String.format(
-        "%s shipped %s but %s still advertises %s.%n"
+        "%s shipped %s but %s still advertises %s.\n"
             + "Update its id, description, and CTA link to %s. The hosted product.datahub.com JSON"
             + " is published from this file, so connected and air-gapped instances both show"
-            + " whatever it says.%n"
+            + " whatever it says.\n"
             + "Latest release resolved from %s.",
         flavor.label(), latest, flavor.jsonPath(), declared, latest, flavor.releaseSource());
   }
