@@ -20,7 +20,7 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/shared/Loading';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { Maybe, SchemaFieldEntity } from '@src/types.generated';
 
 const PROPERTY_ROW_KEY = 'qualifiedName';
 
@@ -44,7 +44,7 @@ interface Props {
     properties?: {
         fieldPath?: string;
         fieldUrn?: string;
-        fieldProperties?: Maybe<StructuredProperties>;
+        fieldEntity?: Maybe<SchemaFieldEntity>;
         refetch?: () => void;
         disableEdit?: boolean;
         disableSearch?: boolean;
@@ -57,7 +57,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const { t: tc } = useTranslation('common.labels');
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
-    const fieldProperties = properties?.fieldProperties;
+    const fieldEntity = properties?.fieldEntity;
+    const fieldProperties = fieldEntity?.structuredProperties;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
@@ -68,11 +69,11 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         expandedRowsFromFilter,
         structuredPropertyRowsRaw,
         loading: structuredPropertiesLoading,
-    } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldProperties);
+    } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldEntity);
 
     // avoid flashing an empty table when revisiting this tab before the parent drawer's
-    // field properties have loaded
-    const isLoadingFieldProperties = !!fieldPath && !fieldProperties && structuredPropertiesLoading;
+    // field entity has loaded
+    const isLoadingFieldProperties = !!fieldPath && !fieldEntity && structuredPropertiesLoading;
 
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
