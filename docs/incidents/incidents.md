@@ -113,10 +113,18 @@ carry the `incidentsSummary` aspect. As of the current entity registry, that is:
 | Service | `urn:li:service:` |
 | AI Agent | `urn:li:aiAgent:` |
 
-Anything else is rejected at the entity layer, and nothing is written:
+Anything else is rejected and nothing is written. Two different messages come
+back for the same failure, depending on which validation the request trips
+first, so both are listed here:
 
 ```
 "urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not a valid destination"
+```
+
+```
+java.lang.RuntimeException: Invalid format for aspect: incident
+ Cause: ERROR :: /entities/0 :: "Provided urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD)" is invalid:
+        Entity type for urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not supported
 ```
 
 ML entities are worth calling out because they are a natural thing to reach for.
