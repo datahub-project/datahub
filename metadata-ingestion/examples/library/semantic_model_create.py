@@ -13,10 +13,10 @@ Run with::
 The output is written to ``semantic_model_create.json`` in the current
 directory. Inspect it to confirm the aspect shapes match the producer contract:
 URN patterns, the ``Semantic Model Dataset`` subtype, the
-``semanticModelProperties`` back-refs, the schemaField-anchored
-``semanticFieldAnnotation`` MCPs, the required-expression fallback
-(``ORDERS.order_id``), aiContext-only-when-non-empty, ``semanticModelInfo.metrics``
-containment, and ``metricUpstreams.datasetUpstreams`` pointing at SMDs.
+``semanticModelProperties`` / ``metricInfo.semanticModel`` membership pointers,
+the schemaField-anchored ``semanticFieldAnnotation`` MCPs, the required-expression
+fallback (``ORDERS.order_id``), aiContext-only-when-non-empty, and
+``metricUpstreams.datasetUpstreams`` pointing at SMDs.
 """
 
 import json

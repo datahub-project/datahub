@@ -77,7 +77,6 @@ def test_semantic_model_urn_and_core_aspects() -> None:
     assert isinstance(info, SemanticModelInfoClass)
     assert info.name == "Orders Model"
     assert info.description == "Orders semantic model"
-    assert info.datasets == []
     assert info.relationships is None
     # No aiContext when none provided.
     assert "aiContext" not in aspects
@@ -542,8 +541,7 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     model_aspects = _aspects_by_name(model)
     assert isinstance(model_aspects["status"], StatusClass)
     info = model_aspects["semanticModelInfo"]
-    assert info.datasets == [str(orders_ds.urn), str(customers_ds.urn)]
-    assert info.metrics == [str(total_revenue.urn), str(double_revenue.urn)]
+    # Membership is member-side only; SemanticModelInfo no longer lists datasets/metrics.
     assert info.relationships is not None and len(info.relationships) == 1
     assert info.relationships[0].from_ == "ORDERS"
     assert info.relationships[0].to == "CUSTOMERS"

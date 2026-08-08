@@ -329,9 +329,8 @@ def _schema_field(
 
 
 def _semantic_model_info(*dataset_urns: str) -> SemanticModelInfoClass:
-    # semanticModelInfo carries dataset URNs only; the column list lives on each
-    # of those datasets' schemaMetadata.
-    return SemanticModelInfoClass(name="sales_analytics", datasets=list(dataset_urns))
+    # Membership is member-side; semanticModelInfo no longer lists datasets.
+    return SemanticModelInfoClass(name="sales_analytics")
 
 
 def _schema_metadata(*fields: SchemaFieldClass) -> SchemaMetadataClass:
@@ -1200,8 +1199,8 @@ class TestSchemaFieldIsMetric:
 class TestMigrateSemanticModelFieldGovernance:
     SM = "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_analytics)"
     DST = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.sales_analytics,PROD)"
-    # A dataset listed in semanticModelInfo.datasets, distinct from the legacy
-    # dataset the governance is migrated onto.
+    # A logical dataset linked via IsPartOf, distinct from the legacy dataset
+    # the governance is migrated onto.
     MODEL_DATASET = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
         "test_db.public.sales_analytics_model,PROD)"
@@ -1238,8 +1237,6 @@ class TestMigrateSemanticModelFieldGovernance:
                     out[name] = schema
                 elif name == "schemaMetadata" and entity_urn == self.MODEL_DATASET:
                     out[name] = _schema_metadata(_schema_field("OrderId"))
-                elif name == "semanticModelInfo" and entity_urn == self.SM:
-                    out[name] = _semantic_model_info(self.MODEL_DATASET)
                 elif name == "globalTags" and entity_urn.startswith(
                     "urn:li:schemaField:"
                 ):
@@ -1250,9 +1247,16 @@ class TestMigrateSemanticModelFieldGovernance:
                     out[name] = None
             return out
 
+        def get_related(entity_urn, relationship_types, direction):
+            if "IsPartOf" in relationship_types:
+                return [
+                    RelatedEntity(urn=self.MODEL_DATASET, relationship_type="IsPartOf")
+                ]
+            return []
+
         graph = MagicMock()
         graph.get_aspects_for_entity.side_effect = get_aspects
-        graph.get_related_entities.return_value = []
+        graph.get_related_entities.side_effect = get_related
         graph.exists.return_value = True
 
         migrated, notes = migrate_semantic_model_field_governance(
@@ -1296,11 +1300,14 @@ class TestMigrateSemanticModelFieldGovernance:
                 return {"semanticModelInfo": None}
             return {name: None for name in aspects}
 
+        def get_related(entity_urn, relationship_types, direction):
+            if "ModeledBy" in relationship_types:
+                return [RelatedEntity(urn=self.METRIC, relationship_type="ModeledBy")]
+            return []
+
         graph = MagicMock()
         graph.get_aspects_for_entity.side_effect = get_aspects
-        graph.get_related_entities.return_value = [
-            RelatedEntity(urn=self.METRIC, relationship_type="ModeledBy")
-        ]
+        graph.get_related_entities.side_effect = get_related
 
         fields = collect_semantic_model_field_governance(
             graph, self.SM, convert_urns_to_lowercase=True
@@ -1325,17 +1332,22 @@ class TestMigrateSemanticModelFieldGovernance:
         def get_aspects(entity_urn, aspects, aspect_types):
             out: Dict[str, Optional[_Aspect]] = {}
             for name in aspects:
-                if name == "semanticModelInfo" and entity_urn == self.SM:
-                    out[name] = _semantic_model_info(self.MODEL_DATASET)
-                elif name == "schemaMetadata" and entity_urn == self.MODEL_DATASET:
+                if name == "schemaMetadata" and entity_urn == self.MODEL_DATASET:
                     out[name] = model_schema
                 else:
                     out[name] = None
             return out
 
+        def get_related(entity_urn, relationship_types, direction):
+            if "IsPartOf" in relationship_types:
+                return [
+                    RelatedEntity(urn=self.MODEL_DATASET, relationship_type="IsPartOf")
+                ]
+            return []
+
         graph = MagicMock()
         graph.get_aspects_for_entity.side_effect = get_aspects
-        graph.get_related_entities.return_value = []
+        graph.get_related_entities.side_effect = get_related
 
         fields = collect_semantic_model_field_governance(
             graph, self.SM, convert_urns_to_lowercase=False

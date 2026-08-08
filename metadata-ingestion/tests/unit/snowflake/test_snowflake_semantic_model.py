@@ -300,10 +300,7 @@ def test_semantic_model_info_datasets_and_field_grouping():
     info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
     assert info.name == "Sales_Analytics"
     assert info.description == "Sales semantic view"
-    # datasets is now an array of dataset URNs (one per logical table).
-    assert set(info.datasets) == {orders_urn, customers_urn}
-    # metrics containment list is populated from distinct metrics (may be empty).
-    assert info.metrics is not None
+    # Membership is member-side only (semanticModelProperties / metricInfo).
 
     # Each logical dataset is a dataset entity with the SEMANTIC_MODEL_DATASET
     # subtype and a semanticModelProperties back-reference to the model.
@@ -512,10 +509,6 @@ def test_metric_entities_emitted_with_derived_from_relationships():
         assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
     # Derived metric with only metric-to-metric refs has no direct SMD upstreams.
     assert not _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
-
-    # SemanticModelInfo.metrics enumerates all metrics (containment).
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    assert set(info.metrics) == {revenue_urn, count_urn, avg_urn}
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -2073,6 +2066,8 @@ def test_relationships_populated_with_aliases_matching_logical_dataset_aliases()
         semantic_view.name, _SCHEMA, _DB
     )
     info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
 
     assert info.relationships is not None
     assert len(info.relationships) == 1
@@ -2083,7 +2078,8 @@ def test_relationships_populated_with_aliases_matching_logical_dataset_aliases()
     # relationship references resolve.
     aliases = {
         _aspects_for(workunits, urn, SemanticModelPropertiesClass)[0].alias: urn
-        for urn in info.datasets
+        for urn in (orders_urn, customers_urn)
+        if _aspects_for(workunits, urn, SemanticModelPropertiesClass)
     }
     assert relationship.from_ in aliases
     assert relationship.to in aliases
@@ -2153,8 +2149,9 @@ def test_relationship_join_columns_normalized_to_match_field_paths():
 
     # Each join key must actually exist as a field path on its logical dataset.
     alias_to_urn = {
-        _aspects_for(workunits, urn, SemanticModelPropertiesClass)[0].alias: urn
-        for urn in info.datasets
+        props.alias: urn
+        for urn in (_logical_dataset_urn(mapper, lt) for lt in ("ORDERS", "CUSTOMERS"))
+        for props in _aspects_for(workunits, urn, SemanticModelPropertiesClass)[:1]
     }
     from_fields = _schema_fields_by_path(workunits, alias_to_urn[relationship.from_])
     to_fields = _schema_fields_by_path(workunits, alias_to_urn[relationship.to])

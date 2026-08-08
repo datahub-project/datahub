@@ -141,18 +141,18 @@ class SemanticModel(
     """A semantic model: a container of logical datasets, relationships, and metrics.
 
     The semantic model groups logical datasets (with dimensional context) and
-    the business metrics calculated over them. Each logical dataset it
-    exposes is its own ``dataset`` entity (subtype ``Semantic Model Dataset``)
-    carrying a ``semanticModelProperties`` back-reference; metrics point back
-    at the model via ``metricInfo.semanticModel`` (``ModeledBy``, non-lineage)
-    and are also enumerated on ``semanticModelInfo.metrics``.
+    the business metrics calculated over them. Membership is member-side only:
+    each logical dataset carries ``semanticModelProperties.semanticModel``
+    (``IsPartOf``), and each metric carries ``metricInfo.semanticModel``
+    (``ModeledBy``). There are no ``datasets`` / ``metrics`` arrays on
+    ``semanticModelInfo``.
 
     The canonical lineage chain is::
 
         Metric -> Logical Dataset -> Physical Dataset
 
     expressed by ``metricUpstreams.datasetUpstreams`` (Metric → SMD) and each
-    logical dataset's own ``upstreamLineage`` (SMD → Physical). 
+    logical dataset's own ``upstreamLineage`` (SMD → Physical).
 
     Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
@@ -160,7 +160,11 @@ class SemanticModel(
     preflight helper.
     """
 
-    __slots__ = ("_attached_logical_datasets",)
+    __slots__ = (
+        "_attached_logical_datasets",
+        "_declared_dataset_urns",
+        "_declared_metric_urns",
+    )
 
     @classmethod
     def get_urn_type(cls) -> Type[SemanticModelUrn]:
@@ -197,6 +201,8 @@ class SemanticModel(
         # Status is part of the producer contract for this entity.
         self._set_aspect(StatusClass(removed=False))
         self._attached_logical_datasets: List["SemanticModelDataset"] = []
+        self._declared_dataset_urns: List[str] = []
+        self._declared_metric_urns: List[str] = []
         self._ensure_model_props()
 
         if name is not None:
@@ -299,8 +305,12 @@ class SemanticModel(
 
     @property
     def datasets(self) -> List[str]:
-        props = self._ensure_model_props()
-        return list(props.datasets) if props.datasets else []
+        """URNs of logical datasets attached via :meth:`add_dataset` / ``datasets=``.
+
+        Membership itself is stored on each dataset's
+        ``semanticModelProperties.semanticModel``, not on this model.
+        """
+        return list(self._declared_dataset_urns)
 
     def add_dataset(self, dataset: SemanticModelDatasetInputType) -> None:
         """Attach a logical dataset to this model.
@@ -309,6 +319,8 @@ class SemanticModel(
         ``semanticModelProperties.semanticModel`` back-reference is reconciled
         to this model's URN (so the caller does not have to set it twice) and
         its alias is left as the source of truth for relationship join paths.
+        Bare URN strings are tracked for local validation only — the caller
+        must still author ``semanticModelProperties`` on that dataset.
 
         Insertion order is preserved across re-emits.
         """
@@ -318,39 +330,37 @@ class SemanticModel(
             self._attached_logical_datasets.append(dataset)
         else:
             ds_urn = str(dataset)
-        props = self._ensure_model_props()
-        if props.datasets is None:
-            props.datasets = []
-        if ds_urn not in props.datasets:
-            props.datasets.append(ds_urn)
+        if ds_urn not in self._declared_dataset_urns:
+            self._declared_dataset_urns.append(ds_urn)
 
     def set_datasets(self, datasets: Sequence[SemanticModelDatasetInputType]) -> None:
-        self._ensure_model_props().datasets = []
         self._attached_logical_datasets = []
+        self._declared_dataset_urns = []
         # Normalize so a bare dataset URN string isn't iterated character-by-char.
         for dataset in as_input_list(datasets):
             self.add_dataset(dataset)
 
     @property
     def metrics(self) -> List[str]:
-        props = self._ensure_model_props()
-        return list(props.metrics) if props.metrics else []
+        """URNs of metrics attached via :meth:`add_metric` / ``metrics=``.
+
+        Membership itself is stored on each metric's ``metricInfo.semanticModel``,
+        not on this model.
+        """
+        return list(self._declared_metric_urns)
 
     def add_metric(self, metric: MetricInputType) -> None:
-        """Attach a metric URN to this model's containment list.
+        """Track a metric URN as belonging to this model.
 
-        Insertion order is preserved across re-emits. The metric entity itself
-        should still set ``metricInfo.semanticModel`` as the reverse pointer.
+        Insertion order is preserved. The metric entity itself must set
+        ``metricInfo.semanticModel`` — this method does not write membership.
         """
         metric_urn = str(metric)
-        props = self._ensure_model_props()
-        if props.metrics is None:
-            props.metrics = []
-        if metric_urn not in props.metrics:
-            props.metrics.append(metric_urn)
+        if metric_urn not in self._declared_metric_urns:
+            self._declared_metric_urns.append(metric_urn)
 
     def set_metrics(self, metrics: Sequence[MetricInputType]) -> None:
-        self._ensure_model_props().metrics = []
+        self._declared_metric_urns = []
         for metric in as_input_list(metrics):
             self.add_metric(metric)
 
@@ -389,7 +399,7 @@ class SemanticModel(
 
     def _attached_datasets_by_urn(self) -> Dict[str, "SemanticModelDataset"]:
         # Keyed by URN so duplicate attachments of the same dataset collapse,
-        # matching how props.datasets dedupes URNs.
+        # matching how _declared_dataset_urns dedupes URNs.
         return {str(ds.urn): ds for ds in self._attached_logical_datasets}
 
     def _attached_dataset_aliases(self) -> Set[str]:
@@ -469,7 +479,7 @@ class SemanticModel(
         # mixes no longer break coverage detection. An empty declared set with
         # relationships present is full coverage too — the aliases can't match
         # anything, which is exactly the broken case we want to raise on.
-        declared_urns = set(props.datasets or [])
+        declared_urns = set(self._declared_dataset_urns)
         full_coverage = declared_urns <= set(attached_by_urn)
 
         for rel in rels:

@@ -157,17 +157,6 @@ class SnowflakeSemanticModelMapper:
             semantic_view=semantic_view,
         )
 
-        metric_urns = [
-            self.identifiers.gen_metric_urn(
-                occurrence.name,
-                semantic_view.name,
-                schema_name,
-                db_name,
-                logical_table=key.logical_table_upper,
-            )
-            for key, occurrence in distinct_metrics.items()
-        ]
-
         # Semantic model entity.
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn, aspect=StatusClass(removed=False)
@@ -175,9 +164,7 @@ class SnowflakeSemanticModelMapper:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=self._build_semantic_model_info(
-                semantic_view, logical_dataset_urns, metric_urns
-            ),
+            aspect=self._build_semantic_model_info(semantic_view),
         ).as_workunit()
 
         yield from self._gen_common_entity_aspects(
@@ -224,9 +211,9 @@ class SnowflakeSemanticModelMapper:
     def _build_semantic_model_info(
         self,
         semantic_view: SnowflakeSemanticView,
-        logical_dataset_urns: "Dict[str, str]",
-        metric_urns: List[str],
     ) -> SemanticModelInfoClass:
+        # Membership lives on members (metricInfo.semanticModel /
+        # semanticModelProperties.semanticModel), not on this aspect.
         return SemanticModelInfoClass(
             name=semantic_view.name,
             description=semantic_view.comment,
@@ -237,8 +224,6 @@ class SnowflakeSemanticModelMapper:
                 if self.config.include_view_definitions
                 else None
             ),
-            datasets=list(logical_dataset_urns.values()),
-            metrics=list(metric_urns),
             relationships=self._build_relationships(semantic_view),
         )
 
