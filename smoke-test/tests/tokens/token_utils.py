@@ -111,8 +111,10 @@ def wait_for_tokens_matching(
         res_data = list_access_tokens(session, filters)
         assert res_data
         assert res_data["data"]
-        last_listing = res_data["data"]["listAccessTokens"]
-        tokens = last_listing.get("tokens") or []
+        listing = res_data["data"]["listAccessTokens"]
+        assert listing is not None
+        last_listing = listing
+        tokens = listing.get("tokens") or []
         if len(tokens) == expected_count:
             return res_data
         time.sleep(1)
