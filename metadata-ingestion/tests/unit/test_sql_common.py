@@ -264,3 +264,69 @@ def test_fine_grained_lineages(
 
     assert actual_downstream == expected_simplified_downstream
     assert actual_upstream == expected_simplified_upstream
+
+
+class _PoolTestConfig(SQLCommonConfig):
+    """Minimal config whose SQLAlchemy URL is settable per test."""
+
+    uri: str = "mysql+pymysql://user:pass@localhost:5330"
+
+    def get_sql_alchemy_url(self):
+        return self.uri
+
+
+class _PoolTestSource(SQLAlchemySource):
+    def __init__(self, config, ctx):
+        super().__init__(config, ctx, "test")
+
+    def get_platform_instance_id(self) -> str:
+        return "test_instance"
+
+
+def _source(uri: str, profiling: bool) -> _PoolTestSource:
+    config = _PoolTestConfig(uri=uri)
+    config.profiling.enabled = profiling
+    with mock.patch.object(SQLAlchemySource, "get_inspectors", return_value=[]):
+        return _PoolTestSource(config, PipelineContext(run_id="test"))
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "sqlite:///tmp/test.db",  # -> NullPool
+        "sqlite://",  # -> SingletonThreadPool
+    ],
+)
+def test_max_overflow_is_not_injected_for_non_queue_pool_dialects(uri: str) -> None:
+    """`max_overflow` is a QueuePool-only option and SQLAlchemy raises TypeError
+    rather than ignoring it, so injecting it unconditionally made *enabling
+    profiling* turn a working SQLite recipe into a hard failure producing zero
+    events:
+
+        TypeError: Invalid argument(s) 'max_overflow' sent to create_engine(),
+        using configuration SQLiteDialect_pysqlite/NullPool/Engine.
+    """
+    source = _source(uri, profiling=True)
+    source._add_default_options(source.config)
+    assert "max_overflow" not in source.config.options
+
+
+def test_max_overflow_is_still_injected_for_queue_pool_dialects() -> None:
+    """The pooling behaviour this option exists for must be unchanged."""
+    source = _source("mysql+pymysql://user:pass@localhost:5330", profiling=True)
+    source._add_default_options(source.config)
+    assert source.config.options["max_overflow"] == source.config.profiling.max_workers
+
+
+def test_max_overflow_is_not_injected_when_profiling_is_disabled() -> None:
+    source = _source("mysql+pymysql://user:pass@localhost:5330", profiling=False)
+    source._add_default_options(source.config)
+    assert "max_overflow" not in source.config.options
+
+
+def test_an_unresolvable_dialect_keeps_the_previous_behaviour() -> None:
+    """get_dialect() raises NoSuchModuleError for a dialect whose driver is not
+    installed. Defaulting to True there means this change can only ever withhold
+    an option that would have raised, never one that worked."""
+    source = _source("not-a-real-dialect://host/db", profiling=True)
+    assert source._uses_queue_pool(source.config) is True
