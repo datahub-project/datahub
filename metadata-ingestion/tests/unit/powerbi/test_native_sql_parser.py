@@ -1,6 +1,7 @@
 from typing import List, Set
 
 import pytest
+import sqlglot
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser
@@ -323,3 +324,199 @@ def test_remove_tsql_control_statements_multiple_go_collapse():
 def test_is_single_statement_none_platform():
     # None platform must not crash — falls back gracefully to the default dialect.
     assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", None)  # type: ignore[arg-type]
+
+
+def test_extract_external_queries_basic():
+    # EXTERNAL_QUERY federation: the connection id and inner SQL are extracted, and the
+    # outer query is rewritten with the federation stripped so it no longer references it.
+    query = (
+        'with tab as (SELECT * FROM EXTERNAL_QUERY("proj.us-east1.conn", '
+        '"SELECT a FROM ext_schema.ext_table WHERE x = 1;")) SELECT a FROM tab'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert extraction.references[0].connection == "proj.us-east1.conn"
+    assert (
+        extraction.references[0].inner_sql
+        == "SELECT a FROM ext_schema.ext_table WHERE x = 1;"
+    )
+    # The federation must not survive into the rewritten outer query.
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    assert "ext_table" not in extraction.rewritten_query
+
+
+def test_extract_external_queries_none_present():
+    # A plain BigQuery query has no federation: no references and the query is unchanged.
+    query = "SELECT a FROM project.dataset.my_table"
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.references == []
+    assert extraction.parse_failed is False
+    assert extraction.rewritten_query == query
+
+
+def test_extract_external_queries_multiple():
+    # Multiple aliased federations joined on their aliases: all are extracted, and the
+    # rewrite must preserve each source's alias so the join condition stays valid.
+    query = (
+        'SELECT * FROM EXTERNAL_QUERY("proj.r1.conn_a", "SELECT a FROM s.t_a") a '
+        'JOIN EXTERNAL_QUERY("proj.r2.conn_b", "SELECT b FROM s.t_b") b ON a.id = b.id'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert {r.connection for r in extraction.references} == {
+        "proj.r1.conn_a",
+        "proj.r2.conn_b",
+    }
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    # Original aliases must survive so the ON a.id = b.id join is not left dangling.
+    reparsed = sqlglot.parse_one(extraction.rewritten_query, dialect="bigquery")
+    aliases = {alias.name for alias in reparsed.find_all(sqlglot.exp.TableAlias)}
+    assert {"a", "b"}.issubset(aliases)
+
+
+def test_extract_external_queries_unaliased_get_unique_aliases():
+    # Two unaliased federations must not collapse onto the same placeholder alias.
+    query = (
+        'SELECT * FROM EXTERNAL_QUERY("proj.r1.conn_a", "SELECT a FROM s.t_a") '
+        'CROSS JOIN EXTERNAL_QUERY("proj.r2.conn_b", "SELECT b FROM s.t_b")'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert len(extraction.references) == 2
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    reparsed = sqlglot.parse_one(extraction.rewritten_query, dialect="bigquery")
+    placeholder_aliases = [
+        alias.name
+        for alias in reparsed.find_all(sqlglot.exp.TableAlias)
+        if alias.name.startswith("pbi_federation_source")
+    ]
+    assert len(placeholder_aliases) == len(set(placeholder_aliases)) == 2
+
+
+def test_extract_external_queries_with_options_arg():
+    # BigQuery EXTERNAL_QUERY accepts an optional third JSON options argument; the
+    # federation must still be extracted from the first two (connection, sql) args.
+    query = (
+        'SELECT * FROM EXTERNAL_QUERY("proj.us-east1.conn", '
+        '"SELECT a FROM s.t", \'{"query_timeout_ms": 60000}\')'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert extraction.references[0].connection == "proj.us-east1.conn"
+    assert extraction.references[0].inner_sql == "SELECT a FROM s.t"
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+
+
+def test_external_query_extraction_rejects_contradictory_parse_failed():
+    # A parse failure means the tree could not be walked, so it must carry no federations;
+    # constructing a contradictory instance is an error, not a silently-accepted state.
+    with pytest.raises(ValueError):
+        native_sql_parser.ExternalQueryExtraction(
+            references=[
+                native_sql_parser.ExternalQueryReference(
+                    connection="proj.r.conn", inner_sql="SELECT 1"
+                )
+            ],
+            rewritten_query="SELECT 1",
+            parse_failed=True,
+        )
+
+
+def test_extract_external_queries_outside_table_position_is_unresolvable():
+    # EXTERNAL_QUERY in a scalar/SELECT position (not FROM/JOIN) can't be cleanly stripped,
+    # so it must be recorded unresolvable AND left in place (unlike the stripped cases), so
+    # the query is returned unchanged.
+    query = 'SELECT EXTERNAL_QUERY("proj.r.conn", "SELECT a FROM s.t") AS c FROM dbo.T'
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    # Not in a table position: cannot rewrite, so the query is returned untouched.
+    assert extraction.rewritten_query == query
+
+
+def test_extract_external_queries_too_few_args_is_unresolvable_but_stripped():
+    # A malformed EXTERNAL_QUERY with fewer than two args can't be resolved, but since it
+    # sits in a FROM position it is still stripped so the outer parse emits no bogus URN.
+    query = 'SELECT * FROM EXTERNAL_QUERY("proj.r.conn")'
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+
+
+def test_extract_external_queries_non_literal_args_are_unresolvable():
+    # Non-string-literal arguments (e.g. numbers/params) can't yield a connection id or
+    # inner SQL, so no reference is produced and the call is recorded as unresolvable so
+    # the caller can surface the dropped federated lineage.
+    query = "SELECT * FROM EXTERNAL_QUERY(123, 456)"
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert extraction.references == []
+    assert len(extraction.unresolvable) == 1
+    assert "EXTERNAL_QUERY" in extraction.unresolvable[0].upper()
+
+
+def test_extract_external_queries_unparseable_flags_parse_failed():
+    # An unparseable outer query is a no-op (no raise), returns the original query, and
+    # flags parse_failed so the caller can report the federated lineage it lost.
+    query = "this is not sql EXTERNAL_QUERY("
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.references == []
+    assert extraction.rewritten_query == query
+    assert extraction.parse_failed is True
+
+
+def test_extract_external_queries_multi_statement_preserves_all_statements():
+    # A multi-statement query with a federation in a later statement: the federation must
+    # be extracted and every statement (including the native one that has no federation)
+    # must survive into the rewritten query, so its native upstreams aren't dropped.
+    query = (
+        "SELECT a FROM project.dataset.native_table;\n"
+        'SELECT * FROM EXTERNAL_QUERY("proj.r.conn", "SELECT b FROM s.t")'
+    )
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert extraction.references[0].connection == "proj.r.conn"
+    # The federation is stripped, but the native statement must not be discarded.
+    assert "EXTERNAL_QUERY" not in extraction.rewritten_query.upper()
+    assert "native_table" in extraction.rewritten_query
+
+
+def test_extract_external_queries_preserves_tsql_control_statements_in_literal():
+    # Federation extract must see the raw EXTERNAL_QUERY literal. Running
+    # remove_tsql_control_statements first rewrites USE/GO inside the string
+    # (regex ignores quote boundaries); callers must extract before that cleanup.
+    query = """SELECT * FROM EXTERNAL_QUERY(
+  'proj.us.conn',
+  '
+USE Reports
+GO
+SELECT id FROM dbo.Orders
+'
+)"""
+    extraction = native_sql_parser.extract_external_queries(query, "bigquery")
+    assert extraction.parse_failed is False
+    assert len(extraction.references) == 1
+    assert "USE Reports" in extraction.references[0].inner_sql
+    assert "GO" in extraction.references[0].inner_sql
+
+    corrupted = native_sql_parser.remove_tsql_control_statements(query)
+    corrupted_extraction = native_sql_parser.extract_external_queries(
+        corrupted, "bigquery"
+    )
+    assert len(corrupted_extraction.references) == 1
+    assert "USE Reports" not in corrupted_extraction.references[0].inner_sql
+    assert "GO" not in corrupted_extraction.references[0].inner_sql

@@ -139,6 +139,7 @@ class Constant:
     STATE = "state"
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
     USERS = "users"
@@ -265,6 +266,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Per EXTERNAL_QUERY connection (not per upstream table URN).
+    m_query_external_query_connections_resolved: int = 0
+    m_query_external_query_connections_unmapped: int = 0
+    m_query_external_query_parse_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -302,6 +307,15 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("must not be empty or whitespace")
+    return stripped
+
+
 class OraclePlatformDetail(PlatformDetail):
     default_schema: Optional[str] = pydantic.Field(
         default=None,
@@ -326,13 +340,8 @@ class OraclePlatformDetail(PlatformDetail):
 
     @field_validator("default_schema", "default_database")
     @classmethod
-    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("must not be empty or whitespace")
-        return stripped
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
     # Requires at least one knob. This is also relied on to disambiguate
     # OraclePlatformDetail from a plain PlatformDetail in the
@@ -414,6 +423,54 @@ class AthenaPlatformOverride(ConfigModel):
         description="Optional DSN to scope this override to a specific data source. "
         "If specified, this override only applies when the query comes from this DSN.",
     )
+
+
+class BigQueryExternalQueryPlatformDetail(PlatformDetail):
+    """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
+
+    BigQuery federation (``EXTERNAL_QUERY(connection, sql)``) runs the inner SQL on an
+    external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL). The
+    connection id (``project.region.connection``) does not reveal the external platform,
+    so this mapping supplies it, letting PowerBI lineage point at the real upstream table
+    on that platform instead of failing to resolve a URN. ``platform`` must be a
+    recognized DataHub platform (see ``SupportedDataPlatform``).
+    """
+
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="Target DataHub platform of the external source the EXTERNAL_QUERY "
+        "federates to (e.g. 'postgres', 'mysql', 'snowflake').",
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Database prepended to unqualified or 2-part table names in the "
+        "federated (inner) SQL. The EXTERNAL_QUERY connection id does not carry the "
+        "external database name, so set this when your external source's ingestion emits "
+        "3-part database.schema.table URNs so the lineage URNs match.",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Schema applied to unqualified table references in the federated "
+        "(inner) SQL.",
+    )
+
+    @field_validator("platform")
+    @classmethod
+    def _validate_known_platform(cls, value: str) -> str:
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+        if value not in known_platforms:
+            raise ValueError(
+                f"platform '{value}' is not a recognized DataHub platform. "
+                f"Known platforms: {sorted(known_platforms)}."
+            )
+        return value
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
 
 # Workspace ``type`` values returned by the PowerBI admin API for personal
@@ -545,6 +602,22 @@ class PowerBiDashboardSourceConfig(
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
+    )
+    bigquery_external_query_connection_to_platform: Dict[
+        str, BigQueryExternalQueryPlatformDetail
+    ] = pydantic.Field(
+        default={},
+        description="Mapping from a BigQuery ``EXTERNAL_QUERY`` connection id "
+        "(``project.region.connection``, the first argument of EXTERNAL_QUERY) to the "
+        "external source it federates to. BigQuery federation runs the inner SQL on an "
+        "external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL); "
+        "configure this so PowerBI lineage resolves to the real upstream table on that "
+        "platform instead of failing. The value sets the target `platform` (required, "
+        "must be a recognized DataHub platform such as `postgres` or `mysql`, and its "
+        "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
+        "plus optional `platform_instance`, `env`, `default_database`, and "
+        "`default_schema`. Requires `native_query_parsing` and "
+        "`enable_advance_lineage_sql_construct`.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -758,6 +831,29 @@ class PowerBiDashboardSourceConfig(
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_external_query_requires_advanced_sql(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # Federation resolution only runs inside parse_custom_sql when both flags are on.
+        # Fail fast so a configured mapping cannot silently no-op.
+        if not self.bigquery_external_query_connection_to_platform:
+            return self
+        missing = [
+            flag
+            for flag in (
+                "native_query_parsing",
+                "enable_advance_lineage_sql_construct",
+            )
+            if not getattr(self, flag)
+        ]
+        if missing:
+            raise ValueError(
+                "bigquery_external_query_connection_to_platform requires these "
+                f"flags enabled: {missing}"
+            )
         return self
 
     @field_validator("server_to_platform_instance", mode="after")
