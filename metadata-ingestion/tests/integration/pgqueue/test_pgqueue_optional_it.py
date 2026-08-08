@@ -10,18 +10,19 @@ from typing import Callable, ContextManager, Dict, Iterator, List
 
 import pytest
 import pytest_docker.plugin
-from psycopg2.extensions import connection as PGConnection
+from psycopg2.extensions import connection as PGConnection, quote_ident
 
 from datahub.pgqueue.config import PgQueueConnectionConfig
 from datahub.pgqueue.connection import create_pgqueue_connection
 from datahub.pgqueue.repository import PgQueueReceivedMessage, PgQueueRepository
 from tests.test_helpers.docker_helpers import wait_for_port
 
+POSTGRES_SERVICE = "pgqueue-postgres"
 POSTGRES_CONTAINER = "pgqueue-it-postgres"
-POSTGRES_PORT = 15432
 QUEUE_SCHEMA = "queue"
 TABLE_PREFIX = "metadata_queue"
 TOPIC_NAME = "MetadataChangeLog_Versioned_v1"
+RETENTION_BATCH_DELETE_LIMIT = "5000"
 UNRESOLVED_TOKEN = re.compile(r"__[A-Z0-9_]+__")
 DockerComposeRunner = Callable[
     [Path, str], ContextManager[pytest_docker.plugin.Services]
@@ -63,6 +64,31 @@ def _apply_pgqueue_sqlsetup(connection: PGConnection, repository_root: Path) -> 
         cursor.execute(f'SET search_path TO "{QUEUE_SCHEMA}", public')
         cursor.execute(schema_sql)
         cursor.execute(partman_sql)
+        cursor.execute(
+            """
+            SELECT n.nspname
+            FROM pg_extension e
+            INNER JOIN pg_namespace n ON n.oid = e.extnamespace
+            WHERE e.extname = 'pg_partman'
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        partman_schema = quote_ident(str(row[0]), connection)
+        parent_table = f"{QUEUE_SCHEMA}.{TABLE_PREFIX}_message".replace("'", "''")
+        maintenance_sql = _render_migration(
+            migrations / "R__maintenance_functions.sql",
+            {
+                "__PGQUEUE_PREFIX__": TABLE_PREFIX,
+                "__PGQUEUE_SCHEMA__": quote_ident(QUEUE_SCHEMA, connection),
+                "__BATCH_DELETE_LIMIT__": RETENTION_BATCH_DELETE_LIMIT,
+                "__PGQUEUE_APPLY_RETENTION_PARTMAN_TAIL__": (
+                    f"    PERFORM {partman_schema}.run_maintenance('{parent_table}');\n"
+                ),
+            },
+        )
+        cursor.execute(maintenance_sql)
 
 
 @pytest.fixture(scope="module")
@@ -77,8 +103,9 @@ def pgqueue_config(
             5432,
             timeout=120,
         )
+        postgres_port = services.port_for(POSTGRES_SERVICE, 5432)
         config = PgQueueConnectionConfig(
-            host_port=f"localhost:{POSTGRES_PORT}",
+            host_port=f"localhost:{postgres_port}",
             database="datahub",
             username="datahub",
             password="datahub",
@@ -131,6 +158,7 @@ def test_unacked_message_is_redelivered_then_advances_offset(
             content_type="application/avro",
             headers=(("trace-id", b"pgqueue-live-it"),),
         )
+        repository.apply_topic_retention(first_connection)
         topic = repository.fetch_topic_row(first_connection, TOPIC_NAME)
         assert topic is not None
         topic_id, _, _ = topic

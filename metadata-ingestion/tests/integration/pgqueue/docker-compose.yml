@@ -7,4 +7,4 @@ services:
       POSTGRES_PASSWORD: "datahub"
       POSTGRES_DB: "datahub"
     ports:
-      - "15432:5432"
+      - "5432"
