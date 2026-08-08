@@ -49,7 +49,6 @@ def _ensure_domain_readable(
     return domain
 
 
-@pytest.mark.dependency()
 def test_create_list_get_domain(auth_session):
     # Run-unique id so parallel workers never collide on urn:li:domain:test id.
     domain_id = f"test-id-{unique_suffix()}"
@@ -88,7 +87,6 @@ def test_create_list_get_domain(auth_session):
             logger.warning("Failed to clean up domain %s: %s", domain_urn, exc)
 
 
-@pytest.mark.dependency(depends=["test_create_list_get_domain"])
 def test_set_unset_domain(auth_session, dataset_urn):
     # Set and Unset a Domain for a dataset. Note that this doesn't test for adding domains to charts, dashboards, charts, & jobs.
     domain_urn = "urn:li:domain:engineering"
