@@ -69,8 +69,7 @@ check() {
     "${name}" "${expected:-<none>}" "${actual:-<none>}"
 }
 
-SERVER=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job"
-ALL="${SERVER},:datahub-frontend,:datahub-actions"
+ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions"
 
 echo "nothing that reaches an image"
 check "smoke-test only" "" 'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
@@ -80,34 +79,24 @@ check "compose templates only" "" 'CHANGED_FILES=["docker/profiles/docker-compos
 check "quickstart version map" "" 'CHANGED_FILES=["docker/quickstart/quickstart_version_mapping.yaml"]'
 check "datahub-agent-context" "" 'CHANGED_FILES=["datahub-agent-context/tests/unit/a.py"]'
 
-echo "ui code does not rebuild the server"
-check "datahub-web-react" ":datahub-frontend" 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
-check "datahub-frontend play app" ":datahub-frontend" 'CHANGED_FILES=["datahub-frontend/app/auth/Auth.java"]'
-check "frontend dockerfile" ":datahub-frontend" 'CHANGED_FILES=["docker/datahub-frontend/Dockerfile"]'
-
-echo "server business logic does not rebuild the ui"
-check "metadata-io" "${SERVER}" 'CHANGED_FILES=["metadata-io/src/main/java/A.java"]'
-check "metadata-jobs" "${SERVER}" 'CHANGED_FILES=["metadata-jobs/mae-consumer/src/main/java/A.java"]'
-check "datahub-upgrade" "${SERVER}" 'CHANGED_FILES=["datahub-upgrade/src/main/java/A.java"]'
-check "metadata-service internals" "${SERVER}" 'CHANGED_FILES=["metadata-service/factories/src/main/java/A.java"]'
-check "ingestion-scheduler" "${SERVER}" 'CHANGED_FILES=["ingestion-scheduler/gradle.lockfile"]'
-check "graphql resolvers" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/A.java"]'
-# Compile-only input to the frontend (TS types, erased at runtime). Reusing the
-# published frontend tests an existing client against the new schema instead.
-check "graphql schema resource" "${SERVER}" 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
-
-echo "runtime-shared code rebuilds both sides"
-check "restli-client (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["metadata-service/restli-client/src/main/java/A.java"]'
-check "entity-registry (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["entity-registry/src/main/java/A.java"]'
-check "li-utils (frontend runs it)" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
-# Generated data types, not executable code: clients emit only what their own
-# code populates, and MCL carries aspects as an opaque blob.
-check "metadata-models rebuilds server only" "${SERVER}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
-
 echo "ingestion only rebuilds actions"
 check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
 check "datahub-actions" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/src/x.py"]'
 check "shared docker snippets" ":datahub-actions" 'CHANGED_FILES=["docker/snippets/ingestion_base"]'
+check "ingestion plus docs" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","docs/a.md","smoke-test/tests/b_test.py"]'
+
+echo "any JVM-image path builds the full set (measured: narrowing saved nothing)"
+check "datahub-web-react" "${ALL}" 'CHANGED_FILES=["datahub-web-react/src/App.tsx"]'
+check "datahub-frontend play app" "${ALL}" 'CHANGED_FILES=["datahub-frontend/app/auth/Auth.java"]'
+check "metadata-io" "${ALL}" 'CHANGED_FILES=["metadata-io/src/main/java/A.java"]'
+check "metadata-jobs" "${ALL}" 'CHANGED_FILES=["metadata-jobs/mae-consumer/src/main/java/A.java"]'
+check "metadata-service internals" "${ALL}" 'CHANGED_FILES=["metadata-service/factories/src/main/java/A.java"]'
+check "graphql schema or resolvers" "${ALL}" 'CHANGED_FILES=["datahub-graphql-core/src/main/resources/entity.graphql"]'
+check "metadata-models" "${ALL}" 'CHANGED_FILES=["metadata-models/src/main/pegasus/com/linkedin/common/A.pdl"]'
+check "shared library" "${ALL}" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
+check "ingestion-scheduler" "${ALL}" 'CHANGED_FILES=["ingestion-scheduler/gradle.lockfile"]'
+check "service dockerfile" "${ALL}" 'CHANGED_FILES=["docker/datahub-gms/Dockerfile"]'
+check "ingestion plus jvm" "${ALL}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","metadata-io/src/main/java/A.java"]'
 
 echo "unclassified paths force a full build"
 check "root build.gradle" "${ALL}" 'CHANGED_FILES=["build.gradle"]'
@@ -115,12 +104,7 @@ check "smoke-test plus root build.gradle" "${ALL}" 'CHANGED_FILES=["smoke-test/t
 check "gradle wrapper" "${ALL}" 'CHANGED_FILES=["gradle/wrapper/gradle-wrapper.properties"]'
 check "buildSrc" "${ALL}" 'CHANGED_FILES=["buildSrc/src/main/java/A.java"]'
 check "workflow definitions" "${ALL}" 'CHANGED_FILES=[".github/workflows/docker-unified.yml"]'
-check "shared docker build machinery" "${ALL}" 'CHANGED_FILES=["docker/build.gradle"]'
 check "a brand new top-level module" "${ALL}" 'CHANGED_FILES=["some-new-module/src/A.java"]'
-
-echo "combinations union rather than override"
-check "ui plus server business logic" "${SERVER},:datahub-frontend" 'CHANGED_FILES=["datahub-web-react/src/App.tsx","metadata-io/src/main/java/A.java"]'
-check "ingestion plus ui" ":datahub-frontend,:datahub-actions" 'CHANGED_FILES=["datahub-web-react/src/App.tsx","metadata-ingestion/src/datahub/x.py"]'
 
 echo "backstops"
 check "build-images label" \

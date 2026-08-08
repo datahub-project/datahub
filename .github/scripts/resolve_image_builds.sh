@@ -36,39 +36,24 @@ IMAGES=(
   ":datahub-actions|datahub-actions|DATAHUB_ACTIONS_VERSION|-slim"
 )
 
-SERVER=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-job :metadata-jobs:mce-consumer-job"
-UI=":datahub-frontend"
 ACTIONS=":datahub-actions"
-EVERYTHING="${SERVER} ${UI} ${ACTIONS}"
+EVERYTHING=":metadata-service:war :datahub-upgrade :metadata-jobs:mae-consumer-job :metadata-jobs:mce-consumer-job :datahub-frontend ${ACTIONS}"
 
 # Which images a changed path can affect: "<prefix>|<space separated modules>".
 # First matching prefix wins, so specific prefixes precede general ones. An
 # empty module list means the path cannot change any image.
 #
-# These images exist to be integration-tested, so the question each rule answers
-# is "can this change alter what the running process does" -- NOT "does this
-# change appear anywhere in that image's compile graph". The two differ, and
-# conflating them is expensive. Compile-only breakage is the job of the lint and
-# build workflows; it should not cost an image rebuild here.
-#
-# The clearest case is the GraphQL schema. datahub-web-react/codegen.yml reads
-# ../datahub-graphql-core/src/main/resources/*.graphql, so the schema is a
-# compile input to the frontend -- but it only generates TypeScript types, which
-# are erased at runtime. The queries the frontend actually sends come from its
-# own src/**/*.graphql documents. A rebuilt frontend is therefore runtime
-# equivalent to the published one, and reusing it buys a better test: an
-# existing client against the new schema, which is what every rolling upgrade
-# looks like and what would catch a breaking schema change. (The compile side is
-# covered by datahub-web-react-lint, whose path filter now includes the schema.)
-#
-# The runtime column is otherwise taken from the Gradle graph reported by
-# `./gradlew :docker:buildImagesQuickstart --dry-run
-# -PbuildModules=:datahub-frontend`, since the Play app genuinely executes the
-# shared libraries it links: entity-registry, li-utils, metadata-auth,
-# metadata-events, metadata-models, metadata-operation-context, metadata-utils
-# and five metadata-service subprojects. It does not link metadata-io,
-# metadata-jobs, datahub-upgrade, metadata-dao-impl or datahub-graphql-core, so
-# server-side business logic in those cannot change how the frontend behaves.
+# There are deliberately only three outcomes: nothing, actions-only, or all six.
+# An earlier revision distinguished server / frontend / shared-library changes
+# with a per-image map derived from the Gradle graph (see git history). Measured
+# on CI, those distinctions saved nothing: any JVM image build spends ~90% of
+# its Gradle work in the codegen/data-template chain shared by all of them
+# (skipping the frontend removes 35 of 508 tasks), and the bake runs the
+# requested targets in parallel, so a smaller set costs the same as the full
+# set. server-only measured 3.8m vs full 3.9m; frontend-only 4.2m. The two
+# outcomes that do pay, measured: nothing (0.7m, saves ~3.2m) and actions-only
+# (2.4m, saves ~1.5m) -- the Python image is the one build that skips the shared
+# JVM chain entirely.
 PATH_RULES=(
   # Cannot end up inside any image.
   "docs/|"
@@ -84,10 +69,8 @@ PATH_RULES=(
   # build.gradle depends on it.
   "datahub-agent-context/|"
 
-  "datahub-web-react/|${UI}"
-  "datahub-frontend/|${UI}"
-  "docker/datahub-frontend/|${UI}"
-
+  # The actions image is Python: it pip-installs ../metadata-ingestion at build
+  # time and never enters the shared JVM chain, so it is cheap to build alone.
   "datahub-actions/|${ACTIONS}"
   "docker/datahub-actions/|${ACTIONS}"
   "docker/datahub-ingestion/|${ACTIONS}"
@@ -97,51 +80,28 @@ PATH_RULES=(
   "metadata-ingestion/|${ACTIONS}"
   "metadata-ingestion-modules/|${ACTIONS}"
 
-  # The model defines what the server does -- entity registry, validation,
-  # storage -- so the server images genuinely behave differently. Clients do
-  # not. The frontend only ever emits model objects its own code populates, so
-  # an older build emits a valid subset; if its populating code changed,
-  # datahub-frontend/** fires anyway, and if a PDL change breaks it, that is a
-  # compile failure the build jobs report in seconds. Actions is likewise
-  # unaffected: MCL carries the aspect as an opaque GenericAspect blob (bytes +
-  # contentType), so routing a brand new aspect type needs no generated class.
-  "metadata-models/|${SERVER}"
-
-  # Schema and resolvers alike: GraphQL executes in GMS. See the note above on
-  # why a schema change does not rebuild the frontend.
-  "datahub-graphql-core/|${SERVER}"
-
-  # Frontend-facing slices of metadata-service.
-  "metadata-service/auth-config/|${SERVER} ${UI}"
-  "metadata-service/configuration/|${SERVER} ${UI}"
-  "metadata-service/restli-api/|${SERVER} ${UI}"
-  "metadata-service/restli-client/|${SERVER} ${UI}"
-  "metadata-service/restli-client-api/|${SERVER} ${UI}"
-  "metadata-service/|${SERVER}"
-
-  # Shared libraries the frontend compiles.
-  "entity-registry/|${SERVER} ${UI}"
-  "li-utils/|${SERVER} ${UI}"
-  "metadata-auth/|${SERVER} ${UI}"
-  "metadata-events/|${SERVER} ${UI}"
-  "metadata-operation-context/|${SERVER} ${UI}"
-  "metadata-utils/|${SERVER} ${UI}"
-  "vendor/|${SERVER} ${UI}"
-
-  # Server-side business logic. This is the case the whole split exists for.
-  "metadata-io/|${SERVER}"
-  "metadata-dao-impl/|${SERVER}"
-  "metadata-jobs/|${SERVER}"
-  "datahub-upgrade/|${SERVER}"
-  "metadata-integration/|${SERVER}"
-  # A Gradle module consumed only by mae-consumer and metadata-service/factories.
-  "ingestion-scheduler/|${SERVER}"
-  "docker/datahub-gms/|${SERVER}"
-  "docker/datahub-mae-consumer/|${SERVER}"
-  "docker/datahub-mce-consumer/|${SERVER}"
-  "docker/datahub-upgrade/|${SERVER}"
-
-  # Anything else under docker/ is shared build machinery.
+  # Everything below can alter a JVM image, and per the note above there is no
+  # payoff in distinguishing which one: build the full set. These rules exist
+  # (rather than falling through to unclassified) so the log reports a
+  # deliberate full build instead of implying the classification has rotted.
+  "datahub-web-react/|${EVERYTHING}"
+  "datahub-frontend/|${EVERYTHING}"
+  "metadata-models/|${EVERYTHING}"
+  "datahub-graphql-core/|${EVERYTHING}"
+  "metadata-service/|${EVERYTHING}"
+  "entity-registry/|${EVERYTHING}"
+  "li-utils/|${EVERYTHING}"
+  "metadata-auth/|${EVERYTHING}"
+  "metadata-events/|${EVERYTHING}"
+  "metadata-operation-context/|${EVERYTHING}"
+  "metadata-utils/|${EVERYTHING}"
+  "vendor/|${EVERYTHING}"
+  "metadata-io/|${EVERYTHING}"
+  "metadata-dao-impl/|${EVERYTHING}"
+  "metadata-jobs/|${EVERYTHING}"
+  "datahub-upgrade/|${EVERYTHING}"
+  "metadata-integration/|${EVERYTHING}"
+  "ingestion-scheduler/|${EVERYTHING}"
   "docker/|${EVERYTHING}"
 )
 
