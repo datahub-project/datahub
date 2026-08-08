@@ -6,6 +6,7 @@ import {
     DATA_PRODUCTS_MODULE,
     LINEAGE_MODULE,
     OUTPUT_PORTS_MODULE,
+    RELATED_ASSETS_MODULE,
     RELATED_METRICS_MODULE,
     RELATED_TERMS_MODULE,
     SEMANTIC_MODEL_DATASETS_MODULE,
@@ -52,6 +53,22 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             break;
         case EntityType.Dataset:
             rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Application:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Container:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Chart:
+            rows = [{ modules: [LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Dashboard:
+            rows = [{ modules: [RELATED_ASSETS_MODULE, LINEAGE_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.SemanticModel:

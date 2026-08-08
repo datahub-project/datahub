@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Manually selected collections don't support the “View all” link at this time.",
     "assetCollection.viewAllUnsupportedHint": "This collection won't show a “View all” link — this type of filter isn't supported at this time.",
     "assets.moduleName": "Assets",
+    "assets.relatedModuleName": "Related Assets",
     "assets.moduleDescription": "Related Assets tagged with the parent entity",
     "assets.addTermError": "Failed to add glossary term: \n {{error}}",
     "assets.addTermModalTitle": "Add Glossary Term to assets",
