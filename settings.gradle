@@ -183,7 +183,11 @@ buildCache {
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
-        enabled = depotSecret != null
+        // Truthiness, not a null check: GitHub sets secrets that are unavailable
+        // (fork PRs) to the empty string, not to nothing. `"" != null` is true, so
+        // a null check enables the cache with an empty password and every build
+        // opens with a 403 that Gradle swallows before disabling the cache.
+        enabled = depotSecret ? true : false
         push = isCi // Push only on CI. Local development only pulls
         credentials {
             username = ''
