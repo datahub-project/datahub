@@ -226,3 +226,16 @@ def test_get_path_schema():
     assert get_path_schema("https://example.com/file.txt") == "https"
     assert get_path_schema("/local/path/file.txt") == "file"
     assert get_path_schema("relative/path/file.txt") == "file"
+
+
+def test_get_path_schema_windows_drive_letter():
+    r"""Windows drive letters must resolve to the local filesystem.
+
+    urlparse() reports "C:\data\file.json" as scheme "c", which has no
+    registered filesystem, so this previously raised
+    "KeyError: Did not find a registered class for c".
+    """
+    assert get_path_schema(r"C:\data\file.json") == "file"
+    assert get_path_schema("C:/data/file.json") == "file"
+    assert get_path_schema(r"D:\nested\dir\file.json") == "file"
+    assert get_path_schema(r"c:\lowercase\drive.json") == "file"
