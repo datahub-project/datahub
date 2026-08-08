@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, Dict, List, Set
 from unittest.mock import MagicMock, patch
 
@@ -15,10 +16,13 @@ from datahub.ingestion.source.mongodb import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
+    BytesTypeClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -261,6 +265,70 @@ def test_mongodb_schema_inference_with_deeply_nested_structures(
         "_id",
     }
     assert field_paths == expected_paths
+
+
+def test_mongodb_native_bson_types_are_mapped(mock_mongo_client, pipeline_context):
+    """
+    Test that BSON native types map to real DataHub types.
+
+    Binary/binData (incl. UUID), Regex, Code, MinKey/MaxKey and DatetimeMS
+    previously fell back to nativeDataType="unknown" / NullType with
+    "Unrecognized column type" warnings (#18571).
+    """
+    mock_mongo_client.list_database_names.return_value = ["test_db"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["typed"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+
+    mock_collection.aggregate.return_value = [
+        {
+            "_id": bson.ObjectId("507f1f77bcf86cd799439011"),
+            # pymongo decodes binData subtype 0 to plain bytes, other subtypes
+            # (e.g. UUID's subtype 4) to bson.binary.Binary.
+            "raw": b"\x00\x01",
+            "raw_subtyped": bson.Binary(b"\x00\x01", 4),
+            "uid": uuid.UUID("12345678-1234-5678-1234-567812345678"),
+            "pattern": bson.Regex("^foo", "i"),
+            "js": bson.Code("function() { return 1; }"),
+            "lo": bson.MinKey(),
+            "hi": bson.MaxKey(),
+            # BSON Date beyond Python's datetime range, as returned by pymongo
+            # with datetime_conversion=DATETIME_AUTO (year 10000).
+            "far_future": bson.DatetimeMS(253402300800000),
+        }
+    ]
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017", enableSchemaInference=True
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+
+    workunits = list(source.get_workunits_internal())
+
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
+    assert len(schema_metadata_aspects) == 1
+
+    fields = {f.fieldPath: f for f in schema_metadata_aspects[0].fields}
+    expected = {
+        "raw": ("binData", BytesTypeClass),
+        "raw_subtyped": ("binData", BytesTypeClass),
+        "uid": ("uuid", StringTypeClass),
+        "pattern": ("regex", StringTypeClass),
+        "js": ("javascript", StringTypeClass),
+        "lo": ("minKey", StringTypeClass),
+        "hi": ("maxKey", StringTypeClass),
+        "far_future": ("date", TimeTypeClass),
+    }
+    for field_path, (native_type, type_class) in expected.items():
+        assert fields[field_path].nativeDataType == native_type
+        assert isinstance(fields[field_path].type.type, type_class)
+
+    # No "Unrecognized column type" warnings should be reported.
+    assert not source.report.warnings
 
 
 def test_mongodb_schema_inference_disabled(mock_mongo_client, pipeline_context):
