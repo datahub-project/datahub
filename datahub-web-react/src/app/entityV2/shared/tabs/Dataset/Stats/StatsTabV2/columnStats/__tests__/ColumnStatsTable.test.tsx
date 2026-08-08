@@ -70,6 +70,14 @@ describe('ColumnStatsTable', () => {
     ];
 
     beforeEach(() => {
+        vi.stubGlobal('localStorage', {
+            getItem: vi.fn().mockReturnValue(null),
+            setItem: vi.fn(),
+            removeItem: vi.fn(),
+            clear: vi.fn(),
+            length: 0,
+            key: vi.fn(),
+        });
         mockUseGetEntityWithSchema.mockReturnValue({
             entityWithSchema: {
                 schemaMetadata: {
@@ -82,6 +90,10 @@ describe('ColumnStatsTable', () => {
                 editableSchemaMetadata: null,
             },
             loading: false,
+            fullMetadataLoading: false,
+            fullMetadataError: undefined,
+            structuralSchemaError: undefined,
+            structuralSchemaMetadata: null,
             refetch: vi.fn(),
         });
     });
@@ -186,6 +198,10 @@ describe('ColumnStatsTable', () => {
                 editableSchemaMetadata: null,
             },
             loading: false,
+            fullMetadataLoading: false,
+            fullMetadataError: undefined,
+            structuralSchemaError: undefined,
+            structuralSchemaMetadata: null,
             refetch: vi.fn(),
         });
 
