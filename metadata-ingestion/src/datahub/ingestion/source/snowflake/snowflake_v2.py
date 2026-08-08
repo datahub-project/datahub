@@ -672,8 +672,6 @@ class SnowflakeV2Source(
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 
-        yield from self._get_stages_tasks_pipes_workunits(databases)
-
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
@@ -717,6 +715,10 @@ class SnowflakeV2Source(
                     "No tables/views/streams found. Verify dataset permissions in Snowflake.",
                 )
 
+        # Must be set before anything that parses SQL: _is_temp_table treats a
+        # table that's allowed by the dataset patterns but absent from this list
+        # as a temp table, and that arm silently no-ops while the list is None.
+        #
         # When emit_semantic_model_entities is enabled, semantic views are emitted
         # as semanticModel entities (not datasets), so they are deliberately
         # excluded from discovered_datasets, which feeds dataset-level
@@ -733,12 +735,14 @@ class SnowflakeV2Source(
             )
         )
 
+        yield from self._get_stages_tasks_pipes_workunits(databases)
+
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
                 yield from auto_workunit(self.aggregator.gen_metadata())
 
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
-                schema_resolver = self.aggregator._schema_resolver
+                schema_resolver = self.aggregator.schema_resolver
 
                 redundant_queries_run_skip_handler: Optional[
                     RedundantQueriesRunSkipHandler
@@ -880,6 +884,8 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                schema_resolver=self.aggregator.schema_resolver,
+                is_temp_table=self._is_temp_table,
             )
             for db in databases:
                 for schema in db.schemas:
@@ -972,7 +978,12 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.STANDARD
             else:
                 self.report.edition = SnowflakeEdition.ENTERPRISE
-        except Exception:
+        except Exception as e:
+            self.report.warning(
+                title="Snowflake Edition Detection Failed",
+                message="Could not determine Snowflake edition; tag extraction may be affected",
+                exc=e,
+            )
             self.report.edition = None
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:

@@ -136,3 +136,45 @@ def test_snowflake_tasks_only(pytestconfig, tmp_path, mock_time, mock_datahub_gr
     assert report.stages_scanned == 0
     assert report.tasks_scanned == 3
     assert report.pipes_scanned == 0
+
+
+def test_snowflake_task_lineage_extracted_end_to_end(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    """With table/column lineage enabled, task SQL bodies are parsed into
+    real dataset- and column-level lineage on the DataJobInputOutput aspect.
+
+    Snapshotted rather than hand-asserted so the full aspect shape is covered —
+    the exact column pairs in fineGrainedLineages, every inputDatajobs urn
+    (including the CALL-derived one on CHILD_TASK_1), and the absence of any
+    spurious event.
+
+    CHILD_TASK_1's CALL-derived edge is the interesting one: its body is
+    ``CALL TEST_DB.TEST_SCHEMA.MY_PROCEDURE('arg1')`` and the fixture defines two
+    ``my_procedure`` overloads, so the golden pins that the one-argument overload's
+    hashed, lower-cased urn is what gets emitted.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
+    output_file = tmp_path / "snowflake_task_lineage_events.json"
+    golden_file = test_resources_dir / "snowflake_task_lineage_golden.json"
+
+    config = _base_config(
+        include_stages=False,
+        include_tasks=True,
+        include_pipes=False,
+        include_table_lineage=True,
+        include_column_lineage=True,
+    )
+    _run_pipeline(config, output_file)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_file,
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]",
+        ],
+    )
