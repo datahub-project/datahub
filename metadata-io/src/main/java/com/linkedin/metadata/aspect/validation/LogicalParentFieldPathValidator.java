@@ -43,6 +43,13 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Unlink writes (a {@code logicalParent} whose parent edge is cleared) and dataset-level links
  * (which carry no field paths) are ignored.
+ *
+ * <p>When the referenced schema isn't available yet — e.g. a column mapping written before the
+ * dataset's {@code schemaMetadata} is ingested — validation is skipped rather than rejected: a
+ * not-yet-loaded schema is indistinguishable from a genuinely missing field, so failing the write
+ * would break legitimate out-of-order ingestion. A real mismatch is still caught once the schema
+ * exists. The check can be disabled entirely via {@code
+ * metadataChangeProposal.validation.logicalParent.fieldPathValidation.enabled=false}.
  */
 @Slf4j
 @Setter
@@ -59,7 +66,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
     final ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     // A multi-column link emits one item per mapped column, all referencing the same two datasets;
     // cache field paths per dataset so each schema is read at most once per batch.
-    final Map<Urn, Set<String>> fieldPathCache = new HashMap<>();
+    final Map<Urn, Optional<Set<String>>> fieldPathCache = new HashMap<>();
 
     mcpItems.forEach(
         item -> {
@@ -163,20 +170,30 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       @Nonnull final String role,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
+      @Nonnull final Map<Urn, Optional<Set<String>>> fieldPathCache,
       @Nonnull final ValidationExceptionCollection exceptions) {
-    final Set<String> fieldPaths =
+    final Optional<Set<String>> fieldPaths =
         fieldPathCache.computeIfAbsent(
             datasetUrn, urn -> readFieldPaths(urn, operationContext, retrieverContext));
-    if (!fieldPaths.contains(fieldPath)) {
+    // Schema not available (e.g. written before the dataset's schemaMetadata is ingested) — we
+    // can't tell a missing field from a not-yet-loaded schema, so skip rather than reject.
+    if (fieldPaths.isEmpty()) {
+      return;
+    }
+    if (!fieldPaths.get().contains(fieldPath)) {
       exceptions.addException(
           item,
           String.format("Field path '%s' not found on %s dataset %s", fieldPath, role, datasetUrn));
     }
   }
 
+  /**
+   * @return the dataset's schema field paths, or {@link Optional#empty()} when no {@code
+   *     schemaMetadata} aspect exists yet (validation is skipped in that case). A present schema
+   *     with no fields returns an empty set, which is validated (and rejects any field path).
+   */
   @Nonnull
-  private Set<String> readFieldPaths(
+  private Optional<Set<String>> readFieldPaths(
       @Nonnull final Urn datasetUrn,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
@@ -185,13 +202,14 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
             .getAspectRetriever()
             .getLatestAspectObject(operationContext, datasetUrn, SCHEMA_METADATA_ASPECT_NAME);
     if (aspect == null) {
-      return Set.of();
+      return Optional.empty();
     }
     final SchemaMetadata schema = new SchemaMetadata(aspect.data());
     if (!schema.hasFields()) {
-      return Set.of();
+      return Optional.of(Set.of());
     }
-    return schema.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet());
+    return Optional.of(
+        schema.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet()));
   }
 
   @Override
