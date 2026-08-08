@@ -62,6 +62,8 @@ class DatahubKey(BaseModel):
         return self.model_dump(by_alias=True, exclude_none=True)
 
     def guid(self) -> str:
+        # Stable across runs: the guid is a hash of the key fields, so the same
+        # logical container always maps to the same urn.
         bag = self.guid_dict()
         return datahub_guid(bag)
 
