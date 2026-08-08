@@ -51,7 +51,11 @@ public class TagType
     implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag, String>,
         MutableType<TagUpdateInput, Tag> {
   static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(TAG_KEY_ASPECT_NAME, TAG_PROPERTIES_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
+      ImmutableSet.of(
+          TAG_KEY_ASPECT_NAME,
+          TAG_PROPERTIES_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = Collections.emptySet();
 

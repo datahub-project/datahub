@@ -237,7 +237,8 @@ type ExecutionRequest implements Entity {
   """
   The ingestion source of this execution request
   """
-  source: IngestionSource @noAspects
+  source: IngestionSource
+    @aspectMapping(aspects: ["dataHubExecutionRequestInput"])
 
   """
   Unused for execution requests

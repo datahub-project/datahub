@@ -115,7 +115,7 @@ type Document implements Entity {
   """
   The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
   """
-  subType: String @noAspects
+  subType: String @aspectMapping(aspects: ["subTypes"])
 
   """
   Data Platform Instance associated with the Document
@@ -127,7 +127,7 @@ type Document implements Entity {
   The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
   For documents natively authored on DataHub, the platform will be "DataHub".
   """
-  platform: DataPlatform! @noAspects
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Ownership metadata of the Document

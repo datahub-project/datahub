@@ -18,7 +18,7 @@ type VersionSet implements Entity {
   """
   The latest versioned entity linked to in this version set
   """
-  latestVersion: Entity @noAspects
+  latestVersion: Entity @aspectMapping(aspects: ["versionSetProperties"])
 
   """
   Executes a search on all versioned entities linked to this version set

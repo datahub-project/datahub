@@ -2,19 +2,40 @@ package com.linkedin.datahub.graphql.types;
 
 import static org.testng.Assert.*;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.MLFeatureDataType;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.types.auth.mappers.AccessTokenMetadataMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureTableMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeyMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
+import com.linkedin.datahub.graphql.types.view.DataHubViewMapper;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.Aspect;
@@ -25,6 +46,19 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.DomainKey;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.ml.metadata.MLFeatureProperties;
+import com.linkedin.ml.metadata.MLFeatureTableProperties;
+import com.linkedin.ml.metadata.MLModelGroupProperties;
+import com.linkedin.ml.metadata.MLModelProperties;
+import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
+import com.linkedin.tag.TagProperties;
+import com.linkedin.view.DataHubViewDefinition;
+import com.linkedin.view.DataHubViewInfo;
+import com.linkedin.view.DataHubViewType;
 import org.testng.annotations.Test;
 
 /**
@@ -121,5 +155,189 @@ public class AspectMappingFieldPopulationTest {
     assertEquals(domain.getUrn(), urn.toString());
     assertNotNull(domain.getProperties(), "properties must populate from domainProperties");
     assertEquals(domain.getProperties().getName(), "My Domain");
+  }
+
+  @Test
+  public void testDataHubViewFieldsPopulateFromViewInfo() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataHubView:test-view");
+    Urn actor = Urn.createFromString("urn:li:corpuser:test");
+    DataHubViewInfo info =
+        new DataHubViewInfo()
+            .setType(DataHubViewType.PERSONAL)
+            .setName("view-name")
+            .setDescription("view-desc")
+            .setCreated(new AuditStamp().setTime(1L).setActor(actor))
+            .setLastModified(new AuditStamp().setTime(1L).setActor(actor))
+            .setDefinition(
+                new DataHubViewDefinition()
+                    .setEntityTypes(
+                        new StringArray(ImmutableList.of(Constants.DATASET_ENTITY_NAME)))
+                    .setFilter(
+                        new Filter()
+                            .setOr(
+                                new ConjunctiveCriterionArray(
+                                    ImmutableList.of(
+                                        new ConjunctiveCriterion()
+                                            .setAnd(new CriterionArray()))))));
+
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATAHUB_VIEW_ENTITY_NAME)
+            .setUrn(urn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, env(info))));
+
+    DataHubView view = DataHubViewMapper.map(null, response);
+
+    assertNotNull(view);
+    assertEquals(view.getName(), "view-name");
+    assertEquals(view.getDescription(), "view-desc");
+    assertEquals(view.getViewType().toString(), "PERSONAL");
+    assertNotNull(view.getDefinition());
+  }
+
+  @Test
+  public void testTagDescriptionPopulatesFromTagProperties() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:tag:my-tag");
+    TagProperties props =
+        new TagProperties().setName("my-tag").setDescription("tag description from properties");
+
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.TAG_ENTITY_NAME)
+            .setUrn(urn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(Constants.TAG_PROPERTIES_ASPECT_NAME, env(props))));
+
+    Tag tag = TagMapper.map(null, response);
+
+    assertNotNull(tag);
+    assertEquals(tag.getDescription(), "tag description from properties");
+    assertNotNull(tag.getProperties());
+    assertEquals(tag.getProperties().getDescription(), "tag description from properties");
+  }
+
+  @Test
+  public void testAccessTokenMetadataFieldsPopulateFromTokenInfo() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataHubAccessToken:token-id");
+    Urn actor = Urn.createFromString("urn:li:corpuser:actor");
+    Urn owner = Urn.createFromString("urn:li:corpuser:owner");
+    DataHubAccessTokenInfo info =
+        new DataHubAccessTokenInfo()
+            .setName("token-name")
+            .setDescription("token-desc")
+            .setActorUrn(actor)
+            .setOwnerUrn(owner)
+            .setCreatedAt(100L)
+            .setExpiresAt(200L);
+
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.ACCESS_TOKEN_ENTITY_NAME)
+            .setUrn(urn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(Constants.ACCESS_TOKEN_INFO_NAME, env(info))));
+
+    AccessTokenMetadata metadata = AccessTokenMetadataMapper.map(null, response);
+
+    assertNotNull(metadata);
+    assertEquals(metadata.getName(), "token-name");
+    assertEquals(metadata.getDescription(), "token-desc");
+    assertEquals(metadata.getActorUrn(), actor.toString());
+    assertEquals(metadata.getOwnerUrn(), owner.toString());
+    assertEquals(metadata.getCreatedAt(), Long.valueOf(100L));
+    assertEquals(metadata.getExpiresAt(), Long.valueOf(200L));
+  }
+
+  @Test
+  public void testMlTopLevelFieldsPopulateFromPropertiesAspects() throws Exception {
+    Urn featureUrn = Urn.createFromString("urn:li:mlFeature:(ns,feat)");
+    MLFeature feature =
+        MLFeatureMapper.map(
+            null,
+            new EntityResponse()
+                .setEntityName(Constants.ML_FEATURE_ENTITY_NAME)
+                .setUrn(featureUrn)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_FEATURE_PROPERTIES_ASPECT_NAME,
+                            env(
+                                new MLFeatureProperties()
+                                    .setDescription("feature-desc")
+                                    .setDataType(MLFeatureDataType.CONTINUOUS))))));
+    assertEquals(feature.getDescription(), "feature-desc");
+    assertEquals(
+        feature.getDataType().toString(),
+        com.linkedin.datahub.graphql.generated.MLFeatureDataType.CONTINUOUS.toString());
+
+    Urn primaryKeyUrn = Urn.createFromString("urn:li:mlPrimaryKey:(ns,pk)");
+    MLPrimaryKey primaryKey =
+        MLPrimaryKeyMapper.map(
+            null,
+            new EntityResponse()
+                .setEntityName(Constants.ML_PRIMARY_KEY_ENTITY_NAME)
+                .setUrn(primaryKeyUrn)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
+                            env(
+                                new MLPrimaryKeyProperties()
+                                    .setDescription("pk-desc")
+                                    .setDataType(MLFeatureDataType.ORDINAL)
+                                    .setSources(new UrnArray()))))));
+    assertEquals(primaryKey.getDescription(), "pk-desc");
+    assertNotNull(primaryKey.getPrimaryKeyProperties());
+    assertEquals(primaryKey.getPrimaryKeyProperties().getDescription(), "pk-desc");
+
+    Urn tableUrn = Urn.createFromString("urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,tbl)");
+    MLFeatureTable table =
+        MLFeatureTableMapper.map(
+            null,
+            new EntityResponse()
+                .setEntityName(Constants.ML_FEATURE_TABLE_ENTITY_NAME)
+                .setUrn(tableUrn)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
+                            env(new MLFeatureTableProperties().setDescription("table-desc"))))));
+    assertEquals(table.getDescription(), "table-desc");
+    assertNotNull(table.getFeatureTableProperties());
+    assertEquals(table.getFeatureTableProperties().getDescription(), "table-desc");
+
+    Urn modelUrn =
+        Urn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model,PROD)");
+    MLModel model =
+        MLModelMapper.map(
+            null,
+            new EntityResponse()
+                .setEntityName(Constants.ML_MODEL_ENTITY_NAME)
+                .setUrn(modelUrn)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_MODEL_PROPERTIES_ASPECT_NAME,
+                            env(new MLModelProperties().setDescription("model-desc"))))));
+    assertEquals(model.getDescription(), "model-desc");
+
+    Urn groupUrn =
+        Urn.createFromString("urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,group,PROD)");
+    MLModelGroup group =
+        MLModelGroupMapper.map(
+            null,
+            new EntityResponse()
+                .setEntityName(Constants.ML_MODEL_GROUP_ENTITY_NAME)
+                .setUrn(groupUrn)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+                            env(new MLModelGroupProperties().setDescription("group-desc"))))));
+    assertEquals(group.getDescription(), "group-desc");
   }
 }

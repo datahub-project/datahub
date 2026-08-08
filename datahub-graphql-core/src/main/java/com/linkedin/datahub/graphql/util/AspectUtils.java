@@ -60,6 +60,19 @@ public class AspectUtils {
   }
 
   /**
+   * Widens the request-scoped aspect selection to {@link AspectLoadContext#fetchAll()} before a
+   * direct {@code batchLoad}/{@code load} that bypasses DataLoader resolvers.
+   *
+   * <p>Direct callers do not contribute a selection-set {@link AspectLoadContext}. If the request
+   * already accumulated a narrow union for {@code entityTypeName} (from another field), {@link
+   * #getOptimizedAspects} would under-fetch. Merging fetch-all first keeps those paths correct.
+   */
+  public static void ensureFetchAllForDirectLoad(
+      @Nonnull final QueryContext context, @Nonnull final String entityTypeName) {
+    context.mergeAspectLoadContext(entityTypeName, AspectLoadContext.fetchAll());
+  }
+
+  /**
    * Determines optimal aspects to fetch based on the request-scoped aspect load context for {@code
    * entityTypeName}. Falls back to {@code defaultAspects} when no selection was accumulated (e.g.
    * direct {@code batchLoad} outside DataLoader, missing registry contributions).

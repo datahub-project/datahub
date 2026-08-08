@@ -309,12 +309,14 @@ public class Constants {
   public static final String ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelProperties";
   public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
   public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
-  public static final String METRICS_ASPECT_NAME = "metrics";
-  public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
-  public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
-  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "quantitativeAnalyses";
-  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
-  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
+  public static final String METRICS_ASPECT_NAME = "mlModelMetrics";
+  public static final String EVALUATION_DATA_ASPECT_NAME = "mlModelEvaluationData";
+  public static final String TRAINING_DATA_ASPECT_NAME = "mlModelTrainingData";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "mlModelQuantitativeAnalyses";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME =
+      "mlModelEthicalConsiderations";
+  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME =
+      "mlModelCaveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
   public static final String COST_ASPECT_NAME = "cost";
 

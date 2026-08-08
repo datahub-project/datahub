@@ -2,9 +2,14 @@ package com.linkedin.datahub.graphql;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import graphql.language.ArrayValue;
 import graphql.language.FieldDefinition;
 import graphql.language.InterfaceTypeDefinition;
 import graphql.language.ObjectTypeDefinition;
+import graphql.language.StringValue;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
 import graphql.schema.idl.SchemaParser;
@@ -57,9 +62,13 @@ public class AspectMappingCompletenessTest {
 
   private TypeDefinitionRegistry typeRegistry;
   private Set<String> entityTypes;
+  private ConfigEntityRegistry modelRegistry;
 
   @BeforeClass
   public void loadSchemas() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     SchemaParser parser = new SchemaParser();
     typeRegistry = new TypeDefinitionRegistry();
     ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -75,6 +84,10 @@ public class AspectMappingCompletenessTest {
     }
     entityTypes = discoverEntityObjectTypes(typeRegistry);
     assertFalse(entityTypes.isEmpty(), "Expected to discover Entity-implementing object types");
+    modelRegistry =
+        new ConfigEntityRegistry(
+            Objects.requireNonNull(
+                cl.getResourceAsStream("entity-registry.yml"), "Missing entity-registry.yml"));
   }
 
   @Test
@@ -192,6 +205,79 @@ public class AspectMappingCompletenessTest {
         "Interface fields must not declare @aspectMapping/@noAspects (place them on concrete"
             + " object types):\n"
             + annotated.stream().sorted().collect(Collectors.joining("\n")));
+  }
+
+  @Test
+  public void testMappedAspectNamesExistInEntityRegistry() {
+    Set<String> validAspectNames = modelRegistry.getAspectSpecs().keySet();
+    List<String> invalid = new ArrayList<>();
+
+    typeRegistry.types().values().stream()
+        .filter(ObjectTypeDefinition.class::isInstance)
+        .map(ObjectTypeDefinition.class::cast)
+        .forEach(definition -> collectInvalidAspectNames(definition, validAspectNames, invalid));
+    typeRegistry.objectTypeExtensions().values().stream()
+        .flatMap(List::stream)
+        .forEach(definition -> collectInvalidAspectNames(definition, validAspectNames, invalid));
+
+    assertTrue(
+        invalid.isEmpty(),
+        "@aspectMapping references aspect names absent from entity-registry.yml:\n"
+            + invalid.stream().sorted().collect(Collectors.joining("\n")));
+  }
+
+  @Test
+  public void testEachEntityMappingMatchesAnEntityRegistrySpec() {
+    List<String> unmatched = new ArrayList<>();
+    for (String typeName : entityTypes) {
+      Set<String> mappedAspects =
+          collectObjectTypeDefinitions(typeName).stream()
+              .flatMap(definition -> definition.getFieldDefinitions().stream())
+              .flatMap(field -> mappedAspectNames(field).stream())
+              .collect(Collectors.toSet());
+      if (mappedAspects.isEmpty()) {
+        continue;
+      }
+
+      boolean hasMatchingEntitySpec =
+          modelRegistry.getEntitySpecs().values().stream()
+              .map(EntitySpec::getAspectSpecs)
+              .map(specs -> specs.stream().map(spec -> spec.getName()).collect(Collectors.toSet()))
+              .anyMatch(aspectNames -> aspectNames.containsAll(mappedAspects));
+      if (!hasMatchingEntitySpec) {
+        unmatched.add(typeName + ": " + mappedAspects);
+      }
+    }
+
+    assertTrue(
+        unmatched.isEmpty(),
+        "No entity-registry.yml entity contains all aspects mapped for these GraphQL types:\n"
+            + unmatched.stream().sorted().collect(Collectors.joining("\n")));
+  }
+
+  private static void collectInvalidAspectNames(
+      ObjectTypeDefinition type, Set<String> validAspectNames, List<String> invalid) {
+    for (FieldDefinition field : type.getFieldDefinitions()) {
+      mappedAspectNames(field).stream()
+          .filter(aspectName -> !validAspectNames.contains(aspectName))
+          .forEach(
+              aspectName ->
+                  invalid.add(type.getName() + "." + field.getName() + ": " + aspectName));
+    }
+  }
+
+  private static Set<String> mappedAspectNames(FieldDefinition field) {
+    return field.getDirectives("aspectMapping").stream()
+        .flatMap(directive -> directive.getArguments().stream())
+        .filter(argument -> argument.getName().equals("aspects"))
+        .map(argument -> argument.getValue())
+        .filter(ArrayValue.class::isInstance)
+        .map(ArrayValue.class::cast)
+        .flatMap(value -> value.getValues().stream())
+        .filter(StringValue.class::isInstance)
+        .map(StringValue.class::cast)
+        .map(StringValue::getValue)
+        .collect(Collectors.toSet());
   }
 
   private static void collectAnnotatedInterfaceFields(

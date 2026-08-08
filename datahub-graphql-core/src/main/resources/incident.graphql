@@ -87,17 +87,17 @@ type Incident implements Entity {
   """
   A custom type of incident. Present only if type is 'CUSTOM'
   """
-  customType: String @noAspects
+  customType: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional title associated with the incident
   """
-  title: String @noAspects
+  title: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional description associated with the incident
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
@@ -108,37 +108,37 @@ type Incident implements Entity {
   The status of an incident
   @deprecated, use incidentStatus instead
   """
-  status: IncidentStatus! @noAspects
+  status: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   Optional priority of the incident.
   """
-  priority: IncidentPriority @noAspects
+  priority: IncidentPriority @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The users or groups are assigned to resolve the incident
   """
-  assignees: [OwnerType!] @noAspects
+  assignees: [OwnerType!] @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The entity that the incident is associated with.
   """
-  entity: Entity! @noAspects
+  entity: Entity! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The source of the incident, i.e. how it was generated
   """
-  source: IncidentSource @noAspects
+  source: IncidentSource @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional time at which the incident actually started (may be before the date it was raised).
   """
-  startedAt: Long @noAspects
+  startedAt: Long @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The time at which the incident was initially created
   """
-  created: AuditStamp! @noAspects
+  created: AuditStamp! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The standard tags for the Incident

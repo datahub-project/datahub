@@ -5274,7 +5274,7 @@ type Tag implements Entity {
   """
   Deprecated, use properties.description field instead
   """
-  description: String @deprecated @noAspects
+  description: String @deprecated @aspectMapping(aspects: ["tagProperties"])
 
   """
   Experimental API.
@@ -6020,7 +6020,7 @@ type Notebook implements Entity & BrowsableEntity {
   """
   Standardized platform.
   """
-  platform: DataPlatform! @noAspects
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
@@ -7496,12 +7496,16 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
   """
   When the run was kicked off
   """
-  created: AuditStamp @deprecated(reason: "Use `properties.created`") @noAspects
+  created: AuditStamp
+    @deprecated(reason: "Use `properties.created`")
+    @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 
   """
   The name of the data process
   """
-  name: String @deprecated(reason: "Use `properties.name`") @noAspects
+  name: String
+    @deprecated(reason: "Use `properties.name`")
+    @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 
   """
   Edges extending from this entity.
@@ -7518,7 +7522,7 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
   """
   The link to view the task run in the source system
   """
-  externalUrl: String @noAspects
+  externalUrl: String @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 }
 
 """
@@ -10133,42 +10137,42 @@ type DataHubPolicy implements Entity {
   """
   The type of the Policy
   """
-  policyType: PolicyType! @noAspects
+  policyType: PolicyType! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The name of the Policy
   """
-  name: String! @noAspects
+  name: String! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The present state of the Policy
   """
-  state: PolicyState! @noAspects
+  state: PolicyState! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The description of the Policy
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The resources that the Policy privileges apply to
   """
-  resources: ResourceFilter @noAspects
+  resources: ResourceFilter @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The privileges that the Policy grants
   """
-  privileges: [String!]! @noAspects
+  privileges: [String!]! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The actors that the Policy grants privileges to
   """
-  actors: ActorFilter! @noAspects
+  actors: ActorFilter! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   Whether the Policy is editable, ie system policies, or not
   """
-  editable: Boolean! @noAspects
+  editable: Boolean! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 }
 
 """
@@ -10697,12 +10701,12 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Fabric type where mlmodel belongs to or where it was generated
   """
-  origin: FabricType! @noAspects
+  origin: FabricType! @aspectMapping(aspects: ["mlModelKey"])
 
   """
   Human readable description for mlmodel
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["mlModelProperties"])
 
   """
   Deprecated, use tags field instead
@@ -10739,35 +10743,35 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Metrics metadata of the mlmodel
   """
-  metrics: Metrics @aspectMapping(aspects: ["metrics"])
+  metrics: Metrics @aspectMapping(aspects: ["mlModelMetrics"])
 
   """
   Evaluation Data of the mlmodel
   """
-  evaluationData: [BaseData!] @aspectMapping(aspects: ["evaluationData"])
+  evaluationData: [BaseData!] @aspectMapping(aspects: ["mlModelEvaluationData"])
 
   """
   Training Data of the mlmodel
   """
-  trainingData: [BaseData!] @aspectMapping(aspects: ["trainingData"])
+  trainingData: [BaseData!] @aspectMapping(aspects: ["mlModelTrainingData"])
 
   """
   Quantitative Analyses of the mlmodel
   """
   quantitativeAnalyses: QuantitativeAnalyses
-    @aspectMapping(aspects: ["quantitativeAnalyses"])
+    @aspectMapping(aspects: ["mlModelQuantitativeAnalyses"])
 
   """
   Ethical Considerations of the mlmodel
   """
   ethicalConsiderations: EthicalConsiderations
-    @aspectMapping(aspects: ["ethicalConsiderations"])
+    @aspectMapping(aspects: ["mlModelEthicalConsiderations"])
 
   """
   Caveats and Recommendations of the mlmodel
   """
   caveatsAndRecommendations: CaveatsAndRecommendations
-    @aspectMapping(aspects: ["caveatsAndRecommendations"])
+    @aspectMapping(aspects: ["mlModelCaveatsAndRecommendations"])
 
   """
   References to internal resources related to the mlmodel
@@ -10919,12 +10923,12 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   """
   Fabric type where MLModelGroup belongs to or where it was generated
   """
-  origin: FabricType! @noAspects
+  origin: FabricType! @aspectMapping(aspects: ["mlModelGroupKey"])
 
   """
   Human readable description for MLModelGroup
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["mlModelGroupProperties"])
 
   """
   Additional read only properties about the ML Model Group
@@ -11127,12 +11131,12 @@ type MLFeature implements EntityWithRelationships & Entity {
   """
   The description about the ML Feature
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   MLFeature data type
   """
-  dataType: MLFeatureDataType @noAspects
+  dataType: MLFeatureDataType @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   Ownership metadata of the MLFeature
@@ -11413,12 +11417,13 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   """
   MLPrimaryKey description
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   MLPrimaryKey data type
   """
-  dataType: MLFeatureDataType @noAspects
+  dataType: MLFeatureDataType
+    @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   Additional read only properties of the ML Primary Key
@@ -11430,7 +11435,9 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   Deprecated, use properties field instead
   MLPrimaryKeyProperties
   """
-  primaryKeyProperties: MLPrimaryKeyProperties @deprecated @noAspects
+  primaryKeyProperties: MLPrimaryKeyProperties
+    @deprecated
+    @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   Ownership metadata of the MLPrimaryKey
@@ -11583,7 +11590,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   """
   MLFeatureTable description
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["mlFeatureTableProperties"])
 
   """
   Ownership metadata of the MLFeatureTable
@@ -11600,7 +11607,9 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   Deprecated, use properties field instead
   ModelProperties metadata of the MLFeature
   """
-  featureTableProperties: MLFeatureTableProperties @deprecated @noAspects
+  featureTableProperties: MLFeatureTableProperties
+    @deprecated
+    @aspectMapping(aspects: ["mlFeatureTableProperties"])
 
   """
   References to internal resources related to the MLFeature
@@ -12746,12 +12755,12 @@ type DataHubRole implements Entity {
   """
   The name of the Role.
   """
-  name: String! @noAspects
+  name: String! @aspectMapping(aspects: ["dataHubRoleInfo"])
 
   """
   The description of the Role
   """
-  description: String! @noAspects
+  description: String! @aspectMapping(aspects: ["dataHubRoleInfo"])
 
   """
   Experimental API.
@@ -13003,17 +13012,17 @@ type Post implements Entity {
   """
   The type of post
   """
-  postType: PostType! @noAspects
+  postType: PostType! @aspectMapping(aspects: ["postInfo"])
 
   """
   The content of the post
   """
-  content: PostContent! @noAspects
+  content: PostContent! @aspectMapping(aspects: ["postInfo"])
 
   """
   When the post was last modified
   """
-  lastModified: AuditStamp! @noAspects
+  lastModified: AuditStamp! @aspectMapping(aspects: ["postInfo"])
 }
 
 """
@@ -13093,22 +13102,23 @@ type DataHubView implements Entity {
   """
   The type of the View
   """
-  viewType: DataHubViewType! @noAspects
+  viewType: DataHubViewType! @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The name of the View
   """
-  name: String! @noAspects
+  name: String! @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The description of the View
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The definition of the View
   """
-  definition: DataHubViewDefinition! @noAspects
+  definition: DataHubViewDefinition!
+    @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   Granular API for querying edges extending from the View
@@ -14786,7 +14796,7 @@ extend type DataProcessInstance {
   """
   Standardized platform urn where the data process instance is defined
   """
-  platform: DataPlatform @noAspects
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Recursively get the lineage of containers for this entity
@@ -14802,7 +14812,8 @@ extend type DataProcessInstance {
   """
   The parent entity whose run instance it is
   """
-  parentTemplate: Entity @noAspects
+  parentTemplate: Entity
+    @aspectMapping(aspects: ["dataProcessInstanceRelationships"])
 }
 
 """

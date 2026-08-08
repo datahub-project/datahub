@@ -65,17 +65,17 @@ type Metric implements EntityWithRelationships & Entity {
   """
   The platform that this Metric originates in.
   """
-  platform: DataPlatform! @noAspects
+  platform: DataPlatform! @aspectMapping(aspects: ["metricKey"])
 
   """
   The path component of the three-part key (platform, path, id).
   """
-  path: String! @noAspects
+  path: String! @aspectMapping(aspects: ["metricKey"])
 
   """
   The id component of the three-part key (platform, path, id).
   """
-  id: String! @noAspects
+  id: String! @aspectMapping(aspects: ["metricKey"])
 
   """
   Core information about the Metric.
@@ -96,13 +96,13 @@ type Metric implements EntityWithRelationships & Entity {
   """
   The SemanticModel that defines this Metric.
   """
-  semanticModel: SemanticModel @noAspects
+  semanticModel: SemanticModel @aspectMapping(aspects: ["metricInfo"])
 
   """
   The direct parent metric in the sidebar hierarchy. Null for root metrics.
   For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetric: Metric @noAspects
+  parentMetric: Metric @aspectMapping(aspects: ["metricRelationships"])
 
   """
   All ancestor metrics from immediate parent up to the root, ordered nearest-first.
@@ -233,28 +233,29 @@ type SemanticModel implements EntityWithRelationships & Entity {
   """
   The platform that this SemanticModel originates in.
   """
-  platform: DataPlatform! @noAspects
+  platform: DataPlatform! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   The path component of the three-part key (platform, path, id).
   """
-  path: String! @noAspects
+  path: String! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   The id component of the three-part key (platform, path, id).
   """
-  id: String! @noAspects
+  id: String! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   Core information about the SemanticModel.
   """
-  info: SemanticModelInfo @noAspects
+  info: SemanticModelInfo @aspectMapping(aspects: ["semanticModelInfo"])
 
   """
   Column-level lineage from the upstreamLineage aspect.
   Table-level lineage is surfaced via the standard relationships field.
   """
-  fineGrainedLineages: [FineGrainedLineage!] @noAspects
+  fineGrainedLineages: [FineGrainedLineage!]
+    @aspectMapping(aspects: ["upstreamLineage"])
 
   """
   Metrics defined within this SemanticModel (field-resolver in CAT-2566).
@@ -322,12 +323,12 @@ type SemanticModel implements EntityWithRelationships & Entity {
   """
   Documentation aspect containing editable description for this SemanticModel.
   """
-  documentation: Documentation @noAspects
+  documentation: Documentation @aspectMapping(aspects: ["documentation"])
 
   """
   AI-specific context for improved disambiguation, retrieval, and generation.
   """
-  aiContext: AiContext @noAspects
+  aiContext: AiContext @aspectMapping(aspects: ["aiContext"])
 
   """
   Applications associated with this SemanticModel.

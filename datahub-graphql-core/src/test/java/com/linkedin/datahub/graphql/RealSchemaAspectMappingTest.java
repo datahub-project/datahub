@@ -198,7 +198,7 @@ public class RealSchemaAspectMappingTest {
     Set<String> aspects =
         registry.getRequiredAspects("MLModel", List.of(field("metrics", "MLModel")));
     assertNotNull(aspects);
-    assertEquals(aspects, Set.of("metrics"));
+    assertEquals(aspects, Set.of("mlModelMetrics"));
   }
 
   @Test
@@ -234,6 +234,145 @@ public class RealSchemaAspectMappingTest {
         registry.getRequiredAspects("Dataset", List.of(field("lineage", "Dataset")));
     assertNotNull(aspects);
     assertTrue(aspects.isEmpty(), "lineage is @noAspects. Got: " + aspects);
+  }
+
+  @Test
+  public void testDataHubViewFieldsMapToViewInfo() {
+    Set<String> aspects =
+        registry.getRequiredAspects(
+            "DataHubView",
+            List.of(
+                field("viewType", "DataHubView"),
+                field("name", "DataHubView"),
+                field("description", "DataHubView"),
+                field("definition", "DataHubView")));
+    assertNotNull(aspects);
+    assertEquals(aspects, Set.of("dataHubViewInfo"));
+  }
+
+  @Test
+  public void testTagDescriptionAndDeprecationAspects() {
+    Set<String> aspects =
+        registry.getRequiredAspects(
+            "Tag", List.of(field("description", "Tag"), field("deprecation", "Tag")));
+    assertNotNull(aspects);
+    assertEquals(aspects, Set.of("tagProperties", "deprecation"));
+  }
+
+  @Test
+  public void testAccessTokenMetadataFieldsMapToTokenInfo() {
+    Set<String> aspects =
+        registry.getRequiredAspects(
+            "AccessTokenMetadata",
+            List.of(
+                field("description", "AccessTokenMetadata"),
+                field("actorUrn", "AccessTokenMetadata"),
+                field("ownerUrn", "AccessTokenMetadata"),
+                field("createdAt", "AccessTokenMetadata"),
+                field("expiresAt", "AccessTokenMetadata")));
+    assertNotNull(aspects);
+    assertEquals(aspects, Set.of("dataHubAccessTokenInfo"));
+  }
+
+  @Test
+  public void testMlTopLevelFieldsMapToPropertiesAspects() {
+    assertEquals(
+        registry.getRequiredAspects(
+            "MLFeature",
+            List.of(field("description", "MLFeature"), field("dataType", "MLFeature"))),
+        Set.of("mlFeatureProperties"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "MLPrimaryKey",
+            List.of(
+                field("description", "MLPrimaryKey"),
+                field("dataType", "MLPrimaryKey"),
+                field("primaryKeyProperties", "MLPrimaryKey"))),
+        Set.of("mlPrimaryKeyProperties"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "MLFeatureTable",
+            List.of(
+                field("description", "MLFeatureTable"),
+                field("featureTableProperties", "MLFeatureTable"))),
+        Set.of("mlFeatureTableProperties"));
+    assertEquals(
+        registry.getRequiredAspects("MLModel", List.of(field("description", "MLModel"))),
+        Set.of("mlModelProperties"));
+    assertEquals(
+        registry.getRequiredAspects("MLModelGroup", List.of(field("description", "MLModelGroup"))),
+        Set.of("mlModelGroupProperties"));
+  }
+
+  @Test
+  public void testPolicyRoleIncidentFieldsMapToInfoAspects() {
+    assertEquals(
+        registry.getRequiredAspects(
+            "DataHubPolicy",
+            List.of(
+                field("policyType", "DataHubPolicy"),
+                field("name", "DataHubPolicy"),
+                field("description", "DataHubPolicy"),
+                field("actors", "DataHubPolicy"))),
+        Set.of("dataHubPolicyInfo"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "DataHubRole",
+            List.of(field("name", "DataHubRole"), field("description", "DataHubRole"))),
+        Set.of("dataHubRoleInfo"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "Incident",
+            List.of(
+                field("title", "Incident"),
+                field("description", "Incident"),
+                field("status", "Incident"),
+                field("created", "Incident"))),
+        Set.of("incidentInfo"));
+  }
+
+  @Test
+  public void testPostAndDpiAndMetricKeyMappings() {
+    assertEquals(
+        registry.getRequiredAspects(
+            "Post",
+            List.of(
+                field("postType", "Post"),
+                field("content", "Post"),
+                field("lastModified", "Post"))),
+        Set.of("postInfo"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "DataProcessInstance",
+            List.of(
+                field("name", "DataProcessInstance"),
+                field("created", "DataProcessInstance"),
+                field("externalUrl", "DataProcessInstance"))),
+        Set.of("dataProcessInstanceProperties"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "Metric",
+            List.of(
+                field("platform", "Metric"),
+                field("path", "Metric"),
+                field("id", "Metric"),
+                field("semanticModel", "Metric"))),
+        Set.of("metricKey", "metricInfo"));
+    assertEquals(
+        registry.getRequiredAspects(
+            "SemanticModel",
+            List.of(
+                field("platform", "SemanticModel"),
+                field("info", "SemanticModel"),
+                field("documentation", "SemanticModel"))),
+        Set.of("semanticModelKey", "semanticModelInfo", "documentation"));
+  }
+
+  @Test
+  public void testAssertionDatasetMapsToAssertionInfo() {
+    assertEquals(
+        registry.getRequiredAspects("Assertion", List.of(field("dataset", "Assertion"))),
+        Set.of("assertionInfo"));
   }
 
   /** Minimal wiring factory that lets interface/union types compile without runtime resolvers. */

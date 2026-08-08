@@ -347,7 +347,7 @@ extend type Assertion {
   """
   The dataset targeted by this assertion.
   """
-  dataset: Dataset @noAspects
+  dataset: Dataset @aspectMapping(aspects: ["assertionInfo"])
 
   """
   The actions associated with the Assertion

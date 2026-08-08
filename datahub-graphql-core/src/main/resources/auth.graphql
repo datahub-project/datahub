@@ -273,32 +273,32 @@ type AccessTokenMetadata implements Entity {
   """
   The description of the token if defined.
   """
-  description: String @noAspects
+  description: String @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The actor associated with the Access Token.
   """
-  actorUrn: String! @noAspects
+  actorUrn: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The actor who created the Access Token.
   """
-  ownerUrn: String! @noAspects
+  ownerUrn: String! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The owner (CorpUser) who created the Access Token.
   """
-  owner: CorpUser @noAspects
+  owner: CorpUser @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   The time when token was generated at.
   """
-  createdAt: Long! @noAspects
+  createdAt: Long! @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   Time when token will be expired.
   """
-  expiresAt: Long @noAspects
+  expiresAt: Long @aspectMapping(aspects: ["dataHubAccessTokenInfo"])
 
   """
   Granular API for querying edges extending from this entity

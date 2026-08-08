@@ -189,4 +189,24 @@ public class AspectUtilsTest {
     assertEquals(AspectLoadContext.fetchAll().cacheKeySignature(), "FETCH_ALL");
     assertEquals(AspectLoadContext.fetchAll(), AspectLoadContext.fetchAll());
   }
+
+  @Test
+  public void testEnsureFetchAllForDirectLoadWidensNarrowContext() {
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getAspectLoadContext(ENTITY_TYPE))
+        .thenReturn(AspectLoadContext.of(ImmutableSet.of("aspect1")))
+        .thenReturn(AspectLoadContext.fetchAll());
+
+    // Without widening, optimization would under-fetch.
+    Set<String> before =
+        AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
+    assertEquals(before, ImmutableSet.of("aspect1", KEY_ASPECT));
+
+    AspectUtils.ensureFetchAllForDirectLoad(mockContext, ENTITY_TYPE);
+    verify(mockContext).mergeAspectLoadContext(ENTITY_TYPE, AspectLoadContext.fetchAll());
+
+    Set<String> after =
+        AspectUtils.getOptimizedAspects(mockContext, ENTITY_TYPE, ALL_ASPECTS, KEY_ASPECT);
+    assertEquals(after, ALL_ASPECTS);
+  }
 }
