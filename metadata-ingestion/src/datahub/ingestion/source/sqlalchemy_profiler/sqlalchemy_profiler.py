@@ -5,6 +5,7 @@ import concurrent.futures
 import dataclasses
 import json
 import logging
+import os
 import re
 import traceback
 from datetime import datetime
@@ -31,7 +32,12 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.ingestion.source.ge_profiling_config import TRANSACTIONAL, ProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import (
+    DATAHUB_PROFILING_ISOLATION_LEVEL_ENV,
+    TRANSACTIONAL,
+    ProfilingConfig,
+    normalize_profiling_isolation_level,
+)
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -474,64 +480,115 @@ class SQLAlchemyProfiler:
         self.platform = platform.lower()
 
         # Resolve the profiling isolation level ONCE here, not per table. The level is
-        # adapter-constant and (via the escape hatch) config-constant, so resolving it
-        # per table was wasted work. Resolution is hoisted into a method so it is unit-
-        # testable independent of constructor wiring; the per-table path only re-applies
-        # the already-resolved level (see the `conn.execution_options` call in
-        # `_generate_single_profile`). Resolution deliberately does NOT open a
-        # connection — a bad level is validated lazily on first per-table use and raised
-        # as ConfigurationError so a transient connect blip cannot gate a whole database.
+        # adapter-constant and (via the escape hatch / env var) config-constant, so
+        # resolving it per table was wasted work. Resolution is hoisted into a method
+        # so it is unit-testable independent of constructor wiring; the per-table path
+        # only re-applies the already-resolved level (see the `conn.execution_options`
+        # call in `_generate_single_profile`). Resolution deliberately does NOT open
+        # a connection — a bad level is validated lazily on first per-table use and
+        # raised as ConfigurationError so a transient connect blip cannot gate a
+        # whole database. `_profiling_isolation_level_source` records which input
+        # (recipe field, env var, or adapter default) the level came from so the
+        # invalid-level error names the right input.
+        self._profiling_isolation_level_source: Optional[str] = None
         self._profiling_isolation_level = self._resolve_profiling_isolation_level()
 
     def _resolve_profiling_isolation_level(self) -> Optional[str]:
         """Resolve the profiling isolation level for this source's profiling connections.
 
-        Resolution order:
+        Resolution order (higher rung wins):
 
-        1. Config override — ``profiling_isolation_level``. If set to a SQLAlchemy
-           isolation level name, that wins. If set to the ``TRANSACTIONAL`` sentinel,
-           the level is cleared (``None``), falling back to the default transactional
-           behavior — e.g. for MySQL behind a proxy that rejects the ``AUTOCOMMIT``
-           session setting.
-        2. Adapter default — ``adapter.profiling_isolation_level()``. MySQL and
+        1. Recipe config — ``profiling.profiling_isolation_level``. Already
+           normalized by the field_validator. If set to a SQLAlchemy isolation
+           level name, that wins. If set to the ``TRANSACTIONAL`` sentinel, the
+           level is cleared (``None``), falling back to the default transactional
+           behavior — e.g. for MySQL behind a proxy that rejects the
+           ``AUTOCOMMIT`` session setting.
+        2. Operator env var — ``DATAHUB_PROFILING_ISOLATION_LEVEL``. Read here
+           via ``os.getenv`` (NOT at import time — import-time capture freezes the
+           value for the process, breaks ``monkeypatch.setenv`` in tests, and is
+           unusable in long-lived runners). Normalized with the same shared
+           normalizer as the recipe field so ``TRANSACTIONAL`` resolves
+           identically from both inputs. Empty/whitespace-only is treated as
+           unset. This is the fleet-wide kill switch: an operator who cannot edit
+           every recipe can set ``DATAHUB_PROFILING_ISOLATION_LEVEL=TRANSACTIONAL``
+           on the ingestion executor to revert every SQL source at once.
+        3. Adapter default — ``adapter.profiling_isolation_level()``. MySQL and
            Postgres adapters return ``AUTOCOMMIT`` so each profiling SELECT is
            self-contained, avoiding a long-lived transaction that pins InnoDB read
            views / holds Postgres idle-in-transaction and blocks VACUUM. Other
            adapters return ``None``.
 
+        Recipe config beats the env var because an explicitly set recipe value is
+        deliberate user intent. Note the consequence: if a customer has explicitly
+        pinned ``AUTOCOMMIT`` in their recipe, the operator env var will not
+        override them — that is acceptable; the realistic failure case is a bad
+        default affecting recipes that set nothing, which this does cover.
+
+        The env var is global, not per-platform: setting it to a real isolation
+        level (rather than ``TRANSACTIONAL``) affects every SQL source whose
+        profiler runs, including platforms whose adapter returns ``None``.
+
+        Records the chosen input in ``self._profiling_isolation_level_source`` so
+        a later invalid-level failure can name the right input (recipe field vs.
+        env var) in the error message.
+
         Returns the resolved level string, or ``None`` for transactional. Does NOT
         open a connection or validate the name — validation is deferred to the per-table
         path so a transient connect blip can't gate a whole database's profiling.
 
-        Safety guard: if the override is set to a non-TRANSACTIONAL value while the
-        adapter returned ``None``, the platform is one this PR deliberately excluded
-        (its adapter overrides ``setup_profiling`` and creates session-scoped temp
-        resources, so AUTOCOMMIT may corrupt those resources). Warn — do not reject —
-        so a legitimate opt-in on e.g. Redshift/MSSQL still works.
+        Safety guard: if an override (from either rung) is set to a non-TRANSACTIONAL
+        value while the adapter returned ``None``, the platform is one whose adapter
+        does not opt in to AUTOCOMMIT — typically because it overrides
+        ``setup_profiling`` to create session-scoped temp resources that AUTOCOMMIT
+        may corrupt.
+        Warn — do not reject — so a legitimate opt-in on e.g. Redshift/MSSQL still
+        works. The env-var path triggers this guard too.
         """
         adapter = get_adapter(self.platform, self.config, self.report, self.base_engine)
         adapter_default = adapter.profiling_isolation_level()
+
+        # Rung 1: recipe config (already normalized by the field_validator).
         override = self.config.profiling_isolation_level
         if override is not None:
+            self._profiling_isolation_level_source = (
+                "profiling.profiling_isolation_level"
+            )
             if override == TRANSACTIONAL:
-                level = None
-            else:
-                level = override
-                if adapter_default is None:
-                    self.report.warning(
-                        title="profiling_isolation_level set on a platform that does not opt in",
-                        message=(
-                            f"profiling.profiling_isolation_level={override!r} is set on "
-                            f"platform {self.platform!r}, whose adapter does not opt in to "
-                            "AUTOCOMMIT. The adapter overrides setup_profiling and may create "
-                            "session-scoped temp resources; AUTOCOMMIT can corrupt those "
-                            "resources. Set this only if you have verified it is safe for this "
-                            "platform."
-                        ),
-                    )
-        else:
-            level = adapter_default
-        return level
+                return None
+            if adapter_default is None:
+                self._warn_excluded_platform(override)
+            return override
+
+        # Rung 2: operator env var (normalize at read time, not import time).
+        env_raw = os.getenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV)
+        env_normalized = normalize_profiling_isolation_level(env_raw)
+        if env_normalized is not None:
+            self._profiling_isolation_level_source = (
+                DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+            )
+            if env_normalized == TRANSACTIONAL:
+                return None
+            if adapter_default is None:
+                self._warn_excluded_platform(env_normalized)
+            return env_normalized
+
+        # Rung 3: adapter default.
+        self._profiling_isolation_level_source = None
+        return adapter_default
+
+    def _warn_excluded_platform(self, level: str) -> None:
+        """Warn that an override is set on a platform whose adapter does not opt in."""
+        self.report.warning(
+            title="profiling_isolation_level set on a platform that does not opt in",
+            message=(
+                f"profiling_isolation_level={level!r} is set on platform "
+                f"{self.platform!r}, whose adapter does not opt in to AUTOCOMMIT. The "
+                "adapter overrides setup_profiling and may create session-scoped temp "
+                "resources; AUTOCOMMIT can corrupt those resources. Set this only if "
+                "you have verified it is safe for this platform."
+            ),
+        )
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -1674,6 +1731,17 @@ class SQLAlchemyProfiler:
                                 isolation_level=self._profiling_isolation_level
                             )
                         except sa.exc.ArgumentError as e:
+                            # Route through the single failure path. Name the input
+                            # that supplied the level so the operator knows which
+                            # knob to fix (recipe field vs. env var vs. adapter
+                            # default — the last is a code bug, not a config error,
+                            # but the message still points at the right place).
+                            source = self._profiling_isolation_level_source
+                            if source == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV:
+                                raise ConfigurationError(
+                                    f"Invalid {source}="
+                                    f"{self._profiling_isolation_level!r}"
+                                ) from e
                             raise ConfigurationError(
                                 f"Invalid profiling.profiling_isolation_level "
                                 f"{self._profiling_isolation_level!r}"

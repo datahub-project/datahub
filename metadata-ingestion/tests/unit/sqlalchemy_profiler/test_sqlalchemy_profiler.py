@@ -8,13 +8,24 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
 from datahub.configuration.common import ConfigurationError
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import (
+    DATAHUB_PROFILING_ISOLATION_LEVEL_ENV,
+    ProfilingConfig,
+)
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+
+
+@pytest.fixture(autouse=True)
+def _clean_profiling_isolation_level_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ensure DATAHUB_PROFILING_ISOLATION_LEVEL never leaks across tests — the env
+    # var is read at resolution time, so a leftover value would silently change
+    # the resolved level for any test that does not set it explicitly.
+    monkeypatch.delenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, raising=False)
 
 
 @pytest.fixture
@@ -898,7 +909,7 @@ class TestProfilingIsolationLevel:
         self, sqlite_engine, mock_report
     ):
         # An invalid level must fail loudly, not be swallowed per-table into a
-        # warning + zero profiles (the silent failure mode this PR exists to prevent).
+        # warning + zero profiles.
         # Construction deliberately does NOT validate the level (an earlier eager
         # probe coupled config-validity to DB-reachability — see
         # `_resolve_profiling_isolation_level`); the bad level is stored unvalidated
@@ -935,7 +946,7 @@ class TestProfilingIsolationLevel:
         # Regression guard: catch_exceptions=True (the default) must NOT swallow
         # ConfigurationError. The broad `except Exception` handler would otherwise
         # turn it into one warning per table + return None — zero profiles,
-        # silently — the exact failure mode this PR exists to prevent. The outer
+        # silently. The outer
         # `except ConfigurationError: raise` sits ahead of `except Exception` and
         # keeps the error loud regardless of catch_exceptions.
         config = ProfilingConfig(
@@ -1156,3 +1167,204 @@ class TestProfilingIsolationLevel:
         )
         mock_report.warning.assert_not_called()
         assert profiler._profiling_isolation_level is None
+
+
+class TestProfilingIsolationLevelEnvVar:
+    """Task A: DATAHUB_PROFILING_ISOLATION_LEVEL operator-level override.
+
+    Precedence: recipe config (rung 1) > env var (rung 2) > adapter default (rung 3).
+    The autouse `_clean_profiling_isolation_level_env` fixture guarantees the env
+    var is unset between tests; these tests use monkeypatch.setenv/delenv explicitly.
+    """
+
+    def test_env_var_beats_adapter_default(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # Rung 2 beats rung 3: TRANSACTIONAL via env var clears mysql's AUTOCOMMIT.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "TRANSACTIONAL")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level is None
+        assert (
+            profiler._profiling_isolation_level_source
+            == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+        )
+
+    def test_recipe_config_beats_env_var(self, sqlite_engine, mock_report, monkeypatch):
+        # Rung 1 beats rung 2: an explicit recipe value is deliberate user intent
+        # and must not be overridden by the operator env var.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "TRANSACTIONAL")
+        config = ProfilingConfig(
+            enabled=True, profiling_isolation_level="READ COMMITTED"
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level == "READ COMMITTED"
+        assert (
+            profiler._profiling_isolation_level_source
+            == "profiling.profiling_isolation_level"
+        )
+
+    def test_env_var_concrete_level_applied(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # A real isolation level (not the sentinel) from the env var is applied as-is.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "READ COMMITTED")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level == "READ COMMITTED"
+        assert (
+            profiler._profiling_isolation_level_source
+            == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+        )
+
+    def test_env_var_lowercase_and_whitespace_normalized(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # "transactional " (lowercase, trailing space) normalizes to the sentinel
+        # via the shared normalizer, clearing the level to None.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "transactional ")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level is None
+        assert (
+            profiler._profiling_isolation_level_source
+            == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+        )
+
+    def test_empty_env_var_treated_as_unset(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # Empty / whitespace-only env var is treated as unset, not as an error —
+        # the adapter default (mysql AUTOCOMMIT) wins.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "   ")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+        assert profiler._profiling_isolation_level_source is None
+
+    def test_env_var_unset_falls_back_to_adapter_default(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # With the env var absent, the adapter default (mysql AUTOCOMMIT) wins.
+        monkeypatch.delenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, raising=False)
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="mysql",
+            env="TEST",
+        )
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+        assert profiler._profiling_isolation_level_source is None
+
+    def test_env_var_on_non_opt_in_platform_warns(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # The B3 excluded-platform guard fires for the env-var path too: a
+        # non-TRANSACTIONAL env var on snowflake (adapter returns None) warns.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "AUTOCOMMIT")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="snowflake",
+            env="TEST",
+        )
+        mock_report.warning.assert_called_once()
+        kwargs = mock_report.warning.call_args.kwargs
+        assert "snowflake" in kwargs["message"]
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+        assert (
+            profiler._profiling_isolation_level_source
+            == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+        )
+
+    def test_invalid_env_var_fails_loudly_naming_env_var(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # An invalid env-var value fails the run loudly through the existing
+        # failure path (ConfigurationError, not swallowed by catch_exceptions),
+        # and the error message names the env var so the operator knows which
+        # input to fix.
+        monkeypatch.setenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, "BOGUS")
+        config = ProfilingConfig(enabled=True)
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        # Construction stored the unvalidated level (lazy validation).
+        assert profiler._profiling_isolation_level == "BOGUS"
+        assert (
+            profiler._profiling_isolation_level_source
+            == DATAHUB_PROFILING_ISOLATION_LEVEL_ENV
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="main.test_table",
+                schema="main",
+                table="test_table",
+                platform="sqlite",
+            )
+        assert DATAHUB_PROFILING_ISOLATION_LEVEL_ENV in str(exc_info.value)
+        assert "profiling.profiling_isolation_level" not in str(exc_info.value)
+
+    def test_invalid_recipe_level_error_names_recipe_field(
+        self, sqlite_engine, mock_report, monkeypatch
+    ):
+        # Negative: when the level came from the recipe (not the env var), the
+        # error message names the recipe field, not the env var.
+        monkeypatch.delenv(DATAHUB_PROFILING_ISOLATION_LEVEL_ENV, raising=False)
+        config = ProfilingConfig(enabled=True, profiling_isolation_level="BOGUS")
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        with pytest.raises(ConfigurationError) as exc_info:
+            profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="main.test_table",
+                schema="main",
+                table="test_table",
+                platform="sqlite",
+            )
+        assert "profiling.profiling_isolation_level" in str(exc_info.value)
+        assert DATAHUB_PROFILING_ISOLATION_LEVEL_ENV not in str(exc_info.value)
