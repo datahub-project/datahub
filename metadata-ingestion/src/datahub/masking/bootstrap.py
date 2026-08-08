@@ -1,17 +1,4 @@
-"""
-Bootstrap module for secret masking initialization.
-
-Architecture:
-    This module sets up the masking infrastructure (logging filter + exception hook).
-    Secret discovery is separated and happens automatically at point-of-read:
-    - Config loaders register secrets during ${VAR} expansion
-    - Pydantic models register SecretStr fields during validation
-
-    This separation means:
-    - Infrastructure setup is context-independent
-    - Components own their secret registration
-    - Errors surface at point-of-read (not during bootstrap)
-"""
+"""Bootstrap for the secret-masking infrastructure."""
 
 import logging
 import sys
@@ -20,171 +7,128 @@ import traceback
 from typing import Optional
 
 from datahub.masking.logging_utils import get_masking_safe_logger
-from datahub.masking.masking_filter import (
-    SecretMaskingFilter,
-    install_masking_filter,
-    uninstall_masking_filter,
-)
-from datahub.masking.secret_registry import SecretRegistry
+from datahub.masking.masking_filter import install_masking_filter
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 logger = get_masking_safe_logger(__name__)
 
-# Bootstrap state tracking
 _bootstrap_completed = False
 _bootstrap_error: Optional[Exception] = None
-_original_excepthook = None  # Track original exception hook for restoration
-_bootstrap_lock = threading.Lock()  # Thread safety for concurrent initialization
+_original_excepthook = None
+_disabled_warned = False
+_bootstrap_lock = threading.Lock()
+
+MASKING_ERROR_NOTE = "[masking failed; traceback suppressed for security]"
 
 
 def is_bootstrapped() -> bool:
-    """Check if secret masking bootstrap has completed."""
+    """True once the filter + excepthook + stream wrappers are installed."""
     return _bootstrap_completed
 
 
 def get_bootstrap_error() -> Optional[Exception]:
-    """Get bootstrap error if bootstrap failed."""
+    """Return the last install error, or None if install succeeded."""
     return _bootstrap_error
 
 
-def _install_exception_hook(registry: SecretRegistry) -> None:
-    """Install custom exception hook to mask secrets."""
-    global _original_excepthook
+def reset_bootstrap_state() -> None:
+    # Test-only: clear the bootstrap latch and warn-once flags. Also call
+    # SecretRegistry.reset_instance(); a stranded latch keeps the filter bound
+    # to a dead singleton.
+    global _bootstrap_completed, _bootstrap_error, _disabled_warned
+    with _bootstrap_lock:
+        _bootstrap_completed = False
+        _bootstrap_error = None
+        _disabled_warned = False
 
-    # Store original exception hook for later restoration
+
+def _install_exception_hook(masking_filter) -> None:
+    # Process-lifetime excepthook; on masking failure print only the class
+    # name plus a note, never the raw traceback (fail-closed).
+    global _original_excepthook
     if _original_excepthook is None:
         _original_excepthook = sys.excepthook
 
-    original_excepthook = _original_excepthook
-
-    masking_filter = SecretMaskingFilter(registry)
-
-    def masking_excepthook(exc_type, exc_value, exc_traceback):
-        """Custom exception hook that masks secrets in exception messages."""
+    def masking_excepthook(exc_type, exc_value, exc_traceback) -> None:
         try:
-            # Format the exception to a string
-            tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            tb_text = "".join(tb_lines)
+            tb_text = "".join(
+                traceback.format_exception(exc_type, exc_value, exc_traceback)
+            )
+            masked = masking_filter.mask_text(tb_text)
+            sys.stderr.write(masked)
+        except Exception:
+            sys.stderr.write(f"{exc_type.__name__}: {MASKING_ERROR_NOTE}\n")
 
-            # Mask secrets in the formatted traceback
-            masked_tb_text = masking_filter.mask_text(tb_text)
-
-            # Write masked traceback to stderr
-            sys.stderr.write(masked_tb_text)
-        except Exception as e:
-            # If masking fails, fall back to original exception hook
-            logger.error(f"Failed to mask exception: {e}")
-            original_excepthook(exc_type, exc_value, exc_traceback)
-
-    # Install the custom hook
     sys.excepthook = masking_excepthook
-    logger.debug("Installed custom exception hook for secret masking")
+    logger.debug("Installed masking exception hook")
 
 
 def initialize_secret_masking(
     max_message_size: int = 5000,
     force: bool = False,
-) -> None:
-    """
-    Initialize secret masking infrastructure (logging filter + exception hook).
-
-    Secrets register automatically at point-of-read.
-    """
-    global _bootstrap_completed, _bootstrap_error
-
-    # Check if masking is disabled via environment variable
-    from datahub.masking.secret_registry import is_masking_enabled
+) -> Optional[str]:
+    # Install masking and open a per-execution secret scope. Returns the
+    # execution token, or None if masking is disabled. Raises RuntimeError
+    # if masking is enabled but install failed (fail-loud). ``force`` is
+    # accepted and ignored — kept for backward compatibility.
+    global _bootstrap_completed, _bootstrap_error, _disabled_warned
 
     if not is_masking_enabled():
-        logger.warning(
-            "Secret masking is DISABLED via DATAHUB_DISABLE_SECRET_MASKING environment variable. "
-            "Sensitive information will be exposed in logs. Only use this for debugging!"
-        )
-        _bootstrap_completed = True  # Mark as completed to avoid repeated warnings
-        return
-
-    # Thread-safe initialization: acquire lock for entire operation
-    with _bootstrap_lock:
-        # Prevent double initialization
-        if _bootstrap_completed and not force:
-            logger.debug("Secret masking already initialized")
-            return
-
-        try:
-            logger.info("Initializing secret masking infrastructure")
-
-            # Get registry
-            registry = SecretRegistry.get_instance()
-
-            # Install logging filter + stdout wrapper
-            install_masking_filter(
-                secret_registry=registry,
-                max_message_size=max_message_size,
-                install_stdout_wrapper=True,
+        if not _disabled_warned:
+            logger.warning(
+                "Secret masking is DISABLED via "
+                "DATAHUB_DISABLE_SECRET_MASKING. Sensitive information will "
+                "be exposed in logs. Only use this for debugging."
             )
+            _disabled_warned = True
+        return None
 
-            # Install custom exception hook to mask unhandled exceptions
-            _install_exception_hook(registry)
-
-            # Configure warnings to use logging
-            logging.captureWarnings(True)
-
-            # Disable HTTP debug output (prevent deadlock)
+    registry = SecretRegistry.get_instance()
+    with _bootstrap_lock:
+        if not _bootstrap_completed:
             try:
+                logger.info("Initializing secret masking infrastructure")
+                installed = install_masking_filter(
+                    secret_registry=registry,
+                    max_message_size=max_message_size,
+                    install_stdout_wrapper=True,
+                )
+                _install_exception_hook(installed)
+                logging.captureWarnings(True)
                 import http.client
 
                 http.client.HTTPConnection.debuglevel = 0
-            except Exception:
-                pass
-
-            # Set HTTP-related loggers to INFO (not DEBUG)
-            for logger_name in [
-                "urllib3",
-                "urllib3.connectionpool",
-                "urllib3.util.retry",
-                "requests",
-            ]:
-                try:
+                for logger_name in [
+                    "urllib3",
+                    "urllib3.connectionpool",
+                    "urllib3.util.retry",
+                    "requests",
+                ]:
                     logging.getLogger(logger_name).setLevel(logging.INFO)
-                except Exception:
-                    pass
+                _bootstrap_completed = True
+                _bootstrap_error = None
+                logger.info(
+                    "Secret masking infrastructure initialized; secrets "
+                    "will be registered automatically as they are loaded."
+                )
+            except Exception as e:
+                _bootstrap_error = e
+                logger.critical(
+                    "Failed to initialize secret masking: %s. Secrets may "
+                    "reach logs unmasked.",
+                    e,
+                    exc_info=True,
+                )
+                raise RuntimeError(f"Secret masking installation failed: {e}") from e
+        else:
+            # Re-scan handlers and rebind to the current registry: handlers
+            # added while the wrap was inert carry no filter.
+            install_masking_filter(secret_registry=registry)
+        return registry.begin_execution()
 
-            _bootstrap_completed = True
-            _bootstrap_error = None
-            logger.info(
-                "Secret masking infrastructure initialized successfully. "
-                "Secrets will be registered automatically as they are loaded."
-            )
 
-        except Exception as e:
-            _bootstrap_error = e
-            logger.error(f"Failed to initialize secret masking: {e}", exc_info=True)
-            # Don't raise - graceful degradation
-
-
-def shutdown_secret_masking() -> None:
-    """Shutdown secret masking system."""
-    global _bootstrap_completed, _bootstrap_error, _original_excepthook
-
-    try:
-        uninstall_masking_filter()
-
-        # Restore original exception hook
-        if _original_excepthook is not None:
-            sys.excepthook = _original_excepthook
-            _original_excepthook = None
-
-        # Clear registry
-        registry = SecretRegistry.get_instance()
-        registry.clear()
-
-        # Reset masking-safe loggers to restore normal logging
-        from datahub.masking.logging_utils import reset_masking_safe_loggers
-
-        reset_masking_safe_loggers()
-
-        _bootstrap_completed = False
-        _bootstrap_error = None
-
-        logger.info("Secret masking shutdown completed")
-    except Exception as e:
-        logger.error(f"Error during secret masking shutdown: {e}")
+def shutdown_secret_masking(execution_id: Optional[str] = None) -> None:
+    # End this execution's masking scope. No logging teardown, no excepthook
+    # restore, no latch clearing — the filter installs once and is never
+    # uninstalled in production.
+    SecretRegistry.get_instance().end_execution(execution_id)
