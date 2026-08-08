@@ -31,6 +31,29 @@ One powerful feature of GraphQL that we recommend you use is [fragments](https:/
 
 This technique makes maintaining your GraphQL queries much more doable. For example, if you want to request a new field for an entity type across many queries, you’re able to update it in one place if you’re leveraging fragments.
 
+### Alias `properties` When Selecting Across Entity Types
+
+Queries that return heterogeneous entities, such as `searchAcrossEntities` and `searchAcrossLineage`, are normally
+written with one inline fragment per entity type. When the same response key is selected in more than one of those
+fragments, GraphQL compares the shapes and rejects the whole query if they differ, so a query fails validation before it
+runs even though each fragment is valid on its own.
+
+`properties` is where this bites, because the per-entity property types do not agree on nullability.
+`DatasetProperties.name`, `DashboardProperties.name`, `ChartProperties.name` and `DataJobProperties.name` are all
+`String!`, while `MLModelProperties.name` is `String`. Selecting `properties { name }` on both `Dataset` and `MLModel`
+in one request is therefore rejected with a fields-conflict error reporting different nullability shapes.
+
+Give each fragment its own response key:
+
+```graphql
+... on Dataset { datasetProps: properties { name } }
+... on Dashboard { dashboardProps: properties { name } }
+... on MLModel { mlModelProps: properties { name } }
+```
+
+The response then carries one key per entity type and the client reads whichever is present. Ownership and other fields
+whose type is shared across entities do not need this and can stay in a fragment, as above.
+
 ## Search Query Best Practices
 
 ### Deep Pagination: search* vs scroll* APIs
