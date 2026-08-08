@@ -308,6 +308,45 @@ def get_elasticsearch_index() -> str:
     return os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event")
 
 
+def _usage_events_implementation_from_common_env() -> Optional[str]:
+    """Read SoT from datahub-dev / compose common env file when process env is unset."""
+    path = os.getenv("DATAHUB_LOCAL_COMMON_ENV")
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                if key.strip() == "DATAHUB_USAGE_EVENTS_IMPLEMENTATION":
+                    return value.strip().strip('"').strip("'").lower() or None
+    except OSError:
+        return None
+    return None
+
+
+def get_usage_events_implementation() -> str:
+    """Product usage-events SoT: ``elasticsearch`` or ``postgres``.
+
+    Prefers the process env, then ``DATAHUB_LOCAL_COMMON_ENV`` (datahub-dev), then
+    ``elasticsearch``. Postgres compose profiles default GMS to postgres; loading the
+    common env file keeps smoke fixtures aligned with that SoT.
+    """
+    explicit = os.getenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION")
+    if explicit is not None and explicit.strip() != "":
+        return explicit.strip().lower()
+    from_file = _usage_events_implementation_from_common_env()
+    if from_file:
+        return from_file
+    return "elasticsearch"
+
+
+def usage_events_stored_in_postgres() -> bool:
+    return get_usage_events_implementation() == "postgres"
+
+
 # ============================================================================
 # Slack Notifications
 # ============================================================================

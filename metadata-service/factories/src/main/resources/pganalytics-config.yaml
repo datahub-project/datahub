@@ -1,0 +1,6 @@
+# Optional pgAnalytics multi-store overlay (DATAHUB_PGANALYTICS_CONFIG_FILE).
+# Empty stub — defaults live in application.yaml.
+postgres:
+  pgAnalytics:
+    stores: {}
+    routing: {}

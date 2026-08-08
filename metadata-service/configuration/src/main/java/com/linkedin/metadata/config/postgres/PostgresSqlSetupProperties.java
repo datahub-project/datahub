@@ -17,7 +17,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue, pgTimeseries).
+ * (pgQueue, pgTimeseries, pgAnalytics).
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -37,6 +37,13 @@ public class PostgresSqlSetupProperties {
    * (pg_partman).
    */
   public static final Set<String> PGTIMESERIES_PARTMAN_PARTITION_INTERVALS =
+      PGQUEUE_PARTMAN_PARTITION_INTERVALS;
+
+  /**
+   * Allowlisted {@code postgres.pgAnalytics.partitioning.partmanPartitionInterval} values
+   * (pg_partman).
+   */
+  public static final Set<String> PGANALYTICS_PARTMAN_PARTITION_INTERVALS =
       PGQUEUE_PARTMAN_PARTITION_INTERVALS;
 
   /** Default same-JVM pgQueue consumer threads per topic when unset or non-positive in config. */
@@ -66,6 +73,7 @@ public class PostgresSqlSetupProperties {
   private String schema;
 
   private PgTimeseries pgTimeseries = new PgTimeseries();
+  private PgAnalytics pgAnalytics = new PgAnalytics();
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
@@ -80,6 +88,7 @@ public class PostgresSqlSetupProperties {
   public static PostgresSqlSetupProperties disabled() {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
     p.getPgTimeseries().setEnabled(false);
+    p.getPgAnalytics().setEnabled(false);
     p.getPgQueue().setEnabled(false);
     return p;
   }
@@ -96,6 +105,9 @@ public class PostgresSqlSetupProperties {
     if (pgTimeseries.isEnabled()) {
       validatePgTimeseriesConfig();
     }
+    if (pgAnalytics.isEnabled()) {
+      validatePgAnalyticsConfig();
+    }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
     }
@@ -108,7 +120,8 @@ public class PostgresSqlSetupProperties {
     }
     boolean cronNeeded =
         (pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled())
-            || (pgTimeseries.isEnabled() && isAnyPgTimeseriesStoreCronEnabled());
+            || (pgTimeseries.isEnabled() && isAnyPgTimeseriesStoreCronEnabled())
+            || (pgAnalytics.isEnabled() && isAnyPgAnalyticsStoreCronEnabled());
     if (!cronNeeded) {
       return;
     }
@@ -117,7 +130,7 @@ public class PostgresSqlSetupProperties {
     String jdbcUrl = admin != null ? admin.getJdbcUrl() : null;
     if (jdbcUrl == null || jdbcUrl.isBlank()) {
       throw new IllegalStateException(
-          "postgres.pgCron.admin.jdbcUrl must be non-empty when pgQueue or pgTimeseries pg_cron "
+          "postgres.pgCron.admin.jdbcUrl must be non-empty when pgQueue, pgTimeseries, or pgAnalytics pg_cron "
               + "maintenance is enabled (configure under postgres.pgCron.admin in application.yaml).");
     }
   }
@@ -509,6 +522,294 @@ public class PostgresSqlSetupProperties {
               + "(letters, digits, underscore; must not start with a digit).");
     }
     return s.toLowerCase();
+  }
+
+  /** Built analytics registry, or null when {@code postgres.pgAnalytics.enabled} is false. */
+  public PgAnalyticsSetupOptions buildPgAnalyticsOptions() {
+    if (!pgAnalytics.isEnabled()) {
+      return null;
+    }
+    String defaultStoreName = normalizedPgAnalyticsDefaultStoreName();
+    Map<String, PgAnalyticsStoreOptions> stores = new LinkedHashMap<>();
+    stores.put(defaultStoreName, buildDefaultPgAnalyticsStore(defaultStoreName));
+
+    Map<String, PgAnalytics.StoreConfig> configuredStores = pgAnalytics.getStores();
+    if (configuredStores != null) {
+      for (Map.Entry<String, PgAnalytics.StoreConfig> entry : configuredStores.entrySet()) {
+        String rawName = entry.getKey();
+        if (rawName == null || rawName.isBlank()) {
+          throw new IllegalStateException("postgres.pgAnalytics.stores keys must be non-empty.");
+        }
+        String storeName = rawName.trim().toLowerCase(Locale.ROOT);
+        PgAnalyticsStoreOptions built =
+            buildNamedPgAnalyticsStore(storeName, entry.getValue(), stores.get(defaultStoreName));
+        stores.put(storeName, built);
+      }
+    }
+
+    Map<String, String> routing = new LinkedHashMap<>();
+    Map<String, String> configuredRouting = pgAnalytics.getRouting();
+    if (configuredRouting != null) {
+      for (Map.Entry<String, String> entry : configuredRouting.entrySet()) {
+        if (entry.getKey() == null || entry.getKey().isBlank()) {
+          throw new IllegalStateException(
+              "postgres.pgAnalytics.routing keys must be non-empty metric_family values.");
+        }
+        if (entry.getValue() == null || entry.getValue().isBlank()) {
+          throw new IllegalStateException(
+              "postgres.pgAnalytics.routing values must be non-empty store names.");
+        }
+        routing.put(
+            entry.getKey().trim().toLowerCase(Locale.ROOT),
+            entry.getValue().trim().toLowerCase(Locale.ROOT));
+      }
+    }
+
+    return new PgAnalyticsSetupOptions(defaultStoreName, stores, routing);
+  }
+
+  @NonNull
+  public String normalizedPgAnalyticsDefaultStoreName() {
+    String raw = pgAnalytics.getDefaultStore();
+    if (raw == null || raw.isBlank()) {
+      return "default";
+    }
+    return raw.trim().toLowerCase(Locale.ROOT);
+  }
+
+  public String normalizedPgAnalyticsTablePrefix() {
+    return normalizeTablePrefix(pgAnalytics.getTablePrefix(), "postgres.pgAnalytics.tablePrefix");
+  }
+
+  private boolean isAnyPgAnalyticsStoreCronEnabled() {
+    if (pgAnalytics.getMaintenance().isCronEnabled()) {
+      return true;
+    }
+    Map<String, PgAnalytics.StoreConfig> configuredStores = pgAnalytics.getStores();
+    if (configuredStores == null) {
+      return false;
+    }
+    for (PgAnalytics.StoreConfig store : configuredStores.values()) {
+      if (store != null
+          && store.getMaintenance() != null
+          && store.getMaintenance().isCronEnabled()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private PgAnalyticsStoreOptions buildDefaultPgAnalyticsStore(String storeName) {
+    PgAnalytics.Partitioning p = pgAnalytics.getPartitioning();
+    String rawInterval = p.getPartmanPartitionInterval();
+    String partmanIntervalNormalized =
+        rawInterval == null || rawInterval.isBlank() ? "" : rawInterval.trim().toLowerCase();
+    PgAnalytics.Pool pool =
+        pgAnalytics.getPool() != null ? pgAnalytics.getPool() : new PgAnalytics.Pool();
+    PgAnalytics.Retention r = pgAnalytics.getRetention();
+    PgAnalytics.Sinks sinks = pgAnalytics.getSinks();
+    return PgAnalyticsStoreOptions.builder()
+        .name(storeName)
+        .schema(normalizedPostgresSchema())
+        .tablePrefix(normalizedPgAnalyticsTablePrefix())
+        .partmanPartitionInterval(partmanIntervalNormalized)
+        .partmanPremake(p.getPartmanPremake())
+        .forceOverwritePartmanConfig(p.isForceOverwritePartmanConfig())
+        .rawMaxAgeSeconds(r.getRawMaxAgeSeconds())
+        .hourlyMaxAgeSeconds(r.getHourlyMaxAgeSeconds())
+        .dailyMaxAgeSeconds(r.getDailyMaxAgeSeconds())
+        .monthlyMaxAgeSeconds(r.getMonthlyMaxAgeSeconds())
+        .inputLagSeconds(
+            pgAnalytics.getInputLagSeconds() > 0 ? pgAnalytics.getInputLagSeconds() : 900)
+        .maintenanceCronEnabled(pgAnalytics.getMaintenance().isCronEnabled())
+        .maintenanceIntervalSeconds(pgAnalytics.getMaintenance().getIntervalSeconds())
+        .apiUsageFlushEnabled(sinks.isApiUsageFlushEnabled())
+        .entityCountEnabled(sinks.isEntityCountEnabled())
+        .poolUrl(blankToNull(pool.getUrl()))
+        .poolDriver(blankToNull(pool.getDriver()))
+        .poolUsername(blankToNull(pool.getUsername()))
+        .poolPassword(pool.getPassword())
+        .poolMinConnections(pool.getMinConnections() > 0 ? pool.getMinConnections() : 1)
+        .poolMaxConnections(pool.getMaxConnections() > 0 ? pool.getMaxConnections() : 12)
+        .poolMaxInactiveTimeSeconds(
+            pool.getMaxInactiveTimeSeconds() > 0 ? pool.getMaxInactiveTimeSeconds() : 120)
+        .poolMaxAgeMinutes(pool.getMaxAgeMinutes() > 0 ? pool.getMaxAgeMinutes() : 120)
+        .poolLeakTimeMinutes(pool.getLeakTimeMinutes() > 0 ? pool.getLeakTimeMinutes() : 15)
+        .poolWaitTimeoutMillis(pool.getWaitTimeoutMillis() > 0 ? pool.getWaitTimeoutMillis() : 1000)
+        .build();
+  }
+
+  private PgAnalyticsStoreOptions buildNamedPgAnalyticsStore(
+      String storeName, PgAnalytics.StoreConfig config, PgAnalyticsStoreOptions defaults) {
+    if (config == null) {
+      throw new IllegalStateException(
+          "postgres.pgAnalytics.stores." + storeName + " must not be null.");
+    }
+    String schema =
+        config.getSchema() != null && !config.getSchema().isBlank()
+            ? validateAndNormalizePostgresFeatureSchema(
+                config.getSchema(), "postgres.pgAnalytics.stores." + storeName + ".schema")
+            : defaults.getSchema();
+    String tablePrefix =
+        config.getTablePrefix() != null && !config.getTablePrefix().isBlank()
+            ? normalizeTablePrefix(
+                config.getTablePrefix(),
+                "postgres.pgAnalytics.stores." + storeName + ".tablePrefix")
+            : defaults.getTablePrefix();
+
+    PgAnalytics.Partitioning p =
+        config.getPartitioning() != null
+            ? config.getPartitioning()
+            : new PgAnalytics.Partitioning();
+    String interval =
+        p.getPartmanPartitionInterval() != null && !p.getPartmanPartitionInterval().isBlank()
+            ? p.getPartmanPartitionInterval().trim().toLowerCase(Locale.ROOT)
+            : defaults.getPartmanPartitionInterval();
+    int premake = p.getPartmanPremake() > 0 ? p.getPartmanPremake() : defaults.getPartmanPremake();
+    boolean forceOverwrite =
+        config.getPartitioning() != null
+            ? p.isForceOverwritePartmanConfig()
+            : defaults.isForceOverwritePartmanConfig();
+
+    PgAnalytics.Retention r =
+        config.getRetention() != null ? config.getRetention() : new PgAnalytics.Retention();
+    int rawMax =
+        config.getRetention() != null ? r.getRawMaxAgeSeconds() : defaults.getRawMaxAgeSeconds();
+    int hourlyMax =
+        config.getRetention() != null
+            ? r.getHourlyMaxAgeSeconds()
+            : defaults.getHourlyMaxAgeSeconds();
+    int dailyMax =
+        config.getRetention() != null
+            ? r.getDailyMaxAgeSeconds()
+            : defaults.getDailyMaxAgeSeconds();
+    int monthlyMax =
+        config.getRetention() != null
+            ? r.getMonthlyMaxAgeSeconds()
+            : defaults.getMonthlyMaxAgeSeconds();
+
+    PgAnalytics.Maintenance m =
+        config.getMaintenance() != null ? config.getMaintenance() : new PgAnalytics.Maintenance();
+    boolean cronEnabled =
+        config.getMaintenance() != null ? m.isCronEnabled() : defaults.isMaintenanceCronEnabled();
+    int cronInterval =
+        config.getMaintenance() != null && m.getIntervalSeconds() > 0
+            ? m.getIntervalSeconds()
+            : defaults.getMaintenanceIntervalSeconds();
+    PgAnalytics.Pool pool = config.getPool() != null ? config.getPool() : new PgAnalytics.Pool();
+    String poolUrl =
+        pool.getUrl() != null && !pool.getUrl().isBlank()
+            ? pool.getUrl().trim()
+            : defaults.getPoolUrl();
+    String poolDriver =
+        pool.getDriver() != null && !pool.getDriver().isBlank()
+            ? pool.getDriver().trim()
+            : defaults.getPoolDriver();
+    String poolUsername =
+        pool.getUsername() != null && !pool.getUsername().isBlank()
+            ? pool.getUsername().trim()
+            : defaults.getPoolUsername();
+    String poolPassword =
+        pool.getPassword() != null ? pool.getPassword() : defaults.getPoolPassword();
+
+    return PgAnalyticsStoreOptions.builder()
+        .name(storeName)
+        .schema(schema)
+        .tablePrefix(tablePrefix)
+        .partmanPartitionInterval(interval)
+        .partmanPremake(premake)
+        .forceOverwritePartmanConfig(forceOverwrite)
+        .rawMaxAgeSeconds(rawMax)
+        .hourlyMaxAgeSeconds(hourlyMax)
+        .dailyMaxAgeSeconds(dailyMax)
+        .monthlyMaxAgeSeconds(monthlyMax)
+        .inputLagSeconds(defaults.getInputLagSeconds())
+        .maintenanceCronEnabled(cronEnabled)
+        .maintenanceIntervalSeconds(cronInterval)
+        .apiUsageFlushEnabled(defaults.isApiUsageFlushEnabled())
+        .entityCountEnabled(defaults.isEntityCountEnabled())
+        .poolUrl(blankToNull(poolUrl))
+        .poolDriver(blankToNull(poolDriver))
+        .poolUsername(blankToNull(poolUsername))
+        .poolPassword(poolPassword)
+        .poolMinConnections(
+            pool.getMinConnections() > 0
+                ? pool.getMinConnections()
+                : defaults.getPoolMinConnections())
+        .poolMaxConnections(
+            pool.getMaxConnections() > 0
+                ? pool.getMaxConnections()
+                : defaults.getPoolMaxConnections())
+        .poolMaxInactiveTimeSeconds(
+            pool.getMaxInactiveTimeSeconds() > 0
+                ? pool.getMaxInactiveTimeSeconds()
+                : defaults.getPoolMaxInactiveTimeSeconds())
+        .poolMaxAgeMinutes(
+            pool.getMaxAgeMinutes() > 0 ? pool.getMaxAgeMinutes() : defaults.getPoolMaxAgeMinutes())
+        .poolLeakTimeMinutes(
+            pool.getLeakTimeMinutes() > 0
+                ? pool.getLeakTimeMinutes()
+                : defaults.getPoolLeakTimeMinutes())
+        .poolWaitTimeoutMillis(
+            pool.getWaitTimeoutMillis() > 0
+                ? pool.getWaitTimeoutMillis()
+                : defaults.getPoolWaitTimeoutMillis())
+        .build();
+  }
+
+  private void validatePgAnalyticsConfig() {
+    String defaultStoreName = normalizedPgAnalyticsDefaultStoreName();
+    if (!defaultStoreName.matches("[a-z][a-z0-9_]*")) {
+      throw new IllegalStateException(
+          "postgres.pgAnalytics.defaultStore must be a lower-case identifier"
+              + " (letters, digits, underscore; must start with a letter).");
+    }
+    normalizeTablePrefix(pgAnalytics.getTablePrefix(), "postgres.pgAnalytics.tablePrefix");
+    PgAnalytics.Partitioning p = pgAnalytics.getPartitioning();
+    if (p.getPartmanPartitionInterval() == null
+        || p.getPartmanPartitionInterval().trim().isEmpty()) {
+      throw new IllegalStateException(
+          "postgres.pgAnalytics.partitioning.partmanPartitionInterval must be non-empty.");
+    }
+    String pi = p.getPartmanPartitionInterval().trim().toLowerCase(Locale.ROOT);
+    if (!PGANALYTICS_PARTMAN_PARTITION_INTERVALS.contains(pi)) {
+      throw new IllegalStateException(
+          "postgres.pgAnalytics.partitioning.partmanPartitionInterval must be one of "
+              + PGANALYTICS_PARTMAN_PARTITION_INTERVALS
+              + " (got: "
+              + p.getPartmanPartitionInterval()
+              + ").");
+    }
+    validatePartmanPremake(
+        p.getPartmanPremake(), "postgres.pgAnalytics.partitioning.partmanPremake");
+    PgAnalytics.Retention r = pgAnalytics.getRetention();
+    validateRetentionMaxAge(
+        r.getRawMaxAgeSeconds(), "postgres.pgAnalytics.retention.rawMaxAgeSeconds");
+    validateRetentionMaxAge(
+        r.getHourlyMaxAgeSeconds(), "postgres.pgAnalytics.retention.hourlyMaxAgeSeconds");
+    validateRetentionMaxAge(
+        r.getDailyMaxAgeSeconds(), "postgres.pgAnalytics.retention.dailyMaxAgeSeconds");
+    validateRetentionMaxAge(
+        r.getMonthlyMaxAgeSeconds(), "postgres.pgAnalytics.retention.monthlyMaxAgeSeconds");
+    if (pgAnalytics.getMaintenance().isCronEnabled()) {
+      validateMaintenanceInterval(
+          pgAnalytics.getMaintenance().getIntervalSeconds(),
+          "postgres.pgAnalytics.maintenance.intervalSeconds");
+    }
+    PgAnalyticsSetupOptions options = buildPgAnalyticsOptions();
+    if (options == null) {
+      return;
+    }
+    for (Map.Entry<String, String> route : options.getRouting().entrySet()) {
+      if (!options.getStores().containsKey(route.getValue())) {
+        throw new IllegalStateException(
+            "postgres.pgAnalytics.routing['"
+                + route.getKey()
+                + "'] targets unknown store '"
+                + route.getValue()
+                + "'.");
+      }
+    }
   }
 
   /** Built timeseries registry, or null when {@code postgres.pgTimeseries.enabled} is false. */
@@ -1117,6 +1418,84 @@ public class PostgresSqlSetupProperties {
     public static class Maintenance {
       private boolean cronEnabled;
       private int intervalSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Pool {
+      private String url;
+      private String driver;
+      private String username;
+      private String password;
+      private int minConnections;
+      private int maxConnections;
+      private int maxInactiveTimeSeconds;
+      private int maxAgeMinutes;
+      private int leakTimeMinutes;
+      private int waitTimeoutMillis;
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgAnalytics {
+    private boolean enabled;
+    private String defaultStore;
+    private String tablePrefix;
+
+    /** Seal lag after hour_end (seconds); default from application.yaml (900). */
+    private int inputLagSeconds;
+
+    private Partitioning partitioning = new Partitioning();
+    private Retention retention = new Retention();
+    private Maintenance maintenance = new Maintenance();
+    private Sinks sinks = new Sinks();
+    private Pool pool = new Pool();
+    private Map<String, StoreConfig> stores = new LinkedHashMap<>();
+
+    /** metric_family → store name. */
+    private Map<String, String> routing = new LinkedHashMap<>();
+
+    @Getter
+    @Setter
+    public static class StoreConfig {
+      private String schema;
+      private String tablePrefix;
+      private Partitioning partitioning;
+      private Retention retention;
+      private Maintenance maintenance;
+      private Pool pool;
+    }
+
+    @Getter
+    @Setter
+    public static class Partitioning {
+      private String partmanPartitionInterval;
+      private int partmanPremake;
+      private boolean forceOverwritePartmanConfig;
+    }
+
+    @Getter
+    @Setter
+    public static class Retention {
+      private int rawMaxAgeSeconds;
+      private int hourlyMaxAgeSeconds;
+      private int dailyMaxAgeSeconds;
+      private int monthlyMaxAgeSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Maintenance {
+      private boolean cronEnabled;
+      private int intervalSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Sinks {
+      private boolean apiUsageFlushEnabled;
+      private boolean entityCountEnabled;
     }
 
     @Getter
