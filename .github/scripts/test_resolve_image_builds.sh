@@ -50,11 +50,15 @@ check() {
   : >"${out}"
   : >"${summary}"
 
-  PATH="${STUB_DIR}:${PATH}" \
+  if ! PATH="${STUB_DIR}:${PATH}" \
     GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
     env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
     PR_PUBLISH=false SMOKE_BUILD_TASK= \
-    "$@" "${UNDER_TEST}" >/dev/null 2>&1
+    "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
+    failed=$((failed + 1))
+    printf '  FAIL  %s\n        resolver exited nonzero\n' "${name}"
+    return
+  fi
 
   local actual
   actual=$(sed -n 's/^image_build_modules=//p' "${out}")
@@ -82,7 +86,7 @@ check "datahub-agent-context" "" 'CHANGED_FILES=["datahub-agent-context/tests/un
 echo "ingestion only rebuilds actions"
 check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
 check "datahub-actions" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/src/x.py"]'
-check "shared docker snippets" ":datahub-actions" 'CHANGED_FILES=["docker/snippets/ingestion_base"]'
+check "actions readme (baked into image)" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/README.md"]'
 check "ingestion plus docs" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","docs/a.md","smoke-test/tests/b_test.py"]'
 
 echo "any JVM-image path builds the full set (measured: narrowing saved nothing)"
@@ -96,6 +100,8 @@ check "metadata-models" "${ALL}" 'CHANGED_FILES=["metadata-models/src/main/pegas
 check "shared library" "${ALL}" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]'
 check "ingestion-scheduler" "${ALL}" 'CHANGED_FILES=["ingestion-scheduler/gradle.lockfile"]'
 check "service dockerfile" "${ALL}" 'CHANGED_FILES=["docker/datahub-gms/Dockerfile"]'
+# Every service Dockerfile COPYs these, not just the ingestion ones.
+check "shared docker snippets" "${ALL}" 'CHANGED_FILES=["docker/snippets/setup_java_runtime.sh"]'
 check "ingestion plus jvm" "${ALL}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","metadata-io/src/main/java/A.java"]'
 
 echo "unclassified paths force a full build"

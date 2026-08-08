@@ -150,7 +150,9 @@ jobs:
       # those images come from the registry rather than the depot pull, and an
       # anonymous pull across every shard runs into Docker Hub's rate limit.
       - name: Login to DockerHub
-        if: ${{ github.event_name == 'workflow_dispatch' || inputs.image_version_env != '' }}
+        # Guarded on the secret existing: reused images can be pulled anonymously
+        # as a fallback, and login-action with empty credentials fails the job.
+        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}

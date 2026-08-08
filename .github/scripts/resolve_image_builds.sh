@@ -75,8 +75,6 @@ PATH_RULES=(
   "docker/datahub-actions/|${ACTIONS}"
   "docker/datahub-ingestion/|${ACTIONS}"
   "docker/datahub-ingestion-base/|${ACTIONS}"
-  # Only the ingestion and actions Dockerfiles inline these.
-  "docker/snippets/|${ACTIONS}"
   "metadata-ingestion/|${ACTIONS}"
   "metadata-ingestion-modules/|${ACTIONS}"
 
@@ -84,6 +82,9 @@ PATH_RULES=(
   # payoff in distinguishing which one: build the full set. These rules exist
   # (rather than falling through to unclassified) so the log reports a
   # deliberate full build instead of implying the classification has rotted.
+  # Every service Dockerfile COPYs from docker/snippets/ (setup_java_runtime.sh,
+  # wait_for_deps.sh), not just the ingestion ones.
+  "docker/snippets/|${EVERYTHING}"
   "datahub-web-react/|${EVERYTHING}"
   "datahub-frontend/|${EVERYTHING}"
   "metadata-models/|${EVERYTHING}"
@@ -116,8 +117,6 @@ unclassified=()
 
 classify_path() {
   local path="$1" rule prefix modules
-  # Markdown never reaches an image, wherever it lives.
-  [[ "${path}" == *.md ]] && return 0
   for rule in "${PATH_RULES[@]}"; do
     prefix="${rule%%|*}"
     modules="${rule#*|}"
@@ -126,6 +125,10 @@ classify_path() {
       return 0
     fi
   done
+  # Markdown outside any classified tree cannot reach an image. Inside one, the
+  # prefix rule above already claimed it -- deliberately: the actions image COPYs
+  # its README, and the Python packages bake theirs into package metadata.
+  [[ "${path}" == *.md ]] && return 0
   return 1
 }
 
@@ -164,6 +167,7 @@ tag_exists() {
 # Reasons to bake the whole set, checked before any per-image reasoning so the
 # log names the override rather than whichever rule also happened to match.
 full_build_reason=""
+suppress_built_repos=0
 if [[ "${FULL_BUILD_LABEL}" == "true" ]]; then
   full_build_reason="the build-images label is set"
 elif [[ "${EVENT_NAME}" != "pull_request" ]]; then
@@ -178,15 +182,21 @@ elif [[ "${PR_PUBLISH}" == "true" ]]; then
   full_build_reason="a publish label is pushing this PR's images"
 elif [[ -n "${SMOKE_BUILD_TASK}" ]]; then
   # A smoke: label picks a different compose profile whose image set does not
-  # match the table above.
+  # match the table above -- so also suppress the resolved-tag assertion below:
+  # asserting the default six repositories against a profile that runs fewer
+  # containers (e.g. quickstartPg has no MAE/MCE) would fail before tests start.
   full_build_reason="a smoke: label selected the ${SMOKE_BUILD_TASK} build"
+  suppress_built_repos=1
 elif ((${#changed_files[@]} == 0)); then
   # A pull request always changes something, so an empty list means the file
   # list never arrived. Reusing every image off the back of that would be the
   # one failure this whole design has to avoid.
   full_build_reason="the changed-file list was empty or unreadable"
 elif ((${#unclassified[@]})); then
-  full_build_reason="${#unclassified[@]} changed path(s) are unclassified, starting with ${unclassified[0]}"
+  # The path is PR-controlled and this string reaches the step summary, which
+  # GitHub renders as markdown -- strip link-forming characters.
+  first_unclassified=$(printf '%s' "${unclassified[0]}" | tr -d '[]()<>`')
+  full_build_reason="${#unclassified[@]} changed path(s) are unclassified, starting with ${first_unclassified}"
 fi
 
 build_modules=()
@@ -234,7 +244,11 @@ fi
 
 {
   echo "image_build_modules=${joined_modules}"
-  echo "image_built_repos=${build_repos[*]-}"
+  if ((suppress_built_repos)); then
+    echo "image_built_repos="
+  else
+    echo "image_built_repos=${build_repos[*]-}"
+  fi
   echo "image_version_env<<IMAGE_VERSION_ENV_EOF"
   if ((${#version_env[@]})); then
     printf '%s\n' "${version_env[@]}"
