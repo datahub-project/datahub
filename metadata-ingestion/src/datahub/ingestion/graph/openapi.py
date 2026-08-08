@@ -11,6 +11,7 @@ from typing import (
     Protocol,
     Tuple,
     TypedDict,
+    Union,
 )
 
 import requests
@@ -90,6 +91,21 @@ class RelationshipDirection(StrEnum):
 class LineageDirection(StrEnum):
     UPSTREAM = "UPSTREAM"
     DOWNSTREAM = "DOWNSTREAM"
+
+
+# Both direction enums are StrEnums, so a caller holding the equivalent plain
+# string is passing something already valid on the wire. Accept it.
+RelationshipDirectionInput = Union[RelationshipDirection, str]
+LineageDirectionInput = Union[LineageDirection, str]
+
+
+def _direction_param(direction: Union[StrEnum, str]) -> str:
+    """Render a direction for the query string.
+
+    str() rather than .value: the enums are StrEnums, so this is identical for
+    enum members and also works for the plain string spelling of them.
+    """
+    return str(direction)
 
 
 def _raw_filter_to_v3_body(raw: RawSearchFilter) -> Dict[str, Any]:
@@ -200,7 +216,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         self,
         entity_urn: str,
         relationship_types: List[str],
-        direction: RelationshipDirection,
+        direction: RelationshipDirectionInput,
     ) -> Iterable[RelatedEntity]:
         url = f"{self._gms_server}/openapi/relationships/v1/"
         done = False
@@ -210,7 +226,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 url=url,
                 params={
                     "urn": entity_urn,
-                    "direction": direction.value,
+                    "direction": _direction_param(direction),
                     "relationshipTypes": relationship_types,
                     "start": start,
                 },
@@ -340,7 +356,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         relationship_types: Optional[List[str]] = None,
         source_types: Optional[List[str]] = None,
         destination_types: Optional[List[str]] = None,
-        direction: Optional[RelationshipDirection] = None,
+        direction: Optional[RelationshipDirectionInput] = None,
         source_urns: Optional[List[str]] = None,
         destination_urns: Optional[List[str]] = None,
         source_filter: Optional[RawSearchFilter] = None,
@@ -368,8 +384,11 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 If None or empty, all relationship types are returned.
             source_types: Entity types to filter source nodes (e.g. ["dataset"]).
             destination_types: Entity types to filter destination nodes.
-            direction: Direction of relationships to include (INCOMING or OUTGOING).
-                Defaults to OUTGOING if not specified.
+            direction: Direction of relationships to include, as a
+                RelationshipDirection or the equivalent string ("INCOMING" or
+                "OUTGOING"). Defaults to OUTGOING if not specified. Note that this
+                endpoint wants INCOMING/OUTGOING, while scroll_lineage wants
+                UPSTREAM/DOWNSTREAM.
             source_urns: URNs to filter source entities (OR logic across values).
                 Combined with source_filter via AND if both are provided.
             destination_urns: URNs to filter destination entities (OR logic across values).
@@ -415,7 +434,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         *,
         urns: Optional[List[str]] = None,
         relationship_types: Optional[List[str]] = None,
-        direction: Optional[LineageDirection] = None,
+        direction: Optional[LineageDirectionInput] = None,
         count: Optional[int] = None,
         scroll_id: Optional[str] = None,
         include_soft_delete: Optional[bool] = None,
@@ -439,7 +458,8 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 and all lineage edges are scrolled.
             relationship_types: Relationship types to include (e.g. ["DownstreamOf"]).
                 If None or empty, all lineage relationship types are returned.
-            direction: UPSTREAM or DOWNSTREAM, applied relative to `urns` as a
+            direction: A LineageDirection or the equivalent string ("UPSTREAM" or
+                "DOWNSTREAM"), applied relative to `urns` as a
                 post-query filter — edges running the opposite way are dropped. Has no
                 effect when `urns` is empty, since there is no anchor to orient from.
                 Because filtering happens after the page is fetched, a given page may
@@ -463,7 +483,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         if relationship_types is not None:
             params["relationshipTypes"] = relationship_types
         if direction is not None:
-            params["direction"] = direction.value
+            params["direction"] = _direction_param(direction)
         if count is not None:
             params["count"] = count
         if scroll_id is not None:
@@ -512,7 +532,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         relationship_types: Optional[List[str]] = None,
         source_types: Optional[List[str]] = None,
         destination_types: Optional[List[str]] = None,
-        direction: Optional[RelationshipDirection] = None,
+        direction: Optional[RelationshipDirectionInput] = None,
         source_urns: Optional[List[str]] = None,
         destination_urns: Optional[List[str]] = None,
         source_filter: Optional[RawSearchFilter] = None,
@@ -533,7 +553,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         if destination_types is not None:
             params["destinationTypes"] = destination_types
         if direction is not None:
-            params["direction"] = direction.value
+            params["direction"] = _direction_param(direction)
         if count is not None:
             params["count"] = count
         if scroll_id is not None:
