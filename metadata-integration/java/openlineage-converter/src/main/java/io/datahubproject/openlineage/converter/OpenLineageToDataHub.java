@@ -43,6 +43,11 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
+import com.linkedin.schema.ArrayType;
+import com.linkedin.schema.BooleanType;
+import com.linkedin.schema.BytesType;
+import com.linkedin.schema.DateType;
+import com.linkedin.schema.EnumType;
 import com.linkedin.schema.MapType;
 import com.linkedin.schema.MySqlDDL;
 import com.linkedin.schema.NullType;
@@ -53,6 +58,7 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
+import com.linkedin.schema.UnionType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
@@ -67,12 +73,14 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -437,17 +445,32 @@ public class OpenLineageToDataHub {
     StringMap customProperties = generateCustomProperties(event, true);
     dfi.setCustomProperties(customProperties);
 
-    String description = getDescription(event);
-    if (description != null) {
-      dfi.setDescription(description);
+    // The DataFlow description is the *flow's* own description, not the job's. The OpenLineage
+    // DocumentationJobFacet describes the job and is written to the DataJob (see
+    // convertJobToDataJob),
+    // not here — a job-level description doesn't describe the flow, and with many jobs per flow
+    // each
+    // would overwrite the others. The only flow-level description OpenLineage carries is the
+    // Airflow
+    // DAG description in the airflow custom run facet, which getFlowDescription reads.
+    String flowDescription = getFlowDescription(event);
+    if (flowDescription != null) {
+      dfi.setDescription(flowDescription);
     }
     jobBuilder.dataFlowInfo(dfi);
 
+    // Ownership comes from the OpenLineage OwnershipJobFacet (a job facet), so it belongs on the
+    // DataJob.
     Ownership ownership = generateOwnership(event);
-    jobBuilder.flowOwnership(ownership);
+    jobBuilder.jobOwnership(ownership);
 
-    GlobalTags tags = generateTags(event);
-    jobBuilder.flowGlobalTags(tags);
+    // Airflow-style DAG tags live in the run facet and stay on the DataFlow (backward compatible).
+    GlobalTags flowTags = generateTags(event);
+    jobBuilder.flowGlobalTags(flowTags);
+
+    // Standard OpenLineage TagsJobFacet tags are a job facet, so they go on the DataJob.
+    GlobalTags jobTags = generateJobTags(event);
+    jobBuilder.jobGlobalTags(jobTags);
 
     DatahubJob datahubJob = jobBuilder.build();
     convertJobToDataJob(datahubJob, event, datahubConf);
@@ -476,7 +499,7 @@ public class OpenLineageToDataHub {
         Owner owner = new Owner();
         try {
           owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
-          owner.setType(OwnershipType.DEVELOPER);
+          owner.setType(mapOwnershipType(ownerFacet.getType()));
           OwnershipSource source = new OwnershipSource();
           source.setType(OwnershipSourceType.SERVICE);
           owner.setSource(source);
@@ -496,6 +519,51 @@ public class OpenLineageToDataHub {
       log.warn("Unable to create actor urn for actor: {}", URN_LI_CORPUSER_DATAHUB);
     }
     return ownership;
+  }
+
+  /**
+   * Best-effort map an OpenLineage owner {@code type} (a free-text string, e.g. {@code DEVELOPER})
+   * onto a DataHub {@link OwnershipType}. Unknown or blank values fall back to {@code
+   * TECHNICAL_OWNER}.
+   */
+  private static OwnershipType mapOwnershipType(String openLineageType) {
+    if (openLineageType != null && !openLineageType.trim().isEmpty()) {
+      try {
+        return OwnershipType.valueOf(openLineageType.trim().toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        log.debug(
+            "Unknown OpenLineage owner type '{}', defaulting to TECHNICAL_OWNER", openLineageType);
+      }
+    }
+    return OwnershipType.TECHNICAL_OWNER;
+  }
+
+  /**
+   * Extract tags from the standard OpenLineage {@code TagsJobFacet} (a job facet). Each key/value
+   * pair becomes a {@code key:value} tag (or just {@code key} when the value is empty). Returns
+   * {@code null} when no tags are present.
+   */
+  private static GlobalTags generateJobTags(OpenLineage.RunEvent event) {
+    if (event.getJob() == null
+        || event.getJob().getFacets() == null
+        || event.getJob().getFacets().getTags() == null
+        || event.getJob().getFacets().getTags().getTags() == null) {
+      return null;
+    }
+    List<String> tagNames = new LinkedList<>();
+    for (OpenLineage.TagsJobFacetFields tag : event.getJob().getFacets().getTags().getTags()) {
+      String key = tag.getKey();
+      if (key == null || key.trim().isEmpty()) {
+        continue;
+      }
+      String value = tag.getValue();
+      tagNames.add(
+          (value == null || value.trim().isEmpty()) ? key.trim() : key.trim() + ":" + value.trim());
+    }
+    if (tagNames.isEmpty()) {
+      return null;
+    }
+    return generateTags(tagNames);
   }
 
   private static String getDescription(OpenLineage.RunEvent event) {
@@ -661,8 +729,12 @@ public class OpenLineageToDataHub {
     return true;
   }
 
-  private static GlobalTags generateTags(OpenLineage.RunEvent event) {
-    if (event.getRun().getFacets() == null
+  // The Airflow OpenLineage provider ships DAG metadata in a custom run facet
+  // (run.facets.airflow.dag). Returns that dag property map, or null when the event is not from
+  // Airflow / has no dag facet.
+  private static Map<String, Object> getAirflowDagProperties(OpenLineage.RunEvent event) {
+    if (event.getRun() == null
+        || event.getRun().getFacets() == null
         || event.getRun().getFacets().getAdditionalProperties() == null
         || event.getRun().getFacets().getAdditionalProperties().get("airflow") == null
         || event
@@ -671,19 +743,54 @@ public class OpenLineageToDataHub {
                 .getAdditionalProperties()
                 .get("airflow")
                 .getAdditionalProperties()
-                .get("dag")
             == null) {
       return null;
     }
-    Map<String, Object> airflowProperties =
+    Object dag =
         event
             .getRun()
             .getFacets()
             .getAdditionalProperties()
             .get("airflow")
-            .getAdditionalProperties();
-    @SuppressWarnings("unchecked")
-    Map<String, Object> dagProperties = (Map<String, Object>) airflowProperties.get("dag");
+            .getAdditionalProperties()
+            .get("dag");
+    if (dag instanceof Map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> dagProperties = (Map<String, Object>) dag;
+      return dagProperties;
+    }
+    return null;
+  }
+
+  // DataFlow (= Airflow DAG) description. Sourced from the Airflow custom run facet's
+  // dag.description
+  // — the DAG's own description, present on every task event — rather than the job's
+  // DocumentationJobFacet (which describes the task and belongs on the DataJob). Foolproof for
+  // Airflow because it is gated on the Airflow facet; other producers have no flow-level
+  // description.
+  private static String getFlowDescription(OpenLineage.RunEvent event) {
+    Map<String, Object> dagProperties = getAirflowDagProperties(event);
+    if (dagProperties != null && dagProperties.get("description") instanceof String) {
+      String description = ((String) dagProperties.get("description")).trim();
+      if (!description.isEmpty()) {
+        return description;
+      }
+    }
+    // We deliberately do NOT infer a flow-level event from the ABSENCE of a ParentRunFacet and
+    // write its DocumentationJobFacet to the DataFlow. ParentRunFacet presence reliably means
+    // "task", but its absence is ambiguous: OpenLineage does not guarantee every event carries
+    // every facet, and producers omit the parent inconsistently (some Spark events send it,
+    // others do not). Treating "no parent" as "this is the flow" causes false positives and
+    // re-introduces the multi-task overwrite problem. The Airflow DAG facet above is the only
+    // reliable positive flow-description signal.
+    return null;
+  }
+
+  private static GlobalTags generateTags(OpenLineage.RunEvent event) {
+    Map<String, Object> dagProperties = getAirflowDagProperties(event);
+    if (dagProperties == null) {
+      return null;
+    }
     if (dagProperties.get("tags") != null) {
       try {
         JSONArray arr = new JSONArray(((String) dagProperties.get("tags")).replace("'", "\""));
@@ -1203,7 +1310,45 @@ public class OpenLineageToDataHub {
     }
     auditStamp.setActor(Urn.createFromString(URN_LI_CORPUSER_DATAHUB));
     dpiProperties.setCreated(auditStamp);
+
+    // Surface the OpenLineage ErrorMessageRunFacet (message / programmingLanguage / stackTrace) as
+    // custom properties so FAIL/ABORT diagnostics aren't lost.
+    StringMap errorProperties = errorMessageProperties(event);
+    if (!errorProperties.isEmpty()) {
+      dpiProperties.setCustomProperties(errorProperties);
+    }
     return dpiProperties;
+  }
+
+  // Cap stack traces so a single failed run can't bloat the aspect / MCP payload. The message and
+  // programmingLanguage are small and kept verbatim; the full trace remains in the raw OL event.
+  private static final int ERROR_STACK_TRACE_MAX_CHARS = 4096;
+
+  private static StringMap errorMessageProperties(OpenLineage.RunEvent event) {
+    StringMap properties = new StringMap();
+    if (event.getRun() == null
+        || event.getRun().getFacets() == null
+        || event.getRun().getFacets().getErrorMessage() == null) {
+      return properties;
+    }
+    OpenLineage.ErrorMessageRunFacet error = event.getRun().getFacets().getErrorMessage();
+    if (error.getMessage() != null) {
+      properties.put("errorMessage", error.getMessage());
+    }
+    if (error.getProgrammingLanguage() != null) {
+      properties.put("programmingLanguage", error.getProgrammingLanguage());
+    }
+    if (error.getStackTrace() != null) {
+      properties.put("stackTrace", truncate(error.getStackTrace(), ERROR_STACK_TRACE_MAX_CHARS));
+    }
+    return properties;
+  }
+
+  private static String truncate(String value, int maxChars) {
+    if (value.length() <= maxChars) {
+      return value;
+    }
+    return value.substring(0, maxChars) + "...[truncated]";
   }
 
   public static Edge createEdge(Urn urn, ZonedDateTime eventTime) {
@@ -1316,6 +1461,16 @@ public class OpenLineageToDataHub {
 
   private static DataProcessInstanceRunEvent processDataProcessInstanceResult(
       OpenLineage.RunEvent event) {
+    // OTHER events (and events with no eventType) are supplementary-metadata events, not run-state
+    // transitions. They have no valid DataProcessRunStatus/RunResultType, so emit no run-event MCP
+    // rather than a RunResultType.$UNKNOWN aspect that the downstream validator rejects — which
+    // would
+    // otherwise be a silent drop (HTTP 200, aspect discarded). A missing eventType previously NPE'd
+    // on the switch below.
+    if (event.getEventType() == null) {
+      return null;
+    }
+
     DataProcessInstanceRunEvent dpire = new DataProcessInstanceRunEvent();
 
     DataProcessInstanceRunResult result = new DataProcessInstanceRunResult();
@@ -1349,13 +1504,8 @@ public class OpenLineageToDataHub {
         break;
       case OTHER:
       default:
-        result.setNativeResultType(event.getEventType().toString());
-        if (event.getEventTime() != null) {
-          dpire.setTimestampMillis(event.getEventTime().toInstant().toEpochMilli());
-        }
-        result.setType(RunResultType.$UNKNOWN);
-        dpire.setResult(result);
-        break;
+        // Not a run-state transition — no run-event aspect to emit.
+        return null;
     }
     return dpire;
   }
@@ -1429,19 +1579,193 @@ public class OpenLineageToDataHub {
     if (openLineageFieldType == null) {
       return SchemaFieldDataType.Type.create(new NullType());
     }
-    switch (openLineageFieldType) {
+    // OpenLineage field types are free-form strings and vary by producer: case (Spark lowercase
+    // vs Trino/JDBC uppercase), synonyms (int/integer/bigint), and parameter/element suffixes
+    // (varchar(255), decimal(10,2), array<string>, struct<...>). Normalize to a lowercase base
+    // token so equivalent types resolve to the same DataHub type instead of falling to NullType.
+    String base = openLineageFieldType.trim().toLowerCase(Locale.ROOT);
+    int cut = base.length();
+    int paren = base.indexOf('(');
+    int angle = base.indexOf('<');
+    if (paren >= 0) {
+      cut = Math.min(cut, paren);
+    }
+    if (angle >= 0) {
+      cut = Math.min(cut, angle);
+    }
+    base = base.substring(0, cut).trim();
+    switch (base) {
       case "string":
+      case "varchar":
+      case "char":
+      case "nvarchar":
+      case "nchar":
+      case "character":
+      case "varying":
+      case "text":
+      case "uuid":
         return SchemaFieldDataType.Type.create(new StringType());
-      case "long":
       case "int":
+      case "integer":
+      case "long":
+      case "bigint":
+      case "smallint":
+      case "tinyint":
+      case "short":
+      case "byte":
+      case "double":
+      case "float":
+      case "decimal":
+      case "numeric":
+      case "number":
+      case "real":
+      case "money":
         return SchemaFieldDataType.Type.create(new NumberType());
+      case "boolean":
+      case "bool":
+        return SchemaFieldDataType.Type.create(new BooleanType());
+      case "date":
+        return SchemaFieldDataType.Type.create(new DateType());
       case "timestamp":
+      case "timestamp_ntz":
+      case "timestamp_tz":
+      case "timestamptz":
+      case "datetime":
+      case "time":
         return SchemaFieldDataType.Type.create(new TimeType());
-      case "struct":
+      case "binary":
+      case "varbinary":
+      case "bytes":
+      case "blob":
+        return SchemaFieldDataType.Type.create(new BytesType());
+      case "array":
+      case "list":
+        return SchemaFieldDataType.Type.create(new ArrayType());
+      case "map":
         return SchemaFieldDataType.Type.create(new MapType());
+      case "struct":
+      case "record":
+      case "row":
+        return SchemaFieldDataType.Type.create(new MapType());
+      case "union":
+        return SchemaFieldDataType.Type.create(new UnionType());
+      case "enum":
+        return SchemaFieldDataType.Type.create(new EnumType());
       default:
         return SchemaFieldDataType.Type.create(new NullType());
     }
+  }
+
+  // The row/record itself is the enclosing struct in DataHub's v2 fieldPath encoding.
+  private static final String V2_SCHEMA_ROOT = "[version=2.0].[type=struct]";
+
+  // Build DataHub v2 fieldPaths for a (possibly nested) OpenLineage schema field, recursing into
+  // children. Container types (struct/array/map/union) are emitted as [type=...] tokens ahead of
+  // the
+  // field name, matching docs/advanced/field-path-spec-v2.md (e.g. array-of-struct ->
+  // [type=array].[type=struct].<name>). Callers downgrade these to simple dotted paths unless the
+  // schema actually needs v2 (see schemaRequiresV2).
+  private static void addSchemaFieldRecursively(
+      OpenLineage.SchemaDatasetFacetFields field,
+      String parentPath,
+      SchemaFieldArray schemaFieldArray) {
+    StringBuilder path = new StringBuilder(parentPath);
+    for (String token : v2TypeTokens(field)) {
+      path.append(".").append(token);
+    }
+    path.append(".").append(field.getName());
+    String fieldPath = path.toString();
+
+    SchemaField schemaField = new SchemaField();
+    schemaField.setFieldPath(fieldPath);
+    schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
+    schemaField.setType(
+        new SchemaFieldDataType().setType(convertOlFieldTypeToDHFieldType(field.getType())));
+    schemaFieldArray.add(schemaField);
+
+    if (field.getFields() != null) {
+      for (OpenLineage.SchemaDatasetFacetFields child : field.getFields()) {
+        addSchemaFieldRecursively(child, fieldPath, schemaFieldArray);
+      }
+    }
+  }
+
+  // Ordered v2 [type=...] tokens for a field's declared type. Nested struct children (getFields())
+  // imply a struct element for array/map containers; otherwise the element/value type is parsed
+  // from
+  // a parameterized type string (e.g. array<string>, map<string,long>) when the producer supplies
+  // one.
+  private static List<String> v2TypeTokens(OpenLineage.SchemaDatasetFacetFields field) {
+    String rawType = field.getType() == null ? "" : field.getType().trim();
+    String base = rawType.toLowerCase(Locale.ROOT);
+    boolean hasChildren = field.getFields() != null && !field.getFields().isEmpty();
+    List<String> tokens = new ArrayList<>();
+    if (base.startsWith("array") || base.startsWith("list")) {
+      tokens.add("[type=array]");
+      tokens.add("[type=" + parameterizedElementType(rawType, hasChildren, 0) + "]");
+    } else if (base.startsWith("map")) {
+      tokens.add("[type=map]");
+      tokens.add("[type=" + parameterizedElementType(rawType, hasChildren, 1) + "]");
+    } else if (base.startsWith("union") || base.startsWith("uniontype")) {
+      tokens.add("[type=union]");
+    } else if (base.startsWith("struct") || base.startsWith("record") || hasChildren) {
+      tokens.add("[type=struct]");
+    } else {
+      tokens.add("[type=" + (base.isEmpty() ? "unknown" : base) + "]");
+    }
+    return tokens;
+  }
+
+  // Element type for a container: "struct" when nested children are present, otherwise the
+  // simple-type name parsed from the angle-bracket parameter at the given index (0 = array element
+  // /
+  // map key, 1 = map value). Falls back to "unknown" when the producer gives no element type.
+  private static String parameterizedElementType(String rawType, boolean hasChildren, int index) {
+    if (hasChildren) {
+      return "struct";
+    }
+    int open = rawType.indexOf('<');
+    int close = rawType.lastIndexOf('>');
+    if (open >= 0 && close > open) {
+      String[] params = rawType.substring(open + 1, close).split(",");
+      if (index < params.length) {
+        String param = params[index].trim().toLowerCase(Locale.ROOT);
+        int nested = param.indexOf('<');
+        String simple = nested > 0 ? param.substring(0, nested) : param;
+        return simple.isEmpty() ? "unknown" : simple;
+      }
+    }
+    return "unknown";
+  }
+
+  // v2 is only required when array or union types are present; every other schema (including nested
+  // structs) is representable with simple dotted paths. Mirrors DataHub's ingestion convention
+  // (metadata-ingestion sql_utils.schema_requires_v2).
+  private static boolean schemaRequiresV2(SchemaFieldArray fields) {
+    for (SchemaField field : fields) {
+      if (field.getFieldPath().contains("[type=array]")
+          || field.getFieldPath().contains("[type=union]")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Downgrade a v2 fieldPath to the simple dotted form by dropping the bracketed tokens and joining
+  // the field names (mirrors get_simple_field_path_from_v2_field_path in metadata-ingestion).
+  private static String simpleFieldPathFromV2(String v2FieldPath) {
+    StringBuilder sb = new StringBuilder();
+    for (String token : v2FieldPath.split("\\.")) {
+      // Drop bracketed tokens; the version token [version=2.0] also splits into a trailing "0]".
+      if (token.startsWith("[") || token.endsWith("]")) {
+        continue;
+      }
+      if (sb.length() > 0) {
+        sb.append(".");
+      }
+      sb.append(token);
+    }
+    return sb.toString();
   }
 
   public static SchemaMetadata getSchemaMetadata(
@@ -1463,16 +1787,15 @@ public class OpenLineageToDataHub {
         .getFacets()
         .getSchema()
         .getFields()
-        .forEach(
-            field -> {
-              SchemaField schemaField = new SchemaField();
-              schemaField.setFieldPath(field.getName());
-              schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
-              schemaField.setType(
-                  new SchemaFieldDataType()
-                      .setType(convertOlFieldTypeToDHFieldType(field.getType())));
-              schemaFieldArray.add(schemaField);
-            });
+        .forEach(field -> addSchemaFieldRecursively(field, V2_SCHEMA_ROOT, schemaFieldArray));
+    // Keep v2 fieldPaths only when the schema needs them (array/union present); otherwise downgrade
+    // to simple dotted paths so flat and struct-only schemas stay v1, matching DataHub's
+    // convention.
+    if (!schemaRequiresV2(schemaFieldArray)) {
+      for (SchemaField field : schemaFieldArray) {
+        field.setFieldPath(simpleFieldPathFromV2(field.getFieldPath()));
+      }
+    }
     SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setPlatformSchema(new SchemaMetadata.PlatformSchema());
     schemaMetadata.setSchemaName("");
