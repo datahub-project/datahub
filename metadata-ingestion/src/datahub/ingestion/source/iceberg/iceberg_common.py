@@ -364,6 +364,11 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     tables_listed_per_namespace: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
+    views_scanned: int = 0
+    total_listed_views: int = 0
+    views_listed_per_namespace: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
 
     def report_listed_tables_for_namespace(
         self, namespace: str, no_tables: int
@@ -371,11 +376,18 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
         self.tables_listed_per_namespace[namespace] = no_tables
         self.total_listed_tables += no_tables
 
+    def report_listed_views_for_namespace(self, namespace: str, no_views: int) -> None:
+        self.views_listed_per_namespace[namespace] = no_views
+        self.total_listed_views += no_views
+
     def report_no_listed_namespaces(self, amount: int) -> None:
         self.listed_namespaces = amount
 
     def report_table_scanned(self, name: str) -> None:
         self.tables_scanned += 1
+
+    def report_view_scanned(self, name: str) -> None:
+        self.views_scanned += 1
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
