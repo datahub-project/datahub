@@ -1577,11 +1577,27 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
-# Two-tier platforms whose connector URNs are schema.table. Their ODBC
-# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
-# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
-# the enum so a platform-name rename can't silently disable the catalog drop.
-ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+# Platforms whose standalone connectors emit schema.table URNs by default.
+# ODBC nav for these must not prepend Kind=Database or a dsn_to_database_schema
+# database onto Schema+Table (that would force three-part URNs that mismatch
+# the connector). Hive also drops its constant "HIVE" pseudo-catalog.
+ODBC_TWO_TIER_PLATFORMS = {
+    SupportedDataPlatform.HIVE.value.datahub_data_platform_name,
+    SupportedDataPlatform.ORACLE.value.datahub_data_platform_name,
+}
+
+# Platforms whose standalone connectors emit database.schema.table (or the
+# BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
+# dsn_to_database_schema backfill) yields database + table but no schema, these
+# must warn-and-skip rather than emit a truncated database.table URN.
+ODBC_THREE_TIER_PLATFORMS = {
+    SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
+    SupportedDataPlatform.SNOWFLAKE.value.datahub_data_platform_name,
+    SupportedDataPlatform.POSTGRES_SQL.value.datahub_data_platform_name,
+    SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
+    SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
+    SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
+}
 
 
 class OdbcLineage(AbstractLineage):
@@ -1655,8 +1671,28 @@ class OdbcLineage(AbstractLineage):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
-                data_access_func_detail, data_platform, platform_pair, server_name
+                data_access_func_detail, data_platform, platform_pair, server_name, dsn
             )
+
+    def _resolve_dsn_database_schema(
+        self, dsn: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Resolve the configured database (and optional schema) for a DSN.
+
+        ODBC inline SQL and hierarchical navigation do not always expose every
+        level of a table's qualified name (e.g. a BigQuery ODBC source commonly
+        surfaces dataset.table but omits the project). dsn_to_database_schema
+        supplies those missing high-order levels so a fully-qualified upstream
+        URN can still be built.
+        """
+        value = self.config.dsn_to_database_schema.get(dsn)
+        if not value:
+            return None, None
+        # Empty segments must not backfill (avoids "project..table"); config also rejects blanks.
+        parts = [part.strip() or None for part in value.split(".")]
+        if len(parts) == 1:
+            return parts[0], None
+        return parts[0], parts[1]
 
     def query_lineage(
         self,
@@ -1665,9 +1701,6 @@ class OdbcLineage(AbstractLineage):
         server_name: str,
         dsn: str,
     ) -> Lineage:
-        database = None
-        schema = None
-
         if not query:
             # query should never be None as it is checked before calling this function.
             # however, we need to check just in case.
@@ -1678,15 +1711,7 @@ class OdbcLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if self.config.dsn_to_database_schema:
-            value = self.config.dsn_to_database_schema.get(dsn)
-            if value:
-                parts = value.split(".")
-                if len(parts) == 1:
-                    database = parts[0]
-                elif len(parts) == 2:
-                    database = parts[0]
-                    schema = parts[1]
+        database, schema = self._resolve_dsn_database_schema(dsn)
 
         logger.debug(
             f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
@@ -1867,6 +1892,7 @@ class OdbcLineage(AbstractLineage):
         data_platform: str,
         platform_pair: DataPlatformPair,
         server_name: str,
+        dsn: str,
     ) -> Lineage:
         database_name = None
         schema_name = None
@@ -1897,9 +1923,20 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
+        # Backfill missing high-order tiers from dsn_to_database_schema (nav wins).
+        # Skip prepending a DSN database onto Schema+Table for two-tier platforms
+        # (Oracle/Hive): that mapping is for SQL parsing / three-tier project
+        # backfill, and would force database.schema.table URNs that mismatch the
+        # standalone connector's default schema.table shape.
+        config_database, config_schema = self._resolve_dsn_database_schema(dsn)
+        if database_name is None:
+            if data_platform not in ODBC_TWO_TIER_PLATFORMS or schema_name is None:
+                database_name = config_database
+            if schema_name is None:
+                schema_name = config_schema
+
         if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
             if schema_name is not None:
-                # Drop the pseudo-catalog database_name for two-tier platforms.
                 qualified_table_name = f"{schema_name}.{table_name}"
             else:
                 # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
@@ -1916,18 +1953,21 @@ class OdbcLineage(AbstractLineage):
             and table_name is not None
         ):
             qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
-        elif database_name is not None and table_name is not None:
+        elif (
+            database_name is not None
+            and table_name is not None
+            and data_platform not in ODBC_THREE_TIER_PLATFORMS
+        ):
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
             self.reporter.warning(
                 title="Can not determine qualified table name",
                 message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
-                context=f"table-name={self.table.full_name}, data-platform={data_platform}",
-            )
-            logger.warning(
-                f"Can not determine qualified table name for ODBC data source {data_platform} "
-                f"table {self.table.full_name}."
+                context=(
+                    f"table-name={self.table.full_name}, data-platform={data_platform}, "
+                    f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
+                ),
             )
             return Lineage.empty()
 
@@ -1945,7 +1985,7 @@ class OdbcLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
+        result = Lineage(
             upstreams=[
                 DataPlatformTable(
                     data_platform_pair=platform_pair,
@@ -1954,6 +1994,18 @@ class OdbcLineage(AbstractLineage):
             ],
             column_lineage=column_lineage,
         )
+
+        # Match query_lineage: Athena hierarchical nav / DSN backfill can produce
+        # catalog.database.table; strip to database.table so URNs match the
+        # standalone Athena connector, then apply federated platform overrides.
+        if (
+            platform_pair.datahub_data_platform_name
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
+            result = self._strip_athena_catalog_from_lineage(result)
+            result = self._apply_table_platform_override(result, dsn)
+
+        return result
 
     @staticmethod
     def create_platform_pair(
