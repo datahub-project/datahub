@@ -339,13 +339,18 @@ def test_gms_usage_fetch(auth_session):
     data = response.json()["value"]
 
     # bigquery_usages_golden.json seeds three non-empty DAY buckets for this resource.
-    # date_histogram with min_doc_count=0 also returns empty interstitial days (May 29–31),
-    # so the total is typically 6 — assert seeded days + totals, not a brittle bucket count.
+    # DAY date_histogram uses min_doc_count=0, so empty interstitial days (May 29–31) are
+    # also returned. Assert seeded days + gap-filled empties rather than a bare length check.
     expected_non_empty = {
         1622073600000: 4,  # 2021-05-27
         1622160000000: 2,  # 2021-05-28
         1622505600000: 1,  # 2021-06-01
     }
+    expected_empty = (
+        1622246400000,  # 2021-05-29
+        1622332800000,  # 2021-05-30
+        1622419200000,  # 2021-05-31
+    )
     buckets_by_ts = {bucket["bucket"]: bucket for bucket in data["buckets"]}
     for ts, total_sql_queries in expected_non_empty.items():
         assert ts in buckets_by_ts, (
@@ -354,8 +359,11 @@ def test_gms_usage_fetch(auth_session):
         metrics = buckets_by_ts[ts]["metrics"]
         assert metrics["totalSqlQueries"] == total_sql_queries
         assert metrics["uniqueUserCount"] == 1
+    for ts in expected_empty:
+        assert ts in buckets_by_ts, (
+            f"missing empty interstitial bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
     assert buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"]
-    assert len(data["buckets"]) >= len(expected_non_empty)
 
     fields = data["aggregations"].pop("fields")
     assert len(fields) == 12
