@@ -269,18 +269,38 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         if catalog_config.get("type") == "glue":
             self._custom_glue_catalog_handling(catalog_config)
 
-        catalog = load_catalog(name=catalog_name, **catalog_config)
+        # The "connection" block (retry/timeout/headers) is a DataHub-specific
+        # extension, not a pyiceberg catalog property, so keep it out of the
+        # config passed to load_catalog().
+        connection_conf: Dict[str, Any] = catalog_config.get("connection") or {}
+        load_catalog_config = {
+            k: v for k, v in catalog_config.items() if k != "connection"
+        }
+
+        # Map connection.headers onto pyiceberg's native `header.<name>`
+        # properties so they are applied to every request made by a REST
+        # catalog, including the initial OAuth token fetch that happens inside
+        # load_catalog(). Explicitly configured `header.<name>` properties take
+        # precedence over connection.headers.
+        headers: Dict[str, Any] = connection_conf.get("headers") or {}
+        for header_name, header_value in headers.items():
+            load_catalog_config.setdefault(f"header.{header_name}", header_value)
+        if headers:
+            logger.debug(
+                "Merged connection.headers into catalog properties (keys: %s)",
+                list(headers.keys()),
+            )
+
+        catalog = load_catalog(name=catalog_name, **load_catalog_config)
         if isinstance(catalog, RestCatalog):
             logger.debug(
                 "Recognized REST catalog type being configured, attempting to configure HTTP Adapter for the session"
             )
             retry_policy: Dict[str, Any] = DEFAULT_REST_RETRY_POLICY.copy()
-            retry_policy.update(catalog_config.get("connection", {}).get("retry", {}))
+            retry_policy.update(connection_conf.get("retry", {}))
             retries = Retry(**retry_policy)
             logger.debug(f"Retry policy to be set: {retry_policy}")
-            timeout = catalog_config.get("connection", {}).get(
-                "timeout", DEFAULT_REST_TIMEOUT
-            )
+            timeout = connection_conf.get("timeout", DEFAULT_REST_TIMEOUT)
             logger.debug(f"Timeout to be set: {timeout}")
             catalog._session.mount(
                 "http://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
