@@ -1,3 +1,8 @@
+---
+name: test-review
+description: DataHub test review — use when asked to review, check, validate, or audit smoke tests or integration tests
+---
+
 # DataHub Test Review
 
 Review DataHub smoke and integration tests for standards compliance and quality.
