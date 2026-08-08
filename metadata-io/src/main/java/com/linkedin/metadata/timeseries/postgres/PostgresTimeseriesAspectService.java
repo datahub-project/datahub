@@ -11,7 +11,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
-import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -23,6 +22,7 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
 import com.linkedin.timeseries.AggregationSpec;
@@ -57,38 +57,43 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * PostgreSQL-backed {@link TimeseriesAspectService} for {@code {prefix}_aspect} (see SqlSetup
- * pgTimeseries).
+ * pgTimeseries). Routes each {@code (entity, aspect)} to a named store via {@link
+ * PgTimeseriesStoreRegistry}.
  */
 @Slf4j
 public class PostgresTimeseriesAspectService implements TimeseriesAspectService {
 
-  @Nonnull private final Database database;
-  @Nonnull private final PostgresSqlSetupProperties postgresSqlSetupProperties;
+  @Nonnull private final PgTimeseriesStoreRegistry storeRegistry;
   @Nonnull private final TimeseriesAspectServiceConfig timeseriesAspectServiceConfig;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nonnull private final EntityRegistry entityRegistry;
-  @Nonnull private final PostgresTimeseriesAspectDao pgTimeseriesAspectDao;
   private final ExecutorService deleteExecutor =
       Executors.newCachedThreadPool(r -> new Thread(r, "pg-timeseries-delete"));
 
   public PostgresTimeseriesAspectService(
-      @Nonnull Database database,
-      @Nonnull PostgresSqlSetupProperties postgresSqlSetupProperties,
+      @Nonnull PgTimeseriesStoreRegistry storeRegistry,
       @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull EntityRegistry entityRegistry) {
-    this.database = database;
-    this.postgresSqlSetupProperties = postgresSqlSetupProperties;
+    this.storeRegistry = storeRegistry;
     this.timeseriesAspectServiceConfig = timeseriesAspectServiceConfig;
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.entityRegistry = entityRegistry;
-    this.pgTimeseriesAspectDao =
-        new PostgresTimeseriesAspectDao(database, postgresSqlSetupProperties);
   }
 
   @Nonnull
-  private String qualifiedTable() {
-    return pgTimeseriesAspectDao.qualifiedTable();
+  private StoreHandle store(@Nonnull String entityName, @Nonnull String aspectName) {
+    return storeRegistry.resolve(entityName, aspectName);
+  }
+
+  @Nonnull
+  private String qualifiedTable(@Nonnull String entityName, @Nonnull String aspectName) {
+    return store(entityName, aspectName).getDao().qualifiedTable();
+  }
+
+  @Nonnull
+  private Database database(@Nonnull String entityName, @Nonnull String aspectName) {
+    return store(entityName, aspectName).getDatabase();
   }
 
   @Override
@@ -106,7 +111,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
             queryFilterRewriteChain);
     String sql =
         "SELECT COUNT(*) FROM "
-            + qualifiedTable()
+            + qualifiedTable(entityName, aspectName)
             + " WHERE entity_name = ? AND aspect_name = ? AND ("
             + built.getExpression()
             + ")";
@@ -114,7 +119,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     params.add(entityName);
     params.add(aspectName);
     params.addAll(built.getParams());
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       bind(ps, params);
       try (ResultSet rs = ps.executeQuery()) {
@@ -172,7 +177,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit);
     String sql =
         "SELECT event, system_metadata, document FROM "
-            + qualifiedTable()
+            + qualifiedTable(entityName, aspectName)
             + " WHERE "
             + where
             + " ORDER BY "
@@ -181,7 +186,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     params.add(lim);
 
     List<EnvelopedAspect> out = new ArrayList<>();
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       bind(ps, params);
       try (ResultSet rs = ps.executeQuery()) {
@@ -254,10 +259,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
             queryFilterRewriteChain);
     AspectSpec aspectSpec =
         opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName);
-    try (Connection c = database.dataSource().getConnection()) {
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection()) {
       return PostgresTimeseriesAggregatedStatsDao.getAggregatedStats(
           c,
-          qualifiedTable(),
+          qualifiedTable(entityName, aspectName),
           entityName,
           aspectName,
           aspectSpec,
@@ -305,13 +310,13 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     baseParams.add(aspectName);
     baseParams.addAll(built.getParams());
 
-    String table = qualifiedTable();
+    String table = qualifiedTable(entityName, aspectName);
     long deadlineNanos =
         timeoutSeconds > 0
             ? System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
             : Long.MAX_VALUE;
     int totalDeleted = 0;
-    try (Connection c = database.dataSource().getConnection()) {
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection()) {
       c.setAutoCommit(true);
       if (batchSize <= 0) {
         String sql =
@@ -426,29 +431,32 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   public DeleteAspectValuesResult rollbackTimeseriesAspects(
       @Nonnull OperationContext opContext, @Nonnull String runId) {
     int total = 0;
-    try (Connection c = database.dataSource().getConnection()) {
-      c.setAutoCommit(true);
-      // Use EntitySpec#getName() (canonical casing), not the registry map key (lowercased in
-      // ConfigEntityRegistry) — writers store the canonical entity name in entity_name.
-      for (var ent : entityRegistry.getEntitySpecs().entrySet()) {
-        for (AspectSpec asp : ent.getValue().getAspectSpecs()) {
-          if (!asp.isTimeseries()) {
-            continue;
-          }
-          String sql =
-              "DELETE FROM "
-                  + qualifiedTable()
-                  + " WHERE entity_name = ? AND aspect_name = ? AND run_id = ?";
+    // Use EntitySpec#getName() (canonical casing), not the registry map key (lowercased in
+    // ConfigEntityRegistry) — writers store the canonical entity name in entity_name.
+    for (var ent : entityRegistry.getEntitySpecs().entrySet()) {
+      for (AspectSpec asp : ent.getValue().getAspectSpecs()) {
+        if (!asp.isTimeseries()) {
+          continue;
+        }
+        String entityName = ent.getValue().getName();
+        String aspectName = asp.getName();
+        StoreHandle handle = store(entityName, aspectName);
+        String sql =
+            "DELETE FROM "
+                + handle.getDao().qualifiedTable()
+                + " WHERE entity_name = ? AND aspect_name = ? AND run_id = ?";
+        try (Connection c = handle.getDatabase().dataSource().getConnection()) {
+          c.setAutoCommit(true);
           try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, ent.getValue().getName());
-            ps.setString(2, asp.getName());
+            ps.setString(1, entityName);
+            ps.setString(2, aspectName);
             ps.setString(3, runId);
             total += ps.executeUpdate();
           }
+        } catch (SQLException e) {
+          throw new IllegalStateException("PostgreSQL rollbackTimeseriesAspects failed", e);
         }
       }
-    } catch (SQLException e) {
-      throw new IllegalStateException("PostgreSQL rollbackTimeseriesAspects failed", e);
     }
     return new DeleteAspectValuesResult().setNumDocsDeleted(total);
   }
@@ -463,7 +471,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     TimeseriesAspectRowPayload row =
         AbstractTimeseriesAspectWriteSink.parsePayload(entityName, aspectName, docId, document);
     try {
-      pgTimeseriesAspectDao.upsert(row);
+      store(entityName, aspectName).getDao().upsert(row);
     } catch (SQLException e) {
       throw new IllegalStateException("PostgreSQL timeseries upsert failed", e);
     }
@@ -484,7 +492,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @SuppressWarnings("unused") boolean isExploded) {
     String messageId = AbstractTimeseriesAspectWriteSink.resolveMessageId(docId, document);
     try {
-      pgTimeseriesAspectDao.deleteByMessageId(entityName, aspectName, messageId);
+      store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
     } catch (SQLException e) {
       throw new IllegalStateException("PostgreSQL timeseries deleteDocument failed", e);
     }
@@ -493,23 +501,25 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext) {
     List<TimeseriesIndexSizeResult> out = new ArrayList<>();
-    String table = qualifiedTable();
     String sql = "SELECT pg_total_relation_size(?::regclass)";
-    try (Connection c = database.dataSource().getConnection();
-        PreparedStatement ps = c.prepareStatement(sql)) {
-      ps.setString(1, table);
-      try (ResultSet rs = ps.executeQuery()) {
-        if (rs.next()) {
-          TimeseriesIndexSizeResult r = new TimeseriesIndexSizeResult();
-          r.setIndexName(table);
-          r.setEntityName("*");
-          r.setAspectName("*");
-          r.setSizeInMb(rs.getLong(1) / 1_000_000.0);
-          out.add(r);
+    for (StoreHandle handle : storeRegistry.allStores().values()) {
+      String table = handle.getDao().qualifiedTable();
+      try (Connection c = handle.getDatabase().dataSource().getConnection();
+          PreparedStatement ps = c.prepareStatement(sql)) {
+        ps.setString(1, table);
+        try (ResultSet rs = ps.executeQuery()) {
+          if (rs.next()) {
+            TimeseriesIndexSizeResult r = new TimeseriesIndexSizeResult();
+            r.setIndexName(table);
+            r.setEntityName("*");
+            r.setAspectName("*");
+            r.setSizeInMb(rs.getLong(1) / 1_000_000.0);
+            out.add(r);
+          }
         }
+      } catch (SQLException e) {
+        log.warn("Could not read pg_total_relation_size for {}: {}", table, e.toString());
       }
-    } catch (SQLException e) {
-      log.warn("Could not read pg_total_relation_size for {}: {}", table, e.toString());
     }
     return out;
   }
@@ -573,7 +583,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         "SELECT event, system_metadata, document, event_time, message_id"
             + selectKeys
             + " FROM "
-            + qualifiedTable()
+            + qualifiedTable(entityName, aspectName)
             + " WHERE "
             + where
             + " ORDER BY "
@@ -585,7 +595,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     List<GenericTimeseriesDocument> docs = new ArrayList<>();
     List<Object> lastSortValues = null;
     boolean hasMore = false;
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       bind(ps, params);
       try (ResultSet rs = ps.executeQuery()) {
@@ -856,10 +866,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
           }
           String sql =
               "SELECT document FROM "
-                  + qualifiedTable()
+                  + qualifiedTable(entityName, aspectName)
                   + " WHERE entity_name = ? AND aspect_name = ? AND urn = ? "
                   + " ORDER BY event_time DESC LIMIT 1";
-          try (Connection c = database.dataSource().getConnection();
+          try (Connection c = database(entityName, aspectName).dataSource().getConnection();
               PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, entityName);
             ps.setString(2, aspectName);

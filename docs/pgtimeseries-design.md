@@ -12,10 +12,11 @@ eventually replace — Elasticsearch/OpenSearch as the timeseries aspect backend
 
 The feature targets:
 
-- **Single-database deployments** — keep timeseries history in Postgres alongside Ebean metadata
-  (and optionally [pgQueue](./pgqueue-design.md)).
-- **Operational control** — RANGE partitioning on event time via `pg_partman`, retention policies,
-  and optional `pg_cron` maintenance.
+- **Single- or multi-database deployments** — keep timeseries history in Postgres alongside Ebean
+  metadata (and optionally [pgQueue](./pgqueue-design.md)), or split high-volume / long-retention
+  aspects across named stores (prefixes and/or JDBC URLs).
+- **Operational control** — RANGE partitioning on event time via `pg_partman`, per-store retention
+  ceilings, and optional `pg_cron` maintenance.
 - **Gradual migration** — dual-write from the MCL / UpdateIndices path while Elasticsearch remains
   the source of truth, then switch reads with a config flag.
 
@@ -42,13 +43,17 @@ flowchart LR
   TAS[TimeseriesAspectService]
   Sink[TimeseriesAspectWriteSink]
   ES[(Elasticsearch / OpenSearch)]
-  PG[(Postgres prefix_aspect)]
+  Router[AspectStoreRouter]
+  PG1[(default store prefix_aspect)]
+  PG2[(named store prefix_aspect)]
 
   MCL --> TAS
   MCL --> Sink
   TAS -->|implementation elasticsearch or opensearch| ES
-  TAS -->|implementation postgres| PG
-  Sink -->|dual-write when enabled and SoT is not postgres| PG
+  TAS -->|implementation postgres| Router
+  Sink -->|dual-write when enabled and SoT is not postgres| Router
+  Router -->|unlisted aspects| PG1
+  Router -->|routed aspects| PG2
 ```
 
 ---
@@ -96,6 +101,47 @@ TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres
 
 Default table: `{postgres.schema}.{DATAHUB_PGTIMESERIES_TABLE_PREFIX}_aspect` →
 `public.metadata_timeseries_aspect`.
+
+### Multi-store (named stores + routing)
+
+By default there is a single store named `default`, configured by the flat
+`DATAHUB_PGTIMESERIES_*` / `postgres.pgTimeseries.{tablePrefix,partitioning,retention,maintenance,pool}`
+keys (90-day ceiling, hybrid GC DELETE). Unlisted aspects always use this store.
+
+To give some aspects a different retention ceiling or Postgres instance, add **named stores** and
+an **aspect → store** map. Prefer a mounted ConfigMap / file (maps are awkward as env vars):
+
+```bash
+DATAHUB_PGTIMESERIES_CONFIG_FILE=file:/etc/datahub/pgtimeseries.yaml
+```
+
+Example file body (full Spring path `postgres.pgTimeseries:`):
+
+```yaml
+postgres:
+  pgTimeseries:
+    stores:
+      long:
+        tablePrefix: metadata_timeseries_long
+        partitioning:
+          partmanPartitionInterval: 1 month
+        retention:
+          maxAgeSeconds: 46656000 # ~18 months
+        pool:
+          url: jdbc:postgresql://ts-long-host:5432/datahub
+    routing:
+      # Bracket keys so Spring binds entity.aspect as a single map key
+      "[dataset.datasetprofile]": long
+```
+
+**Precedence:** OS environment variables > mounted `DATAHUB_PGTIMESERIES_CONFIG_FILE` >
+`application.yaml` defaults (same model as GMS rate limits). Spring relaxed binding can still patch
+individual store/routing keys after the file loads (e.g.
+`POSTGRES_PGTIMESERIES_STORES_LONG_RETENTION_MAXAGESECONDS`).
+
+SqlSetup migrates **every** configured store against that store’s JDBC URL (falls back to the
+upgrade/Ebean connection when the store pool URL is unset). GMS and Upgrade both load the same
+config overlay.
 
 ---
 
@@ -205,10 +251,10 @@ flowchart TB
   truncate -->|"DELETE by entity+aspect+event_time"| parent
 ```
 
-| Layer                      | Mechanism                                                                                                                                            | Scope                                    |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Hard ceiling**           | `pg_partman` `part_config.retention` from `DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS` (default 90d). Set `0` to clear retention and stop drops. | All aspects — whole time partitions drop |
-| **Shorter per-aspect TTL** | `truncateTimeseriesAspect` / `datahub-gc` deletes on `(entity_name, aspect_name, event_time)`                                                        | Selected `(entity, aspect)` pairs        |
+| Layer                        | Mechanism                                                                                                                                                                                           | Scope                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Hard ceiling (per store)** | `pg_partman` `part_config.retention` from each store’s `retention.maxAgeSeconds` (default store: `DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS`, 90d). Set `0` to clear retention and stop drops. | All aspects in that store — whole time partitions drop         |
+| **Shorter per-aspect TTL**   | `truncateTimeseriesAspect` / `datahub-gc` deletes on `(entity_name, aspect_name, event_time)`                                                                                                       | Selected `(entity, aspect)` pairs (routed to the owning store) |
 
 `partmanPartitionInterval` / `partmanPremake` apply on first `create_parent` and then stay sticky.
 To change them later, set `DATAHUB_PGTIMESERIES_PARTITIONING_FORCE_OVERWRITE=true` for a SqlSetup

@@ -183,8 +183,40 @@ public final class PostgresTestUtils {
     p.setSchema(schema);
     p.getPgQueue().setEnabled(false);
     p.getPgTimeseries().setEnabled(false);
+    p.getPgTimeseries().setDefaultStore("default");
     p.getPgTimeseries().setTablePrefix(tablePrefix);
+    p.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
+    p.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    p.getPgTimeseries().getRetention().setMaxAgeSeconds(7776000);
+    p.getPgTimeseries().getMaintenance().setCronEnabled(false);
+    p.getPgTimeseries().getMaintenance().setIntervalSeconds(3600);
     return p;
+  }
+
+  /**
+   * Builds a single-store {@link
+   * com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry} against {@code database}
+   * using {@code props} (enables pgTimeseries if needed).
+   */
+  @Nonnull
+  public static com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry
+      singlePgTimeseriesStoreRegistry(
+          @Nonnull Database database, @Nonnull PostgresSqlSetupProperties props) {
+    props.getPgTimeseries().setEnabled(true);
+    com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions options =
+        props.buildPgTimeseriesOptions();
+    if (options == null) {
+      throw new IllegalStateException("expected pgTimeseries options");
+    }
+    com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions store =
+        options.getDefaultStore();
+    com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao dao =
+        new com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao(database, store);
+    com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle handle =
+        new com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle(
+            store, database, dao);
+    return new com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry(
+        options, java.util.Map.of(store.getName(), handle));
   }
 
   /**

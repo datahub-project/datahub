@@ -1,6 +1,6 @@
 package com.linkedin.metadata.sqlsetup.postgres.pgtimeseries;
 
-import com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions;
+import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.sqlsetup.postgres.migration.SqlMigrationModule;
 import javax.annotation.Nonnull;
 
@@ -13,7 +13,7 @@ public final class PgTimeseriesSqlMigrationModules {
 
   @Nonnull
   public static SqlMigrationModule from(
-      @Nonnull PgTimeseriesSetupOptions options, @Nonnull PgTimeseriesSqlMigrationTokens tokens) {
+      @Nonnull PgTimeseriesStoreOptions options, @Nonnull PgTimeseriesSqlMigrationTokens tokens) {
     String ledgerTableName = options.getTablePrefix() + "_schema_migration";
     return SqlMigrationModule.builder()
         .migrationNamespace(MIGRATION_NAMESPACE)
