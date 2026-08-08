@@ -182,9 +182,9 @@ def test_parse_query_fields_handles_delimiters_and_blanks():
         "orders.state",
     ]
     assert parse("") == []
-    # Some Looker versions / result formats return a JSON array instead of a
-    # delimited string; the parser must handle both.
-    assert parse(["orders.count", "orders.created_date"]) == [
+    # System Activity serialises the Query model's fields (Sequence[str])
+    # into a JSON array string when returned as a dimension value.
+    assert parse('["orders.count","orders.created_date"]') == [
         "orders.count",
         "orders.created_date",
     ]
@@ -242,7 +242,6 @@ def test_explore_stat_generator_skips_unresolved_users():
     ]
 
     mock_api = mock.MagicMock()
-    # entity query, per-field query, per-user query — all after the first are empty.
     mock_api.execute_query.side_effect = [entity_rows, [], user_rows]
 
     def fake_user(user_id: int) -> mock.MagicMock:
@@ -300,7 +299,6 @@ def test_explore_stat_generator_reports_non_ingested_explore_as_skipped():
     ]
 
     mock_api = mock.MagicMock()
-    # entity query, per-field query, per-user query — all after the first are empty.
     mock_api.execute_query.side_effect = [entity_rows, [], []]
 
     report = LookerDashboardSourceReport()
