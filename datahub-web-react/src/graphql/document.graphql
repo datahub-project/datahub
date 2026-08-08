@@ -15,6 +15,11 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         settings {
             showInGlobalContext
         }
+        status {
+            lifecycleStage {
+                urn
+            }
+        }
         info {
             title
             source {
@@ -155,6 +160,11 @@ fragment documentSidebarFields on Document {
     urn
     type
     subType
+    status {
+        lifecycleStage {
+            urn
+        }
+    }
     platform {
         ...platformFields
     }
@@ -233,6 +243,10 @@ mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
 
 mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
     updateDocumentStatus(input: $input)
+}
+
+mutation setLifecycleStage($urn: String!, $lifecycleStageUrn: String) {
+    setLifecycleStage(urn: $urn, lifecycleStageUrn: $lifecycleStageUrn)
 }
 
 mutation updateDocumentSubType($input: UpdateDocumentSubTypeInput!) {
