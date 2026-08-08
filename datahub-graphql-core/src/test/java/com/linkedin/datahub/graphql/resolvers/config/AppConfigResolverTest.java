@@ -96,6 +96,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -180,6 +181,8 @@ public class AppConfigResolverTest {
     assertNotNull(result.getHomePageConfig());
     assertEquals(
         result.getHomePageConfig().getFirstInPersonalSidebar(), PersonalSidebarSection.YOUR_ASSETS);
+    assertNotNull(result.getDataHubConfig());
+    assertEquals(result.getDataHubConfig().getMfeLoadTimeoutMs().intValue(), 5000);
     assertNotNull(result.getFeatureFlags());
     assertNotNull(result.getChromeExtensionConfig());
     assertFalse(result.getChromeExtensionConfig().getEnabled());
@@ -199,6 +202,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -369,6 +373,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -401,6 +406,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -446,6 +452,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -480,6 +487,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -557,6 +565,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -632,6 +641,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -706,6 +716,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -740,6 +751,7 @@ public class AppConfigResolverTest {
             mockTelemetryConfiguration,
             mockTestsConfiguration,
             mockDatahubConfiguration,
+            5000, // mfeLoadTimeoutMs
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
@@ -775,6 +787,7 @@ public class AppConfigResolverTest {
         mockTelemetryConfiguration,
         mockTestsConfiguration,
         mockDatahubConfiguration,
+        5000, // mfeLoadTimeoutMs
         mockViewsConfiguration,
         mockSearchBarConfiguration,
         mockSearchCardConfiguration,
@@ -1030,6 +1043,7 @@ public class AppConfigResolverTest {
               mockTelemetryConfiguration,
               mockTestsConfiguration,
               mockDatahubConfiguration,
+              5000, // mfeLoadTimeoutMs
               mockViewsConfiguration,
               mockSearchBarConfiguration,
               mockSearchCardConfiguration,

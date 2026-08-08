@@ -56,6 +56,7 @@ export const DEFAULT_APP_CONFIG = {
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
+    dataHubConfig: {},
     featureFlags: {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,

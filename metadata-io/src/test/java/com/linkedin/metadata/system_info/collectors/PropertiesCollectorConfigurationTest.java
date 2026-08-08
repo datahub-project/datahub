@@ -990,6 +990,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.urlValidation.enabled",
           "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
+          "mfe.loadTimeoutMs",
           "platformAnalytics.enabled",
           "platformAnalytics.usageExport.aspectTypes",
           "platformAnalytics.usageExport.enabled",
