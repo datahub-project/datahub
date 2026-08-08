@@ -74,6 +74,7 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
               context.getAspectMappingRegistry(),
               filteredEntity.name(),
               environment.getSelectionSet().getFields());
+      // Resolver-side merge: see AspectLoadContext / QueryContext.mergeAspectLoadContext.
       context.mergeAspectLoadContext(filteredEntity.name(), loadContext);
       return loader.load(key, loadContext);
     }

@@ -8,12 +8,25 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Per-load aspect selection contributed by a GraphQL field resolver. Multiple loads of the same
- * entity type within a request are {@link #union(AspectLoadContext) unioned} before {@code
- * batchLoad} so aliased sibling fields with disjoint selections still fetch a complete aspect set.
+ * Per-load aspect selection contributed by a GraphQL field resolver.
  *
- * <p>Aspect sets are intentionally not part of DataLoader cache keys: URN-keyed batching is
- * preserved, and the request-scoped union covers all invocation contexts in the batch.
+ * <p><b>Invariant:</b> two merge layers cooperate:
+ *
+ * <ul>
+ *   <li><b>Resolver-side merge</b> ({@link QueryContext#mergeAspectLoadContext}) runs at enqueue
+ *       time so aliased sibling fields that share a DataLoader key still contribute to the
+ *       request-scoped union even when the DataLoader cache collapses duplicate keys before
+ *       dispatch (identical cache keys share one pending future and suppress later key contexts).
+ *   <li><b>Dispatch-side merge</b> ({@link
+ *       com.linkedin.datahub.graphql.util.AspectUtils#unionKeyContexts}) unions key contexts that
+ *       survive into the batch, covering load paths that only pass key context.
+ * </ul>
+ *
+ * <p>DataLoader cache keys for entity loaders include a stable signature of this context (via
+ * {@link #cacheKeySignature()} in {@code GmsGraphQLEngine.createDataLoader}) so a later dispatch of
+ * the same URN with a disjoint selection does not reuse an under-hydrated cached {@code
+ * DataFetcherResult}. Loads without an {@link AspectLoadContext} key context keep the original
+ * key-only cache behavior.
  */
 public final class AspectLoadContext {
 
@@ -60,23 +73,46 @@ public final class AspectLoadContext {
     return requiredAspects;
   }
 
+  /**
+   * Stable signature for DataLoader cache keys. Equal contexts (including {@link #fetchAll()})
+   * produce equal signatures so identical selections still cache-hit across loads.
+   */
+  @Nonnull
+  public Object cacheKeySignature() {
+    if (fetchAllAspects) {
+      return "FETCH_ALL";
+    }
+    // requiredAspects is an unmodifiable HashSet; Set equality is order-independent.
+    return requiredAspects;
+  }
+
   /** Returns a context covering every aspect required by either operand. */
   @Nonnull
   public AspectLoadContext union(@Nullable AspectLoadContext other) {
-    if (other == null) {
+    if (other == null || other == this) {
       return this;
     }
     if (this.fetchAllAspects || other.fetchAllAspects) {
       return FETCH_ALL;
     }
+    if (this.requiredAspects.containsAll(other.requiredAspects)) {
+      return this;
+    }
+    if (other.requiredAspects.containsAll(this.requiredAspects)) {
+      return other;
+    }
     Set<String> merged = new HashSet<>(this.requiredAspects);
     merged.addAll(other.requiredAspects);
-    return of(merged);
+    // Skip of()'s defensive copy; merged is a fresh HashSet we exclusively own.
+    return new AspectLoadContext(false, Collections.unmodifiableSet(merged));
   }
 
   /**
    * Resolves the concrete aspect set to fetch: full defaults on fallback, otherwise the unioned
    * required aspects plus any always-included aspects (e.g. key aspects).
+   *
+   * <p>The returned set may be immutable (for example when this context is {@link #fetchAll()} and
+   * {@code defaultAspects} is returned as-is). Callers must not mutate the result.
    */
   @Nonnull
   public Set<String> resolve(
@@ -89,6 +125,23 @@ public final class AspectLoadContext {
       Collections.addAll(result, alwaysIncludeAspects);
     }
     return result;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof AspectLoadContext)) {
+      return false;
+    }
+    AspectLoadContext that = (AspectLoadContext) o;
+    return fetchAllAspects == that.fetchAllAspects && requiredAspects.equals(that.requiredAspects);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(fetchAllAspects, requiredAspects);
   }
 
   @Override

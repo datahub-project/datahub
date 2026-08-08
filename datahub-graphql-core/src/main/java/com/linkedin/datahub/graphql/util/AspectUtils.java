@@ -22,8 +22,10 @@ public class AspectUtils {
 
   /**
    * Computes the aspect selection for a single GraphQL field invocation from its selection set.
-   * Resolvers should merge the result into {@link QueryContext} before enqueueing a DataLoader load
-   * so sibling aliased fields contribute to a request-scoped union.
+   * Resolvers must merge the result into {@link QueryContext} before enqueueing a DataLoader load:
+   * DataLoader may suppress duplicate key contexts when the cache key (URN + {@link
+   * AspectLoadContext} signature) already has a pending future, so enqueue-time merge is what keeps
+   * aliased sibling selections in the request-scoped union.
    */
   @Nonnull
   public static AspectLoadContext computeLoadContext(
@@ -69,7 +71,8 @@ public class AspectUtils {
    * @param entityTypeName the GraphQL type name (e.g., "Dataset", "CorpUser")
    * @param defaultAspects the full set of aspects to use as fallback
    * @param alwaysIncludeAspects aspects to always include (e.g., key aspects)
-   * @return optimized aspect set, or defaultAspects if optimization isn't possible
+   * @return optimized aspect set, or defaultAspects if optimization isn't possible. The returned
+   *     set may be immutable; callers must not mutate it.
    */
   @Nonnull
   public static Set<String> getOptimizedAspects(

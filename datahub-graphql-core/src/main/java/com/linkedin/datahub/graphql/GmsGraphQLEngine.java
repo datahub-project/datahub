@@ -424,6 +424,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
+import org.dataloader.CacheKey;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
@@ -3742,8 +3743,30 @@ public class GmsGraphQLEngine {
   private static <T, K> DataLoader<K, DataFetcherResult<T>> createDataLoader(
       final LoadableType<T, K> graphType, final QueryContext queryContext) {
     BatchLoaderContextProvider contextProvider = () -> queryContext;
+    // Include AspectLoadContext in the cache key so a later dispatch of the same URN with a
+    // disjoint selection does not reuse an under-hydrated DataFetcherResult. Loads without an
+    // AspectLoadContext key context keep key-only caching. Identical contexts still cache-hit.
+    // Batching remains key-based; resolver-side QueryContext merge is still required when the
+    // cache collapses duplicate (key + identical-context) loads before dispatch.
+    CacheKey<K> aspectAwareCacheKey =
+        new CacheKey<K>() {
+          @Override
+          public Object getKey(K key) {
+            return key;
+          }
+
+          @Override
+          public Object getKeyWithContext(K key, Object keyContext) {
+            if (keyContext instanceof AspectLoadContext) {
+              return List.of(key, ((AspectLoadContext) keyContext).cacheKeySignature());
+            }
+            return key;
+          }
+        };
     DataLoaderOptions loaderOptions =
-        DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
+        DataLoaderOptions.newOptions()
+            .setBatchLoaderContextProvider(contextProvider)
+            .setCacheKeyFunction(aspectAwareCacheKey);
 
     // Capture the OTel context at DataLoader creation time. LazyDataLoaderRegistry makes the OTel
     // operation context current before calling this method (via setOtelContext /
@@ -3763,9 +3786,10 @@ public class GmsGraphQLEngine {
                           String.format(
                               "Batch loading entities of type: %s, keys: %s",
                               graphType.name(), keys));
-                      // Union per-load AspectLoadContext key contexts into the request-scoped
-                      // accumulator before batchLoad. Resolvers also merge at enqueue time; this
-                      // covers any load path that only passes key context.
+                      // Dispatch-side union: merge key contexts that reached this batch into the
+                      // request-scoped accumulator. Resolver-side merge at enqueue remains
+                      // necessary when DataLoader caching suppresses duplicate key contexts
+                      // before dispatch (same key + same AspectLoadContext cache signature).
                       QueryContext qc = context.getContext();
                       AspectLoadContext fromKeys =
                           AspectUtils.unionKeyContexts(context.getKeyContextsList());

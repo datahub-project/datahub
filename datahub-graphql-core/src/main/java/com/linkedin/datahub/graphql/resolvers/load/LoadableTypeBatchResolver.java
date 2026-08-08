@@ -50,6 +50,7 @@ public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableF
               context.getAspectMappingRegistry(),
               _loadableType.name(),
               environment.getSelectionSet().getFields());
+      // Resolver-side merge: see AspectLoadContext / QueryContext.mergeAspectLoadContext.
       context.mergeAspectLoadContext(_loadableType.name(), loadContext);
     }
 

@@ -161,4 +161,32 @@ public class AspectUtilsTest {
     assertTrue(union.getRequiredAspects().contains("ownership"));
     assertTrue(union.getRequiredAspects().contains("dataPlatformInstance"));
   }
+
+  @Test
+  public void testAspectLoadContextUnionShortCircuits() {
+    AspectLoadContext ownership = AspectLoadContext.of(ImmutableSet.of("ownership"));
+    AspectLoadContext ownershipAndTags =
+        AspectLoadContext.of(ImmutableSet.of("ownership", "globalTags"));
+
+    assertSame(ownership.union(null), ownership);
+    assertSame(ownership.union(ownership), ownership);
+    assertSame(AspectLoadContext.fetchAll().union(ownership), AspectLoadContext.fetchAll());
+    assertSame(ownership.union(AspectLoadContext.fetchAll()), AspectLoadContext.fetchAll());
+    assertSame(ownershipAndTags.union(ownership), ownershipAndTags);
+    assertSame(ownership.union(ownershipAndTags), ownershipAndTags);
+  }
+
+  @Test
+  public void testAspectLoadContextEqualsAndCacheKeySignature() {
+    AspectLoadContext a1 = AspectLoadContext.of(ImmutableSet.of("ownership", "globalTags"));
+    AspectLoadContext a2 = AspectLoadContext.of(ImmutableSet.of("globalTags", "ownership"));
+    AspectLoadContext b = AspectLoadContext.of(ImmutableSet.of("ownership"));
+
+    assertEquals(a1, a2);
+    assertEquals(a1.hashCode(), a2.hashCode());
+    assertEquals(a1.cacheKeySignature(), a2.cacheKeySignature());
+    assertNotEquals(a1, b);
+    assertEquals(AspectLoadContext.fetchAll().cacheKeySignature(), "FETCH_ALL");
+    assertEquals(AspectLoadContext.fetchAll(), AspectLoadContext.fetchAll());
+  }
 }

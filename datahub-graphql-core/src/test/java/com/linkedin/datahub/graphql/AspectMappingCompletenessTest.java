@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql;
 import static org.testng.Assert.*;
 
 import graphql.language.FieldDefinition;
+import graphql.language.InterfaceTypeDefinition;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.TypeDefinition;
 import graphql.language.TypeName;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -27,63 +29,6 @@ import org.testng.annotations.Test;
  * to fetching all aspects whenever an unmapped field is selected.
  */
 public class AspectMappingCompletenessTest {
-
-  private static final Set<String> ENTITY_TYPES =
-      Set.of(
-          "AccessTokenMetadata",
-          "Application",
-          "Assertion",
-          "BusinessAttribute",
-          "Chart",
-          "Container",
-          "CorpGroup",
-          "CorpUser",
-          "Dashboard",
-          "DataContract",
-          "DataFlow",
-          "DataHubConnection",
-          "DataHubFile",
-          "DataHubPageModule",
-          "DataHubPageTemplate",
-          "DataHubPolicy",
-          "DataHubRole",
-          "DataHubView",
-          "DataJob",
-          "DataPlatform",
-          "DataPlatformInstance",
-          "DataProcessInstance",
-          "DataProduct",
-          "DataTypeEntity",
-          "Dataset",
-          "Document",
-          "Domain",
-          "ERModelRelationship",
-          "EntityTypeEntity",
-          "ExecutionRequest",
-          "Form",
-          "GlossaryNode",
-          "GlossaryTerm",
-          "Incident",
-          "Metric",
-          "MLFeature",
-          "MLFeatureTable",
-          "MLModel",
-          "MLModelGroup",
-          "MLPrimaryKey",
-          "Notebook",
-          "OwnershipTypeEntity",
-          "Post",
-          "QueryEntity",
-          "Restricted",
-          "Role",
-          "SchemaFieldEntity",
-          "SemanticModel",
-          "ServiceAccount",
-          "StructuredPropertyEntity",
-          "Tag",
-          "Test",
-          "VersionSet",
-          "VersionedDataset");
 
   private static final String[] SCHEMA_FILES = {
     "entity.graphql",
@@ -111,6 +56,7 @@ public class AspectMappingCompletenessTest {
   };
 
   private TypeDefinitionRegistry typeRegistry;
+  private Set<String> entityTypes;
 
   @BeforeClass
   public void loadSchemas() {
@@ -127,6 +73,8 @@ public class AspectMappingCompletenessTest {
         throw new RuntimeException("Failed to parse " + file, e);
       }
     }
+    entityTypes = discoverEntityObjectTypes(typeRegistry);
+    assertFalse(entityTypes.isEmpty(), "Expected to discover Entity-implementing object types");
   }
 
   @Test
@@ -134,7 +82,7 @@ public class AspectMappingCompletenessTest {
     List<String> missing = new ArrayList<>();
     Set<String> seenTypes = new HashSet<>();
 
-    for (String typeName : ENTITY_TYPES) {
+    for (String typeName : entityTypes) {
       List<ObjectTypeDefinition> defs = collectObjectTypeDefinitions(typeName);
       if (defs.isEmpty()) {
         missing.add(typeName + ".<type missing from schema>");
@@ -178,24 +126,16 @@ public class AspectMappingCompletenessTest {
         missing.isEmpty(),
         "Fields missing @aspectMapping/@noAspects (optimization will fall back to all aspects):\n"
             + missing.stream().sorted().collect(Collectors.joining("\n")));
-    assertEquals(seenTypes.size(), ENTITY_TYPES.size(), "Expected to resolve all entity types");
+    assertEquals(seenTypes, entityTypes, "Expected to resolve all discovered entity types");
   }
 
   @Test
   public void testEntityTypesImplementEntityInterface() {
     List<String> notEntity = new ArrayList<>();
-    for (String typeName : ENTITY_TYPES) {
+    for (String typeName : entityTypes) {
       List<ObjectTypeDefinition> defs = collectObjectTypeDefinitions(typeName);
       if (defs.isEmpty()) {
         continue;
-      }
-      boolean implementsEntity =
-          defs.stream()
-              .flatMap(d -> d.getImplements().stream())
-              .anyMatch(t -> t instanceof TypeName && ((TypeName) t).getName().equals("Entity"));
-      // Some entity types only declare implements Entity on the primary definition.
-      if (!implementsEntity && defs.stream().noneMatch(d -> !d.getImplements().isEmpty())) {
-        // VersionedDataset / Restricted etc. should still implement Entity on primary type.
       }
       boolean anyImplementsEntity =
           defs.stream()
@@ -205,8 +145,6 @@ public class AspectMappingCompletenessTest {
         notEntity.add(typeName);
       }
     }
-    // ServiceAccount and a few types may implement Entity only via primary def; filter empty
-    // implements on extend-only merges by checking primary.
     List<String> failures =
         notEntity.stream()
             .filter(
@@ -227,6 +165,68 @@ public class AspectMappingCompletenessTest {
     assertTrue(
         failures.isEmpty(),
         "Expected types to implement Entity interface: " + String.join(", ", failures));
+  }
+
+  /**
+   * Aspect directives belong on concrete object types. {@link AspectMappingRegistry} skips
+   * interfaces; annotations on interface fields would be ignored and are therefore forbidden.
+   */
+  @Test
+  public void testInterfaceFieldsHaveNoAspectDirectives() {
+    List<String> annotated = new ArrayList<>();
+    for (Map.Entry<String, TypeDefinition> entry : typeRegistry.types().entrySet()) {
+      TypeDefinition<?> def = entry.getValue();
+      if (!(def instanceof InterfaceTypeDefinition)) {
+        continue;
+      }
+      collectAnnotatedInterfaceFields((InterfaceTypeDefinition) def, annotated);
+    }
+    for (Map.Entry<String, List<graphql.language.InterfaceTypeExtensionDefinition>> entry :
+        typeRegistry.interfaceTypeExtensions().entrySet()) {
+      for (graphql.language.InterfaceTypeExtensionDefinition ext : entry.getValue()) {
+        collectAnnotatedInterfaceFields(ext, annotated);
+      }
+    }
+    assertTrue(
+        annotated.isEmpty(),
+        "Interface fields must not declare @aspectMapping/@noAspects (place them on concrete"
+            + " object types):\n"
+            + annotated.stream().sorted().collect(Collectors.joining("\n")));
+  }
+
+  private static void collectAnnotatedInterfaceFields(
+      InterfaceTypeDefinition iface, List<String> annotated) {
+    for (FieldDefinition field : iface.getFieldDefinitions()) {
+      boolean hasAspectMapping =
+          field.getDirectives().stream().anyMatch(d -> d.getName().equals("aspectMapping"));
+      boolean hasNoAspects =
+          field.getDirectives().stream().anyMatch(d -> d.getName().equals("noAspects"));
+      if (hasAspectMapping || hasNoAspects) {
+        annotated.add(iface.getName() + "." + field.getName());
+      }
+    }
+  }
+
+  /**
+   * Object types that implement the {@code Entity} interface (on the primary definition). Derived
+   * from the schema so newly added entities are covered automatically.
+   */
+  private static Set<String> discoverEntityObjectTypes(TypeDefinitionRegistry registry) {
+    Set<String> types = new HashSet<>();
+    for (Map.Entry<String, TypeDefinition> entry : registry.types().entrySet()) {
+      TypeDefinition<?> def = entry.getValue();
+      if (!(def instanceof ObjectTypeDefinition)) {
+        continue;
+      }
+      ObjectTypeDefinition objectType = (ObjectTypeDefinition) def;
+      boolean implementsEntity =
+          objectType.getImplements().stream()
+              .anyMatch(t -> t instanceof TypeName && ((TypeName) t).getName().equals("Entity"));
+      if (implementsEntity) {
+        types.add(objectType.getName());
+      }
+    }
+    return Set.copyOf(types);
   }
 
   private List<ObjectTypeDefinition> collectObjectTypeDefinitions(String typeName) {

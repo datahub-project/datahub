@@ -6,7 +6,12 @@ import graphql.schema.GraphQLArgument;
 import graphql.schema.GraphQLDirective;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLSchema;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -28,14 +33,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class AspectMappingRegistry {
-  private final Map<String, Set<String>> fieldToAspects = new HashMap<>();
+  private final Map<String, Set<String>> fieldToAspects;
   private final Set<String> warnedUnmappedFields = ConcurrentHashMap.newKeySet();
 
   public AspectMappingRegistry(GraphQLSchema schema) {
-    buildMappingFromSchema(schema);
+    this.fieldToAspects = Collections.unmodifiableMap(buildMappingFromSchema(schema));
   }
 
-  private void buildMappingFromSchema(GraphQLSchema schema) {
+  private Map<String, Set<String>> buildMappingFromSchema(GraphQLSchema schema) {
+    Map<String, Set<String>> mapping = new HashMap<>();
     schema
         .getTypeMap()
         .values()
@@ -65,16 +71,16 @@ public class AspectMappingRegistry {
                               Set<String> aspects =
                                   aspectsArray.getValues().stream()
                                       .map(value -> ((StringValue) value).getValue())
-                                      .collect(Collectors.toSet());
+                                      .collect(Collectors.toUnmodifiableSet());
 
                               String key = typeName + "." + fieldName;
-                              fieldToAspects.put(key, aspects);
+                              mapping.put(key, aspects);
                               log.debug(
                                   "Mapped {}.{} to aspects: {}", typeName, fieldName, aspects);
                             }
                           } else if (noAspectsDirective != null) {
                             String key = typeName + "." + fieldName;
-                            fieldToAspects.put(key, new HashSet<>());
+                            mapping.put(key, Set.of());
                             log.debug(
                                 "Mapped {}.{} to request no specific aspects.",
                                 typeName,
@@ -84,7 +90,8 @@ public class AspectMappingRegistry {
               }
             });
 
-    log.info("Built aspect mapping registry with {} field mappings", fieldToAspects.size());
+    log.info("Built aspect mapping registry with {} field mappings", mapping.size());
+    return mapping;
   }
 
   /**

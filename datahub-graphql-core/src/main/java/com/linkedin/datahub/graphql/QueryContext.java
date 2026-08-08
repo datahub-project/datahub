@@ -73,8 +73,12 @@ public interface QueryContext {
 
   /**
    * Merges a per-field {@link AspectLoadContext} into the request-scoped union for {@code
-   * entityTypeName}. Resolvers call this before DataLoader {@code load} so aliased sibling fields
-   * with disjoint selections contribute to one batch aspect set.
+   * entityTypeName}. Resolvers call this before DataLoader {@code load}.
+   *
+   * <p>This resolver-side merge is required even with context-aware DataLoader cache keys: when two
+   * loads share the same key and the same {@link AspectLoadContext} signature, DataLoader collapses
+   * them onto one pending future and later key contexts never reach dispatch. Enqueue-time merge
+   * ensures aliased siblings still widen the request-scoped aspect set used by {@code batchLoad}.
    */
   default void mergeAspectLoadContext(
       @Nonnull String entityTypeName, @Nonnull AspectLoadContext loadContext) {}
