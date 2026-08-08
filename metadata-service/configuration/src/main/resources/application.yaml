@@ -434,6 +434,8 @@ searchService:
       strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
+  # Source of truth for timeseries reads (and filter-based deletes on the read path). Use postgres with postgres.pgTimeseries.enabled and SqlSetup. elasticsearch and opensearch both use the configured search client; pick opensearch when the cluster is OpenSearch.
+  implementation: ${TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION:elasticsearch} # elasticsearch | opensearch | postgres
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY_QUEUE_SIZE:500}
@@ -596,12 +598,52 @@ cassandra:
     port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
     datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
-# PostgreSQL optional SqlSetup (pgQueue).
+# PostgreSQL optional SqlSetup (pgQueue, pgTimeseries).
 # postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
 # (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
 # The JDBC URL path selects the database only.
 postgres:
   schema: public
+  # PostgreSQL timeseries aspect store (SqlSetup when entity store is Postgres). Requires pg_partman (RANGE on event time); optional pg_cron for partman.run_maintenance when enabled.
+  pgTimeseries:
+    enabled: ${DATAHUB_PGTIMESERIES_ENABLED:false}
+    # Fallback store for unlisted aspects. Flat keys below define this store (back-compat).
+    defaultStore: ${DATAHUB_PGTIMESERIES_DEFAULT_STORE:default}
+    # SqlSetup table name prefix for the default store (table: {prefix}_aspect)
+    tablePrefix: ${DATAHUB_PGTIMESERIES_TABLE_PREFIX:metadata_timeseries}
+    # When true, dual-write upsert/delete SQLException fails the caller (migration fail-loud). Default logs + metric only.
+    dualWriteFailOnError: ${DATAHUB_PGTIMESERIES_DUAL_WRITE_FAIL_ON_ERROR:false}
+    partitioning:
+      # Allowlisted: 1 hour, 6 hours, 12 hours, 1 day, 1 week, 1 month (pg_partman time interval on event_time)
+      # Interval/premake apply on first create_parent only unless forceOverwritePartmanConfig is true.
+      partmanPartitionInterval: ${DATAHUB_PGTIMESERIES_PARTITIONING_PARTMAN_INTERVAL:1 day}
+      partmanPremake: ${DATAHUB_PGTIMESERIES_PARTITIONING_PARTMAN_PREMAKE:4}
+      # When true, SqlSetup overwrites part_config.partition_interval / premake on re-run (default sticky).
+      forceOverwritePartmanConfig: ${DATAHUB_PGTIMESERIES_PARTITIONING_FORCE_OVERWRITE:false}
+    retention:
+      # When > 0, sets partman.part_config.retention (seconds-based policy + buffer in SqlSetup). Default 90 days.
+      # This is the hard ceiling: partitions older than this are dropped for all aspects in this store.
+      # When 0, SqlSetup clears part_config.retention (stops partman partition drops).
+      # Shorter per-aspect TTLs: configure datahub-gc truncate_aspect_retentions / truncateTimeseriesAspect.
+      maxAgeSeconds: ${DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS:7776000}
+    maintenance:
+      cronEnabled: ${DATAHUB_PGTIMESERIES_MAINTENANCE_CRON_ENABLED:false}
+      intervalSeconds: ${DATAHUB_PGTIMESERIES_MAINTENANCE_INTERVAL_SECONDS:3600}
+    # Dedicated runtime connection pool for the default store. Defaults fall through to ebean.*.
+    pool:
+      url: ${DATAHUB_PGTIMESERIES_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGTIMESERIES_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGTIMESERIES_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGTIMESERIES_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGTIMESERIES_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGTIMESERIES_MAX_CONNECTIONS:12}
+      maxInactiveTimeSeconds: ${DATAHUB_PGTIMESERIES_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGTIMESERIES_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGTIMESERIES_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGTIMESERIES_WAIT_TIMEOUT_MILLIS:1000}
+    # Extra named stores + aspect routing (usually from DATAHUB_PGTIMESERIES_CONFIG_FILE / ConfigMap).
+    stores: {}
+    routing: {}
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:
     cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}

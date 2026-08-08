@@ -1,9 +1,13 @@
 package com.linkedin.metadata;
 
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import io.ebean.Database;
 import io.ebean.DatabaseFactory;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -166,5 +170,108 @@ public final class PostgresTestUtils {
   @Nonnull
   public static String uniqueServerName(@Nonnull String base) {
     return base + "_" + UUID.randomUUID().toString().replace("-", "");
+  }
+
+  /**
+   * Properties for pgTimeseries JDBC tests: schema + table prefix only (other SqlSetup features
+   * off).
+   */
+  @Nonnull
+  public static PostgresSqlSetupProperties testPgTimeseriesProperties(
+      @Nonnull String schema, @Nonnull String tablePrefix) {
+    PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
+    p.setSchema(schema);
+    p.getPgQueue().setEnabled(false);
+    p.getPgTimeseries().setEnabled(false);
+    p.getPgTimeseries().setDefaultStore("default");
+    p.getPgTimeseries().setTablePrefix(tablePrefix);
+    p.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
+    p.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    p.getPgTimeseries().getRetention().setMaxAgeSeconds(7776000);
+    p.getPgTimeseries().getMaintenance().setCronEnabled(false);
+    p.getPgTimeseries().getMaintenance().setIntervalSeconds(3600);
+    return p;
+  }
+
+  /**
+   * Builds a single-store {@link
+   * com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry} against {@code database}
+   * using {@code props} (enables pgTimeseries if needed).
+   */
+  @Nonnull
+  public static com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry
+      singlePgTimeseriesStoreRegistry(
+          @Nonnull Database database, @Nonnull PostgresSqlSetupProperties props) {
+    props.getPgTimeseries().setEnabled(true);
+    com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions options =
+        props.buildPgTimeseriesOptions();
+    if (options == null) {
+      throw new IllegalStateException("expected pgTimeseries options");
+    }
+    com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions store =
+        options.getDefaultStore();
+    com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao dao =
+        new com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao(database, store);
+    com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle handle =
+        new com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle(
+            store, database, dao);
+    return new com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry(
+        options, java.util.Map.of(store.getName(), handle));
+  }
+
+  /**
+   * Creates a non-partitioned {@code {prefix}_aspect} table (same columns as SqlSetup) for
+   * Testcontainers tests without pg_partman.
+   */
+  public static void applyPgTimeseriesAspectTable(
+      @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props)
+      throws SQLException {
+    String schema = props.normalizedPostgresSchema();
+    String prefix = props.normalizedPgTimeseriesTablePrefix();
+    String qualified = schema + "." + prefix + "_aspect";
+    try (Statement st = connection.createStatement()) {
+      st.execute("CREATE SCHEMA IF NOT EXISTS " + schema);
+      st.execute("DROP TABLE IF EXISTS " + qualified + " CASCADE");
+      st.execute(
+          "CREATE TABLE "
+              + qualified
+              + " ("
+              + "entity_name text NOT NULL, "
+              + "aspect_name text NOT NULL, "
+              + "urn text NOT NULL, "
+              + "message_id text NOT NULL, "
+              + "event_time timestamptz NOT NULL, "
+              + "run_id text, "
+              + "event_granularity text, "
+              + "partition_spec jsonb, "
+              + "event jsonb, "
+              + "system_metadata jsonb, "
+              + "document jsonb, "
+              + "PRIMARY KEY (entity_name, aspect_name, message_id, event_time))");
+      st.execute(
+          "CREATE INDEX IF NOT EXISTS idx_"
+              + prefix
+              + "_aspect_lookup ON "
+              + qualified
+              + " (entity_name, aspect_name, urn, event_time DESC)");
+      st.execute(
+          "CREATE INDEX IF NOT EXISTS idx_"
+              + prefix
+              + "_aspect_truncate ON "
+              + qualified
+              + " (entity_name, aspect_name, event_time)");
+      connection.commit();
+    }
+  }
+
+  public static void truncatePgTimeseriesAspect(
+      @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props)
+      throws SQLException {
+    String schema = props.normalizedPostgresSchema();
+    String prefix = props.normalizedPgTimeseriesTablePrefix();
+    try (Statement st = connection.createStatement()) {
+      st.execute("TRUNCATE TABLE " + schema + "." + prefix + "_aspect");
+      connection.commit();
+    }
   }
 }
