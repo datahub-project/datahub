@@ -350,20 +350,26 @@ class FivetranSource(StatefulIngestionSourceBase):
             return []
         fine_grained_lineage: List[FineGrainedLineage] = []
         for column_lineage in lineage.column_lineage:
+            # Skip blank names — they produce invalid schemaField URNs that GMS
+            # rejects, failing the whole ingest batch (including table lineage).
+            source_col = (column_lineage.source_column or "").strip()
+            dest_col = (column_lineage.destination_column or "").strip()
+            if not source_col or not dest_col:
+                continue
             fine_grained_lineage.append(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
                         builder.make_schema_field_urn(
                             str(input_dataset_urn),
-                            column_lineage.source_column,
+                            source_col,
                         )
                     ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         builder.make_schema_field_urn(
                             str(output_dataset_urn),
-                            column_lineage.destination_column,
+                            dest_col,
                         )
                     ],
                 )
