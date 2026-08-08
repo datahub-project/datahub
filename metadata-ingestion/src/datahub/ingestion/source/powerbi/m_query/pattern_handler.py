@@ -115,7 +115,11 @@ def _get_record_args(node_map: Dict[int, dict], invoke_node: dict) -> Dict[str, 
     return result
 
 
-def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[str]:
+def _get_data_source_tokens(
+    node_map: Dict[int, dict],
+    arg_node: dict,
+    parameters: Optional[Dict[str, str]] = None,
+) -> List[str]:
     """Extract [platform_name, server, ...other_args] from a data source node.
 
     If arg_node is an IdentifierExpression, resolves it through the let scope.
@@ -146,6 +150,19 @@ def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[s
     elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
 
     for elem in elements:
+        if elem.get("kind") == "ItemAccessExpression":
+            # e.g. Snowflake.Databases(...){[Name=X, Kind="Database"]}[Data] --
+            # the {[...]} step is an ItemAccessExpression whose content is the
+            # RecordExpression directly (no ArrayWrapper/Csv wrapping here,
+            # unlike a function call's argument list below).
+            content = elem.get("content", {})
+            if isinstance(content, dict) and content.get("kind") == "RecordExpression":
+                kv = get_record_field_values(node_map, content, parameters=parameters)
+                for k, v in kv.items():
+                    tokens.append(k)
+                    tokens.append(v)
+            continue
+
         if elem.get("kind") != "InvokeExpression":
             continue
         content = elem.get("content", {})
@@ -159,7 +176,7 @@ def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[s
             if val is not None:
                 tokens.append(val)
             elif inner.get("kind") == "RecordExpression":
-                kv = get_record_field_values(node_map, inner)
+                kv = get_record_field_values(node_map, inner, parameters=parameters)
                 for k, v in kv.items():
                     tokens.append(k)
                     tokens.append(v)
@@ -1510,6 +1527,12 @@ class NativeQueryLineage(AbstractLineage):
         if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
             return get_next_item(data_access_tokens, "BillingProject")
 
+        if data_access_tokens[0] == FunctionName.SNOWFLAKE_DATA_ACCESS.value:
+            # Snowflake.Databases(server, warehouse) does not take the database
+            # as a function argument -- it comes from the next navigation step,
+            # e.g. Snowflake.Databases(...){[Name=<db>, Kind="Database"]}[Data].
+            return get_next_item(data_access_tokens, "Name")
+
         return None
 
     def create_lineage(
@@ -1537,7 +1560,9 @@ class NativeQueryLineage(AbstractLineage):
             return Lineage.empty()
 
         # Extract data source tokens from first arg
-        data_access_tokens = _get_data_source_tokens(node_map, source_node)
+        data_access_tokens = _get_data_source_tokens(
+            node_map, source_node, parameters=data_access_func_detail.parameters
+        )
 
         if not data_access_tokens or not self.is_native_parsing_supported(
             data_access_tokens[0]
@@ -1568,6 +1593,25 @@ class NativeQueryLineage(AbstractLineage):
             )
 
         database_name: Optional[str] = self.get_db_name(data_access_tokens)
+
+        if (
+            database_name is None
+            and self.current_data_platform == SupportedDataPlatform.SNOWFLAKE
+        ):
+            self.reporter.warning(
+                title="Unresolved database name in Value.NativeQuery",
+                message=(
+                    "Could not determine the Snowflake database from the M-Query's "
+                    "data-access navigation chain (the `{[Name=...]}` step). This "
+                    "typically happens when `Name` is a Power Query parameter or "
+                    "identifier reference rather than a quoted literal, and the "
+                    "dataset's parameter values were not available. Lineage will "
+                    "still be attempted from the SQL text alone; any table "
+                    "referenced there without an explicit database prefix may "
+                    "resolve to the wrong URN or be dropped."
+                ),
+                context=f"table-full-name={self.table.full_name}, server={server}",
+            )
 
         return self.parse_custom_sql(
             query=sql_query,
