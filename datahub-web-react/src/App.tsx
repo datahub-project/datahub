@@ -17,6 +17,7 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
+import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
@@ -102,9 +103,11 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
+    const isDarkMode = loadIsDarkMode();
+
     return (
         <HelmetProvider>
-            <CustomThemeProvider>
+            <CustomThemeProvider isDarkMode={isDarkMode}>
                 <GlobalStyles />
                 <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />
