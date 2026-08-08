@@ -14,6 +14,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.EdgeDiff;
+import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -185,6 +186,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     // 2. Find and invoke a EntityChangeEventGenerator.
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
     final List<ChangeEvent> changeEvents = getChangeEvents(operationContext, logEvent);
+    HookUtils.recordFanoutSize(operationContext, changeEvents.size());
     // Iterate through each transaction, emit change events as platform events.
     for (final ChangeEvent event : changeEvents) {
       PlatformEvent platformEvent = buildPlatformEvent(event);
@@ -209,6 +211,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
     final List<RelationshipChangeEvent> relationshipChangeEvents =
         buildRelationshipChangeEvents(operationContext, logEvent);
+    HookUtils.recordFanoutSize(operationContext, relationshipChangeEvents.size());
     for (final RelationshipChangeEvent changeEvent : relationshipChangeEvents) {
       PlatformEvent platformEvent = buildRelationshipPlatformEvent(changeEvent);
       emitPlatformEvent(

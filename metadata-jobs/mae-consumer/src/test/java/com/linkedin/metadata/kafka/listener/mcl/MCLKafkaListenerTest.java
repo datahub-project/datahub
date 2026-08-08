@@ -174,9 +174,23 @@ public class MCLKafkaListenerTest {
       // Then
       // Verify timer was recorded with correct hook names
       Timer timer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+          meterRegistry.timer(
+              MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME,
+              MetricUtils.HOOK_TAG,
+              "TestHook1",
+              MetricUtils.ENTITY_TYPE,
+              TEST_ENTITY_TYPE,
+              MetricUtils.CHANGE_TYPE,
+              ChangeType.CREATE.name());
       Timer timer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+          meterRegistry.timer(
+              MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME,
+              MetricUtils.HOOK_TAG,
+              "TestHook2",
+              MetricUtils.ENTITY_TYPE,
+              TEST_ENTITY_TYPE,
+              MetricUtils.CHANGE_TYPE,
+              ChangeType.CREATE.name());
 
       assertEquals(timer1.count(), 1);
       assertEquals(timer2.count(), 1);
@@ -509,9 +523,23 @@ public class MCLKafkaListenerTest {
 
       // Check request queue time metrics (only for events with trace IDs)
       Timer requestTimer1 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook1");
+          meterRegistry.timer(
+              MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME,
+              MetricUtils.HOOK_TAG,
+              "TestHook1",
+              MetricUtils.ENTITY_TYPE,
+              TEST_ENTITY_TYPE,
+              MetricUtils.CHANGE_TYPE,
+              ChangeType.UPSERT.name());
       Timer requestTimer2 =
-          meterRegistry.timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", "TestHook2");
+          meterRegistry.timer(
+              MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME,
+              MetricUtils.HOOK_TAG,
+              "TestHook2",
+              MetricUtils.ENTITY_TYPE,
+              TEST_ENTITY_TYPE,
+              MetricUtils.CHANGE_TYPE,
+              ChangeType.UPSERT.name());
 
       assertEquals(requestTimer1.count(), 3); // Events at index 0, 2, 4
       assertEquals(requestTimer2.count(), 3);

@@ -10,12 +10,10 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
-import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -127,35 +125,6 @@ public class MCLKafkaListener
   protected void updateMetrics(String hookName, MetadataChangeLog event) {
     systemOperationContext
         .getMetricUtils()
-        .ifPresent(
-            metricUtils -> {
-              Long requestEpochMillis =
-                  TraceServiceImpl.extractTraceIdEpochMillis(event.getSystemMetadata());
-              if (requestEpochMillis != null) {
-                long currentTimeMillis = System.currentTimeMillis();
-                long queueTimeMs = currentTimeMillis - requestEpochMillis;
-
-                // Validate timestamp is reasonable to avoid ArithmeticException from overflow
-                // when converting to nanoseconds. External trace IDs (e.g., from observability
-                // tools) may not follow DataHub's trace ID format and can parse as invalid
-                // timestamps.
-                if (requestEpochMillis > 0
-                    && requestEpochMillis <= currentTimeMillis
-                    && queueTimeMs >= 0
-                    && queueTimeMs < Long.MAX_VALUE / 1_000_000) {
-                  // request
-                  metricUtils
-                      .getRegistry()
-                      .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
-                      .record(Duration.ofMillis(queueTimeMs));
-                } else {
-                  log.debug(
-                      "Skipping queue time metric recording for hook {} due to invalid timestamp: requestEpochMillis={}, queueTimeMs={}",
-                      hookName,
-                      requestEpochMillis,
-                      queueTimeMs);
-                }
-              }
-            });
+        .ifPresent(metricUtils -> MclHookMetrics.recordHookQueueTime(metricUtils, event, hookName));
   }
 }

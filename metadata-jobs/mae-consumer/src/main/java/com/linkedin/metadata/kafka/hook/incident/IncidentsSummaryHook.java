@@ -123,6 +123,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
       final List<Urn> incidentEntities = incidentInfo.getEntities();
+      HookUtils.recordFanoutSize(operationContext, incidentEntities.size());
 
       // 3. For each urn, resolve the entity incidents aspect and remove from active and resolved
       // incidents.
@@ -161,6 +162,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
       final List<Urn> incidentEntities = incidentInfo.getEntities();
+      HookUtils.recordFanoutSize(operationContext, incidentEntities.size());
 
       // 3. If we have removed incidents from any entities, remove them from their respective
       // summary aspects

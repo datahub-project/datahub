@@ -24,6 +24,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.BoundedFanout;
+import com.linkedin.metadata.utils.HookExecutionContext;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -46,6 +49,10 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   private static final String GRAPH_DIFF_MODE_REMOVE_METRIC = "diff_remove_edge";
   private static final String GRAPH_DIFF_MODE_ADD_METRIC = "diff_add_edge";
   private static final String GRAPH_DIFF_MODE_UPDATE_METRIC = "diff_update_edge";
+
+  /** Chunk size for partitioning edge writes; per-edge writes still happen within each chunk. */
+  private static final int EDGE_WRITE_BATCH_SIZE = 1000;
+
   private List<String> fineGrainedLineageNotAllowedForPlatforms;
 
   public static UpdateGraphIndicesService withService(GraphService graphService) {
@@ -53,6 +60,14 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   }
 
   private final GraphService graphService;
+
+  /**
+   * Hard cap on edges written per aspect change (RFC-0b). Defaults to {@link Integer#MAX_VALUE} (no
+   * truncation) so the fan-out metric ships dark; operators lower it via {@code
+   * graphService.edgeFanoutCap} once the {@code datahub.hook.fanout.size} metric reveals a safe
+   * ceiling.
+   */
+  private final int edgeFanoutCap;
 
   @Getter private final boolean graphStatusEnabled;
 
@@ -80,10 +95,25 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       boolean graphDiffMode,
       boolean graphStatusEnabled,
       List<String> fineGrainedLineageNotAllowedForPlatforms) {
+    this(
+        graphService,
+        graphDiffMode,
+        graphStatusEnabled,
+        fineGrainedLineageNotAllowedForPlatforms,
+        Integer.MAX_VALUE);
+  }
+
+  public UpdateGraphIndicesService(
+      GraphService graphService,
+      boolean graphDiffMode,
+      boolean graphStatusEnabled,
+      List<String> fineGrainedLineageNotAllowedForPlatforms,
+      int edgeFanoutCap) {
     this.graphService = graphService;
     this.graphDiffMode = graphDiffMode;
     this.graphStatusEnabled = graphStatusEnabled;
     this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
+    this.edgeFanoutCap = edgeFanoutCap;
   }
 
   @Override
@@ -237,8 +267,26 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
                 new Filter().setOr(new ConjunctiveCriterionArray()),
                 RelationshipDirection.OUTGOING));
       }
-      edgesToAdd.forEach(edge -> graphService.addEdge(opContext, edge));
+      writeEdges(opContext, edgesToAdd, edge -> graphService.addEdge(opContext, edge));
     }
+  }
+
+  /**
+   * Write a collection of edges through {@link BoundedFanout}, enforcing {@link #edgeFanoutCap} and
+   * recording the realized fan-out width on {@code datahub.hook.fanout.size}. The hook name is read
+   * ambiently from {@link HookExecutionContext} (empty off-hook, e.g. direct GMS ingestion).
+   */
+  private void writeEdges(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Edge> edges,
+      @Nonnull final Consumer<Edge> writeFn) {
+    BoundedFanout.forEachBatch(
+        edges,
+        EDGE_WRITE_BATCH_SIZE,
+        edgeFanoutCap,
+        opContext.getMetricUtils().orElse(null),
+        HookExecutionContext.current().orElse("unknown"),
+        batch -> batch.forEach(writeFn));
   }
 
   private void updateGraphServiceDiff(
@@ -270,7 +318,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Remove any old edges that no longer exist first
     if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
-      subtractiveDifference.forEach(edge -> graphService.removeEdge(opContext, edge));
+      writeEdges(
+          opContext, subtractiveDifference, edge -> graphService.removeEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(
@@ -284,7 +333,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Then add new edges
     if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
-      additiveDifference.forEach(edge -> graphService.addEdge(opContext, edge));
+      writeEdges(opContext, additiveDifference, edge -> graphService.addEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(
@@ -296,7 +345,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Then update existing edges
     if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
-      mergedEdges.forEach(edge -> graphService.upsertEdge(opContext, edge));
+      writeEdges(opContext, mergedEdges, edge -> graphService.upsertEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(
