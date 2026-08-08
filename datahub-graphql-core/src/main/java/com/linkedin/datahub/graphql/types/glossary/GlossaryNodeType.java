@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryNodeMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -79,12 +80,16 @@ public class GlossaryNodeType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, "GlossaryNode", ASPECTS_TO_RESOLVE, "glossaryNodeKey");
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               GLOSSARY_NODE_ENTITY_NAME,
               new HashSet<>(glossaryNodeUrns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {

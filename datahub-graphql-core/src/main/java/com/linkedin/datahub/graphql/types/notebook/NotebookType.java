@@ -33,6 +33,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.notebook.mappers.NotebookMapper;
 import com.linkedin.datahub.graphql.types.notebook.mappers.NotebookUpdateInputMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -171,12 +172,15 @@ public class NotebookType
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, "Notebook", ASPECTS_TO_RESOLVE, "notebookKey");
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               NOTEBOOK_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       return urns.stream()
           .map(urn -> notebookMap.getOrDefault(urn, null))

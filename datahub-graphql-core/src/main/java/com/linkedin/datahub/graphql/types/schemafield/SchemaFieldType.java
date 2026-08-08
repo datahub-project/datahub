@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
@@ -69,12 +70,14 @@ public class SchemaFieldType
     try {
       Map<Urn, EntityResponse> entities = new HashMap<>();
       if (_featureFlags.isSchemaFieldEntityFetchEnabled()) {
+        Set<String> aspectsToResolve =
+            AspectUtils.getOptimizedAspects(context, "SchemaFieldEntity", ASPECTS_TO_FETCH);
         entities =
             _entityClient.batchGetV2(
                 context.getOperationContext(),
                 SCHEMA_FIELD_ENTITY_NAME,
                 new HashSet<>(schemaFieldUrns),
-                ASPECTS_TO_FETCH);
+                aspectsToResolve);
       }
 
       final List<EntityResponse> gmsResults = new ArrayList<>();

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataTypeEntity;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
@@ -51,12 +52,16 @@ public class DataTypeType
     final List<Urn> dataTypeUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, "DataTypeEntity", ASPECTS_TO_FETCH, "dataTypeKey");
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               DATA_TYPE_ENTITY_NAME,
               new HashSet<>(dataTypeUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : dataTypeUrns) {
