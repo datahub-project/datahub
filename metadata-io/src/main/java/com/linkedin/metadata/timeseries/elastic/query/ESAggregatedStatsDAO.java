@@ -519,9 +519,13 @@ public class ESAggregatedStatsDAO {
         AggregationBuilder curAggregationBuilder = null;
         if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           // Process the date grouping bucket using 'date-histogram' aggregation.
+          // Explicit minDocCount(0): OpenSearch's date_histogram default is 1, which drops
+          // empty interstitial days between the first and last populated bucket. Usage and
+          // operations clients expect those empty DAY buckets (see smoke test_gms_usage_fetch).
           curAggregationBuilder =
               AggregationBuilders.dateHistogram(ES_AGGREGATION_PREFIX + curGroupingBucket.getKey())
                   .field(curGroupingBucket.getKey())
+                  .minDocCount(0)
                   .timeZone(getZoneId(curGroupingBucket))
                   .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {

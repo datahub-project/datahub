@@ -93,6 +93,35 @@ def wait_for_no_tokens_matching(
     )
 
 
+def wait_for_tokens_matching(
+    session,
+    filters: List[Dict[str, Any]],
+    *,
+    expected_count: int = 1,
+    max_timeout_in_sec: int = 60,
+) -> Dict[str, Any]:
+    """Poll listAccessTokens until the filtered result has expected_count tokens.
+
+    createAccessToken + wait_for_writes_to_sync is not always enough under xdist
+    before listAccessTokens (ES-backed) reflects the new token.
+    """
+    start = time.time()
+    last_listing: Dict[str, Any] | None = None
+    while time.time() - start < max_timeout_in_sec:
+        res_data = list_access_tokens(session, filters)
+        assert res_data
+        assert res_data["data"]
+        last_listing = res_data["data"]["listAccessTokens"]
+        tokens = last_listing.get("tokens") or []
+        if len(tokens) == expected_count:
+            return res_data
+        time.sleep(1)
+    raise AssertionError(
+        f"Timed out waiting for {expected_count} token(s) matching {filters} after "
+        f"{max_timeout_in_sec}s (last listing={last_listing})"
+    )
+
+
 def assert_no_tokens_matching(session, filters: List[Dict[str, Any]]) -> None:
     res_data = list_access_tokens(session, filters)
     assert res_data
