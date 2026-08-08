@@ -13,10 +13,7 @@ from datahub.masking.bootstrap import (
     is_bootstrapped,
     shutdown_secret_masking,
 )
-from datahub.masking.logging_utils import (
-    get_masking_safe_logger,
-    reset_masking_safe_loggers,
-)
+from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -57,11 +54,15 @@ class TestMaskingFilterEdgeCases:
         for i in range(100):
             registry.register_secret(f"SECRET_{i}", f"value_{i}")
 
-        # Force pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
-
-        # Verify pattern was rebuilt
-        assert masking_filter._last_version > 0
+        # Force a pattern build via mask_text, then verify a second registration
+        # bumps the version and triggers a rebuild on the next mask.
+        masking_filter.mask_text("leak value_0 here")
+        version_after_build = registry.get_version()
+        registry.register_secret("LATE", "late_secret_value")
+        assert registry.get_version() > version_after_build
+        out = masking_filter.mask_text("leak late_secret_value here")
+        assert "late_secret_value" not in out
+        assert "***REDACTED:LATE***" in out
 
     def test_masking_with_very_long_message(self):
         """Test masking with messages exceeding max_message_size."""
@@ -120,27 +121,35 @@ class TestBootstrapEdgeCases:
 
     def setup_method(self):
         shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
 
     def teardown_method(self):
         shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
 
     def test_double_initialization(self):
         """Test that double initialization is handled gracefully."""
-        initialize_secret_masking()
+        tok1 = initialize_secret_masking()
         assert is_bootstrapped()
-
-        # Second initialization should be no-op
-        initialize_secret_masking()
+        tok2 = initialize_secret_masking()
         assert is_bootstrapped()
+        shutdown_secret_masking(tok2)
+        shutdown_secret_masking(tok1)
 
     def test_force_reinitialization(self):
         """Test force re-initialization."""
-        initialize_secret_masking()
+        tok1 = initialize_secret_masking()
         assert is_bootstrapped()
-
-        # Force re-init
-        initialize_secret_masking(force=True)
+        tok2 = initialize_secret_masking(force=True)
         assert is_bootstrapped()
+        shutdown_secret_masking(tok2)
+        shutdown_secret_masking(tok1)
 
     def test_bootstrap_error_cleared_on_success(self):
         """Test that bootstrap error is cleared after successful init."""
@@ -163,20 +172,6 @@ class TestLoggingUtils:
         assert logger1 is logger2
         # Should not have duplicate handlers
         assert handler_count_1 == handler_count_2
-
-    def test_reset_masking_safe_loggers(self):
-        """Test resetting masking-safe loggers."""
-        # Create a masking-safe logger
-        logger = get_masking_safe_logger("datahub.masking.test")
-        assert not logger.propagate
-        assert len(logger.handlers) > 0
-
-        # Reset
-        reset_masking_safe_loggers()
-
-        # Logger should be reset
-        assert logger.propagate
-        assert len(logger.handlers) == 0
 
 
 class TestSecretRegistryEdgeCases:

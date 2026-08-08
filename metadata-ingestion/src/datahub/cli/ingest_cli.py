@@ -5,7 +5,7 @@ import os
 import sys
 import textwrap
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, NoReturn, Optional
 
 if TYPE_CHECKING:
     from datahub.ingestion.recording.recorder import IngestionRecorder
@@ -24,7 +24,7 @@ from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.bootstrap import initialize_secret_masking, shutdown_secret_masking
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.ingest_utils import deploy_source_vars
@@ -180,8 +180,18 @@ def run(
 ) -> None:
     """Ingest metadata into DataHub."""
 
-    # Initialize secret masking (before any logging)
-    initialize_secret_masking()
+    # Initialize secret masking (before any logging). Fail-loud: never
+    # proceed with secrets unmasked; show a clean click error instead of a
+    # raw traceback.
+    try:
+        initialize_secret_masking()
+    except RuntimeError as e:
+        click.echo(
+            f"Failed to initialize secret masking: {e}. Aborting to avoid "
+            "exposing secrets in logs.",
+            err=True,
+        )
+        sys.exit(1)
 
     def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
@@ -205,6 +215,12 @@ def run(
     # main function begins
     logger.info("DataHub CLI version: %s", nice_version_name())
 
+    # Non-exception exits shut the masking scope down; exception paths keep it
+    # so the top-level handler in entrypoints.py formats the traceback masked.
+    def _exit(code: int) -> NoReturn:
+        shutdown_secret_masking()
+        sys.exit(code)
+
     pipeline_config = load_config_file(
         config,
         squirrel_original_config=True,
@@ -217,7 +233,7 @@ def run(
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
     if test_source_connection:
-        sys.exit(_test_source_connection(report_to, pipeline_config))
+        _exit(_test_source_connection(report_to, pipeline_config))
 
     if no_default_report:
         # The default is "datahub" reporting. The extra flag will disable it.
@@ -256,6 +272,9 @@ def run(
     else:
         ret = create_and_run_pipeline()
 
+    # Non-exception exits shut the masking scope down; exception paths keep it
+    # so the top-level handler in entrypoints.py formats the traceback masked.
+    shutdown_secret_masking()
     if ret:
         sys.exit(ret)
     # don't raise SystemExit if there's no error

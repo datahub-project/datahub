@@ -1,10 +1,8 @@
 """
-Tests for error paths and circuit breaker logic in masking framework.
+Tests for error paths in masking framework.
 """
 
 import logging
-import re
-from unittest import mock
 
 import pytest
 
@@ -14,99 +12,6 @@ from datahub.masking.bootstrap import (
 )
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
-
-
-class TestCircuitBreakerLogic:
-    """Test circuit breaker behavior in masking filter."""
-
-    def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def test_circuit_breaker_state_tracking(self):
-        """Test circuit breaker state management."""
-        registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
-
-        # Initial state
-        assert masking_filter._failure_count == 0
-        assert not masking_filter._circuit_open
-        assert masking_filter._max_failures == 10
-
-        # Circuit breaker can be manually opened for testing
-        masking_filter._circuit_open = True
-        assert masking_filter._circuit_open
-
-    def test_circuit_open_message_handling(self):
-        """Test that when circuit is open, messages pass through without errors."""
-        registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
-
-        # Force circuit open
-        masking_filter._circuit_open = True
-
-        record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname="",
-            lineno=0,
-            msg="This message should pass through when circuit is open",
-            args=(),
-            exc_info=None,
-        )
-
-        # Should not raise an error
-        result = masking_filter.filter(record)
-        assert result is True
-
-
-class TestPatternRebuildFailures:
-    """Test pattern rebuild failure scenarios."""
-
-    def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def test_pattern_rebuild_compile_error(self):
-        """Test graceful handling when pattern compilation fails."""
-        registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
-
-        # Register a secret
-        registry.register_secret("SECRET", "test_value_123")
-
-        # Mock re.compile to fail
-        original_compile = re.compile
-
-        def mock_compile_fail(pattern, flags=0):
-            if "test_value_123" in pattern:
-                raise re.error("Simulated compile error")
-            return original_compile(pattern, flags)
-
-        with mock.patch("re.compile", side_effect=mock_compile_fail):
-            # Try to rebuild pattern - should handle error gracefully
-            masking_filter._check_and_rebuild_pattern()
-
-            # Filter should still work (with old pattern or graceful degradation)
-            record = logging.LogRecord(
-                name="test",
-                level=logging.INFO,
-                pathname="",
-                lineno=0,
-                msg="Test message",
-                args=(),
-                exc_info=None,
-            )
-            result = masking_filter.filter(record)
-            assert result is True
 
 
 class TestBootstrapConfiguration:
