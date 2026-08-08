@@ -992,6 +992,7 @@ query getColumnLineageCounts(
     $endTimeMillis: Long
     $ignoreAsHops: [EntityTypeToPlatforms!]
     $includeSoftDeleted: Boolean = false
+    $includeGhostEntities: Boolean = false
     $orFilters: [AndFilterInput!]
 ) {
     upstream: searchAcrossLineage(
@@ -1006,6 +1007,9 @@ query getColumnLineageCounts(
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
                 ignoreAsHops: $ignoreAsHops
+                # Column lineage constantly points at schema fields that were never materialized,
+                # and counting those is the whole point of this query
+                includeGhostEntities: $includeGhostEntities
             }
             searchFlags: {
                 groupingSpec: { groupingCriteria: [] }
@@ -1028,6 +1032,9 @@ query getColumnLineageCounts(
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
                 ignoreAsHops: $ignoreAsHops
+                # Column lineage constantly points at schema fields that were never materialized,
+                # and counting those is the whole point of this query
+                includeGhostEntities: $includeGhostEntities
             }
             searchFlags: {
                 groupingSpec: { groupingCriteria: [] }

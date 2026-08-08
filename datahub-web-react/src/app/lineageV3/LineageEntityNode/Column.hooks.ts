@@ -12,7 +12,7 @@ import { ColumnAsset } from '@app/lineageV3/types';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { useGetColumnLineageCountsLazyQuery } from '@graphql/lineage.generated';
-import { AndFilterInput, EntityType, FacetFilterInput, FilterOperator } from '@types';
+import { AndFilterInput, FacetFilterInput, FilterOperator } from '@types';
 
 /** Field holding a schema field's parent dataset urn. Schema fields have no platform field. */
 const PARENT_FILTER_NAME = 'parent';
@@ -70,10 +70,12 @@ export default function useFetchColumnCounts(
             urn: schemaFieldUrn,
             startTimeMillis,
             endTimeMillis,
-            // Same hops the graph walks through, so the counts match the columns it draws. The
-            // schema field entry is dropped: GMS fails to read a platform from a schema field urn.
-            ignoreAsHops: generateIgnoreAsHops(rootType).filter((hop) => hop.entityType !== EntityType.SchemaField),
+            // Same hops the graph walks through, so the counts match the columns it draws
+            ignoreAsHops: generateIgnoreAsHops(rootType),
             includeSoftDeleted: showGhostEntities || ignoreSchemaFieldStatus,
+            // Most columns have no entity of their own, so counting them is the default here
+            // rather than something only a ghost-entity view opts into
+            includeGhostEntities: true,
             orFilters: buildRelatedColumnFilters(mergedUrns),
         },
         onCompleted: (data) => {
