@@ -58,7 +58,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
-    rate_limited_gapic_list,
+    rate_limited_gapic_iter,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -167,7 +167,7 @@ class VertexAIPipelineExtractor:
         if last_checkpoint_millis:
             log_checkpoint_time(last_checkpoint_millis, "PipelineJob")
 
-        pipeline_jobs = rate_limited_gapic_list(
+        pipeline_jobs = rate_limited_gapic_iter(
             self.client.PipelineJob,
             self.rate_limiter,
             order_by=ORDER_BY_UPDATE_TIME_DESC,
