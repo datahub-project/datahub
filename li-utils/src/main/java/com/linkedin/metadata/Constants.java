@@ -313,8 +313,7 @@ public class Constants {
   public static final String EVALUATION_DATA_ASPECT_NAME = "mlModelEvaluationData";
   public static final String TRAINING_DATA_ASPECT_NAME = "mlModelTrainingData";
   public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "mlModelQuantitativeAnalyses";
-  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME =
-      "mlModelEthicalConsiderations";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "mlModelEthicalConsiderations";
   public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME =
       "mlModelCaveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
