@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.ingestion.source.powerbi.auth import MsalClientCredential
 from datahub.ingestion.source.powerbi.config import Constant, PowerBiEnvironment
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
@@ -91,7 +92,7 @@ class DataResolverBase(ABC):
     def __init__(
         self,
         client_id: str,
-        client_secret: str,
+        client_credential: MsalClientCredential,
         tenant_id: str,
         metadata_api_timeout: int,
         environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
@@ -115,10 +116,10 @@ class DataResolverBase(ABC):
         self._tenant_id = tenant_id
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self._get_authority_url()}")
-        # Power-Bi Auth (Service Principal Auth)
+        # Power-Bi Auth (Service Principal Auth, via client secret or certificate)
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
-            client_credential=client_secret,
+            client_credential=client_credential,
             authority=self._authority + tenant_id,
         )
         self.get_access_token()
