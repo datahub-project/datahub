@@ -1,9 +1,9 @@
 name: Restore dependency caches (docker-unified buckets)
 description: >
-  Read-only restore of ~/.cache/uv, ~/.cache/yarn, and optionally shared ~/.gradle
-  cache paths. Callers pass keys produced by the same
-  hashFiles / prefix convention as docker-unified. Do not add actions/cache/save
-  for these buckets in workflows that only restore here.
+  Read-only restore of ~/.cache/uv and ~/.cache/yarn. Callers pass keys produced
+  by the same hashFiles / prefix convention as docker-unified. Do not add
+  actions/cache/save for these buckets in workflows that only restore here.
+  Gradle caching is handled by gradle/actions/setup-gradle, not here.
 
 inputs:
   uv_cache_key:
@@ -18,18 +18,6 @@ inputs:
   yarn_cache_key_prefix:
     description: restore-keys prefix for the Yarn path.
     required: true
-  restore_gradle:
-    description: If true, also restore the shared ~/.gradle dependency caches.
-    required: false
-    default: "false"
-  gradle_cache_key:
-    description: Full Actions cache key for the Gradle dependency caches.
-    required: false
-    default: ""
-  gradle_cache_key_prefix:
-    description: restore-keys prefix for the Gradle dependency caches.
-    required: false
-    default: ""
 
 runs:
   using: composite
@@ -49,22 +37,3 @@ runs:
         key: ${{ inputs.yarn_cache_key }}
         restore-keys: |
           ${{ inputs.yarn_cache_key_prefix }}
-
-    # `caches/*/transforms` and `caches/*/generated-gradle-jars` are the Gradle 8
-    # layout; the old `caches/transforms-*` glob is Gradle 7 and matches nothing
-    # on 8.14. `caches/*/groovy-dsl` is the compiled build-script cache -- without
-    # it every run recompiles the root build.gradle and ~100 subproject scripts.
-    - name: Restore Gradle dependency caches (docker-unified bucket)
-      if: ${{ inputs.restore_gradle == 'true' }}
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: |
-          ~/.gradle/wrapper
-          ~/.gradle/caches/modules-2
-          ~/.gradle/caches/jars-*
-          ~/.gradle/caches/*/transforms
-          ~/.gradle/caches/*/groovy-dsl
-          ~/.gradle/caches/*/generated-gradle-jars
-        key: ${{ inputs.gradle_cache_key }}
-        restore-keys: |
-          ${{ inputs.gradle_cache_key_prefix }}

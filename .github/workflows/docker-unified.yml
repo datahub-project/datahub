@@ -114,8 +114,6 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
-      gradle_cache_key: ${{ steps.gradle-cache-key.outputs.gradle_cache_key }}
-      gradle_cache_key_prefix: ${{ steps.gradle-cache-key.outputs.gradle_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
@@ -252,20 +250,6 @@ jobs:
             './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
           echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
 
-      - name: Compute Gradle Cache Key
-        id: gradle-cache-key
-        # The previous key was the literal string `gradle-plugins-cache`. Actions
-        # cache entries are immutable, so after the first save every later save
-        # failed with "Unable to reserve cache with key" and the blob was frozen
-        # from 2026-07-22 onward. A content-hashed key lets it refresh; the prefix
-        # restore-key still gives a near-miss hit when dependencies move.
-        run: |
-          {
-            echo "gradle_cache_key=docker-unified-${{ runner.os }}-gradle-${{ hashFiles(
-              '**/*.gradle', '**/gradle.lockfile', 'gradle/**', 'gradle.properties') }}"
-            echo "gradle_cache_key_prefix=docker-unified-${{ runner.os }}-gradle-"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Compute Yarn Cache Key
         id: yarn-cache-key
         run: |
@@ -318,9 +302,26 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-          gradle_cache_key: ${{ needs.setup.outputs.gradle_cache_key }}
-          gradle_cache_key_prefix: ${{ needs.setup.outputs.gradle_cache_key_prefix }}
-          restore_gradle: true
+
+      # Replaces a hand-rolled actions/cache pair that used the literal key
+      # `gradle-plugins-cache`. Actions cache entries are immutable, so the first
+      # save on master claimed that name and every save after it failed; the entry
+      # froze on 2026-07-22 and was later evicted, leaving this job restoring
+      # nothing. Its path globs were also Gradle 7 (`caches/transforms-*` matches
+      # nothing on 8.14). setup-gradle hashes and versions its own keys, splits the
+      # buckets, and is what the repo's other 19 workflows already use.
+      #
+      # cache-read-only defaults to `ref_name != default_branch`, which is the same
+      # master-only-write rule the hand-rolled version enforced with an `if:` --
+      # important here, because base_build runs alongside 7 pytest batches and 8
+      # Playwright shards that must not all write.
+      #
+      # build-cache-1 is excluded: task outputs come from the Depot remote build
+      # cache (cache.depot.dev), and including it here is what has been reported to
+      # exhaust the repo's 10GB Actions cache budget.
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -397,17 +398,6 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/*/transforms
-            ~/.gradle/caches/*/groovy-dsl
-            ~/.gradle/caches/*/generated-gradle-jars
-          key: ${{ needs.setup.outputs.gradle_cache_key }}
 
   comment_pr_images:
     name: Comment PR image tags
