@@ -15,5 +15,11 @@ record GroupMembership {
       "entityTypes": [ "corpGroup" ]
     }
   }
+  @Searchable = {
+    "/*": {
+       "fieldType": "URN",
+       "addToFilters": true
+    }
+  }
   groups: array[Urn]
 }
