@@ -90,7 +90,9 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
       @Nullable QueryContext context, final Collection<EntityResponse> entities) {
     return entities.stream()
         .map(e -> DataHubRoleMapper.map(context, e))
-        .sorted(Comparator.comparing(DataHubRole::getName))
+        .sorted(
+            Comparator.comparing(
+                DataHubRole::getName, Comparator.nullsLast(Comparator.naturalOrder())))
         .collect(Collectors.toList());
   }
 }
