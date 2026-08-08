@@ -1,6 +1,6 @@
 package com.linkedin.metadata.timeseries.postgres;
 
-import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
 import io.ebean.Database;
 import java.sql.Connection;
@@ -11,24 +11,23 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
  * JDBC access for SqlSetup {@code {prefix}_aspect} (pgTimeseries) — shared by {@code
  * PostgresTimeseriesAspectWriteSink} (ES dual-write) and {@link PostgresTimeseriesAspectService}
- * (primary store).
+ * (primary store). Scoped to one named store.
  */
 @RequiredArgsConstructor
 public final class PostgresTimeseriesAspectDao {
 
   @Nonnull private final Database database;
-  @Nonnull private final PostgresSqlSetupProperties postgresSqlSetupProperties;
+  @Getter @Nonnull private final PgTimeseriesStoreOptions storeOptions;
 
   @Nonnull
   public String qualifiedTable() {
-    String schema = postgresSqlSetupProperties.normalizedPostgresSchema();
-    String prefix = postgresSqlSetupProperties.normalizedPgTimeseriesTablePrefix();
-    return schema + "." + prefix + "_aspect";
+    return storeOptions.qualifiedAspectTable();
   }
 
   public void upsert(@Nonnull TimeseriesAspectRowPayload row) throws SQLException {
@@ -102,8 +101,8 @@ public final class PostgresTimeseriesAspectDao {
   private static void setJsonb(PreparedStatement ps, int index, String json) throws SQLException {
     if (json == null) {
       ps.setNull(index, Types.OTHER);
-      return;
+    } else {
+      ps.setObject(index, json, Types.OTHER);
     }
-    ps.setObject(index, json, Types.OTHER);
   }
 }

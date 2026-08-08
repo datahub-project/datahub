@@ -1,12 +1,9 @@
 package com.linkedin.gms.factory.timeseries;
 
-import com.linkedin.metadata.config.postgres.DatabaseType;
-import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao;
+import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry;
 import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.timeseries.write.postgres.PostgresTimeseriesAspectWriteSink;
-import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -14,17 +11,19 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration
 @Slf4j
+@Import(PgTimeseriesConfigOverlay.class)
 public class TimeseriesAspectWriteSinkFactory {
 
   @Bean
   @Nonnull
   public TimeseriesAspectWriteSink timeseriesAspectWriteSink(
-      @Qualifier("pgTimeseriesEbeanServer") ObjectProvider<Database> pgTimeseriesDatabaseProvider,
+      @Qualifier("pgTimeseriesStoreRegistry")
+          ObjectProvider<PgTimeseriesStoreRegistry> registryProvider,
       PostgresSqlSetupProperties postgresSqlSetupProperties,
-      @Value("${postgres.pgTimeseries.pool.url:${ebean.url:}}") String timeseriesPoolUrl,
       @Value("${timeseriesAspectService.implementation:elasticsearch}")
           String timeseriesImplementation) {
     if ("postgres".equalsIgnoreCase(timeseriesImplementation.trim())) {
@@ -33,34 +32,14 @@ public class TimeseriesAspectWriteSinkFactory {
     if (!postgresSqlSetupProperties.getPgTimeseries().isEnabled()) {
       return TimeseriesAspectWriteSink.NOOP;
     }
-    Database database = pgTimeseriesDatabaseProvider.getIfAvailable();
-    if (database == null) {
+    PgTimeseriesStoreRegistry registry = registryProvider.getIfAvailable();
+    if (registry == null) {
       log.warn(
-          "postgres.pgTimeseries.enabled but pgTimeseriesEbeanServer is not available; skipping PostgreSQL timeseries dual-write");
-      return TimeseriesAspectWriteSink.NOOP;
-    }
-    if (timeseriesPoolUrl == null || timeseriesPoolUrl.isBlank()) {
-      log.warn(
-          "postgres.pgTimeseries.enabled but postgres.pgTimeseries.pool.url is empty; skipping PostgreSQL timeseries dual-write");
-      return TimeseriesAspectWriteSink.NOOP;
-    }
-    try {
-      JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(timeseriesPoolUrl.trim());
-      if (info.databaseType != DatabaseType.POSTGRES) {
-        log.warn(
-            "postgres.pgTimeseries.enabled but postgres.pgTimeseries.pool.url is not PostgreSQL; skipping PostgreSQL timeseries dual-write");
-        return TimeseriesAspectWriteSink.NOOP;
-      }
-      postgresSqlSetupProperties.applySqlSetupSchemaFromJdbcUrl(timeseriesPoolUrl);
-      postgresSqlSetupProperties.validateForUse(DatabaseType.POSTGRES);
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      log.warn(
-          "postgres.pgTimeseries.enabled but Postgres SqlSetup validation failed ({}); skipping PostgreSQL timeseries dual-write",
-          e.getMessage());
+          "postgres.pgTimeseries.enabled but pgTimeseriesStoreRegistry is not available; skipping"
+              + " PostgreSQL timeseries dual-write");
       return TimeseriesAspectWriteSink.NOOP;
     }
     return new PostgresTimeseriesAspectWriteSink(
-        new PostgresTimeseriesAspectDao(database, postgresSqlSetupProperties),
-        postgresSqlSetupProperties.getPgTimeseries().isDualWriteFailOnError());
+        registry, postgresSqlSetupProperties.getPgTimeseries().isDualWriteFailOnError());
   }
 }

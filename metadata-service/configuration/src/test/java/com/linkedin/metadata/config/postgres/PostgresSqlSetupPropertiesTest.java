@@ -179,8 +179,10 @@ public class PostgresSqlSetupPropertiesTest {
     PostgresSqlSetupProperties props = basePgTimeseriesProps();
     props.validateForUse(DatabaseType.POSTGRES);
     PgTimeseriesSetupOptions o = props.buildPgTimeseriesOptions();
-    assertEquals(o.isForceOverwritePartmanConfig(), false);
-    assertEquals(o.getRetentionMaxAgeSeconds(), 7776000);
+    assertEquals(o.getDefaultStoreName(), "default");
+    assertEquals(o.getDefaultStore().isForceOverwritePartmanConfig(), false);
+    assertEquals(o.getDefaultStore().getRetentionMaxAgeSeconds(), 7776000);
+    assertEquals(o.resolveStore("dataset", "datasetProfile").getName(), "default");
   }
 
   @Test
@@ -188,13 +190,48 @@ public class PostgresSqlSetupPropertiesTest {
     PostgresSqlSetupProperties props = basePgTimeseriesProps();
     props.getPgTimeseries().getPartitioning().setForceOverwritePartmanConfig(true);
     props.validateForUse(DatabaseType.POSTGRES);
-    assertEquals(props.buildPgTimeseriesOptions().isForceOverwritePartmanConfig(), true);
+    assertEquals(
+        props.buildPgTimeseriesOptions().getDefaultStore().isForceOverwritePartmanConfig(), true);
+  }
+
+  @Test
+  public void buildPgTimeseriesOptions_routesNamedStore() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig longStore =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    longStore.setTablePrefix("metadata_timeseries_long");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 month");
+    partitioning.setPartmanPremake(4);
+    longStore.setPartitioning(partitioning);
+    PostgresSqlSetupProperties.PgTimeseries.Retention retention =
+        new PostgresSqlSetupProperties.PgTimeseries.Retention();
+    retention.setMaxAgeSeconds(46656000);
+    longStore.setRetention(retention);
+    props.getPgTimeseries().getStores().put("long", longStore);
+    props.getPgTimeseries().getRouting().put("dataset.datasetprofile", "long");
+    props.validateForUse(DatabaseType.POSTGRES);
+
+    PgTimeseriesSetupOptions o = props.buildPgTimeseriesOptions();
+    assertEquals(o.resolveStore("dataset", "datasetProfile").getName(), "long");
+    assertEquals(
+        o.resolveStore("dataset", "datasetProfile").getTablePrefix(), "metadata_timeseries_long");
+    assertEquals(o.resolveStore("dataset", "operation").getName(), "default");
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void validatePgTimeseries_rejectsUnknownRouteTarget() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getRouting().put("dataset.datasetprofile", "missing");
+    props.validateForUse(DatabaseType.POSTGRES);
   }
 
   private static PostgresSqlSetupProperties basePgTimeseriesProps() {
     PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
     props.setSchema("public");
     props.getPgTimeseries().setEnabled(true);
+    props.getPgTimeseries().setDefaultStore("default");
     props.getPgTimeseries().setTablePrefix("metadata_timeseries");
     props.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
     props.getPgTimeseries().getPartitioning().setPartmanPremake(4);

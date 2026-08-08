@@ -17,7 +17,8 @@ import org.springframework.context.annotation.Primary;
 @Import({
   ElasticSearchTimeseriesAspectServiceFactory.class,
   TimeseriesAspectWriteSinkFactory.class,
-  PostgresTimeseriesAspectServiceConfiguration.class
+  PostgresTimeseriesAspectServiceConfiguration.class,
+  PgTimeseriesConfigOverlay.class
 })
 @RequiredArgsConstructor
 public class TimeseriesAspectServiceFactory {

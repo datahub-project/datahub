@@ -1,18 +1,15 @@
 package com.linkedin.gms.factory.timeseries;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.postgres.DatabaseType;
-import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry;
 import com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectService;
-import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,41 +25,29 @@ public class PostgresTimeseriesAspectServiceConfiguration {
       name = "implementation",
       havingValue = "postgres")
   public PostgresTimeseriesAspectService postgresTimeseriesAspectService(
-      // ObjectProvider avoids an opaque UnsatisfiedDependencyException when the pool bean is
+      // ObjectProvider avoids an opaque UnsatisfiedDependencyException when the registry bean is
       // absent because postgres.pgTimeseries.enabled=false.
-      @Qualifier("pgTimeseriesEbeanServer") ObjectProvider<Database> databaseProvider,
+      @Qualifier("pgTimeseriesStoreRegistry")
+          ObjectProvider<PgTimeseriesStoreRegistry> registryProvider,
       PostgresSqlSetupProperties postgresSqlSetupProperties,
       ConfigurationProvider configurationProvider,
       QueryFilterRewriteChain queryFilterRewriteChain,
-      @Qualifier("entityRegistry") EntityRegistry entityRegistry,
-      @Value("${postgres.pgTimeseries.pool.url:${ebean.url:}}") String timeseriesPoolUrl) {
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
     if (!postgresSqlSetupProperties.getPgTimeseries().isEnabled()) {
       throw new IllegalStateException(
           "timeseriesAspectService.implementation=postgres requires"
               + " postgres.pgTimeseries.enabled=true (DATAHUB_PGTIMESERIES_ENABLED=true)");
     }
-    Database database = databaseProvider.getIfAvailable();
-    if (database == null) {
+    PgTimeseriesStoreRegistry registry = registryProvider.getIfAvailable();
+    if (registry == null) {
       throw new IllegalStateException(
-          "timeseriesAspectService.implementation=postgres but pgTimeseriesEbeanServer is not"
+          "timeseriesAspectService.implementation=postgres but pgTimeseriesStoreRegistry is not"
               + " available; set postgres.pgTimeseries.enabled=true with a PostgreSQL"
               + " postgres.pgTimeseries.pool.url (or ebean.url)");
     }
-    if (timeseriesPoolUrl == null || timeseriesPoolUrl.isBlank()) {
-      throw new IllegalStateException(
-          "timeseriesAspectService.implementation=postgres but postgres.pgTimeseries.pool.url is empty");
-    }
-    JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(timeseriesPoolUrl.trim());
-    if (info.databaseType != DatabaseType.POSTGRES) {
-      throw new IllegalStateException(
-          "timeseriesAspectService.implementation=postgres but postgres.pgTimeseries.pool.url is not PostgreSQL");
-    }
-    postgresSqlSetupProperties.applySqlSetupSchemaFromJdbcUrl(timeseriesPoolUrl);
-    postgresSqlSetupProperties.validateForUse(DatabaseType.POSTGRES);
 
     return new PostgresTimeseriesAspectService(
-        database,
-        postgresSqlSetupProperties,
+        registry,
         configurationProvider.getTimeseriesAspectService(),
         queryFilterRewriteChain,
         entityRegistry);

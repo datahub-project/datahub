@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.common.LocalEbeanConfigFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.CacheInstrumentationFactory;
+import com.linkedin.gms.factory.timeseries.PgTimeseriesConfigOverlay;
 import org.springframework.boot.micrometer.metrics.autoconfigure.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
 import org.springframework.boot.micrometer.metrics.autoconfigure.export.simple.SimpleMetricsExportAutoConfiguration;
@@ -46,7 +47,8 @@ import org.springframework.context.annotation.Import;
   ConfigurationProvider.class,
   AwsClientFactory.class,
   LocalEbeanConfigFactory.class,
-  OpenTelemetryConfig.class
+  OpenTelemetryConfig.class,
+  PgTimeseriesConfigOverlay.class
 })
 @ComponentScan(
     basePackages = {
