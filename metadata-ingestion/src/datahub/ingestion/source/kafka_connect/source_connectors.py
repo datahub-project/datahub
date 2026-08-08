@@ -26,6 +26,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     unquote,
     validate_jdbc_url,
 )
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
+)
 from datahub.ingestion.source.kafka_connect.pattern_matchers import (
     JavaRegexMatcher,
     PatternMatcher,
@@ -2239,6 +2242,29 @@ class DebeziumSourceConnector(BaseConnector):
             transforms=transforms,
         )
 
+    def get_include_list_config(self) -> Optional[str]:
+        """Return the connector's capture include list, whichever key it uses.
+
+        Relational Debezium connectors use table.include.list (table.whitelist on
+        older versions); the MongoDB connector uses collection.include.list, with
+        fully-qualified "database.collection" values.
+        """
+        config = self.connector_manifest.config
+        return (
+            config.get(ConnectorConfigKeys.TABLE_INCLUDE_LIST)
+            or config.get(ConnectorConfigKeys.TABLE_WHITELIST)
+            or config.get(ConnectorConfigKeys.COLLECTION_INCLUDE_LIST)
+        )
+
+    def get_exclude_list_config(self) -> Optional[str]:
+        """Return the connector's capture exclude list, whichever key it uses."""
+        config = self.connector_manifest.config
+        return (
+            config.get(ConnectorConfigKeys.TABLE_EXCLUDE_LIST)
+            or config.get(ConnectorConfigKeys.TABLE_BLACKLIST)
+            or config.get(ConnectorConfigKeys.COLLECTION_EXCLUDE_LIST)
+        )
+
     def get_topics_from_config(self) -> List[str]:
         """Extract expected topics from Debezium connector configuration.
 
@@ -2276,7 +2302,7 @@ class DebeziumSourceConnector(BaseConnector):
 
             # Step 1: Get initial set of tables
             table_names = self._get_table_names_from_config_or_discovery(
-                config, database_name, source_platform
+                database_name, source_platform
             )
             if not table_names:
                 return []
@@ -2292,7 +2318,7 @@ class DebeziumSourceConnector(BaseConnector):
                     return []
 
             # Step 3: Apply table filters
-            table_names = self._apply_table_filters(config, table_names)
+            table_names = self._apply_table_filters(table_names)
             if not table_names:
                 return []
 
@@ -2312,12 +2338,11 @@ class DebeziumSourceConnector(BaseConnector):
             return []
 
     def _get_table_names_from_config_or_discovery(
-        self, config: Dict[str, Any], database_name: Optional[str], source_platform: str
+        self, database_name: Optional[str], source_platform: str
     ) -> List[str]:
         """Get table names either from config or by discovering from database.
 
         Args:
-            config: Connector configuration
             database_name: Database name from connector config
             source_platform: Source platform (e.g., "postgres", "mysql")
 
@@ -2325,10 +2350,8 @@ class DebeziumSourceConnector(BaseConnector):
             List of table names in "schema.table" format, or empty list if none found
         """
         if not self.schema_resolver or not self.config.use_schema_resolver:
-            # SchemaResolver not available - fall back to table.include.list only
-            table_config = config.get("table.include.list") or config.get(
-                "table.whitelist"
-            )
+            # SchemaResolver not available - fall back to the capture list only
+            table_config = self.get_include_list_config()
             if not table_config:
                 logger.info(
                     f"No table.include.list found and SchemaResolver not available for connector '{self.connector_manifest.name}' - "
@@ -2344,14 +2367,12 @@ class DebeziumSourceConnector(BaseConnector):
 
         # SchemaResolver is available - use database.dbname to discover tables
         if not database_name:
-            logger.warning(
+            logger.info(
                 f"Cannot discover tables for connector '{self.connector_manifest.name}' - "
-                f"database.dbname not configured"
+                f"no single database name in the connector config"
             )
-            # Fall back to table.include.list if no database name
-            table_config = config.get("table.include.list") or config.get(
-                "table.whitelist"
-            )
+            # Fall back to the capture list if no database name
+            table_config = self.get_include_list_config()
             if not table_config:
                 logger.info(
                     f"No database.dbname and no table.include.list for connector '{self.connector_manifest.name}'"
@@ -2465,20 +2486,17 @@ class DebeziumSourceConnector(BaseConnector):
 
         return tables
 
-    def _apply_table_filters(
-        self, config: Dict[str, Any], tables: List[str]
-    ) -> List[str]:
-        """Apply table.include.list and table.exclude.list filters to tables.
+    def _apply_table_filters(self, tables: List[str]) -> List[str]:
+        """Apply the connector's include/exclude capture lists to tables.
 
         Args:
-            config: Connector configuration
             tables: List of table names in "schema.table" format
 
         Returns:
             Filtered list of table names
         """
         # Apply table.include.list filter if it exists
-        table_config = config.get("table.include.list") or config.get("table.whitelist")
+        table_config = self.get_include_list_config()
 
         if table_config:
             # Parse patterns from config
@@ -2514,9 +2532,7 @@ class DebeziumSourceConnector(BaseConnector):
             )
 
         # Apply table.exclude.list filter if it exists
-        exclude_config = config.get("table.exclude.list") or config.get(
-            "table.blacklist"
-        )
+        exclude_config = self.get_exclude_list_config()
 
         if exclude_config:
             exclude_patterns = parse_comma_separated_list(exclude_config)
@@ -2648,8 +2664,9 @@ class DebeziumSourceConnector(BaseConnector):
 
         Flow:
         1. Handle EventRouter (special case - data-dependent routing)
-        2. Fallback: If no table.include.list and no SchemaResolver, parse topic names from runtime API
-        3. Get table names (from config or discover from DataHub)
+        2. Get table names (from config or discover from DataHub)
+        3. Fallback: if no table names could be resolved, parse them back out of the
+           runtime topic names
         4. For each table: generate topic name -> apply transforms -> create lineage
         5. Filter lineages by Kafka topics if available
         """
@@ -2665,55 +2682,18 @@ class DebeziumSourceConnector(BaseConnector):
                     parser.source_platform, parser.database_name
                 )
 
-            # Check for missing configuration: no table.include.list and no SchemaResolver
-            table_config = self.connector_manifest.config.get(
-                "table.include.list"
-            ) or self.connector_manifest.config.get("table.whitelist")
-
-            if not table_config and (
-                not self.schema_resolver or not self.config.use_schema_resolver
-            ):
-                # Try fallback: parse topic names from OSS connector-specific topics
-                # NOTE: topic_names is only populated for OSS (from /connectors/{name}/topics API)
-                # For Confluent Cloud, topic_names is empty (we use all_cluster_topics separately)
-                if self.connector_manifest.topic_names:
-                    logger.info(
-                        f"Debezium connector '{self.connector_manifest.name}' has no table.include.list configured "
-                        f"and SchemaResolver is not available. Attempting fallback: parsing topic names from "
-                        f"{len(self.connector_manifest.topic_names)} connector-specific topics."
-                    )
-                    lineages = self._extract_lineages_from_topics(
-                        parser.source_platform, parser.server_name, parser.database_name
-                    )
-                    if lineages:
-                        logger.info(
-                            f"Fallback succeeded: extracted {len(lineages)} lineages for connector "
-                            f"'{self.connector_manifest.name}' by parsing topic names"
-                        )
-                        return lineages
-                    else:
-                        logger.warning(
-                            f"Fallback failed: could not extract lineages from topic names for connector "
-                            f"'{self.connector_manifest.name}'"
-                        )
-
-                # Cannot extract lineages without table configuration or schema resolver
-                logger.warning(
-                    f"Debezium connector '{self.connector_manifest.name}' has no table.include.list configured "
-                    f"and SchemaResolver is not available. Cannot extract lineages. "
-                    f"Please either: "
-                    f"1) Add 'table.include.list' to the connector configuration, OR "
-                    f"2) Enable 'use_schema_resolver: true' in the DataHub ingestion config and ensure you've "
-                    f"ingested {parser.source_platform} datasets into DataHub first."
-                )
-                return []
-
             # Step 1: Get table names to process
             table_names = self._get_table_names_to_process(parser)
-            if not table_names:
-                return []
 
-            # Step 2: Generate lineages for each table
+            # Step 2: Fall back to the runtime topic names when config and DataHub
+            # discovery both come up empty. Discovery needs a single database name to
+            # filter on, which MongoDB and MySQL connectors do not have. Without this
+            # fallback, enabling use_schema_resolver would silently drop all of their
+            # lineage instead of adding column-level lineage to it.
+            if not table_names:
+                return self._extract_lineages_from_topics_fallback(parser)
+
+            # Step 3: Generate lineages for each table
             lineages = self._generate_lineages_for_tables(table_names, parser)
 
             logger.info(
@@ -2729,6 +2709,43 @@ class DebeziumSourceConnector(BaseConnector):
             )
             return []
 
+    def _extract_lineages_from_topics_fallback(
+        self, parser: DebeziumParser
+    ) -> List[KafkaConnectLineage]:
+        """Reverse-engineer lineage from the topics the connector actually produces.
+
+        NOTE: topic_names is only populated for OSS (from /connectors/{name}/topics API).
+        For Confluent Cloud, topic_names is empty (we use all_cluster_topics separately).
+        """
+        if self.connector_manifest.topic_names:
+            logger.info(
+                f"Debezium connector '{self.connector_manifest.name}' has no capture list configured "
+                f"and no tables could be discovered from DataHub. Attempting fallback: parsing topic "
+                f"names from {len(self.connector_manifest.topic_names)} connector-specific topics."
+            )
+            lineages = self._extract_lineages_from_topics(
+                parser.source_platform, parser.server_name, parser.database_name
+            )
+            if lineages:
+                logger.info(
+                    f"Fallback succeeded: extracted {len(lineages)} lineages for connector "
+                    f"'{self.connector_manifest.name}' by parsing topic names"
+                )
+                return lineages
+
+            logger.warning(
+                f"Fallback failed: could not extract lineages from topic names for connector "
+                f"'{self.connector_manifest.name}'"
+            )
+
+        self.report.warning(
+            message="Could not resolve any source tables for Debezium connector. Add "
+            "'table.include.list' (or 'collection.include.list' for MongoDB) to the connector "
+            "configuration, or ingest the source platform's datasets into DataHub first.",
+            context=f"connector={self.connector_manifest.name}, platform={parser.source_platform}",
+        )
+        return []
+
     def _get_table_names_to_process(self, parser: DebeziumParser) -> List[str]:
         """
         Get list of table names to process for lineage extraction.
@@ -2737,10 +2754,7 @@ class DebeziumSourceConnector(BaseConnector):
         For 3-tier platforms (e.g., SQL Server), tables may include database prefix
         from explicit config, but discovered tables never include database prefix.
         """
-        # Check for explicit table configuration
-        table_config = self.connector_manifest.config.get(
-            "table.include.list"
-        ) or self.connector_manifest.config.get("table.whitelist")
+        table_config = self.get_include_list_config()
 
         # If no explicit config, discover tables from DataHub
         if not table_config:
@@ -2765,12 +2779,13 @@ class DebeziumSourceConnector(BaseConnector):
     ) -> List[str]:
         """Discover tables from DataHub for the given database and platform."""
         if not self.schema_resolver or not database_name:
-            logger.warning(
-                f"Debezium connector {self.connector_manifest.name} has no table.include.list config "
-                f"and SchemaResolver is not available (or database_name is missing). "
-                f"Cannot extract lineages. Please either: "
-                f"1) Configure table.include.list in the connector, OR "
-                f"2) Enable 'use_schema_resolver' in DataHub ingestion config"
+            # MongoDB and MySQL connectors have no single database name to discover
+            # against, so this is the normal path for them - the caller falls back to
+            # parsing the runtime topic names.
+            logger.info(
+                f"Debezium connector {self.connector_manifest.name} has no capture list config and "
+                f"cannot discover tables from DataHub (schema_resolver={bool(self.schema_resolver)}, "
+                f"database_name={database_name})"
             )
             return []
 
@@ -2976,9 +2991,7 @@ class DebeziumSourceConnector(BaseConnector):
         lineages: List[KafkaConnectLineage] = []
 
         # Extract source tables from configuration
-        table_config = self.connector_manifest.config.get(
-            "table.include.list"
-        ) or self.connector_manifest.config.get("table.whitelist")
+        table_config = self.get_include_list_config()
 
         if not table_config:
             logger.warning(
