@@ -22,7 +22,9 @@ import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -366,11 +368,34 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
+    @staticmethod
+    def _uses_queue_pool(sql_config: SQLCommonConfig) -> bool:
+        """Whether this connection will be pooled by a QueuePool.
+
+        `max_overflow` is a QueuePool-only sizing option. SQLAlchemy raises
+        TypeError rather than ignoring it when the dialect resolves to any other
+        pool, so injecting it unconditionally makes ingestion fail outright for
+        those dialects. SQLite is the common case: file URLs resolve to
+        NullPool and in-memory ones to SingletonThreadPool, so simply enabling
+        profiling turns a working recipe into a hard failure that produces zero
+        events.
+
+        Returns True on any uncertainty — an unregistered dialect raises
+        NoSuchModuleError from get_dialect() — so this can only ever withhold an
+        option that would have raised, never one that worked.
+        """
+        try:
+            url = make_url(sql_config.get_sql_alchemy_url())
+            return issubclass(url.get_dialect().get_pool_class(url), QueuePool)
+        except Exception:  # noqa: BLE001 - any failure must fall back to the old behaviour
+            return True
+
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
+        # Only for dialects that actually use a QueuePool; see _uses_queue_pool.
+        if sql_config.is_profiling_enabled() and self._uses_queue_pool(sql_config):
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
