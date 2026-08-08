@@ -20,7 +20,7 @@ inputs:
     required: false
     default: "false"
   default_runner_size:
-    description: "Depot size for default-runner / default-depot-runner / depot-label-runner: small, regular, medium, or large"
+    description: "Depot size for default-runner / default-depot-runner / depot-label-runner: small, regular, or large"
     required: false
     default: "regular"
 
@@ -40,9 +40,6 @@ outputs:
   small-runner:
     description: "Appropriately set small runner based on Depot availability"
     value: ${{ steps.small-runner.outputs.value }}
-  depot-runner-medium:
-    description: "depot-ubuntu-24.04-2 Runner. Use for medium jobs"
-    value: "depot-ubuntu-24.04-2"
   depot-runner-large:
     description: "depot-ubuntu-24.04-4 Runner. Use for heavy jobs"
     value: "depot-ubuntu-24.04-4"
@@ -79,14 +76,11 @@ runs:
           regular|"")
             echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
             ;;
-          medium)
-            echo "value=depot-ubuntu-24.04-2" >> "$GITHUB_OUTPUT"
-            ;;
           large)
             echo "value=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             ;;
           *)
-            echo "::error::Invalid default_runner_size='$DEFAULT_RUNNER_SIZE' (expected small, regular, medium, or large)"
+            echo "::error::Invalid default_runner_size='$DEFAULT_RUNNER_SIZE' (expected small, regular, or large)"
             exit 1
             ;;
         esac

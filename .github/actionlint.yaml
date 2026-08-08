@@ -5,7 +5,6 @@ self-hosted-runner:
     - "depot-ubuntu-22.04"
     - "depot-ubuntu-24.04-small"
     - "depot-ubuntu-24.04"
-    - "depot-ubuntu-24.04-2"
     - "depot-ubuntu-24.04-4"
 
 paths:
