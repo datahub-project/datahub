@@ -75,7 +75,7 @@ The metric entity reuses these standard governance aspects: `ownership`, `domain
 
 Semantic-model membership is member-side only: `metricInfo.semanticModel` (`ModeledBy`,
 non-lineage) is the single source of truth. Listing a model's metrics is an ES filter on
-`hasSemanticModel`.
+`semanticModel` (optionally with `hasSemanticModel=true`).
 
 Metric-to-dataset and metric-to-column lineage are carried by the dedicated `metricUpstreams`
 aspect. `datasetUpstreams` and `fieldUpstreams` are independently optional so ingestion sources

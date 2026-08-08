@@ -39,10 +39,6 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
   AI context). The from/to aliases refer to each logical dataset's `semanticModelProperties.alias`.
 
-Membership of datasets and metrics is **not** stored on `semanticModelInfo`. It lives on the
-member side — see [Logical Datasets as Dataset Entities](#logical-datasets-as-dataset-entities)
-and the [Metric](metric.md) entity docs.
-
 ### AI Context
 
 Optional AI/LLM hints for the semantic model itself are stored in the first-class `aiContext`
@@ -158,11 +154,9 @@ properties — with no semantic-model-specific reimplementation.
 | IsPartOf     | inbound   | `dataset`     | `semanticModelProperties.semanticModel` | no       |
 | ModeledBy    | inbound   | `metric`      | `metricInfo.semanticModel`              | no       |
 
-Membership is member-side only (same pattern as Domains / Tags / Owners). There are no
-`datasets` / `metrics` arrays on `semanticModelInfo`. Metric → SMD lineage lives on
-`metricUpstreams.datasetUpstreams` (not on the semantic model) — see [Lineage](#lineage) above.
-Traversal then continues via each logical dataset's `upstreamLineage`
-(SemanticModelDataset → Physical Dataset).
+Metric → SMD lineage lives on `metricUpstreams.datasetUpstreams` (not on the semantic model) —
+see [Lineage](#lineage) above. Traversal then continues via each logical dataset's
+`upstreamLineage` (SemanticModelDataset → Physical Dataset).
 
 ## Notable Exceptions
 

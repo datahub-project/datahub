@@ -63,9 +63,7 @@ record MetricInfo includes ExternalReference {
   lastModified: optional AuditStamp
 
   /**
-   * Authoritative link from this metric to its owning SemanticModel.
-   * Containment only — not a lineage edge. Listing a semantic model's
-   * metrics is an ES filter on `hasSemanticModel`.
+   * The semantic model that defines this metric.
    */
   @Relationship = {
     "name": "ModeledBy",

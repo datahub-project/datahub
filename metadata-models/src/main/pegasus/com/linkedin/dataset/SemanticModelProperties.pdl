@@ -9,10 +9,6 @@ import com.linkedin.common.Urn
  * modeled: their own Dataset entity, with the standard `viewProperties` and `upstreamLineage`
  * aspects (already registered on `dataset`) carrying the native SQL and physical/column-level
  * lineage respectively.
- *
- * Containment in a SemanticModel is expressed on this aspect via `semanticModel` (member-side
- * authority, same pattern as Domains / Tags / Owners). The local `alias` is used by join edges
- * on the owning model's `semanticModelInfo.relationships`.
  */
 @Aspect = {
   "name": "semanticModelProperties",
@@ -27,9 +23,7 @@ record SemanticModelProperties {
   alias: string
 
   /**
-   * Authoritative link from this logical dataset to its owning SemanticModel.
-   * Containment only — not a lineage edge. Listing a semantic model's datasets
-   * is an ES filter on `hasSemanticModel`.
+   * The SemanticModel that this Dataset is a logical dataset of.
    */
   @Relationship = {
     "name": "IsPartOf",

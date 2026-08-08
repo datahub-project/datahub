@@ -72,9 +72,6 @@ record SemanticModelInfo includes ExternalReference {
 
   /**
    * Join relationships between the datasets of this semantic model.
-   * Membership of those datasets (and of metrics) is stored on the member
-   * side — see `semanticModelProperties.semanticModel` and
-   * `metricInfo.semanticModel`.
    */
   relationships: optional array[SemanticModelRelationship]
 
