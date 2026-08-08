@@ -148,7 +148,7 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       - name: Install dependencies
@@ -229,15 +229,14 @@ jobs:
       # Success-only, single matrix leg (parallel legs would race to reserve the same
       # key). On master this workflow usually runs on Depot runners, where this save
       # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
-      # master writers for this key are documentation.yml, python-build-pages.yml, and
-      # check-datahub-jars.yml.
+      # master writers for this key are documentation.yml and check-datahub-jars.yml.
       - name: Save uv cache (master only)
         if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
       - name: Debug info
         if: always()
         run: |

@@ -50,16 +50,16 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
-      # Restore always; save only from master (below) so PR runs stop minting per-PR
-      # copies of this shared key. Key hashes the manifests that actually determine the
-      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
-      # none of them.
+      # Restore-only: wheel building populates a much narrower uv cache than the
+      # installDev-based jobs sharing this key family; if this job won the first save
+      # for a new key, the broader jobs would exact-hit an under-populated cache
+      # forever. Master copies are written by documentation.yml and
+      # check-datahub-jars.yml, whose builds run :metadata-ingestion:installDev.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        id: uv-cache
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       - name: Build Python wheel site
@@ -68,15 +68,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      # Success-only: a partial cache from a failed run would occupy the exact key
-      # until the manifests next change; the next master push retries instead.
-      - name: Save uv cache (master only)
-        if: github.ref == 'refs/heads/master' && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
       - name: Publish
         id: cloudflare
         uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1

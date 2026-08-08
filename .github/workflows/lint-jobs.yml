@@ -229,13 +229,16 @@ jobs:
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written by
       # python-cache-warmup.yml (push to master) under this exact key.
+      # Key must stay byte-identical with the lookup and save keys in
+      # python-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
+      # manifests are included because requirements.txt installs '-e ../metadata-ingestion[...]'.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
           path: |
             ${{ env.UV_CACHE_DIR }}
-          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
           restore-keys: |
             uv-smoke-test-lint-
 
@@ -273,7 +276,10 @@ jobs:
           # shared with other PRs — it just mints a per-PR copy against the repo's 10GB
           # budget. The master-scoped entry every PR restores from is written by
           # python-cache-warmup.yml (push to master), which uses this exact key.
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          # Key must stay byte-identical with the lookup and save keys in
+          # python-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
+          # deduplicated across workflow files).
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
           restore-keys: |
             uv-python-lint-
       - name: Install system dependencies
@@ -352,8 +358,10 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       # Restore-only, from yarn's default cache dir: the master-scoped entry under this
-      # key is written by build-and-test.yml frontend-build on master. Saving here would
-      # only mint a per-PR copy (this workflow is pull_request-only), so we never save.
+      # key is written by python-cache-warmup.yml warm-web-yarn-cache (build-and-test's
+      # frontend jobs run on Depot runners, whose cache writes GitHub-hosted jobs cannot
+      # read). Saving here would only mint a per-PR copy (this workflow is
+      # pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
@@ -393,11 +401,11 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      # Restore-only, from yarn's default cache dir. Nothing writes this exact key; the
-      # prefix restore-key soft-hits the master-scoped yarn cache written by
-      # build-and-test.yml frontend-build, which already contains most of the lint
-      # toolchain (eslint, prettier, typescript). Saving here would only mint a per-PR
-      # copy (this workflow is pull_request-only), so we never save.
+      # Restore-only, from yarn's default cache dir. The master-scoped entry under this
+      # exact key is written by python-cache-warmup.yml warm-playwright-yarn-cache; the
+      # prefix restore-key falls back to the datahub-web-react yarn cache, which contains
+      # most of the lint toolchain (eslint, prettier, typescript). Saving here would only
+      # mint a per-PR copy (this workflow is pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:

@@ -110,13 +110,12 @@ jobs:
           python-version: "3.10"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # Master copies are written by documentation.yml / python-build-pages.yml /
-      # check-datahub-jars.yml.
+      # Master copies are written by documentation.yml / check-datahub-jars.yml.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       - name: Install dependencies
@@ -266,13 +265,12 @@ jobs:
           python-version: "3.10"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # Master copies are written by documentation.yml / python-build-pages.yml /
-      # check-datahub-jars.yml.
+      # Master copies are written by documentation.yml / check-datahub-jars.yml.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
       # yarn's global download cache (safe to cache; node_modules itself is not — see
