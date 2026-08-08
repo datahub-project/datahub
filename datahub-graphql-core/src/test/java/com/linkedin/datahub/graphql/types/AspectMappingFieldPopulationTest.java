@@ -10,12 +10,14 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.MLFeatureDataType;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
@@ -27,6 +29,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.auth.mappers.AccessTokenMetadataMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
+import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureMapper;
@@ -250,6 +253,25 @@ public class AspectMappingFieldPopulationTest {
     assertEquals(metadata.getOwnerUrn(), owner.toString());
     assertEquals(metadata.getCreatedAt(), Long.valueOf(100L));
     assertEquals(metadata.getExpiresAt(), Long.valueOf(200L));
+  }
+
+  @Test
+  public void testCorpUserTagsAndGlobalTagsPopulateFromGlobalTagsAspect() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:corpuser:tagged-user");
+    com.linkedin.common.GlobalTags tags =
+        new com.linkedin.common.GlobalTags().setTags(new TagAssociationArray());
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+            .setUrn(urn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(Constants.GLOBAL_TAGS_ASPECT_NAME, env(tags))));
+
+    CorpUser user = CorpUserMapper.map(null, response);
+
+    assertNotNull(user.getTags(), "tags must populate from globalTags");
+    assertNotNull(user.getGlobalTags(), "deprecated globalTags alias must remain populated");
   }
 
   @Test

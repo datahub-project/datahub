@@ -186,8 +186,7 @@ type Metric implements EntityWithRelationships & Entity {
   """
   Applications associated with this Metric.
   """
-  applications: EntityRelationshipsResult
-    @aspectMapping(aspects: ["applications"])
+  applications: EntityRelationshipsResult @noAspects
 
   """
   Privileges given to a user relevant to this entity.
@@ -333,8 +332,7 @@ type SemanticModel implements EntityWithRelationships & Entity {
   """
   Applications associated with this SemanticModel.
   """
-  applications: EntityRelationshipsResult
-    @aspectMapping(aspects: ["applications"])
+  applications: EntityRelationshipsResult @noAspects
 
   """
   Privileges given to a user relevant to this entity.

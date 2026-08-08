@@ -311,7 +311,7 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
   """
   Unique id for the erModelRelationship
   """
-  id: String! @noAspects
+  id: String! @aspectMapping(aspects: ["erModelRelationshipKey"])
 
   """
   An additional set of read only properties
