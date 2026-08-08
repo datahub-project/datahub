@@ -221,6 +221,17 @@ class QuickstartStatus:
         else:
             return set()
 
+    def errored_containers(self) -> List[str]:
+        """Names of the containers that are not OK (exited, died, unhealthy, …).
+
+        Used to surface the root-cause logs for just the failing services.
+        """
+        return [
+            container.name
+            for container in self.containers
+            if container.status != ContainerStatus.OK
+        ]
+
 
 def detect_legacy_quickstart_compose(containers: Set[str]) -> bool:
     return "zookeeper" in containers
