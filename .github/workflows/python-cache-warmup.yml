@@ -7,12 +7,17 @@
 # a private copy of the same key (several hundred MB each) against the repo's 10GB
 # Actions cache budget, and the shared master entries were evicted first.
 #
+# The yarn jobs exist for a related reason: build-and-test.yml's frontend jobs run
+# on Depot runners (#18998), whose actions/cache writes go to Depot's own backend —
+# GitHub-hosted lint jobs cannot read them, so without a GitHub-hosted writer the
+# master-scoped yarn entries would age out and never be replaced.
+#
 # This workflow runs on every push to master. When the exact key already exists the
 # lookup-only restore hits and the job exits in seconds; on a miss (dependency
 # manifests changed, or the entry was evicted) it rebuilds the environments and
 # saves one master-scoped copy. Keys and cache paths must stay byte-identical to
 # the restore steps in lint-jobs.yml.
-name: Python Cache Warmup
+name: CI Cache Warmup
 on:
   push:
     branches:
@@ -26,6 +31,9 @@ concurrency:
 jobs:
   warm-python-lint-cache:
     name: Warm python-lint uv cache
+    # Master-gated so a workflow_dispatch from a branch or tag no-ops instead of
+    # saving a ref-scoped copy nothing can read.
+    if: github.ref == 'refs/heads/master'
     # Must be a GitHub-hosted runner: the whole point is writing to the GitHub
     # Actions cache. Depot runners use Depot Cache, which GitHub-hosted PR jobs
     # cannot read.
@@ -36,13 +44,14 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      # Key must match the restore key in lint-jobs.yml python-lint exactly.
+      # Key must stay byte-identical with the restore key in lint-jobs.yml python-lint
+      # and the save key at the bottom of this job.
       - name: Check for existing cache entry
         id: uv-cache
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
           lookup-only: true
       - name: Set up JDK 21
         if: steps.uv-cache.outputs.cache-hit != 'true'
@@ -78,12 +87,15 @@ jobs:
         uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
 
   # Separate job (not extra steps above) so the saved entry contains only the
   # smoke-test dependencies, not the union with the python-lint cache.
+  # smoke-test's requirements.txt installs '-e ../metadata-ingestion[...]', so
+  # metadata-ingestion's manifests are install inputs for this key too.
   warm-smoke-test-lint-cache:
     name: Warm smoke-test lint uv cache
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     env:
       UV_CACHE_DIR: /tmp/.uv-cache/
@@ -91,13 +103,14 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      # Key must match the restore key in lint-jobs.yml smoke-test-lint exactly.
+      # Key must stay byte-identical with the restore key in lint-jobs.yml
+      # smoke-test-lint and the save key at the bottom of this job.
       - name: Check for existing cache entry
         id: uv-cache
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
           lookup-only: true
       - name: Set up JDK 21
         if: steps.uv-cache.outputs.cache-hit != 'true'
@@ -119,4 +132,75 @@ jobs:
         uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
+
+  # GitHub-hosted writer for the shared datahub-web-react yarn cache. Restored by
+  # lint-jobs.yml (datahub-web-react-lint, markdown-format, github-actions-format)
+  # and by build-and-test.yml's frontend jobs when they run GitHub-hosted.
+  warm-web-yarn-cache:
+    name: Warm datahub-web-react yarn cache
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore keys in lint-jobs.yml and
+      # the yarn cache key in build-and-test.yml frontend-build.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          lookup-only: true
+      - name: Set up JDK 21
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :datahub-web-react:yarnInstall
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+
+  # Separate job so the playwright entry stays small instead of duplicating the
+  # ~1.2GB web-react cache under a second key.
+  warm-playwright-yarn-cache:
+    name: Warm playwright lint yarn cache
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
+      # playwright-e2e-lint.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
+          lookup-only: true
+      - name: Set up Node.js
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
