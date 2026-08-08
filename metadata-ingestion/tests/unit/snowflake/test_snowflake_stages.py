@@ -1,32 +1,45 @@
+import json
 from datetime import datetime
-from typing import List
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+    SnowflakeLineageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeStage,
     SnowflakeStageType,
+)
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_stages import (
     SnowflakeStagesExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    make_snowflake_external_urn,
 )
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
 )
 
 
-def _make_config() -> SnowflakeV2Config:
+def _make_config(**kwargs: Any) -> SnowflakeV2Config:
     return SnowflakeV2Config(
         account_id="test_account",
         username="user",
         password="pass",  # type: ignore
         include_stages=True,
+        **kwargs,
     )
 
 
@@ -63,9 +76,10 @@ def _make_external_stage(
 
 def _collect_workunits(
     stages: List[SnowflakeStage],
+    config: Optional[SnowflakeV2Config] = None,
 ) -> tuple:
     """Returns (workunits, extractor) so tests can inspect the stage_lookup."""
-    config = _make_config()
+    config = config or _make_config()
     report = SnowflakeV2Report()
     identifiers = SnowflakeIdentifierBuilder(
         identifier_config=config, structured_reporter=report
@@ -235,3 +249,464 @@ class TestSnowflakeStagesExtractor:
         # Lookup should work regardless of case
         assert extractor.get_stage_lookup_entry("test_db.public.my_stage") is not None
         assert extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.MY_STAGE") is not None
+
+
+class TestS3UpstreamPlatformInstance:
+    """
+    S3 upstreams emitted by Snowflake must carry the platform instance that the *S3*
+    recipe was ingested with. If they don't, the Snowflake-side URN
+    (`s3,bucket/path,PROD`) and the S3-side URN (`s3,product.bucket/path,PROD`) never
+    join, and cross-platform lineage silently breaks with no error reported.
+    """
+
+    def test_s3_instance_is_not_snowflakes_own_platform_instance(self) -> None:
+        # The two are independent: `platform_instance` names this Snowflake account,
+        # `platform_instance_map["s3"]` names the S3 recipe that owns the bucket.
+        config = _make_config(
+            platform_instance="snowflake_prod",
+            platform_instance_map={"s3": "product"},
+        )
+        _, extractor, _ = _collect_workunits([_make_external_stage()], config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_external_stage_urn_applies_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        _, extractor, _ = _collect_workunits([_make_external_stage()], config)
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.EXT_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+
+    def test_gcs_and_abs_stage_urns_apply_platform_instance(self) -> None:
+        config = _make_config(
+            platform_instance_map={"gcs": "gcs_inst", "abs": "abs_inst"}
+        )
+        stages = [
+            _make_external_stage("gcs_stage", url="gcs://my-bucket/data"),
+            _make_external_stage(
+                "abs_stage",
+                url="azure://myacct.blob.core.windows.net/my-container/data",
+            ),
+        ]
+        _, extractor, _ = _collect_workunits(stages, config)
+
+        gcs_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.GCS_STAGE")
+        abs_entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ABS_STAGE")
+        assert gcs_entry is not None and abs_entry is not None
+        assert gcs_entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.my-bucket/data,PROD)"
+        )
+        assert abs_entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,abs_inst.my-container/data,PROD)"
+        )
+
+    def test_unsupported_stage_scheme_warns(self) -> None:
+        # Previously logger.debug -- invisible at default level, so a user with 500
+        # unsupported stages saw stages_scanned=500 and silently zero lineage.
+        _, _, report = _collect_workunits(
+            [_make_external_stage("hdfs_stage", url="hdfs://namenode/data")]
+        )
+
+        assert len(report.warnings) == 1
+
+    def test_copy_history_lineage_applies_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(["s3://my-bucket/data"]),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        ]
+
+    def test_copy_history_emits_every_nameable_location(self) -> None:
+        # `ARRAY_UNIQUE_AGG(stage_location)` can list several locations for one
+        # downstream. Returning only the first was survivable while S3 was the only
+        # scheme resolved, but would now drop a real S3 upstream whenever a GCS or Azure
+        # location happened to be listed ahead of it.
+        config = _make_config(
+            platform_instance_map={"s3": "product", "gcs": "gcs_inst"}
+        )
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(
+                    ["gcs://other-bucket/data", "s3://my-bucket/data"]
+                ),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.other-bucket/data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)",
+        ]
+        assert {m.downstream_urn for m in mappings} == {
+            identifiers.gen_dataset_urn("db.schema.table")
+        }
+
+    def test_copy_history_lineage_covers_gcs_and_abs(self) -> None:
+        # All three storage platforms go through the shared helper, so COPY history
+        # gets the same scheme coverage as stage lineage rather than S3 only.
+        config = _make_config(
+            platform_instance_map={"gcs": "gcs_inst", "abs": "abs_inst"}
+        )
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        def upstream_for(location: str) -> Optional[str]:
+            mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
+                db_row={
+                    "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                    "UPSTREAM_LOCATIONS": json.dumps([location]),
+                },
+                discovered_tables=None,
+                identifiers=identifiers,
+            )
+            return mappings[0].upstream_urn if mappings else None
+
+        assert upstream_for("gcs://my-bucket/data") == (
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.my-bucket/data,PROD)"
+        )
+        assert upstream_for(
+            "azure://myacct.blob.core.windows.net/my-container/data"
+        ) == (
+            "urn:li:dataset:(urn:li:dataPlatform:abs,abs_inst.my-container/data,PROD)"
+        )
+        assert upstream_for("hdfs://namenode/data") is None
+
+    def test_external_upstreams_apply_platform_instance(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        extractor = SnowflakeLineageExtractor(
+            config=config,
+            report=SnowflakeV2Report(),
+            connection=MagicMock(),
+            filters=MagicMock(),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=config, structured_reporter=SnowflakeV2Report()
+            ),
+            redundant_run_skip_handler=None,
+            sql_aggregator=MagicMock(),
+        )
+
+        upstreams = extractor.get_external_upstreams({"s3://my-bucket/data"})
+
+        assert len(upstreams) == 1
+        assert upstreams[0].dataset == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        )
+        assert upstreams[0].type == DatasetLineageTypeClass.COPY
+
+    def test_external_table_ddl_lineage_applies_platform_instance(self) -> None:
+        config = _make_config(
+            platform_instance_map={"s3": "product", "gcs": "gcs_inst"}
+        )
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "EXT_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            },
+            {
+                "name": "GCS_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "gcs://other-bucket/data",
+            },
+            {
+                "name": "HDFS_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "hdfs://namenode/data",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen,
+                [
+                    "test_db.test_schema.ext_table",
+                    "test_db.test_schema.gcs_table",
+                    "test_db.test_schema.hdfs_table",
+                ],
+            )
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.other-bucket/data,PROD)",
+        ]
+        # Counts edges emitted, not rows seen: the hdfs:// row produces no edge, so
+        # counting it would report lineage that does not exist.
+        assert report.num_external_table_edges_scanned == 2
+
+    def test_external_table_ddl_lineage_skips_undiscovered_table(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "NOT_DISCOVERED",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            }
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen, ["test_db.test_schema.ext_table"]
+            )
+        )
+
+        # The row's key is not in discovered_tables, so it's filtered before the S3
+        # check ever runs -- no lineage, and it isn't counted as a scanned edge either.
+        assert mappings == []
+        assert report.num_external_table_edges_scanned == 0
+
+
+class TestPlatformInstanceMapKeyValidation:
+    """
+    `lineage_platform_instance` looks keys up by exact platform name, so an unread key
+    would be accepted and then ignored -- zero lineage, no error. The keys are validated
+    at startup instead.
+    """
+
+    @pytest.mark.parametrize(
+        "platform_instance_map",
+        [
+            {"s3": "product"},
+            {"s3": "product", "gcs": "gcs_inst", "abs": "abs_inst"},
+            {},
+            None,
+        ],
+    )
+    def test_accepts_platforms_snowflake_reads(
+        self, platform_instance_map: Optional[Dict[str, str]]
+    ) -> None:
+        config = _make_config(platform_instance_map=platform_instance_map)
+        assert config.platform_instance_map == platform_instance_map
+
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            "S3",  # right platform, wrong case
+            "aws",  # cloud provider rather than DataHub platform name
+            "gs",  # GCS's own URI scheme rather than the platform name
+            "hive",  # a real platform, but not one Snowflake reads
+        ],
+    )
+    def test_rejects_keys_snowflake_never_reads(self, bad_key: str) -> None:
+        with pytest.raises(
+            ValidationError, match="are not read by the Snowflake source"
+        ):
+            _make_config(platform_instance_map={bad_key: "product"})
+
+    def test_error_names_the_offending_key(self) -> None:
+        with pytest.raises(ValidationError, match=r"\['aws'\]"):
+            _make_config(platform_instance_map={"s3": "ok", "aws": "typo"})
+
+
+class TestUnnameableExternalLocations:
+    """
+    `azure://` covers more than the ABS source can name -- ADLS Gen2, Fabric OneLake,
+    out-of-range account names -- and `make_abs_urn` raises on those. Several callers
+    iterate rows inside one try/except, so raising would abandon the rest of that lineage
+    pass instead of skipping a single edge.
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",  # Fabric OneLake
+            "azure://myacct.dfs.core.windows.net/container/path",  # ADLS Gen2
+            "azure://ACCT.blob.core.windows.net/container/path",  # uppercase account
+            "azure://an-extremely-long-storage-account-name.blob.core.windows.net/c/p",
+            "azure://",
+            "hdfs://namenode/data",
+        ],
+    )
+    def test_unnameable_location_is_skipped_not_raised(self, url: str) -> None:
+        config = _make_config(platform_instance_map={"abs": "abs_inst"})
+        assert make_snowflake_external_urn(url, config) is None
+
+    def test_stage_with_unnameable_azure_url_warns(self) -> None:
+        _, extractor, report = _collect_workunits(
+            [
+                _make_external_stage(
+                    "onelake_stage",
+                    url="azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+                )
+            ]
+        )
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.ONELAKE_STAGE")
+        assert entry is not None and entry.dataset_urn is None
+        assert len(report.warnings) == 1
+
+    def test_ddl_lineage_continues_past_unnameable_location(self) -> None:
+        # The whole row loop sits inside one try/except, so a raise here used to swallow
+        # every edge after the offending row -- reported only as a warning.
+        config = _make_config(platform_instance_map={"s3": "product"})
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "ONELAKE_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+            },
+            {
+                "name": "EXT_TABLE",
+                "schema_name": "TEST_SCHEMA",
+                "database_name": "TEST_DB",
+                "location": "s3://my-bucket/data",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen,
+                ["test_db.test_schema.onelake_table", "test_db.test_schema.ext_table"],
+            )
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        ]
+        assert report.num_external_table_edges_scanned == 1
+
+    def test_copy_history_continues_past_unnameable_location(self) -> None:
+        config = _make_config(platform_instance_map={"s3": "product"})
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config,
+            structured_reporter=SnowflakeV2Report(),
+        )
+
+        mappings = SnowflakeLineageExtractor._process_external_lineage_result_row(
+            db_row={
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(
+                    [
+                        "azure://onelake.dfs.fabric.microsoft.com/ws/lh/table",
+                        "s3://my-bucket/data",
+                    ]
+                ),
+            },
+            discovered_tables=None,
+            identifiers=identifiers,
+        )
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)"
+        ]
+
+
+class TestExternalStorageCasing:
+    """
+    Snowflake lowercases its *own* dataset names via `convert_urns_to_lowercase` (on by
+    default), but the storage URN helpers deliberately do not normalize case: the storage
+    source lowercases via its own config, which these helpers cannot see. So a mixed-case
+    object key has to survive verbatim even while the Snowflake side is lowercased.
+
+    Documented in snowflake_post.md and in `make_s3_urn_for_lineage`, and previously
+    unenforced -- routing the upstream URN through Snowflake's own identifier lowercasing
+    would silently re-key every mixed-case storage upstream.
+    """
+
+    def test_storage_case_preserved_while_snowflake_side_is_lowercased(self) -> None:
+        config = _make_config(
+            platform_instance_map={"s3": "Product"},
+            convert_urns_to_lowercase=True,
+        )
+        report = SnowflakeV2Report()
+        schema_gen = MagicMock()
+        schema_gen.config = config
+        schema_gen.report = report
+        schema_gen.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        )
+        schema_gen.connection.query.return_value = [
+            {
+                "name": "Ext_Table",
+                "schema_name": "Test_Schema",
+                "database_name": "Test_DB",
+                "location": "s3://My-Bucket/Mixed_Case/Nodes.CSV",
+            },
+        ]
+
+        mappings = list(
+            SnowflakeSchemaGenerator._external_tables_ddl_lineage(
+                schema_gen, ["test_db.test_schema.ext_table"]
+            )
+        )
+
+        assert len(mappings) == 1
+        # Bucket, key and platform instance keep their case exactly as configured.
+        assert mappings[0].upstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,Product.My-Bucket/Mixed_Case/Nodes.CSV,PROD)"
+        )
+        # ...while the Snowflake table on the other end of the same edge is lowercased.
+        assert mappings[0].downstream_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.ext_table,PROD)"
+        )
+
+    def test_stage_url_case_preserved(self) -> None:
+        config = _make_config(
+            platform_instance_map={"s3": "Product"},
+            convert_urns_to_lowercase=True,
+        )
+        _, extractor, _ = _collect_workunits(
+            [_make_external_stage("mixed_stage", url="s3://My-Bucket/Mixed_Case/Data")],
+            config,
+        )
+
+        entry = extractor.get_stage_lookup_entry("TEST_DB.PUBLIC.MIXED_STAGE")
+        assert entry is not None
+        assert entry.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:s3,Product.My-Bucket/Mixed_Case/Data,PROD)"
+        )

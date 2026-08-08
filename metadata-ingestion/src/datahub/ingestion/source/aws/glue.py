@@ -1771,6 +1771,11 @@ class GlueSource(StatefulIngestionSourceBase):
             ):
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
+                    # TODO: no config for the platform_instance the S3 source was
+                    # ingested under, so this edge will not join an S3 dataset ingested
+                    # with one. `catalog_to_platform_instance` is not it -- that stamps
+                    # cross-catalog *table* URNs. Snowflake solves this with
+                    # `platform_instance_map` (PR #18781); Unity has the same gap.
                     table_storage_urn = make_s3_urn_for_lineage(
                         location, self.source_config.env
                     )

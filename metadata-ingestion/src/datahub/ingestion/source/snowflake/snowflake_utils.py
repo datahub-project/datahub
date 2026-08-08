@@ -9,6 +9,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri, make_abs_urn
+from datahub.ingestion.source.gcs.gcs_utils import GCS_PREFIX, make_gcs_urn
 from datahub.ingestion.source.snowflake.constants import (
     DEFAULT_SNOWFLAKE_DOMAIN,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -311,6 +314,57 @@ class SnowflakeFilter:
 
     def is_semantic_view_allowed(self, semantic_view_name: str) -> bool:
         return self.filter_config.semantic_view_pattern.allowed(semantic_view_name)
+
+
+def make_snowflake_external_urn(
+    url: str, identifier_config: SnowflakeIdentifierConfig
+) -> Optional[str]:
+    """
+    Build the dataset URN for an external storage location referenced by Snowflake.
+
+    Snowflake spells these URLs with its own schemes -- `gcs://` rather than GCS's own
+    `gs://`, and `azure://<account>.blob.core.windows.net/...` rather than the `https://`
+    form the ABS source uses -- so the scheme has to be translated before handing off to
+    each platform's URN helper.
+
+    Every external-storage upstream goes through here (stage lineage, COPY history,
+    external-table DDL, and the external-lineage rows) so those call sites cannot drift
+    apart again on scheme coverage, slash handling, or platform instance.
+
+    The platforms resolved here are the ones listed in `EXTERNAL_STORAGE_PLATFORMS`, which
+    is what `platform_instance_map` keys are validated against -- adding a scheme here
+    means adding its platform there.
+
+    Returns None for any location we cannot name, never raises. Callers decide whether
+    that is worth reporting, and several of them iterate rows inside a single try/except,
+    so an exception here would abandon the rest of that lineage pass rather than skip one
+    edge.
+    """
+    if url.startswith("s3://"):
+        return make_s3_urn_for_lineage(
+            url,
+            identifier_config.env,
+            platform_instance=identifier_config.lineage_platform_instance("s3"),
+        )
+    if url.startswith("gcs://"):
+        return make_gcs_urn(
+            url.replace("gcs://", GCS_PREFIX, 1),
+            identifier_config.env,
+            platform_instance=identifier_config.lineage_platform_instance("gcs"),
+        )
+    if url.startswith("azure://"):
+        # `azure://` covers more than the ABS source can name: ADLS Gen2
+        # (`dfs.core.windows.net`), Fabric OneLake (`onelake.dfs.fabric.microsoft.com`),
+        # and account names outside `[a-z0-9]{3,24}` all fail `is_abs_uri`, and
+        # `make_abs_urn` raises on them. Check first so they read as unsupported.
+        abs_url = url.replace("azure://", "https://", 1)
+        if is_abs_uri(abs_url):
+            return make_abs_urn(
+                abs_url,
+                identifier_config.env,
+                platform_instance=identifier_config.lineage_platform_instance("abs"),
+            )
+    return None
 
 
 def _combine_identifier_parts(
