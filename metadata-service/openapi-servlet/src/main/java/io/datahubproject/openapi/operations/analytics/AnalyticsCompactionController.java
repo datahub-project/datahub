@@ -82,7 +82,11 @@ public class AnalyticsCompactionController {
 
     AnalyticsCompactionRequest request = toRequest(body);
     AnalyticsCompactionResult result = analyticsCompactionService.compact(request);
-    return ResponseEntity.ok(AnalyticsCompactResponseBody.from(result));
+    AnalyticsCompactResponseBody response = AnalyticsCompactResponseBody.from(result);
+    if (result.isFailed()) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+    return ResponseEntity.ok(response);
   }
 
   private AnalyticsCompactionRequest toRequest(@Nullable AnalyticsCompactRequestBody body) {

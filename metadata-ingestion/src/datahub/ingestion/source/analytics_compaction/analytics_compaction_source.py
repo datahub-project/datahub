@@ -85,9 +85,10 @@ class DataHubAnalyticsCompactionSource(Source):
         if self.config.max_wall_clock_millis is not None:
             payload["maxWallClockMillis"] = self.config.max_wall_clock_millis
 
-        url = f"{graph._gms_server}{COMPACT_PATH}"
+        # Use the public session/config surface so OAuth and other auth providers apply.
+        url = f"{graph.config.server.rstrip('/')}{COMPACT_PATH}"
         try:
-            response = graph._session.post(url, json=payload or {})
+            response = graph.session.post(url, json=payload or {})
         except Exception as exc:
             raise OperationalError(f"Analytics compact request failed: {exc}") from exc
 

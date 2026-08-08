@@ -308,11 +308,62 @@ def get_elasticsearch_index() -> str:
     return os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event")
 
 
+def _usage_events_implementation_from_common_env() -> Optional[str]:
+    """Read SoT from datahub-dev / compose common env file when process env is unset."""
+    path = os.getenv("DATAHUB_LOCAL_COMMON_ENV")
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                if key.strip() == "DATAHUB_USAGE_EVENTS_IMPLEMENTATION":
+                    return value.strip().strip('"').strip("'").lower() or None
+    except OSError:
+        return None
+    return None
+
+
+def _usage_events_implementation_from_profile() -> Optional[str]:
+    """Infer SoT from compose profile / DB type to match docker-compose.gms.yml defaults.
+
+    Postgres primary-datastore profiles default
+    ``DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres``. MySQL / other profiles keep
+    Elasticsearch as the usage-events SoT unless explicitly overridden.
+    """
+    profile = (get_profile_name() or "").strip().lower()
+    if "postgres" in profile:
+        return "postgres"
+    db_type = (get_db_type() or "").strip().lower()
+    if db_type == "postgres":
+        return "postgres"
+    if db_type in ("mysql", "mariadb"):
+        return "elasticsearch"
+    return None
+
+
 def get_usage_events_implementation() -> str:
-    """Product usage-events SoT: ``elasticsearch`` (default) or ``postgres``."""
-    return str(
-        os.getenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "elasticsearch")
-    ).lower()
+    """Product usage-events SoT: ``elasticsearch`` or ``postgres``.
+
+    Resolution order:
+    1. Process env ``DATAHUB_USAGE_EVENTS_IMPLEMENTATION``
+    2. ``DATAHUB_LOCAL_COMMON_ENV`` (datahub-dev per-worktree env file)
+    3. Compose profile / ``DB_TYPE`` inference (postgres profiles → postgres)
+    4. ``elasticsearch`` (legacy / MySQL default)
+    """
+    explicit = os.getenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION")
+    if explicit is not None and explicit.strip() != "":
+        return explicit.strip().lower()
+    from_file = _usage_events_implementation_from_common_env()
+    if from_file:
+        return from_file
+    from_profile = _usage_events_implementation_from_profile()
+    if from_profile:
+        return from_profile
+    return "elasticsearch"
 
 
 def usage_events_stored_in_postgres() -> bool:

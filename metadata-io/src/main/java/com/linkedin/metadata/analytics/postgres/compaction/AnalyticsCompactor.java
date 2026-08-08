@@ -42,6 +42,8 @@ public class AnalyticsCompactor {
     int daysCompacted = 0;
     int monthsCompacted = 0;
     boolean moreWork = false;
+    boolean failed = false;
+    String failureMessage = null;
 
     for (PgAnalyticsStoreRegistry.StoreHandle handle : registry.allStores().values()) {
       try {
@@ -59,25 +61,36 @@ public class AnalyticsCompactor {
       } catch (SQLException e) {
         log.warn("pgAnalytics compaction failed for store {}", handle.getOptions().getName(), e);
         moreWork = true;
+        failed = true;
+        if (failureMessage == null) {
+          failureMessage =
+              "Compaction failed for store "
+                  + handle.getOptions().getName()
+                  + ": "
+                  + e.getMessage();
+        }
       }
     }
 
     long duration = Instant.now().toEpochMilli() - started.toEpochMilli();
     log.info(
-        "pgAnalytics compact hoursSealed={} daysCompacted={} monthsCompacted={} moreWork={} durationMs={}",
+        "pgAnalytics compact hoursSealed={} daysCompacted={} monthsCompacted={} moreWork={} failed={} durationMs={}",
         hoursSealed,
         daysCompacted,
         monthsCompacted,
         moreWork,
+        failed,
         duration);
     return AnalyticsCompactionResult.builder()
         .lockNotAcquired(false)
         .moreWorkRemaining(moreWork)
+        .failed(failed)
         .hoursSealed(hoursSealed)
         .daysCompacted(daysCompacted)
         .monthsCompacted(monthsCompacted)
         .durationMillis(duration)
         .implementation(IMPLEMENTATION)
+        .message(failureMessage)
         .build();
   }
 
@@ -95,9 +108,10 @@ public class AnalyticsCompactor {
     int dayLookbackDays = Math.max(1, request.getDayLookbackDays());
     int monthLookbackMonths = Math.max(1, request.getMonthLookbackMonths());
 
-    Instant cursor =
+    Instant lookbackStart =
         PostgresAnalyticsUtc.truncateToUtcHour(now).minus(hourLookbackHours, ChronoUnit.HOURS);
     Instant openHour = PostgresAnalyticsUtc.truncateToUtcHour(now);
+    Instant cursor = hourSealCursorStart(store, lookbackStart);
     while (cursor.isBefore(openHour)) {
       if (Instant.now().isAfter(deadline)) {
         moreWork = true;
@@ -196,11 +210,31 @@ public class AnalyticsCompactor {
 
   private static boolean isHourSealed(PostgresAnalyticsStore store, Instant hourStart)
       throws SQLException {
-    return store.getSealedThrough(
-            AnalyticsMetricFamilies.LAYER_HOUR,
-            AnalyticsMetricFamilies.DATAHUB_USAGE,
-            PostgresAnalyticsUtc.partitionKeyHour(hourStart))
-        != null;
+    String partitionKey = PostgresAnalyticsUtc.partitionKeyHour(hourStart);
+    for (String family : FAMILIES) {
+      if (store.getSealedThrough(AnalyticsMetricFamilies.LAYER_HOUR, family, partitionKey)
+          == null) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Continue from the watermark frontier so outages beyond the default lookback still catch up.
+   * Cold-start (any family missing hour watermarks) uses {@code lookbackStart}.
+   */
+  private static Instant hourSealCursorStart(
+      @Nonnull PostgresAnalyticsStore store, @Nonnull Instant lookbackStart) throws SQLException {
+    Instant frontier = null;
+    for (String family : FAMILIES) {
+      Instant latest = store.getLatestSealedHourStart(family);
+      if (latest == null) {
+        return lookbackStart;
+      }
+      frontier = frontier == null || latest.isBefore(frontier) ? latest : frontier;
+    }
+    return frontier.plus(1, ChronoUnit.HOURS);
   }
 
   private static boolean isDaySealed(PostgresAnalyticsStore store, String family, Instant dayStart)
@@ -241,13 +275,19 @@ public class AnalyticsCompactor {
 
   private void sealHour(@Nonnull PostgresAnalyticsStore store, @Nonnull Instant hourStart)
       throws SQLException {
-    store.materializeDatahubUsageHourlyFromRaw(hourStart);
+    String partitionKey = PostgresAnalyticsUtc.partitionKeyHour(hourStart);
+    Instant sealedThrough = PostgresAnalyticsUtc.hourEndExclusive(hourStart);
+    if (store.getSealedThrough(
+            AnalyticsMetricFamilies.LAYER_HOUR, AnalyticsMetricFamilies.DATAHUB_USAGE, partitionKey)
+        == null) {
+      store.materializeDatahubUsageHourlyFromRaw(hourStart);
+    }
     for (String family : FAMILIES) {
-      store.upsertWatermark(
-          AnalyticsMetricFamilies.LAYER_HOUR,
-          family,
-          PostgresAnalyticsUtc.partitionKeyHour(hourStart),
-          PostgresAnalyticsUtc.hourEndExclusive(hourStart));
+      if (store.getSealedThrough(AnalyticsMetricFamilies.LAYER_HOUR, family, partitionKey)
+          == null) {
+        store.upsertWatermark(
+            AnalyticsMetricFamilies.LAYER_HOUR, family, partitionKey, sealedThrough);
+      }
     }
   }
 

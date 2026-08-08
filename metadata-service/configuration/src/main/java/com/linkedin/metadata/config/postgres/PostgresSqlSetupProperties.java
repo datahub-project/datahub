@@ -582,7 +582,7 @@ public class PostgresSqlSetupProperties {
   }
 
   private boolean isAnyPgAnalyticsStoreCronEnabled() {
-    if (pgAnalytics.getMaintenance().isCronEnabled()) {
+    if (Boolean.TRUE.equals(pgAnalytics.getMaintenance().getCronEnabled())) {
       return true;
     }
     Map<String, PgAnalytics.StoreConfig> configuredStores = pgAnalytics.getStores();
@@ -592,7 +592,7 @@ public class PostgresSqlSetupProperties {
     for (PgAnalytics.StoreConfig store : configuredStores.values()) {
       if (store != null
           && store.getMaintenance() != null
-          && store.getMaintenance().isCronEnabled()) {
+          && Boolean.TRUE.equals(store.getMaintenance().getCronEnabled())) {
         return true;
       }
     }
@@ -614,14 +614,14 @@ public class PostgresSqlSetupProperties {
         .tablePrefix(normalizedPgAnalyticsTablePrefix())
         .partmanPartitionInterval(partmanIntervalNormalized)
         .partmanPremake(p.getPartmanPremake())
-        .forceOverwritePartmanConfig(p.isForceOverwritePartmanConfig())
+        .forceOverwritePartmanConfig(Boolean.TRUE.equals(p.getForceOverwritePartmanConfig()))
         .rawMaxAgeSeconds(r.getRawMaxAgeSeconds())
         .hourlyMaxAgeSeconds(r.getHourlyMaxAgeSeconds())
         .dailyMaxAgeSeconds(r.getDailyMaxAgeSeconds())
         .monthlyMaxAgeSeconds(r.getMonthlyMaxAgeSeconds())
         .inputLagSeconds(
             pgAnalytics.getInputLagSeconds() > 0 ? pgAnalytics.getInputLagSeconds() : 900)
-        .maintenanceCronEnabled(pgAnalytics.getMaintenance().isCronEnabled())
+        .maintenanceCronEnabled(Boolean.TRUE.equals(pgAnalytics.getMaintenance().getCronEnabled()))
         .maintenanceIntervalSeconds(pgAnalytics.getMaintenance().getIntervalSeconds())
         .apiUsageFlushEnabled(sinks.isApiUsageFlushEnabled())
         .entityCountEnabled(sinks.isEntityCountEnabled())
@@ -667,8 +667,8 @@ public class PostgresSqlSetupProperties {
             : defaults.getPartmanPartitionInterval();
     int premake = p.getPartmanPremake() > 0 ? p.getPartmanPremake() : defaults.getPartmanPremake();
     boolean forceOverwrite =
-        config.getPartitioning() != null
-            ? p.isForceOverwritePartmanConfig()
+        config.getPartitioning() != null && p.getForceOverwritePartmanConfig() != null
+            ? p.getForceOverwritePartmanConfig()
             : defaults.isForceOverwritePartmanConfig();
 
     PgAnalytics.Retention r =
@@ -691,7 +691,9 @@ public class PostgresSqlSetupProperties {
     PgAnalytics.Maintenance m =
         config.getMaintenance() != null ? config.getMaintenance() : new PgAnalytics.Maintenance();
     boolean cronEnabled =
-        config.getMaintenance() != null ? m.isCronEnabled() : defaults.isMaintenanceCronEnabled();
+        config.getMaintenance() != null && m.getCronEnabled() != null
+            ? m.getCronEnabled()
+            : defaults.isMaintenanceCronEnabled();
     int cronInterval =
         config.getMaintenance() != null && m.getIntervalSeconds() > 0
             ? m.getIntervalSeconds()
@@ -791,11 +793,84 @@ public class PostgresSqlSetupProperties {
         r.getDailyMaxAgeSeconds(), "postgres.pgAnalytics.retention.dailyMaxAgeSeconds");
     validateRetentionMaxAge(
         r.getMonthlyMaxAgeSeconds(), "postgres.pgAnalytics.retention.monthlyMaxAgeSeconds");
-    if (pgAnalytics.getMaintenance().isCronEnabled()) {
+    if (Boolean.TRUE.equals(pgAnalytics.getMaintenance().getCronEnabled())) {
       validateMaintenanceInterval(
           pgAnalytics.getMaintenance().getIntervalSeconds(),
           "postgres.pgAnalytics.maintenance.intervalSeconds");
     }
+
+    Map<String, PgAnalytics.StoreConfig> configuredAnalyticsStores = pgAnalytics.getStores();
+    if (configuredAnalyticsStores != null) {
+      for (Map.Entry<String, PgAnalytics.StoreConfig> entry :
+          configuredAnalyticsStores.entrySet()) {
+        if (entry.getKey() == null || entry.getKey().isBlank()) {
+          throw new IllegalStateException("postgres.pgAnalytics.stores keys must be non-empty.");
+        }
+        String storeName = entry.getKey().trim().toLowerCase(Locale.ROOT);
+        if (!storeName.matches("[a-z][a-z0-9_]*")) {
+          throw new IllegalStateException(
+              "postgres.pgAnalytics.stores key '"
+                  + entry.getKey()
+                  + "' must be a lower-case identifier.");
+        }
+        PgAnalytics.StoreConfig cfg = entry.getValue();
+        if (cfg == null) {
+          throw new IllegalStateException(
+              "postgres.pgAnalytics.stores." + storeName + " must not be null.");
+        }
+        // Named stores may omit fields (inherit from default); validate only when set.
+        if (cfg.getTablePrefix() != null && !cfg.getTablePrefix().isBlank()) {
+          normalizeTablePrefix(
+              cfg.getTablePrefix(), "postgres.pgAnalytics.stores." + storeName + ".tablePrefix");
+        }
+        if (cfg.getSchema() != null && !cfg.getSchema().isBlank()) {
+          validateAndNormalizePostgresFeatureSchema(
+              cfg.getSchema(), "postgres.pgAnalytics.stores." + storeName + ".schema");
+        }
+        if (cfg.getPartitioning() != null
+            && cfg.getPartitioning().getPartmanPartitionInterval() != null
+            && !cfg.getPartitioning().getPartmanPartitionInterval().isBlank()) {
+          String namedPi =
+              cfg.getPartitioning().getPartmanPartitionInterval().trim().toLowerCase(Locale.ROOT);
+          if (!PGANALYTICS_PARTMAN_PARTITION_INTERVALS.contains(namedPi)) {
+            throw new IllegalStateException(
+                "postgres.pgAnalytics.stores."
+                    + storeName
+                    + ".partitioning.partmanPartitionInterval must be one of "
+                    + PGANALYTICS_PARTMAN_PARTITION_INTERVALS
+                    + " (got: "
+                    + cfg.getPartitioning().getPartmanPartitionInterval()
+                    + ").");
+          }
+        }
+        if (cfg.getPartitioning() != null && cfg.getPartitioning().getPartmanPremake() != 0) {
+          validatePartmanPremake(
+              cfg.getPartitioning().getPartmanPremake(),
+              "postgres.pgAnalytics.stores." + storeName + ".partitioning.partmanPremake");
+        }
+        if (cfg.getRetention() != null) {
+          validateRetentionMaxAge(
+              cfg.getRetention().getRawMaxAgeSeconds(),
+              "postgres.pgAnalytics.stores." + storeName + ".retention.rawMaxAgeSeconds");
+          validateRetentionMaxAge(
+              cfg.getRetention().getHourlyMaxAgeSeconds(),
+              "postgres.pgAnalytics.stores." + storeName + ".retention.hourlyMaxAgeSeconds");
+          validateRetentionMaxAge(
+              cfg.getRetention().getDailyMaxAgeSeconds(),
+              "postgres.pgAnalytics.stores." + storeName + ".retention.dailyMaxAgeSeconds");
+          validateRetentionMaxAge(
+              cfg.getRetention().getMonthlyMaxAgeSeconds(),
+              "postgres.pgAnalytics.stores." + storeName + ".retention.monthlyMaxAgeSeconds");
+        }
+        if (cfg.getMaintenance() != null
+            && Boolean.TRUE.equals(cfg.getMaintenance().getCronEnabled())) {
+          validateMaintenanceInterval(
+              cfg.getMaintenance().getIntervalSeconds(),
+              "postgres.pgAnalytics.stores." + storeName + ".maintenance.intervalSeconds");
+        }
+      }
+    }
+
     PgAnalyticsSetupOptions options = buildPgAnalyticsOptions();
     if (options == null) {
       return;
@@ -1472,7 +1547,9 @@ public class PostgresSqlSetupProperties {
     public static class Partitioning {
       private String partmanPartitionInterval;
       private int partmanPremake;
-      private boolean forceOverwritePartmanConfig;
+
+      /** Null on named-store overrides means inherit from the default store. */
+      private Boolean forceOverwritePartmanConfig;
     }
 
     @Getter
@@ -1487,7 +1564,9 @@ public class PostgresSqlSetupProperties {
     @Getter
     @Setter
     public static class Maintenance {
-      private boolean cronEnabled;
+      /** Null on named-store overrides means inherit from the default store. */
+      private Boolean cronEnabled;
+
       private int intervalSeconds;
     }
 

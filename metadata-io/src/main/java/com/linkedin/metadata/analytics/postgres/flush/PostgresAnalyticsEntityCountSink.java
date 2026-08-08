@@ -9,6 +9,8 @@ import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
 import com.linkedin.metadata.systemmetadata.metrics.EntityCountMetricsSink;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PostgresAnalyticsEntityCountSink implements EntityCountMetricsSink {
 
+  static final String METRIC_ACTIVE = "entity_count_active";
+  static final String METRIC_SOFT_DELETED = "entity_count_soft_deleted";
+
   @Nonnull private final PgAnalyticsStoreRegistry registry;
 
   @Override
@@ -29,24 +34,23 @@ public class PostgresAnalyticsEntityCountSink implements EntityCountMetricsSink 
     PostgresAnalyticsStore store =
         registry.resolve(AnalyticsMetricFamilies.SYSTEM_USAGE).getStore();
     Instant hour = PostgresAnalyticsUtc.truncateToUtcHour(result.getComputedAt());
+    List<PostgresAnalyticsStore.LatestRollupValue> values = new ArrayList<>();
+    for (KeyAspectEntityCountEntry entry : result.getCounts()) {
+      Map<String, String> dims = Map.of("entity_type", entry.getEntityType());
+      values.add(
+          new PostgresAnalyticsStore.LatestRollupValue(
+              METRIC_ACTIVE, dims, entry.getActiveCount()));
+      values.add(
+          new PostgresAnalyticsStore.LatestRollupValue(
+              METRIC_SOFT_DELETED, dims, entry.getSoftDeletedCount()));
+    }
     try {
-      for (KeyAspectEntityCountEntry entry : result.getCounts()) {
-        Map<String, String> dims = Map.of("entity_type", entry.getEntityType());
-        store.upsertLatestRollup(
-            hour,
-            AnalyticsMetricFamilies.GRAIN_HOUR,
-            AnalyticsMetricFamilies.SYSTEM_USAGE,
-            "entity_count_active",
-            dims,
-            entry.getActiveCount());
-        store.upsertLatestRollup(
-            hour,
-            AnalyticsMetricFamilies.GRAIN_HOUR,
-            AnalyticsMetricFamilies.SYSTEM_USAGE,
-            "entity_count_soft_deleted",
-            dims,
-            entry.getSoftDeletedCount());
-      }
+      store.replaceLatestRollups(
+          hour,
+          AnalyticsMetricFamilies.GRAIN_HOUR,
+          AnalyticsMetricFamilies.SYSTEM_USAGE,
+          List.of(METRIC_ACTIVE, METRIC_SOFT_DELETED),
+          values);
     } catch (SQLException e) {
       log.error("pgAnalytics entity-count sink failed", e);
       throw new RuntimeException("pgAnalytics EntityCountMetricsSink failed", e);

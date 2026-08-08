@@ -109,8 +109,28 @@ public class PostgresAnalyticsStore {
     }
   }
 
+  /** Last-wins gauge row for {@link #replaceLatestRollups}. */
+  public record LatestRollupValue(
+      @Nonnull String metricName, @Nonnull Map<String, String> groupDims, double value) {}
+
   /** Upsert-merge additive rollup into a UTC hour (or other grain) bucket. */
   public void mergeAdditiveRollup(
+      @Nonnull Instant bucketStart,
+      @Nonnull String grain,
+      @Nonnull String metricFamily,
+      @Nonnull String metricName,
+      @Nonnull Map<String, String> groupDims,
+      double valueSum,
+      long valueCount)
+      throws SQLException {
+    try (Connection c = openWriteConnection()) {
+      mergeAdditiveRollup(
+          c, bucketStart, grain, metricFamily, metricName, groupDims, valueSum, valueCount);
+    }
+  }
+
+  private void mergeAdditiveRollup(
+      @Nonnull Connection c,
       @Nonnull Instant bucketStart,
       @Nonnull String grain,
       @Nonnull String metricFamily,
@@ -138,8 +158,7 @@ public class PostgresAnalyticsStore {
             + " value_count = "
             + qualifiedRollupTable()
             + ".value_count + EXCLUDED.value_count";
-    try (Connection c = openWriteConnection();
-        PreparedStatement ps = c.prepareStatement(sql)) {
+    try (PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(
           ps,
           List.of(
@@ -165,6 +184,20 @@ public class PostgresAnalyticsStore {
       @Nonnull Map<String, String> groupDims,
       double value)
       throws SQLException {
+    try (Connection c = openWriteConnection()) {
+      upsertLatestRollup(c, bucketStart, grain, metricFamily, metricName, groupDims, value);
+    }
+  }
+
+  private void upsertLatestRollup(
+      @Nonnull Connection c,
+      @Nonnull Instant bucketStart,
+      @Nonnull String grain,
+      @Nonnull String metricFamily,
+      @Nonnull String metricName,
+      @Nonnull Map<String, String> groupDims,
+      double value)
+      throws SQLException {
     String groupKey = PostgresAnalyticsGroupKey.of(groupDims);
     String dimsJson;
     try {
@@ -179,8 +212,7 @@ public class PostgresAnalyticsStore {
             + " value_sum, value_count) VALUES (?,?,?,?,?,?,?::jsonb,?,1)"
             + " ON CONFLICT (bucket_start, grain, metric_family, metric_name, merge_kind, group_key)"
             + " DO UPDATE SET value_sum = EXCLUDED.value_sum, value_count = 1";
-    try (Connection c = openWriteConnection();
-        PreparedStatement ps = c.prepareStatement(sql)) {
+    try (PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(
           ps,
           List.of(
@@ -193,6 +225,65 @@ public class PostgresAnalyticsStore {
               dimsJson,
               value));
       ps.executeUpdate();
+    }
+  }
+
+  /**
+   * Atomically replace latest-merge gauges for the given bucket and metric names: delete existing
+   * rows for those metrics, then insert {@code values}. Clears omitted dimensions so inventory
+   * snapshots cannot leave stale entity types.
+   */
+  public void replaceLatestRollups(
+      @Nonnull Instant bucketStart,
+      @Nonnull String grain,
+      @Nonnull String metricFamily,
+      @Nonnull List<String> metricNames,
+      @Nonnull List<LatestRollupValue> values)
+      throws SQLException {
+    if (metricNames.isEmpty()) {
+      return;
+    }
+    try (Connection c = database.dataSource().getConnection()) {
+      c.setAutoCommit(false);
+      try {
+        StringBuilder deleteSql =
+            new StringBuilder(
+                "DELETE FROM "
+                    + qualifiedRollupTable()
+                    + " WHERE bucket_start = ? AND grain = ? AND metric_family = ?"
+                    + " AND merge_kind = ? AND metric_name IN (");
+        for (int i = 0; i < metricNames.size(); i++) {
+          if (i > 0) {
+            deleteSql.append(',');
+          }
+          deleteSql.append('?');
+        }
+        deleteSql.append(')');
+        try (PreparedStatement ps = c.prepareStatement(deleteSql.toString())) {
+          List<Object> params = new ArrayList<>();
+          params.add(Timestamp.from(bucketStart));
+          params.add(grain);
+          params.add(metricFamily);
+          params.add(AnalyticsMetricFamilies.MERGE_LATEST);
+          params.addAll(metricNames);
+          PostgresPreparedBinder.bind(ps, params);
+          ps.executeUpdate();
+        }
+        for (LatestRollupValue value : values) {
+          upsertLatestRollup(
+              c,
+              bucketStart,
+              grain,
+              metricFamily,
+              value.metricName(),
+              value.groupDims(),
+              value.value());
+        }
+        c.commit();
+      } catch (SQLException e) {
+        c.rollback();
+        throw e;
+      }
     }
   }
 
@@ -276,7 +367,10 @@ public class PostgresAnalyticsStore {
             + " (bucket_start, grain, metric_family, metric_name, merge_kind, group_key, group_dims,"
             + " value_sum, value_count) VALUES (?,?,?,?,?,?,?::jsonb,0,?)"
             + " ON CONFLICT (bucket_start, grain, metric_family, metric_name, merge_kind, group_key)"
-            + " DO UPDATE SET value_count = EXCLUDED.value_count";
+            // Concurrent flushes can race with a stale lower COUNT(*); never regress cardinality.
+            + " DO UPDATE SET value_count = GREATEST("
+            + qualifiedRollupTable()
+            + ".value_count, EXCLUDED.value_count)";
     try (Connection c = openWriteConnection();
         PreparedStatement ps = c.prepareStatement(upsert)) {
       PostgresPreparedBinder.bind(
@@ -332,6 +426,32 @@ public class PostgresAnalyticsStore {
         }
         Timestamp ts = rs.getTimestamp(1);
         return ts == null ? null : ts.toInstant();
+      }
+    }
+  }
+
+  /**
+   * Latest hour bucket start that has a watermark for {@code metricFamily}, derived from {@code
+   * sealed_through - 1 hour}. Returns null when no hour watermark exists.
+   */
+  @Nullable
+  public Instant getLatestSealedHourStart(@Nonnull String metricFamily) throws SQLException {
+    String sql =
+        "SELECT MAX(sealed_through) FROM "
+            + qualifiedWatermarkTable()
+            + " WHERE layer = ? AND metric_family = ?";
+    try (Connection c = database.dataSource().getConnection();
+        PreparedStatement ps = c.prepareStatement(sql)) {
+      PostgresPreparedBinder.bind(ps, List.of(AnalyticsMetricFamilies.LAYER_HOUR, metricFamily));
+      try (ResultSet rs = ps.executeQuery()) {
+        if (!rs.next()) {
+          return null;
+        }
+        Timestamp ts = rs.getTimestamp(1);
+        if (ts == null) {
+          return null;
+        }
+        return PostgresAnalyticsUtc.truncateToUtcHour(ts.toInstant().minusSeconds(1));
       }
     }
   }
@@ -421,37 +541,47 @@ public class PostgresAnalyticsStore {
         }
       }
     }
-    // Clear previous additive product rollups for this hour+metric then rewrite (idempotent seal).
+    // Clear + rewrite additive product rollups for this hour in one transaction so a failure
+    // cannot leave the sealed hour empty/partial while the watermark still points at it.
     String deleteSql =
         "DELETE FROM "
             + qualifiedRollupTable()
             + " WHERE bucket_start = ? AND grain = ? AND metric_family = ? AND metric_name = ?"
             + " AND merge_kind = ?";
-    try (Connection c = openWriteConnection();
-        PreparedStatement ps = c.prepareStatement(deleteSql)) {
-      PostgresPreparedBinder.bind(
-          ps,
-          List.of(
-              Timestamp.from(hourStart),
+    try (Connection c = database.dataSource().getConnection()) {
+      c.setAutoCommit(false);
+      try {
+        try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
+          PostgresPreparedBinder.bind(
+              ps,
+              List.of(
+                  Timestamp.from(hourStart),
+                  AnalyticsMetricFamilies.GRAIN_HOUR,
+                  AnalyticsMetricFamilies.DATAHUB_USAGE,
+                  "event_count",
+                  AnalyticsMetricFamilies.MERGE_ADDITIVE));
+          ps.executeUpdate();
+        }
+        for (Map.Entry<String, Long> e : rows) {
+          Map<String, String> dims = new LinkedHashMap<>();
+          if (!e.getKey().isEmpty()) {
+            dims.put("event_type", e.getKey());
+          }
+          mergeAdditiveRollup(
+              c,
+              hourStart,
               AnalyticsMetricFamilies.GRAIN_HOUR,
               AnalyticsMetricFamilies.DATAHUB_USAGE,
               "event_count",
-              AnalyticsMetricFamilies.MERGE_ADDITIVE));
-      ps.executeUpdate();
-    }
-    for (Map.Entry<String, Long> e : rows) {
-      Map<String, String> dims = new LinkedHashMap<>();
-      if (!e.getKey().isEmpty()) {
-        dims.put("event_type", e.getKey());
+              dims,
+              e.getValue().doubleValue(),
+              e.getValue());
+        }
+        c.commit();
+      } catch (SQLException e) {
+        c.rollback();
+        throw e;
       }
-      mergeAdditiveRollup(
-          hourStart,
-          AnalyticsMetricFamilies.GRAIN_HOUR,
-          AnalyticsMetricFamilies.DATAHUB_USAGE,
-          "event_count",
-          dims,
-          e.getValue().doubleValue(),
-          e.getValue());
     }
   }
 
@@ -481,14 +611,8 @@ public class PostgresAnalyticsStore {
 
   public void compactDaysToMonth(@Nonnull String metricFamily, @Nonnull Instant monthStart)
       throws SQLException {
-    Instant monthEnd =
-        PostgresAnalyticsUtc.truncateToUtcMonth(monthStart.plusSeconds(32L * 86400))
-                .equals(monthStart)
-            ? monthStart.plusSeconds(31L * 86400)
-            : PostgresAnalyticsUtc.truncateToUtcMonth(monthStart).plusSeconds(32L * 86400);
-    // Use YearMonth length
     java.time.YearMonth ym = java.time.YearMonth.from(monthStart.atZone(java.time.ZoneOffset.UTC));
-    monthEnd = ym.plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+    Instant monthEnd = ym.plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
     compactAdditiveGrain(
         metricFamily,
         AnalyticsMetricFamilies.GRAIN_DAY,
