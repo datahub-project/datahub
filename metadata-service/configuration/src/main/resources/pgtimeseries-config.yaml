@@ -1,0 +1,20 @@
+# Optional pgTimeseries multi-store override (Tier 2) — intentionally empty.
+#
+# Defaults live in application.yaml. This is the fallback target when
+# DATAHUB_PGTIMESERIES_CONFIG_FILE is unset (contributes nothing). Point
+# DATAHUB_PGTIMESERIES_CONFIG_FILE at a mounted file to add named stores and routing;
+# scalars/map entries overlay per key. Example:
+#
+#   postgres:
+#     pgTimeseries:
+#       stores:
+#         long:
+#           tablePrefix: metadata_timeseries_long
+#           partitioning:
+#             partmanPartitionInterval: 1 month
+#           retention:
+#             maxAgeSeconds: 46656000
+#           pool:
+#             url: jdbc:postgresql://ts-long-host:5432/datahub
+#       routing:
+#         "[dataset.datasetprofile]": long

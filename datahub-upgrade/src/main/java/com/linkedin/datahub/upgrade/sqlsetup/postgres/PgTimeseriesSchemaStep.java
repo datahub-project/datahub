@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions;
+import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.sqlsetup.postgres.PostgresPartmanSqlSetupSupport;
 import com.linkedin.metadata.sqlsetup.postgres.PostgresSqlSetupExtensions;
@@ -53,105 +54,21 @@ public class PgTimeseriesSchemaStep implements UpgradeStep {
     return (context) -> {
       try {
         context.report().addLine("Applying PostgreSQL pgTimeseries schema...");
-        PgTimeseriesSetupOptions o = postgresProperties.buildPgTimeseriesOptions();
-        if (o == null) {
+        PgTimeseriesSetupOptions registry = postgresProperties.buildPgTimeseriesOptions();
+        if (registry == null) {
           String msg = "pgTimeseries is enabled but PgTimeseriesSetupOptions is null.";
           log.error(msg);
           context.report().addLine(msg);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
-        String schema = o.getSchema();
         String cronSchema = postgresProperties.normalizedPgCronSchema();
-        String tablePrefix = o.getTablePrefix();
 
-        try (Connection connection = server.dataSource().getConnection()) {
-          connection.setAutoCommit(true);
-
-          PostgresSqlSetupExtensions.maybeCreateExtension(
-              connection, "pg_partman", true, PGTIMESERIES_PARTMAN_EXTENSIONS);
-          if (!PostgresSqlSetupExtensions.isExtensionInstalled(connection, "pg_partman")) {
-            String msg =
-                "pgTimeseries SqlSetup requires pg_partman but it is not installed. "
-                    + "Install the extension (it must appear in pg_available_extensions).";
-            log.error(msg);
-            context.report().addLine(msg);
-            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-          }
-
-          String partmanExtensionSchema =
-              PostgresPartmanSqlSetupSupport.resolvePgPartmanExtensionSchema(connection);
-          if (partmanExtensionSchema == null || partmanExtensionSchema.isBlank()) {
-            String msg =
-                "pg_partman is installed but its extension schema could not be read from"
-                    + " pg_extension / pg_namespace.";
-            log.error(msg);
-            context.report().addLine(msg);
-            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-          }
-
-          PgTimeseriesSqlMigrationTokens tokens =
-              PgTimeseriesSqlMigrationTokens.builder()
-                  .tablePrefix(tablePrefix)
-                  .partmanParentQualified(schema + "." + tablePrefix + "_aspect")
-                  .partmanInterval(
-                      PostgresPartmanSqlSetupSupport.sanitizePartmanIntervalLiteral(
-                          o.getPartmanPartitionInterval()))
-                  .partmanPremake(Integer.toString(o.getPartmanPremake()))
-                  .partmanForceOverwrite(o.isForceOverwritePartmanConfig() ? "true" : "false")
-                  .build();
-
-          SqlMigrationResult migrationResult =
-              PostgresSqlMigrationRunner.migrate(
-                  connection, PgTimeseriesSqlMigrationModules.from(o, tokens));
-          for (String applied : migrationResult.getApplied()) {
-            context.report().addLine("Applied migration: " + applied);
-          }
-
-          String retentionUpdateSql;
-          if (o.getRetentionMaxAgeSeconds() > 0) {
-            String partmanRetentionIntervalText =
-                PostgresSqlSetupProperties.resolvePartmanPartitionRetentionIntervalText(
-                    o.getRetentionMaxAgeSeconds(), 0, o.getPartmanPartitionInterval());
-            retentionUpdateSql =
-                PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
-                    partmanExtensionSchema,
-                    schema,
-                    partmanRetentionIntervalText,
-                    tablePrefix + "_aspect");
-          } else {
-            retentionUpdateSql =
-                PostgresPartmanSqlSetupSupport.partmanRetentionClearSql(
-                    partmanExtensionSchema, schema, tablePrefix + "_aspect");
-          }
-          if (!retentionUpdateSql.isEmpty()) {
-            PostgresSqlUtils.executeSql(connection, retentionUpdateSql);
-          }
-
-          if (o.isMaintenanceCronEnabled()) {
-            String jobDb = connection.getCatalog();
-            try (Connection cronConn = PgCronAdminConnections.open(postgresProperties)) {
-              PostgresSqlSetupExtensions.maybeCreateExtension(
-                  cronConn, "pg_cron", true, PGTIMESERIES_CRON_EXTENSIONS);
-              @Nullable
-              String cronSkipReason =
-                  registerTimeseriesPartmanCronJob(
-                      cronConn,
-                      cronSchema,
-                      schema,
-                      o.getMaintenanceIntervalSeconds(),
-                      tablePrefix,
-                      jobDb,
-                      partmanExtensionSchema);
-              if (cronSkipReason != null) {
-                CRON_REGISTRATION_SKIPPED.incrementAndGet();
-                context
-                    .report()
-                    .addLine(
-                        "WARN: pgTimeseries maintenance cron was requested but not registered: "
-                            + cronSkipReason
-                            + " Schedule partman.run_maintenance externally or install/fix pg_cron.");
-              }
-            }
+        for (PgTimeseriesStoreOptions store : registry.getStores().values()) {
+          context.report().addLine("Applying pgTimeseries store '" + store.getName() + "'...");
+          try (Connection connection =
+              PgTimeseriesStoreConnections.open(store, server, postgresProperties)) {
+            connection.setAutoCommit(true);
+            applyStore(context, store, connection, cronSchema);
           }
         }
 
@@ -167,6 +84,102 @@ public class PgTimeseriesSchemaStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
+  }
+
+  private void applyStore(
+      UpgradeContext context,
+      PgTimeseriesStoreOptions store,
+      Connection connection,
+      String cronSchema)
+      throws SQLException, SqlMigrationException {
+    String schema = store.getSchema();
+    String tablePrefix = store.getTablePrefix();
+
+    PostgresSqlSetupExtensions.maybeCreateExtension(
+        connection, "pg_partman", true, PGTIMESERIES_PARTMAN_EXTENSIONS);
+    if (!PostgresSqlSetupExtensions.isExtensionInstalled(connection, "pg_partman")) {
+      throw new IllegalStateException(
+          "pgTimeseries SqlSetup requires pg_partman but it is not installed on store '"
+              + store.getName()
+              + "'. Install the extension (it must appear in pg_available_extensions).");
+    }
+
+    String partmanExtensionSchema =
+        PostgresPartmanSqlSetupSupport.resolvePgPartmanExtensionSchema(connection);
+    if (partmanExtensionSchema == null || partmanExtensionSchema.isBlank()) {
+      throw new IllegalStateException(
+          "pg_partman is installed but its extension schema could not be read from"
+              + " pg_extension / pg_namespace (store '"
+              + store.getName()
+              + "').");
+    }
+
+    PgTimeseriesSqlMigrationTokens tokens =
+        PgTimeseriesSqlMigrationTokens.builder()
+            .tablePrefix(tablePrefix)
+            .partmanParentQualified(schema + "." + tablePrefix + "_aspect")
+            .partmanInterval(
+                PostgresPartmanSqlSetupSupport.sanitizePartmanIntervalLiteral(
+                    store.getPartmanPartitionInterval()))
+            .partmanPremake(Integer.toString(store.getPartmanPremake()))
+            .partmanForceOverwrite(store.isForceOverwritePartmanConfig() ? "true" : "false")
+            .build();
+
+    SqlMigrationResult migrationResult =
+        PostgresSqlMigrationRunner.migrate(
+            connection, PgTimeseriesSqlMigrationModules.from(store, tokens));
+    for (String applied : migrationResult.getApplied()) {
+      context.report().addLine("store=" + store.getName() + " Applied migration: " + applied);
+    }
+
+    String retentionUpdateSql;
+    if (store.getRetentionMaxAgeSeconds() > 0) {
+      String partmanRetentionIntervalText =
+          PostgresSqlSetupProperties.resolvePartmanPartitionRetentionIntervalText(
+              store.getRetentionMaxAgeSeconds(), 0, store.getPartmanPartitionInterval());
+      retentionUpdateSql =
+          PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
+              partmanExtensionSchema,
+              schema,
+              partmanRetentionIntervalText,
+              tablePrefix + "_aspect");
+    } else {
+      retentionUpdateSql =
+          PostgresPartmanSqlSetupSupport.partmanRetentionClearSql(
+              partmanExtensionSchema, schema, tablePrefix + "_aspect");
+    }
+    if (!retentionUpdateSql.isEmpty()) {
+      PostgresSqlUtils.executeSql(connection, retentionUpdateSql);
+    }
+
+    if (store.isMaintenanceCronEnabled()) {
+      String jobDb = connection.getCatalog();
+      try (Connection cronConn = PgCronAdminConnections.open(postgresProperties)) {
+        PostgresSqlSetupExtensions.maybeCreateExtension(
+            cronConn, "pg_cron", true, PGTIMESERIES_CRON_EXTENSIONS);
+        @Nullable
+        String cronSkipReason =
+            registerTimeseriesPartmanCronJob(
+                cronConn,
+                cronSchema,
+                schema,
+                store.getMaintenanceIntervalSeconds(),
+                tablePrefix,
+                jobDb,
+                partmanExtensionSchema);
+        if (cronSkipReason != null) {
+          CRON_REGISTRATION_SKIPPED.incrementAndGet();
+          context
+              .report()
+              .addLine(
+                  "WARN: pgTimeseries store '"
+                      + store.getName()
+                      + "' maintenance cron was requested but not registered: "
+                      + cronSkipReason
+                      + " Schedule partman.run_maintenance externally or install/fix pg_cron.");
+        }
+      }
+    }
   }
 
   /**
