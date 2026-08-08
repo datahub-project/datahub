@@ -20,6 +20,7 @@ dependencies {
   implementation project(':metadata-service:servlet')
   implementation project(':metadata-service:auth-servlet-impl')
   implementation project(':metadata-service:graphql-servlet-impl')
+  implementation project(':metadata-service:ai-assistant-servlet')
   implementation project(':metadata-service:openapi-servlet')
   implementation project(':metadata-service:openapi-entity-servlet')
   implementation project(':metadata-service:openapi-analytics-servlet')
