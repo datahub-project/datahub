@@ -216,3 +216,19 @@ class TestUnloadCommand:
             result = runner.invoke(datapack, ["unload", "nonexistent"])
         assert result.exit_code != 0
         assert "No load record" in result.output
+
+
+class TestPackagedResources:
+    def test_agent_context_is_packaged(self) -> None:
+        # Regression test for the non-TTY crash: format_help reads
+        # DATAPACK_AGENT_CONTEXT.md from datahub.cli.datapack.resources, which
+        # must therefore be included in package_data.
+        import importlib.resources
+
+        names = {
+            path.name
+            for path in importlib.resources.files(
+                "datahub.cli.datapack.resources"
+            ).iterdir()
+        }
+        assert "DATAPACK_AGENT_CONTEXT.md" in names
