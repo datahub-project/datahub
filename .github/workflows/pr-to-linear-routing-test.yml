@@ -122,6 +122,9 @@ jobs:
           PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # PAT with org Members read access — the default github.token cannot
+          # read private org membership, so a dedicated token is required.
+          ORG_READ_TOKEN: ${{ secrets.ACRYLDATA_ORG_READ_TOKEN }}
         run: |
           if [ "$PR_DRAFT" = "true" ]; then
             echo "should_skip=true" >> "$GITHUB_OUTPUT"
@@ -141,7 +144,21 @@ jobs:
 
           echo "should_skip=false" >> "$GITHUB_OUTPUT"
 
-          if gh api "orgs/datahub-project/members/$PR_AUTHOR" --silent 2>/dev/null; then
+          IS_INTERNAL="false"
+
+          if [ -n "$ORG_READ_TOKEN" ]; then
+            MEMBER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              -H "Authorization: token $ORG_READ_TOKEN" \
+              "https://api.github.com/orgs/acryldata/members/$PR_AUTHOR")
+            if [ "$MEMBER_STATUS" = "204" ]; then
+              IS_INTERNAL="true"
+              echo "✓ $PR_AUTHOR is an acryldata org member"
+            fi
+          else
+            echo "⚠️  ACRYLDATA_ORG_READ_TOKEN secret is not set — org membership check skipped"
+          fi
+
+          if [ "$IS_INTERNAL" = "true" ]; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
           else
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
