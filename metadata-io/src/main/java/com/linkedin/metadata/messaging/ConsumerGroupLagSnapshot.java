@@ -5,6 +5,7 @@ import java.util.Map;
 import lombok.Builder;
 import lombok.Value;
 
+/** Lag for one consumer group, keyed by topic. Empty topics means the group reported nothing. */
 @Value
 @Builder
 public class ConsumerGroupLagSnapshot {
