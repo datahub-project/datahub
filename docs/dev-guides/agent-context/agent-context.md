@@ -9,19 +9,19 @@ The DataHub Agent Context Kit is a set of guides, SDKs, and an [MCP server](../.
 An agent that answers business questions by finding the right data, then querying it.
 
 1. **Find & understand trustworthy data** — Search DataHub for relevant datasets, read descriptions, check glossary terms, review sample queries, and look at usage stats to pick the right table.
-2. **Execute SQL** — Generate and run SQL against your data warehouse (Snowflake, BigQuery, Databricks, etc.).
+2. **Generate SQL** — Use the schema, sample queries, and lineage from DataHub to draft accurate SQL. The agent (or your warehouse client) runs the query against your data warehouse (Snowflake, BigQuery, Databricks, etc.) — the kit provides the context to write it, not a query executor.
 
-_"What was our revenue by region last quarter?" → finds the revenue table in DataHub, confirms it's the certified source, generates the SQL, runs it._
+_"What was our revenue by region last quarter?" → finds the revenue table in DataHub, confirms it's the certified source, and generates SQL grounded in real usage patterns for the agent to run._
 
 ### Data Quality Agent
 
-An agent that provisions data quality checks and reports on the health of your data estate.
+An agent that monitors and reports on the health of your data estate.
 
 1. **Find important tables** — Identify high-usage or business-critical datasets using usage stats and ownership from DataHub.
-2. **Add assertions** — Provision data quality assertions in DataHub (and in external tools).
+2. **Review assertions** — Read existing data quality assertions and their latest run results. _Creating native assertions (freshness, volume, and more) is available on DataHub Cloud; custom assertions from external tools can be created in open source too. See the [DataHub Skills](./skills.md) guide._
 3. **Generate health reports** — Daily or on-demand, broken down by domain or owning team, using assertion results and incident data.
 
-_"Set up freshness checks on all tables owned by the Finance team, and send me a weekly health summary."_
+_"Show me the freshness and quality status of all tables owned by the Finance team, and send me a weekly health summary."_
 
 ### Data Steward / Governance Agent
 
@@ -64,12 +64,12 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 
 ## Getting Started
 
-The fastest way to connect any agent to DataHub is through the [MCP server](../../features/feature-guides/mcp.md) — just point your agent at the endpoint:
+The fastest way to connect any agent to DataHub is through the [MCP server](../../features/feature-guides/mcp.md):
 
-- **DataHub Cloud**: `https://<tenant>.acryl.io/integrations/ai/mcp`
-- **Self-hosted**: `http://<gms-host>:8080/mcp`
+- **DataHub Cloud**: point your agent at `https://<tenant>.acryl.io/integrations/ai/mcp`.
+- **Self-hosted**: run the standalone [`mcp-server-datahub`](https://github.com/acryldata/mcp-server-datahub) locally (e.g. via `uvx mcp-server-datahub@latest`) pointed at your DataHub instance.
 
-See the [MCP Server Guide](../../features/feature-guides/mcp.md) for authentication and setup.
+See the [MCP Server Guide](../../features/feature-guides/mcp.md) for endpoints, authentication, and per-client setup.
 
 For Python SDK usage (LangChain, Google ADK, etc.):
 
@@ -77,11 +77,13 @@ For Python SDK usage (LangChain, Google ADK, etc.):
 pip install datahub-agent-context
 ```
 
-**Requirements:** Python 3.10+, a DataHub instance, and a [personal access token](../../authentication/personal-access-tokens.md).
+Framework integrations require the matching extra — e.g. `pip install 'datahub-agent-context[langchain]'` or `pip install 'datahub-agent-context[google-adk]'`. See the per-framework guides ([LangChain](./langchain.md), [Google ADK](./google-adk.md)) for the exact command.
+
+**Requirements:** Python 3.9+, a DataHub instance, and a [personal access token](../../authentication/personal-access-tokens.md).
 
 ## Available Tools
 
-Agents discover these automatically via MCP. See the [MCP Server Guide](../../features/feature-guides/mcp.md) for details.
+A representative sample of what agents can do — not the full set. Agents discover the complete, current list of tools automatically via MCP. See the [MCP Server Guide](../../features/feature-guides/mcp.md) for the authoritative reference, including additional tools and which ones require specific features to be enabled.
 
 | Tool                                           | What it does                                                           |
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
@@ -93,7 +95,7 @@ Agents discover these automatically via MCP. See the [MCP Server Guide](../../fe
 | `search_documents` / `grep_documents`          | Search knowledge base articles and docs                                |
 | `add_tags` / `remove_tags`                     | Manage tags                                                            |
 | `update_description`                           | Set or update descriptions                                             |
-| `add_glossary_terms` / `remove_glossary_terms` | Link to glossary terms                                                 |
+| `add_terms` / `remove_terms`                   | Link to glossary terms                                                 |
 | `set_domains` / `add_owners` / `save_document` | Manage domains, ownership, and documents                               |
 
 **Need help?** [DataHub Slack](https://datahub.com/slack/) · [GitHub Issues](https://github.com/datahub-project/datahub/issues) · DataHub Cloud: support@acryl.io
