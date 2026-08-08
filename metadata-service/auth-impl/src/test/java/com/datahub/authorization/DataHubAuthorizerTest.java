@@ -9,9 +9,7 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -42,6 +40,7 @@ import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.GraphClient;
@@ -62,6 +61,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nullable;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -468,7 +468,8 @@ public class DataHubAuthorizerTest {
             any(OperationContext.class),
             any(),
             any(),
-            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME))))
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)),
+            eq(false)))
         .thenReturn(ownershipResponse);
 
     // Mocks to get domains on a resource
@@ -1338,6 +1339,117 @@ public class DataHubAuthorizerTest {
 
     assertEquals(groups, List.of(groupUrn));
     verifyNoInteractions(_entityClient);
+  }
+
+  @Test
+  public void testPolicyCacheSortedByActorMatchCost() throws Exception {
+    // cost 0: allUsers, no resource filter
+    DataHubPolicyInfo cost0 =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(true)
+                    .setAllGroups(false)
+                    .setResourceOwners(false));
+    // no setResources() → resources == null
+
+    // cost 1a: allGroups with resource filter
+    DataHubPolicyInfo cost1a =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(false)
+                    .setAllGroups(true)
+                    .setResourceOwners(false))
+            .setResources(new DataHubResourceFilter().setType("dataset"));
+
+    // cost 1b: specific users/groups only (no roles, no resourceOwners)
+    DataHubPolicyInfo cost1b =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(false)
+                    .setAllGroups(false)
+                    .setResourceOwners(false)
+                    .setUsers(new UrnArray(List.of(UrnUtils.getUrn("urn:li:corpuser:alice")))));
+    // no roles set → getRoles() returns null/empty
+
+    // cost 2: specific actors with roles
+    DataHubPolicyInfo cost2 =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(false)
+                    .setAllGroups(false)
+                    .setResourceOwners(false)
+                    .setRoles(new UrnArray(List.of(UrnUtils.getUrn("urn:li:dataHubRole:Editor")))));
+
+    // cost 3: resourceOwners
+    DataHubPolicyInfo cost3 =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(false)
+                    .setAllGroups(false)
+                    .setResourceOwners(true));
+
+    // INACTIVE policy
+    DataHubPolicyInfo inactive =
+        new DataHubPolicyInfo()
+            .setState(PoliciesConfig.INACTIVE_POLICY_STATE)
+            .setPrivileges(new StringArray(List.of("VIEW_ENTITY_PAGE")))
+            .setActors(
+                new DataHubActorFilter()
+                    .setAllUsers(true)
+                    .setAllGroups(false)
+                    .setResourceOwners(false));
+
+    // Feed in reverse-cost order so sort effect is visible
+    List<PolicyFetcher.Policy> policies =
+        List.of(
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:inactive"), inactive),
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:p3"), cost3),
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:p2"), cost2),
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:p1b"), cost1b),
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:p1a"), cost1a),
+            new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:p0"), cost0));
+
+    PolicyFetcher mockFetcher = mock(PolicyFetcher.class);
+    when(mockFetcher.fetchPolicies(any(OperationContext.class), anyInt(), isNull(), isNull()))
+        .thenReturn(new PolicyFetcher.PolicyFetchResult(policies, policies.size(), null));
+
+    final Map<String, List<DataHubPolicyInfo>> cache = new HashMap<>();
+    DataHubAuthorizer.PolicyRefreshRunnable runnable =
+        new DataHubAuthorizer.PolicyRefreshRunnable(
+            mock(OperationContext.class),
+            mockFetcher,
+            cache,
+            new ReentrantReadWriteLock().writeLock(),
+            30);
+    runnable.run();
+
+    List<DataHubPolicyInfo> sorted = cache.get("VIEW_ENTITY_PAGE");
+    assertNotNull(sorted);
+
+    // INACTIVE is eliminated
+    assertEquals(sorted.size(), 5);
+    assertFalse(sorted.contains(inactive));
+
+    // Verify ordering: cost 0 < cost 1 (a and b, stable among themselves) < cost 2 < cost 3
+    assertEquals(sorted.get(0), cost0);
+    assertTrue(sorted.indexOf(cost1a) < sorted.indexOf(cost2));
+    assertTrue(sorted.indexOf(cost1b) < sorted.indexOf(cost2));
+    assertTrue(sorted.indexOf(cost2) < sorted.indexOf(cost3));
   }
 
   private DataHubPolicyInfo createDataHubPolicyInfo(
