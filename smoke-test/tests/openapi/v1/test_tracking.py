@@ -28,6 +28,10 @@ from dotenv import load_dotenv
 from tests.utilities import env_vars
 from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import is_pgqueue_transport
+from tests.utilities.usage_events_sot import (
+    assert_tracking_event_indexed,
+    resolve_usage_events_implementation,
+)
 from tests.utils import get_kafka_broker_url
 
 logger = logging.getLogger(__name__)
@@ -195,101 +199,10 @@ def _build_tracking_test_event(unique_id: str) -> dict:
     }
 
 
-def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
-    es_url = env_vars.get_elasticsearch_url()
-    es_index = env_vars.get_elasticsearch_index()
-    es_query = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"customField": unique_id}},
-                    {"term": {"type": EVENT_NAME}},
-                ]
-            }
-        }
-    }
-    es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
-    assert es_response.status_code == 200, (
-        f"Failed to query Elasticsearch: {es_response.text}"
+def _assert_tracking_event_indexed(unique_id: str, auth_session=None) -> None:
+    assert_tracking_event_indexed(
+        unique_id, event_type=EVENT_NAME, auth_session=auth_session
     )
-    hits = es_response.json().get("hits", {}).get("hits", [])
-    assert len(hits) > 0, "No matching tracking events found in Elasticsearch"
-    event = hits[0].get("_source", {})
-    assert event.get("type") == EVENT_NAME
-    assert event.get("actorUrn") == "urn:li:corpuser:test_user"
-    assert event.get("customField") == unique_id
-
-
-def _assert_tracking_event_in_postgres(unique_id: str) -> None:
-    import psycopg2
-
-    host_port = env_vars.get_postgres_url()
-    host, _, port_s = host_port.partition(":")
-    port = int(port_s or "5432")
-    conn = psycopg2.connect(
-        host=host,
-        port=port,
-        user=env_vars.get_postgres_username(),
-        password=env_vars.get_postgres_password(),
-        dbname="datahub",
-    )
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT event_type, actor_urn,
-                       COALESCE(browser_id, document->>'browserId') AS browser_id,
-                       document->>'customField' AS custom_field
-                FROM metadata_analytics_event
-                WHERE document->>'customField' = %s
-                   OR browser_id = %s
-                   OR document->>'browserId' = %s
-                ORDER BY event_time DESC
-                LIMIT 5
-                """,
-                (unique_id, unique_id, unique_id),
-            )
-            rows = cur.fetchall()
-    finally:
-        conn.close()
-
-    assert rows, "No matching tracking events found in Postgres pgAnalytics"
-    event_type, actor_urn, _browser_id, custom_field = rows[0]
-    assert event_type == EVENT_NAME
-    assert actor_urn == "urn:li:corpuser:test_user"
-    assert custom_field == unique_id
-
-
-def _assert_no_tracking_event_in_elasticsearch(unique_id: str) -> None:
-    es_url = env_vars.get_elasticsearch_url()
-    es_index = env_vars.get_elasticsearch_index()
-    es_query = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"customField": unique_id}},
-                    {"term": {"type": EVENT_NAME}},
-                ]
-            }
-        }
-    }
-    es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
-    assert es_response.status_code == 200, (
-        f"Failed to query Elasticsearch: {es_response.text}"
-    )
-    hits = es_response.json().get("hits", {}).get("hits", [])
-    assert len(hits) == 0, (
-        "Expected no usage events in Elasticsearch when SoT is postgres; "
-        f"found {len(hits)} for customField={unique_id}"
-    )
-
-
-def _assert_tracking_event_indexed(unique_id: str) -> None:
-    if env_vars.usage_events_stored_in_postgres():
-        _assert_tracking_event_in_postgres(unique_id)
-        _assert_no_tracking_event_in_elasticsearch(unique_id)
-    else:
-        _assert_tracking_event_in_elasticsearch(unique_id)
 
 
 def test_tracking_api_kafka(auth_session):
@@ -432,14 +345,14 @@ def test_tracking_api_pgqueue(auth_session):
     )
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    sot = env_vars.get_usage_events_implementation()
+    sot = resolve_usage_events_implementation(auth_session)
     logger.info("Waiting for pgQueue publication and %s indexing...", sot)
     time.sleep(10)
 
-    _assert_tracking_event_indexed(unique_id)
+    _assert_tracking_event_indexed(unique_id, auth_session)
 
 
-def test_tracking_api_elasticsearch(auth_session):
+def test_tracking_api_usage_sot(auth_session):
     """Verify tracking events land in the configured usage SoT (ES or Postgres)."""
 
     base_url = auth_session.gms_url()
@@ -480,8 +393,8 @@ def test_tracking_api_elasticsearch(auth_session):
 
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    sot = env_vars.get_usage_events_implementation()
+    sot = resolve_usage_events_implementation(auth_session)
     logger.info("\nWaiting for event to be indexed in usage SoT (%s)...", sot)
     time.sleep(10)
 
-    _assert_tracking_event_indexed(unique_id)
+    _assert_tracking_event_indexed(unique_id, auth_session)

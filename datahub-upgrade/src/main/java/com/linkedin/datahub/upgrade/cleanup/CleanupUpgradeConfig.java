@@ -48,7 +48,8 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.timeseries",
-      "com.linkedin.gms.factory.analytics",
+      // Intentionally omit com.linkedin.gms.factory.analytics: Cleanup only tears down
+      // ES/Kafka/DB and must not open pgAnalytics runtime pools (fails if the pool is down).
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
     },

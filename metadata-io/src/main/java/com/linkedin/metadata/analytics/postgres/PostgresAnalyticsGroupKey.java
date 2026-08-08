@@ -44,6 +44,13 @@ public final class PostgresAnalyticsGroupKey {
 
   @Nonnull
   public static Map<String, String> canonicalize(@Nonnull Map<String, String> dims) {
-    return new LinkedHashMap<>(new TreeMap<>(dims));
+    TreeMap<String, String> sorted = new TreeMap<>();
+    dims.forEach(
+        (k, v) -> {
+          if (k != null && v != null && !k.isBlank() && !v.isBlank()) {
+            sorted.put(k, v);
+          }
+        });
+    return new LinkedHashMap<>(sorted);
   }
 }

@@ -17,4 +17,18 @@ public class PostgresAnalyticsGroupKeyTest {
     assertEquals(a, b);
     assertNotEquals(a, PostgresAnalyticsGroupKey.of(Map.of("a", "1")));
   }
+
+  @Test
+  public void canonicalize_matchesOfFiltering() {
+    Map<String, String> raw = new LinkedHashMap<>();
+    raw.put("a", "1");
+    raw.put("blank", "  ");
+    raw.put("nullVal", null);
+    raw.put(null, "x");
+    raw.put("b", "2");
+
+    Map<String, String> canon = PostgresAnalyticsGroupKey.canonicalize(raw);
+    assertEquals(canon, Map.of("a", "1", "b", "2"));
+    assertEquals(PostgresAnalyticsGroupKey.of(raw), PostgresAnalyticsGroupKey.of(canon));
+  }
 }

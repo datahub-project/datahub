@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.CompositeAnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.PostgresAnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.postgres.PostgresAnalyticsQueries;
@@ -363,6 +364,8 @@ public class GraphQLEngineFactory {
 
   @Nonnull
   private AnalyticsService createAnalyticsService() {
+    DefaultAnalyticsService defaultAnalytics =
+        new DefaultAnalyticsService(elasticClient, indexConvention);
     if (configProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
       if (pgAnalyticsStoreRegistry == null) {
         throw new IllegalStateException(
@@ -373,9 +376,11 @@ public class GraphQLEngineFactory {
           new PostgresAnalyticsQueries(
               pgAnalyticsStoreRegistry.resolve(AnalyticsMetricFamilies.DATAHUB_USAGE).getStore(),
               indexConvention);
-      return new PostgresAnalyticsService(indexConvention, queries);
+      PostgresAnalyticsService postgresAnalytics =
+          new PostgresAnalyticsService(indexConvention, queries);
+      return new CompositeAnalyticsService(postgresAnalytics, defaultAnalytics);
     }
-    return new DefaultAnalyticsService(elasticClient, indexConvention);
+    return defaultAnalytics;
   }
 
   @Bean(name = "graphQLWorkerPool")

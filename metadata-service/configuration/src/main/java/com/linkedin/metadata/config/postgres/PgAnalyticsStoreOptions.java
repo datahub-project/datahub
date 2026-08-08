@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config.postgres;
 
 import lombok.Builder;
+import lombok.ToString;
 import lombok.Value;
 import org.springframework.lang.Nullable;
 
@@ -9,6 +10,7 @@ import org.springframework.lang.Nullable;
  */
 @Value
 @Builder
+@ToString(exclude = "poolPassword")
 public class PgAnalyticsStoreOptions {
   String name;
   String schema;

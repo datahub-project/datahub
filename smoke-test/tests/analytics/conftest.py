@@ -17,6 +17,7 @@ import pytest
 import requests
 
 from tests.utilities import env_vars
+from tests.utilities.usage_events_sot import resolve_usage_events_implementation
 
 logger = logging.getLogger(__name__)
 
@@ -190,11 +191,12 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
             json.dump(minimal_users, f, indent=2)
 
     elasticsearch_url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
-    use_postgres = env_vars.usage_events_stored_in_postgres()
+    sot = resolve_usage_events_implementation(auth_session)
+    use_postgres = sot == "postgres"
     days_to_generate = 45
 
     logger.info("Generating and loading analytics events with relative timestamps...")
-    logger.info("  Usage SoT: %s", env_vars.get_usage_events_implementation())
+    logger.info("  Usage SoT: %s", sot)
     logger.info(f"  Days of data: {days_to_generate}")
     logger.info("  Events per day: 200")
 

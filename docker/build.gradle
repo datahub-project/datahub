@@ -476,6 +476,14 @@ task generateQuickstartComposeConfig {
         def composeExecutor = composeUpTask.get().getComposeExecutor().get()
         composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("DATAHUB_APP_VERSION", '__VERSION__')
+        // Per-image version overrides (e.g. DATAHUB_UPDATE_VERSION) must also be placeholders;
+        // otherwise a dirty local shell env bakes concrete tags into the generated file.
+        composeExecutor.parameters.environment.put("DATAHUB_UPDATE_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_GMS_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_FRONTEND_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_MAE_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_MCE_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_ACTIONS_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')

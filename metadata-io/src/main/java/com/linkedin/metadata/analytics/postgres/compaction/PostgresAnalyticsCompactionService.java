@@ -63,23 +63,36 @@ public class PostgresAnalyticsCompactionService implements AnalyticsCompactionSe
         timeout.execute(
             "SET statement_timeout = '" + Math.max(1L, request.getMaxWallClockMillis()) + "ms'");
       }
-      if (!tryAdvisoryLock(lockConn)) {
-        log.debug("pgAnalytics compact skipped; lock not acquired");
-        return AnalyticsCompactionResult.lockNotAcquired(implementation());
-      }
       try {
-        return compactor.compact(request);
+        if (!tryAdvisoryLock(lockConn)) {
+          log.debug("pgAnalytics compact skipped; lock not acquired");
+          return AnalyticsCompactionResult.lockNotAcquired(implementation());
+        }
+        try {
+          return compactor.compact(request);
+        } finally {
+          releaseAdvisoryLock(lockConn);
+        }
       } finally {
-        releaseAdvisoryLock(lockConn);
+        resetStatementTimeout(lockConn);
       }
     } catch (SQLException e) {
       log.warn("pgAnalytics compact failed acquiring/releasing advisory lock", e);
       return AnalyticsCompactionResult.builder()
           .lockNotAcquired(false)
           .moreWorkRemaining(true)
+          .failed(true)
           .implementation(implementation())
           .message("Compaction failed: " + e.getMessage())
           .build();
+    }
+  }
+
+  private static void resetStatementTimeout(@Nonnull Connection conn) {
+    try (Statement reset = conn.createStatement()) {
+      reset.execute("SET statement_timeout TO DEFAULT");
+    } catch (SQLException e) {
+      log.warn("Failed to reset statement_timeout after analytics compact", e);
     }
   }
 

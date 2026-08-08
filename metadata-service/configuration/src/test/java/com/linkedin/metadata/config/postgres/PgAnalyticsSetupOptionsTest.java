@@ -41,4 +41,55 @@ public class PgAnalyticsSetupOptionsTest {
     props.getPgAnalytics().getRouting().put("api_usage", "missing");
     expectThrows(IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
   }
+
+  @Test
+  public void namedStore_partialMaintenanceInheritsCronEnabled() {
+    PostgresSqlSetupProperties props = enabledDefaults();
+    props.getPgAnalytics().getMaintenance().setCronEnabled(true);
+    props.getPgAnalytics().getMaintenance().setIntervalSeconds(3600);
+
+    PostgresSqlSetupProperties.PgAnalytics.StoreConfig named =
+        new PostgresSqlSetupProperties.PgAnalytics.StoreConfig();
+    PostgresSqlSetupProperties.PgAnalytics.Maintenance m =
+        new PostgresSqlSetupProperties.PgAnalytics.Maintenance();
+    m.setIntervalSeconds(7200); // cronEnabled left null → inherit true
+    named.setMaintenance(m);
+    props.getPgAnalytics().getStores().put("other", named);
+
+    // Skip validateForUse — cronEnabled=true also requires pgCron admin JDBC URL.
+    PgAnalyticsSetupOptions options = props.buildPgAnalyticsOptions();
+    assertNotNull(options);
+    assertEquals(options.getStores().get("other").isMaintenanceCronEnabled(), true);
+    assertEquals(options.getStores().get("other").getMaintenanceIntervalSeconds(), 7200);
+  }
+
+  @Test
+  public void namedStore_rejectsInvalidRetention() {
+    PostgresSqlSetupProperties props = enabledDefaults();
+    PostgresSqlSetupProperties.PgAnalytics.StoreConfig named =
+        new PostgresSqlSetupProperties.PgAnalytics.StoreConfig();
+    PostgresSqlSetupProperties.PgAnalytics.Retention r =
+        new PostgresSqlSetupProperties.PgAnalytics.Retention();
+    r.setRawMaxAgeSeconds(30); // below 60 when set
+    named.setRetention(r);
+    props.getPgAnalytics().getStores().put("other", named);
+
+    expectThrows(IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+  }
+
+  private static PostgresSqlSetupProperties enabledDefaults() {
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    props.setSchema("public");
+    props.getPgAnalytics().setEnabled(true);
+    props.getPgAnalytics().setDefaultStore("default");
+    props.getPgAnalytics().setTablePrefix("metadata_analytics");
+    props.getPgAnalytics().setInputLagSeconds(900);
+    props.getPgAnalytics().getPartitioning().setPartmanPartitionInterval("1 day");
+    props.getPgAnalytics().getPartitioning().setPartmanPremake(4);
+    props.getPgAnalytics().getRetention().setRawMaxAgeSeconds(7776000);
+    props.getPgAnalytics().getRetention().setHourlyMaxAgeSeconds(15552000);
+    props.getPgAnalytics().getRetention().setDailyMaxAgeSeconds(46656000);
+    props.getPgAnalytics().getRetention().setMonthlyMaxAgeSeconds(94608000);
+    return props;
+  }
 }

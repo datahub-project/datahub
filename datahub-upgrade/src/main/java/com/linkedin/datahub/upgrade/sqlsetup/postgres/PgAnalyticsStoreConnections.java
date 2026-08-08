@@ -5,6 +5,7 @@ import com.linkedin.metadata.config.postgres.PgAnalyticsStoreOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties.PgCron.Iam;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -14,7 +15,9 @@ import javax.annotation.Nullable;
 
 /**
  * Opens JDBC connections for pgAnalytics SqlSetup per store. When the store has no pool URL, falls
- * back to the upgrade/Ebean {@link Database} connection.
+ * back to the upgrade/Ebean {@link Database} connection. When only the URL is overridden,
+ * blank/null username or password fall back to the Ebean pool credentials (same as runtime {@code
+ * PgAnalyticsEbeanConfigFactory}).
  */
 public final class PgAnalyticsStoreConnections {
 
@@ -31,8 +34,24 @@ public final class PgAnalyticsStoreConnections {
       return fallbackServer.dataSource().getConnection();
     }
 
-    String user = store.getPoolUsername() != null ? store.getPoolUsername() : "";
-    String pass = store.getPoolPassword() != null ? store.getPoolPassword() : "";
+    String user = store.getPoolUsername();
+    String pass = store.getPoolPassword();
+    if (isBlank(user) || isBlank(pass)) {
+      String[] ebeanCreds = ebeanCredentials(fallbackServer);
+      if (isBlank(user)) {
+        user = ebeanCreds[0];
+      }
+      if (isBlank(pass)) {
+        pass = ebeanCreds[1];
+      }
+    }
+    if (user == null) {
+      user = "";
+    }
+    if (pass == null) {
+      pass = "";
+    }
+
     String defaultDriver =
         store.getPoolDriver() != null && !store.getPoolDriver().isBlank()
             ? store.getPoolDriver().trim()
@@ -75,6 +94,25 @@ public final class PgAnalyticsStoreConnections {
       cfg.customProperties.forEach(connProps::setProperty);
     }
     return DriverManager.getConnection(cfg.url, connProps);
+  }
+
+  @Nonnull
+  private static String[] ebeanCredentials(@Nonnull Database fallbackServer) {
+    try {
+      DataSourceBuilder.Settings dsc = fallbackServer.pluginApi().config().getDataSourceConfig();
+      if (dsc == null) {
+        return new String[] {"", ""};
+      }
+      String user = dsc.getUsername() != null ? dsc.getUsername() : "";
+      String pass = dsc.getPassword() != null ? dsc.getPassword() : "";
+      return new String[] {user, pass};
+    } catch (RuntimeException e) {
+      return new String[] {"", ""};
+    }
+  }
+
+  private static boolean isBlank(@Nullable String s) {
+    return s == null || s.isBlank();
   }
 
   @Nullable

@@ -13,6 +13,7 @@ from tests.tokens.token_utils import (
     wait_for_no_tokens_matching,
 )
 from tests.utilities.domains import Domain
+from tests.utilities.usage_events_sot import search_usage_events
 from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
@@ -572,17 +573,14 @@ def revokeAccessToken(session, tokenId):
 def searchForAuditEvents(
     session, size, event_types: List, user_urns: List, aspect_names: List
 ):
-    json = {
-        "eventTypes": event_types,
-        "actorUrns": user_urns,
-        "aspectTypes": aspect_names,
-    }
-    response = session.post(
-        f"{get_frontend_url()}/openapi/v1/events/audit/search?size={size}", json=json
+    """Search audit/usage events in the active usage-events SoT (ES or Postgres)."""
+    return search_usage_events(
+        auth_session=session,
+        size=size,
+        event_types=list(event_types or []),
+        actor_urns=list(user_urns or []),
+        aspect_names=list(aspect_names or []),
     )
-    response.raise_for_status()
-
-    return response.json()
 
 
 def filter_audit_events(
