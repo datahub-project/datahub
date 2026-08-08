@@ -7,6 +7,35 @@
     - should not depend on the order in which they run
     - should not depend on another test doing their cleanup
 
+### Isolation is enforced by review, not by CI
+
+**A PR that touches only smoke tests runs only the modules it changed** — CI narrows
+the suite instead of running all seven batches (see
+`.github/scripts/resolve_smoke_test_filter.sh`). Any other PR runs the full battery.
+
+These tests share one live DataHub instance, so a module that leaks state is normally
+caught by whichever unrelated test trips over it. On a narrowed run there are no
+neighbours to trip. Master still runs everything on merge, so the leak is caught —
+but on master, by someone else, after your PR is in.
+
+So treat these as hard requirements when writing or reviewing a smoke test:
+
+- **Delete every entity you create**, in a fixture teardown that runs even when the
+  test fails. `_ingest_cleanup_data_impl` and `delete_urns_from_file` exist for this.
+- **Restore any global state you mutate** — policies, settings, feature flags,
+  ownership on shared fixtures. Mutating a policy without restoring it is the single
+  most common way to break unrelated tests.
+- **Never assert on global counts** (`total == N`, "the list has 12 entries"). Another
+  test creating an entity concurrently invalidates it. Assert on your own URNs.
+- **Generate unique identifiers per run** rather than reusing a fixed name, so two
+  tests — or two concurrent workers — cannot collide.
+- **Do not rely on a prior test having set something up.** If you need it, create it.
+
+If a change cannot satisfy these, put the shared setup in a fixture rather than
+leaving the coupling implicit. A change to `conftest.py`, `tests/utils.py`,
+`tests/utilities/**`, or any non-test module under `smoke-test/` correctly forces the
+full suite, because its blast radius is not knowable from the path alone.
+
 ## Logging
 
 **IMPORTANT: Use logger.info() instead of print() in all test files**
