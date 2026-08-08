@@ -272,8 +272,13 @@ jobs:
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          # Shared across PRs (no base_ref in the key) so every PR reuses the same uv cache.
+          # Restore-only: Actions caches are ref-scoped, so a PR-side save can never be
+          # shared with other PRs — it just mints a per-PR copy against the repo's 10GB
+          # budget. The master-scoped entry every PR restores from is written by
+          # python-cache-warmup.yml (push to master), which uses this exact key.
           key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          restore-keys: |
+            uv-python-lint-
       - name: Install system dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       # Per-module lint steps. Each runs independently (if: always()) so a failure in one
@@ -308,12 +313,6 @@ jobs:
         id: prefect-plugin-lint
         if: always() && needs.setup.outputs.prefect-plugin == 'true'
         run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint
-      - name: Save uv cache
-        if: always()
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
       - name: Report lint results
         if: always()
         env:

@@ -1,0 +1,81 @@
+# Writes the master-scoped dependency cache entries that PR jobs restore from.
+#
+# Why this exists: Actions caches are ref-scoped — a PR run can read caches written
+# at refs/heads/master, but a cache saved from a PR ref is visible only to that PR.
+# lint-jobs.yml is `on: pull_request` only, so nothing in it can ever write a
+# master-scoped entry; when its jobs saved their own caches, every active PR minted
+# a private copy of the same key (several hundred MB each) against the repo's 10GB
+# Actions cache budget, and the shared master entries were evicted first.
+#
+# This workflow runs on every push to master. When the exact key already exists the
+# lookup-only restore hits and the job exits in seconds; on a miss (dependency
+# manifests changed, or the entry was evicted) it rebuilds the environments and
+# saves one master-scoped copy. Keys and cache paths must stay byte-identical to
+# the restore steps in lint-jobs.yml.
+name: Python Cache Warmup
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm-python-lint-cache:
+    name: Warm python-lint uv cache
+    # Must be a GitHub-hosted runner: the whole point is writing to the GitHub
+    # Actions cache. Depot runners use Depot Cache, which GitHub-hosted PR jobs
+    # cannot read.
+    runs-on: ubuntu-latest
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must match the restore key in lint-jobs.yml python-lint exactly.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          lookup-only: true
+      - name: Set up JDK 21
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.11"
+      - name: Install system dependencies
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # installDev is what the lint tasks in lint-jobs.yml python-lint depend on; running
+      # it for every module populates the same uv download/wheel cache the lint jobs need.
+      - name: Install Python module dev environments
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: |
+          ./gradlew :metadata-ingestion:installDev \
+            :datahub-actions:installDev \
+            :datahub-agent-context:installDev \
+            :metadata-ingestion-modules:airflow-plugin:installDev \
+            :metadata-ingestion-modules:gx-plugin:installDev \
+            :metadata-ingestion-modules:dagster-plugin:installDev \
+            :metadata-ingestion-modules:prefect-plugin:installDev
+      # No `always()`: a partial cache from a failed install would occupy the exact key
+      # until the manifests next change. On failure, the next master push retries.
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}

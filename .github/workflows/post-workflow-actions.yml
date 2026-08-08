@@ -33,6 +33,7 @@ on:
       - "Prefect Plugin"
       - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
       - "Python Build"
+      - "Python Cache Warmup"
       - "Python Tests for github scripts"
       - "Quickstart Test"
       - "Release Tests"
