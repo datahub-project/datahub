@@ -7,6 +7,7 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerDashboardSourceReport,
 )
 from datahub.ingestion.source.looker.looker_query_model import (
+    FieldUsageViewField,
     HistoryViewField,
     LookerModel,
     QueryViewField,
@@ -47,17 +48,21 @@ def test_explore_usage_queries_target_system_activity_query_view():
     assert UserViewField.USER_ID not in per_day.fields
     assert UserViewField.USER_ID in per_user.fields
 
-    # The per-field query is separate (adding query.fields to the per-day query
-    # would fragment the (model, view, date) grouping) and carries query.fields.
+    # The per-field query uses the field_usage explore (pre-aggregated, no row
+    # limit issues) instead of parsing query.fields from the History explore.
     per_field = looker_usage.query_collection[
         looker_usage.QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT
     ]
     assert per_field.model == LookerModel.SYSTEM_ACTIVITY
-    assert QueryViewField.QUERY_FIELDS in per_field.fields
-    assert QueryViewField.QUERY_MODEL in per_field.fields
-    assert QueryViewField.QUERY_VIEW in per_field.fields
-    assert UserViewField.USER_ID not in per_field.fields
-    assert QueryViewField.QUERY_FIELDS not in per_day.fields
+    assert FieldUsageViewField.FIELD_USAGE_MODEL in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_EXPLORE in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_FIELD in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_TIMES_USED in per_field.fields
+
+    # Lock the filter syntax: string fields use "-NULL", numeric use "NOT NULL".
+    # https://docs.cloud.google.com/looker/docs/filter-expressions
+    assert per_day.filters[QueryViewField.QUERY_VIEW] == "-NULL"
+    assert per_user.filters[QueryViewField.QUERY_VIEW] == "-NULL"
 
 
 def test_explore_stat_generator_builds_explore_dataset_urn():
@@ -89,22 +94,19 @@ def test_explore_stat_generator_emits_usage_stats():
             HistoryViewField.HISTORY_COUNT: 30,
         }
     ]
-    # Two field-set buckets for the same (explore, day): orders.count appears in
-    # both, so its per-field count sums across rows (18 + 12 = 30).
+    # Pre-aggregated field usage from the field_usage explore (lifetime counts).
     field_rows = [
         {
-            QueryViewField.QUERY_MODEL: "sales",
-            QueryViewField.QUERY_VIEW: "orders",
-            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
-            QueryViewField.QUERY_FIELDS: "orders.count,orders.created_date",
-            HistoryViewField.HISTORY_COUNT: 18,
+            FieldUsageViewField.FIELD_USAGE_MODEL: "sales",
+            FieldUsageViewField.FIELD_USAGE_EXPLORE: "orders",
+            FieldUsageViewField.FIELD_USAGE_FIELD: "orders.count",
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED: 30,
         },
         {
-            QueryViewField.QUERY_MODEL: "sales",
-            QueryViewField.QUERY_VIEW: "orders",
-            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
-            QueryViewField.QUERY_FIELDS: "orders.count",
-            HistoryViewField.HISTORY_COUNT: 12,
+            FieldUsageViewField.FIELD_USAGE_MODEL: "sales",
+            FieldUsageViewField.FIELD_USAGE_EXPLORE: "orders",
+            FieldUsageViewField.FIELD_USAGE_FIELD: "orders.created_date",
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED: 18,
         },
     ]
     user_rows = [
@@ -165,29 +167,6 @@ def test_explore_stat_generator_emits_usage_stats():
     assert aspect.fieldCounts is not None
     field_counts = {fc.fieldPath: fc.count for fc in aspect.fieldCounts}
     assert field_counts == {"orders.count": 30, "orders.created_date": 18}
-
-
-def test_parse_query_fields_handles_delimiters_and_blanks():
-    parse = looker_usage.ExploreStatGenerator._parse_query_fields
-    assert parse("orders.count,orders.created_date") == [
-        "orders.count",
-        "orders.created_date",
-    ]
-    assert parse("orders.count\norders.created_date") == [
-        "orders.count",
-        "orders.created_date",
-    ]
-    assert parse(" orders.count , ,\n orders.state ") == [
-        "orders.count",
-        "orders.state",
-    ]
-    assert parse("") == []
-    # System Activity serialises the Query model's fields (Sequence[str])
-    # into a JSON array string when returned as a dimension value.
-    assert parse('["orders.count","orders.created_date"]') == [
-        "orders.count",
-        "orders.created_date",
-    ]
 
 
 def test_explore_stat_key_round_trips_between_model_and_row():
