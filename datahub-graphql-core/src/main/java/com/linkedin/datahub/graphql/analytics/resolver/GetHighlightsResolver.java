@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.linkedin.datahub.graphql.analytics.service.AnalyticsService.EntityStats;
+import com.linkedin.datahub.graphql.analytics.service.EntityStats;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Highlight;
@@ -153,10 +153,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     }
 
     int numEntities = stats.getTotal();
-    double percentWithOwners = 100.0 * stats.getFacetCount(HAS_OWNERS) / numEntities;
-    double percentWithTags = 100.0 * stats.getFacetCount(HAS_TAGS) / numEntities;
-    double percentWithGlossaryTerms = 100.0 * stats.getFacetCount(HAS_GLOSSARY_TERMS) / numEntities;
-    double percentWithDescription = 100.0 * stats.getFacetCount(HAS_DESCRIPTION) / numEntities;
+    double percentWithOwners = 100.0 * stats.countWithFacet(HAS_OWNERS) / numEntities;
+    double percentWithTags = 100.0 * stats.countWithFacet(HAS_TAGS) / numEntities;
+    double percentWithGlossaryTerms =
+        100.0 * stats.countWithFacet(HAS_GLOSSARY_TERMS) / numEntities;
+    double percentWithDescription = 100.0 * stats.countWithFacet(HAS_DESCRIPTION) / numEntities;
 
     String bodyText;
     if (entityType == EntityType.DOMAIN) {
@@ -166,7 +167,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
               "%.2f%% have owners, %.2f%% have tags, %.2f%% have glossary terms, %.2f%% have description!",
               percentWithOwners, percentWithTags, percentWithGlossaryTerms, percentWithDescription);
     } else {
-      double percentWithDomains = 100.0 * stats.getFacetCount(HAS_DOMAIN) / numEntities;
+      double percentWithDomains = 100.0 * stats.countWithFacet(HAS_DOMAIN) / numEntities;
       bodyText =
           String.format(
               "%.2f%% have owners, %.2f%% have tags, %.2f%% have glossary terms, %.2f%% have description, %.2f%% have domain assigned!",

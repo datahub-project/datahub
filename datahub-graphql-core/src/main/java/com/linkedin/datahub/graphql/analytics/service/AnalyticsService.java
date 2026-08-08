@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.BarSegment;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,7 +27,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -346,31 +347,26 @@ public class AnalyticsService {
 
   /**
    * Computes a unique count per date range in a single query, rather than one query per range. Keys
-   * of the result mirror the keys of {@code keyedRanges}; a range whose bucket is missing from the
-   * response maps to 0.
+   * of the result mirror the keys of {@code keyedRanges}.
    */
+  @WithSpan
   public Map<String, Integer> getUniqueCountsByRange(
       @Nonnull OperationContext opContext,
-      @Nonnull String indexName,
-      @Nonnull Map<String, DateRange> keyedRanges,
-      @Nonnull String uniqueOn) {
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn) {
+    log.debug(
+        String.format(
+            "Invoked getUniqueCountsByRange with indexName: %s, ranges: %s, uniqueOn: %s",
+            indexName, keyedRanges.keySet(), uniqueOn));
+
     if (keyedRanges.isEmpty()) {
       return Collections.emptyMap();
     }
 
-    KeyedFilter[] rangeFilters =
-        keyedRanges.entrySet().stream()
-            .map(entry -> new KeyedFilter(entry.getKey(), dateRangeQuery(entry.getValue())))
-            .toArray(KeyedFilter[]::new);
-
-    AggregationBuilder filteredAgg =
-        getFilteredAggregation(ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
-    filteredAgg.subAggregation(
-        AggregationBuilders.filters(BY_RANGE, rangeFilters)
-            .subAggregation(getUniqueQuery(uniqueOn)));
-
     Filter aggregationResult =
-        executeAndExtract(opContext, constructSearchRequest(indexName, filteredAgg));
+        executeAndExtract(
+            opContext, buildUniqueCountsByRangeRequest(indexName, keyedRanges, uniqueOn));
 
     Map<String, Integer> results = new LinkedHashMap<>();
     for (String key : keyedRanges.keySet()) {
@@ -379,42 +375,74 @@ public class AnalyticsService {
     return results;
   }
 
-  private int extractUniqueCount(Filter aggregationResult, String rangeKey) {
-    try {
-      Filters byRange = aggregationResult.getAggregations().get(BY_RANGE);
-      Filters.Bucket bucket = byRange.getBucketByKey(rangeKey);
-      if (bucket == null) {
-        return 0;
-      }
-      return (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue();
-    } catch (Exception e) {
-      log.error(
-          String.format(
-              "Caught exception while extracting unique count for range %s: %s",
-              rangeKey, e.getMessage()));
-      return 0;
+  @VisibleForTesting
+  SearchRequest buildUniqueCountsByRangeRequest(
+      String indexName, Map<String, DateRange> keyedRanges, String uniqueOn) {
+    KeyedFilter[] rangeFilters =
+        keyedRanges.entrySet().stream()
+            .map(entry -> new KeyedFilter(entry.getKey(), dateRangeQuery(entry.getValue())))
+            .toArray(KeyedFilter[]::new);
+
+    AggregationBuilder filteredAgg = defaultFilteredAggregation();
+    filteredAgg.subAggregation(
+        AggregationBuilders.filters(BY_RANGE, rangeFilters)
+            .subAggregation(getUniqueQuery(uniqueOn)));
+
+    return constructSearchRequest(indexName, filteredAgg);
+  }
+
+  /**
+   * A keyed filters aggregation always emits every declared bucket, empty ones carrying a zero doc
+   * count, so a missing bucket is a malformed response rather than "no data". Batching makes that
+   * distinction matter: silently reading it as zero would publish fabricated analytics for the
+   * whole batch at once.
+   */
+  @VisibleForTesting
+  static int extractUniqueCount(Filter aggregationResult, String rangeKey) {
+    Filters byRange = aggregationResult.getAggregations().get(BY_RANGE);
+    Filters.Bucket bucket = byRange == null ? null : byRange.getBucketByKey(rangeKey);
+    if (bucket == null) {
+      throw new IllegalStateException(
+          String.format("Missing '%s' bucket for range %s", BY_RANGE, rangeKey));
     }
+    return (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue();
   }
 
   /**
    * Computes the total document count plus one count per facet field, for every requested entity
-   * type, in a single query across all of their indices.
+   * type, in a single query across all of their indices. Soft-deleted entities are excluded.
    *
-   * <p>Buckets are keyed by our own entity-type names rather than derived from the {@code _index}
-   * term agg, because entity indices are aliases over timestamp-suffixed backing indices and the
-   * index-name-to-entity-name round trip is lossy.
+   * <p>Buckets are keyed by our own entity-type names rather than derived from a terms aggregation
+   * on {@code _index}, because entity indices are aliases over timestamp-suffixed backing indices
+   * and the index-name-to-entity-name round trip is lossy.
    */
+  @WithSpan
   public Map<EntityType, EntityStats> getEntityStats(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<EntityType> entityTypes,
-      @Nonnull List<String> facetFields) {
-    if (entityTypes.isEmpty()) {
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    log.debug(
+        String.format(
+            "Invoked getEntityStats with entityTypes: %s, facetFields: %s",
+            entityTypes, facetFields));
+
+    // Duplicates would collide as repeated aggregation bucket keys.
+    List<EntityType> distinctTypes = entityTypes.stream().distinct().collect(Collectors.toList());
+    if (distinctTypes.isEmpty()) {
       return Collections.emptyMap();
     }
 
-    Map<String, EntityType> keyToEntityType = new LinkedHashMap<>();
-    entityTypes.forEach(entityType -> keyToEntityType.put(entityType.name(), entityType));
+    Filter aggregationResult =
+        executeAndExtract(opContext, buildEntityStatsRequest(distinctTypes, facetFields));
 
+    Map<EntityType, EntityStats> results = new LinkedHashMap<>();
+    for (EntityType entityType : distinctTypes) {
+      results.put(
+          entityType, extractEntityStats(aggregationResult, entityType.name(), facetFields));
+    }
+    return results;
+  }
+
+  @VisibleForTesting
+  SearchRequest buildEntityStatsRequest(List<EntityType> entityTypes, List<String> facetFields) {
     KeyedFilter[] entityFilters =
         entityTypes.stream()
             .map(
@@ -433,67 +461,59 @@ public class AnalyticsService {
       byEntityAgg.subAggregation(AggregationBuilders.filters(BY_FACET, facetFilters));
     }
 
-    AggregationBuilder filteredAgg =
-        getFilteredAggregation(
-            ImmutableMap.of(), ImmutableMap.of(REMOVED, ImmutableList.of(TRUE)), Optional.empty());
+    AggregationBuilder filteredAgg = nonRemovedFilteredAggregation();
     filteredAgg.subAggregation(byEntityAgg);
 
-    String[] indices =
-        entityTypes.stream().map(this::getEntityIndexName).distinct().toArray(String[]::new);
+    String[] indices = entityTypes.stream().map(this::getEntityIndexName).toArray(String[]::new);
     SearchRequest searchRequest = constructSearchRequest(indices, filteredAgg);
     // A single absent index must not fail the whole batch — per-type queries previously degraded
-    // to an empty highlight for that type alone.
+    // to an empty highlight for that type alone. An absent index still yields its keyed bucket
+    // with a zero doc count, so this does not mask a malformed response.
     searchRequest.indicesOptions(IndicesOptions.lenientExpandOpen());
-
-    Filter aggregationResult = executeAndExtract(opContext, searchRequest);
-
-    Map<EntityType, EntityStats> results = new LinkedHashMap<>();
-    keyToEntityType.forEach(
-        (key, entityType) ->
-            results.put(entityType, extractEntityStats(aggregationResult, key, facetFields)));
-    return results;
+    return searchRequest;
   }
 
-  private EntityStats extractEntityStats(
+  /**
+   * @see #extractUniqueCount for why a missing bucket is an error rather than a zero.
+   */
+  @VisibleForTesting
+  static EntityStats extractEntityStats(
       Filter aggregationResult, String entityKey, List<String> facetFields) {
-    try {
-      Filters byEntity = aggregationResult.getAggregations().get(BY_ENTITY);
-      Filters.Bucket entityBucket = byEntity.getBucketByKey(entityKey);
-      if (entityBucket == null) {
-        return EntityStats.empty();
-      }
-
-      Map<String, Integer> facetCounts = new LinkedHashMap<>();
-      if (!facetFields.isEmpty()) {
-        Filters byFacet = entityBucket.getAggregations().get(BY_FACET);
-        for (String field : facetFields) {
-          Filters.Bucket facetBucket = byFacet == null ? null : byFacet.getBucketByKey(field);
-          facetCounts.put(field, facetBucket == null ? 0 : (int) facetBucket.getDocCount());
-        }
-      }
-      return new EntityStats((int) entityBucket.getDocCount(), facetCounts);
-    } catch (Exception e) {
-      log.error(
-          String.format(
-              "Caught exception while extracting entity stats for %s: %s",
-              entityKey, e.getMessage()));
-      return EntityStats.empty();
+    Filters byEntity = aggregationResult.getAggregations().get(BY_ENTITY);
+    Filters.Bucket entityBucket = byEntity == null ? null : byEntity.getBucketByKey(entityKey);
+    if (entityBucket == null) {
+      throw new IllegalStateException(
+          String.format("Missing '%s' bucket for entity %s", BY_ENTITY, entityKey));
     }
+
+    Map<String, Integer> facetCounts = new LinkedHashMap<>();
+    if (!facetFields.isEmpty()) {
+      Filters byFacet = entityBucket.getAggregations().get(BY_FACET);
+      if (byFacet == null) {
+        throw new IllegalStateException(
+            String.format("Missing '%s' aggregation for entity %s", BY_FACET, entityKey));
+      }
+      for (String field : facetFields) {
+        Filters.Bucket facetBucket = byFacet.getBucketByKey(field);
+        if (facetBucket == null) {
+          throw new IllegalStateException(
+              String.format("Missing '%s' bucket for entity %s", field, entityKey));
+        }
+        facetCounts.put(field, (int) facetBucket.getDocCount());
+      }
+    }
+    return new EntityStats((int) entityBucket.getDocCount(), facetCounts);
   }
 
-  /** Total document count and per-facet counts for a single entity type. */
-  @Value
-  public static class EntityStats {
-    int total;
-    Map<String, Integer> facetCounts;
+  /** The standard filtered wrapper with no criteria beyond the default filters. */
+  private AggregationBuilder defaultFilteredAggregation() {
+    return getFilteredAggregation(ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+  }
 
-    public static EntityStats empty() {
-      return new EntityStats(0, Collections.emptyMap());
-    }
-
-    public int getFacetCount(String facetField) {
-      return facetCounts.getOrDefault(facetField, 0);
-    }
+  /** As {@link #defaultFilteredAggregation} but excluding soft-deleted entities. */
+  private AggregationBuilder nonRemovedFilteredAggregation() {
+    return getFilteredAggregation(
+        ImmutableMap.of(), ImmutableMap.of(REMOVED, ImmutableList.of(TRUE)), Optional.empty());
   }
 
   private SearchRequest constructSearchRequest(
