@@ -204,6 +204,7 @@ class TestTracebackHappyHalf:
         assert record.exc_info is exc_info
         exc_type, exc_value, _ = record.exc_info
         assert exc_type is ValueError
+        assert exc_value is not None
         assert "traceback_secret_value" in str(exc_value.args[0])
 
     def test_exc_info_cause_chain_preserved(self):
@@ -231,9 +232,10 @@ class TestTracebackHappyHalf:
         mf.filter(record)
         assert record.exc_info is exc_info
         _t, v, _tb = record.exc_info
-        cause = v.__cause__
-        assert cause is not None
-        assert "cause_secret_value" in str(cause.args[0])
+        assert v is not None
+        exc_cause = v.__cause__
+        assert exc_cause is not None
+        assert "cause_secret_value" in str(exc_cause.args[0])
 
 
 class TestStreamWrapper:

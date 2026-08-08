@@ -59,7 +59,7 @@ class TestMaskTextPerformance:
             (200, 20_000),
         ],
     )
-    def test_mask_text_ceiling(self, n_secrets: int, text_chars: int):
+    def test_mask_text_ceiling(self, n_secrets: int, text_chars: int) -> None:
         f = _make_filter(n_secrets)
         text = _make_text(text_chars, n_secrets)
         ms = _measure_ms(f, text)

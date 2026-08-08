@@ -229,7 +229,7 @@ class TestHandlerAddedAfterInstall:
         target = _Capture()
 
         # QueueHandler attached to a logger; QueueListener dispatches to target.
-        q = queue.Queue()
+        q: queue.Queue[logging.LogRecord] = queue.Queue()
         qh = QueueHandler(q)
         log = logging.getLogger("test.queuehandler")
         log.handlers.clear()

@@ -4,10 +4,11 @@ import logging
 import sys
 import threading
 import traceback
+from types import TracebackType
 from typing import Optional
 
 from datahub.masking.logging_utils import get_masking_safe_logger
-from datahub.masking.masking_filter import install_masking_filter
+from datahub.masking.masking_filter import SecretMaskingFilter, install_masking_filter
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 logger = get_masking_safe_logger(__name__)
@@ -42,14 +43,18 @@ def reset_bootstrap_state() -> None:
         _disabled_warned = False
 
 
-def _install_exception_hook(masking_filter) -> None:
+def _install_exception_hook(masking_filter: SecretMaskingFilter) -> None:
     # Process-lifetime excepthook; on masking failure print only the class
     # name plus a note, never the raw traceback (fail-closed).
     global _original_excepthook
     if _original_excepthook is None:
         _original_excepthook = sys.excepthook
 
-    def masking_excepthook(exc_type, exc_value, exc_traceback) -> None:
+    def masking_excepthook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
         try:
             tb_text = "".join(
                 traceback.format_exception(exc_type, exc_value, exc_traceback)

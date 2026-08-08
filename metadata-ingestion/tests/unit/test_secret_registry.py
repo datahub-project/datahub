@@ -117,7 +117,7 @@ class TestRegistrationValidation:
         reg.clear()
         reg.register_secret("N", None)  # type: ignore[arg-type]
         reg.register_secret("E", "")
-        reg.register_secrets_batch({"N": None, "E": ""})  # type: ignore[arg-type]
+        reg.register_secrets_batch({"N": None, "E": ""})  # type: ignore[arg-type,dict-item]
         assert reg.get_count() == 0
 
     def test_duplicate_value_uses_first_name(self):

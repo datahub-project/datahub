@@ -3,6 +3,7 @@ half), 13."""
 
 import logging
 from io import StringIO
+from typing import Any
 from unittest.mock import patch
 
 from datahub.masking.masking_filter import (
@@ -97,7 +98,7 @@ class TestExtrasFailureHalf:
         mf = SecretMaskingFilter(reg)
         reg.register_secret("PW", "deep_secret_value")
 
-        deep = "deep_secret_value"
+        deep: Any = "deep_secret_value"
         for _ in range(mf._MAX_EXTRA_DEPTH + 2):
             deep = {"inner": deep}
         record = logging.LogRecord(
@@ -121,7 +122,7 @@ class TestExtrasFailureHalf:
         mf = SecretMaskingFilter(reg)
         reg.register_secret("PW", "cycle_secret_value")
 
-        d = {"k": "cycle_secret_value"}
+        d: dict[str, Any] = {"k": "cycle_secret_value"}
         d["self"] = d
         record = logging.LogRecord(
             name="test",

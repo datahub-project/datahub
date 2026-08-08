@@ -6,7 +6,7 @@ import re
 import sys
 import threading
 import uuid
-from typing import Any, Dict, List, Optional, TextIO, Tuple
+from typing import Any, Dict, Iterable, List, Optional, TextIO, Tuple
 
 from datahub.masking.constants import REDACTED_FORMAT
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -500,7 +500,7 @@ class StreamMaskingWrapper:
         except (ValueError, OSError):
             pass
 
-    def writelines(self, lines) -> None:
+    def writelines(self, lines: Iterable[str]) -> None:
         for line in lines:
             self.write(line)
 
