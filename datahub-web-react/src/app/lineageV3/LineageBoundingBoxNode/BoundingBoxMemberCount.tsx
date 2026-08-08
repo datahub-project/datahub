@@ -2,10 +2,12 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { DATA_PRODUCT_MEMBER_PAGE_SIZE, LineageNodesContext } from '@app/lineageV3/common';
+import { CONTAINER_MEMBER_PAGE_SIZE, LineageNodesContext } from '@app/lineageV3/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.generated';
+import { useGetSemanticModelEntitiesForLineageQuery } from '@graphql/semanticModel.generated';
+import { EntityType } from '@types';
 
 const Wrapper = styled.div`
     display: flex;
@@ -37,38 +39,49 @@ const ShowMoreButton = styled.button`
     }
 `;
 
-/** Fetches a data product's total member count. Cache-first so it hits the network once per product. */
-function useDataProductMemberTotal(urn: string): number | undefined {
-    const { data } = useGetDataProductEntitiesForLineageQuery({
+/** Fetches a container's total member count. Cache-first so it hits the network once per container. */
+function useContainerMemberTotal(urn: string, rootType: EntityType): number | undefined {
+    const isSemanticModel = rootType === EntityType.SemanticModel;
+    const { data: dataProductData } = useGetDataProductEntitiesForLineageQuery({
         variables: { urn, start: 0, count: 0 },
         fetchPolicy: 'cache-first',
+        skip: isSemanticModel,
     });
-    return data?.dataProduct?.entities?.total ?? undefined;
+    const { data: semanticModelData } = useGetSemanticModelEntitiesForLineageQuery({
+        variables: { urn, start: 0, count: 0 },
+        fetchPolicy: 'cache-first',
+        skip: !isSemanticModel,
+    });
+    if (isSemanticModel) {
+        return semanticModelData?.semanticModel?.entities?.total ?? undefined;
+    }
+    return dataProductData?.dataProduct?.entities?.total ?? undefined;
 }
 
 interface Props {
     urn: string;
-    /** Number of this product's members currently shown in the box. */
+    /** Number of this container's members currently shown in the box. */
     memberCount: number;
 }
 
 /**
- * Member counter shown on the right of a data product bounding box header. The home product shows
- * "x / y entities shown" with a "Show more" control that pages in more members; other products show
- * how many of their assets are connected to the home product, and are not paginated.
+ * Member counter shown on the right of a container bounding box header (DataProduct or
+ * SemanticModel). The home container shows "x / y entities shown" with a "Show more" control
+ * that pages in more members; other containers show how many of their assets are connected to
+ * the home container, and are not paginated.
  */
 export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
     const { t } = useTranslation('lineage');
-    const { rootUrn, nodes, dataProductEntities, setDisplayVersion } = useContext(LineageNodesContext);
-    const total = useDataProductMemberTotal(urn);
+    const { rootUrn, rootType, nodes, containerEntities, setDisplayVersion } = useContext(LineageNodesContext);
+    const total = useContainerMemberTotal(urn, rootType);
 
     if (total === undefined) return null;
 
     if (urn === rootUrn) {
         const node = nodes.get(urn);
-        const limit = node?.boundingBoxLimit ?? DATA_PRODUCT_MEMBER_PAGE_SIZE;
+        const limit = node?.boundingBoxLimit ?? CONTAINER_MEMBER_PAGE_SIZE;
         // "Shown" tracks pagination progress, not raw displayed nodes (which include sibling copies
-        // and so can exceed the product's entity count).
+        // and so can exceed the container's entity count).
         const shown = Math.min(limit, total);
         return (
             <StackedWrapper>
@@ -79,12 +92,12 @@ export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
                             if (!node) return;
                             // Mutate + bump displayVersion, as in the lineage filter ShowMoreButton; this
                             // both re-seeds the graph and lets the fetch hook page in more members.
-                            node.boundingBoxLimit = limit + DATA_PRODUCT_MEMBER_PAGE_SIZE;
+                            node.boundingBoxLimit = limit + CONTAINER_MEMBER_PAGE_SIZE;
                             setDisplayVersion(([version, urns]) => [version + 1, urns]);
                         }}
                         data-testid="data-product-show-more"
                     >
-                        {t('dataProduct.showMore', { count: DATA_PRODUCT_MEMBER_PAGE_SIZE })}
+                        {t('dataProduct.showMore', { count: CONTAINER_MEMBER_PAGE_SIZE })}
                     </ShowMoreButton>
                 )}
             </StackedWrapper>
@@ -92,7 +105,7 @@ export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
     }
 
     const shown = Math.min(memberCount, total);
-    const homeName = nodes.get(rootUrn)?.entity?.name ?? dataProductEntities.get(rootUrn)?.name ?? rootUrn;
+    const homeName = nodes.get(rootUrn)?.entity?.name ?? containerEntities.get(rootUrn)?.name ?? rootUrn;
     return (
         <Wrapper>
             <span>{t('dataProduct.assetCount', { shown, total })}</span>

@@ -8,16 +8,18 @@ type Urn = string;
 
 export type GraphStore = Pick<NodeContext, GraphStoreFields> & { rootType: EntityType };
 
-export interface DataProductGroup {
+export interface LineageContainerGroup {
     urn: Urn;
+    /** Entity type of the container (DataProduct, SemanticModel etc.). */
+    type: EntityType;
     entity?: FetchedEntityV2;
     colorHex?: string;
     memberUrns: Set<Urn>;
 }
 
 export interface BoxLayout {
-    group: DataProductGroup;
-    /** Member nodes with data-product-qualified ids, positioned relative to the bounding box. */
+    group: LineageContainerGroup;
+    /** Member nodes with container-qualified ids, positioned relative to the bounding box. */
     memberNodes: LineageVisualizationNode[];
     width: number;
     height: number;

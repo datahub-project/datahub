@@ -1,5 +1,5 @@
 import { NodeContext, addToAdjacencyList, isTransformational, parseEdgeId, setDefault } from '@app/lineageV3/common';
-import { GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
+import { GraphStore } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
 
 import { LineageDirection } from '@types';
 
@@ -7,7 +7,7 @@ type Urn = string;
 
 /**
  * An edge is revealed if either endpoint has been expanded toward the other; unrevealed edges are
- * hidden, even between displayed nodes (e.g. two members of the same data product).
+ * hidden, even between displayed nodes (e.g. two members of the same container).
  * Transformational nodes are displayed by expanding the nodes around them rather than being
  * expanded themselves, so they reveal their edges just by being displayed.
  */

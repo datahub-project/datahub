@@ -1,5 +1,5 @@
 import {
-    DATA_PRODUCT_MEMBER_PAGE_SIZE,
+    CONTAINER_MEMBER_PAGE_SIZE,
     GraphStoreFields,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -11,17 +11,17 @@ import {
 } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
-import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
-import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
-import {
-    collectDataProductGroups,
-    computeMembership,
-} from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
-import layoutDataProductInterior, {
+import buildFlowEdges from '@app/lineageV3/useComputeGraph/lineageContainer/buildFlowEdges';
+import layoutLineageContainerInterior, {
     createBoundingBoxNode,
-} from '@app/lineageV3/useComputeGraph/dataProduct/layoutDataProductInterior';
-import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/dataProduct/positionTopLevelNodes';
-import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/dataProduct/revealedEdges';
+} from '@app/lineageV3/useComputeGraph/lineageContainer/layoutLineageContainerInterior';
+import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
+import {
+    collectLineageContainerGroups,
+    computeMembership,
+} from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainerGroups';
+import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/lineageContainer/positionTopLevelNodes';
+import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/lineageContainer/revealedEdges';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
 
@@ -30,45 +30,46 @@ import { EntityType, LineageDirection } from '@types';
 type Urn = string;
 
 /**
- * Builds the node filter for the data product graph: nodes are hidden until their data product
+ * Builds the node filter for the lineage container graph: nodes are hidden until their container
  * membership is known (since membership determines how they are rendered), and data process
  * instances are hidden unless `showDataProcessInstances` is set.
  */
-function createDataProductNodeFilter(
+function createLineageContainerNodeFilter(
     rootUrn: Urn,
     showDataProcessInstances: boolean,
 ): (node: LineageEntity) => boolean {
     return (node: LineageEntity) =>
         (showDataProcessInstances || node.type !== EntityType.DataProcessInstance) &&
-        (node.urn === rootUrn || node.type === EntityType.Query || node.dataProducts !== undefined);
+        (node.urn === rootUrn || node.type === EntityType.Query || node.containers !== undefined);
 }
 
 /**
- * Computes the lineage graph for a DataProduct, arranged as a graph of bounding-box containers:
- * 1. Displayed nodes are computed globally via `computeLineageGraph`, seeded by the home data
- *    product's members (up to the home box's `boundingBoxLimit`, since the home product has no
+ * Computes the lineage graph for a lineage container (DataProduct or SemanticModel), arranged as a
+ * graph of bounding-box containers:
+ * 1. Displayed nodes are computed globally via `computeLineageGraph`, seeded by the home
+ *    container's members (up to the home box's `boundingBoxLimit`, since the home container has no
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
- *    expansion state, lineage filter nodes). Members of data products sort before other children,
+ *    expansion state, lineage filter nodes). Members of containers sort before other children,
  *    so they're prioritized by pagination.
- * 2. Displayed entities are grouped by data product membership. Displayed members of each data
- *    product are laid out horizontally via NodeBuilder, determining the size of the data product's
- *    bounding box. An entity in multiple data products gets one node per data product.
- * 3. Bounding boxes and free entities (displayed entities not in any data product) are positioned
- *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home data product's
- *    bounding box: lineage between two data products' members becomes an edge between their boxes,
+ * 2. Displayed entities are grouped by container membership. Displayed members of each container
+ *    are laid out horizontally via NodeBuilder, determining the size of the container's bounding
+ *    box. An entity in multiple containers gets one node per container.
+ * 3. Bounding boxes and free entities (displayed entities not in any container) are positioned
+ *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home container's
+ *    bounding box: lineage between two containers' members becomes an edge between their boxes,
  *    and lineage between a member and a free entity becomes an edge between the box and the free
- *    entity. Boxes are placed first, from the data-product-to-data-product lineage; free entities
+ *    entity. Boxes are placed first, from the container-to-container lineage; free entities
  *    are then arranged around them in layers.
  *
- * Everything is based on the displayed nodes alone: a data product whose members are only
+ * Everything is based on the displayed nodes alone: a container whose members are only
  * connected through non-displayed entities does not get a bounding box, and edges are the direct
  * lineage edges between displayed nodes — shown only if revealed by expansion (`isEdgeRevealed`).
  */
-export default function computeDataProductGraph(
+export default function computeLineageContainerGraph(
     urn: string,
     context: Pick<
         NodeContext,
-        GraphStoreFields | LineageToggles | 'rootType' | 'outputPortsOnly' | 'dataProductEntities'
+        GraphStoreFields | LineageToggles | 'rootType' | 'outputPortsOnly' | 'containerEntities'
     >,
     ignoreSchemaFieldStatus: boolean,
     showFilterNodes = true,
@@ -81,11 +82,12 @@ export default function computeDataProductGraph(
         showDataProcessInstances,
         showGhostEntities,
         outputPortsOnly,
-        dataProductEntities,
+        containerEntities,
     } = context;
 
-    // An entity is an output port if it's an output port of any of its data products.
-    const isOutputPort = (id: Urn) => !!nodes.get(id)?.dataProducts?.some((dataProduct) => dataProduct.isOutputPort);
+    // An entity is an output port if it's an output port of any of its containers (DataProduct-only
+    // concept; SemanticModel members always report false).
+    const isOutputPort = (id: Urn) => !!nodes.get(id)?.containers?.some((container) => container.isOutputPort);
 
     // Note: `hideTransformations` and `hideDataProcessInstances` connect edges by traversing from the
     // root urn, which has no lineage of its own here, so data process instances are excluded via the
@@ -96,7 +98,7 @@ export default function computeDataProductGraph(
         hideGhostEntities: !showGhostEntities,
         ignoreSchemaFieldStatus,
     };
-    const nodeFilter = createDataProductNodeFilter(urn, showDataProcessInstances);
+    const nodeFilter = createLineageContainerNodeFilter(urn, showDataProcessInstances);
     const graphStore: GraphStore = {
         ...hideNodes(urn, rootType, config, { nodes, edges, adjacencyList }, nodeFilter),
         rootType,
@@ -104,13 +106,13 @@ export default function computeDataProductGraph(
     // Positioning and edge creation only consider edges that are actually shown
     const revealedGraphStore = filterToRevealedEdges(graphStore);
 
-    const groups = collectDataProductGroups(urn, nodes, graphStore.nodes, dataProductEntities);
+    const groups = collectLineageContainerGroups(urn, rootType, nodes, graphStore.nodes, containerEntities);
     const membership = computeMembership(groups);
 
-    // The home data product has no lineage of its own, so seed the traversal with its members (up to
+    // The home container has no lineage of its own, so seed the traversal with its members (up to
     // the home box's `boundingBoxLimit`, raised by the "Show more" control); the rest of the graph is
     // reached through their lineage.
-    const seedLimit = nodes.get(urn)?.boundingBoxLimit ?? DATA_PRODUCT_MEMBER_PAGE_SIZE;
+    const seedLimit = nodes.get(urn)?.boundingBoxLimit ?? CONTAINER_MEMBER_PAGE_SIZE;
     const seedNodes = Array.from(groups.get(urn)?.memberUrns ?? [])
         .slice(0, seedLimit)
         .map((memberUrn) => graphStore.nodes.get(memberUrn))
@@ -125,7 +127,7 @@ export default function computeDataProductGraph(
         ignoreSchemaFieldStatus,
         {
             nodeFilter,
-            // Prioritize output ports first, then data product members, so both are kept by pagination.
+            // Prioritize output ports first, then container members, so both are kept by pagination.
             compareNodes: (a, b) =>
                 Number(isOutputPort(b)) - Number(isOutputPort(a)) ||
                 Number(membership.has(b)) - Number(membership.has(a)) ||
@@ -135,15 +137,15 @@ export default function computeDataProductGraph(
         },
     );
 
-    // When filtering to output ports, keep only the home product's output ports, their adjacent
-    // nodes (in any data product or none), and the home data product itself.
+    // When filtering to output ports, keep only the home container's output ports, their adjacent
+    // nodes (in any container or none), and the home container itself.
     const shownNodes = outputPortsOnly
         ? (() => {
               const keep = new Set<Urn>([urn]);
               displayedNodes.forEach((node) => {
                   const isHomeOutputPort = nodes
                       .get(node.id)
-                      ?.dataProducts?.some((dataProduct) => dataProduct.urn === urn && dataProduct.isOutputPort);
+                      ?.containers?.some((container) => container.urn === urn && container.isOutputPort);
                   if (!isHomeOutputPort) return;
                   keep.add(node.id);
                   revealedGraphStore.adjacencyList[LineageDirection.Upstream].get(node.id)?.forEach((n) => keep.add(n));
@@ -156,12 +158,12 @@ export default function computeDataProductGraph(
         : displayedNodes;
     const displayedIds = new Set(shownNodes.map((node) => node.id));
 
-    // Step 2 (+ 4): Lay out the displayed members within each data product, sizing its bounding box
+    // Step 2 (+ 4): Lay out the displayed members within each container, sizing its bounding box
     const boxes = new Map<Urn, BoxLayout>();
     groups.forEach((group) => {
         const displayedMemberUrns = new Set(Array.from(group.memberUrns).filter((member) => displayedIds.has(member)));
         if (!displayedMemberUrns.size) return;
-        const box = layoutDataProductInterior(
+        const box = layoutLineageContainerInterior(
             { ...group, memberUrns: displayedMemberUrns },
             revealedGraphStore,
             ignoreSchemaFieldStatus,
@@ -183,7 +185,7 @@ export default function computeDataProductGraph(
     // ReactFlow parent), so they're final once the box is laid out. Bounding box nodes are created
     // here too, so they precede their children in `flowNodes`; their own positions are filled in
     // after step 3 places them. `memberOffsets` records each member's row offset within its box, so
-    // step 3 can align a data product's external neighbors with the member they connect to.
+    // step 3 can align a container's external neighbors with the member they connect to.
     const flowNodes: LineageVisualizationNode[] = [];
     const boxFlowNodes = new Map<Urn, LineageVisualizationNode>();
     const memberOffsets = new Map<Urn, Map<Urn, number>>();

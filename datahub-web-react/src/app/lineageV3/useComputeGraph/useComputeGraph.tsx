@@ -6,7 +6,7 @@ import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldSt
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
-import computeDataProductGraph from '@app/lineageV3/useComputeGraph/dataProduct/computeDataProductGraph';
+import computeLineageContainerGraph from '@app/lineageV3/useComputeGraph/lineageContainer/computeLineageContainerGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 import { useAppConfig } from '@app/useAppConfig';
@@ -49,7 +49,7 @@ export default function useComputeGraph(): ProcessedData {
         showDataProcessInstances,
         showGhostEntities,
         outputPortsOnly,
-        dataProductEntities,
+        containerEntities,
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
@@ -82,7 +82,7 @@ export default function useComputeGraph(): ProcessedData {
                 showDataProcessInstances,
                 showGhostEntities,
                 outputPortsOnly,
-                dataProductEntities,
+                containerEntities,
             };
 
             if (rootType === EntityType.DataFlow) {
@@ -100,8 +100,8 @@ export default function useComputeGraph(): ProcessedData {
                 };
             }
 
-            if (rootType === EntityType.DataProduct) {
-                const result = computeDataProductGraph(
+            if (rootType === EntityType.DataProduct || rootType === EntityType.SemanticModel) {
+                const result = computeLineageContainerGraph(
                     rootUrn,
                     context,
                     ignoreSchemaFieldStatus,

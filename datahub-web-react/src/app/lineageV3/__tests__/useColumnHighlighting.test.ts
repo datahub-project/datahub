@@ -1,6 +1,6 @@
 import { FineGrainedLineage, NodeContext, createColumnRef } from '@app/lineageV3/common';
 import { computeSingleColumnHighlights } from '@app/lineageV3/useColumnHighlighting';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
 
 import { EntityType, LineageDirection } from '@types';
 

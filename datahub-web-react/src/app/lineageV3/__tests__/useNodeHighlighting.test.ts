@@ -1,7 +1,7 @@
 import { NodeContext, buildHighlightAdjacencyList, createEdgeId } from '@app/lineageV3/common';
-import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
-import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/dataProduct/revealedEdges';
+import buildFlowEdges from '@app/lineageV3/useComputeGraph/lineageContainer/buildFlowEdges';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
+import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/lineageContainer/revealedEdges';
 import { computeHighlights } from '@app/lineageV3/useNodeHighlighting';
 
 import { EntityType, LineageDirection } from '@types';
