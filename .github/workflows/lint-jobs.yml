@@ -226,27 +226,24 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      # Restore-only: this workflow is pull_request-only, so a save here would be
+      # ref-scoped to the PR and never shared. The master-scoped entry is written by
+      # python-cache-warmup.yml (push to master) under this exact key.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
           path: |
             ${{ env.UV_CACHE_DIR }}
-          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          restore-keys: |
+            uv-smoke-test-lint-
 
       - name: Run Python lint
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
           ./gradlew :smoke-test:pythonLint
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save uv cache
-        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
-        with:
-          path: |
-            ${{ env.UV_CACHE_DIR }}
-          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
   python-lint:
     name: python-lint
@@ -347,7 +344,6 @@ jobs:
       contents: read
       pull-requests: write # post the i18n parity summary as a sticky PR comment
     env:
-      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
       # Warn-only for now: reports missing/stale/placeholder drift without failing the build.
       # Set to "fail" to make errors (stale keys, placeholder drift) block CI.
       I18N_PARITY_MODE: warn
@@ -355,12 +351,17 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Restore-only, from yarn's default cache dir: the master-scoped entry under this
+      # key is written by build-and-test.yml frontend-build on master. Saving here would
+      # only mint a per-PR copy (this workflow is pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
           path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       - name: Run lint
         run: |
@@ -383,29 +384,28 @@ jobs:
         with:
           header: i18n-parity
           delete: true
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save yarn cache
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
 
   playwright-e2e-lint:
     name: playwright-e2e-lint
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.playwright-e2e == 'true'
-    env:
-      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Restore-only, from yarn's default cache dir. Nothing writes this exact key; the
+      # prefix restore-key soft-hits the master-scoped yarn cache written by
+      # build-and-test.yml frontend-build, which already contains most of the lint
+      # toolchain (eslint, prettier, typescript). Saving here would only mint a per-PR
+      # copy (this workflow is pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
           path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -419,9 +419,3 @@ jobs:
       - name: ESLint
         working-directory: e2e-test/ui/playwright
         run: yarn lint
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save yarn cache
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"

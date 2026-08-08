@@ -79,3 +79,44 @@ jobs:
         with:
           path: ${{ env.UV_CACHE_DIR }}
           key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+
+  # Separate job (not extra steps above) so the saved entry contains only the
+  # smoke-test dependencies, not the union with the python-lint cache.
+  warm-smoke-test-lint-cache:
+    name: Warm smoke-test lint uv cache
+    runs-on: ubuntu-latest
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must match the restore key in lint-jobs.yml smoke-test-lint exactly.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          lookup-only: true
+      - name: Set up JDK 21
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.11"
+      - name: Install smoke-test dev environment
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :smoke-test:installDev
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
