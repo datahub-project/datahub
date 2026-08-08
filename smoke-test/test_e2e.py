@@ -351,6 +351,10 @@ def test_gms_usage_fetch(auth_session):
         1622332800000,  # 2021-05-30
         1622419200000,  # 2021-05-31
     )
+    expected_top_sql_queries = {
+        "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+        "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`",
+    }
     buckets_by_ts = {bucket["bucket"]: bucket for bucket in data["buckets"]}
     for ts, total_sql_queries in expected_non_empty.items():
         assert ts in buckets_by_ts, (
@@ -363,7 +367,14 @@ def test_gms_usage_fetch(auth_session):
         assert ts in buckets_by_ts, (
             f"missing empty interstitial bucket {ts}; got {sorted(buckets_by_ts)}"
         )
-    assert buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"]
+        metrics = buckets_by_ts[ts].get("metrics") or {}
+        assert metrics.get("totalSqlQueries") is None, metrics
+        assert metrics.get("uniqueUserCount") is None, metrics
+        assert not metrics.get("topSqlQueries"), metrics
+    assert (
+        set(buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"])
+        == expected_top_sql_queries
+    )
 
     fields = data["aggregations"].pop("fields")
     assert len(fields) == 12
