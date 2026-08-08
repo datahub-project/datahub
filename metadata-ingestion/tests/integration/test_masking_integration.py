@@ -43,12 +43,15 @@ def capture_masked_logs(
             logger.info("Secret: my_secret")
             assert "my_secret" not in output.getvalue()
     """
-    # Get masking filter from root logger
+    # Get the shared masking filter from root logger's handlers.
     root_logger = logging.getLogger()
     masking_filter = None
-    for f in root_logger.filters:
-        if isinstance(f, SecretMaskingFilter):
-            masking_filter = f
+    for h in root_logger.handlers:
+        for f in h.filters:
+            if isinstance(f, SecretMaskingFilter):
+                masking_filter = f
+                break
+        if masking_filter is not None:
             break
 
     if masking_filter is None:
@@ -87,9 +90,14 @@ class TestBootstrapIntegration:
     def test_basic_initialization(self):
         initialize_secret_masking()
 
-        # Check that filter is installed
+        # Check that filter is installed on root handlers
         root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
+        filters = [
+            f
+            for h in root_logger.handlers
+            for f in h.filters
+            if isinstance(f, SecretMaskingFilter)
+        ]
         assert len(filters) > 0
 
     def test_manual_secret_registration(self):
@@ -100,7 +108,7 @@ class TestBootstrapIntegration:
         registry.register_secret("TEST_PASSWORD", "my_test_secret_123")
 
         # Check that secret was registered
-        secrets = registry.get_all_secrets()
+        secrets = registry.snapshot()[1]
         assert "my_test_secret_123" in secrets
         assert secrets["my_test_secret_123"] == "TEST_PASSWORD"
 
@@ -329,12 +337,11 @@ class TestDoubleInitialization:
         # Second initialization (should be no-op)
         initialize_secret_masking()
 
-        # Check that only one filter is installed
+        # Check that only one filter is installed per handler
         root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-
-        # Should only have one filter (not duplicated)
-        assert len(filters) == 1
+        for h in root_logger.handlers:
+            filters = [f for f in h.filters if isinstance(f, SecretMaskingFilter)]
+            assert len(filters) == 1
 
     def test_force_reinitialization(self):
         # First initialization

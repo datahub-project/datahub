@@ -104,7 +104,8 @@ class TestNestedSecretRegistration:
             == "nested-secret-456"
         )
         # The secret VALUE is in the registry and will be masked
-        assert "nested-secret-456" in registry._secrets
+        _ver, snap = registry.snapshot()
+        assert "nested-secret-456" in snap
 
     def test_multiple_levels_of_nesting(self):
         _config = MiddleConfig.model_validate(
