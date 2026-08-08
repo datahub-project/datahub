@@ -10,20 +10,20 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.UpdateIncidentInput;
+import com.linkedin.datahub.graphql.generated.UpsertIncidentInput;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.service.IncidentInfoPatch;
+import com.linkedin.metadata.service.IncidentInfoUpsert;
 import com.linkedin.metadata.service.IncidentService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-/** Applies a partial update to an incident using an aspect PATCH. */
+/** Applies the editor's complete field snapshot to an incident as a JSON Patch. */
 @RequiredArgsConstructor
-public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpsertIncidentResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final IncidentService _incidentService;
   private final EntityService _entityService;
@@ -33,8 +33,8 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
-    final UpdateIncidentInput input =
-        bindArgument(environment.getArgument("input"), UpdateIncidentInput.class);
+    final UpsertIncidentInput input =
+        bindArgument(environment.getArgument("input"), UpsertIncidentInput.class);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -48,7 +48,7 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
                       null);
           if (info == null) {
             throw new DataHubGraphQLException(
-                "Failed to update incident. Incident does not exist.",
+                "Failed to upsert incident. Incident does not exist.",
                 DataHubGraphQLErrorCode.NOT_FOUND);
           }
 
@@ -57,12 +57,12 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
               new AuditStamp()
                   .setActor(UrnUtils.getUrn(context.getActorUrn()))
                   .setTime(System.currentTimeMillis());
-          IncidentInfoPatch update = IncidentUtils.mapIncidentUpdate(input, actorStamp);
+          IncidentInfoUpsert upsert = IncidentUtils.mapIncidentUpsert(input, actorStamp);
           try {
-            _incidentService.updateIncident(context.getOperationContext(), incidentUrn, update);
+            _incidentService.upsertIncident(context.getOperationContext(), incidentUrn, upsert);
             return true;
           } catch (Exception e) {
-            throw new RuntimeException("Failed to update incident!", e);
+            throw new RuntimeException("Failed to upsert incident!", e);
           }
         },
         this.getClass().getSimpleName(),
