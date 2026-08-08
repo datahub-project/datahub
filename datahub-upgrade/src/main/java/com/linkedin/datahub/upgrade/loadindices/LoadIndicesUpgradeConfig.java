@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.analytics",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
     },

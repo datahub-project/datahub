@@ -125,10 +125,11 @@ public final class PgQueuePollWorker implements Runnable {
               registration.handler().handleBatch(logicalTopic, batch, ctx);
             } catch (Exception e) {
               log.error(
-                  "PgQueue handler failed for group {} topic {}; leases expire for retry",
+                  "PgQueue handler failed for group {} topic {}; releasing leases for retry",
                   registration.consumerGroupId(),
                   logicalTopic,
                   e);
+              ctx.release(batch.stream().map(QueueReceivedMessage::handle).toList());
             }
           } else {
             warnStuckAheadForTopic(logicalTopic, topicId, partitionCount, partitions);
@@ -265,10 +266,11 @@ public final class PgQueuePollWorker implements Runnable {
       flushHandler.flush(logicalTopic, batch, ctx);
     } catch (Exception e) {
       log.error(
-          "PgQueue batch flush failed for group {} topic {}; leases expire for retry",
+          "PgQueue batch flush failed for group {} topic {}; releasing leases for retry",
           registration.consumerGroupId(),
           logicalTopic,
           e);
+      ctx.release(batch.stream().map(QueueReceivedMessage::handle).toList());
     }
   }
 

@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NamedBar;
@@ -123,7 +124,7 @@ public class DailyReport {
   @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
   public void dailyReport() {
     AnalyticsService analyticsService =
-        new AnalyticsService(
+        new DefaultAnalyticsService(
             _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
 
     DateTime endDate = DateTime.now();

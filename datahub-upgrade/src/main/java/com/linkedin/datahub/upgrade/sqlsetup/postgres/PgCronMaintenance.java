@@ -26,6 +26,8 @@ public final class PgCronMaintenance {
   /** Role prefix for {@link #buildScopedCronJobName} (pgTimeseries partman maintenance cron). */
   public static final String PGTIMESERIES_CRON_ROLE = "datahub_pgtimeseries_partman_maint";
 
+  public static final String PGANALYTICS_CRON_ROLE = "datahub_pganalytics_partman_maint";
+
   /**
    * When the readable scoped name exceeds this length, it is replaced by {@code <role>__h<12 hex>}
    * where the hash is SHA-256 of the full key (stable, bounded size for pg_cron metadata).

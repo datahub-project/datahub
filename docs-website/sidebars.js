@@ -1474,6 +1474,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/pgtimeseries-design",
+        "docs/pganalytics-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",

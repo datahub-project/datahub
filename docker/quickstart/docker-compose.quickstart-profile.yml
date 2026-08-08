@@ -458,7 +458,7 @@ services:
       ZDU_STAGE_10: 'true'
       ZDU_STAGE_20: 'true'
     hostname: datahub-system-update
-    image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
+    image: acryldata/datahub-upgrade:v1.7.0rc1-SNAPSHOT
     labels:
       datahub_setup_job: 'true'
     networks:

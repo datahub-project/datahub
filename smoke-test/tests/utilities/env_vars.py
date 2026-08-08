@@ -308,6 +308,17 @@ def get_elasticsearch_index() -> str:
     return os.getenv("ELASTICSEARCH_INDEX", "datahub_usage_event")
 
 
+def get_usage_events_implementation() -> str:
+    """Product usage-events SoT: ``elasticsearch`` (default) or ``postgres``."""
+    return str(
+        os.getenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "elasticsearch")
+    ).lower()
+
+
+def usage_events_stored_in_postgres() -> bool:
+    return get_usage_events_implementation() == "postgres"
+
+
 # ============================================================================
 # Slack Notifications
 # ============================================================================
