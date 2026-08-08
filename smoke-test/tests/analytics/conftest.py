@@ -8,12 +8,15 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Generator
 
 import pytest
 import requests
+
+from tests.utilities import env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +27,9 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
 
     Forces index refresh and queries for guaranteed coverage events to ensure
     data is available before tests run.
-
-    Args:
-        elasticsearch_url: Elasticsearch base URL
     """
     logger.info("Validating that analytics data is searchable in Elasticsearch...")
 
-    # Force Elasticsearch index refresh to make data immediately searchable
     try:
         refresh_response = requests.post(
             f"{elasticsearch_url}/datahub_usage_event/_refresh", timeout=10
@@ -44,8 +43,6 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
     except Exception as e:
         logger.warning(f"Failed to refresh index: {e}")
 
-    # Probe query to verify guaranteed coverage events are searchable
-    # Query for EntitySectionViewEvent with entityType=DATASET (guaranteed to exist)
     probe_query = {
         "query": {
             "bool": {
@@ -59,7 +56,7 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
     }
 
     max_retries = 10
-    retry_delay = 1  # seconds
+    retry_delay = 1
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -97,10 +94,71 @@ def _validate_analytics_data_searchable(elasticsearch_url: str) -> None:
             if attempt < max_retries:
                 time.sleep(retry_delay)
     else:
-        # If we exhausted all retries, log a warning but continue
-        # (tests may still pass if data becomes searchable shortly after)
         logger.warning(
             "⚠️  Data searchability validation timed out, but continuing with tests"
+        )
+
+    logger.info("Analytics data is ready for testing")
+
+
+def _validate_analytics_data_in_postgres() -> None:
+    """Validate synthetic usage events are present in pgAnalytics."""
+    import psycopg2
+
+    host_port = env_vars.get_postgres_url()
+    host, _, port_s = host_port.partition(":")
+    port = int(port_s or "5432")
+    logger.info("Validating that analytics data is present in Postgres...")
+
+    max_retries = 10
+    retry_delay = 1
+    for attempt in range(1, max_retries + 1):
+        try:
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                user=env_vars.get_postgres_username(),
+                password=env_vars.get_postgres_password(),
+                dbname="datahub",
+            )
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT count(*) FROM metadata_analytics_event
+                        WHERE metric_family = 'datahub_usage'
+                          AND event_type = 'EntitySectionViewEvent'
+                          AND upper(entity_type) = 'DATASET'
+                          AND (usage_source IS NULL OR usage_source <> 'backend')
+                        """
+                    )
+                    hit_count = cur.fetchone()[0]
+            finally:
+                conn.close()
+
+            if hit_count > 0:
+                logger.info(
+                    "✓ Postgres has %s EntitySectionViewEvent events for DATASET",
+                    hit_count,
+                )
+                break
+            logger.warning(
+                "Attempt %s/%s: No Postgres rows yet, retrying in %ss...",
+                attempt,
+                max_retries,
+                retry_delay,
+            )
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+        except Exception as e:
+            logger.warning(
+                "Attempt %s/%s: Postgres probe failed: %s", attempt, max_retries, e
+            )
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+    else:
+        logger.warning(
+            "⚠️  Postgres analytics validation timed out, but continuing with tests"
         )
 
     logger.info("Analytics data is ready for testing")
@@ -111,29 +169,17 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
     """
     Load analytics events with relative timestamps for smoke tests.
 
-    This fixture:
-    1. Generates synthetic activity events with timestamps relative to current execution time
-    2. Loads events directly to Elasticsearch
-    3. Ensures "Past Week" and "Past Month" analytics have fresh data
-    4. Runs once per test session for efficiency
-
-    Args:
-        auth_session: Authenticated session fixture (ensures system is healthy)
-
-    Returns:
-        dict: Statistics about loaded events (event_count, event_types)
+    Loads into Postgres when DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres,
+    otherwise into Elasticsearch (legacy SoT).
     """
-    # auth_session ensures system is healthy
     logger.info("Loading analytics data...")
 
-    # Get the path to the backfill script
     script_dir = (
         Path(__file__).parent.parent.parent / "test_resources" / "analytics_backfill"
     )
     backfill_script = script_dir / "backfill_activity_events.py"
     users_file = script_dir / "users.json"
 
-    # Check if users file exists, create minimal one if not
     if not users_file.exists():
         logger.info(f"Creating minimal users file at {users_file}")
         minimal_users = [
@@ -143,21 +189,17 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
         with open(users_file, "w") as f:
             json.dump(minimal_users, f, indent=2)
 
-    # Get Elasticsearch URL from environment or use default
     elasticsearch_url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
-
-    # Generate 45 days of data to ensure Monthly Active Users (MAU) chart has data
-    # MAU queries data from previous complete months, so we need data spanning beyond current month
+    use_postgres = env_vars.usage_events_stored_in_postgres()
     days_to_generate = 45
 
     logger.info("Generating and loading analytics events with relative timestamps...")
-    logger.info(f"  Elasticsearch URL: {elasticsearch_url}")
+    logger.info("  Usage SoT: %s", env_vars.get_usage_events_implementation())
     logger.info(f"  Days of data: {days_to_generate}")
     logger.info("  Events per day: 200")
 
-    # Run the backfill script with direct Elasticsearch loading
     cmd = [
-        "python3",
+        sys.executable,
         str(backfill_script),
         "--users-file",
         str(users_file),
@@ -165,13 +207,30 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
         str(days_to_generate),
         "--events-per-day",
         "200",
-        "--elasticsearch-url",
-        elasticsearch_url,
-        "--load-to-elasticsearch",
         "--seed",
-        "42",  # Deterministic seed for reproducible tests
-        "--ensure-test-coverage",  # Guarantee required entity types
+        "42",
+        "--ensure-test-coverage",
     ]
+    if use_postgres:
+        cmd.extend(
+            [
+                "--load-to-postgres",
+                "--postgres-url",
+                env_vars.get_postgres_url(),
+                "--postgres-username",
+                env_vars.get_postgres_username(),
+                "--postgres-password",
+                env_vars.get_postgres_password(),
+            ]
+        )
+    else:
+        cmd.extend(
+            [
+                "--elasticsearch-url",
+                elasticsearch_url,
+                "--load-to-elasticsearch",
+            ]
+        )
 
     try:
         result = subprocess.run(
@@ -179,7 +238,7 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
             capture_output=True,
             text=True,
             check=True,
-            timeout=300,  # 5 minute timeout
+            timeout=300,
         )
 
         logger.info("Analytics data loading output:")
@@ -191,11 +250,9 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
             for line in result.stderr.splitlines():
                 logger.warning(f"  {line}")
 
-        # Parse output to extract statistics
         stats = {"event_count": 0, "event_types": {}}
         for line in result.stdout.splitlines():
             if "Generated" in line and "total events" in line:
-                # Extract event count from "Generated 5432 total events"
                 parts = line.split()
                 if len(parts) >= 2:
                     try:
@@ -205,8 +262,10 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
 
         logger.info(f"✅ Successfully loaded {stats['event_count']} analytics events")
 
-        # Validate that data is searchable before proceeding with tests
-        _validate_analytics_data_searchable(elasticsearch_url)
+        if use_postgres:
+            _validate_analytics_data_in_postgres()
+        else:
+            _validate_analytics_data_searchable(elasticsearch_url)
 
         yield stats
 
@@ -222,5 +281,18 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
         logger.error(f"Unexpected error loading analytics data: {e}")
         raise
 
-    # Cleanup happens automatically when fixture goes out of scope
     logger.info("Analytics test session complete")
+
+
+@pytest.fixture(scope="session")
+def analytics_cypress_entities_loaded(
+    analytics_events_loaded, ingest_cleanup_data
+) -> None:
+    """
+    Ensure Cypress test entities are ingested before running analytics tests.
+
+    This fixture depends on:
+    - analytics_events_loaded: Fresh analytics events
+    - ingest_cleanup_data: Standard Cypress test data
+    """
+    logger.info("Analytics test data and entities ready")

@@ -259,6 +259,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "secretService.callerGuardMode",
           "kubernetes.serviceHost",
           "kubernetes.operationsApiEnabled",
+          // Generic analytics compaction budgets (OpenAPI / SYSTEM source)
+          "analytics.compact.maxHoursToSeal",
+          "analytics.compact.maxDaysToCompact",
+          "analytics.compact.maxMonthsToCompact",
+          "analytics.compact.maxWallClockMillis",
           "tokenService",
           // Configuration keys and settings (not secret keys)
           "key",
