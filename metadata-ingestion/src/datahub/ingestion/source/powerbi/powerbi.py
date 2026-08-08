@@ -402,6 +402,16 @@ class Mapper:
                     )
                 )
 
+            # Table-to-table lineage: references to sibling tables in the same
+            # PowerBI dataset (resolved from the M-Query by the parser). The
+            # helper records emitted / dropped samples on the report.
+            for sibling_urn in self._table_reference_upstreams(
+                lineage.powerbi_table_upstreams, table
+            ):
+                upstream.append(
+                    UpstreamClass(sibling_urn, DatasetLineageTypeClass.TRANSFORMED)
+                )
+
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
@@ -417,6 +427,71 @@ class Mapper:
             mcps.append(mcp)
 
         return mcps
+
+    def _table_reference_upstreams(
+        self,
+        table_references: List[str],
+        current_table: powerbi_data_classes.Table,
+    ) -> List[str]:
+        """Resolve sibling-table reference names to dataset URNs.
+
+        Names come from the M-Query/DAX parser and are matched case-insensitively
+        against the dataset's real tables, so a name that is not an actual sibling
+        produces no edge. Self-references are skipped. Emitted, unmatched,
+        self-referencing and unresolvable references are each counted so the report
+        accounts for every candidate.
+        """
+        if not table_references:
+            return []
+
+        dataset = current_table.dataset
+        if dataset is None:
+            # Candidates were found but there's no parent dataset to resolve them
+            # against — surface it rather than dropping them silently.
+            self.__reporter.m_query_table_to_table_no_dataset += 1
+            self.__reporter.warning(
+                title="Table-to-table lineage skipped",
+                message="Table has sibling-table references but no parent dataset; "
+                "cannot resolve them to URNs.",
+                context=f"table={current_table.full_name}, references={table_references}",
+            )
+            return []
+
+        matched = powerbi_data_classes.matching_sibling_tables(
+            current_table, table_references
+        )
+        matched_names = {sibling.name.casefold() for sibling in matched}
+        for reference in table_references:
+            if reference.casefold() in matched_names:
+                continue
+            if reference.casefold() == current_table.name.casefold():
+                # Suppressing a self-loop is correct, but it is also how a leaked
+                # step name that equals the table name would look — count it so a
+                # resolver regression is visible rather than silently benign.
+                self.__reporter.m_query_table_to_table_self_reference += 1
+                continue
+            self.__reporter.m_query_table_to_table_unmatched += 1
+            self.__reporter.m_query_table_to_table_unmatched_samples.append(
+                f"{current_table.full_name} -> {reference}"
+            )
+
+        upstream_urns: List[str] = []
+        for sibling in matched:
+            self.__reporter.m_query_table_to_table_lineage += 1
+            self.__reporter.m_query_table_to_table_lineage_samples.append(
+                f"{current_table.full_name} -> {sibling.full_name}"
+            )
+            upstream_urns.append(
+                self.assets_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=self.__config.platform_name,
+                        name=sibling.full_name,
+                        platform_instance=self.__config.platform_instance,
+                        env=self.__config.env,
+                    )
+                )
+            )
+        return upstream_urns
 
     def create_datahub_owner_urn(self, user: str) -> str:
         """

@@ -1356,7 +1356,7 @@ def test_m_query_timeout(mock_get_bridge):
 
     mock_get_bridge.return_value = mock_bridge_instance
     # sleep for 5 seconds to trigger timeout
-    mock_bridge_instance.parse.side_effect = lambda expression: time.sleep(5)
+    mock_bridge_instance.parse_tree.side_effect = lambda expression: time.sleep(5)
 
     parser.get_upstream_tables(
         table,

@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
@@ -10,12 +11,14 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
 from datahub.ingestion.source.powerbi.m_query import (
+    dax_resolver,
     pattern_handler,
     resolver as mquery_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query._bridge import (
     MQueryBridgeError,
     MQueryParseError,
+    ParsedMQuery,
     _clear_bridge,
     get_bridge,
 )
@@ -23,19 +26,58 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Table,
+    matching_sibling_tables as match_sibling_tables,
+)
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
 
+# Signals that an expression is M-Query. `let` alone is not enough: it is
+# sufficient but not necessary for M, so keying off its absence would send a
+# *malformed* M-Query to the DAX extractor, fabricating lineage from an
+# expression we failed to parse.
+#
+# `let` as a whole word — a substring check would misfire on names like "Outlet"
+# or "Complete" that merely contain the letters "let".
+_M_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
+# M library functions are always namespaced (Table.Combine, Sql.Database,
+# Json.Document); DAX functions never are.
+_M_NAMESPACED_CALL = re.compile(r"\b[A-Za-z_]\w*\.[A-Za-z_]\w*\s*\(")
+# M-only leading keywords and intrinsic literals. `if` is deliberately absent:
+# DAX has an IF() function, while M's is an if/then expression (see below).
+_M_ONLY_SYNTAX = re.compile(
+    r"^\s*(try|each|section|shared)\b"
+    r"|#(table|date|datetime|datetimezone|duration|time|binary)\s*\(",
+    re.IGNORECASE,
+)
+# M's conditional is `if <cond> then <a> else <b>`; DAX's is the call `IF(a,b,c)`.
+# Requiring `then` is what tells them apart.
+_M_IF_EXPRESSION = re.compile(r"^\s*if\b[\s\S]*?\bthen\b", re.IGNORECASE)
+# Comments must not decide the language: a DAX expression whose comment mentions
+# `let` would otherwise be reported as a failed M-Query and lose its lineage.
+_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
 
-def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
+
+def _looks_like_m_query(expression: str) -> bool:
+    """Whether *expression* is M-Query (as opposed to a DAX table expression)."""
+    code = _COMMENT.sub(" ", expression)
+    return bool(
+        _M_LET_KEYWORD.search(code)
+        or _M_NAMESPACED_CALL.search(code)
+        or _M_ONLY_SYNTAX.search(code)
+        or _M_IF_EXPRESSION.search(code)
+    )
+
+
+def _parse_with_bridge(expression: str, timeout: int) -> ParsedMQuery:
     """Call the bridge and return the NodeIdMap dict.
     Clears the singleton on bridge crash or timeout so the next call gets a fresh context.
     """
     try:
         with threading_timeout(timeout):
-            return get_bridge().parse(expression)
+            return get_bridge().parse_tree(expression)
     except MQueryBridgeError:
         _clear_bridge()
         raise
@@ -57,9 +99,14 @@ def get_upstream_tables(
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
-    Returns an empty list when the expression is absent, empty, a DAX
-    computed-table expression (no ``let`` keyword), or a NativeQuery that the
-    caller has opted out of (``native_query_parsing=False``).
+    Covers external data sources (recognized M data-access functions), DAX
+    calculated tables, and references to sibling tables in the same dataset
+    (surfaced on ``Lineage.powerbi_table_upstreams`` for the mapper to resolve
+    to URNs).
+
+    Returns an empty list when the expression is absent or empty, when it is a
+    NativeQuery the caller has opted out of (``native_query_parsing=False``), or
+    when no upstream could be extracted.
     """
     parameters = parameters or {}
 
@@ -94,7 +141,8 @@ def get_upstream_tables(
 
     try:
         with reporter.m_query_parse_timer:
-            node_map = _parse_with_bridge(expression, config.m_query_parse_timeout)
+            parsed = _parse_with_bridge(expression, config.m_query_parse_timeout)
+            node_map = parsed.node_map
     except TimeoutException:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
@@ -104,21 +152,11 @@ def get_upstream_tables(
         )
         return []
     except MQueryParseError as e:
-        # Expressions without a `let` keyword are almost certainly not M-Query
-        # (e.g. DAX computed-table expressions like SUMMARIZE(...)). The old
-        # Lark parser happened to parse these and then logged INFO "Non-Data
-        # Platform Expression". Preserve that behaviour: only warn when the
-        # expression looks like it was intended to be M-Query.
-        if "let" not in expression.lower():
-            reporter.m_query_non_mquery_expressions += 1
-            logger.info(
-                "Non-M-Query expression in table %s — skipping lineage extraction "
-                "(expression does not contain 'let'). Expression: %s. Error: %s",
-                table.full_name,
-                expression,
-                e,
-            )
-        else:
+        # A genuine M-Query that failed to parse is a real failure — never
+        # reinterpret it as DAX. DAX's `Table[Column]` is lexically identical to M
+        # record access `id[Field]`, so the DAX extractor would otherwise
+        # fabricate references from a broken M-Query and hide the parse error.
+        if _looks_like_m_query(expression):
             reporter.m_query_parse_unknown_errors += 1
             reporter.warning(
                 title="Unable to parse M-Query expression",
@@ -126,6 +164,28 @@ def get_upstream_tables(
                 context=f"table-full-name={table.full_name}, expression={expression}",
                 exc=e,
             )
+            return []
+
+        # No `let` keyword — most often a DAX calculated-table expression (e.g.
+        # summarize('T', ...)). Try to extract sibling-table references before
+        # treating it as an unsupported non-M expression.
+        table_refs = (
+            dax_resolver.extract_dax_table_references(expression, reporter=reporter)
+            if config.extract_table_to_table_lineage
+            else []
+        )
+        if table_refs:
+            reporter.m_query_dax_table_lineage += 1
+            return [Lineage(powerbi_table_upstreams=table_refs)]
+
+        reporter.m_query_non_mquery_expressions += 1
+        logger.info(
+            "Non-M-Query expression in table %s — skipping lineage extraction "
+            "(no 'let' keyword). Expression: %s. Error: %s",
+            table.full_name,
+            expression,
+            e,
+        )
         return []
     except MQueryBridgeError as e:
         reporter.m_query_parse_unknown_errors += 1
@@ -144,16 +204,8 @@ def get_upstream_tables(
             node_map, parameters=parameters
         )
 
-        if not data_access_func_details:
-            logger.debug(
-                "No recognized data-access function found in expression for table %s."
-                " Expression may use an unsupported source (e.g. Web.Contents,"
-                " Excel.Workbook). To add support, reproduce with: %r",
-                table.full_name,
-                expression,
-            )
-
         lineages: List[Lineage] = []
+
         for f_detail in data_access_func_details:
             supported_pattern = pattern_handler.SupportedPattern.get_pattern_handler(
                 f_detail.data_access_function_name
@@ -174,7 +226,47 @@ def get_upstream_tables(
             if lineage.upstreams:
                 lineages.append(lineage)
 
-        if lineages:
+        data_source_found = bool(lineages)
+
+        # The expression may also reference another table in the same dataset by
+        # name (table-to-table lineage), collected regardless of whether an
+        # external data source was found since an M-Query can combine both
+        # (e.g. Table.Combine({Sql.Database(...), SiblingTable})). Only names that
+        # match a real sibling count, so stray identifiers in unsupported sources
+        # don't inflate resolver_successes or hide the debug below.
+        #
+        # Contained separately: a defect here must not discard the external
+        # data-source lineage already collected above.
+        candidates: List[str] = []
+        matched_sibling_ref = False
+        if config.extract_table_to_table_lineage:
+            try:
+                candidates = mquery_resolver.resolve_to_table_references(
+                    node_map,
+                    parameters=parameters,
+                    parent_by_id=parsed.parent_by_id,
+                )
+                # Only a real sibling counts as lineage for the accounting below,
+                # but the mapper receives every candidate so it can report the
+                # unmatched and self-referencing ones.
+                matched_sibling_ref = bool(match_sibling_tables(table, candidates))
+            except Exception as e:
+                reporter.m_query_table_reference_errors += 1
+                reporter.warning(
+                    title="Table-to-table reference extraction failed",
+                    message="Sibling-table lineage will be missing for this table; "
+                    "external data-source lineage is unaffected. This is likely a "
+                    "connector defect rather than a bad expression.",
+                    context=f"table-full-name={table.full_name}",
+                    exc=e,
+                )
+        else:
+            reporter.m_query_table_to_table_disabled += 1
+
+        if candidates:
+            lineages.append(Lineage(powerbi_table_upstreams=candidates))
+
+        if data_source_found or matched_sibling_ref:
             reporter.m_query_resolver_successes += 1
         else:
             reporter.m_query_resolver_no_lineage += 1
@@ -186,6 +278,14 @@ def get_upstream_tables(
                     "Recognized function(s) %s but no lineage extracted for table %s."
                     " To reproduce locally: %r",
                     [f.data_access_function_name for f in data_access_func_details],
+                    table.full_name,
+                    expression,
+                )
+            else:
+                logger.debug(
+                    "No recognized data-access function found in expression for table"
+                    " %s. Expression may use an unsupported source (e.g. Web.Contents,"
+                    " Excel.Workbook). To add support, reproduce with: %r",
                     table.full_name,
                     expression,
                 )
