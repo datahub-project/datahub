@@ -4,7 +4,7 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
@@ -19,6 +19,33 @@ _PROFILING_FLAGS_TO_REPORT = {
 }
 
 logger = logging.getLogger(__name__)
+
+# Sentinel for the `profiling_isolation_level` escape hatch: setting this value
+# (case-insensitive, normalized to upper-case by the validator) falls back to the
+# default transactional behavior — i.e. clears the adapter's AUTOCOMMIT default.
+# A shared constant so the validator (here) and the resolver (sqlalchemy_profiler)
+# don't drift on the literal string.
+TRANSACTIONAL = "TRANSACTIONAL"
+
+# Operator-level env var that overrides the adapter default (but not an explicit
+# recipe config). Read at resolution time inside _resolve_profiling_isolation_level,
+# not at import — see the docstring there.
+DATAHUB_PROFILING_ISOLATION_LEVEL_ENV = "DATAHUB_PROFILING_ISOLATION_LEVEL"
+
+
+def normalize_profiling_isolation_level(value: Any) -> Any:
+    """Strip, upper-case, and map empty/whitespace to None.
+
+    Shared by the config ``field_validator`` and the env-var path in
+    ``SQLAlchemyProfiler._resolve_profiling_isolation_level`` so the
+    ``TRANSACTIONAL`` sentinel resolves the same way from both inputs
+    (``"transactional "`` / ``"Transactional"`` / ``"TRANSACTIONAL"`` all
+    land on the sentinel, and ``""`` / ``"  "`` are treated as unset).
+    """
+    if value is None or not isinstance(value, str):
+        return value
+    normalized = value.strip().upper()
+    return normalized or None
 
 
 class ProfilingMethodConfig(ConfigModel):
@@ -181,6 +208,43 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
+
+    # Opt-out for the AUTOCOMMIT profiling default: a raw SQLAlchemy isolation level
+    # string, so operators can turn AUTOCOMMIT off per-source (here) or fleet-wide
+    # (via the DATAHUB_PROFILING_ISOLATION_LEVEL env var).
+    profiling_isolation_level: Annotated[
+        Optional[str], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Controls the profiling connection's isolation level. By default each "
+            "source's adapter chooses the level (MySQL and Postgres use AUTOCOMMIT so "
+            "each profiling SELECT is self-contained, avoiding a long-lived transaction "
+            "that pins InnoDB read views / holds Postgres idle-in-transaction and blocks "
+            "VACUUM). To turn AUTOCOMMIT OFF and restore the prior per-table transactional "
+            "behavior, set this to the sentinel `TRANSACTIONAL` (e.g. for MySQL behind a "
+            "proxy that rejects the `AUTOCOMMIT` session setting). To force a specific "
+            "level, set a SQLAlchemy isolation level name. An invalid level fails the run "
+            "loudly (every table fails at execution_options before the first result "
+            "returns) rather than being swallowed per-table into a warning. Setting a "
+            "non-TRANSACTIONAL value on a platform whose adapter does not opt in (e.g. "
+            "Snowflake, BigQuery, Athena, Trino, ClickHouse) emits a warning: those "
+            "adapters override setup_profiling and may create session-scoped temp "
+            "resources that AUTOCOMMIT can corrupt. Cross-statement snapshot consistency "
+            "is not guaranteed under AUTOCOMMIT. An operator-level override is also "
+            "available via the `DATAHUB_PROFILING_ISOLATION_LEVEL` environment variable; "
+            "this recipe field takes precedence over the env var. Reverting to "
+            "transactional behavior restores the pre-change profile output with no "
+            "migration, state, or cache to clean up."
+        ),
+    )
+
+    @field_validator("profiling_isolation_level", mode="before")
+    @classmethod
+    def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
+        # Delegates to the shared normalizer so the TRANSACTIONAL sentinel and
+        # empty-string handling match the env-var path in SQLAlchemyProfiler.
+        return normalize_profiling_isolation_level(value)
 
     partition_profiling_enabled: Annotated[
         bool, SupportedSources(["athena", "bigquery"])

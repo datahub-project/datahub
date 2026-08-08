@@ -115,3 +115,16 @@ class MySQLAdapter(PlatformAdapter):
                 f"Failed to get MySQL row count estimate: {type(e).__name__}: {str(e)}"
             )
             return None
+
+    # =========================================================================
+    # Connection Isolation
+    # =========================================================================
+
+    def profiling_isolation_level(self) -> Optional[str]:
+        # pymysql disables autocommit on connect (`SET AUTOCOMMIT = 0`) and SQLAlchemy never
+        # COMMITs the read-only profiling session, so the transaction stays open for the
+        # connection's life — pinning an InnoDB REPEATABLE-READ read view and growing the
+        # history/undo list. AUTOCOMMIT makes each statement self-contained. MySQLAdapter
+        # creates no temp resources (no setup_profiling/cleanup override), so this is safe.
+        # Cross-snapshot skew is accepted; see base_adapter.profiling_isolation_level.
+        return "AUTOCOMMIT"

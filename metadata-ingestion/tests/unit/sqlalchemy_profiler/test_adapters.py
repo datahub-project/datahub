@@ -385,6 +385,10 @@ class TestGenericAdapter:
         """Test generic adapter doesn't support row count estimation."""
         assert adapter.supports_row_count_estimation() is False
 
+    def test_profiling_isolation_level_returns_none(self, adapter):
+        """Default adapter does not opt in to autocommit — preserves current transaction behavior."""
+        assert adapter.profiling_isolation_level() is None
+
     def test_get_estimated_row_count(self, adapter, mock_table):
         """Test generic adapter returns None for row count estimation."""
         mock_conn = MagicMock()
@@ -417,6 +421,10 @@ class TestMySQLAdapter:
     def test_supports_row_count_estimation(self, adapter):
         """Test MySQL supports fast row count estimation."""
         assert adapter.supports_row_count_estimation() is True
+
+    def test_profiling_isolation_level_returns_autocommit(self, adapter):
+        """MySQL opts in to AUTOCOMMIT to avoid holding a long transaction across profiling."""
+        assert adapter.profiling_isolation_level() == "AUTOCOMMIT"
 
     def test_get_estimated_row_count_generates_correct_query(
         self, adapter, mock_table, mock_mysql_engine
@@ -606,6 +614,10 @@ class TestPostgresAdapter:
     def test_supports_row_count_estimation(self, adapter):
         """Test PostgreSQL supports fast row count estimation."""
         assert adapter.supports_row_count_estimation() is True
+
+    def test_profiling_isolation_level_returns_autocommit(self, adapter):
+        """Postgres opts in to AUTOCOMMIT to avoid holding a long transaction across profiling."""
+        assert adapter.profiling_isolation_level() == "AUTOCOMMIT"
 
     def test_get_estimated_row_count_uses_pg_class(
         self, adapter, mock_table, mock_postgres_engine

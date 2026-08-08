@@ -178,3 +178,16 @@ class PostgresAdapter(PlatformAdapter):
                 f"Failed to get PostgreSQL row count estimate: {type(e).__name__}: {str(e)}"
             )
             return None
+
+    # =========================================================================
+    # Connection Isolation
+    # =========================================================================
+
+    def profiling_isolation_level(self) -> Optional[str]:
+        # psycopg2 begins a transaction on first use and SQLAlchemy never COMMITs the
+        # read-only profiling session, so the transaction stays open for the connection's
+        # life — Postgres sits idle-in-transaction, holding back the xmin horizon and
+        # blocking VACUUM. AUTOCOMMIT makes each statement self-contained. PostgresAdapter
+        # creates no temp resources (no setup_profiling/cleanup override), so this is safe.
+        # Cross-snapshot skew is accepted; see base_adapter.profiling_isolation_level.
+        return "AUTOCOMMIT"
