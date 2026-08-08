@@ -51,7 +51,7 @@ The skill walks you through connecting to your DataHub instance. It configures a
 <Tabs>
 <TabItem value="cloud" label="DataHub Cloud">
 
-You'll need your tenant URL and a personal access token:
+You'll need your tenant URL and a [personal access token](../../authentication/personal-access-tokens.md):
 
 ```
 Connect to DataHub Cloud at <tenant>.acryl.io
@@ -60,7 +60,7 @@ Connect to DataHub Cloud at <tenant>.acryl.io
 </TabItem>
 <TabItem value="oss" label="Self-Hosted">
 
-You'll need your GMS URL (e.g., `http://localhost:8080`) and a personal access token:
+You'll need your GMS URL (e.g., `http://localhost:8080`) and a [personal access token](../../authentication/personal-access-tokens.md):
 
 ```
 Connect to my self-hosted DataHub at <gms-url>
