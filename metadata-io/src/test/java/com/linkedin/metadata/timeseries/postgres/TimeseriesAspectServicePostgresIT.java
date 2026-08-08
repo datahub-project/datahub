@@ -155,12 +155,11 @@ public class TimeseriesAspectServicePostgresIT {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
 
-    writeSink =
-        new PostgresTimeseriesAspectWriteSink(new PostgresTimeseriesAspectDao(database, props));
+    var registry = PostgresTestUtils.singlePgTimeseriesStoreRegistry(database, props);
+    writeSink = new PostgresTimeseriesAspectWriteSink(registry);
     pgTimeseries =
         new PostgresTimeseriesAspectService(
-            database,
-            props,
+            registry,
             TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
             QueryFilterRewriteChain.EMPTY,
             entityRegistry);

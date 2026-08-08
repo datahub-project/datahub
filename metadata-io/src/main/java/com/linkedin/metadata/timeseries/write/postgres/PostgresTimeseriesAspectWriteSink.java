@@ -1,7 +1,7 @@
 package com.linkedin.metadata.timeseries.write.postgres;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao;
+import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
 import io.datahubproject.metadata.context.OperationContext;
@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
  * JDBC dual-write for SqlSetup {@code {prefix}_aspect} (see {@code
  * datahub-upgrade/src/main/resources/sqlsetup/pgtimeseries/}). Skipped when PostgreSQL is already
  * the primary {@link com.linkedin.metadata.timeseries.TimeseriesAspectService} implementation (see
- * factory).
+ * factory). Routes each {@code (entity, aspect)} to the configured store.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -24,11 +24,11 @@ public class PostgresTimeseriesAspectWriteSink extends AbstractTimeseriesAspectW
   static final String UPSERT_FAILURE_METRIC = "dual_write_upsert_failure";
   static final String DELETE_FAILURE_METRIC = "dual_write_delete_failure";
 
-  @Nonnull private final PostgresTimeseriesAspectDao pgTimeseriesAspectDao;
+  @Nonnull private final PgTimeseriesStoreRegistry storeRegistry;
   private final boolean failOnError;
 
-  public PostgresTimeseriesAspectWriteSink(@Nonnull PostgresTimeseriesAspectDao dao) {
-    this(dao, false);
+  public PostgresTimeseriesAspectWriteSink(@Nonnull PgTimeseriesStoreRegistry storeRegistry) {
+    this(storeRegistry, false);
   }
 
   @Override
@@ -40,7 +40,7 @@ public class PostgresTimeseriesAspectWriteSink extends AbstractTimeseriesAspectW
       @Nonnull JsonNode document) {
     TimeseriesAspectRowPayload row = parsePayload(entityName, aspectName, docId, document);
     try {
-      pgTimeseriesAspectDao.upsert(row);
+      storeRegistry.resolve(entityName, aspectName).getDao().upsert(row);
     } catch (SQLException e) {
       handleFailure(
           opContext,
@@ -64,7 +64,10 @@ public class PostgresTimeseriesAspectWriteSink extends AbstractTimeseriesAspectW
     // Deletes by resolved message id only (same as ES doc identity); isExploded is unused.
     String messageId = resolveMessageId(docId, document);
     try {
-      pgTimeseriesAspectDao.deleteByMessageId(entityName, aspectName, messageId);
+      storeRegistry
+          .resolve(entityName, aspectName)
+          .getDao()
+          .deleteByMessageId(entityName, aspectName, messageId);
     } catch (SQLException e) {
       handleFailure(
           opContext,
