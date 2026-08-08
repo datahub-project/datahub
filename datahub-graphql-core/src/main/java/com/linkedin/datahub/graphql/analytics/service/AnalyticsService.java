@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.Cell;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -15,6 +16,8 @@ import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,9 +25,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -35,6 +40,8 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
+import org.opensearch.search.aggregations.bucket.filter.Filters;
+import org.opensearch.search.aggregations.bucket.filter.FiltersAggregator.KeyedFilter;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -54,6 +61,12 @@ public class AnalyticsService {
   private static final String UNIQUE = "unique";
   private static final String DIMENSION = "dimension";
   private static final String SECOND_DIMENSION = "second_dimension";
+  private static final String BY_RANGE = "by_range";
+  private static final String BY_ENTITY = "by_entity";
+  private static final String BY_FACET = "by_facet";
+  private static final String INDEX_FIELD = "_index";
+  private static final String REMOVED = "removed";
+  private static final String TRUE = "true";
   public static final String NA = "N/A";
 
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
@@ -331,9 +344,166 @@ public class AnalyticsService {
     }
   }
 
+  /**
+   * Computes a unique count per date range in a single query, rather than one query per range. Keys
+   * of the result mirror the keys of {@code keyedRanges}; a range whose bucket is missing from the
+   * response maps to 0.
+   */
+  public Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull Map<String, DateRange> keyedRanges,
+      @Nonnull String uniqueOn) {
+    if (keyedRanges.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    KeyedFilter[] rangeFilters =
+        keyedRanges.entrySet().stream()
+            .map(entry -> new KeyedFilter(entry.getKey(), dateRangeQuery(entry.getValue())))
+            .toArray(KeyedFilter[]::new);
+
+    AggregationBuilder filteredAgg =
+        getFilteredAggregation(ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
+    filteredAgg.subAggregation(
+        AggregationBuilders.filters(BY_RANGE, rangeFilters)
+            .subAggregation(getUniqueQuery(uniqueOn)));
+
+    Filter aggregationResult =
+        executeAndExtract(opContext, constructSearchRequest(indexName, filteredAgg));
+
+    Map<String, Integer> results = new LinkedHashMap<>();
+    for (String key : keyedRanges.keySet()) {
+      results.put(key, extractUniqueCount(aggregationResult, key));
+    }
+    return results;
+  }
+
+  private int extractUniqueCount(Filter aggregationResult, String rangeKey) {
+    try {
+      Filters byRange = aggregationResult.getAggregations().get(BY_RANGE);
+      Filters.Bucket bucket = byRange.getBucketByKey(rangeKey);
+      if (bucket == null) {
+        return 0;
+      }
+      return (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue();
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Caught exception while extracting unique count for range %s: %s",
+              rangeKey, e.getMessage()));
+      return 0;
+    }
+  }
+
+  /**
+   * Computes the total document count plus one count per facet field, for every requested entity
+   * type, in a single query across all of their indices.
+   *
+   * <p>Buckets are keyed by our own entity-type names rather than derived from the {@code _index}
+   * term agg, because entity indices are aliases over timestamp-suffixed backing indices and the
+   * index-name-to-entity-name round trip is lossy.
+   */
+  public Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntityType> entityTypes,
+      @Nonnull List<String> facetFields) {
+    if (entityTypes.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<String, EntityType> keyToEntityType = new LinkedHashMap<>();
+    entityTypes.forEach(entityType -> keyToEntityType.put(entityType.name(), entityType));
+
+    KeyedFilter[] entityFilters =
+        entityTypes.stream()
+            .map(
+                entityType ->
+                    new KeyedFilter(
+                        entityType.name(),
+                        QueryBuilders.termQuery(INDEX_FIELD, getEntityIndexName(entityType))))
+            .toArray(KeyedFilter[]::new);
+    KeyedFilter[] facetFilters =
+        facetFields.stream()
+            .map(field -> new KeyedFilter(field, QueryBuilders.termsQuery(field, TRUE)))
+            .toArray(KeyedFilter[]::new);
+
+    AggregationBuilder byEntityAgg = AggregationBuilders.filters(BY_ENTITY, entityFilters);
+    if (facetFilters.length > 0) {
+      byEntityAgg.subAggregation(AggregationBuilders.filters(BY_FACET, facetFilters));
+    }
+
+    AggregationBuilder filteredAgg =
+        getFilteredAggregation(
+            ImmutableMap.of(), ImmutableMap.of(REMOVED, ImmutableList.of(TRUE)), Optional.empty());
+    filteredAgg.subAggregation(byEntityAgg);
+
+    String[] indices =
+        entityTypes.stream().map(this::getEntityIndexName).distinct().toArray(String[]::new);
+    SearchRequest searchRequest = constructSearchRequest(indices, filteredAgg);
+    // A single absent index must not fail the whole batch — per-type queries previously degraded
+    // to an empty highlight for that type alone.
+    searchRequest.indicesOptions(IndicesOptions.lenientExpandOpen());
+
+    Filter aggregationResult = executeAndExtract(opContext, searchRequest);
+
+    Map<EntityType, EntityStats> results = new LinkedHashMap<>();
+    keyToEntityType.forEach(
+        (key, entityType) ->
+            results.put(entityType, extractEntityStats(aggregationResult, key, facetFields)));
+    return results;
+  }
+
+  private EntityStats extractEntityStats(
+      Filter aggregationResult, String entityKey, List<String> facetFields) {
+    try {
+      Filters byEntity = aggregationResult.getAggregations().get(BY_ENTITY);
+      Filters.Bucket entityBucket = byEntity.getBucketByKey(entityKey);
+      if (entityBucket == null) {
+        return EntityStats.empty();
+      }
+
+      Map<String, Integer> facetCounts = new LinkedHashMap<>();
+      if (!facetFields.isEmpty()) {
+        Filters byFacet = entityBucket.getAggregations().get(BY_FACET);
+        for (String field : facetFields) {
+          Filters.Bucket facetBucket = byFacet == null ? null : byFacet.getBucketByKey(field);
+          facetCounts.put(field, facetBucket == null ? 0 : (int) facetBucket.getDocCount());
+        }
+      }
+      return new EntityStats((int) entityBucket.getDocCount(), facetCounts);
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Caught exception while extracting entity stats for %s: %s",
+              entityKey, e.getMessage()));
+      return EntityStats.empty();
+    }
+  }
+
+  /** Total document count and per-facet counts for a single entity type. */
+  @Value
+  public static class EntityStats {
+    int total;
+    Map<String, Integer> facetCounts;
+
+    public static EntityStats empty() {
+      return new EntityStats(0, Collections.emptyMap());
+    }
+
+    public int getFacetCount(String facetField) {
+      return facetCounts.getOrDefault(facetField, 0);
+    }
+  }
+
   private SearchRequest constructSearchRequest(
       String indexName, AggregationBuilder aggregationBuilder) {
-    SearchRequest searchRequest = new SearchRequest(indexName);
+    return constructSearchRequest(new String[] {indexName}, aggregationBuilder);
+  }
+
+  private SearchRequest constructSearchRequest(
+      String[] indexNames, AggregationBuilder aggregationBuilder) {
+    SearchRequest searchRequest = new SearchRequest(indexNames);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(aggregationBuilder);
