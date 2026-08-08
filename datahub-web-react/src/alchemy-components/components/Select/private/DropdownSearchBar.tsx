@@ -27,6 +27,7 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange, 
         <SearchInputContainer>
             <Input
                 label=""
+                ariaLabel={t('search.label')}
                 type="text"
                 icon={{ icon: MagnifyingGlass }}
                 placeholder={placeholder || t('search.placeholder')}

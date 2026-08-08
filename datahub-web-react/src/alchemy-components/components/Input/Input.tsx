@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
@@ -44,8 +44,10 @@ const SearchIcon = styled(Icon)`
     margin-left: 8px;
 `;
 
-const ClearIcon = styled(Icon)`
-    cursor: pointer;
+const ActionButton = styled(Button)`
+    padding: 0;
+    min-width: unset;
+    flex-shrink: 0;
 `;
 
 export const Input = ({
@@ -66,6 +68,7 @@ export const Input = ({
     errorOnHover = inputDefaults.errorOnHover,
     type = inputDefaults.type,
     id,
+    ariaLabel,
     inputStyles,
     inputTestId,
     onClear,
@@ -74,6 +77,9 @@ export const Input = ({
 }: InputProps) => {
     const { t } = useTranslation('alchemy');
     const resolvedPlaceholder = placeholder ?? t('input.placeholder');
+    const clearLabel = t('input.clear');
+    const showPasswordLabel = t('input.showPassword');
+    const hidePasswordLabel = t('input.hidePassword');
 
     // Invalid state is always true if error is present
     let invalid = isInvalid;
@@ -97,7 +103,7 @@ export const Input = ({
     return (
         <InputWrapper {...props}>
             {label && (
-                <Label aria-label={label}>
+                <Label htmlFor={id}>
                     {label} {isRequired && <Required>*</Required>}
                 </Label>
             )}
@@ -112,6 +118,7 @@ export const Input = ({
                     disabled={isDisabled}
                     required={isRequired}
                     id={id}
+                    aria-label={ariaLabel}
                     maxLength={maxLength}
                     style={{ paddingLeft: icon ? '8px' : '', ...inputStyles }}
                     data-testid={inputTestId}
@@ -123,8 +130,23 @@ export const Input = ({
                         {warning && <Icon icon={Warning} color="yellow" size="lg" />}
                     </Tooltip>
                 )}
-                {!!onClear && value && <ClearIcon className="clear-search" icon={X} size="lg" onClick={onClear} />}
-                {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
+                {!!onClear && value && (
+                    <ActionButton type="button" variant="text" color="gray" aria-label={clearLabel} onClick={onClear}>
+                        <Icon icon={X} size="lg" />
+                    </ActionButton>
+                )}
+                {isPassword && (
+                    <ActionButton
+                        type="button"
+                        variant="text"
+                        color="gray"
+                        aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
+                        aria-pressed={showPassword}
+                        onClick={() => setShowPassword(!showPassword)}
+                    >
+                        <Icon icon={passwordIcon} size="lg" />
+                    </ActionButton>
+                )}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

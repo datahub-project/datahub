@@ -1,6 +1,8 @@
+import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Tabs as AntTabs, TabsProps } from 'antd';
 import React, { useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
@@ -247,14 +249,24 @@ const CloseButtonContainer = styled.div`
     width: 0;
 `;
 
-const CloseButtonAbsoluteContainer = styled.div`
+const CloseButtonAbsoluteContainer = styled(Button)`
     position: absolute;
     opacity: 0;
     top: 50%;
     right: -14px; // 14px - icon size
     transform: translateY(-50%);
+    padding: 0;
+    min-width: unset;
 
     ${TabViewWrapper}:hover & {
+        opacity: 1;
+    }
+
+    ${TabViewWrapper}:focus-within & {
+        opacity: 1;
+    }
+
+    &:focus-visible {
         opacity: 1;
     }
 `;
@@ -274,6 +286,7 @@ interface CloseButtonProps {
 }
 
 function CloseButton({ onClose }: CloseButtonProps) {
+    const { t } = useTranslation('alchemy');
     const onClick = useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation();
@@ -286,6 +299,10 @@ function CloseButton({ onClose }: CloseButtonProps) {
     return (
         <CloseButtonContainer>
             <CloseButtonAbsoluteContainer
+                type="button"
+                variant="text"
+                color="gray"
+                aria-label={t('tabs.closeTab')}
                 // Prevent activation of a tab as it's starting to scroll
                 // to the new active tab and breaking closing a tab
                 onMouseDown={(e) => {

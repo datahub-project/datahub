@@ -10,22 +10,32 @@ export const getOptionLabelStyle = (
     isDisabled?: boolean,
     applyHoverWidth?: boolean,
     theme?: DefaultTheme,
+    isHighlighted?: boolean,
 ) => {
     const themeColors = theme?.colors;
 
     const getColor = () => {
         if (isDisabled) return themeColors?.textDisabled;
-        if (isSelected) return themeColors?.text;
+        if (isSelected || isHighlighted) return themeColors?.text;
         return themeColors?.textSecondary;
     };
+
+    const showSelectedBackground = !isDisabled && !isMultiSelect && isSelected;
+    const showHighlightedBackground = !isDisabled && !!isHighlighted && !showSelectedBackground;
+
+    let backgroundColor = 'transparent';
+    if (showSelectedBackground) {
+        backgroundColor = themeColors?.bgSelected ?? 'transparent';
+    } else if (showHighlightedBackground) {
+        backgroundColor = themeColors?.bgHover ?? 'transparent';
+    }
 
     return {
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         padding: spacing.xsm,
         borderRadius: radius.md,
         lineHeight: typography.lineHeights.normal,
-        backgroundColor:
-            !isDisabled && !isMultiSelect && isSelected ? (themeColors?.bgSelected ?? 'transparent') : 'transparent',
+        backgroundColor,
         color: getColor(),
         fontWeight: typography.fontWeights.medium,
         fontSize: typography.fontSizes.md,
