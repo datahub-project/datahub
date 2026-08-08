@@ -17,6 +17,10 @@ on:
   push:
     branches:
       - master
+      # TEMP -- pre-merge validation only, dropped before marking ready: lets the
+      # warmup save branch-scoped entries so a PR stacked on this branch can
+      # demonstrate the warm restore before the workflow exists on master.
+      - fix/ci-actions-cache-budget
   workflow_dispatch:
 
 concurrency:
