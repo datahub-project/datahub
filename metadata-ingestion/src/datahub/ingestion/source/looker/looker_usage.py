@@ -7,9 +7,7 @@ import concurrent
 import concurrent.futures
 import dataclasses
 import datetime
-import json as json_module
 import logging
-import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
@@ -27,6 +25,7 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.looker_query_model import (
+    FieldUsageViewField,
     HistoryViewField,
     LookerExplore,
     LookerModel,
@@ -52,8 +51,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.lossy_collections import LossySet
 
 logger = logging.getLogger(__name__)
-
-_QUERY_FIELDS_SPLIT_RE = re.compile(r"[,\n]")
 
 
 @dataclass
@@ -203,23 +200,21 @@ query_collection: Dict[QueryId, LookerQuery] = {
             QueryViewField.QUERY_VIEW: "-NULL",
         },
     ),
-    # Kept separate from the per-day explore query: adding query.fields would
-    # fragment the (model, view, date) grouping that feeds totalSqlQueries.
-    # Rows here are exploded client-side into per-field counts.
+    # Pre-aggregated field-level usage from the field_usage explore.
+    # Unlike querying query.fields from History (which is subject to the
+    # 5000-row default limit and returns sparse, truncated data on busy
+    # instances), field_usage provides complete lifetime per-field counts
+    # with one row per (model, explore, field).
     QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT: LookerQuery(
         model=LookerModel.SYSTEM_ACTIVITY,
-        explore=LookerExplore.HISTORY,
+        explore=LookerExplore.FIELD_USAGE,
         fields=[
-            HistoryViewField.HISTORY_CREATED_DATE,
-            HistoryViewField.HISTORY_COUNT,
-            QueryViewField.QUERY_MODEL,
-            QueryViewField.QUERY_VIEW,
-            QueryViewField.QUERY_FIELDS,
+            FieldUsageViewField.FIELD_USAGE_MODEL,
+            FieldUsageViewField.FIELD_USAGE_EXPLORE,
+            FieldUsageViewField.FIELD_USAGE_FIELD,
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED,
         ],
-        filters={
-            QueryViewField.QUERY_VIEW: "-NULL",
-            QueryViewField.QUERY_FIELDS: "-NULL",
-        },
+        limit="-1",
     ),
 }
 
@@ -820,53 +815,47 @@ class ExploreStatGenerator(BaseStatGenerator):
             userCounts=[],
         )
 
-    @staticmethod
-    def _parse_query_fields(raw_fields: object) -> List[str]:
-        # The Looker Query API model defines fields as Sequence[str].
-        # System Activity serialises it into a JSON array string
-        # (e.g. '["view.field", ...]') when returned as a dimension value.
-        if isinstance(raw_fields, str):
-            try:
-                parsed = json_module.loads(raw_fields)
-                if isinstance(parsed, list):
-                    return [str(t).strip() for t in parsed if str(t).strip()]
-            except (json_module.JSONDecodeError, ValueError):
-                pass
-            tokens = _QUERY_FIELDS_SPLIT_RE.split(raw_fields)
-        elif isinstance(raw_fields, list):
-            tokens = [str(t) for t in raw_fields]
-        else:
-            tokens = _QUERY_FIELDS_SPLIT_RE.split(str(raw_fields))
-        return [t.strip() for t in tokens if t.strip()]
-
     def _augment_entity_timeseries_aspects(
         self, entity_usage_stat: Dict[Tuple[str, str], Any]
     ) -> None:
-        """Attach per-field usage (``query.fields``) to each per-day explore
-        aspect.  Each System Activity row is one ``(date, model, explore,
-        field-set)`` bucket with its execution count.  We explode each
-        field-set and sum the row's count into every field it names."""
-        field_query_with_filters: LookerQuery = self._append_filters(
-            query_collection[QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT]
-        )
-        # _execute_query handles exceptions internally and returns [] on failure.
-        field_rows = self._execute_query(field_query_with_filters, "field_query")
+        """Attach per-field usage from the ``field_usage`` explore to each
+        per-day explore aspect.  The field_usage explore provides
+        pre-aggregated lifetime counts (one row per model/explore/field),
+        so the same fieldCounts list is attached to every day-bucket for
+        a given explore.
 
-        per_key_counts: Dict[Tuple[str, str], Dict[str, int]] = defaultdict(
-            lambda: defaultdict(int)
-        )
+        Calls the API wrapper directly (not ``_execute_query``) because
+        ``_execute_query``'s ``post_filter`` path expects History-explore
+        row keys (``query.model``/``query.view``) that don't exist in
+        ``field_usage`` rows."""
+        field_query = query_collection[QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT]
+        try:
+            field_rows = self.config.looker_api_wrapper.execute_query(
+                field_query.to_write_query()
+            )
+        except Exception as e:
+            logger.warning("Failed to fetch field usage data: %s", e)
+            return
+
+        if not field_rows:
+            logger.info("field_usage explore returned 0 rows")
+            return
+
+        per_explore_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
         for row in field_rows:
-            raw_fields = row.get(QueryViewField.QUERY_FIELDS)
-            if not raw_fields:
+            model = row.get(FieldUsageViewField.FIELD_USAGE_MODEL)
+            explore = row.get(FieldUsageViewField.FIELD_USAGE_EXPLORE)
+            field = row.get(FieldUsageViewField.FIELD_USAGE_FIELD)
+            times_used = row.get(FieldUsageViewField.FIELD_USAGE_TIMES_USED)
+            if not all((model, explore, field, times_used)):
                 continue
-            key = self.get_entity_stat_key(row)
-            count = row[HistoryViewField.HISTORY_COUNT]
-            for field_name in self._parse_query_fields(raw_fields):
-                per_key_counts[key][field_name] += count
+            explore_id = self._stat_key(model, explore)
+            per_explore_counts[explore_id][field] = int(times_used)
 
-        for key, field_counts in per_key_counts.items():
-            aspect = entity_usage_stat.get(key)
-            if aspect is None:
+        # field_usage counts are lifetime totals, not day-scoped.
+        for (explore_id, _date), aspect in entity_usage_stat.items():
+            field_counts = per_explore_counts.get(explore_id)
+            if not field_counts:
                 continue
             aspect.fieldCounts = [
                 DatasetFieldUsageCountsClass(fieldPath=field_name, count=count)

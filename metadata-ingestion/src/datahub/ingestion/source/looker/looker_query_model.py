@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, cast
+from typing import Dict, List, Optional, cast
 
 from looker_sdk.sdk.api40.models import WriteQuery
 
@@ -12,6 +12,7 @@ class LookerModel(StrEnum):
 
 class LookerExplore(StrEnum):
     HISTORY = "history"
+    FIELD_USAGE = "field_usage"
 
 
 class LookerView(StrEnum):
@@ -22,6 +23,7 @@ class LookerView(StrEnum):
     # against, including the model and the explore (Looker calls the explore
     # the query's `view`).
     QUERY = "query"
+    FIELD_USAGE = "field_usage"
 
 
 class LookerField(StrEnum):
@@ -72,6 +74,18 @@ class QueryViewField(ViewField):
     QUERY_FIELDS = f"{LookerView.QUERY}.{LookerField.FIELDS}"
 
 
+class FieldUsageViewField(ViewField):
+    """Fields from the ``field_usage`` explore in System Activity.
+
+    This explore provides pre-aggregated, lifetime per-field usage counts
+    without the row-limit truncation issues of the History explore."""
+
+    FIELD_USAGE_MODEL = f"{LookerView.FIELD_USAGE}.{LookerField.MODEL}"
+    FIELD_USAGE_EXPLORE = "field_usage.explore"
+    FIELD_USAGE_FIELD = "field_usage.field"
+    FIELD_USAGE_TIMES_USED = "field_usage.times_used"
+
+
 @dataclass
 class LookerQuery:
     model: LookerModel
@@ -79,6 +93,7 @@ class LookerQuery:
     fields: List[ViewField]
     # Check looker documentation for possible values https://docs.looker.com/reference/filter-expressions
     filters: Dict[ViewField, str] = field(default_factory=dict)
+    limit: Optional[str] = None
 
     def to_write_query(self) -> WriteQuery:
         return WriteQuery(
@@ -90,4 +105,5 @@ class LookerQuery:
                 if self.filters is not None
                 else {}
             ),
+            limit=self.limit,
         )
