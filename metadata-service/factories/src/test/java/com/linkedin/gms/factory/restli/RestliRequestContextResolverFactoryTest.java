@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.restli;
 
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,7 +34,7 @@ public class RestliRequestContextResolverFactoryTest {
           RestliRequestContextResolver resolver = ctx.getBean(RestliRequestContextResolver.class);
           AbstractRequestBuilder<?, ?, ?> builder = mock(AbstractRequestBuilder.class);
           resolver.resolve(builder, mock(OperationContext.class));
-          verify(builder, never()).addHeader(anyString(), anyString());
+          verify(builder, never()).addHeader(any(), any());
         });
   }
 

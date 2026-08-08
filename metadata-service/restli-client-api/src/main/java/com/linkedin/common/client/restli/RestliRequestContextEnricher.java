@@ -25,6 +25,10 @@ public interface RestliRequestContextEnricher {
   /**
    * Mutate the supplied request builder to attach any headers required by this enricher.
    *
+   * <p>For single-valued headers (routing, auth, tracing tokens) implementations should use {@code
+   * setHeader} rather than {@code addHeader}: {@code addHeader} appends, so when multiple enrichers
+   * touch the same header name the values would be comma-joined instead of last-writer-wins.
+   *
    * @param requestBuilder The outbound Restli request to mutate
    * @param operationContext The operation context to derive header values from
    */
