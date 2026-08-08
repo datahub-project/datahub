@@ -983,6 +983,63 @@ query getLineageCounts(
     }
 }
 
+# How many columns a column is directly related to, counted the way the lineage graph draws them.
+# `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
+# graph -- see `buildRelatedColumnFilters`.
+query getColumnLineageCounts(
+    $urn: String!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $ignoreAsHops: [EntityTypeToPlatforms!]
+    $includeSoftDeleted: Boolean = false
+    $orFilters: [AndFilterInput!]
+) {
+    upstream: searchAcrossLineage(
+        input: {
+            urn: $urn
+            direction: UPSTREAM
+            types: [SCHEMA_FIELD]
+            start: 0
+            count: 0
+            orFilters: $orFilters
+            lineageFlags: {
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+                ignoreAsHops: $ignoreAsHops
+            }
+            searchFlags: {
+                groupingSpec: { groupingCriteria: [] }
+                filterNonLatestVersions: false
+                includeSoftDeleted: $includeSoftDeleted
+            }
+        }
+    ) {
+        total
+    }
+    downstream: searchAcrossLineage(
+        input: {
+            urn: $urn
+            direction: DOWNSTREAM
+            types: [SCHEMA_FIELD]
+            start: 0
+            count: 0
+            orFilters: $orFilters
+            lineageFlags: {
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+                ignoreAsHops: $ignoreAsHops
+            }
+            searchFlags: {
+                groupingSpec: { groupingCriteria: [] }
+                filterNonLatestVersions: false
+                includeSoftDeleted: $includeSoftDeleted
+            }
+        }
+    ) {
+        total
+    }
+}
+
 query getSearchAcrossLineageCounts(
     $urn: String!
     $startTimeMillis: Long
