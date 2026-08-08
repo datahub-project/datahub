@@ -293,9 +293,11 @@ Hdfs-based platforms supported explicitly:
 By default, the name is the complete path. For Hdfs base datasets, tables can be at different levels in the path than
 that of the actual file read due to various reasons like partitioning, and sharding. 'path_spec' is used to alter the
 name.
-{table} marker is used to specify the table level. Below are a few examples. One can specify multiple path_specs for
-different paths specified in the `path_spec_list`. Each actual path is matched against all path_spes present in the
-list. First, one to match will be used to generate urn.
+The `{table}` marker is used to specify a single table-level path segment. The `{table_path}` marker captures the
+complete table-relative path after the matched prefix and must be the final segment in a path spec. Use
+`{table_path}` when a logical table name contains multiple path segments. One can specify multiple path specs for
+different paths in the `path_spec_list`. Each actual path is matched against all path specs present in the list. The
+first match is used to generate the URN.
 
 **path_spec Examples**
 
@@ -308,6 +310,7 @@ spark.datahub.platform.s3.path_spec_list=s3://my-bucket/foo/{table}/year=*/month
 | s3://my-bucket/foo/tests/bar.avro    | Not provided                     | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
 | s3://my-bucket/foo/tests/bar.avro    | s3://my-bucket/foo/{table}/\*    | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)             |
 | s3://my-bucket/foo/tests/bar.avro    | s3://my-bucket/foo/tests/{table} | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
+| s3://my-bucket/foo/tests/bar.avro    | s3://my-bucket/foo/{table_path}  | urn:li:dataset:(urn:li:dataPlatform:s3,tests/bar.avro,PROD)                  |
 | gs://my-bucket/foo/tests/bar.avro    | gs://my-bucket/{table}/_/_       | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
 | gs://my-bucket/foo/tests/bar.avro    | gs://my-bucket/{table}           | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
 | file:///my-bucket/foo/tests/bar.avro | file:///my-bucket/_/_/{table}    | urn:li:dataset:(urn:li:dataPlatform:local,my-bucket/foo/tests/bar.avro,PROD) |
