@@ -29,6 +29,7 @@ DataHub provided universal transformers (for datasets, containers, charts, dashb
 - [Pattern Add Domain](./universal_transformers.md#pattern-add-domain)
 - [Simple Add Ownership](./universal_transformers.md#simple-add-ownership)
 - [Pattern Add Ownership](./universal_transformers.md#pattern-add-ownership)
+- [Mark Deprecated](./universal_transformers.md#mark-deprecated)
 
 DataHub provided transformers for datasets only:
 
