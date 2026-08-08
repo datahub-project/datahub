@@ -51,6 +51,11 @@ on:
         required: false
         type: string
         default: ""
+      docker_login:
+        description: "Whether DockerHub credentials are available (callers compute this from their secrets; the secrets context is not usable in step-level if)."
+        required: false
+        type: string
+        default: "true"
       image_built_repos:
         description: "Space-separated docker repos the caller built for this run. run-quickstart.sh fails if any resolves to a reused tag instead of datahub_version."
         required: false
@@ -150,9 +155,11 @@ jobs:
       # those images come from the registry rather than the depot pull, and an
       # anonymous pull across every shard runs into Docker Hub's rate limit.
       - name: Login to DockerHub
-        # Guarded on the secret existing: reused images can be pulled anonymously
-        # as a fallback, and login-action with empty credentials fails the job.
-        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        # Guarded on credentials being available (as a caller-computed input --
+        # the secrets context is not allowed in step-level if): reused images can
+        # be pulled anonymously as a fallback, and login-action with empty
+        # credentials fails the job.
+        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && inputs.docker_login == 'true' }}
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}

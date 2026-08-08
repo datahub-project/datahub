@@ -1050,6 +1050,7 @@ jobs:
       datahub_version: ${{ needs.setup.outputs.tag }}
       image_version_env: ${{ needs.setup.outputs.image_version_env }}
       image_built_repos: ${{ needs.setup.outputs.image_built_repos }}
+      docker_login: ${{ needs.setup.outputs.docker-login }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
       # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
