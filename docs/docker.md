@@ -1,0 +1,309 @@
+
+# Docker Images
+
+## Prerequisites
+
+You need to install [docker](https://docs.docker.com/install/) and
+[docker-compose](https://docs.docker.com/compose/install/) (if using Linux; on Windows and Mac compose is included with
+Docker Desktop).
+
+Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap
+area.
+
+_If you prefer not to use Docker Desktop (which requires a license for commercial use), you can opt for free and open-source alternatives such as [Podman Desktop](https://podman-desktop.io/) or [Rancher Desktop](https://rancherdesktop.io/). To configure them, you can add the following aliases to your `~/.bashrc` file:_
+
+```bash
+# podman
+alias docker=podman
+alias docker-compose="podman compose"
+
+# Rancher (or nerdctl)
+alias docker=nerdctl
+alias docker-compose="nerdctl compose"
+```
+
+## Quickstart
+
+The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images
+which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acryldata) with every commit to repository.
+
+You can easily download and run all these images and their dependencies with our
+[quick start guide](../docs/quickstart.md).
+
+**Compose layout:** Quickstart and local development use [Docker Compose profiles](https://github.com/datahub-project/datahub/blob/master/docker/profiles/docker-compose.yml) under
+`docker/profiles/`. The CLI downloads a flattened compose file at
+`docker/quickstart/docker-compose.quickstart-profile.yml`. Legacy root-level `docker-compose*.yml` files and shell
+scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
+
+DataHub Docker Images:
+
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. For local Compose / quickstart, use the coordinated `quickstart` tag or a version-specific tag like `v0.8.40`. For production and Kubernetes, pin a release tag (`v*`) or an immutable commit tag (`sha-<short_sha>`). Do not use `quickstart` in production clusters.
+
+- [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/)
+- [acryldata/datahub-gms](https://hub.docker.com/repository/docker/acryldata/datahub-gms/)
+- [acryldata/datahub-frontend-react](https://hub.docker.com/repository/docker/acryldata/datahub-frontend-react/)
+- [acryldata/datahub-mae-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mae-consumer/)
+- [acryldata/datahub-mce-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mce-consumer/)
+- [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/) (runs SystemUpdate; performs SQL and search index setup when `DATAHUB_SQL_SETUP_ENABLED=true`)
+- [acryldata/datahub-actions](https://hub.docker.com/r/acryldata/datahub-actions). Do not use `acryldata/acryl-datahub-actions` as that is deprecated and no longer used.
+
+## Image Variants
+
+`datahub-ingestion` and `datahub-actions` are available as **full**, **slim**, and **locked**. **`datahub-ingestion`** is Ubuntu 24.04–based. **`datahub-actions`** uses the **default base image** set in its Dockerfile; override with Docker build arg **`BASE_IMAGE`** when needed.
+
+Java runtime images (**`datahub-gms`**, **`datahub-mce-consumer`**, **`datahub-mae-consumer`**, **`datahub-upgrade`**, **`datahub-frontend-react`**) follow the same pattern: each Dockerfile declares a default **base image**; override with **`BASE_IMAGE`**. Optional **`APK_REPOSITORY_URL`** overrides the apk repository line used at image build time (see each Dockerfile for the default). When building with Gradle, use **`-PdockerBaseImage=...`** and **`-PapkRepositoryUrl=...`** instead of any legacy mirror property you may have used for older image builds. Those five images share **`docker/snippets/setup_java_runtime.sh`**, which ensures **`java`** is on **`PATH`** for entrypoints (apk OpenJDK JRE packages here do not add **`/usr/bin/java`** by default). All Java service images run **Java 25 LTS** at runtime (set via **`JAVA_MAJOR=25`** in the setup script); the script’s **`JAVA_MAJOR=…`** assignment is the single bump point for the apk JRE major. **`datahub-actions`** reads that line when installing OpenJDK for the full variant. **`datahub-ingestion`** images also use **`openjdk-25-jre-headless`**.
+
+| Variant          | Image size | Use case                                |
+| ---------------- | ---------- | --------------------------------------- |
+| `full` (default) | Largest    | All connectors, maximum compatibility   |
+| `slim`           | Medium     | Common connectors, good balance         |
+| `locked`         | Medium     | Air-gapped environments (pypi disabled) |
+
+### Variant Tag Format
+
+```
+acryldata/datahub-ingestion:v0.x.y          # full (default)
+acryldata/datahub-ingestion:v0.x.y-slim     # slim
+acryldata/datahub-ingestion:v0.x.y-locked   # locked
+```
+
+### datahub-ingestion Feature Matrix
+
+| Feature               | full | slim | locked |
+| --------------------- | :--: | :--: | :----: |
+| Core CLI & REST/Kafka | Yes  | Yes  |  Yes   |
+| S3 / GCS / Azure Blob | Yes  | Yes  |  Yes   |
+| Snowflake             | Yes  | Yes  |   -    |
+| BigQuery              | Yes  | Yes  |   -    |
+| Redshift              | Yes  | Yes  |   -    |
+| MySQL / PostgreSQL    | Yes  | Yes  |   -    |
+| ClickHouse            | Yes  | Yes  |   -    |
+| dbt                   | Yes  | Yes  |   -    |
+| Looker / LookML       | Yes  | Yes  |   -    |
+| Tableau / PowerBI     | Yes  | Yes  |   -    |
+| Superset              | Yes  | Yes  |   -    |
+| Glue                  | Yes  | Yes  |   -    |
+| Spark lineage (JRE)   | Yes  |  -   |   -    |
+| Oracle client         | Yes  |  -   |   -    |
+| MSSQL ODBC driver     | Yes  |  -   |   -    |
+| Runtime `pip install` | Yes  | Yes  |   -    |
+
+### datahub-actions Feature Matrix
+
+| Feature                       | full | slim | locked |
+| ----------------------------- | :--: | :--: | :----: |
+| Core actions                  | Yes  | Yes  |  Yes   |
+| Kafka / Executor              | Yes  | Yes  |  Yes   |
+| Slack / Teams                 | Yes  | Yes  |  Yes   |
+| Tag / Term / Doc propagation  | Yes  | Yes  |  Yes   |
+| Snowflake tag propagation     | Yes  | Yes  |  Yes   |
+| Bundled CLI venvs             | Yes  | Yes  |  Yes   |
+| Oracle client (full only)     | Yes  |  -   |   -    |
+| MSSQL ODBC driver (full only) | Yes  |  -   |   -    |
+| Runtime `pip install`         | Yes  | Yes  |   -    |
+
+### CI Testing Coverage
+
+| Image Variant | Tested in CI | Notes                       |
+| ------------- | :----------: | --------------------------- |
+| `full`        |     Yes      | Smoke tests run on every PR |
+| `slim`        |     Yes      | Smoke tests run on every PR |
+| `locked`      |  Build only  |                             |
+
+### Choosing the Right Variant
+
+- **`full`**: Use when you need maximum connector coverage or aren't sure what you'll need
+- **`slim`**: Recommended for most production deployments with standard cloud data stacks
+- **`locked`**: Required for air-gapped environments where runtime package installation is prohibited
+
+Dependencies:
+
+- [Elasticsearch](https://github.com/datahub-project/datahub/blob/master/docker/elasticsearch) (or OpenSearch)
+- [MySQL](https://github.com/datahub-project/datahub/blob/master/docker/mysql) (or PostgreSQL)
+- [(Optional) Neo4j](https://github.com/datahub-project/datahub/blob/master/docker/neo4j)
+
+SQL and search index setup are performed by the system update job (datahub-upgrade with `-u SystemUpdate`) when backing services are healthy; no separate setup containers are required.
+
+### Ingesting demo data.
+
+If you want to test ingesting some data once DataHub is up, run `datahub init` then `datahub datapack load showcase-ecommerce`. See the [quickstart guide](../docs/quickstart.md) for more details.
+
+## Using Docker Images During Development
+
+See [Using Docker Images During Development](../docs/docker/development.md).
+
+## Building And Deploying Docker Images
+
+We use GitHub Actions to build and continuously deploy our images. There should be no need to do this manually; a
+successful release on Github will automatically publish the images.
+
+### Building images
+
+> This is **not** our recommended development flow and most developers should be following the
+> [Using Docker Images During Development](../docs/docker/development.md) guide.
+
+To build the full images (that we are going to publish), you need to run the following:
+
+```
+COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub build
+```
+
+This is because we're relying on builtkit for multistage builds. It does not hurt also set `DATAHUB_VERSION` to
+something unique.
+
+### Community Built Images
+
+As the open source project grows, community members would like to contribute additions to the docker images. Not all contributions to the images can be accepted because those changes are not useful for all community members, it will increase build times, add dependencies and possible security vulns. In those cases this section can be used to point to `Dockerfiles` hosted by the community which build on top of the images published by the DataHub core team along with any container registry links where the result of those images are maintained.
+
+# DataHub Docker Nuke Tasks
+
+This document describes the nuke task system for cleaning up DataHub Docker containers and volumes.
+
+## Overview
+
+The nuke tasks provide a way to completely remove DataHub containers and volumes for different project namespaces. This is useful for:
+
+- Cleaning up test environments
+- Resetting development setups
+- Isolating different project instances
+- Troubleshooting container issues
+
+## Available Tasks
+
+### All Configurations Have Nuke Tasks
+
+Every quickstart configuration automatically gets a nuke task for targeted cleanup:
+
+- **`quickstartNuke`** - Removes containers and volumes for the default project namespace (`datahub`)
+- **`quickstartDebugNuke`** - Removes containers and volumes for the debug configuration (`datahub`)
+- **`quickstartCypressNuke`** - Removes containers and volumes for the cypress configuration (`dh-cypress`)
+- **`quickstartDebugMinNuke`** - Removes containers and volumes for the debug-min configuration (`datahub`)
+- **`quickstartDebugConsumersNuke`** - Removes containers and volumes for the debug-consumers configuration (`datahub`)
+- **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
+- **`quickstartPgConsumersNuke`** - Removes containers and volumes for the quickstart-postgres-consumers configuration (`datahub`)
+- **`quickstartPgDebugNuke`** - Removes containers and volumes for the debug-postgres configuration (`datahub`)
+- **`quickstartSlimNuke`** - Removes containers and volumes for the backend configuration (`datahub`)
+- **`quickstartSparkNuke`** - Removes containers and volumes for the spark configuration (`datahub`)
+- **`quickstartStorageNuke`** - Removes containers and volumes for the storage configuration (`datahub`)
+- **`quickstartBackendDebugNuke`** - Removes containers and volumes for the backend-debug configuration (`datahub`)
+
+### Project Namespace Behavior
+
+- **Default project namespace (`datahub`)**: Most configurations use this, so their nuke tasks will clean up containers in the same namespace
+- **Custom project namespace (`dh-cypress`)**: The cypress configuration uses its own namespace for isolation
+
+## Usage
+
+### Basic Usage
+
+```bash
+# Remove containers and volumes for specific configurations
+./gradlew quickstartDebugNuke      # For debug configuration
+./gradlew quickstartCypressNuke    # For cypress configuration
+./gradlew quickstartDebugMinNuke   # For debug-min configuration
+./gradlew quickstartPgNuke           # For quickstart-postgres (slim)
+./gradlew quickstartPgConsumersNuke  # For quickstart-postgres-consumers (with MAE/MCE)
+
+# For general cleanup of all containers
+./gradlew quickstartDown
+```
+
+### When to Use Each Task
+
+- **Use specific nuke tasks when:**
+
+  - You want to clean up a specific configuration environment
+  - You need targeted cleanup without affecting other configurations
+  - You're working with a particular development setup (debug, postgres, cypress, etc.)
+
+- **Use `quickstartDown` when:**
+  - You want to stop all running containers
+  - You need a general cleanup option
+  - You want to ensure all environments are stopped
+
+## How It Works
+
+1. **Volume Management**: Each nuke task sets `removeVolumes = true` for relevant configurations
+2. **Container Cleanup**: Tasks are finalized by appropriate `ComposeDownForced` operations
+3. **Project Isolation**: Each task operates within its own Docker Compose project namespace
+4. **Configuration Respect**: Tasks respect the `projectName` settings in `quickstart_configs`
+
+## Configuration
+
+The nuke tasks are automatically generated based on the `quickstart_configs` in `docker/build.gradle`. To add a new nuke task:
+
+1. Add a configuration to `quickstart_configs`:
+
+   ```gradle
+   'quickstartCustom': [
+       profile: 'debug',
+       modules: [...],
+       // Optional: custom project name for isolation
+       additionalConfig: [
+           projectName: 'dh-custom'
+       ]
+   ]
+   ```
+
+2. The task `quickstartCustomNuke` will be automatically created
+
+## Troubleshooting
+
+### Task Not Found
+
+- Ensure the configuration exists in `quickstart_configs`
+- Check that the task name follows the pattern `{configName}Nuke`
+
+### Containers Not Removed
+
+- Verify the project namespace is correct
+- Check that the configuration has the right `projectName` setting
+- Ensure the task is targeting the correct `ComposeDownForced` operations
+
+### Volume Persistence
+
+- Check if `preserveVolumes` is set to `true` in the configuration
+- Verify the `removeVolumes` setting is properly applied
+
+## Related Commands
+
+- **Start services**: `./gradlew quickstartDebug`, `./gradlew quickstartCypress`
+- **Stop services**: `./gradlew quickstartDown`
+- **Reload services**: `./gradlew debugReload`, `./gradlew cypressReload`
+
+## Examples
+
+### Complete Development Environment Reset
+
+```bash
+# Clean up specific debug environment
+./gradlew quickstartDebugNuke
+
+# Start fresh
+./gradlew quickstartDebug
+```
+
+### Cypress Environment Isolation
+
+```bash
+# Clean up cypress environment
+./gradlew quickstartCypressNuke
+
+# Start fresh cypress environment
+./gradlew quickstartCypress
+```
+
+### Mixed Environment Management
+
+```bash
+# Clean up only cypress (leaving main environment intact)
+./gradlew quickstartCypressNuke
+
+# Clean up only debug environment (leaving cypress intact)
+./gradlew quickstartDebugNuke
+
+# Clean up only postgres environment (leaving others intact)
+./gradlew quickstartPgNuke
+# Or the postgres + consumers variant:
+./gradlew quickstartPgConsumersNuke
+```
