@@ -86,7 +86,8 @@ input RaiseIncidentInput {
   description: String
 
   """
-  The resource (dataset, dashboard, chart, dataFlow, etc) that the incident is associated with.
+  The resource that the incident is associated with. See the supported entity
+  types below.
   """
   resourceUrn: String!
 
@@ -96,6 +97,41 @@ input RaiseIncidentInput {
   source: IncidentSourceInput
 }
 ```
+
+### Supported entity types
+
+Incidents are stored on the entity named by `resourceUrn`, so that entity must
+carry the `incidentsSummary` aspect. As of the current entity registry, that is:
+
+| Entity | URN prefix |
+| --- | --- |
+| Dataset | `urn:li:dataset:` |
+| Data Job | `urn:li:dataJob:` |
+| Data Flow | `urn:li:dataFlow:` |
+| Chart | `urn:li:chart:` |
+| Dashboard | `urn:li:dashboard:` |
+| Service | `urn:li:service:` |
+| AI Agent | `urn:li:aiAgent:` |
+
+Anything else is rejected and nothing is written. Two different messages come
+back for the same failure, depending on which validation the request trips
+first, so both are listed here:
+
+```
+"urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not a valid destination"
+```
+
+```
+java.lang.RuntimeException: Invalid format for aspect: incident
+ Cause: ERROR :: /entities/0 :: "Provided urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD)" is invalid:
+        Entity type for urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not supported
+```
+
+ML entities are worth calling out because they are a natural thing to reach for.
+`mlModel`, `mlModelGroup`, `mlFeatureTable` and `mlFeature` do **not** support
+incidents. For an issue concerning a model, raise the incident on the dataset
+the model was trained on, which is reachable from the model in one hop of
+lineage, and name the model in the title.
 
 ### Examples
 
