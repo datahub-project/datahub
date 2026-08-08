@@ -31,6 +31,11 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  # Enables the Depot remote Gradle build cache. settings.gradle gates it on
+  # DEPOT_TOKEN being present, so without this the workflow has no cross-run task
+  # output reuse at all -- which is why the run-scoped actions/cache entry below
+  # was given a prefix restore-key and grew without bound.
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 jobs:
   setup:

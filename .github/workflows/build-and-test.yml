@@ -36,6 +36,11 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  # Enables the Depot remote Gradle build cache. settings.gradle gates it on
+  # DEPOT_TOKEN being present, so without this the workflow has no cross-run task
+  # output reuse at all -- which is why the run-scoped actions/cache entry below
+  # was given a prefix restore-key and grew without bound.
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
   # Toggle backend test sharding. Repo variable (Settings → Actions → Variables); unset → '' →
   # falsy → defaults OFF, so it flips without a commit and each repo sets its own value.
   SHARDED_TESTS_RUNS_ENABLED: ${{ vars.SHARDED_TESTS_RUNS_ENABLED || 'false' }}
