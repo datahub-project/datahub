@@ -51,10 +51,16 @@ public class DataHubFileType
     final List<Urn> fileUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
-      // Determine optimal aspects to fetch based on GraphQL field selections
+      // Determine optimal aspects to fetch based on GraphQL field selections. dataHubFileInfo is
+      // always included: DataHubFileMapper treats it as required and maps the entity to null
+      // without it, which would break selections that only ask for @noAspects fields such as urn.
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataHubFile", ASPECTS_TO_FETCH, "dataHubFileKey");
+              context,
+              "DataHubFile",
+              ASPECTS_TO_FETCH,
+              "dataHubFileKey",
+              DATAHUB_FILE_INFO_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -55,8 +55,15 @@ public class PageTemplateType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
+          // dataHubPageTemplateProperties is always included: PageTemplateMapper treats it as
+          // required and maps the entity to null without it, which would break selections that
+          // only ask for @noAspects fields such as urn.
           AspectUtils.getOptimizedAspects(
-              context, "DataHubPageTemplate", ASPECTS_TO_FETCH, "dataHubPageTemplateKey");
+              context,
+              "DataHubPageTemplate",
+              ASPECTS_TO_FETCH,
+              "dataHubPageTemplateKey",
+              DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
