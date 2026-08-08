@@ -337,6 +337,32 @@ public class PostgresAnalyticsStore {
   }
 
   /**
+   * Latest hour bucket start that has a watermark for {@code metricFamily}, derived from {@code
+   * sealed_through - 1 hour}. Returns null when no hour watermark exists.
+   */
+  @Nullable
+  public Instant getLatestSealedHourStart(@Nonnull String metricFamily) throws SQLException {
+    String sql =
+        "SELECT MAX(sealed_through) FROM "
+            + qualifiedWatermarkTable()
+            + " WHERE layer = ? AND metric_family = ?";
+    try (Connection c = database.dataSource().getConnection();
+        PreparedStatement ps = c.prepareStatement(sql)) {
+      PostgresPreparedBinder.bind(ps, List.of(AnalyticsMetricFamilies.LAYER_HOUR, metricFamily));
+      try (ResultSet rs = ps.executeQuery()) {
+        if (!rs.next()) {
+          return null;
+        }
+        Timestamp ts = rs.getTimestamp(1);
+        if (ts == null) {
+          return null;
+        }
+        return PostgresAnalyticsUtc.truncateToUtcHour(ts.toInstant().minusSeconds(1));
+      }
+    }
+  }
+
+  /**
    * Returns the subset of {@code partitionKeys} that have a watermark row for the given layer and
    * metric family. Uses a single connection/query.
    */
@@ -481,14 +507,8 @@ public class PostgresAnalyticsStore {
 
   public void compactDaysToMonth(@Nonnull String metricFamily, @Nonnull Instant monthStart)
       throws SQLException {
-    Instant monthEnd =
-        PostgresAnalyticsUtc.truncateToUtcMonth(monthStart.plusSeconds(32L * 86400))
-                .equals(monthStart)
-            ? monthStart.plusSeconds(31L * 86400)
-            : PostgresAnalyticsUtc.truncateToUtcMonth(monthStart).plusSeconds(32L * 86400);
-    // Use YearMonth length
     java.time.YearMonth ym = java.time.YearMonth.from(monthStart.atZone(java.time.ZoneOffset.UTC));
-    monthEnd = ym.plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+    Instant monthEnd = ym.plusMonths(1).atDay(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
     compactAdditiveGrain(
         metricFamily,
         AnalyticsMetricFamilies.GRAIN_DAY,

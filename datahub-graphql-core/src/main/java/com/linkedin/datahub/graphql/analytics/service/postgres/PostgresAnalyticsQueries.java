@@ -22,9 +22,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -245,6 +248,89 @@ public class PostgresAnalyticsQueries {
     return "CAST(EXTRACT(EPOCH FROM DATE_TRUNC('" + truncated + "', event_time))*1000 AS BIGINT)";
   }
 
+  /**
+   * Bucket starts for {@code [dateRange.start, dateRange.end)} at the given grain, matching
+   * Postgres {@code DATE_TRUNC} (UTC; weeks start Monday). Used to zero-fill sparse series so
+   * charts match ES date_histogram {@code min_doc_count=0} behavior.
+   */
+  static List<String> expectedBucketKeys(DateRange dateRange, DateInterval granularity) {
+    Instant start = Instant.ofEpochMilli(Long.parseLong(dateRange.getStart()));
+    Instant end = Instant.ofEpochMilli(Long.parseLong(dateRange.getEnd()));
+    Instant cursor = truncateBucketStart(start, granularity);
+    List<String> keys = new ArrayList<>();
+    while (cursor.isBefore(end)) {
+      keys.add(ISO_BUCKET.format(cursor));
+      cursor = nextBucketStart(cursor, granularity);
+    }
+    return keys;
+  }
+
+  static Instant truncateBucketStart(Instant instant, DateInterval granularity) {
+    var zdt = instant.atZone(ZoneOffset.UTC);
+    return switch (granularity) {
+      case SECOND -> zdt.truncatedTo(ChronoUnit.SECONDS).toInstant();
+      case MINUTE -> zdt.truncatedTo(ChronoUnit.MINUTES).toInstant();
+      case HOUR -> zdt.truncatedTo(ChronoUnit.HOURS).toInstant();
+      case DAY -> zdt.truncatedTo(ChronoUnit.DAYS).toInstant();
+      case WEEK -> zdt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+          .truncatedTo(ChronoUnit.DAYS)
+          .toInstant();
+      case MONTH -> zdt.withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS).toInstant();
+      case YEAR -> zdt.withDayOfYear(1).truncatedTo(ChronoUnit.DAYS).toInstant();
+    };
+  }
+
+  static Instant nextBucketStart(Instant cursor, DateInterval granularity) {
+    return switch (granularity) {
+      case SECOND -> cursor.plusSeconds(1);
+      case MINUTE -> cursor.plus(1, ChronoUnit.MINUTES);
+      case HOUR -> cursor.plus(1, ChronoUnit.HOURS);
+      case DAY -> cursor.plus(1, ChronoUnit.DAYS);
+      case WEEK -> cursor.plus(7, ChronoUnit.DAYS);
+      case MONTH -> cursor.atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
+      case YEAR -> cursor.atZone(ZoneOffset.UTC).plusYears(1).toInstant();
+    };
+  }
+
+  static TreeMap<String, Integer> fillEmptyBuckets(
+      TreeMap<String, Integer> observed, List<String> expectedKeys) {
+    TreeMap<String, Integer> filled = new TreeMap<>();
+    for (String key : expectedKeys) {
+      filled.put(key, observed.getOrDefault(key, 0));
+    }
+    return filled;
+  }
+
+  private static List<NamedLine> toNamedLines(
+      Map<String, TreeMap<String, Integer>> seriesDim,
+      boolean hasDimension,
+      DateRange dateRange,
+      DateInterval granularity) {
+    List<String> expected = expectedBucketKeys(dateRange, granularity);
+    if (!hasDimension) {
+      TreeMap<String, Integer> filled =
+          fillEmptyBuckets(seriesDim.getOrDefault("__", new TreeMap<>()), expected);
+      List<NumericDataPoint> pts =
+          filled.entrySet().stream()
+              .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
+              .collect(Collectors.toList());
+      return ImmutableList.of(new NamedLine("total", pts));
+    }
+    if (seriesDim.isEmpty()) {
+      return ImmutableList.of();
+    }
+    List<NamedLine> out = new ArrayList<>();
+    for (Map.Entry<String, TreeMap<String, Integer>> e : seriesDim.entrySet()) {
+      TreeMap<String, Integer> filled = fillEmptyBuckets(e.getValue(), expected);
+      List<NumericDataPoint> pts =
+          filled.entrySet().stream()
+              .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
+              .collect(Collectors.toList());
+      out.add(new NamedLine(e.getKey(), pts));
+    }
+    return out;
+  }
+
   public List<NamedLine> getTimeseriesChart(
       String indexName,
       DateRange dateRange,
@@ -295,9 +381,7 @@ public class PostgresAnalyticsQueries {
     Optional<String> dimSql = dimension.map(d -> mappedField(normalizeFk(d)));
 
     String countExpr =
-        uniqueOn
-            .map(u -> "COUNT(DISTINCT COALESCE(" + mappedField(normalizeFk(u)) + ",''))")
-            .orElse("COUNT(*)");
+        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
 
     String sql;
 
@@ -363,29 +447,7 @@ public class PostgresAnalyticsQueries {
         }
       }
 
-      if (dimSql.isEmpty()) {
-
-        List<NumericDataPoint> pts =
-            seriesDim.getOrDefault("__", new TreeMap<>()).entrySet().stream()
-                .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
-                .collect(Collectors.toList());
-
-        return ImmutableList.of(new NamedLine("total", pts));
-      }
-
-      List<NamedLine> out = new ArrayList<>();
-
-      for (Map.Entry<String, TreeMap<String, Integer>> e : seriesDim.entrySet()) {
-
-        List<NumericDataPoint> pts =
-            e.getValue().entrySet().stream()
-                .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
-                .collect(Collectors.toList());
-
-        out.add(new NamedLine(e.getKey(), pts));
-      }
-
-      return out;
+      return toNamedLines(seriesDim, dimSql.isPresent(), dateRange, granularity);
 
     } catch (Exception ex) {
 
@@ -414,9 +476,7 @@ public class PostgresAnalyticsQueries {
     WherePred w = whereUsage(range, filters, mustNot);
 
     String agg =
-        uniqueOn
-            .map(u -> "COUNT(DISTINCT COALESCE(" + mappedField(normalizeFk(u)) + ",''))")
-            .orElse("COUNT(*)");
+        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
 
     try {
 
@@ -587,9 +647,7 @@ public class PostgresAnalyticsQueries {
     String gf = mappedField(normalizeFk(groupField));
 
     String agg =
-        uniqueOn
-            .map(u -> "COUNT(DISTINCT COALESCE(" + mappedField(normalizeFk(u)) + ",''))")
-            .orElse("COUNT(*)");
+        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
 
     String sql =
         "SELECT "
@@ -653,9 +711,7 @@ public class PostgresAnalyticsQueries {
     WherePred w = whereUsage(range, filters, mustNot);
 
     String agg =
-        uniqueOn
-            .map(u -> "COUNT(DISTINCT COALESCE(" + mappedField(normalizeFk(u)) + ",''))")
-            .orElse("COUNT(*)");
+        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
 
     String sql = "SELECT " + agg + " FROM " + tbl() + " WHERE " + w.predicate;
 
@@ -678,8 +734,9 @@ public class PostgresAnalyticsQueries {
   }
 
   private boolean canUseRollups(DateInterval granularity, DateRange dateRange) {
+    // WEEK/YEAR need rebucketed points; use raw until rollup aggregation matches.
     return switch (granularity) {
-      case HOUR, DAY, WEEK, MONTH, YEAR -> true;
+      case HOUR, DAY, MONTH -> isRangeAlignedToGrain(dateRange, rollupGrain(granularity));
       default -> false;
     };
   }
@@ -691,6 +748,28 @@ public class PostgresAnalyticsQueries {
       case MONTH, YEAR -> AnalyticsMetricFamilies.GRAIN_MONTH;
       default -> AnalyticsMetricFamilies.GRAIN_HOUR;
     };
+  }
+
+  private boolean isRangeAlignedToGrain(DateRange dateRange, String grain) {
+    try {
+      Instant start = Instant.ofEpochMilli(Long.parseLong(dateRange.getStart()));
+      Instant end = Instant.ofEpochMilli(Long.parseLong(dateRange.getEnd()));
+      if (AnalyticsMetricFamilies.GRAIN_HOUR.equals(grain)) {
+        return start.equals(PostgresAnalyticsUtc.truncateToUtcHour(start))
+            && end.equals(PostgresAnalyticsUtc.truncateToUtcHour(end));
+      }
+      if (AnalyticsMetricFamilies.GRAIN_DAY.equals(grain)) {
+        return start.equals(PostgresAnalyticsUtc.truncateToUtcDay(start))
+            && end.equals(PostgresAnalyticsUtc.truncateToUtcDay(end));
+      }
+      if (AnalyticsMetricFamilies.GRAIN_MONTH.equals(grain)) {
+        return start.equals(PostgresAnalyticsUtc.truncateToUtcMonth(start))
+            && end.equals(PostgresAnalyticsUtc.truncateToUtcMonth(end));
+      }
+      return false;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   private boolean isRangeSealed(DateRange dateRange, String grain) {
@@ -746,6 +825,10 @@ public class PostgresAnalyticsQueries {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
     if (uniqueOn.isPresent()) {
+      return null;
+    }
+    // Hourly materialization only persists event_type group dims; other dimensions need raw.
+    if (dimension.isPresent() && !"event_type".equals(normalizeFk(dimension.get()))) {
       return null;
     }
     String grain = rollupGrain(granularity);
@@ -805,22 +888,7 @@ public class PostgresAnalyticsQueries {
           }
         }
       }
-      if (dimExpr == null) {
-        List<NumericDataPoint> pts =
-            seriesDim.getOrDefault("__", new TreeMap<>()).entrySet().stream()
-                .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
-                .collect(Collectors.toList());
-        return ImmutableList.of(new NamedLine("total", pts));
-      }
-      List<NamedLine> out = new ArrayList<>();
-      for (Map.Entry<String, TreeMap<String, Integer>> e : seriesDim.entrySet()) {
-        List<NumericDataPoint> pts =
-            e.getValue().entrySet().stream()
-                .map(en -> new NumericDataPoint(en.getKey(), en.getValue()))
-                .collect(Collectors.toList());
-        out.add(new NamedLine(e.getKey(), pts));
-      }
-      return out;
+      return toNamedLines(seriesDim, dimExpr != null, dateRange, granularity);
     } catch (Exception e) {
       log.debug("Rollup timeseries failed; falling back to raw", e);
       return null;

@@ -13,6 +13,7 @@ import lombok.Value;
 public class AnalyticsCompactResponseBody {
   boolean lockNotAcquired;
   boolean moreWorkRemaining;
+  boolean failed;
   int hoursSealed;
   int daysCompacted;
   int monthsCompacted;
@@ -25,6 +26,7 @@ public class AnalyticsCompactResponseBody {
     return AnalyticsCompactResponseBody.builder()
         .lockNotAcquired(result.isLockNotAcquired())
         .moreWorkRemaining(result.isMoreWorkRemaining())
+        .failed(result.isFailed())
         .hoursSealed(result.getHoursSealed())
         .daysCompacted(result.getDaysCompacted())
         .monthsCompacted(result.getMonthsCompacted())

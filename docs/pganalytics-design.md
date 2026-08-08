@@ -104,6 +104,11 @@ Registry metrics for `system_usage` / `datahub_usage` live alongside `api_usage`
 Postgres quickstart/debug profiles enable **exclusive** pgAnalytics product SoT by default
 (`DATAHUB_PGANALYTICS_ENABLED=true`, `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres`). Override
 `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=elasticsearch` to keep the search index as SoT.
+
+Upgrading an existing Postgres quickstart to this default switches both writes and chart reads to
+pgAnalytics without backfilling historical rows from Elasticsearch. Retain the Elasticsearch
+override if you need prior product-usage history to keep appearing in charts until you accept a
+fresh Postgres timeline (or run a one-off backfill into `*_event`).
 They also default `DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED=true` and
 `DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED=true` so api_usage (including active-identity
 distincts) and system entity-count gauges land in Postgres.

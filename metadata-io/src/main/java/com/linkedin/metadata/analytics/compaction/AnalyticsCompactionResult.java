@@ -11,6 +11,10 @@ import lombok.Value;
 public class AnalyticsCompactionResult {
   boolean lockNotAcquired;
   boolean moreWorkRemaining;
+
+  /** True when compaction hit a hard failure (e.g. SQL error), not just unfinished work. */
+  boolean failed;
+
   int hoursSealed;
   int daysCompacted;
   int monthsCompacted;

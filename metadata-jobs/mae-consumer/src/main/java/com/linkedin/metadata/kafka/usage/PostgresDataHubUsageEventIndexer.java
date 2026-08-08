@@ -36,9 +36,10 @@ public class PostgresDataHubUsageEventIndexer implements DataHubUsageEventIndexe
                 opContext,
                 event.documentIdWithKafkaOffsetSuffix(),
                 event.document().getDocument()));
-      } catch (JsonProcessingException e) {
+      } catch (JsonProcessingException | RuntimeException e) {
+        // Malformed JSON or timestamps must not fail the whole batch.
         log.warn(
-            "Skipping usage event: invalid JSON for id {}",
+            "Skipping usage event: parse failure for id {}",
             event.documentIdWithKafkaOffsetSuffix(),
             e);
       }

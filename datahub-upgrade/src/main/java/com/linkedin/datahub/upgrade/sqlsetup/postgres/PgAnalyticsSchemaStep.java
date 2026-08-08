@@ -140,19 +140,24 @@ public class PgAnalyticsSchemaStep implements UpgradeStep {
         tablePrefix + "_event",
         store.getRawMaxAgeSeconds(),
         store.getPartmanPartitionInterval());
+    int sharedRetentionSeconds =
+        combineRetentionAges(
+            store.getHourlyMaxAgeSeconds(),
+            store.getDailyMaxAgeSeconds(),
+            store.getMonthlyMaxAgeSeconds());
     applyPerParentRetention(
         connection,
         partmanExtensionSchema,
         schema,
         tablePrefix + "_rollup",
-        Math.max(store.getHourlyMaxAgeSeconds(), store.getDailyMaxAgeSeconds()),
+        sharedRetentionSeconds,
         store.getPartmanPartitionInterval());
     applyPerParentRetention(
         connection,
         partmanExtensionSchema,
         schema,
         tablePrefix + "_distinct_set",
-        Math.max(store.getHourlyMaxAgeSeconds(), store.getDailyMaxAgeSeconds()),
+        sharedRetentionSeconds,
         store.getPartmanPartitionInterval());
 
     if (store.isMaintenanceCronEnabled()) {
@@ -187,6 +192,25 @@ public class PgAnalyticsSchemaStep implements UpgradeStep {
         }
       }
     }
+  }
+
+  /**
+   * Unbounded retention ({@code <= 0}) wins; otherwise the maximum finite age is used so shorter
+   * grains cannot drop longer-lived month partitions.
+   */
+  static int combineRetentionAges(int... agesSeconds) {
+    int max = 0;
+    boolean sawFinite = false;
+    for (int age : agesSeconds) {
+      if (age <= 0) {
+        return 0;
+      }
+      if (!sawFinite || age > max) {
+        max = age;
+        sawFinite = true;
+      }
+    }
+    return max;
   }
 
   private static void applyPerParentRetention(
