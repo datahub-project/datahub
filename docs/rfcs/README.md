@@ -25,7 +25,7 @@ Historical RFCs will be migrated to this directory on an as-needed basis when th
 
 ## Active RFCs
 
-Currently, there are no active RFCs. Check the [pull requests with the "RFC" label](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3ARFC) for pending RFC proposals.
+- [001 - Ingestion Plugin System](./active/001-plugin-system.md) — Add a GitHub-native plugin system for distributing and installing community ingestion connectors in isolated environments.
 
 ## Accepted RFCs
 

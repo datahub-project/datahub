@@ -262,8 +262,10 @@ def generate_connector_registry_cli(
         if source not in source_registry.mapping:
             logger.error(f"Source '{source}' not found in registry")
             return
-        original_mapping = source_registry.mapping.copy()
-        source_registry.mapping = {source: original_mapping[source]}  # type: ignore[misc]
+        original_mapping = dict(source_registry.mapping)
+        # mapping is a read-only view; mutate the backing store to filter, then
+        # restore it in the finally below.
+        source_registry._mapping = {source: original_mapping[source]}
 
     try:
         registry = generate_connector_registry()
@@ -283,7 +285,7 @@ def generate_connector_registry_cli(
 
     finally:
         if source:
-            source_registry.mapping = original_mapping  # type: ignore[misc]
+            source_registry._mapping = original_mapping
 
 
 if __name__ == "__main__":

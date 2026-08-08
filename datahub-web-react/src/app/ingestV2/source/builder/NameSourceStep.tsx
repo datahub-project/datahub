@@ -8,6 +8,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
+import { ExternalPluginKey, ExtraEnvKey, ExtraPluginKey, ExtraReqKey } from '@app/ingestV2/source/extraArgKeys';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
@@ -23,15 +24,11 @@ const LabelContainer = styled.div`
     display: flex;
 `;
 
-const ExtraEnvKey = 'extra_env_vars';
-const ExtraReqKey = 'extra_pip_requirements';
-const ExtraPluginKey = 'extra_pip_plugins';
-
 const EXECUTOR_ID_PLACEHOLDER = 'default';
 const EXTRA_ENV_PLACEHOLDER = '{"MY_CUSTOM_ENV": "my_custom_value2"}';
 const EXTRA_ARGS_PLACEHOLDER = '["debug"]';
 const EXTRA_PIP_PLACEHOLDER = '["sqlparse==0.4.3"]';
-
+const EXTERNAL_PLUGIN_PLACEHOLDER = '["github:owner/my-source"]';
 export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
     const { t } = useTranslation('ingestion.sourceBuilder');
     const { t: tc } = useTranslation('common.actions');
@@ -118,88 +115,26 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
         updateState(newState);
     };
 
-    const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
-        if (index > -1) {
-            return extraArgs[index].value;
-        }
-        return '';
+    const getExtraArg = (key: string): string => {
+        return state.config?.extraArgs?.find((entry) => entry.key === key)?.value ?? '';
     };
 
-    const setExtraEnvs = (envs: string) => {
+    const setExtraArg = (key: string, newValue: string) => {
         let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
-        const value = { key: ExtraEnvKey, value: envs };
-        if (indxOfEnvVars > -1) {
-            extraArgs[indxOfEnvVars] = value;
+        const idx = extraArgs.findIndex((entry) => entry.key === key);
+        const entry = { key, value: newValue };
+        if (idx > -1) {
+            extraArgs[idx] = entry;
         } else {
-            extraArgs = [...extraArgs, value];
+            extraArgs = [...extraArgs, entry];
         }
-        const newState: SourceBuilderState = {
+        updateState({
             ...state,
             config: {
                 ...state.config,
                 extraArgs,
             },
-        };
-        updateState(newState);
-    };
-
-    const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
-        if (index > -1) {
-            return extraArgs[index].value;
-        }
-        return '';
-    };
-
-    const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
-        const value = { key: ExtraPluginKey, value: plugins };
-        if (indxOfPlugins > -1) {
-            extraArgs[indxOfPlugins] = value;
-        } else {
-            extraArgs = [...extraArgs, value];
-        }
-        const newState: SourceBuilderState = {
-            ...state,
-            config: {
-                ...state.config,
-                extraArgs,
-            },
-        };
-        updateState(newState);
-    };
-
-    const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
-        if (index > -1) {
-            return extraArgs[index].value;
-        }
-        return '';
-    };
-
-    const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
-        const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
-        const value = { key: ExtraReqKey, value: reqs };
-        if (indxOfReqs > -1) {
-            extraArgs[indxOfReqs] = value;
-        } else {
-            extraArgs = [...extraArgs, value];
-        }
-        const newState: SourceBuilderState = {
-            ...state,
-            config: {
-                ...state.config,
-                extraArgs,
-            },
-        };
-        updateState(newState);
+        });
     };
 
     const onClickCreate = (shouldRun?: boolean) => {
@@ -300,9 +235,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                             <Input
                                 data-testid="extra-args-input"
                                 placeholder={EXTRA_ENV_PLACEHOLDER}
-                                value={retrieveExtraEnvs()}
-                                onChange={(event) => setExtraEnvs(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraEnvs)}
+                                value={getExtraArg(ExtraEnvKey)}
+                                onChange={(event) => setExtraArg(ExtraEnvKey, event.target.value)}
+                                onBlur={(event) => handleBlur(event, (v) => setExtraArg(ExtraEnvKey, v))}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>{t('nameStep.extraPlugins.label')}</Typography.Text>}>
@@ -310,9 +245,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                             <Input
                                 data-testid="extra-pip-plugin-input"
                                 placeholder={EXTRA_ARGS_PLACEHOLDER}
-                                value={retrieveExtraDataHubPlugins()}
-                                onChange={(event) => setExtraDataHubPlugins(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
+                                value={getExtraArg(ExtraPluginKey)}
+                                onChange={(event) => setExtraArg(ExtraPluginKey, event.target.value)}
+                                onBlur={(event) => handleBlur(event, (v) => setExtraArg(ExtraPluginKey, v))}
                             />
                         </Form.Item>
                         <Form.Item
@@ -322,9 +257,21 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                             <Input
                                 data-testid="extra-pip-reqs-input"
                                 placeholder={EXTRA_PIP_PLACEHOLDER}
-                                value={retrieveExtraReqs()}
-                                onChange={(event) => setExtraReqs(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraReqs)}
+                                value={getExtraArg(ExtraReqKey)}
+                                onChange={(event) => setExtraArg(ExtraReqKey, event.target.value)}
+                                onBlur={(event) => handleBlur(event, (v) => setExtraArg(ExtraReqKey, v))}
+                            />
+                        </Form.Item>
+                        <Form.Item
+                            label={<Typography.Text strong>{t('nameStep.externalPlugins.label')}</Typography.Text>}
+                        >
+                            <Typography.Paragraph>{t('nameStep.externalPlugins.description')}</Typography.Paragraph>
+                            <Input
+                                data-testid="external-plugins-input"
+                                placeholder={EXTERNAL_PLUGIN_PLACEHOLDER}
+                                value={getExtraArg(ExternalPluginKey)}
+                                onChange={(event) => setExtraArg(ExternalPluginKey, event.target.value)}
+                                onBlur={(event) => handleBlur(event, (v) => setExtraArg(ExternalPluginKey, v))}
                             />
                         </Form.Item>
                     </Collapse.Panel>
