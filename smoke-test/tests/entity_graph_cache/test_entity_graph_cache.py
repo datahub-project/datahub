@@ -28,6 +28,9 @@ from tests.entity_graph_cache.helpers import (
     cleanup_containers,
     cleanup_domains,
     cleanup_glossary_entities,
+    cleanup_group_and_users,
+    corp_group_urn,
+    create_group_without_origin,
     create_native_group,
     create_test_corp_user,
     delete_native_group,
@@ -49,6 +52,7 @@ from tests.entity_graph_cache.helpers import (
     unique_id,
     update_parent_node,
     wait_for_corp_group_incoming_members,
+    wait_for_corp_group_members_absent,
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
@@ -578,6 +582,107 @@ def test_corp_group_incoming_members_after_native_add(auth_session):
         if group_urn is not None:
             remove_users_from_native_group(auth_session, group_urn, [user_urn])
             delete_native_group(auth_session, group_urn)
+
+
+def test_add_group_members_adds_every_user_in_one_mutation(auth_session, graph_client):
+    """A single addGroupMembers call must add all supplied users.
+
+    Group membership writes are batched, so one mutation produces one aspect read
+    and one batched write for the whole set. A regression to per-user handling that
+    stops after the first user would still report success.
+    """
+    run_id = unique_id("egc-multi-add")
+    user_urns = [
+        create_test_corp_user(graph_client, f"egc-multi-{index}-{run_id}")
+        for index in range(3)
+    ]
+    group_urn: Optional[str] = None
+
+    try:
+        group_urn = create_native_group(auth_session, f"egc-multi-{run_id}")
+        add_users_to_native_group(auth_session, group_urn, user_urns)
+
+        members = wait_for_corp_group_incoming_members(
+            auth_session, group_urn, user_urns
+        )
+        for user_urn in user_urns:
+            assert user_urn in members
+    finally:
+        cleanup_group_and_users(auth_session, graph_client, group_urn, user_urns)
+        wait_for_hierarchy_writes()
+
+
+def test_migration_converts_existing_members_when_group_becomes_native(
+    auth_session, graph_client
+):
+    """Adding a member to an origin-less group migrates the members it already has.
+
+    The group has no origin aspect, so the first addGroupMembers runs the inline
+    GroupMembership -> NativeGroupMembership migration before adding the requested
+    user. The pre-existing legacy member must survive that migration and end up
+    labeled as a native member, not be dropped partway through.
+    """
+    run_id = unique_id("egc-migrate")
+    existing_user = create_test_corp_user(graph_client, f"egc-mig-old-{run_id}")
+    new_user = create_test_corp_user(graph_client, f"egc-mig-new-{run_id}")
+    group_urn = corp_group_urn(f"egc-mig-{run_id}")
+
+    try:
+        create_group_without_origin(graph_client, f"egc-mig-{run_id}")
+        add_corp_group_membership(graph_client, existing_user, group_urn)
+        wait_for_hierarchy_writes()
+
+        add_users_to_native_group(auth_session, group_urn, [new_user])
+
+        members = wait_for_corp_group_incoming_members(
+            auth_session, group_urn, [existing_user, new_user]
+        )
+        assert existing_user in members
+        assert new_user in members
+
+        # The pre-existing member must be converted, not merely left on the legacy
+        # aspect - the migration is what moves them across.
+        wait_for_session_group_membership_labels(
+            auth_session, existing_user, {group_urn: IS_MEMBER_OF_NATIVE_GROUP}
+        )
+    finally:
+        cleanup_group_and_users(
+            auth_session, graph_client, group_urn, [existing_user, new_user]
+        )
+        wait_for_hierarchy_writes()
+
+
+def test_remove_group_members_revokes_legacy_membership(auth_session, graph_client):
+    """removeGroupMembers must revoke membership held via the legacy aspect.
+
+    A member of a group that never finished migrating holds only groupMembership.
+    Both aspects grant access, so a removal that only strips nativeGroupMembership
+    reports success while leaving the user in the group.
+    """
+    run_id = unique_id("egc-legacy-rm")
+    user_urn = create_test_corp_user(graph_client, f"egc-legacy-rm-{run_id}")
+    group_urn = corp_group_urn(f"egc-legacy-rm-{run_id}")
+
+    try:
+        create_group_without_origin(graph_client, f"egc-legacy-rm-{run_id}")
+        add_corp_group_membership(graph_client, user_urn, group_urn)
+        wait_for_hierarchy_writes()
+
+        # Confirm the legacy-only membership is live before removing it, so the
+        # post-removal assertion cannot pass vacuously.
+        assert user_urn in wait_for_corp_group_incoming_members(
+            auth_session, group_urn, [user_urn]
+        )
+
+        remove_users_from_native_group(auth_session, group_urn, [user_urn])
+
+        members = wait_for_corp_group_members_absent(
+            auth_session, group_urn, [user_urn]
+        )
+        assert user_urn not in members
+    finally:
+        cleanup_group_and_users(auth_session, graph_client, group_urn, [user_urn])
+        wait_for_hierarchy_writes()
 
 
 def test_corp_group_incoming_members_immediately_after_add_second_member(

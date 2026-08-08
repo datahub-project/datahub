@@ -74,17 +74,18 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           }
 
           try {
-            // Add each user to the group
             final List<Urn> userUrnList =
                 input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-            userUrnList.forEach(
-                userUrn ->
-                    _groupService.addUserToNativeGroup(
-                        context.getOperationContext(), userUrn, groupUrn));
+            _groupService.addUsersToNativeGroup(
+                context.getOperationContext(), userUrnList, groupUrn);
             return true;
           } catch (Exception e) {
+            // Preserve the cause: the service names the users that do not exist, and dropping it
+            // leaves the caller unable to tell which URNs were bad.
             throw new RuntimeException(
-                String.format("Failed to add group members to group %s", groupUrnStr));
+                String.format(
+                    "Failed to add group members to group %s: %s", groupUrnStr, e.getMessage()),
+                e);
           }
         },
         this.getClass().getSimpleName(),
