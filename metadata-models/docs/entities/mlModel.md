@@ -308,6 +308,41 @@ The standard REST APIs can be used to retrieve ML Model entities and their aspec
 
 </details>
 
+### Aspect names and Python SDK class names
+
+When writing Python, note that the aspect name and the SDK class name do not
+follow one rule for every ML aspect. Six of the ML Model aspects drop the
+`mlModel` prefix in their generated class, so searching the SDK for the aspect
+name finds nothing:
+
+| Aspect name | Python SDK class |
+|---|---|
+| `mlModelTrainingData` | `TrainingDataClass` |
+| `mlModelEvaluationData` | `EvaluationDataClass` |
+| `mlModelEthicalConsiderations` | `EthicalConsiderationsClass` |
+| `mlModelCaveatsAndRecommendations` | `CaveatsAndRecommendationsClass` |
+| `mlModelQuantitativeAnalyses` | `QuantitativeAnalysesClass` |
+| `mlModelMetrics` | `MetricsClass` |
+
+Others keep the prefix and only change its case:
+
+| Aspect name | Python SDK class |
+|---|---|
+| `mlModelProperties` | `MLModelPropertiesClass` |
+| `mlModelFactorPrompts` | `MLModelFactorPromptsClass` |
+| `mlModelGroupProperties` | `MLModelGroupPropertiesClass` |
+| `mlFeatureProperties` | `MLFeaturePropertiesClass` |
+| `mlPrimaryKeyProperties` | `MLPrimaryKeyPropertiesClass` |
+
+Every class carries the aspect name in `ASPECT_NAME`, which is the reliable way
+to map between the two:
+
+```python
+from datahub.metadata.schema_classes import TrainingDataClass
+
+TrainingDataClass.ASPECT_NAME  # "mlModelTrainingData"
+```
+
 ## Integration Points
 
 ### Related Entities
