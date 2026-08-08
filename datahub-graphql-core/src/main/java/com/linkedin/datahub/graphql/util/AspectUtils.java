@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.util;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
+import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.SelectedField;
 import java.util.Collection;
 import java.util.List;
@@ -37,6 +38,27 @@ public class AspectUtils {
     }
     return AspectLoadContext.fromRequiredAspects(
         registry.getRequiredAspects(entityTypeName, selectedFields));
+  }
+
+  /**
+   * Computes the aspect selection for a single GraphQL field invocation from the query AST.
+   *
+   * <p>Prefer this over the {@link SelectedField} overload in entity resolvers: it reads only the
+   * immediate selections via {@link SelectionSetAnalyzer} instead of materializing the entire
+   * selection subtree on every resolved entity.
+   */
+  @Nonnull
+  public static AspectLoadContext computeLoadContext(
+      @Nullable final AspectMappingRegistry registry,
+      @Nonnull final String entityTypeName,
+      @Nullable final DataFetchingEnvironment environment) {
+    if (registry == null || environment == null) {
+      return AspectLoadContext.fetchAll();
+    }
+    return AspectLoadContext.fromRequiredAspects(
+        registry.getRequiredAspectsForFieldNames(
+            entityTypeName,
+            SelectionSetAnalyzer.collectImmediateFieldNames(environment, entityTypeName)));
   }
 
   /**

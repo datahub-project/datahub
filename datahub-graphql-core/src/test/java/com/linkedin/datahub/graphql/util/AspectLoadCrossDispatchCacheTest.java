@@ -31,9 +31,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DatasetKey;
+import graphql.language.Field;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,14 +120,9 @@ public class AspectLoadCrossDispatchCacheTest {
   @Test
   public void testSecondDispatchDisjointAspectUsesProductionLoaderNotStaleCache() throws Exception {
     AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);
-    SelectedField ownershipField = mock(SelectedField.class);
-    SelectedField tagsField = mock(SelectedField.class);
-    List<SelectedField> ownershipFields = List.of(ownershipField);
-    List<SelectedField> tagsFields = List.of(tagsField);
-
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(ownershipFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("ownership"))))
         .thenReturn(ImmutableSet.of(Constants.OWNERSHIP_ASPECT_NAME));
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(tagsFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("tags"))))
         .thenReturn(ImmutableSet.of(Constants.GLOBAL_TAGS_ASPECT_NAME));
 
     AccumulatingContext context = new AccumulatingContext(getMockAllowContext(), mappingRegistry);
@@ -157,7 +152,7 @@ public class AspectLoadCrossDispatchCacheTest {
 
     // Dispatch 1: ownership only.
     DataFetchingEnvironment envOwnership =
-        envWithSelection(context, registry, ownershipFields, "ownership");
+        envWithSelection(context, registry, "ownership", "ownership");
     CompletableFuture<Dataset> futureOwnership = resolver.get(envOwnership);
     loader.dispatch();
     Dataset first = futureOwnership.get();
@@ -165,7 +160,7 @@ public class AspectLoadCrossDispatchCacheTest {
     assertNull(first.getTags(), "first dispatch must not include tags aspect");
 
     // Dispatch 2: disjoint globalTags for the same URN in the same request / loader.
-    DataFetchingEnvironment envTags = envWithSelection(context, registry, tagsFields, "tags");
+    DataFetchingEnvironment envTags = envWithSelection(context, registry, "tags", "tags");
     CompletableFuture<Dataset> futureTags = resolver.get(envTags);
     loader.dispatch();
     Dataset second = futureTags.get();
@@ -182,14 +177,24 @@ public class AspectLoadCrossDispatchCacheTest {
         "expected a second batchGetV2 after cache miss for disjoint AspectLoadContext");
   }
 
+  /**
+   * Builds an environment whose query AST selects {@code selectedFieldName} on the resolved entity.
+   * Resolvers read immediate selections from the AST, so the selection must be expressed there.
+   */
   private DataFetchingEnvironment envWithSelection(
-      QueryContext context, DataLoaderRegistry registry, List<SelectedField> fields, String label) {
+      QueryContext context, DataLoaderRegistry registry, String selectedFieldName, String label) {
     DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet selectionSet = mock(DataFetchingFieldSelectionSet.class);
     when(env.getContext()).thenReturn(context);
     when(env.getDataLoaderRegistry()).thenReturn(registry);
-    when(env.getSelectionSet()).thenReturn(selectionSet);
-    when(selectionSet.getFields()).thenReturn(fields);
+    when(env.getField())
+        .thenReturn(
+            Field.newField()
+                .name("entity")
+                .selectionSet(
+                    SelectionSet.newSelectionSet()
+                        .selection(Field.newField().name(selectedFieldName).build())
+                        .build())
+                .build());
     when(env.toString()).thenReturn("DFE:" + label);
     return env;
   }

@@ -48,9 +48,7 @@ public class LoadableTypeResolver<T, K> implements DataFetcher<CompletableFuture
     if (context != null) {
       loadContext =
           AspectUtils.computeLoadContext(
-              context.getAspectMappingRegistry(),
-              _loadableType.name(),
-              environment.getSelectionSet().getFields());
+              context.getAspectMappingRegistry(), _loadableType.name(), environment);
       // Resolver-side merge: required when DataLoader cache collapses duplicate (key + context)
       // loads before dispatch so sibling selections still widen the request-scoped union.
       context.mergeAspectLoadContext(_loadableType.name(), loadContext);

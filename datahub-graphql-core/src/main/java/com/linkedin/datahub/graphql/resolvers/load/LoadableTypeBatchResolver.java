@@ -47,9 +47,7 @@ public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableF
     if (context != null) {
       loadContext =
           AspectUtils.computeLoadContext(
-              context.getAspectMappingRegistry(),
-              _loadableType.name(),
-              environment.getSelectionSet().getFields());
+              context.getAspectMappingRegistry(), _loadableType.name(), environment);
       // Resolver-side merge: see AspectLoadContext / QueryContext.mergeAspectLoadContext.
       context.mergeAspectLoadContext(_loadableType.name(), loadContext);
     }

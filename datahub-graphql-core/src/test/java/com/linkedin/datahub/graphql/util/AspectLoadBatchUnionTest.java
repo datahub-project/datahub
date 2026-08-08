@@ -28,8 +28,6 @@ import graphql.execution.DataFetcherResult;
 import graphql.language.Field;
 import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -114,14 +112,24 @@ public class AspectLoadBatchUnionTest {
     }
   }
 
+  /**
+   * Builds an environment whose query AST selects {@code selectedFieldName} on the resolved entity.
+   * Resolvers read immediate selections from the AST, so the selection must be expressed there.
+   */
   private DataFetchingEnvironment envWithSelection(
-      QueryContext context, DataLoaderRegistry registry, List<SelectedField> fields, String label) {
+      QueryContext context, DataLoaderRegistry registry, String selectedFieldName, String label) {
     DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
-    DataFetchingFieldSelectionSet selectionSet = mock(DataFetchingFieldSelectionSet.class);
     when(env.getContext()).thenReturn(context);
     when(env.getDataLoaderRegistry()).thenReturn(registry);
-    when(env.getSelectionSet()).thenReturn(selectionSet);
-    when(selectionSet.getFields()).thenReturn(fields);
+    when(env.getField())
+        .thenReturn(
+            Field.newField()
+                .name("entity")
+                .selectionSet(
+                    SelectionSet.newSelectionSet()
+                        .selection(Field.newField().name(selectedFieldName).build())
+                        .build())
+                .build());
     when(env.toString()).thenReturn("DFE:" + label);
     return env;
   }
@@ -145,14 +153,9 @@ public class AspectLoadBatchUnionTest {
   @Test
   public void testAliasedSiblingDisjointSelectionsUnionFetched() throws Exception {
     AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);
-    SelectedField ownershipField = mock(SelectedField.class);
-    SelectedField platformField = mock(SelectedField.class);
-    List<SelectedField> ownershipFields = List.of(ownershipField);
-    List<SelectedField> platformFields = List.of(platformField);
-
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(ownershipFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("ownership"))))
         .thenReturn(ImmutableSet.of("ownership"));
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(platformFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("platform"))))
         .thenReturn(ImmutableSet.of("dataPlatformInstance"));
 
     AccumulatingContext context = new AccumulatingContext(getMockAllowContext(), mappingRegistry);
@@ -185,9 +188,8 @@ public class AspectLoadBatchUnionTest {
     DataLoaderRegistry registry = new DataLoaderRegistry();
     registry.register("Dataset", loader);
 
-    DataFetchingEnvironment envA =
-        envWithSelection(context, registry, ownershipFields, "ownership");
-    DataFetchingEnvironment envB = envWithSelection(context, registry, platformFields, "platform");
+    DataFetchingEnvironment envA = envWithSelection(context, registry, "ownership", "ownership");
+    DataFetchingEnvironment envB = envWithSelection(context, registry, "platform", "platform");
 
     LoadableTypeResolver<Dataset, String> resolverA =
         new LoadableTypeResolver<>(datasetType, e -> URN_A);
@@ -212,14 +214,9 @@ public class AspectLoadBatchUnionTest {
   @Test
   public void testBatchedSearchFragmentSelectionsUnionFetched() throws Exception {
     AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);
-    SelectedField ownershipField = mock(SelectedField.class);
-    SelectedField tagsField = mock(SelectedField.class);
-    List<SelectedField> ownershipFields = List.of(ownershipField);
-    List<SelectedField> tagsFields = List.of(tagsField);
-
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(ownershipFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("ownership"))))
         .thenReturn(ImmutableSet.of("ownership"));
-    when(mappingRegistry.getRequiredAspects(eq("Dataset"), eq(tagsFields)))
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("tags"))))
         .thenReturn(ImmutableSet.of("globalTags"));
 
     AccumulatingContext context = new AccumulatingContext(getMockAllowContext(), mappingRegistry);
@@ -263,10 +260,8 @@ public class AspectLoadBatchUnionTest {
     stubB.setUrn(URN_B);
     stubB.setType(com.linkedin.datahub.graphql.generated.EntityType.DATASET);
 
-    DataFetchingEnvironment envA = envWithSelection(context, registry, ownershipFields, "fragA");
-    DataFetchingEnvironment envB = envWithSelection(context, registry, tagsFields, "fragB");
-    stubEntityField(envA);
-    stubEntityField(envB);
+    DataFetchingEnvironment envA = envWithSelection(context, registry, "ownership", "fragA");
+    DataFetchingEnvironment envB = envWithSelection(context, registry, "tags", "fragB");
 
     EntityTypeResolver resolver =
         new EntityTypeResolver(List.of(datasetType), env -> env == envA ? stubA : stubB);
@@ -284,17 +279,5 @@ public class AspectLoadBatchUnionTest {
     assertTrue(fetched.contains("ownership"), "missing ownership: " + fetched);
     assertTrue(fetched.contains("globalTags"), "missing globalTags: " + fetched);
     assertTrue(fetched.contains("datasetKey"), "missing key: " + fetched);
-  }
-
-  private void stubEntityField(DataFetchingEnvironment env) {
-    Field field =
-        Field.newField()
-            .name("entity")
-            .selectionSet(
-                SelectionSet.newSelectionSet()
-                    .selection(Field.newField().name("ownership").build())
-                    .build())
-            .build();
-    when(env.getField()).thenReturn(field);
   }
 }

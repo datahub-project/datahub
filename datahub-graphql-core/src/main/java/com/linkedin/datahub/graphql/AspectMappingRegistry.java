@@ -105,20 +105,33 @@ public class AspectMappingRegistry {
   @Nullable
   public Set<String> getRequiredAspects(
       String typeName, Collection<graphql.schema.SelectedField> requestedFields) {
-    Set<String> aspects = new HashSet<>();
-
+    Set<String> fieldNames = new HashSet<>();
     for (graphql.schema.SelectedField field : requestedFields) {
-      String fieldName = field.getName();
-
-      // Skip introspection fields
-      if (fieldName.startsWith("__")) {
-        continue;
-      }
-
       // Only process fields that belong to the target type
       // getObjectTypeNames() returns the set of types this field belongs to (accounting for
       // interfaces/unions)
-      if (!field.getObjectTypeNames().contains(typeName)) {
+      if (field.getObjectTypeNames().contains(typeName)) {
+        fieldNames.add(field.getName());
+      }
+    }
+    return getRequiredAspectsForFieldNames(typeName, fieldNames);
+  }
+
+  /**
+   * Get required aspects for the named fields selected directly on {@code typeName}. Returns null
+   * if any field is unmapped (fallback to all aspects).
+   *
+   * <p>Callers are responsible for restricting {@code fieldNames} to fields that actually belong to
+   * {@code typeName} — see {@link com.linkedin.datahub.graphql.util.SelectionSetAnalyzer}.
+   */
+  @Nullable
+  public Set<String> getRequiredAspectsForFieldNames(
+      String typeName, Collection<String> fieldNames) {
+    Set<String> aspects = new HashSet<>();
+
+    for (String fieldName : fieldNames) {
+      // Skip introspection fields
+      if (fieldName.startsWith("__")) {
         continue;
       }
 
