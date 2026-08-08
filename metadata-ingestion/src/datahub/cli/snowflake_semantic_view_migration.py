@@ -42,7 +42,6 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass,
     SchemaFieldClass,
     SchemaMetadataClass,
-    SemanticModelInfoClass,
     StatusClass,
     SubTypesClass,
     _Aspect,
@@ -585,9 +584,8 @@ def collect_semantic_model_field_governance(
 ) -> List[FieldGovernance]:
     """Gather column tags/terms from metric entities and schemaField URNs under the model.
 
-    Columns are enumerated from the ``schemaMetadata`` of each dataset listed in
-    ``semanticModelInfo.datasets`` — the model aspect holds dataset URNs, and the
-    structural field list lives on those datasets.
+    Columns are enumerated from the ``schemaMetadata`` of each logical dataset
+    linked via ``IsPartOf`` (``semanticModelProperties.semanticModel``).
     """
     by_column: Dict[str, FieldGovernance] = {}
 
@@ -619,42 +617,42 @@ def collect_semantic_model_field_governance(
             glossary_terms=terms if isinstance(terms, GlossaryTermsClass) else None,
         )
 
-    model_info = graph.get_aspects_for_entity(
+    for related in graph.get_related_entities(
         entity_urn=semantic_model_urn,
-        aspects=["semanticModelInfo"],
-        aspect_types=[SemanticModelInfoClass],
-    ).get("semanticModelInfo")
-    if isinstance(model_info, SemanticModelInfoClass):
-        for model_dataset_urn in model_info.datasets:
-            for schema_field in _schema_metadata_fields(graph, model_dataset_urn):
-                column_name = _simple_column_name(schema_field.fieldPath)
-                field_urn = make_schema_field_urn(
-                    semantic_model_urn,
-                    _semantic_model_field_path(column_name, convert_urns_to_lowercase),
-                )
-                aspects = graph.get_aspects_for_entity(
-                    entity_urn=field_urn,
-                    aspects=["globalTags", "glossaryTerms"],
-                    aspect_types=[GlobalTagsClass, GlossaryTermsClass],
-                )
-                tags = aspects.get("globalTags")
-                terms = aspects.get("glossaryTerms")
-                # Prefer schemaField entity aspects (migration/UI); fall back to
-                # what Snowflake ingest wrote onto the model dataset's schema.
-                if tags is None and schema_field.globalTags is not None:
-                    tags = _strip_synthetic_subtype_tags(schema_field.globalTags)
-                if terms is None:
-                    terms = schema_field.glossaryTerms
-                if tags is None and terms is None:
-                    continue
-                by_column[column_name] = FieldGovernance(
-                    column_name=column_name,
-                    is_metric=False,
-                    global_tags=tags if isinstance(tags, GlobalTagsClass) else None,
-                    glossary_terms=(
-                        terms if isinstance(terms, GlossaryTermsClass) else None
-                    ),
-                )
+        relationship_types=["IsPartOf"],
+        direction=RelationshipDirection.INCOMING,
+    ):
+        if not related.urn.startswith("urn:li:dataset:"):
+            continue
+        for schema_field in _schema_metadata_fields(graph, related.urn):
+            column_name = _simple_column_name(schema_field.fieldPath)
+            field_urn = make_schema_field_urn(
+                semantic_model_urn,
+                _semantic_model_field_path(column_name, convert_urns_to_lowercase),
+            )
+            aspects = graph.get_aspects_for_entity(
+                entity_urn=field_urn,
+                aspects=["globalTags", "glossaryTerms"],
+                aspect_types=[GlobalTagsClass, GlossaryTermsClass],
+            )
+            tags = aspects.get("globalTags")
+            terms = aspects.get("glossaryTerms")
+            # Prefer schemaField entity aspects (migration/UI); fall back to
+            # what Snowflake ingest wrote onto the model dataset's schema.
+            if tags is None and schema_field.globalTags is not None:
+                tags = _strip_synthetic_subtype_tags(schema_field.globalTags)
+            if terms is None:
+                terms = schema_field.glossaryTerms
+            if tags is None and terms is None:
+                continue
+            by_column[column_name] = FieldGovernance(
+                column_name=column_name,
+                is_metric=False,
+                global_tags=tags if isinstance(tags, GlobalTagsClass) else None,
+                glossary_terms=(
+                    terms if isinstance(terms, GlossaryTermsClass) else None
+                ),
+            )
 
     return list(by_column.values())
 
