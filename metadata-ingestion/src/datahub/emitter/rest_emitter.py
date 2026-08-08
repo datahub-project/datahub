@@ -469,6 +469,8 @@ class _Chunk:
 
     @staticmethod
     def join(chunk: "_Chunk") -> str:
+        # Items are already serialized, so this concatenates rather than
+        # re-encoding a list of objects.
         return "[" + ",".join(item.payload for item in chunk.items) + "]"
 
 
