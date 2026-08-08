@@ -3,6 +3,9 @@ from typing import Dict, List, Optional, Union
 from gql import Client
 from gql.transport.requests import RequestsHTTPTransport
 
+from datahub.api.gql_transport import build_gql_transport
+from datahub.ingestion.auth.registry import AuthConfig
+
 
 class BaseApi:
     client: Client
@@ -13,22 +16,16 @@ class BaseApi:
         datahub_token: Optional[str] = None,
         timeout: Optional[int] = None,
         transport: Optional[RequestsHTTPTransport] = None,
+        datahub_auth: Optional[AuthConfig] = None,
     ):
-        # logging.basicConfig(level=logging.DEBUG)
-
         if transport:
             self.transport = transport
         else:
             assert datahub_host is not None
-            # Select your transport with a defined url endpoint
-            self.transport = RequestsHTTPTransport(
-                url=datahub_host + "/api/graphql",
-                headers=(
-                    {"Authorization": "Bearer " + datahub_token}
-                    if datahub_token is not None
-                    else None
-                ),
-                method="POST",
+            self.transport = build_gql_transport(
+                url=datahub_host,
+                token=datahub_token,
+                auth=datahub_auth,
                 timeout=timeout,
             )
 

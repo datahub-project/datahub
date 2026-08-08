@@ -3,10 +3,11 @@ from abc import abstractmethod
 from typing import Optional
 
 from gql import Client
-from gql.transport.requests import RequestsHTTPTransport
 from pydantic import Field
 
+from datahub.api.gql_transport import build_gql_transport
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
+from datahub.ingestion.auth.registry import AuthConfig
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +31,12 @@ class AbstractCircuitBreaker:
         datahub_host: str,
         datahub_token: Optional[str] = None,  # accepts raw str from callers
         timeout: Optional[int] = None,
+        datahub_auth: Optional[AuthConfig] = None,
     ):
-        # logging.basicConfig(level=logging.DEBUG)
-
-        # Select your transport with a defined url endpoint
-        self.transport = RequestsHTTPTransport(
-            url=datahub_host + "/api/graphql",
-            headers=(
-                {"Authorization": "Bearer " + datahub_token}
-                if datahub_token is not None
-                else None
-            ),
-            method="POST",
+        self.transport = build_gql_transport(
+            url=datahub_host,
+            token=datahub_token,
+            auth=datahub_auth,
             timeout=timeout,
         )
         self.client = Client(
