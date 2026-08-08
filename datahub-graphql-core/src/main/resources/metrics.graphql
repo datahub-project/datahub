@@ -93,7 +93,8 @@ type Metric implements EntityWithRelationships & Entity {
   metricUpstreams: MetricUpstreams
 
   """
-  The SemanticModel that defines this Metric.
+  The SemanticModel that owns this Metric, from `metricInfo.semanticModel`.
+  Null when the metric is not a member of any SemanticModel.
   """
   semanticModel: SemanticModel
 
@@ -251,9 +252,17 @@ type SemanticModel implements EntityWithRelationships & Entity {
   fineGrainedLineages: [FineGrainedLineage!]
 
   """
-  Metrics defined within this SemanticModel (field-resolver in CAT-2566).
+  Metrics defined within this SemanticModel (search-backed, paginated).
+  Filters to root metrics (no parent) belonging to this model.
   """
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Contained entities (logical datasets and metrics) of this SemanticModel.
+  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`
+  (same pattern as Domain.entities). Used by the lineage explorer.
+  """
+  entities(input: SearchAcrossEntitiesInput): SearchResults
 
   """
   Ownership metadata of the SemanticModel.
@@ -403,12 +412,6 @@ type SemanticModelInfo {
   The native definition of the semantic model (e.g., YAML config, SQL DDL).
   """
   nativeDefinition: String
-  """
-  The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
-  right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
-  than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
-  """
-  datasets: [Dataset!]!
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
@@ -427,7 +430,7 @@ type SemanticModelProperties {
   alias: String!
 
   """
-  The SemanticModel that this Dataset is a logical dataset of.
+  The SemanticModel that this Dataset is a logical dataset of (member-side membership).
   """
   semanticModel: SemanticModel
 }

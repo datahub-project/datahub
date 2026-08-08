@@ -15,7 +15,6 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipCardinality;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
@@ -46,8 +45,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.SemanticModelKey;
 import com.linkedin.structured.StructuredProperties;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -219,17 +216,6 @@ public class SemanticModelMapper {
       result.setNativeDefinition(pdl.getNativeDefinition());
     }
 
-    final List<Dataset> datasets;
-    if (pdl.hasDatasets() && pdl.getDatasets() != null) {
-      datasets =
-          pdl.getDatasets().stream()
-              .map(SemanticModelMapper::mapDatasetStub)
-              .collect(Collectors.toList());
-    } else {
-      datasets = Collections.emptyList();
-    }
-    result.setDatasets(datasets);
-
     if (pdl.hasRelationships() && pdl.getRelationships() != null) {
       result.setRelationships(
           pdl.getRelationships().stream()
@@ -237,13 +223,6 @@ public class SemanticModelMapper {
               .collect(Collectors.toList()));
     }
 
-    return result;
-  }
-
-  private static Dataset mapDatasetStub(final Urn datasetUrn) {
-    final Dataset result = new Dataset();
-    result.setUrn(datasetUrn.toString());
-    result.setType(EntityType.DATASET);
     return result;
   }
 
