@@ -160,12 +160,36 @@ class CorpGroup(BaseModel):
 
         # Add owners to the group.
         if owner_urns:
-            ownership = OwnershipClass(owners=[])
-            for urn in owner_urns:
-                ownership.owners.append(
-                    OwnerClass(owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
+            if generation_config.datahub_graph is not None:
+                datahub_graph = generation_config.datahub_graph
+                # Read existing ownership to make this additive (like members)
+                existing_ownership = datahub_graph.get_aspect(
+                    self.urn, OwnershipClass
+                ) or OwnershipClass(owners=[])
+
+                # Create a dict for deduplication: (owner_urn, type) -> OwnerClass
+                owners_dict = {
+                    (owner.owner, owner.type): owner
+                    for owner in existing_ownership.owners
+                }
+
+                # Add new owners (overwrites if same owner+type exists)
+                for urn in owner_urns:
+                    key = (urn, OwnershipTypeClass.TECHNICAL_OWNER)
+                    owners_dict[key] = OwnerClass(
+                        owner=urn, type=OwnershipTypeClass.TECHNICAL_OWNER
+                    )
+
+                # Emit updated ownership
+                ownership = OwnershipClass(owners=list(owners_dict.values()))
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self.urn, aspect=ownership
                 )
-            yield MetadataChangeProposalWrapper(entityUrn=self.urn, aspect=ownership)
+            else:
+                # Raise error if graph is not available (consistent with members)
+                raise ConfigurationError(
+                    "Unable to emit ownership because owners is non-empty, and a DataHubGraph instance was not provided."
+                )
 
         # Unfortunately, the members in CorpGroupInfo has been deprecated.
         # So we need to emit GroupMembership oriented to the individual users.
