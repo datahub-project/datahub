@@ -130,6 +130,7 @@ dependencies {
   }
 
   testImplementation externalDependency.mockito
+  testImplementation("io.delta:delta-core_2.12:1.0.0")
 
   testImplementation(externalDependency.mockServer) {
     exclude group: "com.fasterxml.jackson.core"

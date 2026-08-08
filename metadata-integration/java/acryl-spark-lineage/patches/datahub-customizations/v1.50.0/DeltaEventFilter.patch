@@ -1,0 +1,70 @@
+# Patch for DataHub customizations in DeltaEventFilter.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-07-27 16:02:04 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/DeltaEventFilter.patch
+#
+--- patches/upstream-1.50.0/spark/agent/filters/DeltaEventFilter.java
++++ src/main/java/io/openlineage/spark/agent/filters/DeltaEventFilter.java
+@@ -20,6 +20,7 @@
+ import org.apache.spark.sql.catalyst.expressions.NamedExpression;
+ import org.apache.spark.sql.catalyst.plans.logical.Filter;
+ import org.apache.spark.sql.catalyst.plans.logical.LocalRelation;
++import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
+ import org.apache.spark.sql.catalyst.plans.logical.Project;
+ import org.apache.spark.sql.catalyst.plans.logical.SerializeFromObject;
+ import org.apache.spark.sql.catalyst.trees.TreeNode;
+@@ -30,9 +31,20 @@
+ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
+ import scala.collection.JavaConverters;
+ 
++/**
++ * DataHub override of OpenLineage's Delta filter.
++ *
++ * <p>Delta MERGE operations run through job-level Spark listener events. OpenLineage normally
++ * filters those events as duplicates, which suppresses lineage for {@code DeltaTable.merge()}.
++ * Preserve the upstream noise filters for every other Delta operation, but allow MERGE events to
++ * continue through the listener.
++ */
+ @Slf4j
+ public class DeltaEventFilter implements EventFilter {
+ 
++  private static final String MERGE_INTO_COMMAND_SUFFIX = ".MergeIntoCommand";
++  private static final String MERGE_INTO_COMMAND_EDGE_SUFFIX = ".MergeIntoCommandEdge";
++
+   private final OpenLineageContext context;
+ 
+   private static final List<String> DELTA_INTERNAL_RDD_COLUMNS =
+@@ -54,6 +66,11 @@
+       return false;
+     }
+ 
++    if (isMergeIntoCommand()) {
++      log.debug("Allowing Delta MERGE event through the OpenLineage filter");
++      return false;
++    }
++
+     return isFilterRoot()
+         || isLocalRelationOnly()
+         || isLogicalRDDWithInternalDataColumns()
+@@ -63,6 +80,19 @@
+         || isOnJobStartOrEnd(event);
+   }
+ 
++  private boolean isMergeIntoCommand() {
++    return getLogicalPlan(context)
++        .map(LogicalPlan::getClass)
++        .map(Class::getName)
++        .map(DeltaEventFilter::isMergeIntoCommandClass)
++        .orElse(false);
++  }
++
++  static boolean isMergeIntoCommandClass(String className) {
++    return className.endsWith(MERGE_INTO_COMMAND_SUFFIX)
++        || className.endsWith(MERGE_INTO_COMMAND_EDGE_SUFFIX);
++  }
++
+   /**
+    * We get exact copies of OL events for org.apache.spark.scheduler.SparkListenerJobStart and
+    * org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart. The same happens for end
