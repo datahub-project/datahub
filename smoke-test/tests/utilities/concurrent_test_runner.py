@@ -30,6 +30,9 @@ def run_concurrent_tests(
         AssertionError: If any test case fails, raises with details of all failures
         pytest.skip.Exception: If every case skipped and none passed/failed
 
+    Failures are collected across all cases and reported together, so one bad
+    case does not hide the others behind whichever future finished first.
+
     Example:
         >>> def test_entity(entity_type):
         ...     result = search(entity_type)
