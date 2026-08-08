@@ -346,6 +346,9 @@ jobs:
           chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
 
       - name: Build all Images (For Smoke tests)
+        # --max-workers=$(nproc): gradle.properties caps workers at 2 (a laptop-safe
+        # default); the runner has 4+ vCPU, so that throttles this multi-module build.
+        # Same override build-and-test.yml already applies.
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -356,13 +359,13 @@ jobs:
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
         # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -572,7 +575,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
@@ -764,7 +767,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
