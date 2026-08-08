@@ -509,17 +509,12 @@ jobs:
       # build cache to the parallel jobs in the SAME run, which match on the exact
       # run-scoped key. A prefix restore-key here instead made it a ratchet: each
       # run restored the previous run's cache, compiled into it, and saved the
-      # union, with nothing pruning it. gradle-metadata-io-build-cache reached
-      # 16.6GB, at which point `tar | zstd` ran the runner out of disk mid-save:
-      #
-      #   zstd: error 70 : Write error : cannot write block : No space left on device
-      #   ##[warning]Failed to save: "/usr/bin/tar" failed with exit code 2
-      #
-      # A failed save is a warning, so nothing went red -- and because the entry
-      # could never be replaced, every run since restored the same frozen blob.
-      # It cost 194s to restore and 128s to fail to save, against 106s of actual
-      # compile, while hitting on only 23 of 183 tasks. The cache had become
-      # slower than not having one.
+      # union, with nothing pruning it -- this entry grew 3.2GB -> 7.2GB over 11
+      # runs in 4.5 hours (~+400MB/run) and was headed for the same wall its
+      # metadata-io sibling already hit: at 16.6GB that one could no longer be
+      # re-archived within the runner's disk, every save failed with a warning,
+      # and every run restored the same frozen blob. Cross-run reuse belongs to
+      # the remote build cache; this entry is intra-run handoff only.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:

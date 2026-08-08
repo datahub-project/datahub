@@ -188,7 +188,11 @@ buildCache {
         // a null check enables the cache with an empty password and every build
         // opens with a 403 that Gradle swallows before disabling the cache.
         enabled = depotSecret ? true : false
-        push = isCi // Push only on CI. Local development only pulls
+        // Push only from master. PR runs pull but never write: with push enabled
+        // on any CI run, code executing in a same-repo PR could populate cache
+        // entries that trusted master builds later consume (cache poisoning).
+        // Master-only writes match every other cache in this repo.
+        push = isCi && System.getenv('GITHUB_REF') == 'refs/heads/master'
         credentials {
             username = ''
             password = depotSecret
