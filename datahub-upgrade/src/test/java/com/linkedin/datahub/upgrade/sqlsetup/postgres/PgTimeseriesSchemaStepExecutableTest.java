@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions;
+import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
@@ -20,6 +21,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import javax.sql.DataSource;
 import org.mockito.MockedStatic;
 import org.testng.annotations.BeforeMethod;
@@ -209,7 +211,24 @@ public class PgTimeseriesSchemaStepExecutableTest {
   }
 
   private static PgTimeseriesSetupOptions sampleOptions(boolean cronEnabled, int retentionSeconds) {
-    return new PgTimeseriesSetupOptions(
-        "public", "metadata_timeseries", "1 day", 4, false, retentionSeconds, cronEnabled, 3600);
+    PgTimeseriesStoreOptions store =
+        PgTimeseriesStoreOptions.builder()
+            .name("default")
+            .schema("public")
+            .tablePrefix("metadata_timeseries")
+            .partmanPartitionInterval("1 day")
+            .partmanPremake(4)
+            .forceOverwritePartmanConfig(false)
+            .retentionMaxAgeSeconds(retentionSeconds)
+            .maintenanceCronEnabled(cronEnabled)
+            .maintenanceIntervalSeconds(3600)
+            .poolMinConnections(1)
+            .poolMaxConnections(12)
+            .poolMaxInactiveTimeSeconds(120)
+            .poolMaxAgeMinutes(120)
+            .poolLeakTimeMinutes(15)
+            .poolWaitTimeoutMillis(1000)
+            .build();
+    return new PgTimeseriesSetupOptions("default", Map.of("default", store), Map.of());
   }
 }
