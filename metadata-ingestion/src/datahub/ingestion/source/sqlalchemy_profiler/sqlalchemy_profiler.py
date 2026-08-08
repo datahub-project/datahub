@@ -26,6 +26,7 @@ import sqlalchemy.types as sa_types
 from dateutil import parser as date_parser
 from sqlalchemy.engine import Connection, Engine
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
@@ -477,44 +478,59 @@ class SQLAlchemyProfiler:
         # per table was wasted work. Resolution is hoisted into a method so it is unit-
         # testable independent of constructor wiring; the per-table path only re-applies
         # the already-resolved level (see the `conn.execution_options` call in
-        # `_generate_single_profile`).
-        #
-        # NOTE: resolution here deliberately does NOT open a connection. An earlier
-        # version probed with `base_engine.connect()` + `execution_options(isolation_level=...)`
-        # to validate the level name eagerly, but that coupled config-validity to
-        # DB-reachability: a transient connect blip (PgBouncer/ProxySQL reconnect,
-        # failover, pool hiccup) at construction skipped profiling for the whole
-        # inspector. Instead the level is validated lazily on first per-table use,
-        # and a targeted `except ArgumentError: raise` in `_generate_single_profile`
-        # makes a bad level fail the run loudly on the first table — restoring the
-        # pre-PR per-table degradation for transient blips while keeping bad config
-        # loud. See PR #18690 review.
+        # `_generate_single_profile`). Resolution deliberately does NOT open a
+        # connection — a bad level is validated lazily on first per-table use and raised
+        # as ConfigurationError so a transient connect blip cannot gate a whole database.
         self._profiling_isolation_level = self._resolve_profiling_isolation_level()
 
     def _resolve_profiling_isolation_level(self) -> Optional[str]:
         """Resolve the profiling isolation level for this source's profiling connections.
 
-        Precedence (the "escape hatch" overrides the adapter in both directions):
+        Resolution order:
 
-        1. Adapter default — `adapter.profiling_isolation_level()`. MySQL and Postgres
-           adapters return ``AUTOCOMMIT`` so each profiling SELECT is self-contained,
-           avoiding a long-lived transaction that pins InnoDB read views / holds
-           Postgres idle-in-transaction and blocks VACUUM.
-        2. Config override — ``profiling_isolation_level``. If set to a SQLAlchemy
+        1. Config override — ``profiling_isolation_level``. If set to a SQLAlchemy
            isolation level name, that wins. If set to the ``TRANSACTIONAL`` sentinel,
            the level is cleared (``None``), falling back to the default transactional
            behavior — e.g. for MySQL behind a proxy that rejects the ``AUTOCOMMIT``
            session setting.
+        2. Adapter default — ``adapter.profiling_isolation_level()``. MySQL and
+           Postgres adapters return ``AUTOCOMMIT`` so each profiling SELECT is
+           self-contained, avoiding a long-lived transaction that pins InnoDB read
+           views / holds Postgres idle-in-transaction and blocks VACUUM. Other
+           adapters return ``None``.
 
         Returns the resolved level string, or ``None`` for transactional. Does NOT
         open a connection or validate the name — validation is deferred to the per-table
         path so a transient connect blip can't gate a whole database's profiling.
+
+        Safety guard: if the override is set to a non-TRANSACTIONAL value while the
+        adapter returned ``None``, the platform is one this PR deliberately excluded
+        (its adapter overrides ``setup_profiling`` and creates session-scoped temp
+        resources, so AUTOCOMMIT may corrupt those resources). Warn — do not reject —
+        so a legitimate opt-in on e.g. Redshift/MSSQL still works.
         """
         adapter = get_adapter(self.platform, self.config, self.report, self.base_engine)
-        level = adapter.profiling_isolation_level()
+        adapter_default = adapter.profiling_isolation_level()
         override = self.config.profiling_isolation_level
         if override is not None:
-            level = None if override == TRANSACTIONAL else override
+            if override == TRANSACTIONAL:
+                level = None
+            else:
+                level = override
+                if adapter_default is None:
+                    self.report.warning(
+                        title="profiling_isolation_level set on a platform that does not opt in",
+                        message=(
+                            f"profiling.profiling_isolation_level={override!r} is set on "
+                            f"platform {self.platform!r}, whose adapter does not opt in to "
+                            "AUTOCOMMIT. The adapter overrides setup_profiling and may create "
+                            "session-scoped temp resources; AUTOCOMMIT can corrupt those "
+                            "resources. Set this only if you have verified it is safe for this "
+                            "platform."
+                        ),
+                    )
+        else:
+            level = adapter_default
         return level
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
@@ -1653,13 +1669,15 @@ class SQLAlchemyProfiler:
                         # returns a branched copy carrying the new option rather than mutating
                         # in place, so the returned object is the one that must flow downstream
                         # into adapter.setup_profiling(context, conn). Do NOT drop the rebind.
-                        # (On future=True engines and SQLAlchemy 2.0, execution_options mutates
-                        # in place and returns self, and calling it after a transaction has
-                        # autobegun raises InvalidRequestError — re-pin this comment if/when the
-                        # sqlalchemy pin lifts.)
-                        conn = conn.execution_options(
-                            isolation_level=self._profiling_isolation_level
-                        )
+                        try:
+                            conn = conn.execution_options(
+                                isolation_level=self._profiling_isolation_level
+                            )
+                        except sa.exc.ArgumentError as e:
+                            raise ConfigurationError(
+                                f"Invalid profiling.profiling_isolation_level "
+                                f"{self._profiling_isolation_level!r}"
+                            ) from e
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     try:
@@ -1869,16 +1887,13 @@ class SQLAlchemyProfiler:
                     self.times_taken.append(time_taken)
                     return profile
 
-            except sa.exc.ArgumentError:
-                # A bad `profiling_isolation_level` name surfaces here on the first
-                # per-table `conn.execution_options(isolation_level=...)` (the level
-                # is resolved at construction but NOT eagerly validated there, to
-                # avoid coupling config-validity to DB-reachability — see
-                # `_resolve_profiling_isolation_level`). ArgumentError subclasses
-                # SQLAlchemyError, so without this targeted handler the broad
-                # `except SQLAlchemyError` below would swallow it into one warning
-                # per table + return None — zero profiles for the run, silently, the
-                # exact failure mode this PR exists to prevent. Re-raise loud, once.
+            except ConfigurationError:
+                # A bad `profiling_isolation_level` name is converted to
+                # ConfigurationError at the call site above. Re-raise it ahead of
+                # the broad handlers below: ConfigurationError is not raised
+                # anywhere in the per-table profiling path, so unlike
+                # ArgumentError it cannot fire incidentally, and the operator gets
+                # an error naming the config key instead of a raw dialect message.
                 raise
             except (
                 sa.exc.SQLAlchemyError,

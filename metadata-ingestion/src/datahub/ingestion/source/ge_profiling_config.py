@@ -206,12 +206,14 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             "your DB rejects the adapter's default session setting: use the sentinel "
             "`TRANSACTIONAL` to fall back to the default transactional behavior (e.g. MySQL "
             "behind a proxy that rejects `AUTOCOMMIT`), or a SQLAlchemy isolation level name to "
-            "force a specific level. An invalid level fails loudly at profiler construction, "
-            "not per table. Cross-statement snapshot consistency is not guaranteed under "
-            "AUTOCOMMIT; under MySQL InnoDB REPEATABLE READ the old long transaction did "
-            "provide one snapshot, so AUTOCOMMIT trades that for safety. Under Postgres READ "
-            "COMMITTED each statement already took a fresh snapshot, so AUTOCOMMIT loses "
-            "nothing. See the profiling docs for the known cross-snapshot skew."
+            "force a specific level. An invalid level fails the run loudly (every table "
+            "fails at execution_options before the first result returns) rather than "
+            "being swallowed per-table into a warning. Setting a non-TRANSACTIONAL value "
+            "on a platform whose adapter does not opt in (e.g. Snowflake, BigQuery, "
+            "Athena, Trino, ClickHouse) emits a warning: those adapters override "
+            "setup_profiling and may create session-scoped temp resources that "
+            "AUTOCOMMIT can corrupt. Cross-statement snapshot consistency is not "
+            "guaranteed under AUTOCOMMIT."
         ),
     )
 

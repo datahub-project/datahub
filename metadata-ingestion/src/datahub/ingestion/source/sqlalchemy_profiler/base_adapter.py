@@ -121,28 +121,16 @@ class PlatformAdapter(ABC):
         """
         Isolation level to apply to the profiling connection, or None to keep the default.
 
-        Why this exists: the DBAPI driver disables autocommit on connect (pymysql issues
-        `SET AUTOCOMMIT = 0`; psycopg2 begins a transaction on first use), and SQLAlchemy
-        never COMMITs a read-only profiling session, so the transaction stays open for the
-        connection's life. Postgres then sits idle-in-transaction, holding back the xmin
-        horizon and blocking VACUUM; MySQL pins an InnoDB REPEATABLE-READ read view and grows
-        the history/undo list. Returning "AUTOCOMMIT" makes each profiling statement
-        self-contained. This routes through the dialect's autocommit API (vs. `connect_args`
-        autocommit, which relies on the server default and is not deterministic).
+        Returning "AUTOCOMMIT" makes each profiling statement self-contained, avoiding
+        a long-lived read-only transaction that — under the default driver behavior —
+        pins InnoDB read views (MySQL) / holds Postgres idle-in-transaction and blocks
+        VACUUM. Routed through the dialect's autocommit API (vs. `connect_args` autocommit,
+        which relies on the server default and is not deterministic).
 
         Opt-in is per-adapter by exact platform match in `get_adapter`
-        (`adapters/__init__.py`); the base default is None. Do NOT invert the base default:
-        `GenericAdapter` is the fallback for every unlisted platform, so inverting would
-        silently apply AUTOCOMMIT to engines that reject it.
-
-        Accepted correctness trade-off: under AUTOCOMMIT, `min`, `max`, `COUNT(*)`,
-        `COUNT(col)`, `uniqueCount`, quantiles, histograms, and sample values each come from
-        a different snapshot, so a profile can be internally inconsistent on a concurrently
-        written table (e.g. `uniqueCount` > `rowCount` -- `uniqueCount` is emitted raw by
-        `_extract_column_profile`, not clamped). The existing clamps
-        (`null_count = max(0, row_count - non_null_count)`, and `nullProportion`/
-        `uniqueProportion` via `min(1, ...)`) prevent nonsensical ratios, not inconsistent
-        counts. This is accepted as safer than the long-transaction alternative.
+        (`adapters/__init__.py`); the base default is None. Do NOT invert the base
+        default: `GenericAdapter` is the fallback for every unlisted platform, so
+        inverting would silently apply AUTOCOMMIT to engines that reject it.
 
         Returns:
             A SQLAlchemy isolation level name (e.g. "AUTOCOMMIT"), or None. Kept as

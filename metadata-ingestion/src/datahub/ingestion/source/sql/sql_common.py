@@ -592,13 +592,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            # SQLAlchemyProfiler.__init__ resolves the isolation level but deliberately
-            # does NOT open a connection (an earlier eager probe coupled config-validity
-            # to DB-reachability and let a transient connect blip skip a whole database).
-            # So construction no longer raises transient errors here. A bad level name
-            # is validated lazily on first per-table use and re-raised loudly by the
-            # targeted `except ArgumentError` in `_generate_single_profile` — see the
-            # SQLAlchemyProfiler docstring for the rationale.
             profiler = self.get_profiler_instance(inspector)
             try:
                 self.add_profile_metadata(inspector)
