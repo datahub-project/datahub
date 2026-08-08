@@ -149,7 +149,12 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   /** Package-private factory for tests; avoids spinning up a real OS connection. */
   static OpenSearch2SearchClientShim forTest(RestHighLevelClient client) {
-    return new OpenSearch2SearchClientShim(client, new ObjectMapper());
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), null);
+  }
+
+  /** Package-private factory for tests that need a specific configuration. */
+  static OpenSearch2SearchClientShim forTest(RestHighLevelClient client, ShimConfiguration config) {
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), config);
   }
 
   /** The version probe is only benign when the engine type did not have to be auto-detected. */
@@ -157,8 +162,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     return shimConfiguration != null && shimConfiguration.isEngineTypeAutoDetected();
   }
 
-  private OpenSearch2SearchClientShim(RestHighLevelClient client, ObjectMapper objectMapper) {
-    this.shimConfiguration = null;
+  private OpenSearch2SearchClientShim(
+      RestHighLevelClient client, ObjectMapper objectMapper, ShimConfiguration config) {
+    this.shimConfiguration = config;
     this.engineType = SearchEngineType.OPENSEARCH_2;
     this.client = client;
     this.objectMapper = objectMapper;
