@@ -678,7 +678,12 @@ Example Response:
 
 ## Set Structured Property To a Dataset
 
-This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
+The effect of this operation on structured properties **already present on the entity** depends on which API you use.
+
+- **GraphQL** `upsertStructuredProperties` merges by property URN. Properties named in the input are set; a structured property already on the entity that the input does not name is left in place.
+- **OpenAPI** writes the whole `structuredProperties` aspect. With the default `createIfNotExists=true` the request is rejected when the entity already has structured properties (`Cannot perform CREATE since the aspect already exists`). Pass `createIfNotExists=false` to replace the entity's complete structured-property set, which removes any property not included in the request body.
+
+To add or remove a single property through OpenAPI without resending the others, see [Patch Structured Property Value](#patch-structured-property-value).
 
 <Tabs>
 <TabItem value="GraphQL" label="GraphQL" default>
