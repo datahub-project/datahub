@@ -1,0 +1,595 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "project_id": "test-project",
+                "dataplex_ingested": "true",
+                "dataplex_project_id": "test-project",
+                "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-dataset",
+                "dataplex_source_platform": "bigquery"
+            },
+            "name": "test-project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "project_id": "test-project",
+                "dataset_id": "analytics",
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics",
+                "dataplex_entry_group": "@bigquery",
+                "dataplex_fully_qualified_name": "bigquery:test-project.analytics",
+                "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-dataset"
+            },
+            "name": "analytics",
+            "description": "Analytics dataset",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+                    "urn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics/tables/customers",
+            "platform": "urn:li:dataPlatform:bigquery",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "description": "Customer ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "description": "Customer name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "description": "Customer email address",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics/tables/customers",
+                "dataplex_entry_group": "@bigquery",
+                "dataplex_fully_qualified_name": "bigquery:test-project.analytics.customers",
+                "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-table",
+                "dataplex_parent_entry": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics",
+                "dataplex_aspect_655216118709.global.schema": "655216118709.global.schema",
+                "dataplex_655216118709.global.schema_columns": "[{\"description\": \"Customer ID\", \"column\": \"id\", \"dataType\": \"INT64\"}, {\"description\": \"Customer name\", \"column\": \"name\", \"dataType\": \"STRING\"}, {\"description\": \"Customer email address\", \"column\": \"email\", \"dataType\": \"STRING\"}]"
+            },
+            "name": "customers",
+            "description": "Customer master data table",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+                    "urn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f"
+                },
+                {
+                    "id": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+                    "urn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics/tables/orders",
+            "platform": "urn:li:dataPlatform:bigquery",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "description": "Order ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_amount",
+                    "nullable": true,
+                    "description": "Order total amount",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "FLOAT64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics/tables/orders",
+                "dataplex_entry_group": "@bigquery",
+                "dataplex_fully_qualified_name": "bigquery:test-project.analytics.orders",
+                "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-table",
+                "dataplex_parent_entry": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics",
+                "dataplex_aspect_655216118709.global.schema": "655216118709.global.schema",
+                "dataplex_655216118709.global.schema_columns": "[{\"description\": \"Order ID\", \"column\": \"order_id\", \"dataType\": \"INT64\"}, {\"description\": \"Order total amount\", \"column\": \"total_amount\", \"dataType\": \"FLOAT64\"}]"
+            },
+            "name": "orders",
+            "description": "Orders transaction table",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+                    "urn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f"
+                },
+                {
+                    "id": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+                    "urn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc5af4e1a63b9f5069b638d55c9ecd6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705341600000,
+        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

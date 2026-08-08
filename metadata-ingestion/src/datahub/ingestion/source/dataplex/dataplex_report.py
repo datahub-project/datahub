@@ -20,6 +20,22 @@ class DataplexReport(StaleEntityRemovalSourceReport):
         default_factory=DataplexGlossaryReport
     )
 
+    # Export extraction method (extraction_method: export) observability.
+    # Failed jobs / aborted blob reads are additionally reported as source
+    # failures, which suppresses stale-entity soft-deletion for the run.
+    export_jobs_submitted: int = 0
+    export_jobs_succeeded: int = 0
+    export_jobs_failed: int = 0
+    export_blobs_read: int = 0
+    export_blobs_read_failed: int = 0
+    export_entries_read: int = 0
+    export_malformed_lines_skipped: int = 0
+    export_locations_with_no_output: int = 0
+
+    def is_export_partial(self) -> bool:
+        """True when any entity may be missing from this run's export stream."""
+        return self.export_jobs_failed > 0 or self.export_blobs_read_failed > 0
+
 
 # Alias for consistency with other sources
 DataplexSourceReport = DataplexReport

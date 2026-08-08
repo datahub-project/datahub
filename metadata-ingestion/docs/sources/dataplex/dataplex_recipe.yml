@@ -43,6 +43,21 @@ source:
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
 
+    # Optional: Extraction method (default: api)
+    # Use 'export' for central-catalog / federated setups where assets surface
+    # in a catalog project via Dataplex catalog linking and list_entries returns
+    # nothing. One metadata export job runs per entries location; each location
+    # must resolve to a GCS bucket.
+    # extraction_method: export
+    # export_config:
+    #   export_job_runner_project: "my-runner-project" # needs roles/dataplex.metadataJobOwner
+    #   bucket_base_name: "my-export-bucket" # bucket per location: {base}-{location}
+    #   # export_bucket_config: # explicit per-location buckets (take priority)
+    #   #   us: "my-export-bucket-us"
+    #   # prefix: "dataplex-exports" # optional folder prefix inside each bucket
+    #   # export_poll_seconds: 15
+    #   # export_timeout_seconds: 3600
+
     # Optional: Lineage retry settings
     # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)
     # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-10.0, default: 1.0)
