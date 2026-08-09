@@ -54,6 +54,10 @@ EXAMPLE:
     $0 --output-dir ./test-artifacts --run-count 3 \
         --workflow metadata-ingestion.yml --artifact-prefix "metadata-ingestion-test-results" \
         --allow-failed --no-fail-on-empty
+
+    # Playwright test weights (harvest per-shard junit artifacts)
+    $0 --output-dir ./test-artifacts-playwright --run-count 3 \
+        --workflow docker-unified.yml --artifact-prefix "Test Results (playwright)"
 EOF
     exit 1
 }
@@ -315,6 +319,14 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
                 artifact_subdir="$RUN_DIR/cypress-$batch_num"
             else
                 artifact_subdir="$RUN_DIR/cypress-0"
+            fi
+        elif [[ $artifact_name =~ "playwright" ]]; then
+            # Artifact name is "Test Results (playwright) shard-N"
+            if [[ $artifact_name =~ shard-([0-9]+) ]]; then
+                shard_num="${BASH_REMATCH[1]}"
+                artifact_subdir="$RUN_DIR/playwright-$shard_num"
+            else
+                artifact_subdir="$RUN_DIR/playwright-0"
             fi
         else
             artifact_subdir="$RUN_DIR/other"

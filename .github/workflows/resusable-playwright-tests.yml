@@ -162,6 +162,18 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Compute duration-weighted shard file list
+        working-directory: e2e-test/ui/playwright
+        env:
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          python3 ../../../.github/scripts/shard_playwright_tests.py \
+            --tests-dir tests \
+            --weights-file playwright_test_weights.json \
+            --shard "$SHARD" --shard-count "$SHARD_COUNT" \
+            --output /tmp/playwright-shard-files.txt
+
       - name: Run Playwright tests
         working-directory: e2e-test/ui/playwright
         env:
@@ -175,8 +187,14 @@ jobs:
           # sets the same variable for the same reason.
           ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
         run: |
-          npx playwright test \
-            --shard="$SHARD/$SHARD_COUNT"
+          mapfile -t SHARD_FILES < /tmp/playwright-shard-files.txt
+          if [ "${#SHARD_FILES[@]}" -eq 0 ]; then
+            echo "::error::Shard $SHARD/$SHARD_COUNT resolved to zero spec files -- refusing to run" \
+              "the full suite by accident. Check playwright_test_weights.json and the tests dir."
+            exit 1
+          fi
+          echo "Running ${#SHARD_FILES[@]} spec files for shard $SHARD/$SHARD_COUNT"
+          npx playwright test "${SHARD_FILES[@]}"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

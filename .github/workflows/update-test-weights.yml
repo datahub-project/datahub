@@ -42,7 +42,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Download smoke test artifacts
+      - name: Download smoke, gradle, and Playwright test artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -61,6 +61,18 @@ jobs:
             --run-count ${{ github.event.inputs.run_count || '3' }} \
             --workflow build-and-test.yml \
             --artifact-prefix "build-and-test" \
+            --repository ${{ github.repository }}
+
+          echo "Downloading Playwright JUnit artifacts from recent docker-unified.yml runs..."
+          # Separate --output-dir from the smoke-test download above: both suites'
+          # artifacts unzip to a bare junit.xml, and generate_test_weights.py's
+          # pytest/Playwright parsers would otherwise misread each other's files
+          # if pointed at a shared --input-dir.
+          bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-playwright \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow docker-unified.yml \
+            --artifact-prefix "Test Results (playwright)" \
             --repository ${{ github.repository }}
       - name: Download ingestion test artifacts
         id: download-ingestion
@@ -91,6 +103,8 @@ jobs:
           cp metadata-ingestion/tests/integration_test_weights.json \
             ./weights-backup/integration_test_weights.json || echo "No existing integration weights"
           cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
+          cp e2e-test/ui/playwright/playwright_test_weights.json \
+            ./weights-backup/playwright_weights.json || echo "No existing Playwright weights"
 
       - name: Generate smoke test weights
         run: |
@@ -113,6 +127,13 @@ jobs:
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts-gradle \
             --gradle-output .github/backend_test_weights.json
+
+      - name: Generate Playwright test weights
+        run: |
+          echo "Generating Playwright test weights from downloaded artifacts..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-playwright \
+            --playwright-output e2e-test/ui/playwright/playwright_test_weights.json
 
       - name: Compare smoke weights
         id: compare-smoke
@@ -155,6 +176,25 @@ jobs:
             echo "✓ Ingestion changes below 5% threshold. No PR needed."
           fi
 
+      - name: Compare Playwright weights
+        id: compare-playwright
+        run: |
+          echo "Comparing old and new Playwright weights..."
+          python .github/scripts/compare_test_weights.py \
+            --old-playwright ./weights-backup/playwright_weights.json \
+            --new-playwright e2e-test/ui/playwright/playwright_test_weights.json \
+            --output ./pr-body-playwright.md \
+            --threshold 5.0 \
+            --title "🤖 Playwright test weight update"
+
+          if [ -s ./pr-body-playwright.md ]; then
+            echo "create_pr_playwright=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Playwright changes exceed 5% threshold. Will create PR."
+          else
+            echo "create_pr_playwright=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Playwright changes below 5% threshold. No PR needed."
+          fi
+
       - name: Compare gradle weights
         id: compare-gradle
         run: |
@@ -176,7 +216,7 @@ jobs:
       - name: Decide PR creation
         id: decide
         run: |
-          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
+          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ] || [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
             echo "create_pr=true" >> "$GITHUB_OUTPUT"
             echo "✓ At least one suite exceeded the 5% threshold. Will create PR."
           else
@@ -199,10 +239,11 @@ jobs:
           git add smoke-test/pytest_test_weights.json
           git add metadata-ingestion/tests/integration_test_weights.json
           git add .github/backend_test_weights.json
+          git add e2e-test/ui/playwright/playwright_test_weights.json
 
           git commit -m "chore(test): update test weights from recent CI runs
 
-          Automated update of smoke and ingestion test weights based on analysis of recent CI runs.
+          Automated update of smoke, ingestion, and Playwright test weights based on analysis of recent CI runs.
           This improves batch balancing and reduces overall CI execution time.
 
           Generated by: ${{ github.workflow }} workflow
@@ -221,7 +262,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Concatenate whichever PR body sections were generated (empty files contribute nothing)
-          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md 2>/dev/null)
+          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md ./pr-body-playwright.md 2>/dev/null)
 
           # Create PR (gh pr create prints the PR URL to stdout)
           PR_URL=$(gh pr create \
@@ -254,6 +295,9 @@ jobs:
               fi
               if [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
                 echo "- gradle (backend)"
+              fi
+              if [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
+                echo "- playwright"
               fi
             else
               echo "ℹ️ **No PR Created**: Changes below 5% threshold"

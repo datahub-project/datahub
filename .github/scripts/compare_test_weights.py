@@ -88,8 +88,9 @@ def calculate_changes(
 
 
 def generate_pr_body(
-    pytest_changes: Dict,
+    pytest_changes: Optional[Dict] = None,
     cypress_changes: Optional[Dict] = None,
+    playwright_changes: Optional[Dict] = None,
     title: str = "🤖 Automated Test Weight Update",
 ) -> str:
     """Generate markdown PR body with change analysis."""
@@ -108,9 +109,13 @@ def generate_pr_body(
     lines.append("| Test Type | Old Total | New Total | Change | # Tests |")
     lines.append("|-----------|-----------|-----------|--------|---------|")
 
-    summary_rows: List[tuple[str, Dict]] = [("Pytest", pytest_changes)]
+    summary_rows: List[tuple[str, Dict]] = []
+    if playwright_changes is not None:
+        summary_rows.append(("Playwright", playwright_changes))
     if cypress_changes is not None:
-        summary_rows.insert(0, ("Cypress", cypress_changes))
+        summary_rows.append(("Cypress", cypress_changes))
+    if pytest_changes is not None:
+        summary_rows.append(("Pytest", pytest_changes))
 
     for name, changes in summary_rows:
         old_min = changes["old_total"] / 60
@@ -145,7 +150,13 @@ def generate_pr_body(
         lines.append("Current configuration:")
         if cypress_changes is not None:
             lines.append("- Cypress: 11 batches (Depot) / 5 batches (GitHub runners)")
-        lines.append("- Pytest: 7 batches (GitHub runners)")
+        if pytest_changes is not None:
+            lines.append("- Pytest: 7 batches (GitHub runners)")
+        if playwright_changes is not None:
+            lines.append(
+                "- Playwright: 8 shards, duration-weighted "
+                "(PLAYWRIGHT_SHARD_COUNT in docker-unified.yml)"
+            )
         lines.append("")
         lines.append(
             "If total time increased >20%, consider increasing batch count to maintain CI speed."
@@ -267,10 +278,20 @@ def main():
         help="Path to new Cypress weights JSON",
     )
     parser.add_argument(
-        "--old-pytest", required=True, help="Path to old Pytest weights JSON"
+        "--old-playwright",
+        required=False,
+        help="Path to old Playwright weights JSON",
     )
     parser.add_argument(
-        "--new-pytest", required=True, help="Path to new Pytest weights JSON"
+        "--new-playwright",
+        required=False,
+        help="Path to new Playwright weights JSON",
+    )
+    parser.add_argument(
+        "--old-pytest", required=False, help="Path to old Pytest weights JSON"
+    )
+    parser.add_argument(
+        "--new-pytest", required=False, help="Path to new Pytest weights JSON"
     )
     parser.add_argument(
         "--output", required=True, help="Output file for PR body markdown"
@@ -295,12 +316,35 @@ def main():
         print("Error: --old-cypress and --new-cypress must be provided together")
         sys.exit(1)
 
-    old_pytest = load_weights(args.old_pytest, "testId")
-    new_pytest = load_weights(args.new_pytest, "testId")
-    pytest_changes = calculate_changes(old_pytest, new_pytest)
+    if (args.old_playwright is None) != (args.new_playwright is None):
+        print("Error: --old-playwright and --new-playwright must be provided together")
+        sys.exit(1)
+
+    if (args.old_pytest is None) != (args.new_pytest is None):
+        print("Error: --old-pytest and --new-pytest must be provided together")
+        sys.exit(1)
+
+    if not (
+        (args.old_pytest and args.new_pytest)
+        or (args.old_cypress and args.new_cypress)
+        or (args.old_playwright and args.new_playwright)
+    ):
+        print(
+            "Error: at least one of --old/new-pytest, --old/new-cypress, "
+            "--old/new-playwright is required"
+        )
+        sys.exit(1)
+
+    pytest_changes = None
+    change_pcts = []
+    if args.old_pytest and args.new_pytest:
+        old_pytest = load_weights(args.old_pytest, "testId")
+        new_pytest = load_weights(args.new_pytest, "testId")
+        pytest_changes = calculate_changes(old_pytest, new_pytest)
+        change_pcts.append(abs(pytest_changes["total_change_pct"]))
+        print(f"Pytest total change: {pytest_changes['total_change_pct']:+.2f}%")
 
     cypress_changes = None
-    change_pcts = [abs(pytest_changes["total_change_pct"])]
     if args.old_cypress and args.new_cypress:
         old_cypress = load_weights(args.old_cypress, "filePath")
         new_cypress = load_weights(args.new_cypress, "filePath")
@@ -308,9 +352,16 @@ def main():
         change_pcts.append(abs(cypress_changes["total_change_pct"]))
         print(f"Cypress total change: {cypress_changes['total_change_pct']:+.2f}%")
 
+    playwright_changes = None
+    if args.old_playwright and args.new_playwright:
+        old_playwright = load_weights(args.old_playwright, "filePath")
+        new_playwright = load_weights(args.new_playwright, "filePath")
+        playwright_changes = calculate_changes(old_playwright, new_playwright)
+        change_pcts.append(abs(playwright_changes["total_change_pct"]))
+        print(f"Playwright total change: {playwright_changes['total_change_pct']:+.2f}%")
+
     max_change = max(change_pcts)
 
-    print(f"Pytest total change: {pytest_changes['total_change_pct']:+.2f}%")
     print(f"Max change: {max_change:.2f}%")
     print(f"Threshold: {args.threshold}%")
 
@@ -322,22 +373,28 @@ def main():
 
     print("\n✓ Changes exceed threshold. Generating PR body...")
 
-    pr_body = generate_pr_body(pytest_changes, cypress_changes, title=args.title)
+    pr_body = generate_pr_body(
+        pytest_changes, cypress_changes, playwright_changes, title=args.title
+    )
 
     with open(args.output, "w") as f:
         f.write(pr_body)
 
     print(f"✓ PR body written to {args.output}")
+    significant_parts = []
+    if playwright_changes is not None:
+        significant_parts.append(
+            f"Playwright={len(playwright_changes['significant_changes'])}"
+        )
     if cypress_changes is not None:
-        print(
-            "✓ Significant changes: "
-            f"Cypress={len(cypress_changes['significant_changes'])}, "
+        significant_parts.append(
+            f"Cypress={len(cypress_changes['significant_changes'])}"
+        )
+    if pytest_changes is not None:
+        significant_parts.append(
             f"Pytest={len(pytest_changes['significant_changes'])}"
         )
-    else:
-        print(
-            f"✓ Significant changes: Pytest={len(pytest_changes['significant_changes'])}"
-        )
+    print("✓ Significant changes: " + ", ".join(significant_parts))
 
     sys.exit(0)
 
