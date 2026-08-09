@@ -100,8 +100,6 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
         dir, e.g. "documents/document-management.spec.ts") to lists of
         durations across runs/shards.
     """
-    test_durations: Dict[str, List[float]] = {}
-
     # Playwright's own artifact is also named junit.xml, indistinguishable by
     # filename alone from pytest's — this parser must only ever be pointed at
     # an --input-dir populated exclusively by Playwright artifact downloads.
@@ -109,29 +107,52 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
 
     print(f"Found {len(xml_files)} Playwright XML files")
 
+    # Group by run (the run-<id> directory immediately under artifact_dir, per
+    # download_test_artifacts.sh's layout) and sum per-file within a run before
+    # taking the cross-run median. Playwright's own --shard is test-count-based,
+    # not file-atomic: a single heavy spec file's tests can land split across two
+    # shards in the same run (e.g. 47 tests in shard 4, 3 in shard 5). Treating
+    # those two partial slices as independent samples and medianing/averaging
+    # them collapses a ~204s file down to ~102s -- summing within the run first
+    # (same fix parse_gradle_results already applies for a class split across
+    # multiple TEST-*.xml files) avoids that.
+    runs: Dict[str, List[Path]] = {}
     for xml_file in xml_files:
         try:
-            root = ET.parse(xml_file).getroot()
-            # Direct children only: Playwright's junit reporter emits a flat
-            # <testsuites><testsuite name="file.spec.ts">...</testsuite>...</testsuites>,
-            # one suite per spec file, no nesting — unlike Cypress's wrapper structure.
-            for testsuite in root.findall("testsuite"):
-                file_path = testsuite.get("name")
-                time_str = testsuite.get("time", "0")
-                if not file_path:
-                    continue
-                try:
-                    duration = float(time_str)
-                except ValueError:
-                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
-                    continue
-                if not math.isfinite(duration) or duration <= 0:
-                    continue
-                test_durations.setdefault(file_path, []).append(duration)
-        except ET.ParseError as e:
-            print(f"Warning: Failed to parse {xml_file}: {e}")
-        except Exception as e:
-            print(f"Warning: Error processing {xml_file}: {e}")
+            run_key = xml_file.relative_to(artifact_dir).parts[0]
+        except (ValueError, IndexError):
+            run_key = "."
+        runs.setdefault(run_key, []).append(xml_file)
+
+    test_durations: Dict[str, List[float]] = {}
+    for run_files in runs.values():
+        per_file_total: Dict[str, float] = {}
+        for xml_file in run_files:
+            try:
+                root = ET.parse(xml_file).getroot()
+                # Direct children only: Playwright's junit reporter emits a flat
+                # <testsuites><testsuite name="file.spec.ts">...</testsuite>...</testsuites>,
+                # one suite per spec file, no nesting — unlike Cypress's wrapper structure.
+                for testsuite in root.findall("testsuite"):
+                    file_path = testsuite.get("name")
+                    time_str = testsuite.get("time", "0")
+                    if not file_path:
+                        continue
+                    try:
+                        duration = float(time_str)
+                    except ValueError:
+                        print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
+                        continue
+                    if not math.isfinite(duration) or duration < 0:
+                        continue
+                    per_file_total[file_path] = per_file_total.get(file_path, 0.0) + duration
+            except ET.ParseError as e:
+                print(f"Warning: Failed to parse {xml_file}: {e}")
+            except Exception as e:
+                print(f"Warning: Error processing {xml_file}: {e}")
+        for file_path, total in per_file_total.items():
+            if total > 0:
+                test_durations.setdefault(file_path, []).append(total)
 
     return test_durations
 
