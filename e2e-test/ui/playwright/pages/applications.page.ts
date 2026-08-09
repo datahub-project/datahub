@@ -123,8 +123,9 @@ export class ApplicationsPage extends BasePage {
   async searchApplication(query: string): Promise<void> {
     await this.searchInput.fill('');
     await this.searchInput.type(query);
-    // Wait for search debounce + network
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // Wait out the search-input debounce before the query fires; networkidle
+    // below can't retry a request that hasn't started yet.
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
@@ -147,10 +148,9 @@ export class ApplicationsPage extends BasePage {
 
   async clickCreateButton(): Promise<void> {
     await this.createButtonModal.click();
-    // Wait for modal to close and success message
+    // Wait for modal to close; the caller uses waitForWritesToSync() afterwards
+    // for the actual create-write consistency wait before checking the table.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Wait for refetch to complete
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   async verifyApplicationInTable(name: string): Promise<void> {
@@ -179,8 +179,9 @@ export class ApplicationsPage extends BasePage {
 
   async confirmDeletion(): Promise<void> {
     await this.deleteConfirmButton.click();
+    // Callers use waitForWritesToSync() afterwards for the actual
+    // delete-write consistency wait before re-checking the table.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async deleteApplication(name: string): Promise<void> {
@@ -255,7 +256,9 @@ export class ApplicationsPage extends BasePage {
 
   async clickSelectApplicationDropdown(): Promise<void> {
     await this.applicationSelectDropdown.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS); // Wait for modal to fully stabilize
+    // Brief settle for the modal open animation before the click; no assertion
+    // to retry against here, so kept small rather than removed outright.
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await this.applicationSelectDropdown.click({ timeout: TIMEOUTS.MEDIUM });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
@@ -270,14 +273,17 @@ export class ApplicationsPage extends BasePage {
 
     // Fill the search input with application name
     await searchInput.fill(appName);
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
+    // Wait for the filtered option to actually render instead of guessing the
+    // debounce — selectApplicationFromDropdown() clicks it immediately after.
+    await this.getDropdownOption(appName)
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT })
+      .catch(() => {});
   }
 
   async selectApplicationFromDropdown(appName: string): Promise<void> {
     const option = this.getDropdownOption(appName);
     await option.click();
-    // Small wait for dropdown to close
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
+    // No sleep: clickOKButton()'s own waitFor() tolerates the dropdown-close animation.
   }
 
   async clickOKButton(): Promise<void> {

@@ -24,7 +24,7 @@ import { test } from '../../fixtures/base-test';
 import { Page } from '@playwright/test';
 import { ApplicationsPage } from '../../pages/applications.page';
 import { isDataHubGraphqlUrl } from '../../utils/api-mock';
-import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { LOAD_STATES } from '../../utils/constants';
 
 const APP_URN = 'urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51';
 const DATASET_WITH_APP_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)';
@@ -119,7 +119,6 @@ test.describe('Application Sidebar Integration', () => {
     logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
     await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     logger?.info(`Adding application: ${TEST_APP_NAME}`);
     await applicationsPage.addApplicationToDataset(TEST_APP_NAME);
