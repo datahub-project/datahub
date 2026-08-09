@@ -3,7 +3,14 @@ from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.api_core.exceptions import GoogleAPIError, NotFound, PermissionDenied
+from google.api_core.exceptions import (
+    GoogleAPIError,
+    InternalServerError,
+    NotFound,
+    PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
+)
 from google.cloud import bigquery_analyticshub_v1
 from google.rpc.error_details_pb2 import ErrorInfo
 
@@ -11,6 +18,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
+    _LIST_SUBSCRIPTIONS_RETRY,
     BigQueryLinkedDatasetsHandler,
     LinkedDatasetInfo,
     PublisherRef,
@@ -75,7 +83,7 @@ def _ah_client_returning(
     """Build an AH client mock whose `list_subscriptions` returns by location."""
     mock_client = MagicMock()
 
-    def _list_subscriptions(parent: str) -> List[Any]:
+    def _list_subscriptions(parent: str, **kwargs: Any) -> List[Any]:
         # parent format: projects/<p>/locations/<location>
         location = parent.rsplit("/", 1)[-1]
         return subscriptions_per_location.get(location, [])
@@ -175,6 +183,27 @@ def test_get_rm_client_delegates_to_config_projects_client():
         result = handler._get_rm_client()
     assert result is sentinel
     get_projects.assert_called_once_with()
+
+
+def test_list_subscriptions_uses_transient_retry():
+    # The Analytics Hub client does not auto-retry, so the call must pass our
+    # transient-error retry explicitly.
+    handler = _make_handler()
+    ah = _ah_client_returning({"us": []})
+    _install_clients(handler, ah=ah, bq=_bq_client_returning({}))
+    handler.populate_for_project(
+        "consumer-project", [BigqueryDataset(name="d", location="US")]
+    )
+    assert ah.list_subscriptions.call_args.kwargs["retry"] is _LIST_SUBSCRIPTIONS_RETRY
+
+
+def test_list_subscriptions_retry_covers_transient_codes_only():
+    predicate = _LIST_SUBSCRIPTIONS_RETRY._predicate
+    assert predicate(ServiceUnavailable("503"))
+    assert predicate(InternalServerError("500"))
+    assert predicate(ResourceExhausted("429"))
+    assert not predicate(PermissionDenied("403"))
+    assert not predicate(NotFound("404"))
 
 
 # --- LinkedDatasetInfo tests -----------------------------------------------
@@ -328,8 +357,9 @@ def test_locations_lowercased_for_ah_call():
     datasets = [BigqueryDataset(name="shared_a", location="EU")]
     handler.populate_for_project("consumer-project", datasets)
 
-    ah.list_subscriptions.assert_called_with(
-        parent="projects/consumer-project/locations/eu"
+    assert (
+        ah.list_subscriptions.call_args.kwargs["parent"]
+        == "projects/consumer-project/locations/eu"
     )
 
 
@@ -408,7 +438,7 @@ def test_linked_dataset_without_source_is_warned_and_kept():
 
     info = handler.get_info("consumer-project", "shared_a")
     assert info is not None
-    assert info.can_emit_lineage is False
+    assert info.has_resolved_publisher is False
     assert handler.report.num_linked_dataset_source_unresolved == 1
     assert len(handler.report.warnings) == 1
 
@@ -436,7 +466,7 @@ def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
     # Dataset is still recognised as linked (governance properties emit).
     assert info is not None
     # But publisher project ID was not resolved, so no lineage can be emitted.
-    assert info.can_emit_lineage is False
+    assert info.has_resolved_publisher is False
     assert handler.report.num_linked_dataset_project_resolve_errors == 1
 
     # And lineage emission is a no-op on this dataset.

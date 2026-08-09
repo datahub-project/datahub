@@ -2,7 +2,14 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+from google.api_core import retry
+from google.api_core.exceptions import (
+    GoogleAPIError,
+    InternalServerError,
+    PermissionDenied,
+    ResourceExhausted,
+    ServiceUnavailable,
+)
 from google.api_core.gapic_v1.client_info import ClientInfo as GapicClientInfo
 from google.cloud import bigquery, bigquery_analyticshub_v1, resourcemanager_v3
 
@@ -39,6 +46,17 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+# Retry the transient gRPC codes with the same 600s deadline as DEFAULT_RETRY.
+_LIST_SUBSCRIPTIONS_RETRY = retry.Retry(
+    predicate=retry.if_exception_type(
+        ServiceUnavailable,  # 503 / gRPC UNAVAILABLE
+        InternalServerError,  # 500 / gRPC INTERNAL
+        ResourceExhausted,  # 429 / gRPC RESOURCE_EXHAUSTED
+    ),
+    timeout=600.0,
+)
+
+
 @dataclass(frozen=True)
 class PublisherRef:
     """Publisher-side identity for a resolved linked dataset.
@@ -55,8 +73,8 @@ class PublisherRef:
 class LinkedDatasetInfo:
     """Resolved BigQuery Sharing metadata for a single linked dataset.
 
-    `publisher` is `None` when the dataset exposed no source, or project
-    ID could not be resolved to an ID.
+    `publisher` is `None` when the dataset exposed no source, or when its
+    publisher project number could not be resolved to an ID.
     """
 
     consumer_project_id: str
@@ -73,8 +91,8 @@ class LinkedDatasetInfo:
     last_modify_time: Optional[str] = None
 
     @property
-    def can_emit_lineage(self) -> bool:
-        """Whether linked dataset has a resolved publisher and can emit COPY lineage."""
+    def has_resolved_publisher(self) -> bool:
+        """True when the publisher's project number resolved to an ID."""
         return self.publisher is not None
 
     def to_extra_properties(self) -> Dict[str, str]:
@@ -121,7 +139,7 @@ def create_analyticshub_client(
     """Build an Analytics Hub client authenticated as the configured identity.
 
     Credentials come from the connector config so BigQuery Sharing calls run as
-    the same identity as the rest of the connector..
+    the same identity as the rest of the connector.
     """
     return bigquery_analyticshub_v1.AnalyticsHubServiceClient(
         credentials=config.get_credentials(),
@@ -193,7 +211,11 @@ class BigQueryLinkedDatasetsHandler:
         for location in locations:
             parent = f"projects/{project_id}/locations/{location}"
             try:
-                subscriptions = list(ah_client.list_subscriptions(parent=parent))
+                subscriptions = list(
+                    ah_client.list_subscriptions(
+                        parent=parent, retry=_LIST_SUBSCRIPTIONS_RETRY
+                    )
+                )
             except PermissionDenied as e:
                 if is_service_disabled(e):
                     self.report.warning(
@@ -253,11 +275,11 @@ class BigQueryLinkedDatasetsHandler:
         return self._lookup.get((project_id, dataset_name))
 
     def emits_copy_lineage(self, project_id: str, dataset_name: str) -> bool:
-        """Whether linked dataset will emit COPY lineage."""
+        """Whether COPY lineage will be emitted for this dataset."""
         if not self.config.include_linked_dataset_lineage:
             return False
         info = self._lookup.get((project_id, dataset_name))
-        return info is not None and info.can_emit_lineage
+        return info is not None and info.has_resolved_publisher
 
     def gen_lineage_workunits(
         self,
@@ -331,6 +353,8 @@ class BigQueryLinkedDatasetsHandler:
         """
         bq = self._get_bq_client()
         try:
+            # get_dataset auto-retries transient errors (500/502/503/429)
+            # via google-cloud-bigquery's DEFAULT_RETRY
             ds = bq.get_dataset(f"{project_id}.{consumer_dataset}")
         except GoogleAPIError as e:
             self.report.num_linked_dataset_get_dataset_errors += 1

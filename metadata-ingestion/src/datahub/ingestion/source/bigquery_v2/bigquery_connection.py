@@ -140,7 +140,7 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         return self._credentials is not None
 
     def get_credentials(self) -> Optional[Credentials]:
-        """Return the resolved credentials or None."""
+        """Resolved credentials, or None to let clients fall back to ADC."""
         return self._credentials
 
     def get_bigquery_client(self) -> bigquery.Client:

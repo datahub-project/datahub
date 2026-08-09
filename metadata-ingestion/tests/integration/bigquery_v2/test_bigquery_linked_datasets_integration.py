@@ -257,7 +257,7 @@ def test_bigquery_linked_datasets_ingest(
     ah_mock = MagicMock()
     subscription = make_subscription()
 
-    def _list_subscriptions(parent: str) -> list:
+    def _list_subscriptions(parent: str, **kwargs: Any) -> list:
         if parent == "projects/consumer-project/locations/us":
             return [subscription]
         return []
