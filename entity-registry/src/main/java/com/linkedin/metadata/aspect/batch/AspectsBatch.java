@@ -75,8 +75,8 @@ public interface AspectsBatch {
   /**
    * Provenance-capturing variant. When {@code provenanceSink} is non-null, in-transaction side
    * effects are run per input item so each derived MCP can be attributed to the input that produced
-   * it: {@code provenanceSink.accept(parentItem, derivedItem)} is called for every derived MCP. Used
-   * by branch-scoped retry to know which base URN owns a derived conflict. A null sink is
+   * it: {@code provenanceSink.accept(parentItem, derivedItem)} is called for every derived MCP.
+   * Used by branch-scoped retry to know which base URN owns a derived conflict. A null sink is
    * byte-identical to {@link #toUpsertBatchItems(OperationFingerprint, Map, Map, BiFunction)}.
    */
   default Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(

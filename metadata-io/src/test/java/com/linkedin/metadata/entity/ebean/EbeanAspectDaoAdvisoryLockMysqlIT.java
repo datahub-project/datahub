@@ -14,7 +14,6 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,10 +24,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Testcontainers integration test for the MySQL per-entity advisory lock ({@code GET_LOCK} /
- * {@code RELEASE_LOCK}) used by {@code EbeanAspectDao.lockUrnsForWrite} /
- * {@code releaseUrnsForWrite}. Unlike Postgres' transaction-scoped {@code pg_advisory_xact_lock},
- * MySQL named locks are session-scoped, so this verifies against a real MySQL that:
+ * Testcontainers integration test for the MySQL per-entity advisory lock ({@code GET_LOCK} / {@code
+ * RELEASE_LOCK}) used by {@code EbeanAspectDao.lockUrnsForWrite} / {@code releaseUrnsForWrite}.
+ * Unlike Postgres' transaction-scoped {@code pg_advisory_xact_lock}, MySQL named locks are
+ * session-scoped, so this verifies against a real MySQL that:
  *
  * <ul>
  *   <li>concurrent writers on the same urn serialize (one blocks until the other releases), and
@@ -36,8 +35,8 @@ import org.testng.annotations.Test;
  *       the lock on the acquiring connection before commit, so a subsequent writer can proceed.
  * </ul>
  *
- * <p><b>Depends on the MySQL Testcontainers harness ({@code MysqlTestUtils}, the
- * {@code testContainersMysql} dependency, and {@code testng-mysql.xml}) that ships with the base
+ * <p><b>Depends on the MySQL Testcontainers harness ({@code MysqlTestUtils}, the {@code
+ * testContainersMysql} dependency, and {@code testng-mysql.xml}) that ships with the base
  * optimistic-locking change.</b> Register this class in {@code testng-mysql.xml} alongside that
  * change; it is not built or run without that harness.
  */
@@ -73,7 +72,7 @@ public class EbeanAspectDaoAdvisoryLockMysqlIT {
 
   @Test
   public void getLock_serializesConcurrentWritersOnSameUrn() throws Exception {
-    final String urn = "urn:li:corpuser:mysql_serialize_" + shortId();
+    final String urn = "urn:li:corpuser:mysql_serialize_" + MysqlTestUtils.shortId();
     final CountDownLatch aHoldsLock = new CountDownLatch(1);
     final CountDownLatch releaseA = new CountDownLatch(1);
     final AtomicLong bAcquiredAtNanos = new AtomicLong(0);
@@ -133,7 +132,7 @@ public class EbeanAspectDaoAdvisoryLockMysqlIT {
   public void releaseUrnsForWrite_freesLockOnSameConnectionBeforeCommit() throws Exception {
     // Acquire then release within one transaction (no commit yet); a second connection must then be
     // able to acquire immediately — proving the keyed, stateless release hit the right connection.
-    final String urn = "urn:li:corpuser:mysql_release_" + shortId();
+    final String urn = "urn:li:corpuser:mysql_release_" + MysqlTestUtils.shortId();
     try (Transaction tx = primaryDatabase.beginTransaction()) {
       advisoryDao.lockUrnsForWrite(opContext, List.of(urn));
       advisoryDao.releaseUrnsForWrite(opContext, List.of(urn));
@@ -158,9 +157,5 @@ public class EbeanAspectDaoAdvisoryLockMysqlIT {
       assertTrue(acquiredAt.get() > 0L, "second writer must acquire once the first released");
       tx.commit();
     }
-  }
-
-  private static String shortId() {
-    return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
   }
 }

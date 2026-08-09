@@ -12,6 +12,13 @@ public final class HazelcastBootstrapProperties {
   public static final String ENTITY_GRAPH_CACHE_ENABLED = "datahub.gms.entityGraphCache.enabled";
 
   /**
+   * Entity write-lock backend ({@code ebean.entityWriteLockBackend} / {@code
+   * ENTITY_WRITE_LOCK_BACKEND}). Only {@code hazelcast} needs the embedded node; {@code
+   * none}/{@code db} do not.
+   */
+  public static final String ENTITY_WRITE_LOCK_BACKEND = "ebean.entityWriteLockBackend";
+
+  /**
    * Canonical gate: {@code featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}.
    * The retention buffer's only backend is Hazelcast (cluster-wide shared map + drain lock), so
    * this flag alone decides whether the embedded node must boot for it.

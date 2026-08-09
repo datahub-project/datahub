@@ -9,8 +9,8 @@ import java.sql.SQLException;
 import org.testng.annotations.Test;
 
 /**
- * Behavioral coverage for the duplicate-key detection that routes a concurrent version-0 insert to a
- * conflict (retry) rather than a hard error. Dialect CAS SQL and end-to-end conflict behavior are
+ * Behavioral coverage for the duplicate-key detection that routes a concurrent version-0 insert to
+ * a conflict (retry) rather than a hard error. Dialect CAS SQL and end-to-end conflict behavior are
  * not yet covered here — the H2 / MySQL / Postgres CAS and concurrency integration tests land with
  * Stage 2 (scoped retry).
  */

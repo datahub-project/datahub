@@ -228,7 +228,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         new TransactionRetryPolicy(
             retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
-    this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
+    // Coherent backend selection: db -> on, hazelcast -> off (the pre-txn gate is the lock),
+    // none/unset -> the legacy entityWriteAdvisoryLockEnabled boolean. Prevents silent no-lock on
+    // backend=db and double-lock on backend=hazelcast.
+    this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isDbAdvisoryLockActive();
     this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
     if (optimisticLocking) {
       log.info(
@@ -413,10 +416,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * Release per-entity advisory locks for {@code urns}. No-op on Postgres (transaction-scoped, auto
    * released on commit/rollback). On MySQL, {@code RELEASE_LOCK} the same session-scoped names that
    * {@link #lockUrnsForWrite} took — recomputed from {@code urns}, so there is NO JVM-side registry
-   * to race under connection pooling. MUST run while the acquiring transaction (hence connection) is
-   * still active — the ingest path calls it from a {@code finally} before commit. A missed release
-   * (e.g. connection killed) is bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS} on the next acquire,
-   * never a correctness issue.
+   * to race under connection pooling. MUST run while the acquiring transaction (hence connection)
+   * is still active — the ingest path calls it from a {@code finally} before commit. A missed
+   * release (e.g. connection killed) is bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS} on the next
+   * acquire, never a correctness issue.
    */
   @Override
   public void releaseUrnsForWrite(
@@ -557,6 +560,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           incrementOptimisticMetric("optimistic_lock_update_attempt");
           if (modified == 0) {
             incrementOptimisticMetric("optimistic_lock_update_conflict");
+            incrementConflictByEntityType(entityAspect.getUrn());
             return Optional.empty();
           }
           return Optional.of(entityAspect);
@@ -686,6 +690,28 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (metricUtils != null) {
       metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
     }
+  }
+
+  /**
+   * Attributes optimistic-lock conflicts to the entity type so operators can see WHICH entity is
+   * contended (a specific consumer's hot key), not just an aggregate rate. Entity type is
+   * low-cardinality; the raw URN is deliberately NOT tagged (unbounded → metric explosion).
+   */
+  private void incrementConflictByEntityType(@Nullable String urn) {
+    if (metricUtils == null || urn == null) {
+      return;
+    }
+    String entityType;
+    try {
+      entityType = UrnUtils.getUrn(urn).getEntityType();
+    } catch (RuntimeException e) {
+      entityType = "unknown";
+    }
+    metricUtils.incrementMicrometer(
+        MetricRegistry.name(this.getClass(), "optimistic_lock_conflict"),
+        1.0,
+        "entityType",
+        entityType);
   }
 
   @Override
@@ -846,56 +872,56 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           lockUrnsForWrite(opContext, List.of(urn));
           try {
 
-          // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
-          // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
-          // DELETEs below otherwise lock rows in the engine's scan order (physical/CTID order on
-          // PostgreSQL), unrelated to key order, so a concurrent multi-row FOR UPDATE write and
-          // this
-          // hard-delete could acquire overlapping rows in opposite orders and deadlock. The
-          // explicit
-          // ORDER BY (not the query's natural order) is what makes PostgreSQL place a Sort below
-          // its
-          // LockRows node so locks are actually taken in key order. On MySQL/InnoDB the bulk
-          // DELETEs
-          // already lock the primary-key rows in index order, so no up-front lock is needed and
-          // this
-          // block is skipped. The lock query hydrates only this one urn's rows (bounded by its
-          // aspect/version count) purely to take the locks. (canWrite is guaranteed true by the
-          // early return above.)
-          if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
-            // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the
-            // matched
-            // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
-            // locks.
-            server
-                .find(EbeanAspectV2.class)
-                .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
-                .where()
-                .eq(EbeanAspectV2.URN_COLUMN, urn)
-                .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
-                .forUpdate()
-                .findList();
-          }
-
-          // First, delete all non-key aspects
-          int nonKeyCount =
+            // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
+            // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
+            // DELETEs below otherwise lock rows in the engine's scan order (physical/CTID order on
+            // PostgreSQL), unrelated to key order, so a concurrent multi-row FOR UPDATE write and
+            // this
+            // hard-delete could acquire overlapping rows in opposite orders and deadlock. The
+            // explicit
+            // ORDER BY (not the query's natural order) is what makes PostgreSQL place a Sort below
+            // its
+            // LockRows node so locks are actually taken in key order. On MySQL/InnoDB the bulk
+            // DELETEs
+            // already lock the primary-key rows in index order, so no up-front lock is needed and
+            // this
+            // block is skipped. The lock query hydrates only this one urn's rows (bounded by its
+            // aspect/version count) purely to take the locks. (canWrite is guaranteed true by the
+            // early return above.)
+            if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
+              // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the
+              // matched
+              // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
+              // locks.
               server
-                  .createQuery(EbeanAspectV2.class)
+                  .find(EbeanAspectV2.class)
+                  .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
                   .where()
                   .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-                  .delete();
+                  .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
+                  .forUpdate()
+                  .findList();
+            }
 
-          // Then, delete the key aspect
-          int keyCount =
-              server
-                  .createQuery(EbeanAspectV2.class)
-                  .where()
-                  .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-                  .delete();
+            // First, delete all non-key aspects
+            int nonKeyCount =
+                server
+                    .createQuery(EbeanAspectV2.class)
+                    .where()
+                    .eq(EbeanAspectV2.URN_COLUMN, urn)
+                    .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                    .delete();
 
-          return nonKeyCount + keyCount;
+            // Then, delete the key aspect
+            int keyCount =
+                server
+                    .createQuery(EbeanAspectV2.class)
+                    .where()
+                    .eq(EbeanAspectV2.URN_COLUMN, urn)
+                    .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                    .delete();
+
+            return nonKeyCount + keyCount;
           } finally {
             // Release the session-scoped MySQL GET_LOCK on this connection before the txn ends.
             // No-op on Postgres (auto-released on commit/rollback).

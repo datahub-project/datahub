@@ -71,8 +71,7 @@ public class AspectsBatchImpl implements AspectsBatch {
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Map<String, Long>> nextVersions,
       BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert) {
-    return toUpsertBatchItems(
-        operationContext, latestAspects, nextVersions, databaseUpsert, null);
+    return toUpsertBatchItems(operationContext, latestAspects, nextVersions, databaseUpsert, null);
   }
 
   @Override
@@ -133,7 +132,8 @@ public class AspectsBatchImpl implements AspectsBatch {
       applyMCPSideEffects(operationContext, upsertBatchItems).forEach(newItems::add);
     } else {
       // Branch-scoped retry needs parent->child provenance, so run side effects per input item and
-      // attribute each derived MCP to the item that produced it. All in-transaction side effects are
+      // attribute each derived MCP to the item that produced it. All in-transaction side effects
+      // are
       // per-item, so this yields the same derived MCPs as the whole-batch run.
       for (ChangeMCP parent : upsertBatchItems) {
         applyMCPSideEffects(operationContext, List.of(parent))

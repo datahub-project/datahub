@@ -17,10 +17,10 @@ import org.testng.annotations.Test;
 
 /**
  * Unit coverage for the pure decision logic of Stage 2 scoped retry that can be exercised without a
- * database. The end-to-end CAS convergence (a re-read inside the open transaction seeing the winning
- * writer's committed row, {@code isLatest} version adds converging to a single latest, etc.) is a
- * concurrency integration test against H2/MySQL/PostgreSQL that must be added separately — it cannot
- * be faithfully simulated here.
+ * database. The end-to-end CAS convergence (a re-read inside the open transaction seeing the
+ * winning writer's committed row, {@code isLatest} version adds converging to a single latest,
+ * etc.) is a concurrency integration test against H2/MySQL/PostgreSQL that must be added separately
+ * — it cannot be faithfully simulated here.
  */
 public class EntityServiceImplScopedRetryTest {
 
@@ -55,7 +55,8 @@ public class EntityServiceImplScopedRetryTest {
   @Test
   public void recomputeEmptyWhenNoUrnMatches() {
     assertTrue(
-        EntityServiceImpl.filterItemsForRecompute(List.of(itemFor(URN_A)), Set.of(URN_B)).isEmpty());
+        EntityServiceImpl.filterItemsForRecompute(List.of(itemFor(URN_A)), Set.of(URN_B))
+            .isEmpty());
   }
 
   private static final String ASPECT_KEY = "datasetKey";
@@ -79,15 +80,16 @@ public class EntityServiceImplScopedRetryTest {
                 AspectWriteResult.conflict(URN_A, ASPECT_STATUS),
                 AspectWriteResult.noop(URN_B, ASPECT_STATUS)));
 
-    assertEquals(
-        EntityServiceImpl.committedKeysOf(pass), Set.of(Pair.of(URN_A, ASPECT_KEY)));
+    assertEquals(EntityServiceImpl.committedKeysOf(pass), Set.of(Pair.of(URN_A, ASPECT_KEY)));
   }
 
   @Test
   public void committedSiblingSkippedOnRetryWhileConflictedSiblingRetried() {
     // Models the double-commit guard: URN_A had datasetKey COMMITTED and status CONFLICT in pass 0.
-    // On the scoped retry the sub-batch is scoped by URN (so it re-includes BOTH of URN_A's aspects),
-    // but the already-committed datasetKey must be skipped while the conflicted status is re-persisted.
+    // On the scoped retry the sub-batch is scoped by URN (so it re-includes BOTH of URN_A's
+    // aspects),
+    // but the already-committed datasetKey must be skipped while the conflicted status is
+    // re-persisted.
     Set<Pair<Urn, String>> committedKeys = Set.of(Pair.of(URN_A, ASPECT_KEY));
 
     assertTrue(
@@ -107,8 +109,7 @@ public class EntityServiceImplScopedRetryTest {
     BatchWriteResult result =
         new BatchWriteResult(List.of(AspectWriteResult.conflict(URN_B, "versionProperties")));
 
-    assertEquals(
-        EntityServiceImpl.branchScopedRecompute(result, derivedToParents), Set.of(URN_A));
+    assertEquals(EntityServiceImpl.branchScopedRecompute(result, derivedToParents), Set.of(URN_A));
   }
 
   @Test

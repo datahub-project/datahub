@@ -6,9 +6,9 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * Result of a single aspect write on the optimistic-locking path. Identity is carried inline ({@code
- * urn} + {@code aspectName}) so a {@link BatchWriteResult} can group results by URN / branch without
- * a separate key type.
+ * Result of a single aspect write on the optimistic-locking path. Identity is carried inline
+ * ({@code urn} + {@code aspectName}) so a {@link BatchWriteResult} can group results by URN /
+ * branch without a separate key type.
  */
 @Immutable
 public final class AspectWriteResult {

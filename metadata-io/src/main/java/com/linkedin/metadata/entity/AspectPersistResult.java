@@ -7,8 +7,8 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Return type of the singular persist step ({@code EntityServiceImpl.ingestAspectToLocalDB}) on the
  * optimistic-locking path. It couples the {@link AspectWriteOutcome} (conflict expressed as data,
- * never as control flow) with the {@link UpdateAspectResult} that downstream retention / MCL emission
- * consumes.
+ * never as control flow) with the {@link UpdateAspectResult} that downstream retention / MCL
+ * emission consumes.
  *
  * <p>This wrapper lives in {@code metadata-io} on purpose: {@link UpdateAspectResult} is defined in
  * the {@code metadata-service/services} module, which {@code metadata-io} depends on (not the other

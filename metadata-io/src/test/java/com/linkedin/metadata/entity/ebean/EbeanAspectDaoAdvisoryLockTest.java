@@ -26,8 +26,7 @@ public class EbeanAspectDaoAdvisoryLockTest {
 
   @Test
   public void lockNameWithinMysqlSixtyFourCharCap() {
-    String longUrn =
-        "urn:li:dataset:(urn:li:dataPlatform:mysql," + "x".repeat(300) + ",PROD)";
+    String longUrn = "urn:li:dataset:(urn:li:dataPlatform:mysql," + "x".repeat(300) + ",PROD)";
     assertTrue(
         EbeanAspectDao.mysqlLockName(longUrn).length() <= 64,
         "MySQL caps GET_LOCK names at 64 chars");

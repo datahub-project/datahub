@@ -43,8 +43,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Testcontainers integration test for the optimistic-locking (OL) compare-and-set write path against
- * a real PostgreSQL instance. It exercises the Stage-1 conditional-write DAO API with OL enabled:
+ * Testcontainers integration test for the optimistic-locking (OL) compare-and-set write path
+ * against a real PostgreSQL instance. It exercises the Stage-1 conditional-write DAO API with OL
+ * enabled:
  *
  * <ul>
  *   <li>{@code updateAspectConditional} — CAS on the version-0 row guarded by the stored {@code
@@ -61,8 +62,8 @@ import org.testng.annotations.Test;
  * predicate against the winner's committed row): exactly one UPDATE matches, the other matches zero
  * rows. Every test isolates itself with a unique urn, so it never depends on table-global state.
  *
- * <p><b>MySQL is deliberately NOT covered here.</b> This branch ships only {@link PostgresTestUtils}
- * — there is no MySQL Testcontainers helper — so the MySQL CAS predicate ({@code
+ * <p><b>MySQL is deliberately NOT covered here.</b> This branch ships only {@link
+ * PostgresTestUtils} — there is no MySQL Testcontainers helper — so the MySQL CAS predicate ({@code
  * systemmetadata->>'$.version'}) remains UNVERIFIED by an integration test. Do not assume MySQL OL
  * coverage exists until a MySQL container util is added and an equivalent IT is written against it.
  */
@@ -166,7 +167,8 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
     // latest wraps the stored row; newAspect carries byte-identical content + systemMetadata, so
     // this is a true no-op (not a conflict) and must not write a new version.
     final SystemAspect latest =
-        EbeanSystemAspect.builder().forUpdate(row(urn, contentJson, smJson), opContext.getEntityRegistry());
+        EbeanSystemAspect.builder()
+            .forUpdate(row(urn, contentJson, smJson), opContext.getEntityRegistry());
     final SystemAspect newAspect =
         newAspect(
             urn,
@@ -174,7 +176,9 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
             RecordUtils.toRecordTemplate(SystemMetadata.class, smJson));
 
     final ConditionalSaveResult cond =
-        inTx(txContext -> dao.saveLatestAspectConditional(opContext, txContext, latest, newAspect, 1));
+        inTx(
+            txContext ->
+                dao.saveLatestAspectConditional(opContext, txContext, latest, newAspect, 1));
 
     assertEquals(cond.getOutcome(), ConditionalWriteOutcome.SKIPPED_NOOP);
     assertFalse(cond.getUpdated().isPresent(), "a no-op must not report an updated row");
@@ -286,8 +290,7 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
     b.join(15_000);
 
     assertNull(failure.get(), "concurrent CAS writers should not error");
-    final int winners =
-        (resultA.get().isPresent() ? 1 : 0) + (resultB.get().isPresent() ? 1 : 0);
+    final int winners = (resultA.get().isPresent() ? 1 : 0) + (resultB.get().isPresent() ? 1 : 0);
     assertEquals(winners, 1, "exactly one concurrent CAS must win; the other must conflict");
     assertEquals(storedVersion(urn), "2", "the winning write must have advanced the row");
   }
@@ -307,7 +310,8 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
               final Optional<EntityAspect> r =
                   dao.updateAspectConditional(
                       opContext,
-                      TransactionContext.empty(tx, TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY),
+                      TransactionContext.empty(
+                          tx, TransactionContext.DEFAULT_MAX_TRANSACTION_RETRY),
                       newAspect(urn, new Status().setRemoved(true), sysMeta("2")),
                       "1");
               tx.commit();
@@ -340,7 +344,9 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
     primaryDatabase.save(row(urn, metadataJson, systemMetadataJson));
   }
 
-  /** A fresh, detached version-0 ORM row; a new instance each call so wrapping never sees DB state. */
+  /**
+   * A fresh, detached version-0 ORM row; a new instance each call so wrapping never sees DB state.
+   */
   private EbeanAspectV2 row(String urn, String metadataJson, String systemMetadataJson) {
     return new EbeanAspectV2(
         urn,
@@ -380,7 +386,8 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
     final EntityAspect aspect =
         dao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
     assertNotNull(aspect, "expected a stored version-0 row");
-    return RecordUtils.toRecordTemplate(SystemMetadata.class, aspect.getSystemMetadata()).getVersion();
+    return RecordUtils.toRecordTemplate(SystemMetadata.class, aspect.getSystemMetadata())
+        .getVersion();
   }
 
   private boolean storedRemoved(String urn) {

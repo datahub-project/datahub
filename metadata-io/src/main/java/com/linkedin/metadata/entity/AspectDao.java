@@ -435,9 +435,10 @@ public interface AspectDao {
   /**
    * Release per-entity advisory locks taken by {@link #lockUrnsForWrite} for the same {@code urns}
    * that are NOT transaction-scoped (MySQL {@code GET_LOCK} is session-scoped and must be released
-   * explicitly on the acquiring connection; Postgres advisory locks auto-release on commit/rollback,
-   * so this is a no-op there). Keyed by {@code urns} — no JVM-side registry of held locks. Must be
-   * called while the acquiring transaction/connection is still active. Default no-op.
+   * explicitly on the acquiring connection; Postgres advisory locks auto-release on
+   * commit/rollback, so this is a no-op there). Keyed by {@code urns} — no JVM-side registry of
+   * held locks. Must be called while the acquiring transaction/connection is still active. Default
+   * no-op.
    */
   default void releaseUrnsForWrite(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
