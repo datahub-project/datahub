@@ -66,8 +66,15 @@ echo "$resolved_images"
 # green run back. Unset outside CI, where nothing is reused.
 for repo in ${EXPECT_PR_TAGGED_IMAGES:-}; do
   resolved=$(echo "$resolved_images" | grep "/${repo}:" || true)
+  if [[ -z "$resolved" ]]; then
+    # The selected compose profile does not run this service at all (e.g.
+    # quickstartPg has no MAE/MCE), so there is nothing to assert -- but the
+    # images the profile does run are still checked below.
+    echo "NOTE: ${repo} is not part of this compose profile; skipping tag assertion"
+    continue
+  fi
   if [[ "$resolved" != *":${DATAHUB_VERSION}"* ]]; then
-    echo "ERROR: ${repo} was built for this run but resolved to '${resolved:-<absent>}'," >&2
+    echo "ERROR: ${repo} was built for this run but resolved to '${resolved}'," >&2
     echo "       not a ${DATAHUB_VERSION} tag. The tests would run against a stale image." >&2
     exit 1
   fi

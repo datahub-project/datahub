@@ -101,7 +101,9 @@ check "shared library" "${ALL}" 'CHANGED_FILES=["li-utils/src/main/java/A.java"]
 check "ingestion-scheduler" "${ALL}" 'CHANGED_FILES=["ingestion-scheduler/gradle.lockfile"]'
 check "service dockerfile" "${ALL}" 'CHANGED_FILES=["docker/datahub-gms/Dockerfile"]'
 # Every service Dockerfile COPYs these, not just the ingestion ones.
-check "shared docker snippets" "${ALL}" 'CHANGED_FILES=["docker/snippets/setup_java_runtime.sh"]'
+check "jvm-shared snippet" "${ALL}" 'CHANGED_FILES=["docker/snippets/setup_java_runtime.sh"]'
+check "jvm-shared snippet (wait_for_deps)" "${ALL}" 'CHANGED_FILES=["docker/snippets/wait_for_deps.sh"]'
+check "ingestion-only snippet" ":datahub-actions" 'CHANGED_FILES=["docker/snippets/ingestion_base.template"]'
 check "ingestion plus jvm" "${ALL}" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","metadata-io/src/main/java/A.java"]'
 
 echo "unclassified paths force a full build"

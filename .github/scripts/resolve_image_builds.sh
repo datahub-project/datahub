@@ -71,6 +71,13 @@ PATH_RULES=(
 
   # The actions image is Python: it pip-installs ../metadata-ingestion at build
   # time and never enters the shared JVM chain, so it is cheap to build alone.
+  #
+  # Exactly two snippets are COPYd by every service Dockerfile and map to the
+  # full set; the rest of docker/snippets/ (ingestion base, uv, python base
+  # images, ...) feeds only the ingestion/actions images.
+  "docker/snippets/setup_java_runtime.sh|${EVERYTHING}"
+  "docker/snippets/wait_for_deps.sh|${EVERYTHING}"
+  "docker/snippets/|${ACTIONS}"
   "datahub-actions/|${ACTIONS}"
   "docker/datahub-actions/|${ACTIONS}"
   "docker/datahub-ingestion/|${ACTIONS}"
@@ -82,9 +89,6 @@ PATH_RULES=(
   # payoff in distinguishing which one: build the full set. These rules exist
   # (rather than falling through to unclassified) so the log reports a
   # deliberate full build instead of implying the classification has rotted.
-  # Every service Dockerfile COPYs from docker/snippets/ (setup_java_runtime.sh,
-  # wait_for_deps.sh), not just the ingestion ones.
-  "docker/snippets/|${EVERYTHING}"
   "datahub-web-react/|${EVERYTHING}"
   "datahub-frontend/|${EVERYTHING}"
   "metadata-models/|${EVERYTHING}"
@@ -167,7 +171,6 @@ tag_exists() {
 # Reasons to bake the whole set, checked before any per-image reasoning so the
 # log names the override rather than whichever rule also happened to match.
 full_build_reason=""
-suppress_built_repos=0
 if [[ "${FULL_BUILD_LABEL}" == "true" ]]; then
   full_build_reason="the build-images label is set"
 elif [[ "${EVENT_NAME}" != "pull_request" ]]; then
@@ -181,12 +184,11 @@ elif [[ "${PR_PUBLISH}" == "true" ]]; then
   # so the set has to be complete and built from this PR's source.
   full_build_reason="a publish label is pushing this PR's images"
 elif [[ -n "${SMOKE_BUILD_TASK}" ]]; then
-  # A smoke: label picks a different compose profile whose image set does not
-  # match the table above -- so also suppress the resolved-tag assertion below:
-  # asserting the default six repositories against a profile that runs fewer
-  # containers (e.g. quickstartPg has no MAE/MCE) would fail before tests start.
+  # A smoke: label picks a different compose profile. Everything is built, and
+  # the resolved-tag assertion in run-quickstart.sh skips repositories the
+  # selected profile does not run (e.g. quickstartPg has no MAE/MCE) while
+  # still checking the ones it does.
   full_build_reason="a smoke: label selected the ${SMOKE_BUILD_TASK} build"
-  suppress_built_repos=1
 elif ((${#changed_files[@]} == 0)); then
   # A pull request always changes something, so an empty list means the file
   # list never arrived. Reusing every image off the back of that would be the
@@ -195,7 +197,7 @@ elif ((${#changed_files[@]} == 0)); then
 elif ((${#unclassified[@]})); then
   # The path is PR-controlled and this string reaches the step summary, which
   # GitHub renders as markdown -- strip link-forming characters.
-  first_unclassified=$(printf '%s' "${unclassified[0]}" | tr -d '[]()<>`')
+  first_unclassified=$(printf '%s' "${unclassified[0]}" | tr -d '[]()<>`|')
   full_build_reason="${#unclassified[@]} changed path(s) are unclassified, starting with ${first_unclassified}"
 fi
 
@@ -244,11 +246,7 @@ fi
 
 {
   echo "image_build_modules=${joined_modules}"
-  if ((suppress_built_repos)); then
-    echo "image_built_repos="
-  else
-    echo "image_built_repos=${build_repos[*]-}"
-  fi
+  echo "image_built_repos=${build_repos[*]-}"
   echo "image_version_env<<IMAGE_VERSION_ENV_EOF"
   if ((${#version_env[@]})); then
     printf '%s\n' "${version_env[@]}"

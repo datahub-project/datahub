@@ -163,7 +163,7 @@ jobs:
       - name: Check whether docker login is possible
         id: docker-login
         env:
-          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
           echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
           echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
