@@ -376,8 +376,7 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
    * #SEQ_KEY}). Runs on the owning partition so the read-modify-write is server-side and
    * contention-free across pods — no client-side get+replace CAS spin.
    */
-  static final class SeqIncrementProcessor
-      implements EntryProcessor<String, Long, Long> {
+  static final class SeqIncrementProcessor implements EntryProcessor<String, Long, Long> {
     private static final long serialVersionUID = 1L;
 
     private final long delta;
