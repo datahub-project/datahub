@@ -110,7 +110,9 @@ jobs:
           python-version: "3.10"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # Master copies are written by documentation.yml / check-datahub-jars.yml.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
@@ -265,7 +267,9 @@ jobs:
           python-version: "3.10"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # Master copies are written by documentation.yml / check-datahub-jars.yml.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
