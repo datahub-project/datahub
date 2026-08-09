@@ -7,7 +7,6 @@ import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
-import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.utils.EnvironmentUtils;
@@ -56,7 +55,7 @@ import org.springframework.context.annotation.Import;
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
-          classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
+          classes = {RetentionBufferFactory.class})
     })
 public class CleanupUpgradeConfig {
 

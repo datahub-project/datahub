@@ -52,6 +52,22 @@ import lombok.extern.slf4j.Slf4j;
 public class DataProductUnsetSideEffect extends MCPSideEffect {
   @Nonnull private AspectPluginConfig config;
 
+  /**
+   * Async-safe: the per-transition delta (which asset associations were added) is computed from the
+   * MCL's own previous/current {@link DataProductProperties} ({@link
+   * #generatePatchRemove}), so replaying one MCL at a time (async-only, no coalescing) reproduces
+   * the same unset patches the synchronous path produced. {@link #generateUnsetMCPs} queries the
+   * graph at replay time to find <em>other</em> data products still holding the asset and removes
+   * it from them; a wider commit-to-replay window just means the query sees a slightly newer graph,
+   * but the invariant (single owner per asset) is enforced by each addition triggering unsets of
+   * the others — a cascade that converges to the last-committed owner. FIFO drain order preserves
+   * MCL ordering. Net: same end state as sync, just delayed.
+   */
+  @Override
+  public boolean defersPostCommit() {
+    return true;
+  }
+
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
       @Nonnull OperationFingerprint operationContext,

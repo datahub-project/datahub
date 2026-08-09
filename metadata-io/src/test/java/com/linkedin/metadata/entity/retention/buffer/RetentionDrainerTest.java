@@ -17,10 +17,12 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.buffer.CoalesceBuffer;
-import com.linkedin.metadata.buffer.CoalesceBuffers;
-import com.linkedin.metadata.buffer.HazelcastCoalesceBuffer;
+import com.linkedin.metadata.buffer.offload.HazelcastOffloadBuffer;
+import com.linkedin.metadata.buffer.offload.OffloadDrainer;
+import com.linkedin.metadata.config.offload.MergePolicy;
+import com.linkedin.metadata.config.offload.SizingPolicy;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -37,6 +39,7 @@ public class RetentionDrainerTest {
 
   private static final String MAP_NAME = "retention-pending";
   private static final String LOCK_MAP_NAME = "retention-drain-lock";
+  private static final String SEQ_MAP_NAME = "retention-pending.seq";
   private static final Urn TEST_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
   private static final String ASPECT = "status";
@@ -65,24 +68,57 @@ public class RetentionDrainerTest {
     return Hazelcast.newHazelcastInstance(config);
   }
 
+  private HazelcastOffloadBuffer<RetentionKey, Long> newBuffer() {
+    return new HazelcastOffloadBuffer<>(
+        hazelcastInstance,
+        MAP_NAME,
+        LOCK_MAP_NAME,
+        SEQ_MAP_NAME,
+        100_000,
+        MergePolicy.KEEP_MAX_LONG,
+        SizingPolicy.EVICT_LRU,
+        CoalesceRetentionBuffer.drainOrder(),
+        "retention",
+        null);
+  }
+
   private static RetentionKey key() {
     return new RetentionKey(TEST_URN.toString(), ASPECT);
+  }
+
+  private static RetentionDrainer newDrainer(
+      HazelcastOffloadBuffer<RetentionKey, Long> buffer,
+      RetentionService<?> retentionService,
+      boolean enabled,
+      MetricUtils metricUtils) {
+    OffloadDrainer<RetentionKey, Long> delegate =
+        new OffloadDrainer<>(
+            buffer,
+            new SimpleRetentionContextResolver(),
+            SYSTEM_CONTEXT,
+            new RetentionDrainAction(retentionService, metricUtils),
+            10,
+            60_000L,
+            enabled,
+            "retention",
+            metricUtils,
+            true, // backoff on (retention default)
+            5L);
+    return new RetentionDrainer(delegate);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   public void testTickAppliesRetentionAndRemovesKeyOnSuccess() {
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
-    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
+    buffer.enqueue(key(), 3L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     // Batch path returns the committed contexts so the drainer clears those keys.
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
-    RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, true, null);
 
     drainer.tick();
 
@@ -95,9 +131,8 @@ public class RetentionDrainerTest {
   @SuppressWarnings("unchecked")
   public void testTickLeavesKeyForRetryOnFailure() {
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
-    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
+    buffer.enqueue(key(), 3L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     doThrow(new RuntimeException("retention apply failed"))
@@ -105,15 +140,16 @@ public class RetentionDrainerTest {
         .applyRetentionBatchWithPolicyDefaults(any(), any());
 
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
-    RetentionDrainer drainer =
-        new RetentionDrainer(
-            buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, mockMetricUtils);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, true, mockMetricUtils);
 
     drainer.tick();
 
-    assertTrue(buffer.drain(10).size() == 1);
+    // Action threw → framework leaves the entry for retry (at-least-once). With backoff on, the
+    // groupKey/resolveOpContext path would move it to limbo, but this is an ACTION failure (apply),
+    // not a resolver failure, so backoff does NOT apply — the entry stays in the buffer.
+    assertEquals(buffer.drain(10).size(), 1);
     verify(mockMetricUtils, times(1))
-        .increment(eq(RetentionDrainer.class), eq("retention_drain_failed"), eq(1.0d));
+        .increment(eq(OffloadDrainer.class), eq("retention_action_failed"), eq(1.0d));
   }
 
   @Test
@@ -122,12 +158,11 @@ public class RetentionDrainerTest {
     // Two pending keys; the service commits only one (the other's per-context tx failed). Only the
     // committed key must be cleared via removeIfSame — the failed key stays for the next tick.
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
     RetentionKey committedKey = new RetentionKey(TEST_URN.toString(), ASPECT);
     RetentionKey failedKey = new RetentionKey(TEST_URN.toString(), FAILED_ASPECT);
-    buffer.merge(committedKey, 3L, CoalesceBuffers.KEEP_MAX_LONG);
-    buffer.merge(failedKey, 5L, CoalesceBuffers.KEEP_MAX_LONG);
+    buffer.enqueue(committedKey, 3L);
+    buffer.enqueue(failedKey, 5L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     // Return only the committed context, dropping the failed one — mirrors EbeanRetentionService
@@ -140,8 +175,7 @@ public class RetentionDrainerTest {
                   .filter(ctx -> ASPECT.equals(ctx.getAspectName()))
                   .collect(Collectors.toList());
             });
-    RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, true, null);
 
     drainer.tick();
 
@@ -155,38 +189,34 @@ public class RetentionDrainerTest {
   @SuppressWarnings("unchecked")
   public void testTickSkipsWhenDisabled() {
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
-    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
+    buffer.enqueue(key(), 3L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
-    RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, false, null);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, false, null);
 
     drainer.tick();
 
     verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
-    assertTrue(buffer.drain(10).size() == 1);
+    assertEquals(buffer.drain(10).size(), 1);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   public void testTickSkipsWhenAnotherDrainerHoldsLock() {
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
-    buffer.merge(key(), 3L, CoalesceBuffers.KEEP_MAX_LONG);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
+    buffer.enqueue(key(), 3L);
     Object heldToken = buffer.tryAcquireDrainLock("drain", Duration.ofSeconds(60));
     assertNotNull(heldToken);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
-    RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, true, null);
 
     drainer.tick();
 
     verify(retentionService, never()).applyRetentionBatchWithPolicyDefaults(any(), any());
-    assertTrue(buffer.drain(10).size() == 1);
+    assertEquals(buffer.drain(10).size(), 1);
 
     buffer.releaseDrainLock("drain", heldToken);
   }
@@ -198,19 +228,18 @@ public class RetentionDrainerTest {
     // → RetentionDrainer.tick() → RetentionService.apply with the exact (urn, aspect, maxVersion)
     // that was enqueued. No sleep, no @Scheduled, no docker — tick() is invoked directly.
     hazelcastInstance = newIsolatedInstance();
-    CoalesceBuffer<RetentionKey, Long> buffer =
-        new HazelcastCoalesceBuffer<>(hazelcastInstance, MAP_NAME, LOCK_MAP_NAME, null);
-    CoalesceRetentionBuffer retentionBuffer = new CoalesceRetentionBuffer(buffer);
+    HazelcastOffloadBuffer<RetentionKey, Long> buffer = newBuffer();
+    CoalesceRetentionBuffer retentionBuffer =
+        new CoalesceRetentionBuffer(buffer, new SimpleRetentionContextResolver());
 
-    retentionBuffer.enqueue(TEST_URN, ASPECT, 3L);
+    retentionBuffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 3L);
     // keep-max coalesce: a lower re-merge must not win.
-    retentionBuffer.enqueue(TEST_URN, ASPECT, 1L);
+    retentionBuffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 1L);
 
     RetentionService<?> retentionService = mock(RetentionService.class);
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
-    RetentionDrainer drainer =
-        new RetentionDrainer(buffer, retentionService, SYSTEM_CONTEXT, 10, 60_000L, true, null);
+    RetentionDrainer drainer = newDrainer(buffer, retentionService, true, null);
 
     drainer.tick();
 

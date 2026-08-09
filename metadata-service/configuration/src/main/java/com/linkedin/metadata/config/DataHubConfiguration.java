@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.hooks.PostCommitHookConfiguration;
 import com.linkedin.metadata.config.retention.RetentionConfiguration;
 import lombok.Data;
 
@@ -41,6 +42,9 @@ public class DataHubConfiguration {
 
   /** Post-commit aspect retention buffering (coalesce + drain). */
   private RetentionConfiguration retention;
+
+  /** Post-commit hook async replay buffering (async-only, no coalescing + drain). */
+  private PostCommitHookConfiguration postCommitHook;
 
   @Data
   public static class DataHubMetrics {

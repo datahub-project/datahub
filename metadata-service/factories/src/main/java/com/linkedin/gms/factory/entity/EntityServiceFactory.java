@@ -8,6 +8,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.hooks.buffer.HookContextResolver;
+import com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -37,7 +39,9 @@ public class EntityServiceFactory {
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       final List<ThrottleSensor> throttleSensors,
       @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
-      final ObjectProvider<RetentionBuffer> retentionBufferProvider) {
+      final ObjectProvider<RetentionBuffer> retentionBufferProvider,
+      final ObjectProvider<PostCommitHookBuffer> postCommitHookBufferProvider,
+      final ObjectProvider<HookContextResolver> hookContextResolverProvider) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
@@ -55,6 +59,13 @@ public class EntityServiceFactory {
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.
     entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
+    // Absent (NO_OP) unless PostCommitHookBufferFactory activated the async replay buffer
+    // (featureFlags.postCommitHookBufferEnabled). NO_OP keeps synchronous hook execution.
+    entityService.setPostCommitHookBuffer(postCommitHookBufferProvider.getIfAvailable());
+    // Routing resolver for the async hook replay path. Absent (NO_OP / single-tenant) unless
+    // PostCommitHookBufferFactory registered the SimpleHookContextResolver bean (or a cloud
+    // extension registered a tenant-aware one as @Primary).
+    entityService.setHookContextResolver(hookContextResolverProvider.getIfAvailable());
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

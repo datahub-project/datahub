@@ -19,10 +19,20 @@ public class FeatureFlags {
   // backed buffer drained by RetentionDrainer off the ingest thread. When false, post-commit path
   // (if on) applies retention synchronously. Enabling this boots the shared embedded Hazelcast node
   // (HazelcastInstanceBootstrapCondition). Every ingesting pod (GMS or MCE consumer) runs the
-  // drainer — RetentionBufferSchedulingConfig enables scheduling wherever the buffer is wired — and
+  // drainer — RetentionBufferFactory schedules the drainer wherever the buffer is wired — and
   // all pods share one map + one cluster-wide drain lock, so exactly one drains per tick.
   // Lifecycle: introduced for scale. Default OFF.
   private boolean retentionBufferEnabled = false;
+  // Moves post-commit MCPSideEffect hooks (postMCPSideEffect) off the ingest thread onto an async,
+  // Hazelcast-backed replay buffer drained by PostCommitHookDrainer. Hooks opt in per-hook via
+  // MCPSideEffect#defersPostCommit(); this flag boots the shared buffer + drainer so opt-in takes
+  // effect. Replay is async-only (NO coalescing): every committed MCL is replayed exactly once, so
+  // no intermediate transition is dropped (the DB ledger is untouched; only the timing of derived
+  // side-effect MCP generation changes). Delivery is at-least-once (in-memory buffer, survives a
+  // pod loss not a full cluster restart) with retry + bounded DLQ for poison keys.
+  // Lifecycle: introduced for scale. Default OFF. Sunset target: remove the synchronous hook
+  // path + this flag once the async path is validated in prod.
+  private boolean postCommitHookBufferEnabled = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;

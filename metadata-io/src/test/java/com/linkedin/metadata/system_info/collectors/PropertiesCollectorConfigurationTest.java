@@ -542,6 +542,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.retention.buffer.drainBatchSize",
           "datahub.retention.buffer.drainIntervalMs",
           "datahub.retention.buffer.drainLockLeaseMs",
+          // Post-commit hook async replay buffer (no coalescing; drain tuning). The
+          // featureFlags.postCommitHookBufferEnabled toggle is covered by the "featureFlags.*"
+          // template above.
+          "datahub.postCommitHook.buffer.mapName",
+          "datahub.postCommitHook.buffer.lockMapName",
+          "datahub.postCommitHook.buffer.drainBatchSize",
+          "datahub.postCommitHook.buffer.maxPendingEntries",
+          "datahub.postCommitHook.buffer.drainIntervalMs",
+          "datahub.postCommitHook.buffer.drainLockLeaseMs",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags

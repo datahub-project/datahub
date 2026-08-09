@@ -79,4 +79,21 @@ public abstract class MCPSideEffect extends PluginSpec {
       @Nonnull OperationFingerprint operationContext,
       Collection<MCLItem> mclItems,
       @Nonnull RetrieverContext retrieverContext);
+
+  /**
+   * Opt-in to async (deferred) post-commit replay. When {@code true} (and a {@link
+   * com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer} is wired with {@code
+   * defersApply()=true}), the ingest thread does NOT call {@link #postApply} inline; instead the
+   * committed MCL is enqueued and a background drainer replays it through this hook off the request
+   * thread. Default {@code false} keeps the legacy synchronous behavior.
+   *
+   * <p>A hook MUST only opt in when its {@link #postMCPSideEffect} is safe for async-only replay:
+   * i.e. it reads the MCL's previous-aspect to compute a per-transition delta and re-derives the
+   * same MCPs from the same (previous, current) pair regardless of when it runs. It must NOT
+   * coalesce (collapse) multiple MCLs into one — the buffer replays every MCL exactly once. See
+   * {@code PostCommitHookBuffer} for the lossless-replay contract.
+   */
+  public boolean defersPostCommit() {
+    return false;
+  }
 }

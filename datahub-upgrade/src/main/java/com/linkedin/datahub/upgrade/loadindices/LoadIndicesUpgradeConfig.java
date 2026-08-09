@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade.loadindices;
 
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
-import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +35,6 @@ import org.springframework.context.annotation.Import;
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
-          classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
+          classes = {RetentionBufferFactory.class})
     })
 public class LoadIndicesUpgradeConfig {}

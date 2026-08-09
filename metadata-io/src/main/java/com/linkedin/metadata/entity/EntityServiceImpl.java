@@ -49,6 +49,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
@@ -68,6 +69,9 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.hooks.buffer.HookContextResolver;
+import com.linkedin.metadata.entity.hooks.buffer.HookKey;
+import com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -174,6 +178,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private RetentionService<ChangeItemImpl> retentionService;
   // Post-commit retention path only; NO_OP keeps the existing sync-DELETE behavior unchanged.
   private RetentionBuffer retentionBuffer = RetentionBuffer.NO_OP;
+  // Post-commit hook async replay path only; NO_OP keeps the existing synchronous hook behavior
+  // (hooks run inline on the ingest thread). Wired by EntityServiceFactory when the
+  // postCommitHookBufferEnabled feature flag boots the Hazelcast-backed buffer + drainer.
+  private PostCommitHookBuffer postCommitHookBuffer = PostCommitHookBuffer.NO_OP;
+  // Routing seam for the async hook replay path: stamps routing metadata (e.g. tenant id) onto
+  // buffer keys at enqueue and reconstructs a per-group OperationContext at drain. NO_OP produces
+  // plain SimpleHookKey and is only used as a default; when the buffer is NO_OP, defersApply() is
+  // false so enrichKey is never called. Wired by EntityServiceFactory alongside the buffer.
+  private HookContextResolver hookContextResolver = HookContextResolver.NO_OP;
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
@@ -1113,7 +1126,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (retentionBuffer.defersApply()) {
         for (RetentionService.RetentionContext ctx : retentionBatch) {
           retentionBuffer.enqueue(
-              ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
+              opContext, ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
         }
         return;
       }
@@ -1157,20 +1170,95 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Process post-commit MCPSideEffects
+   * Process post-commit MCPSideEffects. Hooks that opt in via {@link
+   * com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect#defersPostCommit()} (and only when a
+   * real {@link PostCommitHookBuffer} with {@code defersApply()=true} is wired) are <b>not</b> run
+   * inline: their committed MCLs are enqueued for a background {@code PostCommitHookDrainer} to
+   * replay off the request thread. All other hooks run synchronously here, exactly as before.
+   *
+   * <p>Per-MCL {@code shouldApply} filtering is applied before enqueuing so the buffer only holds
+   * MCLs the deferred hook would actually act on. If a hook opts in but no buffer is wired (NO_OP),
+   * it falls back to synchronous execution — no side effect is ever silently dropped.
    *
    * @param mcls mcls generated
    */
   private void processPostCommitMCLSideEffects(
       @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
     log.debug("Considering {} MCLs post commit side effects.", mcls.size());
+    if (mcls.isEmpty()) {
+      return;
+    }
     List<MCLItem> batch =
         mcls.stream()
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
+    boolean deferEnabled = postCommitHookBuffer.defersApply();
+    List<MCPSideEffect> syncHooks = new ArrayList<>();
+    for (MCPSideEffect hook :
+        opContext.getRetrieverContext().getAspectRetriever().getEntityRegistry().getAllMCPSideEffects()) {
+      if (deferEnabled && hook.defersPostCommit()) {
+        // Enqueue only the MCLs this hook would act on (shouldApply filters by change type /
+        // entity / aspect). Each enqueue is a distinct committed MCL — no coalescing. The key
+        // carries routing metadata from the request OperationContext (e.g. tenant id) so the
+        // drainer can replay under the correct (per-tenant) context.
+        String hookId = hook.getConfig().getClassName();
+        int enqueued = 0;
+        int fallback = 0;
+        for (MCLItem item : batch) {
+          if (hook.shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName())) {
+            long seq = postCommitHookBuffer.nextSequence();
+            HookKey key =
+                hookContextResolver.enrichKey(
+                    opContext, hookId, item.getMetadataChangeLog(), seq);
+            boolean ok = postCommitHookBuffer.enqueue(key, item.getMetadataChangeLog());
+            if (ok) {
+              enqueued++;
+            } else {
+              // Buffer write failed (partition / serialization / CP error). Fall back to running
+              // this single MCL through the hook synchronously so no side effect is silently
+              // dropped — losing the async deferral is acceptable, losing the side effect is not.
+              fallback++;
+              runSyncHook(opContext, hook, List.of(item));
+            }
+          }
+        }
+        if (enqueued > 0) {
+          log.debug("Deferred {} MCLs for async post-commit hook '{}'", enqueued, hookId);
+        }
+        if (fallback > 0) {
+          log.warn(
+              "Buffer enqueue failed for {} MCL(s) of hook '{}'; fell back to synchronous execution",
+              fallback,
+              hookId);
+        }
+      } else {
+        syncHooks.add(hook);
+      }
+    }
+
+    if (syncHooks.isEmpty()) {
+      return;
+    }
+    // Run the remaining (synchronous) hooks inline, batching their generated MCPs for async ingest
+    // exactly as the legacy path did.
+    runSyncHooks(opContext, syncHooks, batch);
+  }
+
+  /**
+   * Run one or more post-commit hooks synchronously on the ingest thread, batching their generated
+   * MCPs for async ingest exactly as the legacy path did. Used both for hooks that have not opted
+   * into async deferral and as the synchronous fallback when a deferred hook's buffer enqueue
+   * fails.
+   */
+  private void runSyncHooks(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPSideEffect> hooks, @Nonnull List<MCLItem> batch) {
     try (Stream<MCPItem> sideEffectStream =
-        AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
+        hooks.stream()
+            .flatMap(
+                hook ->
+                    hook.postApply(
+                        opContext, batch, opContext.getRetrieverContext()))) {
       Iterable<List<MCPItem>> iterable =
           () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
       StreamSupport.stream(iterable.spliterator(), false)
@@ -1187,6 +1275,40 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 log.debug("Generated {} MCP SideEffects for async processing", count);
               });
     }
+  }
+
+  /** Single-hook, single-batch convenience overload for the synchronous fallback path. */
+  private void runSyncHook(
+      @Nonnull OperationContext opContext, @Nonnull MCPSideEffect hook, @Nonnull List<MCLItem> batch) {
+    runSyncHooks(opContext, List.of(hook), batch);
+  }
+
+  /**
+   * Public entry point for the background {@code PostCommitHookDrainer} to feed a deferred hook's
+   * generated MCPs back through the normal async ingest path. Mirrors the synchronous branch of
+   * {@link #processPostCommitMCLSideEffects}: build an {@link AspectsBatch} and call {@link
+   * #ingestProposalAsync}.
+   */
+  public void ingestSideEffectMcps(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> mcps) {
+    if (mcps.isEmpty()) {
+      return;
+    }
+    Iterable<List<MCPItem>> iterable =
+        () -> Iterators.partition(mcps.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+    StreamSupport.stream(iterable.spliterator(), false)
+        .forEach(
+            sideEffects -> {
+              long count =
+                  ingestProposalAsync(
+                          opContext,
+                          AspectsBatchImpl.builder()
+                              .items(sideEffects)
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .build(opContext))
+                      .count();
+              log.debug("Replayed {} MCP SideEffects for async processing", count);
+            });
   }
 
   /**
@@ -2883,6 +3005,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   public void setRetentionBuffer(@Nullable RetentionBuffer retentionBuffer) {
     this.retentionBuffer = retentionBuffer != null ? retentionBuffer : RetentionBuffer.NO_OP;
+  }
+
+  /**
+   * Wire the post-commit hook async replay buffer. Called by {@code EntityServiceFactory} via
+   * {@code ObjectProvider.getIfAvailable()}; a null (no buffer bean) is normalized to {@link
+   * PostCommitHookBuffer#NO_OP} so callers never see null and the legacy synchronous hook path
+   * stays the default.
+   */
+  public void setPostCommitHookBuffer(@Nullable PostCommitHookBuffer postCommitHookBuffer) {
+    this.postCommitHookBuffer =
+        postCommitHookBuffer != null ? postCommitHookBuffer : PostCommitHookBuffer.NO_OP;
+  }
+
+  /** Wire the routing resolver for the async hook replay path; null → NO_OP (single-tenant). */
+  public void setHookContextResolver(@Nullable HookContextResolver hookContextResolver) {
+    this.hookContextResolver =
+        hookContextResolver != null ? hookContextResolver : HookContextResolver.NO_OP;
   }
 
   @Override

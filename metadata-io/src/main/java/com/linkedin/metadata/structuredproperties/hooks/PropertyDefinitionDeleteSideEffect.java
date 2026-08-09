@@ -62,6 +62,29 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
         .flatMap(item -> generatePatchRemove(operationContext, item, retrieverContext));
   }
 
+  /**
+   * Opt in to async (deferred) post-commit replay. This hook is safe for async-only replay because:
+   *
+   * <ul>
+   *   <li>The definition-delete branch reads the deleted definition from the MCL's
+   *       previous-aspect, which is carried in the MCL and preserved across the buffer's JSON
+   *       round-trip — the replay sees the same previous-aspect as the synchronous path, regardless
+   *       of when it runs.
+   *   <li>The key-delete branch re-fetches the definition live and gracefully skips once it is
+   *       already removed (cleanup is driven by the companion definition-delete MCL), so a delayed
+   *       replay is at worst a redundant skip, never a missed cleanup.
+   * </ul>
+   *
+   * Coalescing would not help here anyway (a property definition is deleted once; nothing to
+   * collapse), so the buffer replays every MCL exactly once — no intermediate transition is lost.
+   * Only takes effect when {@code featureFlags.postCommitHookBufferEnabled} boots the buffer;
+   * otherwise the hook runs synchronously as before.
+   */
+  @Override
+  public boolean defersPostCommit() {
+    return true;
+  }
+
   private Stream<MCPItem> generatePatchRemove(
       OperationFingerprint operationFingerprint,
       MCLItem mclItem,
