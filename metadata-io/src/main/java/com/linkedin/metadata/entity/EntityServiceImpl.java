@@ -4015,9 +4015,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         return ScopedComputeResult.empty(updatedLatestAspects, derivedToParents);
       }
 
-      // do final pre-commit checks with previous aspect value
+      // do final pre-commit checks with previous aspect value. Pass opContext as the
+      // AuthorizationSession (4-arg overload) so in-transaction auth validators (e.g.
+      // DomainWriteAuthorizationValidator) run on the scoped path exactly as on the full-batch path
+      // —
+      // the 3-arg overload passes a null session, which those validators treat as "skip auth".
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validatePreCommit(opContext, changeMCPs, opContext.getRetrieverContext());
+          AspectsBatch.validatePreCommit(
+              opContext, changeMCPs, opContext.getRetrieverContext(), opContext);
 
       List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults = new ArrayList<>();
       if (exceptions.hasFatalExceptions()) {

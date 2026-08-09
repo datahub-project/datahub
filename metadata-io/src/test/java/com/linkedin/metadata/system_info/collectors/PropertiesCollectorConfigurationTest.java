@@ -625,6 +625,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.entityWriteAdvisoryLockEnabled",
           "ebean.entityWriteLockBackend",
           "ebean.entityWriteLockAcquireTimeoutSeconds",
+          "ebean.entityWriteLockLeaseSeconds",
           "ebean.optimisticLockingEnabled",
           "ebean.scopedRetryEnabled",
           "ebean.cloudProvider",

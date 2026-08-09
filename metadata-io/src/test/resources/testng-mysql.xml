@@ -4,6 +4,7 @@
     <test name="mysql-optimistic-locking">
         <classes>
             <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingMysqlIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoAdvisoryLockMysqlIT"/>
         </classes>
     </test>
 </suite>

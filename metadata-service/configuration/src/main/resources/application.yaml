@@ -574,6 +574,7 @@ ebean:
   entityWriteAdvisoryLockEnabled: ${EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED:false} # Opt-in: serialize concurrent writes/deletes per entity to reduce hot-key contention and prevent lock-order deadlocks. Postgres = pg_advisory_xact_lock (txn-scoped); MySQL = GET_LOCK (session-scoped, released explicitly). No-op on other engines.
   entityWriteLockBackend: ${ENTITY_WRITE_LOCK_BACKEND:none} # OL+scoped write-lock backend: none | db | hazelcast. Default none (off). hazelcast keeps lock waits off the DB connection pool; enable per-deployment via env. CAS remains the correctness guard. backend=db uses the DB advisory lock (also implied by entityWriteAdvisoryLockEnabled=true).
   entityWriteLockAcquireTimeoutSeconds: ${ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS:10} # Max wait to acquire a write lock before proceeding without it (CAS still guards).
+  entityWriteLockLeaseSeconds: ${ENTITY_WRITE_LOCK_LEASE_SECONDS:300} # Hazelcast lock lease: auto-release a held lock after this many seconds so a dead/hung holder never wedges a URN.
   optimisticLockingEnabled: ${OPTIMISTIC_LOCKING_ENABLED:false} # Opt-in, per-process: write aspects via compare-and-set on SystemMetadata.version instead of SELECT ... FOR UPDATE. Ignored on Cassandra. Default off (legacy path unchanged).
   scopedRetryEnabled: ${SCOPED_RETRY_ENABLED:false} # Opt-in, requires optimisticLockingEnabled: on an optimistic-lock CONFLICT retry only the conflicted URN's branch within the transaction instead of re-running the whole batch. Default off (full-batch retry).
   readPool:

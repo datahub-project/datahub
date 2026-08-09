@@ -9,6 +9,7 @@ import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.hash.Hashing;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -54,6 +55,7 @@ import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -409,7 +411,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @VisibleForTesting
   @Nonnull
   static String mysqlLockName(@Nonnull String urn) {
-    return MYSQL_LOCK_NAME_PREFIX + Integer.toHexString(urn.hashCode());
+    // 64-bit murmur3 (not String.hashCode's 32-bit) so unrelated hot URNs don't collide into false
+    // serialization. 16 hex chars + prefix stays well under MySQL's 64-char GET_LOCK name limit.
+    return MYSQL_LOCK_NAME_PREFIX
+        + Long.toHexString(Hashing.murmur3_128().hashString(urn, StandardCharsets.UTF_8).asLong());
   }
 
   /**

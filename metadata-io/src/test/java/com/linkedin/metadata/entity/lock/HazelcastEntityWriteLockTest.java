@@ -111,18 +111,44 @@ public class HazelcastEntityWriteLockTest {
     map.unlock("urn:b");
   }
 
-  /** Fully disjoint batches never contend — both acquire immediately. */
+  /**
+   * Two disjoint batches on DIFFERENT threads don't block each other — while one thread holds
+   * {a,b,c}, another acquires {d,e,f} immediately. Cross-thread (not same-thread, which would pass
+   * even under false contention because IMap locks are reentrant per thread).
+   */
   @Test
-  public void disjointBatchesDoNotContend() {
+  public void disjointBatchesDoNotContend() throws Exception {
     HazelcastEntityWriteLock lock = new HazelcastEntityWriteLock(hz, MAP, 5, 60);
+    ExecutorService other = Executors.newSingleThreadExecutor();
+    CountDownLatch held = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    try {
+      other.submit(
+          () -> {
+            EntityWriteLock.LockHandle h =
+                lock.acquire(opContext, List.of("urn:a", "urn:b", "urn:c"));
+            held.countDown();
+            try {
+              release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+              Thread.currentThread().interrupt();
+            }
+            h.close();
+          });
+      assertTrue(held.await(10, TimeUnit.SECONDS));
 
-    EntityWriteLock.LockHandle h1 = lock.acquire(opContext, List.of("urn:a", "urn:b", "urn:c"));
-    EntityWriteLock.LockHandle h2 = lock.acquire(opContext, List.of("urn:d", "urn:e", "urn:f"));
-    for (String u : List.of("urn:a", "urn:b", "urn:c", "urn:d", "urn:e", "urn:f")) {
-      assertTrue(map.isLocked(u));
+      // Disjoint set on this thread acquires immediately despite the other thread holding a,b,c.
+      EntityWriteLock.LockHandle mine = lock.acquire(opContext, List.of("urn:d", "urn:e", "urn:f"));
+      for (String u : List.of("urn:d", "urn:e", "urn:f")) {
+        assertTrue(map.isLocked(u));
+      }
+      mine.close();
+      release.countDown();
+    } finally {
+      release.countDown();
+      other.shutdown();
+      assertTrue(other.awaitTermination(10, TimeUnit.SECONDS));
     }
-    h1.close();
-    h2.close();
   }
 
   /**

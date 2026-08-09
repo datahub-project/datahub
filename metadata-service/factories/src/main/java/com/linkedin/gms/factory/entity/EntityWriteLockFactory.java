@@ -30,10 +30,6 @@ public class EntityWriteLockFactory {
 
   static final String LOCK_MAP_NAME = "datahub-entity-write-lock";
 
-  // Lease is well above any realistic batch hold time, so it only frees a dead/hung holder — a live
-  // holder always unlocks explicitly. Lease expiry mid-write degrades to CAS (safe), never loss.
-  static final long LEASE_SECONDS = 300L;
-
   @Bean
   @Nonnull
   public EntityWriteLock entityWriteLock(
@@ -50,16 +46,28 @@ public class EntityWriteLockFactory {
                 + "run lockless (optimistic-locking CAS still guards correctness).");
         return new NoOpEntityWriteLock();
       }
+      if (!(ebean.isOptimisticLockingEnabled() && ebean.isScopedRetryEnabled())) {
+        // The gate only activates on the scoped path; wired-but-bypassed otherwise. Surface it so
+        // an
+        // operator who set the backend but not the mode flags isn't silently unprotected.
+        log.warn(
+            "entityWriteLockBackend=hazelcast but the write gate only activates when "
+                + "optimisticLockingEnabled AND scopedRetryEnabled are both true — it is wired but "
+                + "currently bypassed (optimisticLockingEnabled={}, scopedRetryEnabled={}).",
+            ebean.isOptimisticLockingEnabled(),
+            ebean.isScopedRetryEnabled());
+      }
+      final long leaseSeconds = ebean.getEntityWriteLockLeaseSeconds();
       log.info(
           "Entity write-lock backend: hazelcast (map={}, acquireTimeout={}s, lease={}s).",
           LOCK_MAP_NAME,
           ebean.getEntityWriteLockAcquireTimeoutSeconds(),
-          LEASE_SECONDS);
+          leaseSeconds);
       return new HazelcastEntityWriteLock(
           hazelcastInstance,
           LOCK_MAP_NAME,
           ebean.getEntityWriteLockAcquireTimeoutSeconds(),
-          LEASE_SECONDS);
+          leaseSeconds);
     }
 
     // none | db -> no pre-transaction gate (the DB advisory lock, if any, lives in the DAO).

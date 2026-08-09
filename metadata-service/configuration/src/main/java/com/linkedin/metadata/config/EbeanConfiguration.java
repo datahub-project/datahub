@@ -54,6 +54,11 @@ public class EbeanConfiguration {
   // a slow/absent lock backend from blocking ingest.
   private int entityWriteLockAcquireTimeoutSeconds = 10;
 
+  // Hazelcast write-lock lease: auto-release a held lock after this many seconds so a dead/hung
+  // holder never wedges a URN. Keep comfortably above realistic batch duration; lease expiry
+  // mid-write degrades to CAS (safe), never loss.
+  private int entityWriteLockLeaseSeconds = 300;
+
   // Opt-in: write aspects via optimistic locking (compare-and-set on SystemMetadata.version)
   // instead
   // of SELECT ... FOR UPDATE. Per-process; ignored on Cassandra. Default off (legacy path
