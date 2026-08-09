@@ -118,7 +118,9 @@ export class DocumentPage extends BasePage {
 
   async createDocumentWithTitle(title: string): Promise<string> {
     const docUrn = await this.createNewDocumentViaButton();
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No sleep needed: createNewDocumentViaButton already confirmed the mutation
+    // returned (URL polled to the new URN), and navigateToDocument's own
+    // networkidle wait plus setDocumentTitle's visibility check absorb the rest.
     await this.navigateToDocument(docUrn);
     await this.setDocumentTitle(title);
     return docUrn;
@@ -140,10 +142,10 @@ export class DocumentPage extends BasePage {
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await this.titleInput.pressSequentially(title, { delay: DELAYS.SEQUENTIAL });
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
-    // Press Enter to save the title (triggers blur/save handler)
+    // Press Enter to save the title (triggers blur/save handler). Most callers only
+    // check the (optimistically updated) input value right after, which needs no
+    // backend wait; callers that reload or search afterwards use waitForWritesToSync().
     await this.page.keyboard.press(KEYS.ENTER);
-    // Wait for title update to persist in the backend
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
   async expectTitleInput(title: string): Promise<void> {
@@ -187,7 +189,9 @@ export class DocumentPage extends BasePage {
     await editor.clear({ force: true });
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await editor.fill(text);
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No trailing sleep: the caller triggers the actual save on blur/Escape and
+    // is responsible for waiting on that write with waitForWritesToSync() before
+    // reading it back through a reload.
   }
 
   async expectEditorContains(text: string): Promise<void> {
@@ -201,14 +205,13 @@ export class DocumentPage extends BasePage {
     const trigger = this.getStatusSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(status);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
-    // Verify optimistic update with case-insensitive match
+    // Verify optimistic update with case-insensitive match; this retry already
+    // absorbs the render delay the two removed sleeps used to cover.
     await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
 
     // Wait for the mutation round-trip; callers that reload afterwards use
@@ -226,14 +229,13 @@ export class DocumentPage extends BasePage {
     const trigger = this.getTypeSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(type);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
-    // Verify optimistic update with case-insensitive match
+    // Verify optimistic update with case-insensitive match; this retry already
+    // absorbs the render delay the two removed sleeps used to cover.
     await expect(this.typeSelect).toContainText(new RegExp(type, 'i'));
 
     // Wait for the mutation round-trip; callers that reload afterwards use
@@ -248,7 +250,9 @@ export class DocumentPage extends BasePage {
   async searchForDocument(query: string): Promise<void> {
     await this.searchInput.click();
     await this.searchInput.fill(query);
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No sleep: expectSearchResultsVisible() retries with TIMEOUTS.LONG, which
+    // covers the debounce. Callers searching by a just-written title still need
+    // waitForWritesToSync() beforehand for index consistency, not a UI-render sleep.
   }
 
   async expectSearchResultsVisible(): Promise<void> {
@@ -257,7 +261,7 @@ export class DocumentPage extends BasePage {
 
   async closeSearchAndVerifyClosed(): Promise<void> {
     await this.searchInput.clear();
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // not.toBeVisible() below already retries until the close animation settles.
     await expect(this.searchResults).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
   }
 
@@ -313,14 +317,14 @@ export class DocumentPage extends BasePage {
     await expect(this.actionsMenuButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await expect(this.actionsMenuButton).toBeEnabled({ timeout: TIMEOUTS.MEDIUM });
     await this.actionsMenuButton.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No sleep: clickDeleteMenuItem()'s own visibility check retries for the menu to render.
   }
 
   async clickDeleteMenuItem(): Promise<void> {
     const deleteMenuItem = this.getDeleteMenuOption();
     await expect(deleteMenuItem).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await deleteMenuItem.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No sleep: confirmDelete()'s own visibility check retries for the dialog to render.
   }
 
   async confirmDelete(): Promise<void> {
@@ -411,7 +415,8 @@ export class DocumentPage extends BasePage {
     await expandButton.hover({ force: true });
     await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await expandButton.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    // No sleep: expectTreeItemExpanded()/expectTreeItemCollapsed() retry on the
+    // aria-expanded attribute with TIMEOUTS.LONG.
   }
 
   async expectTreeItemExpanded(urn: string): Promise<void> {

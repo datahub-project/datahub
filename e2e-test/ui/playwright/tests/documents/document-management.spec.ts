@@ -72,7 +72,7 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document title and verify persistence', async ({ page, cleanup }) => {
+  test('should update document title and verify persistence', async ({ page, cleanup, gmsToken }) => {
     const initialTitle = withRandomSuffix('doc');
     const updatedTitle = `${initialTitle}_updated`;
 
@@ -80,6 +80,9 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.navigateToDocument(docUrn);
     await documentPage.setDocumentTitle(updatedTitle);
+
+    // Ensure the title write is consumed and indexed before the reload re-reads it
+    await waitForWritesToSync(page.request, { gmsToken });
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -88,7 +91,7 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document content', async ({ page, cleanup }) => {
+  test('should update document content', async ({ page, cleanup, gmsToken }) => {
     const docTitle = withRandomSuffix('content-test');
     const testContent = 'Test content';
 
@@ -96,9 +99,10 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.clickEditorAndType(testContent);
     await page.keyboard.press(KEYS.ESCAPE);
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
+    // Ensure the content write is consumed and indexed before the reload re-reads it
+    await waitForWritesToSync(page.request, { gmsToken });
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -165,14 +169,16 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should search for documents using sidebar search', async ({ page, cleanup }) => {
+  test('should search for documents using sidebar search', async ({ page, cleanup, gmsToken }) => {
     const searchTitle = withRandomSuffix('doc');
 
     const docUrn = await documentPage.createDocumentWithTitle(searchTitle);
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
 
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
+    // Ensure the doc's title is indexed before searching for it by that title —
+    // a fixed sleep here is a race against ES indexing, not a UI-render pause.
+    await waitForWritesToSync(page.request, { gmsToken });
 
     await documentPage.searchForDocument(searchTitle);
     await documentPage.expectSearchResultsVisible();
