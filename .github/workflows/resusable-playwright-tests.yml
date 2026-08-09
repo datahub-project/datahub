@@ -169,6 +169,11 @@ jobs:
           PLAYWRIGHT_REUSE_SERVER: "1"
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          # The stack runs Elasticsearch with a 1s refresh interval
+          # (run-quickstart.sh). Without this the writes-sync helper falls back
+          # to its conservative 3s margin per call -- pytest's job env already
+          # sets the same variable for the same reason.
+          ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
         run: |
           npx playwright test \
             --shard="$SHARD/$SHARD_COUNT"
