@@ -51,6 +51,11 @@ on:
         required: false
         type: boolean
         default: false
+      workers_per_shard:
+        description: "Playwright --workers per shard. EXPERIMENTAL (see PFP-5479 ranked fix #6) -- default 1 matches every non-experimental caller's existing behavior. >1 is unproven: each worker is a separate process sharing this shard's single stack (one GMS/Kafka/ES/MySQL instance on a 4-vCPU runner) and its filesystem (the .seeded/{feature}.json check-then-act has a real, if likely-harmless, race across worker processes). Do not raise the default without a trial run first."
+        required: false
+        type: string
+        default: "1"
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -181,6 +186,7 @@ jobs:
           PLAYWRIGHT_REUSE_SERVER: "1"
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
           # The stack runs Elasticsearch with a 1s refresh interval
           # (run-quickstart.sh). Without this the writes-sync helper falls back
           # to its conservative 3s margin per call -- pytest's job env already
@@ -193,8 +199,8 @@ jobs:
               "the full suite by accident. Check playwright_test_weights.json and the tests dir."
             exit 1
           fi
-          echo "Running ${#SHARD_FILES[@]} spec files for shard $SHARD/$SHARD_COUNT"
-          npx playwright test "${SHARD_FILES[@]}"
+          echo "Running ${#SHARD_FILES[@]} spec files for shard $SHARD/$SHARD_COUNT at $WORKERS_PER_SHARD worker(s)"
+          npx playwright test --workers="$WORKERS_PER_SHARD" "${SHARD_FILES[@]}"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
