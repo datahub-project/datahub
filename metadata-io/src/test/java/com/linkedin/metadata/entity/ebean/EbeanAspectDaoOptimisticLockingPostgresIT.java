@@ -93,7 +93,8 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
             EbeanConfiguration.builder().optimisticLockingEnabled(true).build(),
             null,
             List.of(),
-            null);
+            null,
+            true);
     dao.setConnectionValidated(true);
 
     opContext = TestOperationContexts.systemContextNoValidate();

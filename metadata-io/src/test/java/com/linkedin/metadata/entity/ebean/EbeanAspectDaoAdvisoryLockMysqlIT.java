@@ -60,7 +60,8 @@ public class EbeanAspectDaoAdvisoryLockMysqlIT {
             EbeanConfiguration.builder().entityWriteAdvisoryLockEnabled(true).build(),
             null,
             List.of(),
-            null);
+            null,
+            false);
     advisoryDao.setConnectionValidated(true);
     opContext = TestOperationContexts.systemContextNoValidate();
   }
