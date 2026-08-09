@@ -173,13 +173,28 @@ public interface AspectsBatch {
 
   default ValidationExceptionCollection validatePreCommit(
       @Nonnull OperationFingerprint operationContext, Collection<ChangeMCP> changeMCPs) {
-    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext());
+    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext(), null);
+  }
+
+  default ValidationExceptionCollection validatePreCommit(
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nullable AuthorizationSession session) {
+    return validatePreCommit(operationContext, changeMCPs, getRetrieverContext(), session);
   }
 
   static ValidationExceptionCollection validatePreCommit(
       @Nonnull OperationFingerprint operationContext,
       Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
+    return validatePreCommit(operationContext, changeMCPs, retrieverContext, null);
+  }
+
+  static ValidationExceptionCollection validatePreCommit(
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
@@ -188,7 +203,8 @@ public interface AspectsBatch {
         .stream()
         .flatMap(
             validator ->
-                validator.validatePreCommit(operationContext, changeMCPs, retrieverContext))
+                validator.validatePreCommit(
+                    operationContext, changeMCPs, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }

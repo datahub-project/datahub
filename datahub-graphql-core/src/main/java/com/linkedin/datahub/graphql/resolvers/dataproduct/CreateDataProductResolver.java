@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.datahub.graphql.types.dataproduct.mappers.DataProductMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
@@ -36,7 +36,6 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final CreateDataProductInput input =
         bindArgument(environment.getArgument("input"), CreateDataProductInput.class);
-    final Authentication authentication = context.getAuthentication();
     final Urn domainUrn = UrnUtils.getUrn(input.getDomainUrn());
 
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -50,12 +49,29 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
           }
 
           try {
+            final Urn parentDataProductUrn =
+                input.getProperties().getParentDataProduct() != null
+                    ? UrnUtils.getUrn(input.getProperties().getParentDataProduct())
+                    : null;
+            if (parentDataProductUrn != null) {
+              if (!parentDataProductUrn
+                  .getEntityType()
+                  .equals(Constants.DATA_PRODUCT_ENTITY_NAME)) {
+                throw new IllegalArgumentException("Parent entity is not a data product.");
+              }
+              if (!_dataProductService.verifyEntityExists(
+                  context.getOperationContext(), parentDataProductUrn)) {
+                throw new IllegalArgumentException("Parent Data Product does not exist");
+              }
+            }
+
             final Urn dataProductUrn =
                 _dataProductService.createDataProduct(
                     context.getOperationContext(),
                     input.getId(),
                     input.getProperties().getName(),
-                    input.getProperties().getDescription());
+                    input.getProperties().getDescription(),
+                    parentDataProductUrn);
             _dataProductService.setDomain(
                 context.getOperationContext(),
                 dataProductUrn,

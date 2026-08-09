@@ -1,16 +1,16 @@
 package com.linkedin.metadata.entity;
 
 /**
- * Outcome of a conditional (compare-and-set) aspect save. Distinguishes a real write, a legitimate
- * no-op that must not be retried, and a version conflict.
+ * Outcome of {@link AspectDao#saveLatestAspectConditional}. Distinguishes a successful write, a
+ * legitimate no-op (do not retry), and a version conflict (retry).
  */
 public enum ConditionalWriteOutcome {
-  /** Conditional UPDATE matched exactly one row (or a fresh insert succeeded). */
+  /** Conditional UPDATE matched 1 row. */
   UPDATED,
 
-  /** Aspect and system metadata are unchanged; nothing was written and the caller must not retry. */
+  /** Aspect + system metadata unchanged; caller must not retry. */
   SKIPPED_NOOP,
 
-  /** The version-0 compare-and-set matched no row; a concurrent writer advanced the version. */
+  /** Version-0 CAS missed; caller throws {@link OptimisticLockConflictException} to retry. */
   CONFLICT
 }

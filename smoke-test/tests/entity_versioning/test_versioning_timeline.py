@@ -87,7 +87,7 @@ def ingest_cleanup_data(graph_client: DataHubGraph):
         )
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     yield
 
     logger.info("Cleaning up versioned test entities")

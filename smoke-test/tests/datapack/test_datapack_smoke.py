@@ -72,7 +72,7 @@ def _restore_soft_deleted_showcase_structured_properties(
         len(restore_mcps),
     )
     graph.emit_mcps(restore_mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 class TestDatapackCLI:

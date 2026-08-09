@@ -4,14 +4,23 @@ import jakarta.persistence.PersistenceException;
 import javax.annotation.Nonnull;
 
 /**
- * Signals that an optimistic-locking conditional UPDATE affected zero rows because the {@code
- * SystemMetadata.version} guard on the version-0 row no longer matched the value this writer read,
- * or that two writers raced to insert the same version-0 row.
+ * Thrown when an optimistic-locking conditional UPDATE affects 0 rows because the {@code
+ * SystemMetadata.version} guard on the version-0 row no longer matches the value the writer read.
+ * Caught by {@link AspectDao#runInTransactionWithRetry} (it extends {@link PersistenceException})
+ * so the existing retry loop re-reads the latest state, recomputes the upsert, and re-issues the
+ * conditional UPDATE.
  *
- * <p>Extends {@link PersistenceException} so the legacy transaction retry loop treats it as a
- * transient failure. In the batch write path (Stage 1+) conflicts are represented as data via {@link
- * AspectWriteOutcome#CONFLICT}; this exception is retained only for the version-0 insert race, where
- * a genuine duplicate-key must abort the transaction (notably on Postgres) and be re-driven.
+ * <p>Thrown only for {@link ConditionalWriteOutcome#CONFLICT}. A legitimate no-op ({@link
+ * ConditionalWriteOutcome#SKIPPED_NOOP}) is not a conflict and must not be retried.
+ *
+ * <p>This does <b>not</b> implement "latest produced wins" for out-of-order payloads — only
+ * write/write conflict detection on the version-0 row since this writer read it.
+ *
+ * <p><b>Phase-1 limitation:</b> content-equal / metadata-only updates deliberately keep the same
+ * {@code SystemMetadata.version}. Two concurrent writers of that form can both CAS-succeed
+ * (expected version unchanged), so one runId/lastObserved update can be lost. Content-changing
+ * writes still advance the version and are conflict-protected. SELECT FOR UPDATE serialized all
+ * writes; document this narrowing until a later phase bumps version on metadata-only changes.
  */
 public class OptimisticLockConflictException extends PersistenceException {
 

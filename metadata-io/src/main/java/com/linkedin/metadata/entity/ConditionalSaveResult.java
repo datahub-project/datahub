@@ -6,8 +6,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * Result of {@link AspectDao#saveLatestAspectConditional}. Carries the outcome plus the rows written
- * so an empty update is never ambiguous between a no-op and a conflict.
+ * Result of {@link AspectDao#saveLatestAspectConditional}. Distinguishes UPDATED / SKIPPED_NOOP /
+ * CONFLICT so an empty update is not ambiguous.
  */
 @Immutable
 public final class ConditionalSaveResult {
@@ -30,13 +30,17 @@ public final class ConditionalSaveResult {
     return outcome;
   }
 
-  /** The version-N history row written in the same transaction, if retention kept one. */
+  /** The version-N history row inserted in the same transaction, if any. */
   @Nonnull
   public Optional<EntityAspect> getInserted() {
     return inserted;
   }
 
-  /** The updated version-0 row. Present only when {@link #getOutcome()} is UPDATED. */
+  /**
+   * The updated version-0 row. Present iff {@link #getOutcome()} is {@link
+   * ConditionalWriteOutcome#UPDATED}; empty for {@link ConditionalWriteOutcome#SKIPPED_NOOP} and
+   * {@link ConditionalWriteOutcome#CONFLICT}.
+   */
   @Nonnull
   public Optional<EntityAspect> getUpdated() {
     return updated;

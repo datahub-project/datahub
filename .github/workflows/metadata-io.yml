@@ -49,7 +49,7 @@ jobs:
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
   # Compile metadata-io (+ upstream modules) ONCE and warm the Gradle build cache the test-matrix
-  # legs restore — otherwise each of the 6 legs recompiles the whole dependency graph from cold.
+  # legs restore — otherwise each of the 7 legs recompiles the whole dependency graph from cold.
   # Also gates codegen freshness here (a whole-module property, no need to repeat it per suite).
   metadata-io-seed:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
@@ -88,7 +88,7 @@ jobs:
     strategy:
       # One runner per TestNG sub-suite (aggregated by testng.xml), replacing the single ~17m
       # serial `:metadata-io:test`. One suite per leg = one fork = one testcontainer stack, which
-      # is why maxParallelForks stays 1 (ES/OpenSearch/Cassandra/Neo4j/Postgres — parallel forks OOM).
+      # is why maxParallelForks stays 1 (ES/OpenSearch/Cassandra/Neo4j/Postgres/MySQL — parallel forks OOM).
       fail-fast: false
       matrix:
         suite:
@@ -97,6 +97,7 @@ jobs:
           - { name: es8, task: testEs8 }
           - { name: es7-cassandra-neo4j, task: testEs7CassandraNeo4j }
           - { name: postgresql, task: testPostgresql }
+          - { name: mysql, task: testMysql }
           - { name: sql-opt, task: testSqlOpt }
     steps:
       - name: Disk Check
