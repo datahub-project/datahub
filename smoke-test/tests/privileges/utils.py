@@ -451,6 +451,66 @@ def create_metadata_policy(
     return res_data["data"]["createPolicy"]
 
 
+def create_domain_scoped_metadata_policy(
+    session,
+    *,
+    name: str,
+    description: str,
+    privileges: list,
+    user_urn: str,
+    domain_urn: str,
+    resource_type: Optional[str] = None,
+):
+    """Create an ACTIVE METADATA policy scoped to a DOMAIN resource filter."""
+    criteria = [
+        {
+            "field": "DOMAIN",
+            "values": [domain_urn],
+            "condition": "EQUALS",
+        }
+    ]
+    if resource_type:
+        criteria.append(
+            {
+                "field": "TYPE",
+                "values": [resource_type],
+                "condition": "EQUALS",
+            }
+        )
+    policy = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) }""",
+        "variables": {
+            "input": {
+                "type": "METADATA",
+                "name": name,
+                "description": description,
+                "state": "ACTIVE",
+                "resources": {
+                    "allResources": False,
+                    "filter": {"criteria": criteria},
+                },
+                "privileges": privileges,
+                "actors": {
+                    "users": [user_urn],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            }
+        },
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data.get("data") and res_data["data"].get("createPolicy"), (
+        f"createPolicy (domain-scoped) failed: {res_data}"
+    )
+    wait_for_writes_to_sync()
+    return res_data["data"]["createPolicy"]
+
+
 def create_user_policy(
     user_urn,
     privileges,

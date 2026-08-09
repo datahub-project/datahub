@@ -81,32 +81,164 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
-##### Creating Assets with Domain-Scoped Access
+##### Domain-separated writers vs elevated ingestion
 
-A new asset does not have persisted domain metadata when DataHub performs its initial authorization
-check. As a result, a domain-scoped policy cannot grant the **Create Entity** privilege for that
-asset. This commonly affects ingestion users that need to create datasets and then manage only the
-datasets assigned to their domain.
+Write policies usually fall into one of two patterns:
 
-Configure two metadata policies for this use case:
+| Pattern                                           | Typical privileges                                     | Domain filter                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| **Elevated writer** (platform / shared ingestion) | Unscoped **Create Entity** + **Edit Entity**           | Optional; domains are not required for auth                                           |
+| **Domain-separated writer**                       | **Create Entity** + **Edit Entity** scoped to Domain X | Required: writers must establish Domain X on create (or on the first `domains` write) |
 
-1. **Creation policy**: Target all assets of the required type, such as all datasets, and grant
-   **Create Entity** to the ingestion user or group.
-2. **Domain policy**: Target the asset type and domain, then grant the privileges that the actor
-   needs after creation, such as **View Entity Page**, **Edit Domain**, or other aspect privileges.
+The elevated writer pattern is more common: an asset’s domain is often inherent to the **source**
+(platform, database, schema, or pipeline) rather than to the principal that creates the metadata.
+Platform or shared ingestion jobs therefore usually get unscoped create/edit, and domain membership
+is applied as metadata (or derived from the source) instead of being used as the write-authorization
+boundary. Use domain-separated writers when you need hard isolation between writers that must only
+create into a specific domain.
 
-Create the asset and its domain aspect in the same creation batch using the `CREATE_ENTITY` change
-type. The creation policy authorizes the initial write. After the domain aspect is persisted, the
-domain policy applies to subsequent requests.
+###### How to authorize CREATE_ENTITY with a domain-scoped policy
 
-:::caution
-The creation policy authorizes all aspects included in the initial entity creation, not only the
-domain aspect. Limit this policy to the necessary actors and entity types, and grant ongoing edit
-privileges through the domain-scoped policy.
-:::
+There are two halves: the **policy** (which domains are allowed) and the **create write** (which
+domain the new asset proposes). Both must agree.
+
+**1. Policy: list the allowed domain(s) as a resource filter**
+
+Create a **Metadata** policy (UI: **Settings → Permissions → Policies → Create Policy**, or GraphQL
+`createPolicy`). The domain allowlist is the policy **Resources → Domains** filter — not an unscoped
+“all resources” policy, and not `privilegeConstraints` (that experimental field is for tag
+sub-resources only).
+
+| Field                               | Value                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Type                                | Metadata                                                                                                   |
+| Resources → Domains                 | Domain X (and any other domains this writer may create into). Child domains of X are included recursively. |
+| Resources → Entity types (optional) | e.g. Dataset only                                                                                          |
+| Privileges                          | **Create Entity** (`CREATE_ENTITY`) and **Edit Entity** (`EDIT_ENTITY`)                                    |
+| Actors                              | The writer user or group                                                                                   |
+
+Do **not** also grant those actors an unscoped **Create Entity** policy (resources = all assets /
+no domain filter) — that bypasses domain isolation.
+
+GraphQL example — policy whose resources are Domain `engineering` only:
+
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "Engineering domain writers"
+      state: ACTIVE
+      description: "Create and edit assets only inside the Engineering domain"
+      privileges: ["CREATE_ENTITY", "EDIT_ENTITY"]
+      actors: {
+        allUsers: false
+        allGroups: false
+        resourceOwners: false
+        users: []
+        groups: ["urn:li:corpGroup:engineering-ingestion"]
+      }
+      resources: {
+        allResources: false
+        resources: []
+        filter: {
+          criteria: [
+            {
+              field: "DOMAIN"
+              condition: EQUALS
+              values: ["urn:li:domain:engineering"]
+            }
+          ]
+        }
+      }
+    }
+  )
+}
+```
+
+To allow more than one domain, add those URNs to `values` (or create separate policies). Optional
+`TYPE` criteria can further restrict entity types (AND with the domain filter).
+
+**2. Write: propose a domain from that allowlist on create**
+
+On create, include the `domains` aspect in the **same request**, set to a domain listed on the
+policy (for example `urn:li:domain:engineering`). DataHub matches the policy against the
+**proposed** domain because the entity has no persisted domain yet. Omitting `domains`, or proposing
+a domain that is not on the policy filter, fails authorization for domain-scoped writers.
+
+After `domains` is persisted, later edits match against the stored domain. Using `CREATE_ENTITY`
+against an entity that already exists is denied for create-only principals (OpenAPI and Rest.li
+authorize each URN with existence-aware create vs edit checks). Moving domains via a `domains`
+**PATCH** requires Edit Entity on both the before and after domains — see [Domain-scoped Edit
+Entity and `domains` PATCH](#domain-scoped-edit-entity-and-domains-patch).
+
+###### Domain-scoped Edit Entity and `domains` PATCH
+
+`ChangeType.PATCH` always requires **Edit Entity** (`EDIT_ENTITY`) — never **Create Entity**, even when
+the target entity is missing. Domain-scoped writers that PATCH the `domains` aspect are authorized
+as follows:
+
+| Before `domains` | After (resolved patch) | Policy match                                                                             |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| Present          | Present                | Actor must be allowed for **both** before and after domain sets                          |
+| Absent           | Present                | Actor must be allowed for the **after** domains only (first-domains / establish pattern) |
+
+Authorization runs on the request thread in `validateProposed` (with an early apply of the JSON
+patch against current or in-batch prior domains). On **sync** writes, the same before/after Edit
+check runs again inside the DB transaction after the pipeline converts PATCH → UPSERT
+(`validatePreCommit`). On **async** ingest, the MCE consumer uses the system principal: user
+domain auth is **not** re-evaluated there — the API/`validateProposed` check before Kafka is the
+authoritative user authorization (same pattern as other aspect auth plugins).
+
+Elevated writers with unscoped Edit Entity continue to pass both checks without a domain filter.
+
+###### Example: create a dataset in Domain X (Python SDK)
+
+Emit the entity with `changeType=CREATE_ENTITY` and include `domains` in the same emit (same batch /
+same create call). Other aspects (key, properties, and so on) can sit alongside `domains`. The
+domain URN must be one listed on the writer’s policy resource filter above.
+
+```python
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    DomainsClass,
+)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+import datahub.emitter.mce_builder as builder
+
+dataset_urn = builder.make_dataset_urn("hive", "db.table", "PROD")
+domain_urn = "urn:li:domain:engineering"
+
+emitter = DatahubRestEmitter("http://localhost:8080", token="<token>")
+
+# CREATE_ENTITY + domains in one batch — required for domain-scoped Create Entity
+emitter.emit_mcps(
+    [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            changeType=ChangeTypeClass.CREATE_ENTITY,
+            aspect=DatasetPropertiesClass(name="table", description="Owned by Engineering"),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            changeType=ChangeTypeClass.CREATE_ENTITY,
+            aspect=DomainsClass(domains=[domain_urn]),
+        ),
+    ]
+)
+```
+
+OpenAPI `createEntity` / `createGenericEntities` works the same way: put a `domains` aspect on the
+entity payload in the create body (same batch as the other create aspects), using a domain URN from
+the policy’s Domains resource filter. Aspect-only create of `domains` on an existing entity that has
+no domains yet is authorized via **Edit Entity** against the proposed domain.
+
+Elevated writers with unscoped create/edit continue to work without proposing a domain.
 
 :::caution View-based access control performance
-When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access when possible, and keep domain hierarchies shallow when using domain-separated writers.
 :::
 
 ##### Container-Based Policy Targeting

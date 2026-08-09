@@ -22,6 +22,17 @@
 
 index-strategy = "unsafe-best-match"
 
+# Remediations can list a version as sdist-only (or without a usable platform wheel);
+# unsafe-best-match then prefers that sdist over a wheel from Chainguard main / PyPI.
+# Force wheels for packages known to hit that path in datahub-ingestion full builds.
+no-build-package = [
+    "beautifulsoup4",
+    "orjson",
+    "pydantic",
+    "pypdf",
+    "smmap",
+]
+
 [[index]]
 name = "chainguard-remediated"
 url = "https://libraries.cgr.dev/python-remediated/simple/"
