@@ -67,6 +67,7 @@ class PostHogCIReporter:
             "triggering_actor": w.get("triggering_actor"),
             "pull_request_number": w.get("pull_request_number"),
             "pull_request_url": w.get("pull_request_url"),
+            "base_branch": w.get("base_branch"),
             "head_branch": w.get("head_branch"),
             "head_sha": w.get("head_sha"),
             "conclusion": w.get("conclusion"),

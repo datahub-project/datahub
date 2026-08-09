@@ -18,6 +18,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -49,6 +50,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -393,7 +395,12 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(mockAspectDao, null, true, preProcessHooks, true),
+        new EntityServiceImpl(
+            mockAspectDao,
+            null,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class)),
         null,
         entitySearchService,
         cachingEntitySearchService,

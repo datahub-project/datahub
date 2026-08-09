@@ -4,6 +4,7 @@ import static org.mockito.Mockito.*;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.metadata.CassandraTestUtils;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectMigrationsDaoTest;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -11,6 +12,7 @@ import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.List;
 import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
@@ -60,7 +62,13 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
-    _entityServiceImpl = new EntityServiceImpl(dao, _mockProducer, true, preProcessHooks, true);
+    _entityServiceImpl =
+        new EntityServiceImpl(
+            dao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);

@@ -4,7 +4,9 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
+import com.linkedin.metadata.entity.ebean.AspectTableResolver;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.ScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
@@ -42,9 +44,12 @@ public class RetentionServiceFactory {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected RetentionService<ChangeItemImpl> createEbeanInstance(
-      @Qualifier("ebeanServer") final Database server) {
+      @Qualifier("ebeanServer") final Database server,
+      final AspectTableResolver aspectTableResolver,
+      final ScopedTransactionFactory scopedTransactionFactory) {
     RetentionService<ChangeItemImpl> retentionService =
-        new EbeanRetentionService<>(_entityService, server, _batchSize);
+        new EbeanRetentionService<>(
+            _entityService, server, _batchSize, aspectTableResolver, scopedTransactionFactory);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

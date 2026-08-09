@@ -242,6 +242,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
+    KAFKA_LISTENER_CONCURRENCY: ${KAFKA_LISTENER_CONCURRENCY:-1}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
 
@@ -275,6 +276,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+    KAFKA_LISTENER_CONCURRENCY: ${KAFKA_LISTENER_CONCURRENCY:-1}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
