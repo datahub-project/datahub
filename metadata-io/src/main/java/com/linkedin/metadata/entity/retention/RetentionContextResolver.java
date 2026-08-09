@@ -29,13 +29,14 @@ import javax.annotation.Nonnull;
  * <em>never</em> resolve (e.g. a subtype the resolver does not produce — a wiring bug or a stale
  * rolling-deploy entry). The framework {@code OffloadDrainer} drops such keys from the buffer so
  * they don't re-throw every tick. Any other {@link RuntimeException} is treated as transient: when
- * the drainer's backoff is enabled it moves the key to a backoff limbo (re-merged after
- * {@code backoffTicks}); otherwise it leaves the key queued for retry on the next tick, so a
- * transient blip cannot silently skip retention.
+ * the drainer's backoff is enabled it moves the key to a backoff limbo (re-merged after {@code
+ * backoffTicks}); otherwise it leaves the key queued for retry on the next tick, so a transient
+ * blip cannot silently skip retention.
  *
  * @param <K> buffer key type (must be {@link Serializable} for Hazelcast)
  */
-public interface RetentionContextResolver<K extends Serializable> extends OffloadContextResolver<K> {
+public interface RetentionContextResolver<K extends Serializable>
+    extends OffloadContextResolver<K> {
 
   /**
    * Build the buffer key for a retention request, attaching any routing metadata available on

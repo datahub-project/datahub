@@ -6,10 +6,10 @@ import com.linkedin.gms.factory.buffer.OffloadBufferFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.buffer.HazelcastPostCommitHookBuffer;
 import com.linkedin.metadata.buffer.offload.OffloadDrainer;
-import com.linkedin.metadata.config.offload.MergePolicy;
-import com.linkedin.metadata.config.offload.SizingPolicy;
 import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
 import com.linkedin.metadata.config.hooks.PostCommitHookBufferProperties;
+import com.linkedin.metadata.config.offload.MergePolicy;
+import com.linkedin.metadata.config.offload.SizingPolicy;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.hooks.buffer.HookContextResolver;
 import com.linkedin.metadata.entity.hooks.buffer.HookDrainAction;
@@ -43,19 +43,19 @@ import org.springframework.scheduling.TaskScheduler;
  * <ul>
  *   <li>{@code featureFlags.postCommitHookBufferEnabled=false} (default) — no beans created here;
  *       {@code EntityServiceImpl} keeps its {@code PostCommitHookBuffer.NO_OP} default and hooks
- *       run synchronously on the ingest thread (legacy behavior), even if a hook opts in via
- *       {@code MCPSideEffect#defersPostCommit()}.
+ *       run synchronously on the ingest thread (legacy behavior), even if a hook opts in via {@code
+ *       MCPSideEffect#defersPostCommit()}.
  *   <li>Flag true — a real {@link HazelcastPostCommitHookBuffer} + {@link PostCommitHookDrainer}
  *       over the shared Hazelcast map. Hooks that opt in via {@code defersPostCommit()} are
  *       enqueued for async replay; the rest still run inline.
  * </ul>
  *
  * <p>All infra (map provisioning, buffer construction, drainer construction, scheduling) is
- * delegated to {@link OffloadBufferFactory}; this class supplies only the hook feature bits
- * ({@link MergePolicy#NO_COALESCE} + {@link SizingPolicy#REJECT_AT_CAP}, the FIFO drain comparator,
- * and the {@link HookDrainAction}) and the namespaced {@link MapConfig} beans. Scheduling is
- * programmatic via the shared factory's {@link TaskScheduler} — no {@code @EnableScheduling}
- * config is needed here (the old {@code PostCommitHookBufferSchedulingConfig} is deleted).
+ * delegated to {@link OffloadBufferFactory}; this class supplies only the hook feature bits ({@link
+ * MergePolicy#NO_COALESCE} + {@link SizingPolicy#REJECT_AT_CAP}, the FIFO drain comparator, and the
+ * {@link HookDrainAction}) and the namespaced {@link MapConfig} beans. Scheduling is programmatic
+ * via the shared factory's {@link TaskScheduler} — no {@code @EnableScheduling} config is needed
+ * here (the old {@code PostCommitHookBufferSchedulingConfig} is deleted).
  */
 @Slf4j
 @Configuration

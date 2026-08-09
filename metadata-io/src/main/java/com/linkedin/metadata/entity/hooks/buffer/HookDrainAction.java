@@ -79,7 +79,8 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
     List<MCPItem> generated;
     try {
       List<MCLItem> mclItems = buildMclItems(retrieverContext, entries);
-      generated = hook.postApply(opContext, mclItems, retrieverContext).collect(Collectors.toList());
+      generated =
+          hook.postApply(opContext, mclItems, retrieverContext).collect(Collectors.toList());
     } catch (Throwable t) {
       log.warn(
           "Post-commit hook '{}' group generation failed ({} MCLs); isolating per-MCL",
@@ -123,7 +124,8 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
       MetadataChangeLog mcl = payload.toMcl();
       MCLItem mclItem = MCLItemImpl.builder().build(mcl, retrieverContext.getAspectRetriever());
       List<MCPItem> generated =
-          hook.postApply(opContext, List.of(mclItem), retrieverContext).collect(Collectors.toList());
+          hook.postApply(opContext, List.of(mclItem), retrieverContext)
+              .collect(Collectors.toList());
       if (!generated.isEmpty()) {
         sink.emit(opContext, generated);
       }

@@ -13,9 +13,10 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Construction and scheduling are done by {@code RetentionBufferFactory} via the shared {@code
  * OffloadBufferFactory}; the factory builds the {@link OffloadDrainer} (with a {@link
- * RetentionDrainAction} and a {@link com.linkedin.metadata.entity.retention.RetentionContextResolver})
- * and registers {@code drainer::tick} with a Spring {@code TaskScheduler} — no {@code
- * @EnableScheduling} config is needed (the old {@code RetentionBufferSchedulingConfig} is deleted).
+ * RetentionDrainAction} and a {@link
+ * com.linkedin.metadata.entity.retention.RetentionContextResolver}) and registers {@code
+ * drainer::tick} with a Spring {@code TaskScheduler} — no {@code @EnableScheduling} config is
+ * needed (the old {@code RetentionBufferSchedulingConfig} is deleted).
  */
 @Slf4j
 public class RetentionDrainer {

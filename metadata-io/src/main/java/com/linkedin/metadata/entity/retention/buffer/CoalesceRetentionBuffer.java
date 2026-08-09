@@ -7,7 +7,6 @@ import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.Serializable;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
@@ -21,9 +20,8 @@ import javax.annotation.Nonnull;
  * uses the same resolver to reconstruct a per-group context at drain time.
  *
  * <p>All infra (drain lock, paging drain, CAS clear, keep-max merge, eviction) lives in the
- * framework {@link HazelcastOffloadBuffer}; this class adds only the retention-specific
- * key/value binding and the drain comparator (value-then-key, matching the historical retention
- * drain order).
+ * framework {@link HazelcastOffloadBuffer}; this class adds only the retention-specific key/value
+ * binding and the drain comparator (value-then-key, matching the historical retention drain order).
  */
 public class CoalesceRetentionBuffer implements RetentionBuffer {
 

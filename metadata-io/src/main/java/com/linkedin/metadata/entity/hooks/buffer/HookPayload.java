@@ -9,15 +9,15 @@ import javax.annotation.Nullable;
 
 /**
  * Payload for one pending post-commit hook replay: the committed MCL serialized as JSON plus a
- * retry counter used by {@link PostCommitHookDrainer} to move poison keys to the DLQ after a bounded
- * number of failed attempts.
+ * retry counter used by {@link PostCommitHookDrainer} to move poison keys to the DLQ after a
+ * bounded number of failed attempts.
  *
  * <p>The MCL is stored as a JSON string (via {@link RecordUtils#toJsonString}) rather than as a
  * Java-serialized object so the value crosses the Hazelcast wire with its default String serializer
  * — no custom {@code IdentifiedDataSerializable} / compact-serialization registration needed, and
  * the round-trip is the same {@code JacksonDataTemplateCodec} path used elsewhere for
- * RecordTemplates. The MCL carries previous + current aspect, which the hooks read to compute
- * their per-transition delta, so the full MCL is retained (no compacted/derived snapshot).
+ * RecordTemplates. The MCL carries previous + current aspect, which the hooks read to compute their
+ * per-transition delta, so the full MCL is retained (no compacted/derived snapshot).
  *
  * <p>Stable serialized form: {@code serialVersionUID = 1L} so in-flight entries survive rolling
  * deploys (same contract as {@link HookKey} / {@code RetentionKey}).
@@ -49,12 +49,16 @@ public final class HookPayload implements Serializable {
     return retryCount;
   }
 
-  /** Increment and return the new count; used when a replay fails and the key stays in the buffer. */
+  /**
+   * Increment and return the new count; used when a replay fails and the key stays in the buffer.
+   */
   public HookPayload incrementRetry() {
     return new HookPayload(mclJson, retryCount + 1);
   }
 
-  /** @return true once this entry has exhausted {@link #MAX_RETRIES} and must move to the DLQ. */
+  /**
+   * @return true once this entry has exhausted {@link #MAX_RETRIES} and must move to the DLQ.
+   */
   public boolean isPoison() {
     return retryCount >= MAX_RETRIES;
   }

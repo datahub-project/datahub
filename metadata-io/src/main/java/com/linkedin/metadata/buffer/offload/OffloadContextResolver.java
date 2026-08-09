@@ -18,11 +18,11 @@ import javax.annotation.Nonnull;
  * missing entries from other routes, or (multi-tenant cloud) replaying against the wrong tenant's
  * catalog.
  *
- * <p><b>Failure contract.</b> Throw {@link UnresolvableOffloadKeyException} (or a subtype) for a key
- * that will <em>never</em> resolve (e.g. a subtype the resolver does not produce — a wiring bug or a
- * stale rolling-deploy entry). The drainer drops such keys so they don't re-throw every tick. Any
- * other {@link RuntimeException} is transient: the drainer logs it and leaves the entries queued for
- * the next tick, so a transient blip cannot silently skip a replay.
+ * <p><b>Failure contract.</b> Throw {@link UnresolvableOffloadKeyException} (or a subtype) for a
+ * key that will <em>never</em> resolve (e.g. a subtype the resolver does not produce — a wiring bug
+ * or a stale rolling-deploy entry). The drainer drops such keys so they don't re-throw every tick.
+ * Any other {@link RuntimeException} is transient: the drainer logs it and leaves the entries
+ * queued for the next tick, so a transient blip cannot silently skip a replay.
  *
  * @param <K> buffer key type
  */

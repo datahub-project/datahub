@@ -66,10 +66,9 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
    * Opt in to async (deferred) post-commit replay. This hook is safe for async-only replay because:
    *
    * <ul>
-   *   <li>The definition-delete branch reads the deleted definition from the MCL's
-   *       previous-aspect, which is carried in the MCL and preserved across the buffer's JSON
-   *       round-trip — the replay sees the same previous-aspect as the synchronous path, regardless
-   *       of when it runs.
+   *   <li>The definition-delete branch reads the deleted definition from the MCL's previous-aspect,
+   *       which is carried in the MCL and preserved across the buffer's JSON round-trip — the
+   *       replay sees the same previous-aspect as the synchronous path, regardless of when it runs.
    *   <li>The key-delete branch re-fetches the definition live and gracefully skips once it is
    *       already removed (cleanup is driven by the companion definition-delete MCL), so a delayed
    *       replay is at worst a redundant skip, never a missed cleanup.

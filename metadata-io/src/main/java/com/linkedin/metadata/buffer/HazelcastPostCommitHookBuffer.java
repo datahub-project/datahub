@@ -34,9 +34,9 @@ import lombok.extern.slf4j.Slf4j;
  * per-transition delta, so collapsing two MCLs into one entry would lose intermediate side effects.
  *
  * <p><b>Sizing:</b> {@link SizingPolicy#REJECT_AT_CAP} — the framework's {@code enqueue} does a
- * cluster-wide {@code IMap.size()} check and returns {@code false} at cap, so the caller falls
- * back to synchronous hook execution (bounded memory, no data loss). No {@code EvictionConfig}
- * (eviction would silently drop a distinct committed MCL = lost side effect).
+ * cluster-wide {@code IMap.size()} check and returns {@code false} at cap, so the caller falls back
+ * to synchronous hook execution (bounded memory, no data loss). No {@code EvictionConfig} (eviction
+ * would silently drop a distinct committed MCL = lost side effect).
  *
  * <p>Construction is done by {@code PostCommitHookBufferFactory} via the shared {@code
  * OffloadBufferFactory}; this class is public only so the factory can build the delegate and wrap
@@ -55,7 +55,8 @@ public class HazelcastPostCommitHookBuffer implements PostCommitHookBuffer {
   /**
    * The framework buffer this adapter wraps. The drainer is wired against the framework {@link
    * com.linkedin.metadata.buffer.offload.OffloadBuffer} type (not the hook-specific {@link
-   * PostCommitHookBuffer}), so the factory passes this to {@code OffloadBufferFactory.createDrainer}.
+   * PostCommitHookBuffer}), so the factory passes this to {@code
+   * OffloadBufferFactory.createDrainer}.
    */
   @Nonnull
   public HazelcastOffloadBuffer<HookKey, HookPayload> getDelegate() {

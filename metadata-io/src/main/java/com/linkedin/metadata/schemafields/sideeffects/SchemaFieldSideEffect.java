@@ -69,14 +69,14 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
 
   /**
    * Async-safe: this hook computes its side effects from each committed MCL's own previous/current
-   * aspect ({@link MCLItem#getPreviousAspect} / {@link MCLItem#getAspect}), so replaying one MCL
-   * at a time (async-only, no coalescing) reproduces the same per-transition deltas the synchronous
-   * path produced. {@link #fetchRequiredAspects} reads the <em>latest</em> schemaMetadata/status
-   * at replay time rather than at commit time; the only consumers of that latest read are
-   * {@link #mirrorStatusAspect} (mirrors dataset status onto the current field set — redundant with
-   * each field's own-commit side effect, so a newer field set just means an extra idempotent
-   * upsert) and {@link #buildStatusSchemaFieldDeleteMCPs} (no-ops when the schema is gone, which is
-   * fine because the schemaMetadata DELETE MCL's own {@link #processDelete} fully cleans up via its
+   * aspect ({@link MCLItem#getPreviousAspect} / {@link MCLItem#getAspect}), so replaying one MCL at
+   * a time (async-only, no coalescing) reproduces the same per-transition deltas the synchronous
+   * path produced. {@link #fetchRequiredAspects} reads the <em>latest</em> schemaMetadata/status at
+   * replay time rather than at commit time; the only consumers of that latest read are {@link
+   * #mirrorStatusAspect} (mirrors dataset status onto the current field set — redundant with each
+   * field's own-commit side effect, so a newer field set just means an extra idempotent upsert) and
+   * {@link #buildStatusSchemaFieldDeleteMCPs} (no-ops when the schema is gone, which is fine
+   * because the schemaMetadata DELETE MCL's own {@link #processDelete} fully cleans up via its
    * previousAspect). FIFO drain order preserves MCL ordering, so a create-then-delete sequence
    * replays in order and converges to deleted. Net: same end state as sync, just delayed.
    */

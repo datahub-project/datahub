@@ -64,14 +64,14 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.hooks.buffer.HookContextResolver;
+import com.linkedin.metadata.entity.hooks.buffer.HookKey;
+import com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
-import com.linkedin.metadata.entity.hooks.buffer.HookContextResolver;
-import com.linkedin.metadata.entity.hooks.buffer.HookKey;
-import com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -1196,7 +1196,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     boolean deferEnabled = postCommitHookBuffer.defersApply();
     List<MCPSideEffect> syncHooks = new ArrayList<>();
     for (MCPSideEffect hook :
-        opContext.getRetrieverContext().getAspectRetriever().getEntityRegistry().getAllMCPSideEffects()) {
+        opContext
+            .getRetrieverContext()
+            .getAspectRetriever()
+            .getEntityRegistry()
+            .getAllMCPSideEffects()) {
       if (deferEnabled && hook.defersPostCommit()) {
         // Enqueue only the MCLs this hook would act on (shouldApply filters by change type /
         // entity / aspect). Each enqueue is a distinct committed MCL — no coalescing. The key
@@ -1209,8 +1213,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           if (hook.shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName())) {
             long seq = postCommitHookBuffer.nextSequence();
             HookKey key =
-                hookContextResolver.enrichKey(
-                    opContext, hookId, item.getMetadataChangeLog(), seq);
+                hookContextResolver.enrichKey(opContext, hookId, item.getMetadataChangeLog(), seq);
             boolean ok = postCommitHookBuffer.enqueue(key, item.getMetadataChangeLog());
             if (ok) {
               enqueued++;
@@ -1252,13 +1255,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * fails.
    */
   private void runSyncHooks(
-      @Nonnull OperationContext opContext, @Nonnull List<MCPSideEffect> hooks, @Nonnull List<MCLItem> batch) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCPSideEffect> hooks,
+      @Nonnull List<MCLItem> batch) {
     try (Stream<MCPItem> sideEffectStream =
         hooks.stream()
-            .flatMap(
-                hook ->
-                    hook.postApply(
-                        opContext, batch, opContext.getRetrieverContext()))) {
+            .flatMap(hook -> hook.postApply(opContext, batch, opContext.getRetrieverContext()))) {
       Iterable<List<MCPItem>> iterable =
           () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
       StreamSupport.stream(iterable.spliterator(), false)
@@ -1279,7 +1281,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /** Single-hook, single-batch convenience overload for the synchronous fallback path. */
   private void runSyncHook(
-      @Nonnull OperationContext opContext, @Nonnull MCPSideEffect hook, @Nonnull List<MCLItem> batch) {
+      @Nonnull OperationContext opContext,
+      @Nonnull MCPSideEffect hook,
+      @Nonnull List<MCLItem> batch) {
     runSyncHooks(opContext, List.of(hook), batch);
   }
 

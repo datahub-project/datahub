@@ -24,8 +24,8 @@ import lombok.extern.slf4j.Slf4j;
  * {@link RetentionService.RetentionContext}s, and hands the whole group to {@link
  * RetentionService#applyRetentionBatchWithPolicyDefaults} in one call. Each (urn, aspect) pair runs
  * in its own transaction (where supported by the storage backend — see {@code
- * EbeanRetentionService}) so a poison pair fails and retries in isolation without blocking the
- * rest of the group.
+ * EbeanRetentionService}) so a poison pair fails and retries in isolation without blocking the rest
+ * of the group.
  *
  * <p><b>Entry lifecycle is owned here.</b> The framework drainer only removes entries on a
  * <em>permanent</em> resolve failure; for everything else the action owns removal:
@@ -91,7 +91,8 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
       successes = retentionService.applyRetentionBatchWithPolicyDefaults(opContext, contexts);
     } catch (Exception e) {
       // Whole group failed (tx setup / commit). Nothing durable — throw so the framework leaves
-      // the un-removed entries for retry (at-least-once). Malformed keys were already removed above.
+      // the un-removed entries for retry (at-least-once). Malformed keys were already removed
+      // above.
       throw new RuntimeException("Retention group apply failed; leaving for retry", e);
     }
 

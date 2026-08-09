@@ -16,9 +16,9 @@ import javax.annotation.Nullable;
 import org.testng.annotations.Test;
 
 /**
- * Behavior tests for the framework {@link OffloadDrainer}'s grouping / context-resolution /
- * retry / DLQ contract, using an in-memory fake buffer (no Hazelcast). The contract under test is
- * the data-loss boundary: permanent failures drop entries; transient failures leave them for
+ * Behavior tests for the framework {@link OffloadDrainer}'s grouping / context-resolution / retry /
+ * DLQ contract, using an in-memory fake buffer (no Hazelcast). The contract under test is the
+ * data-loss boundary: permanent failures drop entries; transient failures leave them for
  * at-least-once retry; the {@link DrainAction} owns per-entry removal.
  */
 public class OffloadDrainerTest {
@@ -136,8 +136,7 @@ public class OffloadDrainerTest {
       OffloadContextResolver<TestKey> resolver,
       DrainAction<TestKey, Long> action,
       boolean enabled) {
-    return new OffloadDrainer<>(
-        buffer, resolver, SYS, action, 10, 60_000L, enabled, "test", null);
+    return new OffloadDrainer<>(buffer, resolver, SYS, action, 10, 60_000L, enabled, "test", null);
   }
 
   @Test
@@ -191,12 +190,12 @@ public class OffloadDrainerTest {
 
           @Override
           @Nonnull
-          public OperationContext resolveOpContext(@Nonnull TestKey key, @Nonnull OperationContext sys) {
+          public OperationContext resolveOpContext(
+              @Nonnull TestKey key, @Nonnull OperationContext sys) {
             return sys;
           }
         };
-    OffloadDrainer<TestKey, Long> d =
-        drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
+    OffloadDrainer<TestKey, Long> d = drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
     d.tick();
     assertEquals(buffer.size(), 0); // dropped
     assertTrue(buffer.removes.contains("poison"));
@@ -216,12 +215,12 @@ public class OffloadDrainerTest {
 
           @Override
           @Nonnull
-          public OperationContext resolveOpContext(@Nonnull TestKey key, @Nonnull OperationContext sys) {
+          public OperationContext resolveOpContext(
+              @Nonnull TestKey key, @Nonnull OperationContext sys) {
             return sys;
           }
         };
-    OffloadDrainer<TestKey, Long> d =
-        drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
+    OffloadDrainer<TestKey, Long> d = drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
     d.tick();
     assertEquals(buffer.size(), 1); // left for retry, NOT dropped
   }
@@ -241,12 +240,12 @@ public class OffloadDrainerTest {
 
           @Override
           @Nonnull
-          public OperationContext resolveOpContext(@Nonnull TestKey key, @Nonnull OperationContext sys) {
+          public OperationContext resolveOpContext(
+              @Nonnull TestKey key, @Nonnull OperationContext sys) {
             throw new RuntimeException("transient resolve blip");
           }
         };
-    OffloadDrainer<TestKey, Long> d =
-        drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
+    OffloadDrainer<TestKey, Long> d = drainer(buffer, resolver, (g, ctx, buf) -> {}, true);
     d.tick();
     assertEquals(buffer.size(), 2); // both left for retry
   }
@@ -296,7 +295,8 @@ public class OffloadDrainerTest {
 
           @Override
           @Nonnull
-          public OperationContext resolveOpContext(@Nonnull TestKey key, @Nonnull OperationContext sys) {
+          public OperationContext resolveOpContext(
+              @Nonnull TestKey key, @Nonnull OperationContext sys) {
             return sys;
           }
         };
@@ -325,7 +325,8 @@ public class OffloadDrainerTest {
 
   @Test
   public void testBackoffDisabledLeavesTransientGroupKeyFailureInBuffer() {
-    // backoffEnabled=false (default): transient failure leaves the key in-buffer for next-tick retry
+    // backoffEnabled=false (default): transient failure leaves the key in-buffer for next-tick
+    // retry
     // (no removeIfSame). This is the hooks behavior — no first-page starvation because hooks never
     // throw transient resolver failures.
     FakeBuffer buffer = new FakeBuffer();
@@ -340,7 +341,8 @@ public class OffloadDrainerTest {
 
           @Override
           @Nonnull
-          public OperationContext resolveOpContext(@Nonnull TestKey key, @Nonnull OperationContext sys) {
+          public OperationContext resolveOpContext(
+              @Nonnull TestKey key, @Nonnull OperationContext sys) {
             return sys;
           }
         };

@@ -42,7 +42,8 @@ public class RetentionBufferProperties extends OffloadBufferProperties {
   public RetentionBufferProperties() {
     setMapName("retention-pending");
     setLockMapName("retention-drain-lock");
-    // No separate seq map for retention (keys coalesce by design; NO_COALESCE's sequence is unused).
+    // No separate seq map for retention (keys coalesce by design; NO_COALESCE's sequence is
+    // unused).
     setSeqMapName("retention-pending.seq");
     setMaxPendingEntries(100_000);
     setDrainBatchSize(500);

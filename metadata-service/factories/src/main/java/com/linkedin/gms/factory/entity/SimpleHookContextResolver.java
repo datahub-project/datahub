@@ -10,13 +10,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
 
 /**
- * OSS default {@link HookContextResolver} for the single-database (single-tenant) deployment.
- * Keys carry no routing metadata ({@link SimpleHookKey}); {@link #groupKey} returns a single
- * constant so all drained replays run under one group; {@link #resolveOpContext} returns the
- * {@code systemOperationContext} unchanged. The background {@link
- * PostCommitHookDrainer} then replays committed MCLs through their hooks under the system context,
- * which carries a full {@link io.datahubproject.metadata.context.RetrieverContext} (aspect /
- * graph / search retrievers) wired by {@code SystemOperationContextFactory}.
+ * OSS default {@link HookContextResolver} for the single-database (single-tenant) deployment. Keys
+ * carry no routing metadata ({@link SimpleHookKey}); {@link #groupKey} returns a single constant so
+ * all drained replays run under one group; {@link #resolveOpContext} returns the {@code
+ * systemOperationContext} unchanged. The background {@link PostCommitHookDrainer} then replays
+ * committed MCLs through their hooks under the system context, which carries a full {@link
+ * io.datahubproject.metadata.context.RetrieverContext} (aspect / graph / search retrievers) wired
+ * by {@code SystemOperationContextFactory}.
  *
  * <p>Registered by {@link PostCommitHookBufferFactory#hookContextResolver} under a
  * {@code @ConditionalOnMissingBean(HookContextResolver.class)} guard, so a cloud multi-tenant

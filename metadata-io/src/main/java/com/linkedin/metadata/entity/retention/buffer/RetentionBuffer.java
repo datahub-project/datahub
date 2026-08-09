@@ -10,9 +10,9 @@ import javax.annotation.Nonnull;
  * retention once instead of once per upsert.
  *
  * <p>{@code enqueue} takes the request {@link OperationContext} so the buffer can attach routing
- * metadata to the key (via a {@link com.linkedin.metadata.entity.retention.RetentionContextResolver})
- * and the drainer can later route the drained entry to the same underlying database that produced
- * it.
+ * metadata to the key (via a {@link
+ * com.linkedin.metadata.entity.retention.RetentionContextResolver}) and the drainer can later route
+ * the drained entry to the same underlying database that produced it.
  */
 public interface RetentionBuffer {
 

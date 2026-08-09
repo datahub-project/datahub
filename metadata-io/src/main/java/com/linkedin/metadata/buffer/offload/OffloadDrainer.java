@@ -23,34 +23,34 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p><b>Why the {@link DrainAction} owns entry removal.</b> A use may process a group partially
  * (e.g. hooks isolate a poison MCL and still replay the rest). For that to be safe the action must
- * {@link OffloadBuffer#removeIfSame} each entry it finishes and {@link OffloadBuffer#requeue} any it
- * wants to retry — so the action receives the buffer. The drainer itself only removes entries on a
- * <em>permanent</em> resolve failure ({@link UnresolvableOffloadKeyException}); on a transient
+ * {@link OffloadBuffer#removeIfSame} each entry it finishes and {@link OffloadBuffer#requeue} any
+ * it wants to retry — so the action receives the buffer. The drainer itself only removes entries on
+ * a <em>permanent</em> resolve failure ({@link UnresolvableOffloadKeyException}); on a transient
  * resolver failure it either leaves the un-removed entries for the next tick (at-least-once, when
  * {@code backoffEnabled=false}) or moves them to a backoff limbo (when {@code backoffEnabled=true},
- * re-merged after {@code backoffTicks} ticks — see below). A transient {@link DrainAction}
- * failure always leaves entries for next-tick retry (at-least-once), matching the use's own
- * apply-failure semantics.
+ * re-merged after {@code backoffTicks} ticks — see below). A transient {@link DrainAction} failure
+ * always leaves entries for next-tick retry (at-least-once), matching the use's own apply-failure
+ * semantics.
  *
- * <p><b>Transient-failure backoff (optional).</b> {@link OffloadBuffer#drain} is non-destructive:
- * a {@code PagingPredicate} restarts each call and returns the same first page until {@link
- * OffloadBuffer#removeIfSame} clears it. So a key whose {@link
- * OffloadContextResolver#groupKey} or {@link OffloadContextResolver#resolveOpContext} throws a
- * <em>transient</em> {@link RuntimeException} (e.g. a tenant-lookup service blip) would occupy the
- * first page every tick and starve every key behind it. When {@code backoffEnabled=true} the
- * drainer, on a transient resolver failure, removes the key from the buffer and re-merges it (via
- * {@link OffloadBuffer#enqueue}, which applies the use's merge policy) after {@code backoffTicks}
- * ticks. The failing key is out of the buffer during the backoff window so {@code drain} surfaces
- * the keys behind it and they progress; a transient blip self-heals and a persistent failure just
- * retries at a slower rate rather than wedging the drainer. Backoff applies ONLY to resolver
- * failures (routing), not to {@link DrainAction} failures (apply). Default off: hooks never
- * throw transient resolver failures ({@code SimpleHookContextResolver.groupKey} is constant), so
- * backoff is dead code for them; retention (cloud, tenant-aware) enables it.
+ * <p><b>Transient-failure backoff (optional).</b> {@link OffloadBuffer#drain} is non-destructive: a
+ * {@code PagingPredicate} restarts each call and returns the same first page until {@link
+ * OffloadBuffer#removeIfSame} clears it. So a key whose {@link OffloadContextResolver#groupKey} or
+ * {@link OffloadContextResolver#resolveOpContext} throws a <em>transient</em> {@link
+ * RuntimeException} (e.g. a tenant-lookup service blip) would occupy the first page every tick and
+ * starve every key behind it. When {@code backoffEnabled=true} the drainer, on a transient resolver
+ * failure, removes the key from the buffer and re-merges it (via {@link OffloadBuffer#enqueue},
+ * which applies the use's merge policy) after {@code backoffTicks} ticks. The failing key is out of
+ * the buffer during the backoff window so {@code drain} surfaces the keys behind it and they
+ * progress; a transient blip self-heals and a persistent failure just retries at a slower rate
+ * rather than wedging the drainer. Backoff applies ONLY to resolver failures (routing), not to
+ * {@link DrainAction} failures (apply). Default off: hooks never throw transient resolver failures
+ * ({@code SimpleHookContextResolver.groupKey} is constant), so backoff is dead code for them;
+ * retention (cloud, tenant-aware) enables it.
  *
  * <p><b>Scheduling.</b> {@link #tick()} carries no {@code @Scheduled} annotation; the shared {@code
- * OffloadBufferFactory} registers it with a Spring {@code TaskScheduler} at the use-specific
- * {@code drainIntervalMs}. This removes the per-use {@code @EnableScheduling} config — one fewer
- * "infra key" per reuse.
+ * OffloadBufferFactory} registers it with a Spring {@code TaskScheduler} at the use-specific {@code
+ * drainIntervalMs}. This removes the per-use {@code @EnableScheduling} config — one fewer "infra
+ * key" per reuse.
  *
  * @param <K> buffer key type
  * @param <V> buffer payload type
@@ -104,8 +104,8 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
    * Full constructor with transient-backoff control.
    *
    * @param backoffEnabled when true, transient resolver failures move the key to a backoff limbo
-   *     (removed + re-merged after {@code backoffTicks}) to avoid first-page starvation; when false,
-   *     transient failures leave the key in-buffer for next-tick retry.
+   *     (removed + re-merged after {@code backoffTicks}) to avoid first-page starvation; when
+   *     false, transient failures leave the key in-buffer for next-tick retry.
    * @param backoffTicks backoff window in ticks (used only when {@code backoffEnabled}); must be
    *     {@code >= 1}.
    */
@@ -193,7 +193,8 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
         String g = contextResolver.groupKey(entry.getKey());
         groups.computeIfAbsent(g, k -> new ArrayList<>()).add(entry);
       } catch (UnresolvableOffloadKeyException e) {
-        log.warn("Dropping unresolvable {} key {}; {}", metricPrefix, entry.getKey(), e.getMessage());
+        log.warn(
+            "Dropping unresolvable {} key {}; {}", metricPrefix, entry.getKey(), e.getMessage());
         buffer.removeIfSame(entry.getKey(), entry.getValue());
         increment(metricPrefix + "_unresolvable_key");
       } catch (RuntimeException e) {
@@ -236,7 +237,8 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
     try {
       opContext = contextResolver.resolveOpContext(firstKey, systemOperationContext);
     } catch (UnresolvableOffloadKeyException e) {
-      log.warn("Dropping {} unresolvable {} entries; {}", entries.size(), metricPrefix, e.getMessage());
+      log.warn(
+          "Dropping {} unresolvable {} entries; {}", entries.size(), metricPrefix, e.getMessage());
       for (Map.Entry<K, V> entry : entries) {
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }
@@ -273,7 +275,11 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
     } catch (UnresolvableOffloadKeyException e) {
       // Action signaled a permanent failure for the whole group; drop to avoid re-throwing every
       // tick. (Fine-grained per-entry permanent drops are the action's job via removeIfSame.)
-      log.warn("Dropping {} {} entries after permanent action failure; {}", entries.size(), metricPrefix, e.getMessage());
+      log.warn(
+          "Dropping {} {} entries after permanent action failure; {}",
+          entries.size(),
+          metricPrefix,
+          e.getMessage());
       for (Map.Entry<K, V> entry : entries) {
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }

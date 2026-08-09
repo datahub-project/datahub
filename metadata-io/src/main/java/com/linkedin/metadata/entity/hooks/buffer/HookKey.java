@@ -4,10 +4,9 @@ import java.io.Serializable;
 
 /**
  * Key for one pending post-commit hook replay. Implementations carry the (hookId, urn, aspectName,
- * sequence) identity plus any routing metadata an extension needs to reconstruct the correct
- * {@link io.datahubproject.metadata.context.OperationContext} at drain time (e.g. a cloud
- * multi-tenant impl stamps {@code tenantId} so the drainer routes the replay to the tenant's
- * catalog).
+ * sequence) identity plus any routing metadata an extension needs to reconstruct the correct {@link
+ * io.datahubproject.metadata.context.OperationContext} at drain time (e.g. a cloud multi-tenant
+ * impl stamps {@code tenantId} so the drainer routes the replay to the tenant's catalog).
  *
  * <p>Mirrors {@code com.linkedin.metadata.entity.retention.RetentionKey}: an interface with an OSS
  * {@link SimpleHookKey} default and an extension-supplied subtype for routing. Equality MUST

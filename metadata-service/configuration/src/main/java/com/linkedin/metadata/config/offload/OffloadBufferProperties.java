@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
  * from a {@code datahub.<use>.buffer.*} block in application.yaml; on/off is a feature flag, not
  * this POJO.
  *
- * <p>Map names are namespaced per use so multiple offloads coexist in one Hazelcast instance with no
- * key collisions.
+ * <p>Map names are namespaced per use so multiple offloads coexist in one Hazelcast instance with
+ * no key collisions.
  *
  * <p>Lives in the configuration module (not {@code metadata-io}) because the use-specific
  * subclasses extend it from here, and {@code metadata-io} already depends on this module — the
@@ -33,7 +33,8 @@ public class OffloadBufferProperties {
   /**
    * Hard cap on pending entries. With {@link SizingPolicy#REJECT_AT_CAP}, {@code enqueue} returns
    * {@code false} at cap and the caller runs the work synchronously (no loss). With {@link
-   * SizingPolicy#EVICT_LRU}, this is advisory (the real bound is the Hazelcast {@code EvictionConfig}).
+   * SizingPolicy#EVICT_LRU}, this is advisory (the real bound is the Hazelcast {@code
+   * EvictionConfig}).
    */
   @Builder.Default private int maxPendingEntries = 100_000;
 
@@ -43,8 +44,8 @@ public class OffloadBufferProperties {
   @Builder.Default private long drainIntervalMs = 2000;
 
   /**
-   * Safety-net lease on the single-winner drain lock so a drainer that dies mid-drain does not wedge
-   * it forever. Must exceed a drain's worst-case duration.
+   * Safety-net lease on the single-winner drain lock so a drainer that dies mid-drain does not
+   * wedge it forever. Must exceed a drain's worst-case duration.
    */
   @Builder.Default private long drainLockLeaseMs = 60_000;
 

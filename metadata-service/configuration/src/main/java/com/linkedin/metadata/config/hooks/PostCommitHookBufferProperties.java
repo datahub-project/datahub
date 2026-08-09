@@ -10,10 +10,10 @@ import lombok.ToString;
 
 /**
  * POJO representing the "datahub.postCommitHook.buffer" tuning block in application.yaml, as a
- * hook-specific specialization of the framework {@link OffloadBufferProperties}. On/off is
- * {@code featureFlags.postCommitHookBufferEnabled}, not this POJO. The buffer is backed by the
- * shared embedded Hazelcast instance; without it, hooks run synchronously on the ingest thread
- * (legacy behavior).
+ * hook-specific specialization of the framework {@link OffloadBufferProperties}. On/off is {@code
+ * featureFlags.postCommitHookBufferEnabled}, not this POJO. The buffer is backed by the shared
+ * embedded Hazelcast instance; without it, hooks run synchronously on the ingest thread (legacy
+ * behavior).
  *
  * <p>Hook semantics are fixed here: {@link SizingPolicy#REJECT_AT_CAP} (no-loss bound — at cap,
  * {@code enqueue} returns {@code false} and the caller runs the hook synchronously) and {@link

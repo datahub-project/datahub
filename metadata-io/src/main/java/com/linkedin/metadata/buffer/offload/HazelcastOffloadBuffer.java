@@ -5,9 +5,9 @@ import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.IMap;
 import com.hazelcast.query.PagingPredicate;
 import com.hazelcast.query.Predicates;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.config.offload.MergePolicy;
 import com.linkedin.metadata.config.offload.SizingPolicy;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -24,9 +24,9 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Hazelcast-backed {@link OffloadBuffer}: one {@code IMap<K, V>} pending store, one {@code
- * IMap<String, String>} drain lock, and one {@code IMap<String, Long>} sequence counter — the shared
- * infra for every async offload (post-commit hooks now; retention in a follow-up). The drain-lock
- * (UUID-token {@code putIfAbsent} + TTL lease + token-fenced {@code remove}), {@link
+ * IMap<String, String>} drain lock, and one {@code IMap<String, Long>} sequence counter — the
+ * shared infra for every async offload (post-commit hooks now; retention in a follow-up). The
+ * drain-lock (UUID-token {@code putIfAbsent} + TTL lease + token-fenced {@code remove}), {@link
  * PagingPredicate} FIFO drain, {@code removeIfSame} CAS clear, and {@code nextSequence} CAS loop
  * are lifted verbatim from the two prior implementations ({@code HazelcastPostCommitHookBuffer} and
  * {@code HazelcastCoalesceBuffer}), which were byte-for-byte identical on this surface.
@@ -42,7 +42,8 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>{@link SizingPolicy#REJECT_AT_CAP} + {@link MergePolicy#NO_COALESCE} — post-commit hooks:
  *       {@code enqueue} does a {@code size()} check then a plain {@code put}; at cap it returns
- *       {@code false} and the caller runs the work synchronously (no loss). No {@code EvictionConfig}.
+ *       {@code false} and the caller runs the work synchronously (no loss). No {@code
+ *       EvictionConfig}.
  *   <li>{@link SizingPolicy#EVICT_LRU} + {@link MergePolicy#KEEP_MAX_LONG} — retention: {@code
  *       enqueue} coalesces via a serializable {@link KeepMaxLongProcessor} entry processor with a
  *       1s timeout; no {@code size()} check (the bound is the Hazelcast {@code EvictionConfig}).
@@ -160,7 +161,8 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
       // KeepMaxLongProcessor is typed on Long; pendingMap is IMap<K,V>. Safe: we validated
       // value instanceof Long above, and KEEP_MAX_LONG is only wired for V=Long (retention).
       EntryProcessor<K, V, Void> processor =
-          (EntryProcessor<K, V, Void>) (EntryProcessor<?, ?, ?>) new KeepMaxLongProcessor<>(candidate);
+          (EntryProcessor<K, V, Void>)
+              (EntryProcessor<?, ?, ?>) new KeepMaxLongProcessor<>(candidate);
       pendingMap
           .submitToKey(key, processor)
           .toCompletableFuture()
@@ -212,7 +214,8 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
   @Override
   @Nullable
   public Object tryAcquireDrainLock(@Nonnull String lockName, @Nonnull Duration lease) {
-    // Non-reentrant: IMap.tryLock is re-entrant for the same thread; putIfAbsent fails if the key is
+    // Non-reentrant: IMap.tryLock is re-entrant for the same thread; putIfAbsent fails if the key
+    // is
     // present even for this thread. The stored value is a per-acquire fencing token so release only
     // clears our own lock. TTL = lease so a crashed drainer does not wedge the lock forever.
     String token = UUID.randomUUID().toString();

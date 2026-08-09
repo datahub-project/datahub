@@ -1,19 +1,19 @@
 package com.linkedin.metadata.buffer.offload;
 
+import com.linkedin.metadata.config.offload.MergePolicy;
+import com.linkedin.metadata.config.offload.SizingPolicy;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import com.linkedin.metadata.config.offload.MergePolicy;
-import com.linkedin.metadata.config.offload.SizingPolicy;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
  * Store-agnostic async offload buffer: a hot path enqueues work here instead of doing it inline,
- * and a background {@link OffloadDrainer} drains and applies it. The framework provides one Hazelcast
- * implementation, {@link HazelcastOffloadBuffer}; a new offload supplies only the feature bits
- * (key/value types, {@link MergePolicy}, {@link SizingPolicy}, {@link DrainAction}, {@link
+ * and a background {@link OffloadDrainer} drains and applies it. The framework provides one
+ * Hazelcast implementation, {@link HazelcastOffloadBuffer}; a new offload supplies only the feature
+ * bits (key/value types, {@link MergePolicy}, {@link SizingPolicy}, {@link DrainAction}, {@link
  * OffloadContextResolver}) and gets the buffer + drain infra for free — no new "infra keys" (map
  * names, lock maps, scheduling configs) per reuse.
  *
@@ -40,11 +40,11 @@ import javax.annotation.Nullable;
  *       entries are transferred to the draining member.
  *   <li>{@link #removeIfSame} — CAS clear: removes the entry only if its value still equals {@code
  *       expected}. Guards against a requeued/re-merged entry being clobbered by a stale remove.
- *   <li>{@link #requeue} — re-insert an entry that failed to apply (retry) or a poison pill to force
- *       a retry/DLQ path on the next tick.
- *   <li>Drain lock — {@link #tryAcquireDrainLock}/{@link #releaseDrainLock} are a <b>non-reentrant</b>,
- *       token-fenced lease so two drainer ticks (or two instances) never drain concurrently and a
- *       crashed drainer's lease auto-expires.
+ *   <li>{@link #requeue} — re-insert an entry that failed to apply (retry) or a poison pill to
+ *       force a retry/DLQ path on the next tick.
+ *   <li>Drain lock — {@link #tryAcquireDrainLock}/{@link #releaseDrainLock} are a
+ *       <b>non-reentrant</b>, token-fenced lease so two drainer ticks (or two instances) never
+ *       drain concurrently and a crashed drainer's lease auto-expires.
  * </ul>
  *
  * @param <K> buffer key type (must be {@link Serializable} for Hazelcast)
@@ -60,7 +60,9 @@ public interface OffloadBuffer<K extends Serializable, V extends Serializable> {
    */
   boolean enqueue(@Nonnull K key, @Nonnull V value);
 
-  /** Next globally-unique monotonic sequence (for {@link MergePolicy#NO_COALESCE} distinct keys). */
+  /**
+   * Next globally-unique monotonic sequence (for {@link MergePolicy#NO_COALESCE} distinct keys).
+   */
   long nextSequence();
 
   /** Drain up to {@code limit} entries (best-effort bounded batch). */

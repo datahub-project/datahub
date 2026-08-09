@@ -9,12 +9,12 @@ import lombok.extern.slf4j.Slf4j;
  * a thin adapter over the framework {@link OffloadDrainer}. All drain infra (cluster-wide
  * single-winner drain lock, bounded {@code PagingPredicate} drain, per-group {@link
  * io.datahubproject.metadata.context.OperationContext} reconstruction, lease guard, retry/DLQ
- * framing) lives in the framework; the hook-specific replay is the {@link HookDrainAction} wired
- * by {@code PostCommitHookBufferFactory}.
+ * framing) lives in the framework; the hook-specific replay is the {@link HookDrainAction} wired by
+ * {@code PostCommitHookBufferFactory}.
  *
  * <p>All pods share one cluster-wide drain lock (Hazelcast), so exactly one pod replays per tick
- * and the rest no-op. The drained batch is grouped by {@link HookContextResolver#groupKey} (e.g.
- * by tenant); each group is replayed under a per-group {@link
+ * and the rest no-op. The drained batch is grouped by {@link HookContextResolver#groupKey} (e.g. by
+ * tenant); each group is replayed under a per-group {@link
  * io.datahubproject.metadata.context.OperationContext} from {@link
  * HookContextResolver#resolveOpContext} so hooks run against the correct (possibly per-tenant)
  * retrievers/catalog.

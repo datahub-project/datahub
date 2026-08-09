@@ -22,8 +22,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 /**
- * Behavior tests for the framework {@link HazelcastOffloadBuffer}: the two merge/sizing matrices the
- * two known uses rely on (hooks = NO_COALESCE + REJECT_AT_CAP; retention = KEEP_MAX_LONG +
+ * Behavior tests for the framework {@link HazelcastOffloadBuffer}: the two merge/sizing matrices
+ * the two known uses rely on (hooks = NO_COALESCE + REJECT_AT_CAP; retention = KEEP_MAX_LONG +
  * EVICT_LRU), plus the shared drain-lock / paging / CAS / sequence infra. Mirrors {@code
  * HazelcastCoalesceBufferTest}'s isolated-instance style.
  */
@@ -124,7 +124,8 @@ public class HazelcastOffloadBufferTest {
             new SeqDrainOrder<>(),
             "test",
             null);
-    assertThrows(IllegalArgumentException.class, () -> buffer.enqueue(new TestKey("a", 0L), "not-a-long"));
+    assertThrows(
+        IllegalArgumentException.class, () -> buffer.enqueue(new TestKey("a", 0L), "not-a-long"));
   }
 
   @Test

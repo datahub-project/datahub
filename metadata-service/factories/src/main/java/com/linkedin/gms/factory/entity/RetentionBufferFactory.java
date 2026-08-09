@@ -6,9 +6,9 @@ import com.linkedin.gms.factory.buffer.OffloadBufferFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.buffer.offload.OffloadBuffer;
 import com.linkedin.metadata.buffer.offload.OffloadDrainer;
+import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
 import com.linkedin.metadata.config.offload.MergePolicy;
 import com.linkedin.metadata.config.offload.SizingPolicy;
-import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
 import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
@@ -58,9 +58,9 @@ import org.springframework.scheduling.TaskScheduler;
  * delegated to {@link OffloadBufferFactory}; this class supplies only the retention feature bits
  * ({@link MergePolicy#KEEP_MAX_LONG} + {@link SizingPolicy#EVICT_LRU}, the retention drain
  * comparator, and the {@link RetentionDrainAction}) and the namespaced {@link MapConfig} beans.
- * Scheduling is programmatic via the shared factory's {@link TaskScheduler} — no {@code
- * @EnableScheduling} config is needed here (the old {@code RetentionBufferSchedulingConfig} is
- * deleted).
+ * Scheduling is programmatic via the shared factory's {@link TaskScheduler} — no
+ * {@code @EnableScheduling} config is needed here (the old {@code RetentionBufferSchedulingConfig}
+ * is deleted).
  */
 @Slf4j
 @Configuration

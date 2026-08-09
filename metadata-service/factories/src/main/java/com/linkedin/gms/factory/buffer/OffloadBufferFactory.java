@@ -33,9 +33,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * offload supplies only the feature bits — namespace, feature flag, key/value types, {@link
  * MergePolicy}, {@link SizingPolicy}, a serializable drain {@link Comparator}, a {@link
  * DrainAction}, and an {@link OffloadContextResolver} — and this factory provisions the three
- * namespaced {@link MapConfig}s, the {@link HazelcastOffloadBuffer}, the {@link OffloadDrainer}, and
- * the drain scheduling. That removes the per-use "infra keys" (a dedicated {@code @EnableScheduling}
- * config, the duplicated drain-lock/paging/CAS code, and the per-use map-config boilerplate).
+ * namespaced {@link MapConfig}s, the {@link HazelcastOffloadBuffer}, the {@link OffloadDrainer},
+ * and the drain scheduling. That removes the per-use "infra keys" (a dedicated
+ * {@code @EnableScheduling} config, the duplicated drain-lock/paging/CAS code, and the per-use
+ * map-config boilerplate).
  *
  * <h2>Scheduling</h2>
  *
@@ -124,18 +125,18 @@ public class OffloadBufferFactory {
 
   /**
    * Build a {@link HazelcastOffloadBuffer} from a use's properties + policies. The drain comparator
-   * must be {@link Serializable} (it ships to Hazelcast cluster members for {@code PagingPredicate}).
+   * must be {@link Serializable} (it ships to Hazelcast cluster members for {@code
+   * PagingPredicate}).
    */
   @Nonnull
-  public <K extends Serializable, V extends Serializable>
-      HazelcastOffloadBuffer<K, V> createBuffer(
-          @Nonnull HazelcastInstance hazelcastInstance,
-          @Nonnull OffloadBufferProperties props,
-          @Nonnull MergePolicy mergePolicy,
-          @Nonnull SizingPolicy sizingPolicy,
-          @Nonnull Comparator<Map.Entry<K, V>> drainComparator,
-          @Nonnull String metricPrefix,
-          @Nullable MetricUtils metricUtils) {
+  public <K extends Serializable, V extends Serializable> HazelcastOffloadBuffer<K, V> createBuffer(
+      @Nonnull HazelcastInstance hazelcastInstance,
+      @Nonnull OffloadBufferProperties props,
+      @Nonnull MergePolicy mergePolicy,
+      @Nonnull SizingPolicy sizingPolicy,
+      @Nonnull Comparator<Map.Entry<K, V>> drainComparator,
+      @Nonnull String metricPrefix,
+      @Nullable MetricUtils metricUtils) {
     Objects.requireNonNull(hazelcastInstance, "hazelcastInstance");
     return new HazelcastOffloadBuffer<>(
         hazelcastInstance,
@@ -183,7 +184,9 @@ public class OffloadBufferFactory {
    */
   @Nonnull
   public ScheduledFuture<?> scheduleDrainer(
-      @Nonnull TaskScheduler taskScheduler, @Nonnull OffloadDrainer<?, ?> drainer, long intervalMs) {
+      @Nonnull TaskScheduler taskScheduler,
+      @Nonnull OffloadDrainer<?, ?> drainer,
+      long intervalMs) {
     return taskScheduler.scheduleWithFixedDelay(drainer::tick, Math.max(1L, intervalMs));
   }
 }
