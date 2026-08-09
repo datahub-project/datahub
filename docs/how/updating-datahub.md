@@ -59,6 +59,7 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / Elasticsearch)** The `elasticsearch` source now uses `opensearch-py`, supporting both Elasticsearch and OpenSearch. The `api_key` config option is now typed as a list `[id, api_key]` or a base64-encoded string (its documented forms) instead of accepting any type. **Action:** none if `api_key` is already given as a list or string.
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
 ## v1.7.0

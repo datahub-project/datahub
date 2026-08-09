@@ -1,6 +1,6 @@
 import pathlib
 import time
-from typing import Iterator
+from typing import Any, Iterator
 
 import pytest
 import requests
@@ -15,10 +15,8 @@ pytestmark = pytest.mark.integration_batch_2
 ELASTICSEARCH_PORT = 29200
 OPENSEARCH_PORT = 29201
 
-# Both backends must produce identical metadata for the same indices/templates — that
-# equivalence is the whole point of supporting Elasticsearch and OpenSearch through one
-# connector, so both tests assert against a single shared golden. If a future server
-# version serializes mappings differently, this comparison fails loudly.
+# Both backends must produce identical metadata, so the two tests share one golden; a
+# divergence (e.g. a server version serializing mappings differently) fails the comparison.
 _GOLDEN = "elasticsearch_mces_golden.json"
 
 _INDICES = {
@@ -98,7 +96,7 @@ def _seed(base_url: str, timeout: float = 240.0) -> None:
 
 
 @pytest.fixture(scope="module")
-def elasticsearch_runner(docker_compose_runner) -> Iterator[None]:
+def elasticsearch_runner(docker_compose_runner: Any) -> Iterator[None]:
     with docker_compose_runner(
         _resources_dir / "docker-compose.elasticsearch.yml", "elasticsearch"
     ):
@@ -107,7 +105,7 @@ def elasticsearch_runner(docker_compose_runner) -> Iterator[None]:
 
 
 @pytest.fixture(scope="module")
-def opensearch_runner(docker_compose_runner) -> Iterator[None]:
+def opensearch_runner(docker_compose_runner: Any) -> Iterator[None]:
     with docker_compose_runner(
         _resources_dir / "docker-compose.opensearch.yml", "opensearch"
     ):
