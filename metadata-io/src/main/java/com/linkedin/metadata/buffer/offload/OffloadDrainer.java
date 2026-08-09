@@ -78,6 +78,14 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
   // a HashMap would corrupt on concurrent put. The single-tick-at-a-time invariant is still
   // required for correctness (two concurrent ticks on the same pod would race the drain lock and
   // one would no-op, but the maps must not corrupt even if that guard is ever relaxed).
+  //
+  // <p>Bounded in practice: a key only enters these maps on a transient resolver failure, and the
+  // only keys eligible in a given tick are those in the current drain batch (size = batchSize, e.g.
+  // 500 for retention). A key is removed once its backoff expires (re-merged) or the resolver later
+  // throws UnresolvableOffloadKeyException (permanent drop, handled on the next drain of the
+  // re-merged key). So the maps never hold more than the drain batch size — they are bounded by
+  // batchSize, not unbounded. No explicit cap is needed because the inflow (drain batch) is the
+  // only source and it is itself capped.
   private long currentTick = 0L;
   private final ConcurrentHashMap<K, Long> transientRetryAt = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<K, V> transientRetryValue = new ConcurrentHashMap<>();
@@ -186,9 +194,13 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
     currentTick++;
     // Re-merge keys whose transient backoff has expired so they retry on this tick. They were
     // removed from the buffer when the transient failure was caught, so drain() now surfaces them
-    // again alongside any other queued keys. enqueue() applies the use's merge policy (keep-max
-    // for retention → coalesces with any newer version enqueued during backoff; put for hooks,
-    // but hooks run with backoff off).
+    // again alongside any other queued keys. requeue() applies the use's merge policy SYNCHRONOUSLY
+    // (keep-max for retention → coalesces with any newer version enqueued during backoff; put for
+    // hooks, but hooks run with backoff off). Synchronous (not enqueue's fire-and-forget) is
+    // required here: the re-merged entry must be visible to the drain() on THIS tick, else the
+    // backoff window's final tick would drain empty and the key would never be re-applied. The
+    // drainer is a background thread, so blocking on the merge is correct and affordable (this is
+    // NOT the ingest hot path that enqueue's fire-and-forget was designed to protect).
     if (backoffEnabled && !transientRetryAt.isEmpty()) {
       Iterator<Map.Entry<K, Long>> it = transientRetryAt.entrySet().iterator();
       while (it.hasNext()) {
@@ -197,7 +209,7 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
           V value = transientRetryValue.remove(e.getKey());
           it.remove();
           if (value != null) {
-            buffer.enqueue(e.getKey(), value);
+            buffer.requeue(e.getKey(), value);
           }
         }
       }

@@ -1164,6 +1164,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         // the whole hook's MCLs, instead of 2N serial per-MCL round-trips on the ingest thread.
         // The sequence block [end-N+1 .. end] is assigned in MCL order so FIFO within the batch
         // is preserved; the drain comparator orders by sequence across pods.
+        // If enqueueBatch rejects (at-cap/transient), the allocated sequence block is wasted (a
+        // gap in the monotonic sequence). This is cosmetic and acceptable: the sequence only needs
+        // to be globally unique for FIFO ordering — it is NOT a dense ledger, so gaps from rejected
+        // enqueues do not affect correctness or ordering. Re-allocating on retry would risk
+        // duplicate sequence allocation under concurrency; the gap is the cheaper choice.
         long end = postCommitHookBuffer.nextSequence(applicable.size());
         long seq = end - applicable.size() + 1;
         List<Map.Entry<HookKey, MetadataChangeLog>> entries = new ArrayList<>(applicable.size());

@@ -42,9 +42,13 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li>{@link SizingPolicy#REJECT_AT_CAP} + {@link MergePolicy#NO_COALESCE} — post-commit hooks:
- *       {@code enqueue} does a {@code size()} check then a plain {@code put}; at cap it returns
- *       {@code false} and the caller runs the work synchronously (no loss). No {@code
- *       EvictionConfig}.
+ *       {@code enqueue} checks a local per-JVM {@code approxSize} counter (NOT a cluster-wide
+ *       {@code IMap.size()} round-trip, which would block the ingest hot path) then a plain
+ *       {@code put}; at cap it returns {@code false} and the caller runs the work synchronously
+ *       (no loss). The cap is enforced per-pod, so the cluster-wide pending total is approximately
+ *       {@code ingestingPods × maxPendingEntries} — see {@link
+ *       com.linkedin.metadata.config.offload.OffloadBufferProperties#getMaxPendingEntries()}.
+ *       No {@code EvictionConfig}.
  *   <li>{@link SizingPolicy#EVICT_LRU} + {@link MergePolicy#KEEP_MAX_LONG} — retention: {@code
  *       enqueue} coalesces via a serializable {@link KeepMaxLongProcessor} entry processor
  *       <b>fire-and-forget</b> (no {@code .get()} on the ingest thread); no {@code size()} check
@@ -197,7 +201,32 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
         for (Map.Entry<K, V> e : entries) {
           batch.put(e.getKey(), e.getValue());
         }
-        pendingMap.putAll(batch);
+        try {
+          pendingMap.putAll(batch);
+        } catch (Exception putAllFailure) {
+          // putAll is NOT atomic — some entries may already be written before it threw. If we
+          // return false here without cleanup, the caller runs every entry synchronously AND
+          // the partially-written entries stay in the buffer for async replay → double work.
+          // Remove the whole batch (best-effort) so the sync fallback is the only execution.
+          // Safe because NO_COALESCE keys are unique per-sequence and never reused by ingest, so
+          // removeAll cannot clobber a concurrent re-merge (unlike retention's reused keys). If
+          // removeAll itself fails, the partial entries stay and are async-replayed — at-least-once,
+          // idempotent hooks, so correct but redundant.
+          log.warn(
+              "{} buffer batch putAll failed; cleaning partial writes before sync fallback",
+              metricPrefix,
+              putAllFailure);
+          try {
+            removeAll(entries);
+          } catch (Exception cleanupFailure) {
+            log.warn(
+                "{} partial-write cleanup failed; entries will be async-replayed (at-least-once)",
+                metricPrefix,
+                cleanupFailure);
+          }
+          increment(metricPrefix + "_enqueue_failed");
+          return false;
+        }
         approxSize.addAndGet(entries.size());
       } else if (mergePolicy == MergePolicy.KEEP_MAX_LONG) {
         // Retention: fire-and-forget per key (keep-max is commutative + associative, so async
@@ -305,8 +334,39 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
 
   @Override
   public void requeue(@Nonnull K key, @Nonnull V value) {
-    // Same unique key → value update, not a new entry. Keeps the entry's original FIFO position.
-    pendingMap.put(key, value);
+    // Synchronous re-insert applying the use's merge policy. Used by the drainer's transient-backoff
+    // re-merge and by DrainAction retry paths — both run on the background drainer thread (NOT the
+    // ingest hot path), so blocking until the entry is visible is correct and affordable. This
+    // deliberately differs from enqueue(), which is fire-and-forget on the ingest path (must not
+    // block ingest >100ms).
+    //   NO_COALESCE (hooks): plain put — keys are unique; retry re-inserts the same key with an
+    // updated value (e.g. bumped retry count), keeping the original FIFO position.
+    //   KEEP_MAX_LONG (retention): SYNCHRONOUS keep-max merge via executeOnKey (blocks until the
+    // owning member confirms), so the re-merged entry is visible to the same-tick drain() that
+    // follows the re-merge in OffloadDrainer.drainBatch. A fire-and-forget submitToKey here would
+    // race drain() — the re-merged entry might not be visible yet, so the backoff window's final
+    // tick would drain empty and the key would never be re-applied. Coalesces with any newer version
+    // enqueued during backoff (keep-max), so a stale backoff value never clobbers a higher one.
+    if (mergePolicy == MergePolicy.KEEP_MAX_LONG) {
+      mergeKeepMaxLongSync(key, value);
+    } else {
+      pendingMap.put(key, value);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void mergeKeepMaxLongSync(@Nonnull K key, @Nonnull V value) {
+    if (!(value instanceof Long)) {
+      throw new IllegalArgumentException(
+          "KEEP_MAX_LONG merge policy requires Long values, got " + value.getClass());
+    }
+    long candidate = (Long) value;
+    EntryProcessor<K, V, Void> processor =
+        (EntryProcessor<K, V, Void>)
+            (EntryProcessor<?, ?, ?>) new KeepMaxLongProcessor<>(candidate);
+    // Synchronous (blocks until the owning member confirms the merge). Drainer thread only —
+    // never the ingest hot path. See requeue() javadoc for why visibility before drain() matters.
+    pendingMap.executeOnKey(key, processor);
   }
 
   @Override
