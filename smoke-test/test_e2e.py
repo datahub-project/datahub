@@ -338,8 +338,43 @@ def test_gms_usage_fetch(auth_session):
 
     data = response.json()["value"]
 
-    assert len(data["buckets"]) == 6
-    assert data["buckets"][0]["metrics"]["topSqlQueries"]
+    # bigquery_usages_golden.json seeds three non-empty DAY buckets for this resource.
+    # DAY date_histogram uses min_doc_count=0, so empty interstitial days (May 29–31) are
+    # also returned. Assert seeded days + gap-filled empties rather than a bare length check.
+    expected_non_empty = {
+        1622073600000: 4,  # 2021-05-27
+        1622160000000: 2,  # 2021-05-28
+        1622505600000: 1,  # 2021-06-01
+    }
+    expected_empty = (
+        1622246400000,  # 2021-05-29
+        1622332800000,  # 2021-05-30
+        1622419200000,  # 2021-05-31
+    )
+    expected_top_sql_queries = {
+        "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+        "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`",
+    }
+    buckets_by_ts = {bucket["bucket"]: bucket for bucket in data["buckets"]}
+    for ts, total_sql_queries in expected_non_empty.items():
+        assert ts in buckets_by_ts, (
+            f"missing usage bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts]["metrics"]
+        assert metrics["totalSqlQueries"] == total_sql_queries
+        assert metrics["uniqueUserCount"] == 1
+    for ts in expected_empty:
+        assert ts in buckets_by_ts, (
+            f"missing empty interstitial bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts].get("metrics") or {}
+        assert metrics.get("totalSqlQueries") is None, metrics
+        assert metrics.get("uniqueUserCount") is None, metrics
+        assert not metrics.get("topSqlQueries"), metrics
+    assert (
+        set(buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"])
+        == expected_top_sql_queries
+    )
 
     fields = data["aggregations"].pop("fields")
     assert len(fields) == 12
