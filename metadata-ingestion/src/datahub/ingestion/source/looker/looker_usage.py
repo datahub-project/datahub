@@ -7,6 +7,7 @@ import concurrent
 import concurrent.futures
 import dataclasses
 import datetime
+import json as json_module
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -52,9 +53,6 @@ from datahub.utilities.lossy_collections import LossySet
 
 logger = logging.getLogger(__name__)
 
-# System Activity returns `query.fields` as a single string joining
-# the referenced `view.field` names.  Looker has used both comma and
-# newline separators across versions, so we split on either.
 _QUERY_FIELDS_SPLIT_RE = re.compile(r"[,\n]")
 
 
@@ -120,6 +118,8 @@ class StatGeneratorConfig:
 
 
 # QueryId and query_collection helps to return dummy responses in test cases
+# Filter syntax reference: https://docs.cloud.google.com/looker/docs/filter-expressions
+# String fields use "-NULL" for is-not-null; numeric fields use "NOT NULL".
 class QueryId(StrEnum):
     DASHBOARD_PER_DAY_USAGE_STAT = "counts_per_day_per_dashboard"
     DASHBOARD_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_dashboard"
@@ -186,7 +186,7 @@ query_collection: Dict[QueryId, LookerQuery] = {
             QueryViewField.QUERY_VIEW,
         ],
         filters={
-            QueryViewField.QUERY_VIEW: "NOT NULL",
+            QueryViewField.QUERY_VIEW: "-NULL",
         },
     ),
     QueryId.EXPLORE_PER_USER_PER_DAY_USAGE_STAT: LookerQuery(
@@ -200,7 +200,7 @@ query_collection: Dict[QueryId, LookerQuery] = {
             UserViewField.USER_ID,
         ],
         filters={
-            QueryViewField.QUERY_VIEW: "NOT NULL",
+            QueryViewField.QUERY_VIEW: "-NULL",
         },
     ),
     # Kept separate from the per-day explore query: adding query.fields would
@@ -217,8 +217,8 @@ query_collection: Dict[QueryId, LookerQuery] = {
             QueryViewField.QUERY_FIELDS,
         ],
         filters={
-            QueryViewField.QUERY_VIEW: "NOT NULL",
-            QueryViewField.QUERY_FIELDS: "NOT NULL",
+            QueryViewField.QUERY_VIEW: "-NULL",
+            QueryViewField.QUERY_FIELDS: "-NULL",
         },
     ),
 }
@@ -822,7 +822,18 @@ class ExploreStatGenerator(BaseStatGenerator):
 
     @staticmethod
     def _parse_query_fields(raw_fields: object) -> List[str]:
-        if isinstance(raw_fields, (list, tuple)):
+        # The Looker Query API model defines fields as Sequence[str].
+        # System Activity serialises it into a JSON array string
+        # (e.g. '["view.field", ...]') when returned as a dimension value.
+        if isinstance(raw_fields, str):
+            try:
+                parsed = json_module.loads(raw_fields)
+                if isinstance(parsed, list):
+                    return [str(t).strip() for t in parsed if str(t).strip()]
+            except (json_module.JSONDecodeError, ValueError):
+                pass
+            tokens = _QUERY_FIELDS_SPLIT_RE.split(raw_fields)
+        elif isinstance(raw_fields, list):
             tokens = [str(t) for t in raw_fields]
         else:
             tokens = _QUERY_FIELDS_SPLIT_RE.split(str(raw_fields))

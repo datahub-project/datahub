@@ -52,6 +52,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -193,79 +194,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final PreProcessHooks preProcessHooks,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        false,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final boolean cdcModeChangeLog,
-      final PreProcessHooks preProcessHooks,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        cdcModeChangeLog,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final PreProcessHooks preProcessHooks,
-      @Nullable final Integer retry,
-      final boolean enableBrowsePathV2) {
-    this(
-        aspectDao,
-        producer,
-        alwaysEmitChangeLog,
-        false,
-        preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2,
-        false,
-        null);
-  }
-
-  public EntityServiceImpl(
-      @Nonnull final AspectDao aspectDao,
-      @Nonnull final EventProducer producer,
-      final boolean alwaysEmitChangeLog,
-      final boolean cdcModeChangeLog,
-      final PreProcessHooks preProcessHooks,
-      @Nullable final Integer retry,
-      final boolean enableBrowseV2,
-      final boolean postCommitRetentionEnabled,
+      @Nonnull final PreProcessHooks preProcessHooks,
+      @Nonnull final EntityServiceConfiguration entityServiceConfiguration,
       @javax.annotation.Nullable
           final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
-    this.alwaysEmitChangeLog = alwaysEmitChangeLog;
-    this.cdcModeChangeLog = cdcModeChangeLog;
+    this.alwaysEmitChangeLog = entityServiceConfiguration.isAlwaysEmitChangeLog();
+    this.cdcModeChangeLog = entityServiceConfiguration.isCdcModeChangeLog();
     this.preProcessHooks = preProcessHooks;
-    ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
-    this.enableBrowseV2 = enableBrowseV2;
-    this.postCommitRetentionEnabled = postCommitRetentionEnabled;
+    ebeanMaxTransactionRetry =
+        entityServiceConfiguration.getRetry() != null
+            ? entityServiceConfiguration.getRetry()
+            : DEFAULT_MAX_TRANSACTION_RETRY;
+    this.enableBrowseV2 = entityServiceConfiguration.isEnableBrowseV2();
+    this.postCommitRetentionEnabled = entityServiceConfiguration.isPostCommitRetentionEnabled();
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
@@ -1113,7 +1057,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (retentionBuffer.defersApply()) {
         for (RetentionService.RetentionContext ctx : retentionBatch) {
           retentionBuffer.enqueue(
-              ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
+              opContext, ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
         }
         return;
       }
@@ -1243,17 +1187,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // store.
                           aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
 
-                          // read #1
-                          // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock)
-                          // in
-                          // order
-                          // to ensure that the aspect's version is not modified outside the
-                          // transaction.
-                          // We rely on the retry mechanism if the row is modified and will re-read
-                          // (require the
-                          // lock)
-
-                          // Initial database state from database
+                          // Write-intent read: pin primary. The DAO uses SELECT FOR UPDATE in
+                          // legacy mode and skips the row lock in optimistic mode, where CAS
+                          // detects concurrent changes.
                           final Map<String, Map<String, SystemAspect>> batchAspects =
                               aspectDao.getLatestAspects(opContext, urnAspects, true);
                           final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -1348,7 +1284,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // do final pre-commit checks with previous aspect value
                           ValidationExceptionCollection exceptions =
                               AspectsBatch.validatePreCommit(
-                                  opContext, changeMCPs, opContext.getRetrieverContext());
+                                  opContext,
+                                  changeMCPs,
+                                  opContext.getRetrieverContext(),
+                                  opContext);
 
                           List<Pair<ChangeMCP, Set<AspectValidationException>>>
                               failedUpsertResults = new ArrayList<>();
@@ -2088,6 +2027,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     args.attemptWithVersion = attemptWithVersion;
     args.aspectName = aspectName;
     args.urn = urn;
+    args.opContext = opContext;
     BulkApplyRetentionResult result = retentionService.batchApplyRetentionEntities(args);
     return result.toString();
   }
@@ -3228,7 +3168,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                           .auditStamp(auditStamp)
                                           .build(opContext.getAspectRetriever()))
                               .collect(Collectors.toList()),
-                          opContext.getRetrieverContext());
+                          opContext.getRetrieverContext(),
+                          opContext);
                   if (!preCommitExceptions.isEmpty()) {
                     throw new ValidationException(
                         collectMetrics(opContext.getMetricUtils().orElse(null), preCommitExceptions)
@@ -3553,12 +3494,32 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           maxVersionsToKeep);
     }
 
-    // save to database
-    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(
-            opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
-    Optional<EntityAspect> versionN = result.getFirst();
-    Optional<EntityAspect> version0 = result.getSecond();
+    final Optional<EntityAspect> versionN;
+    final Optional<EntityAspect> version0;
+    if (aspectDao.isOptimisticLockingEnabled()) {
+      ConditionalSaveResult result =
+          aspectDao.saveLatestAspectConditional(
+              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+      switch (result.getOutcome()) {
+        case SKIPPED_NOOP:
+          return null;
+        case CONFLICT:
+          throw new OptimisticLockConflictException(
+              String.format(
+                  "Optimistic lock conflict on urn=%s aspect=%s: version-0 row changed since read",
+                  writeItem.getUrn(), writeItem.getAspectName()));
+        case UPDATED:
+        default:
+          versionN = result.getInserted();
+          version0 = result.getUpdated();
+      }
+    } else {
+      Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+          aspectDao.saveLatestAspect(
+              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+      versionN = result.getFirst();
+      version0 = result.getSecond();
+    }
 
     return version0
         .map(
