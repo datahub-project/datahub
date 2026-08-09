@@ -415,7 +415,7 @@ jobs:
         with:
           path: |
             ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: |
             playwright-${{ runner.os }}-yarn-
             ${{ runner.os }}-yarn-
