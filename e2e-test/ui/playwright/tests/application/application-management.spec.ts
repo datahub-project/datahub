@@ -17,8 +17,9 @@
 
 import { test } from '../../fixtures/base-test';
 import { ApplicationsPage } from '../../pages/applications.page';
-import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { LOAD_STATES } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
+import { waitForWritesToSync } from '../../utils/writes-sync';
 
 const NEW_APP_NAME = withRandomSuffix('test-new');
 const NEW_APP_DESCRIPTION = 'test new description';
@@ -50,7 +51,7 @@ test.describe('Application Management Page', () => {
     logger?.info('✓ Test passed');
   });
 
-  test('should create and delete an application', async ({ page, logger }) => {
+  test('should create and delete an application', async ({ page, logger, gmsToken }) => {
     logger?.info('Test: Create and delete application');
     await applicationsPage.navigateToApplicationsPage();
     await applicationsPage.verifyPageTitle();
@@ -61,9 +62,10 @@ test.describe('Application Management Page', () => {
     await applicationsPage.enterApplicationDescription(NEW_APP_DESCRIPTION);
     await applicationsPage.clickCreateButton();
 
-    // Wait for async create operation to complete before checking table
-    logger?.info('Waiting for refetch after create');
-    await page.waitForTimeout(TIMEOUTS.SHORT);
+    // Wait for the create write to be consumed and indexed so the table's
+    // search-backed refetch can see the new application
+    logger?.info('Waiting for writes to sync after create');
+    await waitForWritesToSync(page.request, { gmsToken, logger });
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await applicationsPage.verifyApplicationInTable(NEW_APP_NAME);
@@ -71,9 +73,10 @@ test.describe('Application Management Page', () => {
     logger?.info(`Deleting application: ${NEW_APP_NAME}`);
     await applicationsPage.deleteApplication(NEW_APP_NAME);
 
-    // Wait for async delete operation to complete before checking table
-    logger?.info('Waiting for refetch after delete');
-    await page.waitForTimeout(TIMEOUTS.SHORT);
+    // Wait for the delete to be consumed and removed from the search index
+    // before asserting the row is gone
+    logger?.info('Waiting for writes to sync after delete');
+    await waitForWritesToSync(page.request, { gmsToken, logger });
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await applicationsPage.verifyApplicationNotInTable(NEW_APP_NAME);

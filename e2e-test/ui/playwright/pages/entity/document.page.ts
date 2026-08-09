@@ -211,9 +211,9 @@ export class DocumentPage extends BasePage {
     // Verify optimistic update with case-insensitive match
     await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
 
-    // Wait for network and database persistence before allowing reload
+    // Wait for the mutation round-trip; callers that reload afterwards use
+    // waitForWritesToSync() to cover consumer/index persistence.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
   async expectStatusContains(text: string): Promise<void> {
@@ -236,9 +236,9 @@ export class DocumentPage extends BasePage {
     // Verify optimistic update with case-insensitive match
     await expect(this.typeSelect).toContainText(new RegExp(type, 'i'));
 
-    // Wait for network and database persistence before allowing reload
+    // Wait for the mutation round-trip; callers that reload afterwards use
+    // waitForWritesToSync() to cover consumer/index persistence.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
   async expectTypeContains(text: string): Promise<void> {

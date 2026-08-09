@@ -202,9 +202,9 @@ export class ApplicationsPage extends BasePage {
   }
 
   async verifyAssetInList(assetName: string): Promise<void> {
-    // Wait for GraphQL search query to complete and render assets
+    // Wait for the GraphQL search query to complete; the visibility assertion
+    // below retries rendering for EXTRA_LONG on its own.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     const assetElement = this.getAssetElement(assetName);
     await expect(assetElement).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });

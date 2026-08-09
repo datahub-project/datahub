@@ -87,7 +87,6 @@ export class LineageV3Page extends LineageBasePage {
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
     await this.confirmFilterText();
-    await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
   // ── Time-Range Filtering ────────────────────────────────────────────────────
@@ -211,6 +210,33 @@ export class LineageV3Page extends LineageBasePage {
   }
 
   // ── Impact Analysis and Column Lineage Navigation ────────────────────────
+
+  /**
+   * Open the Impact Analysis view and wait for its search toolbar to hydrate.
+   * A click that lands during the entity page's initial render storm can be
+   * swallowed by a React re-render, so the click is retried via toPass()
+   * until the view's toolbar is actually visible — replacing the fixed
+   * post-goto sleeps this suite used to carry. Re-clicking is safe: the
+   * Impact Analysis button re-selects the same view.
+   */
+  async openImpactAnalysisView(): Promise<void> {
+    await expect(async () => {
+      await this.clickImpactAnalysis();
+      await expect(this.advSearchAddFilterButton).toBeVisible({ timeout: TIMEOUTS.OPERATION });
+    }).toPass({ timeout: TIMEOUTS.LONG });
+  }
+
+  /**
+   * Open the sidebar Lineage tab (task/datajob pages) and wait for its
+   * direction selector to hydrate. Same swallowed-click rationale as
+   * openImpactAnalysisView(); re-clicking re-selects the same tab.
+   */
+  async openSidebarLineageTab(): Promise<void> {
+    await expect(async () => {
+      await this.clickSidebarLineageTab();
+      await expect(this.upstreamDirectionOption).toBeVisible({ timeout: TIMEOUTS.OPERATION });
+    }).toPass({ timeout: TIMEOUTS.LONG });
+  }
 
   /**
    * Click the lineage tab in the entity page.

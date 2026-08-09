@@ -111,7 +111,9 @@ test.describe('impact analysis', () => {
 
     await lineagePage.addDescriptionFilter(UI_TEXT.FILTER_TEXT);
 
-    await lineagePage.expectResultTextHidden(UI_TEXT.USER_CREATIONS);
+    // The filtered refetch removes USER_CREATIONS; give the hidden-check the
+    // full refetch budget now that addDescriptionFilter no longer sleeps.
+    await lineagePage.expectResultTextHidden(UI_TEXT.USER_CREATIONS, TIMEOUTS.MEDIUM);
     await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
@@ -120,9 +122,8 @@ test.describe('impact analysis', () => {
     const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
     await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await lineagePage.clickImpactAnalysis();
+    await lineagePage.openImpactAnalysisView();
 
     await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
     await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
@@ -131,11 +132,13 @@ test.describe('impact analysis', () => {
 
     // Toggle off column-level impact analysis
     await lineagePage.clickColumnLineageToggle();
-    await page.waitForTimeout(TIMEOUTS.SHORT);
 
+    // FEATURE_1 only appears once the untoggled results refetch lands, so it
+    // is asserted first — a positive sync point that makes the hidden-check
+    // below meaningful without a fixed sleep.
+    await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
     await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
     await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.SHORT);
-    await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
     await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
   });
 
@@ -144,9 +147,10 @@ test.describe('impact analysis', () => {
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await lineagePage.clickImpactAnalysis();
+    // openImpactAnalysisView waits for the view's toolbar, so the
+    // hidden-checks below cannot pass vacuously against an unloaded page.
+    await lineagePage.openImpactAnalysisView();
 
     // No lineage edges should exist for the 2021 time window
     await lineagePage.expectResultTextHidden(UI_TEXT.HDFS_DATASET);
@@ -163,9 +167,8 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await lineagePage.clickSidebarLineageTab();
+    await lineagePage.openSidebarLineageTab();
     // Downstream
     await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
     // Upstream
@@ -178,9 +181,8 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await lineagePage.clickSidebarLineageTab();
+    await lineagePage.openSidebarLineageTab();
     // Downstream
     await lineagePage.expectResultTextVisible(UI_TEXT.AGGREGATED, TIMEOUTS.EXTRA_LONG);
     // Upstream
@@ -195,9 +197,8 @@ test.describe('impact analysis', () => {
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.SHORT);
 
-    await lineagePage.clickSidebarLineageTab();
+    await lineagePage.openSidebarLineageTab();
     await lineagePage.clickUpstreamDirection();
 
     await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_1, TIMEOUTS.MEDIUM);
@@ -207,9 +208,8 @@ test.describe('impact analysis', () => {
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    await page.waitForTimeout(TIMEOUTS.SHORT);
 
-    await lineagePage.clickSidebarLineageTab();
+    await lineagePage.openSidebarLineageTab();
     await lineagePage.clickUpstreamDirection();
 
     await lineagePage.expectResultTextVisible(UI_TEXT.TEMPERATURE_ETL_2, TIMEOUTS.MEDIUM);

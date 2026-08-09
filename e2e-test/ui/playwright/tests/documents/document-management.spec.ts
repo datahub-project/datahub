@@ -13,6 +13,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { withRandomSuffix } from '../../utils/random';
 import { DocumentPage } from '../../pages/entity/document.page';
 import { TIMEOUTS, LOAD_STATES, KEYS } from '../../utils/constants';
+import { waitForWritesToSync } from '../../utils/writes-sync';
 
 // Test constants
 const STATUS_PUBLISHED = 'PUBLISHED';
@@ -106,13 +107,15 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document status', async ({ page, cleanup }) => {
+  test('should update document status', async ({ page, cleanup, gmsToken }) => {
     const statusTestDoc = withRandomSuffix('status-test');
     const docUrn = await documentPage.createDocumentWithTitle(statusTestDoc);
     cleanup.track(docUrn);
 
     await documentPage.updateDocumentStatus(STATUS_PUBLISHED);
 
+    // Ensure the status write is consumed and indexed before the reload re-reads it
+    await waitForWritesToSync(page.request, { gmsToken });
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -122,13 +125,15 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document type', async ({ page, cleanup }) => {
+  test('should update document type', async ({ page, cleanup, gmsToken }) => {
     const typeTestDoc = withRandomSuffix('type-test');
     const docUrn = await documentPage.createDocumentWithTitle(typeTestDoc);
     cleanup.track(docUrn);
 
     await documentPage.updateDocumentType(TYPE_RUNBOOK);
 
+    // Ensure the type write is consumed and indexed before the reload re-reads it
+    await waitForWritesToSync(page.request, { gmsToken });
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -197,7 +202,7 @@ test.describe('Document Management', () => {
 
   // ── Deletion Operations ────────────────────────────────────────────────────
 
-  test('should create and delete a document', async ({ page }) => {
+  test('should create and delete a document', async ({ page, gmsToken }) => {
     const docTitle = withRandomSuffix('delete-test');
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
 
@@ -205,7 +210,9 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
+    // Ensure the delete is consumed and removed from the index before the
+    // documents tree is re-queried
+    await waitForWritesToSync(page.request, { gmsToken });
 
     await documentPage.navigateToDocuments();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -213,7 +220,7 @@ test.describe('Document Management', () => {
     await expect(documentPage.getTreeItem(docUrn)).not.toBeAttached();
   });
 
-  test('should delete parent document and cascade to children', async ({ page, cleanup }) => {
+  test('should delete parent document and cascade to children', async ({ page, cleanup, gmsToken }) => {
     const base = withRandomSuffix('doc');
     const parentTitle = `${base}_parent`;
     const childTitle = `${base}_child`;
@@ -231,7 +238,9 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
+    // Ensure the cascade delete is consumed and removed from the index before
+    // the documents tree is re-queried
+    await waitForWritesToSync(page.request, { gmsToken });
 
     await documentPage.navigateToDocuments();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
