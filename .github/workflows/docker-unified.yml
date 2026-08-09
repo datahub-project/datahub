@@ -173,7 +173,7 @@ jobs:
           ENABLE_PUBLISH: >-
             ${{
                (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+               && ( secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
@@ -184,7 +184,7 @@ jobs:
           ENABLE_PUBLISH: >-
             ${{
                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+               && ( secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"

@@ -72,9 +72,10 @@ PATH_RULES=(
   # The actions image is Python: it pip-installs ../metadata-ingestion at build
   # time and never enters the shared JVM chain, so it is cheap to build alone.
   #
-  # Exactly two snippets are COPYd by every service Dockerfile and map to the
-  # full set; the rest of docker/snippets/ (ingestion base, uv, python base
-  # images, ...) feeds only the ingestion/actions images.
+  # Two snippets feed JVM service images and map to the full set:
+  # setup_java_runtime.sh (gms, frontend, mae, mce, upgrade, actions) and
+  # wait_for_deps.sh (gms, mae, mce, upgrade, ingestion-base). The rest of
+  # docker/snippets/ feeds only the ingestion/actions images.
   "docker/snippets/setup_java_runtime.sh|${EVERYTHING}"
   "docker/snippets/wait_for_deps.sh|${EVERYTHING}"
   "docker/snippets/|${ACTIONS}"
@@ -196,8 +197,9 @@ elif ((${#changed_files[@]} == 0)); then
   full_build_reason="the changed-file list was empty or unreadable"
 elif ((${#unclassified[@]})); then
   # The path is PR-controlled and this string reaches the step summary, which
-  # GitHub renders as markdown -- strip link-forming characters.
-  first_unclassified=$(printf '%s' "${unclassified[0]}" | tr -d '[]()<>`|')
+  # GitHub renders as markdown (and git filenames may contain newlines) --
+  # reduce to a safe allowlist instead of stripping known-bad characters.
+  first_unclassified=$(printf '%s' "${unclassified[0]}" | tr -cd 'A-Za-z0-9._/-' | cut -c1-120)
   full_build_reason="${#unclassified[@]} changed path(s) are unclassified, starting with ${first_unclassified}"
 fi
 

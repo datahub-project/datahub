@@ -67,10 +67,17 @@ echo "$resolved_images"
 for repo in ${EXPECT_PR_TAGGED_IMAGES:-}; do
   resolved=$(echo "$resolved_images" | grep "/${repo}:" || true)
   if [[ -z "$resolved" ]]; then
-    # The selected compose profile does not run this service at all (e.g.
-    # quickstartPg has no MAE/MCE), so there is nothing to assert -- but the
-    # images the profile does run are still checked below.
-    echo "NOTE: ${repo} is not part of this compose profile; skipping tag assertion"
+    if [[ "${PROFILE_NAME:-quickstart-consumers}" == "quickstart-consumers" ]]; then
+      # Default profile: every expected repository must resolve. An absent
+      # service here means compose configuration regressed, and skipping would
+      # quietly bypass the stale-image assertion.
+      echo "ERROR: ${repo} was built for this run but does not resolve to any" >&2
+      echo "       service in the default compose profile." >&2
+      exit 1
+    fi
+    # A non-default profile (smoke: label / dispatch) legitimately runs fewer
+    # services (e.g. quickstartPg has no MAE/MCE); assert only what it runs.
+    echo "NOTE: ${repo} is not part of profile ${PROFILE_NAME}; skipping tag assertion"
     continue
   fi
   if [[ "$resolved" != *":${DATAHUB_VERSION}"* ]]; then
