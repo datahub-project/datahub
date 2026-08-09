@@ -22,7 +22,8 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10 or 3.11** installed and configured. Check with `python3 --version` on macOS/Linux or
+  `py --version` on Windows.
 
 :::note Docker Resource Allocation
 
@@ -48,7 +49,7 @@ Homebrew manages an isolated Python environment for `datahub`, so there's no ven
 ```
 
 </TabItem>
-<TabItem value="pip" label="pip">
+<TabItem value="pip-unix" label="pip (macOS/Linux)">
 
 ```bash
 python3 -m pip install --upgrade pip wheel setuptools
@@ -60,6 +61,22 @@ datahub version
 
 If you see `command not found`, try running cli commands like `python3 -m datahub version`. <br />
 Note that DataHub CLI does not support Python 2.x.
+
+:::
+
+</TabItem>
+<TabItem value="pip-windows" label="pip (Windows)">
+
+```powershell
+py -m pip install --upgrade pip wheel setuptools
+py -m pip install --upgrade acryl-datahub
+py -m datahub version
+```
+
+:::note Command Not Found
+
+The Windows Python installer includes the `py` launcher. If `py` is unavailable, replace it with `python` in the
+commands above.
 
 :::
 
@@ -157,7 +174,10 @@ Once DataHub is running, use the commands below to manage your local instance. T
 
 By default, DataHub generates a random signing key and salt for authentication tokens on first run and reuses them on later runs (saved to `~/.datahub/quickstart/.local-secrets.env`). Most users don't need to change this.
 
-If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`:
+If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`.
+
+<Tabs>
+<TabItem value="signing-key-unix" label="macOS/Linux">
 
 ```bash
 export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
@@ -165,6 +185,28 @@ export DATAHUB_TOKEN_SERVICE_SALT=<value>
 ```
 
 Generate a value with `openssl rand -base64 32`.
+
+</TabItem>
+<TabItem value="signing-key-windows" label="Windows PowerShell">
+
+```powershell
+function New-DataHubSecret {
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $bytes = New-Object byte[] 32
+        $rng.GetBytes($bytes)
+        [Convert]::ToBase64String($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+}
+
+$env:DATAHUB_TOKEN_SERVICE_SIGNING_KEY = New-DataHubSecret
+$env:DATAHUB_TOKEN_SERVICE_SALT = New-DataHubSecret
+```
+
+</TabItem>
+</Tabs>
 
 If upgrading from a CLI older than v1.5: the signing key is now generated randomly instead of using a hardcoded default, so any personal access tokens (PATs) created before upgrading are invalidated and must be regenerated.
 
