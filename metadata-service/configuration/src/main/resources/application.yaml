@@ -1456,6 +1456,9 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT:0}
+    reprocess:
+      # Force re-run for the current MCP domain/ownership fingerprint even if already SUCCEEDED
+      enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS:false}
   assertionEntityField:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
@@ -1605,6 +1608,9 @@ featureFlags:
   postCommitRetentionEnabled: ${POST_COMMIT_RETENTION_ENABLED:false} # Moves aspect retention out of the ingest retry loop to a best-effort post-commit path. When false, retention runs inside the retry loop (legacy behavior). When true, retention failures never trigger a retry or poison the batch. Default OFF.
   retentionBufferEnabled: ${RETENTION_BUFFER_ENABLED:false} # When true (and postCommitRetentionEnabled), coalesce post-commit retention into a Hazelcast-backed OffloadBuffer (KEEP_MAX_LONG merge) and drain off the ingest thread. When false, post-commit applies retention synchronously. Default OFF. Enabling this boots the shared embedded Hazelcast node; every ingesting pod (GMS or MCE consumer) runs the drainer and all pods share one map + a cluster-wide drain lock, so exactly one drains per tick.
   postCommitHookBufferEnabled: ${POST_COMMIT_HOOK_BUFFER_ENABLED:false} # When true, moves post-commit MCPSideEffect hooks that opt in via MCPSideEffect#defersPostCommit() off the ingest thread onto an async, Hazelcast-backed replay buffer drained by PostCommitHookDrainer. Replay is async-only (NO coalescing): every committed MCL is replayed exactly once, so no intermediate transition is dropped. Delivery is at-least-once (in-memory buffer) with retry + bounded DLQ for poison keys. Default OFF. Enabling this boots the shared embedded Hazelcast node; every ingesting pod runs the drainer and all pods share one map + a cluster-wide drain lock, so exactly one drains per tick.
+  # When true, aspect DB writes use optimistic locking (CAS on SystemMetadata.version) instead of
+  # SELECT FOR UPDATE. Ignored when entityService.impl=cassandra.
+  optimisticLocking: ${OPTIMISTIC_LOCKING_ENABLED:false}
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
@@ -1911,6 +1917,9 @@ metadataChangeProposal:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
+    aspectAuthorization:
+      domainWrite:
+        enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:
@@ -1923,6 +1932,10 @@ metadataChangeProposal:
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
+      domain:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED:false}
+      ownership:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED:false}
     dataProductUnset:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
     aliases:

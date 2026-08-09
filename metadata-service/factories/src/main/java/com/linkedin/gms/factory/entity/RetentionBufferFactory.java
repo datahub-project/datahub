@@ -14,12 +14,13 @@ import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.entity.retention.buffer.CoalesceRetentionBuffer;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.entity.retention.buffer.RetentionDrainAction;
 import com.linkedin.metadata.entity.retention.buffer.RetentionDrainer;
-import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
+import com.linkedin.metadata.entity.retention.buffer.RetentionOffloadResolverAdapter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -76,8 +77,6 @@ public class RetentionBufferFactory {
   @Nonnull
   public MapConfig retentionPendingMapConfig(
       ConfigurationProvider configurationProvider, OffloadBufferFactory offloadBufferFactory) {
-    // EVICT_LRU → the framework provisions a PER_NODE LRU EvictionConfig sized to
-    // maxPendingEntries (latest-wins; eviction = bloat, not loss).
     return offloadBufferFactory.pendingMapConfig(effectiveProperties(configurationProvider));
   }
 
@@ -107,9 +106,6 @@ public class RetentionBufferFactory {
     return offloadBufferFactory.seqMapConfig(effectiveProperties(configurationProvider));
   }
 
-  // The single OffloadBuffer bean is shared: retentionBuffer enqueues into it and retentionDrainer
-  // drains it, so no RetentionBuffer downcast is needed. (Two-flag gating + state matrix: class
-  // javadoc; none is created rather than a null bean when only one flag is on.)
   @Bean
   @ConditionalOnProperty(
       name = {
@@ -143,7 +139,7 @@ public class RetentionBufferFactory {
       havingValue = "true")
   @ConditionalOnMissingBean(RetentionContextResolver.class)
   @Nonnull
-  public RetentionContextResolver<RetentionKey> retentionContextResolver() {
+  public RetentionContextResolver retentionContextResolver() {
     return new SimpleRetentionContextResolver();
   }
 
@@ -157,7 +153,7 @@ public class RetentionBufferFactory {
   @Nonnull
   public RetentionBuffer retentionBuffer(
       OffloadBuffer<RetentionKey, Long> retentionOffloadBuffer,
-      RetentionContextResolver<RetentionKey> retentionContextResolver) {
+      RetentionContextResolver retentionContextResolver) {
     return new CoalesceRetentionBuffer(retentionOffloadBuffer, retentionContextResolver);
   }
 
@@ -171,7 +167,7 @@ public class RetentionBufferFactory {
   @Nonnull
   public RetentionDrainer retentionDrainer(
       OffloadBuffer<RetentionKey, Long> retentionOffloadBuffer,
-      RetentionContextResolver<RetentionKey> retentionContextResolver,
+      RetentionContextResolver retentionContextResolver,
       @Qualifier("retentionService") RetentionService<ChangeItemImpl> retentionService,
       ConfigurationProvider configurationProvider,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
@@ -179,10 +175,6 @@ public class RetentionBufferFactory {
       TaskScheduler taskScheduler,
       @Nullable MetricUtils metricUtils) {
     if (!(retentionService instanceof EbeanRetentionService)) {
-      // Only EbeanRetentionService overrides applyRetentionBatchWithPolicyDefaults to apply each
-      // context in its own transaction (poison-pair isolation). Other impls (e.g. Cassandra)
-      // inherit the default, which treats the whole batch as all-or-nothing — weaker contract, no
-      // data loss.
       log.warn(
           "Coalesced retention drainer wired with non-Ebean RetentionService ({}); batch retention"
               + " has no per-context transaction isolation.",
@@ -192,14 +184,13 @@ public class RetentionBufferFactory {
     OffloadDrainer<RetentionKey, Long> drainer =
         offloadBufferFactory.createDrainer(
             retentionOffloadBuffer,
-            retentionContextResolver,
+            new RetentionOffloadResolverAdapter(retentionContextResolver),
             systemOperationContext,
             new RetentionDrainAction(retentionService, metricUtils),
             props,
             true,
             "retention",
             metricUtils);
-    // Programmatic scheduling — no @EnableScheduling / @Scheduled needed.
     offloadBufferFactory.scheduleDrainer(taskScheduler, drainer, props.getDrainIntervalMs());
     return new RetentionDrainer(drainer);
   }

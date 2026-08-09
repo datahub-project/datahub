@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.offload.HazelcastOffloadBuffer;
 import com.linkedin.metadata.buffer.offload.OffloadBuffer;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.Serializable;
 import java.util.Comparator;
@@ -17,7 +18,8 @@ import javax.annotation.Nonnull;
  *
  * <p>Enqueue routes through a {@link RetentionContextResolver} so the buffer key carries whatever
  * routing metadata the resolver attaches from the request {@link OperationContext}. The drainer
- * uses the same resolver to reconstruct a per-group context at drain time.
+ * uses the same resolver (via {@link RetentionOffloadResolverAdapter}) to reconstruct a per-group
+ * context at drain time.
  *
  * <p>All infra (drain lock, paging drain, CAS clear, keep-max merge, eviction) lives in the
  * framework {@link HazelcastOffloadBuffer}; this class adds only the retention-specific key/value
@@ -26,11 +28,11 @@ import javax.annotation.Nonnull;
 public class CoalesceRetentionBuffer implements RetentionBuffer {
 
   private final OffloadBuffer<RetentionKey, Long> buffer;
-  private final RetentionContextResolver<RetentionKey> contextResolver;
+  private final RetentionContextResolver contextResolver;
 
   public CoalesceRetentionBuffer(
       @Nonnull OffloadBuffer<RetentionKey, Long> buffer,
-      @Nonnull RetentionContextResolver<RetentionKey> contextResolver) {
+      @Nonnull RetentionContextResolver contextResolver) {
     this.buffer = buffer;
     this.contextResolver = contextResolver;
   }

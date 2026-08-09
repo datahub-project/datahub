@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.retention.buffer;
 
 import com.linkedin.metadata.buffer.offload.OffloadDrainer;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Construction and scheduling are done by {@code RetentionBufferFactory} via the shared {@code
  * OffloadBufferFactory}; the factory builds the {@link OffloadDrainer} (with a {@link
- * RetentionDrainAction} and a {@link
+ * RetentionDrainAction} and a {@link RetentionOffloadResolverAdapter} wrapping the {@link
  * com.linkedin.metadata.entity.retention.RetentionContextResolver}) and registers {@code
  * drainer::tick} with a Spring {@code TaskScheduler} — no {@code @EnableScheduling} config is
  * needed (the old {@code RetentionBufferSchedulingConfig} is deleted).
