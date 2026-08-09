@@ -124,7 +124,8 @@ class QueryId(StrEnum):
     LOOK_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_look"
     EXPLORE_PER_DAY_USAGE_STAT = "counts_per_day_per_explore"
     EXPLORE_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_explore"
-    EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT = "counts_per_day_per_field_per_explore"
+    # Lifetime totals, not day-scoped — see the query definition below.
+    EXPLORE_FIELD_USAGE_STAT = "lifetime_counts_per_field_per_explore"
 
 
 query_collection: Dict[QueryId, LookerQuery] = {
@@ -204,8 +205,11 @@ query_collection: Dict[QueryId, LookerQuery] = {
     # Unlike querying query.fields from History (which is subject to the
     # 5000-row default limit and returns sparse, truncated data on busy
     # instances), field_usage provides complete lifetime per-field counts
-    # with one row per (model, explore, field).
-    QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT: LookerQuery(
+    # with one row per (model, explore, field).  Counts are lifetime totals,
+    # so this query is deliberately not date-filtered — see
+    # ExploreStatGenerator._augment_entity_timeseries_aspects for how they
+    # are mapped onto day buckets.
+    QueryId.EXPLORE_FIELD_USAGE_STAT: LookerQuery(
         model=LookerModel.SYSTEM_ACTIVITY,
         explore=LookerExplore.FIELD_USAGE,
         fields=[
@@ -423,12 +427,16 @@ class BaseStatGenerator(ABC):
         return rows
 
     def _append_filters(self, query: LookerQuery) -> LookerQuery:
-        query.filters.update(
-            {HistoryViewField.HISTORY_CREATED_DATE: self.config.interval}
-        )
+        # Returns a copy: `query_collection` holds one shared LookerQuery per
+        # QueryId, so mutating it here would leak this run's interval and
+        # entity-id filters into every later generator in the same process.
+        filters: Dict[ViewField, str] = {
+            **query.filters,
+            HistoryViewField.HISTORY_CREATED_DATE: self.config.interval,
+        }
         if not self.post_filter:
-            query.filters.update(self.get_filter())
-        return query
+            filters.update(self.get_filter())
+        return dataclasses.replace(query, filters=filters)
 
     def emits_absolute_stats(self) -> bool:
         """Whether the source exposes an absolute usage snapshot for this entity.
@@ -747,19 +755,21 @@ class ExploreStatGenerator(BaseStatGenerator):
     def report_skip_set(self) -> LossySet[str]:
         return self.report.explores_skipped_for_usage
 
-    def get_filter(self) -> Dict[ViewField, str]:
-        return {
-            QueryViewField.QUERY_VIEW: ",".join(
-                sorted(
-                    {
-                        explore.name
-                        for explore in cast(
-                            Sequence[LookerExploreForUsage], self.looker_models
-                        )
-                    }
-                )
+    def _explore_names(self) -> str:
+        # Looker filter syntax for "any of": a comma-separated list of values.
+        return ",".join(
+            sorted(
+                {
+                    explore.name
+                    for explore in cast(
+                        Sequence[LookerExploreForUsage], self.looker_models
+                    )
+                }
             )
-        }
+        )
+
+    def get_filter(self) -> Dict[ViewField, str]:
+        return {QueryViewField.QUERY_VIEW: self._explore_names()}
 
     def get_id(self, looker_object: ModelForUsage) -> str:
         explore = cast(LookerExploreForUsage, looker_object)
@@ -815,31 +825,42 @@ class ExploreStatGenerator(BaseStatGenerator):
             userCounts=[],
         )
 
-    def _augment_entity_timeseries_aspects(
-        self, entity_usage_stat: Dict[Tuple[str, str], Any]
-    ) -> None:
-        """Attach per-field usage from the ``field_usage`` explore to each
-        per-day explore aspect.  The field_usage explore provides
-        pre-aggregated lifetime counts (one row per model/explore/field),
-        so the same fieldCounts list is attached to every day-bucket for
-        a given explore.
+    def _fetch_field_usage_counts(self) -> Dict[str, Dict[str, int]]:
+        """Lifetime per-field usage counts from the ``field_usage`` explore,
+        keyed by ``<model>::<explore>`` then field name.
 
         Calls the API wrapper directly (not ``_execute_query``) because
         ``_execute_query``'s ``post_filter`` path expects History-explore
         row keys (``query.model``/``query.view``) that don't exist in
         ``field_usage`` rows."""
-        field_query = query_collection[QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT]
+        field_query = query_collection[QueryId.EXPLORE_FIELD_USAGE_STAT]
+        if not self.post_filter:
+            # Without this the query returns every field of every explore on
+            # the instance, which is a lot of rows given limit=-1.
+            field_query = dataclasses.replace(
+                field_query,
+                filters={
+                    **field_query.filters,
+                    FieldUsageViewField.FIELD_USAGE_EXPLORE: self._explore_names(),
+                },
+            )
+
+        start_time = datetime.datetime.now()
         try:
             field_rows = self.config.looker_api_wrapper.execute_query(
                 field_query.to_write_query()
             )
         except Exception as e:
-            logger.warning("Failed to fetch field usage data: %s", e)
-            return
-
-        if not field_rows:
-            logger.info("field_usage explore returned 0 rows")
-            return
+            self.report.warning(
+                title="Failed to Fetch Explore Field Usage",
+                message="Per-field usage counts will be missing from explore usage stats. Check that the ingestion user can query the System Activity field_usage explore.",
+                exc=e,
+            )
+            return {}
+        self.report.report_query_latency(
+            f"{self.get_stats_generator_name()}:field_query",
+            datetime.datetime.now() - start_time,
+        )
 
         per_explore_counts: Dict[str, Dict[str, int]] = defaultdict(dict)
         for row in field_rows:
@@ -847,17 +868,47 @@ class ExploreStatGenerator(BaseStatGenerator):
             explore = row.get(FieldUsageViewField.FIELD_USAGE_EXPLORE)
             field = row.get(FieldUsageViewField.FIELD_USAGE_FIELD)
             times_used = row.get(FieldUsageViewField.FIELD_USAGE_TIMES_USED)
-            if not all((model, explore, field, times_used)):
+            if model is None or explore is None or field is None:
+                self.report.explore_field_usage_rows_dropped += 1
                 continue
-            explore_id = self._stat_key(model, explore)
-            per_explore_counts[explore_id][field] = int(times_used)
+            if not times_used:
+                continue
+            per_explore_counts[self._stat_key(str(model), str(explore))][str(field)] = (
+                int(times_used)
+            )
+        return per_explore_counts
 
-        # field_usage counts are lifetime totals, not day-scoped.
-        for (explore_id, _date), aspect in entity_usage_stat.items():
+    def _augment_entity_timeseries_aspects(
+        self, entity_usage_stat: Dict[Tuple[str, str], Any]
+    ) -> None:
+        """Attach per-field usage from the ``field_usage`` explore to the
+        explore's per-day aspects.
+
+        ``field_usage`` reports lifetime totals, one row per
+        (model, explore, field), while these aspects are day buckets whose
+        ``fieldCounts.count`` GMS SUMs across every bucket in a queried range
+        (see ``UsageServiceUtil#getFieldUsageCounts``).  Attaching the same
+        list to every bucket would therefore multiply each count by the number
+        of active days, so the lifetime snapshot goes on the latest bucket
+        only: a range sum then reports it exactly once."""
+        if not entity_usage_stat:
+            return
+
+        per_explore_counts = self._fetch_field_usage_counts()
+        if not per_explore_counts:
+            return
+
+        # Dates are ISO-formatted (YYYY-MM-DD), so string ordering is date order.
+        latest_bucket: Dict[str, str] = {}
+        for explore_id, date in entity_usage_stat:
+            if date > latest_bucket.get(explore_id, ""):
+                latest_bucket[explore_id] = date
+
+        for explore_id, date in latest_bucket.items():
             field_counts = per_explore_counts.get(explore_id)
             if not field_counts:
                 continue
-            aspect.fieldCounts = [
+            entity_usage_stat[(explore_id, date)].fieldCounts = [
                 DatasetFieldUsageCountsClass(fieldPath=field_name, count=count)
                 for field_name, count in sorted(field_counts.items())
             ]

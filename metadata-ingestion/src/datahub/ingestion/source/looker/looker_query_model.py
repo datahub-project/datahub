@@ -35,7 +35,9 @@ class LookerField(StrEnum):
     COUNT = "count"
     MODEL = "model"
     VIEW = "view"
-    FIELDS = "fields"
+    EXPLORE = "explore"
+    FIELD = "field"
+    TIMES_USED = "times_used"
 
 
 class ViewField(StrEnum):
@@ -69,9 +71,6 @@ class QueryViewField(ViewField):
     # LookML view). Together with `query.model` it identifies the explore.
     QUERY_MODEL = f"{LookerView.QUERY}.{LookerField.MODEL}"
     QUERY_VIEW = f"{LookerView.QUERY}.{LookerField.VIEW}"
-    # System Activity's list of fully-qualified `view.field` names each query
-    # referenced.  Returned as a single delimited string (not an array).
-    QUERY_FIELDS = f"{LookerView.QUERY}.{LookerField.FIELDS}"
 
 
 class FieldUsageViewField(ViewField):
@@ -81,9 +80,9 @@ class FieldUsageViewField(ViewField):
     without the row-limit truncation issues of the History explore."""
 
     FIELD_USAGE_MODEL = f"{LookerView.FIELD_USAGE}.{LookerField.MODEL}"
-    FIELD_USAGE_EXPLORE = "field_usage.explore"
-    FIELD_USAGE_FIELD = "field_usage.field"
-    FIELD_USAGE_TIMES_USED = "field_usage.times_used"
+    FIELD_USAGE_EXPLORE = f"{LookerView.FIELD_USAGE}.{LookerField.EXPLORE}"
+    FIELD_USAGE_FIELD = f"{LookerView.FIELD_USAGE}.{LookerField.FIELD}"
+    FIELD_USAGE_TIMES_USED = f"{LookerView.FIELD_USAGE}.{LookerField.TIMES_USED}"
 
 
 @dataclass
