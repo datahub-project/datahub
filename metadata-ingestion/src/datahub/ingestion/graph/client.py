@@ -1410,6 +1410,45 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         results = self._post_generic(self._aspect_count_endpoint, args)
         return results["value"]
 
+    def get_documents_by_asset(
+        self,
+        urn: str,
+        start: int = 0,
+        count: int = 20,
+    ) -> Iterable[str]:
+        """
+        Yields Document URNs connected to the provided data asset via native Context Documents.
+        """
+        params: dict = {
+            "input": {
+                "start": start,
+                "count": count,
+                "relatedAssets": [urn],
+            }
+        }
+        query: str = """
+            query searchDocuments($input: SearchDocumentsInput!) {
+              searchDocuments(input: $input) {
+                total
+                documents {
+                  urn
+                }
+              }
+            }
+        """
+
+        while True:
+            response = self.execute_graphql(query, variables=params)
+            payload = response.get("searchDocuments", {})
+            documents = payload.get("documents", [])
+            for doc in documents:
+                if "urn" in doc:
+                    yield doc["urn"]
+
+            if not documents:
+                break
+            params["input"]["start"] += len(documents)
+
     def execute_graphql(
         self,
         query: str,

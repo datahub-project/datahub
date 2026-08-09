@@ -121,3 +121,35 @@ def test_get_urns_by_filter_rejects_draft_when_server_does_not_support_flag() ->
             )
 
     assert mock_execute_graphql.call_count == 1
+
+
+def test_get_documents_by_asset() -> None:
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    with patch.object(
+        graph,
+        "execute_graphql",
+        side_effect=[
+            {
+                "searchDocuments": {
+                    "documents": [{"urn": "urn:li:document:doc1"}],
+                    "total": 1,
+                }
+            },
+            {
+                "searchDocuments": {
+                    "documents": [],
+                    "total": 1,
+                }
+            },
+        ],
+    ) as mock_execute_graphql:
+        docs = list(graph.get_documents_by_asset("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)"))
+
+    assert docs == ["urn:li:document:doc1"]
+    assert mock_execute_graphql.call_count == 2
+    query = mock_execute_graphql.call_args_list[0].kwargs["query"]
+    variables = mock_execute_graphql.call_args_list[0].kwargs["variables"]
+    assert "searchDocuments" in query
+    assert variables["input"]["relatedAssets"] == ["urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)"]
+    assert variables["input"]["start"] == 0
