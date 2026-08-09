@@ -775,6 +775,60 @@ cd datahub-web-react && yarn test src/path/to/file.test.ts --run
 unrelated files. Focus on errors in files **you touched** — in particular, optional
 prop calls (`prop?.(arg)`) and import aliases.
 
+## Working on CI (GitHub Actions, Gradle, caches)
+
+Verified facts about this repo's CI. Check changes against these — every one was
+learned from a silent failure:
+
+- **Lint workflows locally before pushing:** `actionlint` in addition to YAML
+  parse and `githubActionsPrettierCheck`. Only actionlint knows GitHub's
+  semantics — e.g. the `secrets` context is not allowed in step-level `if:`
+  (compute a job output in `setup` instead, as `docker-login` does). A context
+  violation fails the whole run with zero jobs.
+- **`gh run view --log` silently truncates.** Always fetch complete logs via
+  `gh api repos/{owner}/{repo}/actions/jobs/{job_id}/logs` before concluding
+  anything from a log.
+- **Actions cache entries are immutable and ref-scoped.** A fixed key string
+  means the first save wins forever and every later save fails — as a warning,
+  so nothing goes red. A cache saved on a PR ref is invisible to every other PR.
+  PRs can read entries from master and from their PR's base branch. Pattern:
+  write on master (or a master-gated warmup job), restore-by-prefix on PRs.
+  Never a fixed literal key; never a save that can only run on a ref where the
+  workflow never triggers.
+- **Two cache backends exist.** On `depot-*` runners `actions/cache` is served
+  by Depot Cache (no 10 GB limit, not ref-scoped); on `ubuntu-*` runners by
+  GitHub (10 GB repo budget, ref-scoped). A writer on one backend cannot warm a
+  reader on the other — check `runs-on` for both sides of any cache pair.
+- **The Gradle remote build cache** (`settings.gradle` → cache.depot.dev) is
+  gated on `DEPOT_TOKEN` (org token, not project token) and must push only from
+  master: PR runs that can write to it can poison what trusted builds read. It
+  fails silently — one 403 and Gradle disables it for the rest of the build at
+  info level.
+- **CI caching fails silently by design** (failed save = warning, missed
+  restore = nothing, disabled remote = info line). A PR that touches caching
+  must state the log line proving it works (`FROM-CACHE`,
+  `Cache restored from key: …`) and the log line that would reveal it broken
+  (`Unable to reserve cache`, `response status 403`, `Failed to save`).
+- **Per-task timings attributed from log-line gaps are not a profile** under
+  `org.gradle.parallel=true`. Use `--profile` or job-level durations, and treat
+  ±0.3 min as noise on runner timings.
+
+## Verification discipline
+
+- **Hunt the counterexample, not the confirmation.** Before claiming "X is only
+  used by Y", search for X itself (`grep -rln <filename>`), not for the one
+  consumption mechanism you already know about. An absence claim needs a search
+  shaped to find presence _anywhere_.
+- **New guardrails must be walked against existing special cases.** When adding
+  an assertion or backstop to a workflow, re-check it against every existing
+  mode in that workflow — labels, fork PRs, `workflow_dispatch`, non-default
+  profiles — not just the happy path it was written for.
+- **Treat PR-controlled strings as hostile** anywhere they reach rendered
+  output (step summaries render markdown) or a shell. Treat any credential
+  visible to a `pull_request` job as readable by PR code.
+- **Stage files explicitly** (`git add <path>…`), never `git add -A` — this is
+  a public repo and scratch/analysis files must not enter history.
+
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
