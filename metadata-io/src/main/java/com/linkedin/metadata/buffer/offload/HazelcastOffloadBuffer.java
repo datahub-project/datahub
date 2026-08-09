@@ -141,9 +141,13 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
       }
       increment(metricPrefix + "_enqueued");
       return true;
+    } catch (IllegalArgumentException | UnsupportedOperationException e) {
+      // Programming / wiring errors (e.g. KEEP_MAX_LONG with a non-Long value) must propagate —
+      // returning false would hide a misconfiguration as a soft sync-fallback.
+      throw e;
     } catch (Exception e) {
-      // Do NOT swallow: return false so the caller falls back to synchronous execution. Losing the
-      // async deferral is acceptable; losing the side effect is not.
+      // Transient infra failure: return false so the caller falls back to synchronous execution.
+      // Losing the async deferral is acceptable; losing the side effect is not.
       log.warn("{} buffer enqueue failed; caller will fall back to sync", metricPrefix, e);
       increment(metricPrefix + "_enqueue_failed");
       return false;

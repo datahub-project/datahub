@@ -28,8 +28,8 @@ import javax.annotation.Nonnull;
  * <p>Default {@link SimpleHookContextResolver} is a no-op: keys carry no routing metadata ({@link
  * SimpleHookKey}) and {@link #resolveOpContext} returns the system context unchanged, matching the
  * single-database deployment. An extension may supply its own implementation (and a matching {@link
- * HookKey} subtype carrying route metadata), registered {@code @Primary} / {@code
- * @ConditionalOnMissingBean} to override the default.
+ * HookKey} subtype carrying route metadata), registered {@code @Primary} /
+ * {@code @ConditionalOnMissingBean} to override the default.
  *
  * <p><b>Failure contract.</b> {@link #groupKey} and {@link #resolveOpContext} distinguish permanent
  * from transient failures: throw {@link UnresolvableHookKeyException} for a key that will

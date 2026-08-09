@@ -8,8 +8,8 @@ import java.io.Serializable;
  * io.datahubproject.metadata.context.OperationContext} at drain time (e.g. a multi-database impl
  * stamps a route id so the drainer replays against the originating catalog).
  *
- * <p>Mirrors {@code com.linkedin.metadata.entity.retention.buffer.RetentionKey}: an interface with a
- * {@link SimpleHookKey} default and an extension-supplied subtype for routing. Equality MUST
+ * <p>Mirrors {@code com.linkedin.metadata.entity.retention.buffer.RetentionKey}: an interface with
+ * a {@link SimpleHookKey} default and an extension-supplied subtype for routing. Equality MUST
  * include the routing metadata so two replays for the same (hookId, urn, aspect) from different
  * routes do NOT collapse into one buffer entry — they target different catalogs and must be
  * replayed independently. (The async-only buffer never coalesces anyway — every key is unique via
