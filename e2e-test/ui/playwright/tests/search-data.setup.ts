@@ -4,11 +4,12 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createScriptLogger } from '../utils/logger';
+import { waitForWritesToSync } from '../utils/writes-sync';
 
 const execAsync = promisify(exec);
 const logger = createScriptLogger('search-data.setup');
 
-setup('seed search data', async () => {
+setup('seed search data', async ({ request }) => {
   setup.setTimeout(180000); // 3 minute timeout
   logger.info('Seeding search test data via datahub CLI...');
 
@@ -119,9 +120,11 @@ setup('seed search data', async () => {
     fs.unlinkSync(searchDataConfigPath);
     fs.unlinkSync(businessAttributesConfigPath);
 
-    // Wait for Elasticsearch indexing
-    logger.info('Waiting for search indexing (15 seconds)...');
-    await new Promise((resolve) => setTimeout(resolve, 15000));
+    // Wait for the ingested proposals to be consumed and indexed (offset
+    // checkpoint + ES refresh margin) instead of a fixed 15 s sleep — the
+    // checkpoint resolves as soon as the consumers actually catch up.
+    logger.info('Waiting for writes to sync (consumer offsets + ES refresh)...');
+    await waitForWritesToSync(request, { gmsToken: token, logger });
 
     logger.info('Search test data seeded successfully');
   } catch (error) {
