@@ -13,15 +13,14 @@ if [ "${DATAHUB_GMS_BASE_PATH}" = "/" ] || [ -z "${DATAHUB_GMS_BASE_PATH}" ]; th
 else
     export DATAHUB_GMS_URL=http://localhost:8080${DATAHUB_GMS_BASE_PATH}
 fi
-# Align smoke-test process env with docker-compose.gms.yml defaults for the active
-# profile. Postgres primary-datastore profiles default usage-events SoT to postgres.
+# Optional fallback hint when GMS system-info is unreachable. Only set postgres when
+# the profile clearly indicates it — never force elasticsearch from a stale job-level
+# PROFILE_NAME (CI quickstart may use quickstart-postgres while the pytest step still
+# inherits the workflow default quickstart-consumers). Prefer live GMS detection in tests.
 if [ -z "${DATAHUB_USAGE_EVENTS_IMPLEMENTATION:-}" ]; then
   case "${PROFILE_NAME:-}" in
     *postgres*)
       export DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres
-      ;;
-    *)
-      export DATAHUB_USAGE_EVENTS_IMPLEMENTATION=elasticsearch
       ;;
   esac
 fi

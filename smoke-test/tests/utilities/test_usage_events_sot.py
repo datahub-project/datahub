@@ -1,6 +1,6 @@
 """Unit tests for usage-events SoT resolution used by smoke fixtures."""
 
-from tests.utilities import env_vars
+from tests.utilities import env_vars, usage_events_sot
 
 
 def test_usage_events_implementation_explicit_env(monkeypatch):
@@ -38,3 +38,61 @@ def test_usage_events_implementation_common_env_file(monkeypatch, tmp_path):
     monkeypatch.setenv("DATAHUB_LOCAL_COMMON_ENV", str(env_file))
     monkeypatch.setenv("PROFILE_NAME", "quickstart-consumers")
     assert env_vars.get_usage_events_implementation() == "postgres"
+
+
+def test_resolve_prefers_gms_over_env(monkeypatch):
+    monkeypatch.setenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "elasticsearch")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
+
+    class _Session:
+        def get(self, url):
+            class _Resp:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"platformAnalytics.usage-events.implementation": "postgres"}
+
+            return _Resp()
+
+    assert (
+        usage_events_sot.resolve_usage_events_implementation(_Session()) == "postgres"
+    )
+
+
+def test_resolve_gms_without_gms_url_method(monkeypatch):
+    """Audit helpers pass plain Sessions that lack gms_url(); use DATAHUB_GMS_URL."""
+    monkeypatch.setenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "elasticsearch")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
+    monkeypatch.delenv("DATAHUB_FRONTEND_URL", raising=False)
+
+    class _PlainSession:
+        def get(self, url):
+            assert url.startswith("http://localhost:8080/")
+
+            class _Resp:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {"platformAnalytics.usage-events.implementation": "postgres"}
+
+            return _Resp()
+
+    assert (
+        usage_events_sot.resolve_usage_events_implementation(_PlainSession())
+        == "postgres"
+    )
+
+
+def test_resolve_falls_back_to_env_when_gms_unavailable(monkeypatch):
+    monkeypatch.setenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "postgres")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
+
+    class _Session:
+        def get(self, url):
+            raise ConnectionError("gms down")
+
+    assert (
+        usage_events_sot.resolve_usage_events_implementation(_Session()) == "postgres"
+    )
