@@ -39,10 +39,10 @@ public class OffloadBufferProperties {
    * <p><b>Per-pod enforcement (REJECT_AT_CAP):</b> the cap is checked against a local per-JVM
    * counter, not a cluster-wide {@code IMap.size()} round-trip (which would block the ingest hot
    * path on every enqueue). So each ingesting pod admits up to {@code maxPendingEntries}
-   * independently into the shared map; the cluster-wide pending total is approximately
-   * {@code ingestingPods × maxPendingEntries}. Size this for the per-pod bound you want, and set
-   * it so {@code pods × maxPendingEntries} stays within the Hazelcast map's memory budget. With
-   * {@link SizingPolicy#EVICT_LRU} the bound is the Hazelcast eviction config and is genuinely
+   * independently into the shared map; the cluster-wide pending total is approximately {@code
+   * ingestingPods × maxPendingEntries}. Size this for the per-pod bound you want, and set it so
+   * {@code pods × maxPendingEntries} stays within the Hazelcast map's memory budget. With {@link
+   * SizingPolicy#EVICT_LRU} the bound is the Hazelcast eviction config and is genuinely
    * cluster-wide, so this caveat does not apply.
    */
   @Builder.Default private int maxPendingEntries = 100_000;

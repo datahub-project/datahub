@@ -91,11 +91,11 @@ public interface OffloadBuffer<K extends Serializable, V extends Serializable> {
    * Re-insert an entry (retry path / poison pill / transient-backoff re-merge). Applies the use's
    * merge policy <b>synchronously</b> (blocks until the entry is visible in the buffer), unlike
    * {@link #enqueue} which is fire-and-forget on the ingest hot path. Callers run on the background
-   * drainer thread, so blocking is correct and affordable — and required for the drainer's
-   * backoff re-merge, where the re-merged entry must be visible to the {@link #drain} on the same
-   * tick. {@link HazelcastOffloadBuffer}: NO_COALESCE → plain {@code put} (unique key, updated
-   * value); KEEP_MAX_LONG → synchronous {@code executeOnKey} keep-max merge (coalesces with any
-   * newer version, never clobbers a higher one).
+   * drainer thread, so blocking is correct and affordable — and required for the drainer's backoff
+   * re-merge, where the re-merged entry must be visible to the {@link #drain} on the same tick.
+   * {@link HazelcastOffloadBuffer}: NO_COALESCE → plain {@code put} (unique key, updated value);
+   * KEEP_MAX_LONG → synchronous {@code executeOnKey} keep-max merge (coalesces with any newer
+   * version, never clobbers a higher one).
    */
   void requeue(@Nonnull K key, @Nonnull V value);
 
