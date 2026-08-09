@@ -129,7 +129,6 @@ export class ChangeHistoryChart extends BasePage {
   async closeDayDrawer(timeout: number = TIMEOUTS.SHORT): Promise<void> {
     this.logger?.step('closeDayDrawer');
     await this.closeDrawerButton.click({ timeout });
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   /**
@@ -151,7 +150,11 @@ export class ChangeHistoryChart extends BasePage {
     const dayCell = this.getDayCell(dateString);
     await dayCell.scrollIntoViewIfNeeded();
     await dayCell.hover({ timeout });
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    // Wait for the popover to actually mount (antd's hover-open delay) rather
+    // than guessing a fixed duration; days with no popover just time out fast.
+    await this.getDayPopover(dateString)
+      .waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT })
+      .catch(() => {});
   }
 
   /**
@@ -159,7 +162,6 @@ export class ChangeHistoryChart extends BasePage {
    */
   async toggleOperationType(opType: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     await this.getOperationTypeOption(opType).click({ timeout });
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   /**
