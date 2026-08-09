@@ -23,7 +23,7 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
 
 - **Launch the Docker engine** from command line or the desktop app.
 - Ensure you have **Python 3.10 or 3.11** installed and configured. Check with `python3 --version` on macOS/Linux or
-  `py --version` on Windows.
+  `py -3.11 --version` on Windows. If you installed Python 3.10, use `py -3.10 --version` instead.
 
 :::note Docker Resource Allocation
 
@@ -68,15 +68,18 @@ Note that DataHub CLI does not support Python 2.x.
 <TabItem value="pip-windows" label="pip (Windows)">
 
 ```powershell
-py -m pip install --upgrade pip wheel setuptools
-py -m pip install --upgrade acryl-datahub
-py -m datahub version
+py -3.11 -m pip install --upgrade pip wheel setuptools
+py -3.11 -m pip install --upgrade acryl-datahub
+py -3.11 -m datahub version
 ```
 
 :::note Command Not Found
 
-The Windows Python installer includes the `py` launcher. If `py` is unavailable, replace it with `python` in the
-commands above.
+The Windows Python installer includes the `py` launcher. Use `py -3.10` instead if Python 3.10 is installed. If `py`
+is unavailable, replace `py -3.11` with the command that runs your Python 3.10 or 3.11 installation.
+
+For the rest of this guide, Windows pip users can replace each `datahub` command with `py -3.11 -m datahub` (or
+`py -3.10 -m datahub`). This also works when the Python Scripts directory is not on `PATH`.
 
 :::
 
