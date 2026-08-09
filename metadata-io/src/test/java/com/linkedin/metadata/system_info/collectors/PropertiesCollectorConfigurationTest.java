@@ -613,6 +613,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.batchGetMethod",
           "ebean.queryKeysCountForBatch",
           "ebean.entityWriteAdvisoryLockEnabled",
+          "ebean.optimisticLockingEnabled",
+          "ebean.scopedRetryEnabled",
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",

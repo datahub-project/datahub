@@ -198,6 +198,135 @@ public interface AspectDao {
     }
   }
 
+  /**
+   * Whether this DAO writes via optimistic locking (compare-and-set on {@code
+   * SystemMetadata.version}) instead of {@code SELECT ... FOR UPDATE}. Default {@code false} keeps
+   * every non-optimistic DAO byte-identical.
+   */
+  @OperationContextExempt(reason = "Returns a static DAO mode flag, no request context needed")
+  default boolean isOptimisticLockingEnabled() {
+    return false;
+  }
+
+  /**
+   * Whether this DAO, when optimistic locking is enabled, retries only the conflicted URN's branch
+   * within the transaction (scoped retry) instead of re-running the whole batch. Default {@code
+   * false} keeps the full-batch retry behavior of the optimistic-locking base.
+   */
+  @OperationContextExempt(reason = "Returns a static DAO mode flag, no request context needed")
+  default boolean isScopedRetryEnabled() {
+    return false;
+  }
+
+  /**
+   * Conditional UPDATE of the version-0 row, guarded on the stored {@code SystemMetadata.version}.
+   * Returns {@link Optional#empty()} when no row matched (a concurrent writer advanced the version,
+   * or the row was removed); the caller treats that as a conflict.
+   */
+  @Nonnull
+  default Optional<EntityAspect> updateAspectConditional(
+      @Nonnull OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final SystemAspect aspect,
+      @Nullable String expectedSystemMetadataVersion) {
+    throw new UnsupportedOperationException(
+        "Conditional (optimistic-locking) update is not supported by this AspectDao");
+  }
+
+  /**
+   * Optimistic-locking counterpart to {@link #saveLatestAspect}. Compare-and-sets the version-0 row
+   * <b>before</b> writing any version-N history row, so a conflict cannot leave an orphaned history
+   * row (inserts autocommit when {@code txContext} is null) or turn a CAS miss into a history
+   * duplicate-key.
+   *
+   * <p>Returns a {@link ConditionalSaveResult} distinguishing UPDATED, SKIPPED_NOOP (must not
+   * retry), and CONFLICT. Legacy rows without a {@code SystemMetadata.version} fall back to {@link
+   * #saveLatestAspect} (last-writer-wins), since a {@code = NULL} guard could never match and would
+   * spin the retry loop.
+   */
+  default ConditionalSaveResult saveLatestAspectConditional(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
+
+    if (newAspect.getSystemMetadataVersion().isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Expected a version in systemMetadata.%s", newAspect.getSystemMetadata()));
+    }
+
+    if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
+      SystemAspect currentVersion0 = latestAspect.getDatabaseAspect().get();
+      String expectedVersion = currentVersion0.getSystemMetadata().getVersion();
+
+      if (expectedVersion == null) {
+        Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
+            saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
+        // saveLatestAspect skips the version-0 update on a no-op (empty "updated"); preserve that so
+        // the outcome is not miscounted as a write.
+        ConditionalWriteOutcome outcome =
+            legacy.getSecond().isPresent()
+                ? ConditionalWriteOutcome.UPDATED
+                : ConditionalWriteOutcome.SKIPPED_NOOP;
+        return new ConditionalSaveResult(outcome, legacy.getFirst(), legacy.getSecond());
+      }
+
+      long targetVersion =
+          nextVersionResolution(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata());
+
+      final boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+
+      if (Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
+          && isNoOp) {
+        incrementOptimisticLockMetric("optimistic_lock_skipped_noop");
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.SKIPPED_NOOP, Optional.empty(), Optional.empty());
+      }
+
+      SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
+
+      Optional<EntityAspect> updated =
+          updateAspectConditional(opContext, txContext, newAspect, expectedVersion);
+      if (updated.isEmpty()) {
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.CONFLICT, Optional.empty(), Optional.empty());
+      }
+
+      // CAS succeeded — only now persist the previous version-0 as a history row.
+      Optional<EntityAspect> inserted = Optional.empty();
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
+        inserted =
+            insertAspect(
+                opContext, txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
+      }
+
+      return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, inserted, updated);
+    } else {
+      // Initial insert. A concurrent creator racing the same version-0 row surfaces as a
+      // duplicate-key, which the Ebean DAO converts to OptimisticLockConflictException so the write
+      // is re-driven against the winner rather than CAS-overwriting it.
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
+      Optional<EntityAspect> inserted =
+          insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
+      return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, Optional.empty(), inserted);
+    }
+  }
+
+  /**
+   * Optional hook for optimistic-locking counters ({@code optimistic_lock_*}). Default no-op;
+   * {@code EbeanAspectDao} records them when a metric registry is configured.
+   */
+  @OperationContextExempt(reason = "Metrics counter helper, no request context needed")
+  default void incrementOptimisticLockMetric(@Nonnull String name) {}
+
   private long nextVersionResolution(
       @Nullable SystemMetadata currentSystemMetadata, @Nullable SystemMetadata newSystemMetadata) {
     // existing row 0 should have at least version 1
@@ -317,6 +446,18 @@ public interface AspectDao {
    * logical-model linking) and concurrent hard-deletes touching the same rows.
    */
   default void lockUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    // no-op by default
+  }
+
+  /**
+   * Release per-entity advisory locks taken by {@link #lockUrnsForWrite} for the same {@code urns}
+   * that are NOT transaction-scoped (MySQL {@code GET_LOCK} is session-scoped and must be released
+   * explicitly on the acquiring connection; Postgres advisory locks auto-release on commit/rollback,
+   * so this is a no-op there). Keyed by {@code urns} — no JVM-side registry of held locks. Must be
+   * called while the acquiring transaction/connection is still active. Default no-op.
+   */
+  default void releaseUrnsForWrite(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
     // no-op by default
   }

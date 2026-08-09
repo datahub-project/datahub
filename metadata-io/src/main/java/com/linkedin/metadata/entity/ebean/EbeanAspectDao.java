@@ -21,8 +21,10 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
+import com.linkedin.metadata.entity.AspectWriteDisabledException;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.OptimisticLockConflictException;
 import com.linkedin.metadata.entity.TransactionContext;
 import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -45,6 +47,7 @@ import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
+import io.ebean.SqlUpdate;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.Platform;
@@ -108,11 +111,22 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // index
   // order, so none of this is needed and nothing changes there.
   private final boolean isPostgres;
-  // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres only).
+  // Whether the primary store is MySQL/MariaDB. Advisory locking there uses session-scoped
+  // GET_LOCK/RELEASE_LOCK (not transaction-scoped like Postgres), so locks are released explicitly.
+  private final boolean isMysql;
+  // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres) / GET_LOCK (MySQL).
   private final boolean entityWriteAdvisoryLockEnabled;
+  // Opt-in optimistic locking: compare-and-set on SystemMetadata.version instead of FOR UPDATE.
+  private final boolean optimisticLocking;
+  private final boolean scopedRetryEnabled;
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
+  // MySQL named-lock prefix + acquire timeout. GET_LOCK names are capped at 64 chars, so the urn is
+  // hashed. The timeout bounds how long a writer waits for a hot key before falling through to pure
+  // CAS (optimistic) rather than blocking the ingest thread indefinitely.
+  private static final String MYSQL_LOCK_NAME_PREFIX = "dh_ent:";
+  private static final int MYSQL_LOCK_TIMEOUT_SECONDS = 10;
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -120,12 +134,33 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       MetricUtils metricUtils,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
       @Nullable AspectSizeValidationConfiguration validationConfig) {
+    this(
+        primaryStorageResolver,
+        ebeanConfiguration,
+        metricUtils,
+        systemAspectValidators,
+        validationConfig,
+        ebeanConfiguration.isOptimisticLockingEnabled());
+  }
+
+  public EbeanAspectDao(
+      @Nonnull final PrimaryStorageResolver primaryStorageResolver,
+      EbeanConfiguration ebeanConfiguration,
+      MetricUtils metricUtils,
+      @Nonnull List<SystemAspectValidator> systemAspectValidators,
+      @Nullable AspectSizeValidationConfiguration validationConfig,
+      boolean optimisticLocking) {
     this.primaryStorageResolver = primaryStorageResolver;
     this.server = primaryStorageResolver.resolveEbeanPrimary();
     // Resolve the engine from Ebean's own detection (live connection metadata), not the JDBC
     // url/driver string — correct even for Aurora Postgres or the AWS JDBC wrapper. Advisory locks
     // and the ORDER BY lock-ordering below are Postgres-specific.
-    this.isPostgres = resolvePlatform(server) == Platform.POSTGRES;
+    Platform resolvedPlatform = resolvePlatform(server);
+    this.isPostgres = resolvedPlatform == Platform.POSTGRES;
+    this.isMysql =
+        resolvedPlatform == Platform.MYSQL
+            || resolvedPlatform == Platform.MYSQL55
+            || resolvedPlatform == Platform.MARIADB;
     String resolvedBatchGetMethod =
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
@@ -152,6 +187,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
+    this.optimisticLocking = optimisticLocking;
+    // Scoped retry is derived from config (not an explicit constructor arg) so the existing
+    // constructor call sites are unchanged; it only takes effect when optimistic locking is on.
+    this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
+    if (optimisticLocking) {
+      log.info(
+          "EbeanAspectDao optimistic locking enabled (isPostgres={}, scopedRetry={})",
+          isPostgres,
+          scopedRetryEnabled);
+    }
   }
 
   /**
@@ -193,8 +238,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void lockUrnsForWrite(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
-    if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
+    if (!canWrite || !entityWriteAdvisoryLockEnabled || urns.isEmpty()) {
       return;
+    }
+    if (!isPostgres && !isMysql) {
+      return; // advisory locking is implemented only for Postgres and MySQL/MariaDB
     }
     // Transaction-scoped: without an active transaction the advisory lock would auto-commit and
     // release immediately. All real callsites run inside runInTransactionWithRetry; if that ever
@@ -202,12 +250,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!hasActiveTransaction("lockUrnsForWrite")) {
       return;
     }
-    // Acquire all the advisory locks in ONE round trip. Sort first so every transaction presents
-    // the keys in the same order (advisory locks can self-deadlock across transactions otherwise),
-    // then lock them in a single statement over a VALUES list — a logical-model link can carry
-    // hundreds/thousands of urns, and a round trip per urn would swamp the DB. The VALUES scan
-    // evaluates the (void-returning) function once per row, in list order. Result discarded.
+    // Sort so every transaction presents the per-entity lock keys in the SAME order — advisory
+    // locks self-deadlock across transactions otherwise. This sorted order is also the deterministic
+    // write order the persist path applies (Layer-1 base URNs, stable across retries).
     final List<String> sortedUrns = urns.stream().distinct().sorted().collect(Collectors.toList());
+    if (isPostgres) {
+      lockUrnsPostgres(sortedUrns);
+    } else {
+      lockUrnsMysql(sortedUrns);
+    }
+  }
+
+  /**
+   * Postgres: transaction-scoped {@code pg_advisory_xact_lock} over a VALUES list in one round trip
+   * (a logical-model link can carry thousands of urns; a round trip per urn would swamp the DB).
+   * Released automatically on commit/rollback.
+   */
+  private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
     final StringBuilder sql =
         new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
     for (int i = 0; i < sortedUrns.size(); i++) {
@@ -223,6 +282,85 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       lockQuery.setParameter("u" + i, sortedUrns.get(i));
     }
     lockQuery.findList();
+  }
+
+  /**
+   * MySQL/MariaDB: session-scoped {@code GET_LOCK} per urn, acquired in sorted order, bound to the
+   * active transaction's connection, bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS}. A timeout
+   * ({@code GET_LOCK} returns 0) or error (null) lets the write proceed WITHOUT the lock — CAS on
+   * {@code SystemMetadata.version} remains the correctness floor — rather than blocking the ingest
+   * thread on a hot key. {@code GET_LOCK} is session-scoped, so {@link #releaseUrnsForWrite} must
+   * release the SAME urns on the SAME connection before commit; the lock names are recomputed from
+   * the urns, so no JVM-side registry of held locks is kept (that would race under pooling).
+   */
+  private void lockUrnsMysql(@Nonnull List<String> sortedUrns) {
+    for (String urn : sortedUrns) {
+      final String name = mysqlLockName(urn);
+      Integer acquired;
+      try {
+        SqlRow row =
+            server
+                .sqlQuery("select GET_LOCK(:name, :timeout) as acquired")
+                .setParameter("name", name)
+                .setParameter("timeout", MYSQL_LOCK_TIMEOUT_SECONDS)
+                .findOne();
+        acquired = row == null ? null : row.getInteger("acquired");
+      } catch (RuntimeException e) {
+        log.warn(
+            "GET_LOCK failed for urn={}; proceeding without advisory lock (CAS still guards).",
+            urn,
+            e);
+        acquired = null;
+      }
+      if (acquired == null || acquired != 1) {
+        log.warn(
+            "GET_LOCK for urn={} returned {} (timeout/error); proceeding without advisory lock, "
+                + "CAS still guards correctness.",
+            urn,
+            acquired);
+      }
+    }
+  }
+
+  /**
+   * Deterministic MySQL lock name for a urn. Acquire and release both derive the name from the urn
+   * via this method (no stored name), so they always target the same lock — the property that keeps
+   * the stateless release correct. MySQL caps lock names at 64 chars, so the urn is hashed; a
+   * collision causes a false serialization (throughput cost, never a correctness issue), matching
+   * Postgres hashtext.
+   */
+  @VisibleForTesting
+  @Nonnull
+  static String mysqlLockName(@Nonnull String urn) {
+    return MYSQL_LOCK_NAME_PREFIX + Integer.toHexString(urn.hashCode());
+  }
+
+  /**
+   * Release per-entity advisory locks for {@code urns}. No-op on Postgres (transaction-scoped, auto
+   * released on commit/rollback). On MySQL, {@code RELEASE_LOCK} the same session-scoped names that
+   * {@link #lockUrnsForWrite} took — recomputed from {@code urns}, so there is NO JVM-side registry
+   * to race under connection pooling. MUST run while the acquiring transaction (hence connection) is
+   * still active — the ingest path calls it from a {@code finally} before commit. A missed release
+   * (e.g. connection killed) is bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS} on the next acquire,
+   * never a correctness issue.
+   */
+  @Override
+  public void releaseUrnsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+    if (!isMysql || !entityWriteAdvisoryLockEnabled || urns.isEmpty()) {
+      return;
+    }
+    if (!hasActiveTransaction("releaseUrnsForWrite")) {
+      return; // must run on the acquiring connection; without an active txn it can't
+    }
+    for (String urn : urns.stream().distinct().collect(Collectors.toList())) {
+      final String name = mysqlLockName(urn);
+      try {
+        server.sqlQuery("select RELEASE_LOCK(:name)").setParameter("name", name).findOne();
+      } catch (RuntimeException e) {
+        log.warn("RELEASE_LOCK failed for urn={} (freed on connection close / acquire timeout)", urn, e);
+      }
+    }
   }
 
   /**
@@ -247,6 +385,157 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void setWritable(boolean canWrite) {
     this.canWrite = canWrite;
+  }
+
+  @Override
+  public boolean isOptimisticLockingEnabled() {
+    return optimisticLocking;
+  }
+
+  @Override
+  public boolean isScopedRetryEnabled() {
+    return scopedRetryEnabled;
+  }
+
+  @Override
+  @Nonnull
+  public Optional<EntityAspect> updateAspectConditional(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect newAspect,
+      @Nullable String expectedSystemMetadataVersion) {
+    validateConnection();
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      // A non-PersistenceException so the retry loop does not mistake read-only mode for a conflict.
+      throw new AspectWriteDisabledException(READ_ONLY_LOG);
+    }
+
+    EntityAspect entityAspect = newAspect.asLatest();
+    SqlUpdate update =
+        server
+            .sqlUpdate(buildConditionalUpdateSql())
+            .setParameter("metadata", entityAspect.getMetadata())
+            .setParameter("systemMetadata", entityAspect.getSystemMetadata())
+            .setParameter("createdOn", entityAspect.getCreatedOn())
+            .setParameter("createdBy", entityAspect.getCreatedBy())
+            .setParameter("createdFor", entityAspect.getCreatedFor())
+            .setParameter("urn", entityAspect.getUrn())
+            .setParameter("aspect", entityAspect.getAspect())
+            .setParameter("expectedVersion", expectedSystemMetadataVersion);
+
+    // Batch mode makes execute() return -1 (row count unknown), defeating the conflict check.
+    // Flush queued writes so this CAS orders after earlier items in the batch, run it
+    // non-batched, then restore the prior mode.
+    Transaction tx = txContext != null ? txContext.tx() : null;
+    boolean restoreBatch = false;
+    boolean priorBatchMode = false;
+    if (tx != null) {
+      priorBatchMode = tx.isBatchMode();
+      if (priorBatchMode) {
+        tx.flush();
+        tx.setBatchMode(false);
+        restoreBatch = true;
+      }
+    }
+    int modified;
+    try {
+      modified = tx != null ? server.execute(update, tx) : update.execute();
+    } finally {
+      if (restoreBatch) {
+        tx.setBatchMode(priorBatchMode);
+      }
+    }
+
+    incrementOptimisticMetric("optimistic_lock_update_attempt");
+    if (modified == 0) {
+      incrementOptimisticMetric("optimistic_lock_update_conflict");
+      return Optional.empty();
+    }
+    return Optional.of(entityAspect);
+  }
+
+  /**
+   * Dialect-aware compare-and-set on the version-0 row, guarded on the JSON {@code version} field of
+   * {@code systemmetadata}. The H2 form is a test-only substring approximation (H2 lacks JSON path
+   * operators) and is not production-equivalent.
+   */
+  @VisibleForTesting
+  @Nonnull
+  String buildConditionalUpdateSql() {
+    final String versionPredicate;
+    if (isPostgres) {
+      versionPredicate = "(systemmetadata::jsonb ->> 'version') = :expectedVersion";
+    } else if (resolvePlatform(server) == Platform.H2) {
+      versionPredicate =
+          "INSTR(CAST(systemmetadata AS VARCHAR), CONCAT('\"version\":\"', :expectedVersion, '\"')) > 0";
+    } else {
+      versionPredicate = "systemmetadata->>'$.version' = :expectedVersion";
+    }
+    return "UPDATE metadata_aspect_v2 "
+        + "SET metadata = :metadata, systemmetadata = :systemMetadata, "
+        + "createdon = :createdOn, createdby = :createdBy, createdfor = :createdFor "
+        + "WHERE urn = :urn AND aspect = :aspect AND version = 0 AND "
+        + versionPredicate;
+  }
+
+  /** Cap the cause-chain walk when detecting wrapped duplicate-key failures. */
+  private static final int MAX_DUPLICATE_KEY_CAUSE_DEPTH = 10;
+
+  /** SQL-standard / Postgres / H2 unique_violation. */
+  private static final String SQLSTATE_UNIQUE_VIOLATION = "23505";
+
+  /** MySQL / MariaDB {@code ER_DUP_ENTRY}. */
+  private static final int MYSQL_ER_DUP_ENTRY = 1062;
+
+  /**
+   * Detect unique-key violations when a driver wraps them as a plain {@link PersistenceException}
+   * instead of Ebean's {@link DuplicateKeyException}. Prefers typed checks and SQLState / vendor
+   * codes over message substrings, and deliberately does not treat generic integrity violations
+   * (bare {@code 23000}) as duplicates, since those also cover foreign-key violations.
+   */
+  @VisibleForTesting
+  static boolean isDuplicateKeyCause(@Nonnull PersistenceException exception) {
+    Throwable cause = exception;
+    int depth = 0;
+    while (cause != null && depth < MAX_DUPLICATE_KEY_CAUSE_DEPTH) {
+      if (cause instanceof DuplicateKeyException) {
+        return true;
+      }
+      if (cause instanceof SQLException sqlEx && isUniqueConstraintSqlException(sqlEx)) {
+        return true;
+      }
+      String name = cause.getClass().getName();
+      if (name.contains("DuplicateKey") || name.contains("UniqueConstraint")) {
+        return true;
+      }
+      cause = cause.getCause();
+      depth++;
+    }
+    return false;
+  }
+
+  private static boolean isUniqueConstraintSqlException(@Nonnull SQLException sqlEx) {
+    for (SQLException cur = sqlEx; cur != null; cur = cur.getNextException()) {
+      if (SQLSTATE_UNIQUE_VIOLATION.equals(cur.getSQLState())) {
+        return true;
+      }
+      if (cur.getErrorCode() == MYSQL_ER_DUP_ENTRY) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private void incrementOptimisticMetric(@Nonnull String name) {
+    if (metricUtils != null) {
+      metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
+    }
+  }
+
+  @Override
+  public void incrementOptimisticLockMetric(@Nonnull String name) {
+    incrementOptimisticMetric(name);
   }
 
   private boolean validateConnection() {
@@ -291,13 +580,45 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
+      // Under OL an empty return is indistinguishable from a CAS conflict and would be retried.
+      if (optimisticLocking) {
+        throw new AspectWriteDisabledException(READ_ONLY_LOG);
+      }
       return Optional.empty();
     }
 
     EbeanAspectV2 ebeanAspectV2 = EbeanAspectV2.fromEntityAspect(aspect.withVersion(version));
 
-    saveEbeanAspect(txContext, ebeanAspectV2, true);
-    return Optional.of(ebeanAspectV2.toEntityAspect());
+    try {
+      saveEbeanAspect(txContext, ebeanAspectV2, true);
+      return Optional.of(ebeanAspectV2.toEntityAspect());
+    } catch (DuplicateKeyException e) {
+      if (optimisticLocking && version == ASPECT_LATEST_VERSION) {
+        throw conflictOnDuplicateVersionZeroInsert(aspect, e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      // Some drivers wrap the duplicate-key as a plain PersistenceException.
+      if (optimisticLocking && version == ASPECT_LATEST_VERSION && isDuplicateKeyCause(e)) {
+        throw conflictOnDuplicateVersionZeroInsert(aspect, e);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Two creators racing the same version-0 row: re-drive the write via the retry loop (re-read,
+   * re-apply against the winner) rather than CAS-overwriting the winner with the loser's payload.
+   */
+  @Nonnull
+  private OptimisticLockConflictException conflictOnDuplicateVersionZeroInsert(
+      @Nonnull SystemAspect aspect, @Nonnull PersistenceException cause) {
+    incrementOptimisticMetric("optimistic_lock_insert_conflict");
+    return new OptimisticLockConflictException(
+        String.format(
+            "Optimistic lock conflict on concurrent version-0 insert urn=%s aspect=%s",
+            aspect.getUrn(), aspect.getAspectName()),
+        cause);
   }
 
   private void saveEbeanAspect(
@@ -423,10 +744,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     Urn urnObj = UrnUtils.getUrn(urn);
     String keyAspectName = opContext.getKeyAspectName(urnObj);
 
-    // Opt-in Postgres entity-write serialization (advisory lock), taken before any row locks. No-op
-    // unless enabled on a Postgres store; when on, it serializes this delete against a concurrent
-    // multi-row write (e.g. logical-model linking) on the same entity.
+    // Opt-in per-entity write serialization (advisory lock), taken before any row locks. No-op
+    // unless enabled; when on, it serializes this delete against a concurrent multi-row write (e.g.
+    // logical-model linking) on the same entity. Postgres = transaction-scoped (auto-released);
+    // MySQL = session-scoped GET_LOCK, released in the finally below on the same connection.
     lockUrnsForWrite(opContext, List.of(urn));
+    try {
 
     // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version) order —
     // the same order the upsert write path uses for its FOR UPDATE reads. The bulk DELETEs below
@@ -470,6 +793,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .delete();
 
     return nonKeyCount + keyCount;
+    } finally {
+      // Release the session-scoped MySQL GET_LOCK on this connection before the txn ends. No-op on
+      // Postgres (auto-released on commit/rollback).
+      releaseUrnsForWrite(opContext, List.of(urn));
+    }
   }
 
   @Override

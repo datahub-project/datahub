@@ -29,11 +29,21 @@ public class EbeanConfiguration {
   private String batchGetMethod;
   private Integer queryKeysCountForBatch = DEFAULT_QUERY_KEYS_COUNT;
 
-  // Postgres-only, opt-in: serialize concurrent writes/deletes per entity via a transaction-scoped
-  // pg_advisory_xact_lock before acquiring row locks, to prevent lock-order deadlocks between a
-  // multi-row FOR UPDATE write and a hard-delete. No-op on non-Postgres engines and when disabled
-  // (the default).
+  // Opt-in: serialize concurrent writes/deletes per entity before acquiring row locks, to reduce
+  // hot-key contention and prevent lock-order deadlocks between a multi-row FOR UPDATE write and a
+  // hard-delete. Postgres uses a transaction-scoped pg_advisory_xact_lock (auto-released); MySQL
+  // uses a session-scoped GET_LOCK released explicitly on the same connection. No-op on other
+  // engines and when disabled (the default).
   private boolean entityWriteAdvisoryLockEnabled;
+
+  // Opt-in: write aspects via optimistic locking (compare-and-set on SystemMetadata.version) instead
+  // of SELECT ... FOR UPDATE. Per-process; ignored on Cassandra. Default off (legacy path unchanged).
+  private boolean optimisticLockingEnabled;
+
+  // Opt-in (requires optimisticLockingEnabled): on an optimistic-lock CONFLICT, retry only the
+  // conflicted URN's branch within the open transaction instead of re-running the whole batch via
+  // runInTransactionWithRetry. Default off keeps the full-batch retry of the optimistic-locking base.
+  private boolean scopedRetryEnabled;
 
   private ReadPoolConfiguration readPool;
 

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.metadata.config.TransactionRetryConfiguration;
+import com.linkedin.metadata.entity.OptimisticLockConflictException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,11 @@ public class TransactionRetryPolicy {
   }
 
   public boolean shouldBackoff(@Nullable Throwable throwable) {
+    // Optimistic-lock conflicts carry no SQLState/vendor code, but they are exactly the contended
+    // case backoff exists for — without this they would retry immediately and spin under load.
+    if (throwable instanceof OptimisticLockConflictException) {
+      return true;
+    }
     return SqlTransientExceptionClassifier.isBackoffEligible(
         throwable, backoffSqlStates, backoffVendorCodes);
   }
