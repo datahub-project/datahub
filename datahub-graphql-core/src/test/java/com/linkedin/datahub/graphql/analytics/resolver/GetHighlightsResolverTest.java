@@ -15,7 +15,7 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.linkedin.datahub.graphql.analytics.service.AnalyticsService.EntityStats;
+import com.linkedin.datahub.graphql.analytics.service.EntityStats;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Highlight;
@@ -217,7 +217,7 @@ public class GetHighlightsResolverTest {
             EntityType.DATASET,
             new EntityStats(5, ImmutableMap.of("hasOwners", 1)),
             EntityType.CHART,
-            EntityStats.empty()));
+            new EntityStats(0, ImmutableMap.of())));
 
     List<String> titles =
         resolver.get(mockEnv).stream().map(Highlight::getTitle).collect(Collectors.toList());

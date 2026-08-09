@@ -4,11 +4,26 @@ from typing import Dict, List
 
 import pytest
 
+from conftest import _ingest_cleanup_data_impl
 from tests.utilities.metadata_operations import get_highlights
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ingest_cleanup_data(auth_session, graph_client):
+    """Guarantees at least one dataset carrying owners, tags, terms and a description.
+
+    The highlights panel aggregates over whatever the instance happens to hold, so without
+    this the entity-card and facet assertions would depend on data other suites ingested -
+    passing or failing for reasons unrelated to the resolver.
+    """
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/analytics/data.json", "analytics_highlights"
+    )
+
 
 # Appended unconditionally by GetHighlightsResolver, so their absence means the
 # resolver bailed out rather than that the instance has no data.
@@ -38,13 +53,22 @@ def test_highlights_resolver_completes(auth_session, analytics_events_loaded):
     active-user cards are added unconditionally - if they are missing, the
     resolver threw."""
     highlights = get_highlights(auth_session)
+    by_title = _by_title(highlights)
 
-    titles = [h["title"] for h in highlights]
     for expected in ACTIVE_USER_TITLES:
-        assert expected in titles, (
-            f"'{expected}' missing from highlights {titles}. This card is added "
+        assert expected in by_title, (
+            f"'{expected}' missing from highlights {sorted(by_title)}. This card is added "
             f"unconditionally, so its absence means getHighlights threw and returned []."
         )
+
+    # Presence alone cannot distinguish a working query from one silently returning zeros,
+    # since both cards are appended regardless. The fixture backfills ~45 days of usage
+    # events, so at least one window must report active users.
+    counts = {t: by_title[t]["value"] for t in ACTIVE_USER_TITLES}
+    assert any(v > 0 for v in counts.values()), (
+        f"Every active-user window reported zero: {counts}. Usage events were backfilled, "
+        f"so the batched cardinality aggregation is likely not being read back correctly."
+    )
 
 
 def test_entity_highlights_are_present(auth_session, analytics_events_loaded):
@@ -130,11 +154,11 @@ def test_entity_highlight_body_shape(auth_session, analytics_events_loaded):
 
 
 def test_entity_highlight_facets_are_populated(auth_session, analytics_events_loaded):
-    """Missing facet buckets degrade to 0 by design, which renders as a card with
-    a correct total but every percentage at 0.00%. That is indistinguishable from
-    'nothing is annotated' unless some metadata exists - the smoke instance has
-    ingested sample metadata with owners, tags and domains, so at least one
-    non-zero percentage must appear somewhere."""
+    """Missing facet buckets degrade to 0 by design, which renders as a card with a
+    correct total but every percentage at 0.00% - indistinguishable from 'nothing is
+    annotated' unless annotated metadata is known to exist. The module fixture ingests a
+    dataset with owners, tags and terms, so at least one non-zero percentage is
+    guaranteed regardless of what else the instance holds."""
     highlights = get_highlights(auth_session)
     by_title = _by_title(highlights)
 
