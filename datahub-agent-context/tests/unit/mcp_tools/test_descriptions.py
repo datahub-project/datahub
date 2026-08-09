@@ -451,3 +451,46 @@ def test_update_description_remove_glossary_term(mock_client):
     # Verify empty description was sent
     call_args = mock_client._graph.execute_graphql.call_args
     assert call_args.kwargs["variables"]["input"]["description"] == ""
+
+
+def test_append_read_query_covers_supported_entity_types(mock_client):
+    """The append read path must request a description for every entity type that
+    updateDescription accepts.
+
+    If a type has no inline fragment here, _get_existing_description returns "" and
+    append silently replaces the existing description instead of extending it.
+    Document is excluded: its description lives in the documentation aspect
+    (documentation.documentations[]), which this helper does not model.
+    """
+    mock_client._graph.execute_graphql.side_effect = [
+        {"entity": {"editableProperties": {"description": "existing"}}},
+        {"updateDescription": True},
+    ]
+
+    with DataHubContext(mock_client):
+        update_description(
+            entity_urn="urn:li:corpGroup:data-eng",
+            operation="append",
+            description=" more",
+        )
+
+    query = mock_client._graph.execute_graphql.call_args_list[0].kwargs["query"]
+    for entity_type in [
+        "Dataset",
+        "Container",
+        "Domain",
+        "GlossaryTerm",
+        "GlossaryNode",
+        "Tag",
+        "CorpGroup",
+        "Notebook",
+        "MLModel",
+        "MLModelGroup",
+        "MLFeatureTable",
+        "MLFeature",
+        "MLPrimaryKey",
+        "DataProduct",
+        "BusinessAttribute",
+        "Application",
+    ]:
+        assert f"... on {entity_type} {{" in query

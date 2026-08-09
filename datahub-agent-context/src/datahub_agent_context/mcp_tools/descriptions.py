@@ -66,6 +66,11 @@ def _get_existing_description(entity_urn: str, column_path: Optional[str]) -> st
                         description
                     }
                 }
+                ... on MLFeature {
+                    editableProperties {
+                        description
+                    }
+                }
                 ... on MLPrimaryKey {
                     editableProperties {
                         description
@@ -87,6 +92,31 @@ def _get_existing_description(entity_urn: str, column_path: Optional[str]) -> st
                     }
                 }
                 ... on Domain {
+                    properties {
+                        description
+                    }
+                }
+                ... on CorpGroup {
+                    editableProperties {
+                        description
+                    }
+                }
+                ... on Notebook {
+                    editableProperties {
+                        description
+                    }
+                }
+                ... on DataProduct {
+                    properties {
+                        description
+                    }
+                }
+                ... on Application {
+                    properties {
+                        description
+                    }
+                }
+                ... on BusinessAttribute {
                     properties {
                         description
                     }
