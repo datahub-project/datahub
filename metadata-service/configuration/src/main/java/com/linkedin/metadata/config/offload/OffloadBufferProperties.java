@@ -61,7 +61,7 @@ public class OffloadBufferProperties {
    * buffer + re-merged after {@link #backoffTicks}) so a persistently-failing key cannot starve the
    * drain's first page. When false, transient failures leave the key in-buffer for next-tick retry.
    * Default off: hooks never throw transient resolver failures, so backoff is dead code for them;
-   * retention (cloud) enables it.
+   * retention enables it when its resolver can fail transiently.
    */
   @Builder.Default private boolean backoffEnabled = false;
 

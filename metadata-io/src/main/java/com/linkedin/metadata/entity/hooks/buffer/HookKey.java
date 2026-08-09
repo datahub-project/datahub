@@ -5,15 +5,15 @@ import java.io.Serializable;
 /**
  * Key for one pending post-commit hook replay. Implementations carry the (hookId, urn, aspectName,
  * sequence) identity plus any routing metadata an extension needs to reconstruct the correct {@link
- * io.datahubproject.metadata.context.OperationContext} at drain time (e.g. a cloud multi-tenant
- * impl stamps {@code tenantId} so the drainer routes the replay to the tenant's catalog).
+ * io.datahubproject.metadata.context.OperationContext} at drain time (e.g. a multi-database impl
+ * stamps a route id so the drainer replays against the originating catalog).
  *
- * <p>Mirrors {@code com.linkedin.metadata.entity.retention.RetentionKey}: an interface with an OSS
+ * <p>Mirrors {@code com.linkedin.metadata.entity.retention.buffer.RetentionKey}: an interface with a
  * {@link SimpleHookKey} default and an extension-supplied subtype for routing. Equality MUST
  * include the routing metadata so two replays for the same (hookId, urn, aspect) from different
- * tenants do NOT collapse into one buffer entry — they target different catalogs and must be
+ * routes do NOT collapse into one buffer entry — they target different catalogs and must be
  * replayed independently. (The async-only buffer never coalesces anyway — every key is unique via
- * the sequence — but the routing metadata still drives per-tenant grouping at drain.)
+ * the sequence — but the routing metadata still drives per-route grouping at drain.)
  *
  * <p>Implementations must be {@link Serializable} with an explicit {@code serialVersionUID} so
  * in-flight Hazelcast {@code IMap} entries survive rolling deploys (same contract as {@code

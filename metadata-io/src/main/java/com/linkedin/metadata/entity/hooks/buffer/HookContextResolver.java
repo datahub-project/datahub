@@ -18,19 +18,18 @@ import javax.annotation.Nonnull;
  * The generic {@link com.linkedin.metadata.buffer.offload.OffloadDrainer} is parameterized by the
  * framework interface, so it drives the hook drainer without knowing {@link HookKey}.
  *
- * <p>Mirrors {@code RetentionContextResolver} (cloud): the drainer has no request context of its
- * own (it runs on a scheduler thread). Without this seam, every drained replay would run under a
- * single system context and route to one fixed database, silently missing entries that originated
- * against a different one — or, in multi-tenant cloud, replaying a hook against the wrong tenant's
- * catalog (cross-tenant leak / missed cleanup). The resolver captures enough routing metadata at
- * enqueue (when the request {@link OperationContext} is available) to reconstruct a correct context
- * at drain.
+ * <p>Mirrors {@link com.linkedin.metadata.entity.retention.RetentionContextResolver}: the drainer
+ * has no request context of its own (it runs on a scheduler thread). Without this seam, every
+ * drained replay would run under a single system context and route to one fixed database, silently
+ * missing entries that originated against a different route. The resolver captures enough routing
+ * metadata at enqueue (when the request {@link OperationContext} is available) to reconstruct a
+ * correct context at drain.
  *
- * <p>OSS default {@link SimpleHookContextResolver} is a no-op: keys carry no routing metadata
- * ({@link SimpleHookKey}) and {@link #resolveOpContext} returns the system context unchanged,
- * matching the single-database deployment. A cloud multi-tenant extension provides its own
- * implementation (and a matching {@link HookKey} subtype carrying {@code tenantId}), registered
- * {@code @Primary} to override the OSS default.
+ * <p>Default {@link SimpleHookContextResolver} is a no-op: keys carry no routing metadata ({@link
+ * SimpleHookKey}) and {@link #resolveOpContext} returns the system context unchanged, matching the
+ * single-database deployment. An extension may supply its own implementation (and a matching {@link
+ * HookKey} subtype carrying route metadata), registered {@code @Primary} / {@code
+ * @ConditionalOnMissingBean} to override the default.
  *
  * <p><b>Failure contract.</b> {@link #groupKey} and {@link #resolveOpContext} distinguish permanent
  * from transient failures: throw {@link UnresolvableHookKeyException} for a key that will
@@ -46,7 +45,7 @@ public interface HookContextResolver extends OffloadContextResolver<HookKey> {
    * Build the buffer key for a committed MCL, attaching any routing metadata available on {@code
    * opContext}. Called at enqueue, where the request {@link OperationContext} is available.
    *
-   * @param opContext the request context (carries tenant/routing info)
+   * @param opContext the request context (may carry routing info for extensions)
    * @param hookId the plugin-config name of the hook that should replay this MCL
    * @param mcl the committed MCL (carries urn + aspectName + previous/current aspect)
    * @param sequence the globally-unique monotonic enqueue sequence (makes the key distinct)
@@ -62,7 +61,7 @@ public interface HookContextResolver extends OffloadContextResolver<HookKey> {
    * Stable grouping key for drained entries. The drainer groups drained entries by this so that
    * entries sharing a routing context are replayed together under one {@link #resolveOpContext}.
    * Implementations should return a value that is stable across calls for the same routing context
-   * (e.g. a tenant id extracted from the key).
+   * (e.g. a route id extracted from the key).
    */
   @Nonnull
   String groupKey(@Nonnull HookKey key);

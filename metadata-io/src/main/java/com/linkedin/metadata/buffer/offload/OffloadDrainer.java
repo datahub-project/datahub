@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Generic background drainer over an {@link OffloadBuffer}. This is the shared infra half of an
  * async offload: a cluster-wide single-winner drain lock, a bounded {@link OffloadBuffer#drain}
- * batch, grouping by {@link OffloadContextResolver#groupKey} (e.g. per tenant), per-group {@link
+ * batch, grouping by {@link OffloadContextResolver#groupKey} (e.g. per route), per-group {@link
  * OperationContext} reconstruction via {@link OffloadContextResolver#resolveOpContext}, and a
  * lease-exceeded guard. The use-specific replay is delegated to a {@link DrainAction}.
  *
@@ -36,8 +36,8 @@ import lombok.extern.slf4j.Slf4j;
  * {@code PagingPredicate} restarts each call and returns the same first page until {@link
  * OffloadBuffer#removeIfSame} clears it. So a key whose {@link OffloadContextResolver#groupKey} or
  * {@link OffloadContextResolver#resolveOpContext} throws a <em>transient</em> {@link
- * RuntimeException} (e.g. a tenant-lookup service blip) would occupy the first page every tick and
- * starve every key behind it. When {@code backoffEnabled=true} the drainer, on a transient resolver
+ * RuntimeException} (e.g. a routing-lookup blip) would occupy the first page every tick and starve
+ * every key behind it. When {@code backoffEnabled=true} the drainer, on a transient resolver
  * failure, removes the key from the buffer and re-merges it (via {@link OffloadBuffer#enqueue},
  * which applies the use's merge policy) after {@code backoffTicks} ticks. The failing key is out of
  * the buffer during the backoff window so {@code drain} surfaces the keys behind it and they
@@ -45,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
  * rather than wedging the drainer. Backoff applies ONLY to resolver failures (routing), not to
  * {@link DrainAction} failures (apply). Default off: hooks never throw transient resolver failures
  * ({@code SimpleHookContextResolver.groupKey} is constant), so backoff is dead code for them;
- * retention (cloud, tenant-aware) enables it.
+ * retention enables it when its resolver can fail transiently.
  *
  * <p><b>Scheduling.</b> {@link #tick()} carries no {@code @Scheduled} annotation; the shared {@code
  * OffloadBufferFactory} registers it with a Spring {@code TaskScheduler} at the use-specific {@code

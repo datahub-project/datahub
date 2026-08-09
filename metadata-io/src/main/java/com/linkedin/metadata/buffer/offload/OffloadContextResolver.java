@@ -15,8 +15,7 @@ import javax.annotation.Nonnull;
  * entries by {@link #groupKey} so entries sharing a routing context replay together, then rebuilds
  * the correct {@link OperationContext} for that group via {@link #resolveOpContext}. Without this,
  * every replay would run under one fixed system context and route to one database — silently
- * missing entries from other routes, or (multi-tenant cloud) replaying against the wrong tenant's
- * catalog.
+ * missing entries that originated against a different route.
  *
  * <p><b>Failure contract.</b> Throw {@link UnresolvableOffloadKeyException} (or a subtype) for a
  * key that will <em>never</em> resolve (e.g. a subtype the resolver does not produce — a wiring bug
@@ -31,7 +30,7 @@ public interface OffloadContextResolver<K extends Serializable> {
   /**
    * Stable grouping key for drained entries. The drainer groups drained entries by this so entries
    * sharing a routing context are replayed together under one {@link #resolveOpContext}. Return a
-   * value stable across calls for the same routing context (e.g. a tenant id extracted from the
+   * value stable across calls for the same routing context (e.g. a route id extracted from the
    * key).
    */
   @Nonnull

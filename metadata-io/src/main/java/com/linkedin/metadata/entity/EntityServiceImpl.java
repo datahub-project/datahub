@@ -183,10 +183,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // (hooks run inline on the ingest thread). Wired by EntityServiceFactory when the
   // postCommitHookBufferEnabled feature flag boots the Hazelcast-backed buffer + drainer.
   private PostCommitHookBuffer postCommitHookBuffer = PostCommitHookBuffer.NO_OP;
-  // Routing seam for the async hook replay path: stamps routing metadata (e.g. tenant id) onto
-  // buffer keys at enqueue and reconstructs a per-group OperationContext at drain. NO_OP produces
-  // plain SimpleHookKey and is only used as a default; when the buffer is NO_OP, defersApply() is
-  // false so enrichKey is never called. Wired by EntityServiceFactory alongside the buffer.
+  // Routing seam for the async hook replay path: stamps routing metadata onto buffer keys at
+  // enqueue and reconstructs a per-group OperationContext at drain. NO_OP produces plain
+  // SimpleHookKey and is only used as a default; when the buffer is NO_OP, defersApply() is false
+  // so enrichKey is never called. Wired by EntityServiceFactory alongside the buffer.
   private HookContextResolver hookContextResolver = HookContextResolver.NO_OP;
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
@@ -1148,8 +1148,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (deferEnabled && hook.defersPostCommit()) {
         // Enqueue only the MCLs this hook would act on (shouldApply filters by change type /
         // entity / aspect). Each enqueue is a distinct committed MCL — no coalescing. The key
-        // carries routing metadata from the request OperationContext (e.g. tenant id) so the
-        // drainer can replay under the correct (per-tenant) context.
+        // carries routing metadata from the request OperationContext so the drainer can replay
+        // under the correct (route-aware) context.
         String hookId = hook.getConfig().getClassName();
         int enqueued = 0;
         int fallback = 0;
@@ -2962,7 +2962,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         postCommitHookBuffer != null ? postCommitHookBuffer : PostCommitHookBuffer.NO_OP;
   }
 
-  /** Wire the routing resolver for the async hook replay path; null → NO_OP (single-tenant). */
+  /** Wire the routing resolver for the async hook replay path; null → NO_OP (single-database). */
   public void setHookContextResolver(@Nullable HookContextResolver hookContextResolver) {
     this.hookContextResolver =
         hookContextResolver != null ? hookContextResolver : HookContextResolver.NO_OP;

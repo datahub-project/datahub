@@ -4,6 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.offload.DrainAction;
 import com.linkedin.metadata.buffer.offload.OffloadBuffer;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -19,13 +21,19 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Retention-specific replay for the framework {@link
  * com.linkedin.metadata.buffer.offload.OffloadDrainer}. Receives one drained group (entries sharing
- * a {@link com.linkedin.metadata.entity.retention.RetentionContextResolver#groupKey routing
- * context}) plus the per-group {@link OperationContext} reconstructed by the resolver, builds
- * {@link RetentionService.RetentionContext}s, and hands the whole group to {@link
+ * a routing context) plus the per-group {@link OperationContext} reconstructed by the resolver,
+ * builds {@link RetentionBatchEntry}s bundling each original {@link RetentionKey} with its {@link
+ * RetentionService.RetentionContext}, and hands the whole group to {@link
  * RetentionService#applyRetentionBatchWithPolicyDefaults} in one call. Each (urn, aspect) pair runs
  * in its own transaction (where supported by the storage backend — see {@code
  * EbeanRetentionService}) so a poison pair fails and retries in isolation without blocking the rest
  * of the group.
+ *
+ * <p><b>Original-key preservation.</b> The service echoes back the committed {@link RetentionKey}s
+ * (original instances, not reconstructed ones), so the cross-off clear is by {@link RetentionKey}
+ * equals (explicit per subtype). A key subtype that carries routing metadata is removed with that
+ * metadata intact, and two requests for the same URN routed to different underlying databases do
+ * not cross-clear.
  *
  * <p><b>Entry lifecycle is owned here.</b> The framework drainer only removes entries on a
  * <em>permanent</em> resolve failure; for everything else the action owns removal:
@@ -33,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Malformed URN — {@link OffloadBuffer#removeIfSame} immediately so it doesn't wedge the
  *       drainer forever.
- *   <li>Committed (returned as a success by the service) — {@link OffloadBuffer#removeIfSame}.
+ *   <li>Committed (returned by the service) — {@link OffloadBuffer#removeIfSame}.
  *   <li>Whole-group apply throws — the action throws without removing anything; the framework
  *       leaves the un-removed entries for the next tick (at-least-once). Any entries the action
  *       finished before throwing must have been removed already.
@@ -60,19 +68,17 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
       return;
     }
 
-    // Build retention contexts up front, keyed by the ORIGINAL drained key (kept for the
-    // removeIfSame clear step). Malformed URNs are cleared immediately so they don't wedge the
-    // drainer forever.
-    List<RetentionService.RetentionContext> contexts = new ArrayList<>(entries.size());
+    List<RetentionBatchEntry> batchEntries = new ArrayList<>(entries.size());
     for (Map.Entry<RetentionKey, Long> entry : entries) {
       try {
         Urn urn = Urn.createFromString(entry.getKey().urn());
-        contexts.add(
+        RetentionService.RetentionContext context =
             RetentionService.RetentionContext.builder()
                 .urn(urn)
                 .aspectName(entry.getKey().aspectName())
                 .maxVersion(Optional.of(entry.getValue()))
-                .build());
+                .build();
+        batchEntries.add(new RetentionBatchEntry(entry.getKey(), context));
       } catch (Exception e) {
         log.warn(
             "Skipping malformed retention key urn={} aspect={}; removing from buffer",
@@ -82,17 +88,14 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
         buffer.removeIfSame(entry.getKey(), entry.getValue());
       }
     }
-    if (contexts.isEmpty()) {
+    if (batchEntries.isEmpty()) {
       return;
     }
 
-    List<RetentionService.RetentionContext> successes;
+    List<RetentionKey> successes;
     try {
-      successes = retentionService.applyRetentionBatchWithPolicyDefaults(opContext, contexts);
+      successes = retentionService.applyRetentionBatchWithPolicyDefaults(opContext, batchEntries);
     } catch (Exception e) {
-      // Whole group failed (tx setup / commit). Nothing durable — throw so the framework leaves
-      // the un-removed entries for retry (at-least-once). Malformed keys were already removed
-      // above.
       throw new RuntimeException("Retention group apply failed; leaving for retry", e);
     }
 
@@ -100,13 +103,7 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
       metricUtils.increment(RetentionDrainAction.class, "retention_drained", successes.size());
     }
 
-    // Clear only the keys whose commits were durably committed. removeIfSame guards against a
-    // higher version having re-merged into the buffer while we were draining. Match by RetentionKey
-    // equals (the record's (urn, aspectName) equality).
-    Set<RetentionKey> successKeys = new HashSet<>(successes.size());
-    for (RetentionService.RetentionContext ctx : successes) {
-      successKeys.add(new RetentionKey(ctx.getUrn().toString(), ctx.getAspectName()));
-    }
+    Set<RetentionKey> successKeys = new HashSet<>(successes);
     for (Map.Entry<RetentionKey, Long> entry : entries) {
       if (successKeys.contains(entry.getKey())) {
         buffer.removeIfSame(entry.getKey(), entry.getValue());

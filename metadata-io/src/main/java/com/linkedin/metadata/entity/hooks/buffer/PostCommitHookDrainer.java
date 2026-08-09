@@ -13,11 +13,10 @@ import lombok.extern.slf4j.Slf4j;
  * {@code PostCommitHookBufferFactory}.
  *
  * <p>All pods share one cluster-wide drain lock (Hazelcast), so exactly one pod replays per tick
- * and the rest no-op. The drained batch is grouped by {@link HookContextResolver#groupKey} (e.g. by
- * tenant); each group is replayed under a per-group {@link
- * io.datahubproject.metadata.context.OperationContext} from {@link
- * HookContextResolver#resolveOpContext} so hooks run against the correct (possibly per-tenant)
- * retrievers/catalog.
+ * and the rest no-op. The drained batch is grouped by {@link HookContextResolver#groupKey}; each
+ * group is replayed under a per-group {@link io.datahubproject.metadata.context.OperationContext}
+ * from {@link HookContextResolver#resolveOpContext} so hooks run against the correct
+ * retrievers/catalog for that route.
  *
  * <p><b>Scheduling.</b> {@link #tick()} carries no {@code @Scheduled} annotation; the shared {@code
  * OffloadBufferFactory} registers it with a Spring {@code TaskScheduler} at the use's {@code

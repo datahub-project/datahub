@@ -13,7 +13,7 @@ import javax.annotation.Nullable;
  * When wired and {@link #defersApply()} true, the ingest thread does not run post-commit hooks
  * inline; instead it enqueues the committed MCL (under a routing-aware {@link HookKey} built by a
  * {@link HookContextResolver}) and a background {@link PostCommitHookDrainer} replays each MCL
- * through its hook off the request thread, under the correct (possibly per-tenant) {@link
+ * through its hook off the request thread, under the correct (route-aware) {@link
  * io.datahubproject.metadata.context.OperationContext}.
  *
  * <p><b>No coalescing.</b> Every enqueue uses a globally-unique sequence (see {@link
@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
  * affected URN), since hooks re-derive from current state and a re-fire converges to the correct
  * end state.
  *
- * <p>The drain/lock surface mirrors {@link com.linkedin.metadata.buffer.CoalesceBuffer} so a
+ * <p>The drain/lock surface mirrors {@link com.linkedin.metadata.buffer.offload.OffloadBuffer} so a
  * Hazelcast-backed implementation can share the same non-reentrant, token-fenced drain lock and
  * {@link com.hazelcast.query.PagingPredicate} batched drain.
  */

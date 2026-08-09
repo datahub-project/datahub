@@ -10,19 +10,18 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
 
 /**
- * OSS default {@link HookContextResolver} for the single-database (single-tenant) deployment. Keys
- * carry no routing metadata ({@link SimpleHookKey}); {@link #groupKey} returns a single constant so
- * all drained replays run under one group; {@link #resolveOpContext} returns the {@code
- * systemOperationContext} unchanged. The background {@link PostCommitHookDrainer} then replays
- * committed MCLs through their hooks under the system context, which carries a full {@link
+ * Default {@link HookContextResolver} for the single-database deployment. Keys carry no routing
+ * metadata ({@link SimpleHookKey}); {@link #groupKey} returns a single constant so all drained
+ * replays run under one group; {@link #resolveOpContext} returns the {@code systemOperationContext}
+ * unchanged. The background {@link PostCommitHookDrainer} then replays committed MCLs through their
+ * hooks under the system context, which carries a full {@link
  * io.datahubproject.metadata.context.RetrieverContext} (aspect / graph / search retrievers) wired
  * by {@code SystemOperationContextFactory}.
  *
  * <p>Registered by {@link PostCommitHookBufferFactory#hookContextResolver} under a
- * {@code @ConditionalOnMissingBean(HookContextResolver.class)} guard, so a cloud multi-tenant
- * extension that supplies its own {@link HookContextResolver} bean (carrying {@code tenantId} on
- * the key, grouping by tenant, reconstructing a per-tenant {@link OperationContext} via {@code
- * TenantContexts.withTenant}) replaces this default without a conflict.
+ * {@code @ConditionalOnMissingBean(HookContextResolver.class)} guard, so an extension that supplies
+ * its own {@link HookContextResolver} bean (keys with routing metadata, grouping by route,
+ * reconstructing a per-route {@link OperationContext}) replaces this default without a conflict.
  */
 public class SimpleHookContextResolver implements HookContextResolver {
 

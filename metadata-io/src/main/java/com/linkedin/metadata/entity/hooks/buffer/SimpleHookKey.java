@@ -4,13 +4,13 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 
 /**
- * OSS default {@link HookKey}: a plain {@code (hookId, urn, aspectName, sequence)} tuple with no
- * routing metadata. Used by {@link SimpleHookContextResolver} for the single-database (single-
- * tenant) deployment, where every drained replay runs under the system {@link
+ * Default {@link HookKey}: a plain {@code (hookId, urn, aspectName, sequence)} tuple with no
+ * routing metadata. Used by {@link SimpleHookContextResolver} for the single-database deployment,
+ * where every drained replay runs under the system {@link
  * io.datahubproject.metadata.context.OperationContext}.
  *
  * <p>Explicit {@code serialVersionUID = 1L} so in-flight Hazelcast entries survive rolling deploys
- * (matches the {@code RetentionKey} / {@code SimpleRetentionKey} contract).
+ * (matches the {@code RetentionKey} contract).
  */
 public final class SimpleHookKey implements HookKey {
 

@@ -13,8 +13,8 @@ import javax.annotation.Nonnull;
  * provisioning) comes from the framework.
  *
  * <p>Implementations must be safe to call on a scheduler thread with no request context: all
- * tenant/routing state must come from the resolved {@code opContext} and the drained entries' keys,
- * never from a thread-local or request scope.
+ * routing state must come from the resolved {@code opContext} and the drained entries' keys, never
+ * from a thread-local or request scope.
  *
  * <p><b>Entry-removal contract.</b> The action owns the lifecycle of each entry it receives:
  *
@@ -41,9 +41,9 @@ public interface DrainAction<K extends Serializable, V extends Serializable> {
    * entry-removal contract above).
    *
    * @param group the drained entries sharing one {@link OffloadContextResolver#groupKey} routing
-   *     context (e.g. one tenant)
+   *     context (e.g. one route)
    * @param opContext the per-group {@link OperationContext} reconstructed by {@link
-   *     OffloadContextResolver#resolveOpContext} (carries the correct tenant/routing)
+   *     OffloadContextResolver#resolveOpContext} (carries the correct routing)
    * @param buffer the owning buffer, for {@link OffloadBuffer#removeIfSame} / {@link
    *     OffloadBuffer#requeue} of processed entries
    */
