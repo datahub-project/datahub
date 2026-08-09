@@ -116,14 +116,12 @@ export class WelcomeModalPage extends BasePage {
 
   async pressArrowRight(): Promise<void> {
     await this.page.keyboard.press('ArrowRight');
-    // react-slick afterChange fires via setTimeout(speed=500ms). Match the
-    // wait used by clickCarouselDot for consistency.
-    await this.page.waitForTimeout(500);
+    // No sleep: the caller's expectSlideXVisible() asserts via a retrying
+    // expect().toBeVisible() (some also poll waitForSlideChange() first).
   }
 
   async pressArrowLeft(): Promise<void> {
     await this.page.keyboard.press('ArrowLeft');
-    await this.page.waitForTimeout(500);
   }
 
   async closeViaOutsideClick(): Promise<void> {
@@ -134,9 +132,8 @@ export class WelcomeModalPage extends BasePage {
 
   async clickCarouselDot(index: number): Promise<void> {
     await this.carouselDots.nth(index).click();
-    // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
-    // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
-    await this.page.waitForTimeout(500);
+    // No sleep: callers assert via expectSlideXVisible() (retrying) or, in the
+    // rapid-navigation test, deliberately click back-to-back without waiting.
   }
 
   async clickLastCarouselDot(): Promise<void> {

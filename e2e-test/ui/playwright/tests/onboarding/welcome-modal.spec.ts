@@ -193,7 +193,9 @@ test.describe('Welcome to DataHub Modal', () => {
       });
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
-      await page.waitForTimeout(1000);
+      await expect
+        .poll(() => trackRequests.some((r) => r['type'] === 'WelcomeToDataHubModalViewEvent'), { timeout: 2000 })
+        .toBe(true);
       const viewEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent');
       expect(viewEvent).toBeDefined();
     });
@@ -208,7 +210,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
-      await page.waitForTimeout(1000);
+      await expect
+        .poll(() => trackRequests.some((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent'), { timeout: 2000 })
+        .toBe(true);
       const interactEvents = trackRequests.filter((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent');
       expect(interactEvents.length).toBeGreaterThan(0);
     });
@@ -223,7 +227,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
-      await page.waitForTimeout(1000);
+      await expect
+        .poll(() => trackRequests.some((r) => r['type'] === 'WelcomeToDataHubModalExitEvent'), { timeout: 2000 })
+        .toBe(true);
       const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
       expect(exitEvent).toBeDefined();
       expect(exitEvent?.['exitMethod']).toBe('close_button');
@@ -239,7 +245,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaEscape();
-      await page.waitForTimeout(1000);
+      await expect
+        .poll(() => trackRequests.some((r) => r['type'] === 'WelcomeToDataHubModalExitEvent'), { timeout: 2000 })
+        .toBe(true);
       const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
       expect(exitEvent).toBeDefined();
       expect(exitEvent?.['exitMethod']).toBe('escape_key');
@@ -257,7 +265,11 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.clickLastCarouselDot();
       await welcomeModalPage.expectFinalSlideVisible();
       await welcomeModalPage.docsLink.click();
-      await page.waitForTimeout(1000);
+      await expect
+        .poll(() => trackRequests.some((r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent'), {
+          timeout: 2000,
+        })
+        .toBe(true);
       const linkClickEvent = trackRequests.find(
         (r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent',
       );
