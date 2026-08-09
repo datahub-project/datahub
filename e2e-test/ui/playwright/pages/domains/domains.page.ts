@@ -7,6 +7,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import type { DataHubLogger } from '../../utils/logger';
+import { waitForWritesToSync } from '../../utils/writes-sync';
 
 export class DomainsPage extends BasePage {
   readonly newDomainButton: Locator;
@@ -60,8 +61,8 @@ export class DomainsPage extends BasePage {
     await this.domainIdInput.fill(String(id));
     await this.createDomainConfirmButton.click();
     await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
-    // Allow ES to index the new domain before subsequent tests search for it
-    await this.page.waitForTimeout(5000);
+    // Wait for the new domain to be consumed and indexed — later tests search/navigate to it
+    await waitForWritesToSync(this.page.request);
   }
 
   async navigateToDomain(urn: string): Promise<void> {
@@ -78,9 +79,9 @@ export class DomainsPage extends BasePage {
     // On the flat-list layout, search to ensure the domain is visible before clicking
     if (await this.domainSearchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await this.domainSearchInput.fill(name);
-      await this.page.waitForTimeout(500);
     }
-    // Use link role to skip hidden aria-live spans that also match the text
+    // Use link role to skip hidden aria-live spans that also match the text.
+    // No sleep: .click() below auto-waits for the filtered link to be actionable.
     await this.page.getByRole('link', { name }).first().click();
     await this.page.waitForLoadState('networkidle');
   }
@@ -101,8 +102,7 @@ export class DomainsPage extends BasePage {
     await expect(async () => {
       await this.modalSearchInput.click({ clickCount: 3 }); // select-all any existing text
       await this.modalSearchInput.pressSequentially(searchTerm);
-      // Wait for the debounce (300ms) + search result render before checking the checkbox
-      await this.page.waitForTimeout(800);
+      // No sleep: the toBeVisible() retry below already covers the debounce + render.
       await expect(checkbox).toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 90000, intervals: [3000] });
     await checkbox.click({ force: true });
@@ -128,8 +128,9 @@ export class DomainsPage extends BasePage {
     await this.entityMenuDeleteButton.click();
     await this.page.getByRole('button', { name: 'Yes' }).click();
     await this.page.waitForLoadState('networkidle', { timeout: 15000 });
-    // Allow ES to de-index the deleted domain before asserting it's gone
-    await this.page.waitForTimeout(5000);
+    // Wait for the delete (and any dangling-reference cleanup) to be consumed and
+    // de-indexed before the caller re-queries for it
+    await waitForWritesToSync(this.page.request);
   }
 
   async expectDomainVisible(name: string): Promise<void> {
