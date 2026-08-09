@@ -751,6 +751,36 @@ Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/READ
 feature per run. Do **not** set `featureName` for suites that create their own data
 via `apiMock` or direct API calls.
 
+### Timing and waits
+
+`page.waitForTimeout(ms)` is a code smell in every new Playwright test and page
+object. It is never the right tool for the two things it keeps getting used for:
+
+- **Waiting for a write to become readable** (a create/update/delete needs to flow
+  through the consumer/index pipeline before a reload or search re-reads it). A
+  fixed sleep is either too short (flaky under CI load) or too long (wastes the
+  same fixed cost on every run regardless of actual system speed). Use
+  `waitForWritesToSync()` from `utils/writes-sync.ts` — it polls the real consumer
+  offsets and returns as soon as the write is actually consumed.
+- **Waiting for a UI render/dropdown/menu to appear.** If the next line is (or could
+  be) a Playwright web-first assertion — `expect(locator).toBeVisible()`,
+  `.toContainText()`, `.toHaveAttribute()`, etc. — that assertion already retries
+  for its own timeout. A sleep placed before it adds fixed latency and verifies
+  nothing; delete the sleep and let the assertion's timeout do the waiting.
+
+`document-management.spec.ts` carried both anti-patterns in its page object for
+months — 13 blind `waitForTimeout(TIMEOUTS.OPERATION)` calls, most redundant with
+a retrying assertion two lines later, three of them races against ES indexing —
+and became the long pole of the entire Playwright CI shard split as a direct
+result (~70s of a single spec file's ~237s runtime was dead sleep). Check any new
+`waitForTimeout()` against both bullets above before adding it; when in doubt,
+add the assertion and delete the sleep rather than the reverse.
+
+A short, fixed sleep is still acceptable for the narrow case of a genuine UI
+settle with no assertable signal (e.g. letting a text-selection register before
+typing) — but even there, default to the smallest timeout tier (`QUICK` /
+`BETWEEN_OPS`) rather than reaching for `OPERATION` out of caution.
+
 ## Frontend CI Checklist
 
 This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
