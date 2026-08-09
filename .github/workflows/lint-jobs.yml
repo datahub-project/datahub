@@ -401,18 +401,23 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      # Restore-only, from yarn's default cache dir. The master-scoped entry under this
-      # exact key is written by python-cache-warmup.yml warm-playwright-yarn-cache; the
-      # prefix restore-key falls back to the datahub-web-react yarn cache, which contains
-      # most of the lint toolchain (eslint, prettier, typescript). Saving here would only
-      # mint a per-PR copy (this workflow is pull_request-only), so we never save.
+      # Restore-only, from yarn's default cache dir, using the same key family as
+      # resusable-playwright-tests.yml (key must stay byte-identical with it and with
+      # python-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
+      # what PR jobs here can actually read). The playwright- prefix keeps this small
+      # entry out of the '<os>-yarn-' family, so a web-cache prefix restore can never
+      # land on it; the secondary restore-key still falls back to the datahub-web-react
+      # yarn cache, which contains most of the lint toolchain (eslint, prettier,
+      # typescript). Saving here would only mint a per-PR copy (this workflow is
+      # pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
           restore-keys: |
+            playwright-${{ runner.os }}-yarn-
             ${{ runner.os }}-yarn-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

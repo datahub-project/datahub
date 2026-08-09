@@ -172,7 +172,12 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   # Separate job so the playwright entry stays small instead of duplicating the
-  # ~1.2GB web-react cache under a second key.
+  # ~1.2GB web-react cache under a second key. Uses the 'playwright-<os>-yarn-'
+  # family shared with resusable-playwright-tests.yml — that workflow's own
+  # master-gated save runs on Depot runners on master, whose cache writes
+  # GitHub-hosted jobs cannot read, so this job is the family's GitHub-hosted
+  # writer. The distinct prefix also keeps this small entry out of the
+  # '<os>-yarn-' family, so a web-cache prefix restore can never land on it.
   warm-playwright-yarn-cache:
     name: Warm playwright lint yarn cache
     if: github.ref == 'refs/heads/master'
@@ -181,13 +186,13 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
-      # playwright-e2e-lint.
+      # playwright-e2e-lint and the cache keys in resusable-playwright-tests.yml.
       - name: Check for existing cache entry
         id: yarn-cache
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
           lookup-only: true
       - name: Set up Node.js
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -203,4 +208,4 @@ jobs:
         uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('e2e-test/ui/playwright/yarn.lock') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
