@@ -11,6 +11,9 @@ from tests.utilities import env_vars
 
 logger = logging.getLogger(__name__)
 
+_SYSTEM_INFO_PATH = "/openapi/v1/system-info/properties/simple"
+_USAGE_EVENTS_PROP = "platformAnalytics.usage-events.implementation"
+
 
 def resolve_usage_events_implementation(
     auth_session: Any | None = None,
@@ -18,47 +21,88 @@ def resolve_usage_events_implementation(
     """Return ``postgres`` or ``elasticsearch`` for the running deployment.
 
     Order:
-    1. Explicit process env / common-env file / compose-profile inference
-       (``env_vars.get_usage_events_implementation``).
-    2. When ``auth_session`` is provided, prefer live GMS system-info if present.
+    1. Live GMS system-info (preferred — matches the running containers).
+    2. Env / common-env / compose-profile inference as fallback.
     """
-    configured = env_vars.get_usage_events_implementation()
-    if auth_session is None:
-        return configured
-
     live = _usage_events_implementation_from_gms(auth_session)
-    if live and live != configured:
-        logger.info(
-            "Usage-events SoT from GMS system-info=%s (env/profile inferred %s); using GMS",
-            live,
-            configured,
-        )
+    if live:
         return live
-    return live or configured
+    return env_vars.get_usage_events_implementation()
 
 
 def usage_events_stored_in_postgres(auth_session: Any | None = None) -> bool:
     return resolve_usage_events_implementation(auth_session) == "postgres"
 
 
-def _usage_events_implementation_from_gms(auth_session: Any) -> Optional[str]:
+def _candidate_base_urls(auth_session: Any | None) -> List[str]:
+    """URLs that may expose GMS system-info (direct GMS or frontend proxy)."""
+    urls: List[str] = []
+    if auth_session is not None:
+        gms_url_fn = getattr(auth_session, "gms_url", None)
+        if callable(gms_url_fn):
+            try:
+                url = gms_url_fn()
+                if url:
+                    urls.append(str(url).rstrip("/"))
+            except Exception:
+                pass
+
+    env_gms = env_vars.get_gms_url()
+    if env_gms:
+        urls.append(env_gms.rstrip("/"))
+
     try:
-        response = auth_session.get(
-            f"{auth_session.gms_url()}/openapi/v1/system-info/properties/simple"
-        )
+        from tests.utils import get_frontend_url
+
+        frontend = get_frontend_url()
+        if frontend:
+            urls.append(str(frontend).rstrip("/"))
+    except Exception:
+        pass
+
+    deduped: List[str] = []
+    seen: set[str] = set()
+    for url in urls:
+        if url and url not in seen:
+            seen.add(url)
+            deduped.append(url)
+    return deduped
+
+
+def _get_system_info_props(
+    auth_session: Any | None, base_url: str
+) -> Optional[Dict[str, Any]]:
+    url = f"{base_url}{_SYSTEM_INFO_PATH}"
+    try:
+        if auth_session is not None and hasattr(auth_session, "get"):
+            response = auth_session.get(url)
+        else:
+            response = requests.get(url, timeout=10)
         if response.status_code != 200:
             return None
         props = response.json()
-        if not isinstance(props, dict):
-            return None
-        raw = props.get("platformAnalytics.usage-events.implementation")
+        return props if isinstance(props, dict) else None
+    except Exception as exc:
+        logger.debug("system-info fetch failed for %s: %s", url, exc)
+        return None
+
+
+def _usage_events_implementation_from_gms(
+    auth_session: Any | None = None,
+) -> Optional[str]:
+    for base_url in _candidate_base_urls(auth_session):
+        props = _get_system_info_props(auth_session, base_url)
+        if not props:
+            continue
+        raw = props.get(_USAGE_EVENTS_PROP)
         if raw is None:
-            return None
+            continue
         value = str(raw).strip().lower()
         if value in ("postgres", "elasticsearch"):
+            logger.info(
+                "Usage-events SoT from GMS system-info=%s (via %s)", value, base_url
+            )
             return value
-    except Exception as exc:
-        logger.debug("Could not read usage-events SoT from GMS: %s", exc)
     return None
 
 

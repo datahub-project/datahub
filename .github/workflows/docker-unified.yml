@@ -933,6 +933,9 @@ jobs:
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           PYTEST_XDIST_WORKERS: "3"
+          # Match the quickstart step so smoke env inference aligns with the running profile
+          # (workflow-level PROFILE_NAME defaults to quickstart-consumers).
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
           # GMS here runs with a 1s bulk-flush and 1s index refresh interval
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
           # The library default stays conservative for other environments.
