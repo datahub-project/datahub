@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.entity.PostCommitHookBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -50,12 +51,13 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
     },
-    // Cleanup CLI only tears down ES/Kafka/DB — it never ingests, so keep the post-commit retention
-    // buffer + drainer out (no cluster-wide drain lock held by a teardown job).
+    // Cleanup CLI only tears down ES/Kafka/DB — it never ingests, so keep the post-commit hook +
+    // retention buffers + drainers out (no cluster-wide drain lock held by a teardown job, no
+    // embedded Hazelcast node).
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
-          classes = {RetentionBufferFactory.class})
+          classes = {PostCommitHookBufferFactory.class, RetentionBufferFactory.class})
     })
 public class CleanupUpgradeConfig {
 

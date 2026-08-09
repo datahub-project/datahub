@@ -10,7 +10,7 @@ import static org.testng.Assert.assertTrue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.IMap;
+import com.hazelcast.map.IMap;
 import com.linkedin.metadata.config.offload.MergePolicy;
 import com.linkedin.metadata.config.offload.SizingPolicy;
 import java.io.Serializable;
