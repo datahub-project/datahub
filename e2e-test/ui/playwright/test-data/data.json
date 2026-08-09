@@ -1792,16 +1792,23 @@
                 "actor": "urn:li:corpuser:jdoe"
               }
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
-              "hasRelatedTerms": ["urn:li:glossaryTerm:PlaywrightNode.RelatedPlaywrightTerm"]
-            }
           }
         ]
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+      "value": "{\"hasRelatedTerms\":[\"urn:li:glossaryTerm:PlaywrightNode.RelatedPlaywrightTerm\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
