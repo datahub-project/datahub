@@ -4,14 +4,18 @@
  * Mirrors the pattern established by loginFixture:
  *
  *   1. A suite opts in by setting the `featureName` option at describe level.
- *   2. The fixture checks whether `.seeded/{featureName}.json` exists on disk.
- *   3a. State EXISTS  → data was already ingested this run; skip injection.
- *   3b. State MISSING → read `tests/{featureName}/fixtures/data.json`, POST
- *       each MCP to the GMS REST API, then write the state file so that other
- *       workers (and subsequent tests in this worker) skip ingestion.
+ *   2. The fixture claims `.seeded/{featureName}.json` via withArtifactLock.
+ *   2a. State EXISTS  → data was already ingested this run; skip injection.
+ *   2b. Lock acquired → read `tests/{featureName}/fixtures/data.json`, POST
+ *       each MCP to the GMS REST API, wait for the write pipeline to sync,
+ *       then write the state file so other workers skip ingestion.
+ *   2c. Lock held by another worker → poll for the state file it is
+ *       producing instead of duplicating the ingestion (see withArtifactLock;
+ *       this is what makes seeding safe under workers_per_shard > 1).
  *
- * Worker-scoped means seeding happens AT MOST ONCE per worker process for a
- * given feature name, regardless of how many tests request it.
+ * Worker-scoped means seeding is attempted AT MOST ONCE per worker process for
+ * a given feature name, regardless of how many tests request it; across
+ * workers sharing a filesystem, exactly one of them actually performs it.
  *
  * NOTE: This fixture is intentionally worker-scoped.  Worker-scoped fixtures
  * cannot depend on test-scoped fixtures such as `logger`.  A dedicated logger
@@ -58,6 +62,81 @@ import {
   type Mcp,
 } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
+import { waitForWritesToSync } from '../utils/writes-sync';
+
+// ── Cross-worker artifact locking ────────────────────────────────────────────
+
+/**
+ * If a lock file is older than this with its artifact still missing, its
+ * holder is assumed to have crashed; another worker reclaims it rather than
+ * wedging the whole run.
+ */
+const LOCK_STALE_MS = 120_000;
+const LOCK_POLL_MS = 500;
+/** How long a follower will wait for another worker's artifact before giving up. */
+const LOCK_WAIT_TIMEOUT_MS = 180_000;
+
+/**
+ * Atomically claims responsibility for producing `artifactPath` across
+ * concurrent worker processes sharing the same filesystem (workers_per_shard
+ * > 1). `fs.existsSync` + later `fs.writeFileSync` is a check-then-act race:
+ * two workers can both observe "absent" before either has written, and both
+ * duplicate the work. `fs.openSync(lockPath, 'wx')` is atomic exclusive
+ * create — exactly one caller can win it — so only the winner produces the
+ * artifact while everyone else polls for it instead.
+ */
+async function withArtifactLock(artifactPath: string, produce: () => Promise<void>): Promise<void> {
+  if (fs.existsSync(artifactPath)) return;
+
+  const lockPath = `${artifactPath}.lock`;
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+
+  for (;;) {
+    if (fs.existsSync(artifactPath)) return;
+
+    let fd: number | undefined;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+
+    if (fd !== undefined) {
+      fs.closeSync(fd);
+      try {
+        if (!fs.existsSync(artifactPath)) {
+          await produce();
+        }
+      } finally {
+        fs.rmSync(lockPath, { force: true });
+      }
+      return;
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(`Timed out waiting for '${artifactPath}' to be produced by another worker (lock: ${lockPath})`);
+    }
+
+    try {
+      const age = Date.now() - fs.statSync(lockPath).mtimeMs;
+      if (age > LOCK_STALE_MS) fs.rmSync(lockPath, { force: true });
+    } catch {
+      // Lock file may have just been removed by its owner between our existsSync
+      // and statSync — ignore and re-poll.
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, LOCK_POLL_MS));
+  }
+}
+
+/** Write JSON atomically: readers never observe a partially-written file. */
+function writeJsonAtomic(filePath: string, data: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}`;
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+  fs.renameSync(tmpPath, filePath);
+}
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
 
@@ -110,8 +189,7 @@ async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promi
       const token = body.data?.createAccessToken?.accessToken;
       const tokenId = body.data?.createAccessToken?.metadata?.id;
       if (!token) throw new Error('Empty access token in response');
-      fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
-      fs.writeFileSync(tokenFile, JSON.stringify({ token, tokenId, actorUrn: actorCookie.value }, null, 2));
+      writeJsonAtomic(tokenFile, { token, tokenId, actorUrn: actorCookie.value });
       return token;
     } finally {
       await apiCtx.dispose();
@@ -256,15 +334,21 @@ async function ingestMcps(
       await ingestComplexAspects(apiContext, gmsToken, complexAspects, logger);
     }
 
+    // Wait for the MCP -> MCL -> search-index pipeline to catch up BEFORE marking
+    // this seed complete. The state file's mere existence is the fixture's signal
+    // that data is safe to read; writing it any earlier let workers that reuse it
+    // (see _seedFeatureData) proceed against not-yet-indexed data.
+    logger.info('waiting for writes to sync before marking seed complete');
+    await waitForWritesToSync(apiContext, { gmsToken, gmsUrl: gmsBaseUrl, logger });
+
     // Write state file so other workers (and next runs) skip re-seeding.
     // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
-    fs.mkdirSync(SEEDED_DIR, { recursive: true });
     const state: SeedState = {
       featureName,
       seededAt: new Date().toISOString(),
       entityCount: mcps.length,
     };
-    fs.writeFileSync(stateFilePath(featureName), JSON.stringify(state, null, 2));
+    writeJsonAtomic(stateFilePath(featureName), state);
     logger.info('state saved', { featureName });
   } finally {
     await apiContext.dispose();
@@ -296,62 +380,41 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         return;
       }
 
+      // Each artifact below is guarded by withArtifactLock: exactly one worker
+      // produces it (ingest + wait for the write pipeline to sync) while any
+      // concurrent workers_per_shard > 1 siblings poll for it instead of
+      // duplicating the ingestion.
       const tokenFile = gmsTokenPath(user.username);
-      const gmsToken = fs.existsSync(tokenFile) ? readGmsToken(user.username) : await bootstrapGmsToken(browser, user);
+      await withArtifactLock(tokenFile, () => bootstrapGmsToken(browser, user).then(() => undefined));
+      const gmsToken = readGmsToken(user.username);
 
-      // Track whether any fresh ingestion happened this run so we can wait
-      // for the search index to catch up before tests start.
-      let freshlySeeded = false;
-
-      // Always seed global shared data (test-data/data.json) once per worker.
+      // Always seed global shared data (test-data/data.json) once per run.
       if (fs.existsSync(GLOBAL_DATA_FILE)) {
         const globalStateFile = stateFilePath(GLOBAL_FEATURE_NAME);
-        if (fs.existsSync(globalStateFile)) {
-          const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
-          logger.info('reusing global data', { seededAt: state.seededAt, entityCount: state.entityCount });
-        } else {
+        await withArtifactLock(globalStateFile, () =>
           // throwOnFailure=false: global data has mixed-format MCPs; partial failures are non-blocking.
-          await ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false);
-          freshlySeeded = true;
-        }
+          ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false),
+        );
+        const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
+        logger.info('global data ready', { seededAt: state.seededAt, entityCount: state.entityCount });
       }
 
       if (!featureName) {
-        if (freshlySeeded) {
-          logger.info('waiting 15s for search index to catch up');
-          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
-        }
         await use();
         return;
       }
 
       const stateFile = stateFilePath(featureName);
-      if (fs.existsSync(stateFile)) {
-        const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        logger.info('reusing seeded data', {
-          featureName,
-          seededAt: state.seededAt,
-          entityCount: state.entityCount,
-        });
-        if (freshlySeeded) {
-          logger.info('waiting 15s for search index to catch up');
-          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
-        }
-        await use();
-        return;
-      }
-
-      // Slow path: seed feature-specific data and save state.
-      await ingestMcps(featureName, gmsToken, gmsUrl(), logger);
-      freshlySeeded = true;
-
-      logger.info('waiting 15s for search index to catch up');
-      await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+      await withArtifactLock(stateFile, () => ingestMcps(featureName, gmsToken, gmsUrl(), logger));
+      const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
+      logger.info('feature data ready', { featureName, seededAt: state.seededAt, entityCount: state.entityCount });
 
       await use();
     },
-    // 90 s: ingestMcps + 15 s ES index wait + network overhead can exceed the
-    // default fixture timeout (which mirrors the 30 s test timeout).
-    { auto: true, scope: 'worker', timeout: 90_000 },
+    // Generous ceiling: in the worst case a single worker becomes the producer for
+    // the token, global data, AND feature data, each of which now waits (via
+    // waitForWritesToSync, up to 60s) for the write pipeline to sync rather than
+    // sleeping a fixed 15s -- see withArtifactLock / ingestMcps.
+    { auto: true, scope: 'worker', timeout: 240_000 },
   ],
 });
