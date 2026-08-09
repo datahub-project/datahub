@@ -23,7 +23,7 @@ test.describe('Search Filters — Within operator', () => {
   });
 
   test('Domain Within uses DESCENDANTS_INCL and matches nested child entities', async ({ page }) => {
-    await searchPage.searchAndWait(DATASET_NAME, 3000);
+    await searchPage.searchAndWait(DATASET_NAME);
     await searchPage.expectFiltersV2Visible();
 
     // Dataset is only in the child domain — searching by name alone should find it.

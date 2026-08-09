@@ -83,15 +83,15 @@ export class SearchPage extends BasePage {
   async search(query: string): Promise<void> {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
-    await this.page.waitForTimeout(2000);
+    // No trailing sleep: callers assert via web-first expect()s that already
+    // retry, or via page-object methods with their own actionability waits.
   }
 
-  async searchAndWait(query: string, waitTime: number = 5000): Promise<void> {
+  async searchAndWait(query: string): Promise<void> {
     await this.searchInput.waitFor({ state: 'visible' });
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
     await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(waitTime);
   }
 
   async expectResultsCount(pattern: RegExp): Promise<void> {
@@ -163,14 +163,16 @@ export class SearchPage extends BasePage {
       const moreFiltersVisible = await moreFiltersBtn.isVisible();
       if (moreFiltersVisible) {
         await moreFiltersBtn.click();
-        await this.page.waitForTimeout(500);
         const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
-        const moreFilterVisible = await moreFilterOption.isVisible();
+        // Single-shot isVisible() would false-negative during the menu's open
+        // animation; wait for the real state instead of sleeping a fixed amount.
+        const moreFilterVisible = await moreFilterOption
+          .waitFor({ state: 'visible', timeout: 2000 })
+          .then(() => true)
+          .catch(() => false);
         if (moreFilterVisible) {
           await moreFilterOption.click();
-          await this.page.waitForTimeout(500);
-          // After clicking the more-filter option, select the option within
-          // the sub-dropdown that appears. Fall through to the selection logic.
+          // No sleep: selectFilterValue() below waits on the sub-dropdown itself.
           await this.selectFilterValue(optionLabel);
           return;
         }
@@ -183,9 +185,7 @@ export class SearchPage extends BasePage {
 
     await filterDropdown.click({ force: true });
 
-    // Wait for the dropdown menu to appear
-    await this.page.waitForTimeout(1000);
-
+    // No sleep: selectFilterValue() waits on the dropdown container itself.
     await this.selectFilterValue(optionLabel);
   }
 

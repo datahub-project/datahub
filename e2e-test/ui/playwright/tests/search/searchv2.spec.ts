@@ -19,7 +19,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should display SearchV2 interface by default', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.expectFiltersV2Visible();
     await searchPage.expectFiltersV1NotVisible();
   });
@@ -31,7 +31,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should show no results message when search returns empty', async () => {
-    await searchPage.searchAndWait('zzznonexistentqueryyy123', 5000);
+    await searchPage.searchAndWait('zzznonexistentqueryyy123');
     await searchPage.expectNoResults();
   });
 
@@ -45,7 +45,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should navigate through filter dropdowns', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     const typeFilterDropdown = page.getByTestId('filter-dropdown-Type');
     await typeFilterDropdown.click();
     await expect(searchPage.filterDropdownMenu).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should toggle filters using More Filters dropdown', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     const moreFiltersBtn = searchPage.moreFiltersDropdown;
     await expect(moreFiltersBtn).toBeVisible({ timeout: 10000 });
     await moreFiltersBtn.click();
@@ -64,7 +64,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should display active filters with correct test IDs', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     const activeFilter = page.getByTestId('active-filter-_entityType␞typeNames');
     await expect(activeFilter).toBeVisible();
@@ -73,7 +73,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should remove individual filters using remove button', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Datasets');
@@ -86,7 +86,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should clear all filters using Clear All button', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Datasets');
@@ -97,12 +97,12 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should persist search query in URL', async ({ page }) => {
-    await searchPage.searchAndWait('playwright', 3000);
+    await searchPage.searchAndWait('playwright');
     await expect(page).toHaveURL(/.*query=playwright.*/);
   });
 
   test('should expand and collapse filter facets', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const expandFacetIcon = page.locator('[data-testid^="expand-facet-"]').first();
     const facetCount = await expandFacetIcon.count();
@@ -114,27 +114,27 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should display search results with pagination', async ({ page }) => {
-    await searchPage.searchAndWait('*', 3000);
+    await searchPage.searchAndWait('*');
     await searchPage.expectHasResults();
     await searchPage.expectPaginationVisible();
     await expect(page.getByText(/of [0-9]+ result/)).toBeVisible();
   });
 
   test('should handle filter option selection with checkboxes', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.expectUrlContains('filter__entityType');
   });
 
   test('should filter search within filter dropdown', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectActiveFilter('Hive');
   });
 
   test('should maintain search state when clicking entity result and navigating back', async ({ page }) => {
-    await searchPage.searchAndWait('playwright', 2000);
+    await searchPage.searchAndWait('playwright');
     await searchPage.selectFilterOption('Type', 'Datasets');
     const searchUrl = page.url();
     await searchPage.clickEntityResult();

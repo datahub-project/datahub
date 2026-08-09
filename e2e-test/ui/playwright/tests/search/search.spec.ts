@@ -19,18 +19,18 @@ test.describe('Search Functionality', () => {
   });
 
   test('should search all entities and see results', async () => {
-    await searchPage.searchAndWait('*', 5000);
+    await searchPage.searchAndWait('*');
     await searchPage.expectHasResults();
   });
 
   test('should search with impossible query and find 0 results', async () => {
-    await searchPage.searchAndWait('zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq', 5000);
+    await searchPage.searchAndWait('zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq');
     await searchPage.expectNoResults();
   });
 
   test('should search, find a result, and visit the dataset page', async ({ page }) => {
     test.setTimeout(45000);
-    await searchPage.searchAndWait('fct_playwright_users_created', 5000);
+    await searchPage.searchAndWait('fct_playwright_users_created');
 
     // Wait for results — seeder fixture guarantees data is present.
     await expect(page.getByText(/of [0-9]+ result/)).toBeVisible({ timeout: 30000 });
@@ -49,7 +49,7 @@ test.describe('Search Functionality', () => {
   });
 
   test('should filter by glossary term', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
     await searchPage.expectActiveFilter('PlaywrightTerm');
@@ -57,14 +57,14 @@ test.describe('Search Functionality', () => {
   });
 
   test('should search and filter by glossary term', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
     await searchPage.expectHasResults();
   });
 
   test('should combine glossary term filter with text search', async () => {
-    await searchPage.searchAndWait('playwright', 2000);
+    await searchPage.searchAndWait('playwright');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
     await searchPage.expectHasResults();
@@ -72,7 +72,7 @@ test.describe('Search Functionality', () => {
   });
 
   test('should filter by multiple values using glossary terms', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.searchAndWait('*');
     await searchPage.selectFilterOption('Glossary-Term', 'PlaywrightTerm');
     await searchPage.expectUrlContains('filter_glossaryTerms');
     await searchPage.expectHasResults();
