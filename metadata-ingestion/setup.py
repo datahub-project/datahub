@@ -703,9 +703,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
