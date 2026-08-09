@@ -265,7 +265,7 @@ class ElasticsearchSourceConfig(
     password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password credential."
     )
-    api_key: Optional[Union[List[str], str]] = Field(
+    api_key: Optional[Union[Tuple[str, str], str]] = Field(
         default=None,
         description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
     )
@@ -356,10 +356,10 @@ class ElasticsearchSourceConfig(
         )
 
 
-def _api_key_authorization(api_key: Union[List[str], Tuple[str, str], str]) -> str:
+def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
     # An (id, api_key) pair is base64-encoded as "id:api_key"; a plain string is passed
     # through as the already-encoded token.
-    if isinstance(api_key, (tuple, list)):
+    if isinstance(api_key, tuple):
         token = base64.b64encode(f"{api_key[0]}:{api_key[1]}".encode()).decode()
     else:
         token = api_key
