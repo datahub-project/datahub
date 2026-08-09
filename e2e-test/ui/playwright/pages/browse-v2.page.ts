@@ -40,19 +40,29 @@ export class BrowseV2Page extends BasePage {
   }
 
   async expectSidebarExpanded(): Promise<void> {
-    const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
-    // Expanded state should have width > 100px (typically 260px+)
-    const widthValue = parseInt(width, 10);
-    expect(widthValue).toBeGreaterThan(100);
+    // Poll the actual computed width instead of guessing the 200ms CSS
+    // transition's duration — resolves as soon as the transition finishes.
+    await expect
+      .poll(
+        async () => {
+          const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
+          return parseInt(width, 10);
+        },
+        { timeout: TIMEOUTS.MEDIUM },
+      )
+      .toBeGreaterThan(100); // Expanded state should have width > 100px (typically 260px+)
   }
 
   async expectSidebarCollapsed(): Promise<void> {
-    // Wait for sidebar to actually collapse (width change)
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-    const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
-    // Collapsed state should have width ~63px
-    const widthValue = parseInt(width, 10);
-    expect(widthValue).toBeLessThan(100);
+    await expect
+      .poll(
+        async () => {
+          const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
+          return parseInt(width, 10);
+        },
+        { timeout: TIMEOUTS.MEDIUM },
+      )
+      .toBeLessThan(100); // Collapsed state should have width ~63px
   }
 
   async toggleSidebar(): Promise<void> {
@@ -60,33 +70,26 @@ export class BrowseV2Page extends BasePage {
     await this.browseV2Toggle.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     // Click the toggle button
     await this.browseV2Toggle.click();
-    // Wait for CSS transition animation and state change to propagate
-    // The sidebar animates for 200ms, plus buffer for state updates
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-    // Give React state a moment to update
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    // No fixed sleep: expectSidebarExpanded()/expectSidebarCollapsed() poll the
+    // actual computed width rather than guessing how long the transition takes.
   }
 
   async clickBrowsePlatform(platformName: string): Promise<void> {
     const platformHeader = this.browsePlatformHeaderLocator(platformName);
     await platformHeader.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await platformHeader.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   async expandBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeExpandLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
-    // Wait for animation and DOM updates
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async clickBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async expectBrowseNodeVisible(nodeName: string): Promise<void> {
