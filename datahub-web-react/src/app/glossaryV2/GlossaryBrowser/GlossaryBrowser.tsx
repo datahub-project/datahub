@@ -1,14 +1,21 @@
 import { Loader } from '@components';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import GlossaryFlatItem from '@app/glossaryV2/GlossaryBrowser/GlossaryFlatItem';
 import NodeItem from '@app/glossaryV2/GlossaryBrowser/NodeItem';
 import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import { useGlossarySidebarFilters } from '@app/glossaryV2/glossarySidebarFilters/GlossarySidebarFiltersContext';
+import useGlossaryDomainAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryDomainAggregations';
+import useGlossaryOwnerAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryOwnerAggregations';
+import useGlossaryTagAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryTagAggregations';
+import useScrollGlossaryEntities from '@app/glossaryV2/glossarySidebarFilters/useScrollGlossaryEntities';
 import { ROOT_NODES, ROOT_TERMS } from '@app/glossaryV2/utils';
+import SidebarFilteredResults from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarFilteredResults';
 import {
     TreeExpansionRegistryProvider,
     useTreeExpansionRegistry,
@@ -19,9 +26,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { EntityType } from '@types';
 
-// Picker embeds keep a local scroll wrapper. Sidebar use relies on the shared
-// HierarchicalBrowseSidebar TreeContainer instead.
 const BrowserWrapper = styled.div`
     max-height: calc(100% - 104px);
     padding: 8px;
@@ -86,35 +92,112 @@ function GlossaryBrowserInner(props: Props) {
     const { t: tm } = useTranslation('misc');
     const { urnsToUpdate, setUrnsToUpdate, nodeToNewEntity, setNodeToNewEntity } = useGlossaryEntityData();
     const expansion = useTreeExpansionRegistry();
+    const {
+        selectedOwnerUrns,
+        selectedTagUrns,
+        selectedDomainUrns,
+        setSelectedOwnerUrns,
+        setSelectedTagUrns,
+        setSelectedDomainUrns,
+        setAvailableOwners,
+        setAvailableTags,
+        setAvailableDomains,
+        sortSelection,
+    } = useGlossarySidebarFilters();
+    const entityRegistry = useEntityRegistry();
 
     const [isAllTermsExpanded, setIsAllTermsExpanded] = useState(true);
-    // Expand-all while the section is collapsed is a no-op (nodes unmounted);
-    // defer until after they register on the next paint.
     const pendingExpandAllRef = useRef(false);
 
     const isSidebarUse = !isSelecting;
-    const showTreeContents = !isSidebarUse || isAllTermsExpanded;
+    const isFiltering =
+        isSidebarUse && (selectedOwnerUrns.length > 0 || selectedTagUrns.length > 0 || selectedDomainUrns.length > 0);
+    /** Sidebar tree roots come from scrollAcrossEntities + sortInput — never client-sorted. */
+    const useServerSortedRoots = isSidebarUse && !isFiltering;
+    const showTreeContents = !isSidebarUse || isAllTermsExpanded || isFiltering;
 
     const {
         data: nodesData,
         refetch: refetchNodes,
         loading: nodesLoading,
-    } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
+    } = useGetRootGlossaryNodesQuery({
+        // Pickers (and optional props) keep the legacy root queries; sidebar uses scroll.
+        skip: isSidebarUse || !!rootNodes,
+    });
     const {
         data: termsData,
         refetch: refetchTerms,
         loading: termsLoading,
-    } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
-    const loading = nodesLoading || termsLoading;
+    } = useGetRootGlossaryTermsQuery({
+        skip: isSidebarUse || !!rootTerms,
+    });
 
-    const fetchedNodes = useMemo(
-        () => rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [],
-        [rootNodes, nodesData],
-    );
-    const fetchedTerms = useMemo(
-        () => rootTerms || termsData?.getRootGlossaryTerms?.terms || [],
-        [rootTerms, termsData],
-    );
+    const {
+        entities: serverRootEntities,
+        loading: serverRootsLoading,
+        scrollRef: serverRootsScrollRef,
+        refetch: refetchServerRoots,
+    } = useScrollGlossaryEntities({
+        skip: !useServerSortedRoots,
+        parentNode: null,
+        sort: sortSelection,
+        sortTypeBeforeName: true,
+    });
+
+    const {
+        entities: filteredEntities,
+        loading: filteredLoading,
+        scrollRef: filteredScrollRef,
+    } = useScrollGlossaryEntities({
+        skip: !isFiltering,
+        sort: sortSelection,
+        selectedOwnerUrns,
+        selectedTagUrns,
+        selectedDomainUrns,
+        ignoreParentScope: true,
+        sortTypeBeforeName: false,
+    });
+
+    const { owners: aggregatedOwners } = useGlossaryOwnerAggregations({ skip: !isSidebarUse });
+    const { tags: aggregatedTags } = useGlossaryTagAggregations({ skip: !isSidebarUse });
+    const { domains: aggregatedDomains } = useGlossaryDomainAggregations({ skip: !isSidebarUse });
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableOwners(aggregatedOwners);
+    }, [isSidebarUse, aggregatedOwners, setAvailableOwners]);
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableTags(aggregatedTags);
+    }, [isSidebarUse, aggregatedTags, setAvailableTags]);
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableDomains(aggregatedDomains);
+    }, [isSidebarUse, aggregatedDomains, setAvailableDomains]);
+
+    let loading = nodesLoading || termsLoading;
+    if (isFiltering) {
+        loading = filteredLoading;
+    } else if (useServerSortedRoots) {
+        loading = serverRootsLoading;
+    }
+
+    // Preserve server order — filter by type only, do not re-sort.
+    const fetchedNodes = useMemo((): GlossaryNodeFragment[] => {
+        if (useServerSortedRoots) {
+            return serverRootEntities.filter((e) => e.type === EntityType.GlossaryNode) as GlossaryNodeFragment[];
+        }
+        return rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [];
+    }, [useServerSortedRoots, serverRootEntities, rootNodes, nodesData]);
+
+    const fetchedTerms = useMemo((): ChildGlossaryTermFragment[] => {
+        if (useServerSortedRoots) {
+            return serverRootEntities.filter((e) => e.type === EntityType.GlossaryTerm) as ChildGlossaryTermFragment[];
+        }
+        return rootTerms || termsData?.getRootGlossaryTerms?.terms || [];
+    }, [useServerSortedRoots, serverRootEntities, rootTerms, termsData]);
 
     const optimisticRootNode = nodeToNewEntity[ROOT_NODES] as GlossaryNodeFragment | undefined;
     const optimisticRootTerm = nodeToNewEntity[ROOT_TERMS] as ChildGlossaryTermFragment | undefined;
@@ -131,15 +214,16 @@ function GlossaryBrowserInner(props: Props) {
         return [optimisticRootTerm, ...fetchedTerms];
     }, [fetchedTerms, optimisticRootTerm]);
 
-    const entityRegistry = useEntityRegistry();
-    const sortedNodes = useMemo(
-        () => displayedNodes.slice().sort((a, b) => sortGlossaryNodes(entityRegistry, a, b)),
-        [displayedNodes, entityRegistry],
-    );
-    const sortedTerms = useMemo(
-        () => displayedTerms.slice().sort((a, b) => sortGlossaryTerms(entityRegistry, a, b)),
-        [displayedTerms, entityRegistry],
-    );
+    // Pickers only: legacy client A–Z. Sidebar trusts scrollAcrossEntities sortInput.
+    const treeNodes = useMemo(() => {
+        if (useServerSortedRoots) return displayedNodes;
+        return displayedNodes.slice().sort((a, b) => sortGlossaryNodes(entityRegistry, a, b));
+    }, [useServerSortedRoots, displayedNodes, entityRegistry]);
+
+    const treeTerms = useMemo(() => {
+        if (useServerSortedRoots) return displayedTerms;
+        return displayedTerms.slice().sort((a, b) => sortGlossaryTerms(entityRegistry, a, b));
+    }, [useServerSortedRoots, displayedTerms, entityRegistry]);
 
     useEffect(() => {
         if (optimisticRootNode && fetchedNodes.some((node) => node.urn === optimisticRootNode.urn)) {
@@ -162,22 +246,36 @@ function GlossaryBrowserInner(props: Props) {
     }, [optimisticRootTerm, fetchedTerms, setNodeToNewEntity]);
 
     useEffect(() => {
-        if (refreshBrowser) {
-            refetchNodes();
-            refetchTerms();
+        if (!refreshBrowser || isFiltering) return;
+        if (useServerSortedRoots) {
+            refetchServerRoots();
+            return;
         }
-    }, [refreshBrowser, refetchNodes, refetchTerms]);
+        refetchNodes();
+        refetchTerms();
+    }, [refreshBrowser, refetchNodes, refetchTerms, refetchServerRoots, isFiltering, useServerSortedRoots]);
 
     useEffect(() => {
-        if (urnsToUpdate.includes(ROOT_NODES)) {
-            refetchNodes();
-            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_NODES));
+        if (isFiltering) return;
+        const needsRootRefresh = urnsToUpdate.includes(ROOT_NODES) || urnsToUpdate.includes(ROOT_TERMS);
+        if (!needsRootRefresh) return;
+
+        if (useServerSortedRoots) {
+            refetchServerRoots();
+        } else {
+            if (urnsToUpdate.includes(ROOT_NODES)) refetchNodes();
+            if (urnsToUpdate.includes(ROOT_TERMS)) refetchTerms();
         }
-        if (urnsToUpdate.includes(ROOT_TERMS)) {
-            refetchTerms();
-            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_TERMS));
-        }
-    }, [urnsToUpdate, setUrnsToUpdate, refetchNodes, refetchTerms]);
+        setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_NODES && urn !== ROOT_TERMS));
+    }, [
+        urnsToUpdate,
+        setUrnsToUpdate,
+        refetchNodes,
+        refetchTerms,
+        refetchServerRoots,
+        isFiltering,
+        useServerSortedRoots,
+    ]);
 
     const handleToggleExpandAll = () => {
         if (!expansion) return;
@@ -198,11 +296,19 @@ function GlossaryBrowserInner(props: Props) {
         if (!pendingExpandAllRef.current || !isAllTermsExpanded || !expansion) return;
         pendingExpandAllRef.current = false;
         expansion.expandAll();
-    }, [isAllTermsExpanded, expansion, sortedNodes, sortedTerms]);
+    }, [isAllTermsExpanded, expansion, treeNodes, treeTerms]);
+
+    const handleClearFilters = useCallback(() => {
+        setSelectedOwnerUrns([]);
+        setSelectedTagUrns([]);
+        setSelectedDomainUrns([]);
+    }, [setSelectedOwnerUrns, setSelectedTagUrns, setSelectedDomainUrns]);
+
+    const showSectionHeader = isSidebarUse && !isFiltering;
 
     const tree = (
         <>
-            {isSidebarUse && (
+            {showSectionHeader && (
                 <TreeSectionHeader
                     level={0}
                     label={t('sidebar.section.allTerms')}
@@ -215,9 +321,29 @@ function GlossaryBrowserInner(props: Props) {
                     collapseAllLabel={tm('context.tree.collapseAll')}
                 />
             )}
-            {showTreeContents && (
+            {showTreeContents && isFiltering && (
+                <SidebarFilteredResults
+                    count={filteredEntities.length}
+                    loading={filteredLoading && filteredEntities.length === 0}
+                    isRefreshing={filteredLoading && filteredEntities.length > 0}
+                    onClear={handleClearFilters}
+                    clearTestId="glossary-sidebar-clear-filters"
+                    dataTestId="glossary-sidebar-filtered-results"
+                >
+                    {filteredEntities.map((entity) => (
+                        <GlossaryFlatItem key={entity.urn} entity={entity} />
+                    ))}
+                    <div ref={filteredScrollRef} />
+                    {loading && filteredEntities.length > 0 && (
+                        <LoadingWrapper>
+                            <Loader size="sm" padding={0} />
+                        </LoadingWrapper>
+                    )}
+                </SidebarFilteredResults>
+            )}
+            {showTreeContents && !isFiltering && (
                 <>
-                    {sortedNodes.map((node) => (
+                    {treeNodes.map((node) => (
                         <NodeItem
                             key={node.urn}
                             node={node}
@@ -233,7 +359,7 @@ function GlossaryBrowserInner(props: Props) {
                         />
                     ))}
                     {!hideTerms &&
-                        sortedTerms.map((term) => (
+                        treeTerms.map((term) => (
                             <TermItem
                                 key={term.urn}
                                 term={term}
@@ -242,6 +368,7 @@ function GlossaryBrowserInner(props: Props) {
                                 depth={0}
                             />
                         ))}
+                    {useServerSortedRoots && <div ref={serverRootsScrollRef} />}
                     {loading && (
                         <LoadingWrapper>
                             <Loader size="sm" padding={0} />

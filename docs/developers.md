@@ -474,7 +474,17 @@ export DATAHUB_NETRC_PATH=/path/to/.netrc
 ```
 
 See `docker/snippets/uv/.netrc.example` for the full format
-and examples. The file is mounted into the build via a Docker BuildKit secret — it is **never
+and examples. Validate a file with:
+
+```bash
+python3 docker/snippets/uv/validate_netrc.py docker/snippets/uv/.netrc
+```
+
+Gradle runs the same check automatically when a netrc file is present (Docker image builds
+and local `uv` installs). A common failure mode is a blank line before later `#`-comment
+lines — Python's netrc parser then fails and uv reports opaque "Missing credentials" errors.
+
+The file is mounted into the build via a Docker BuildKit secret — it is **never
 written to any image layer** and will not appear in `docker history` output.
 
 :::warning Credentials in URLs
