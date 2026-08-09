@@ -228,9 +228,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written by
-      # python-cache-warmup.yml (push to master) under this exact key.
+      # ci-cache-warmup.yml (push to master) under this exact key.
       # Key must stay byte-identical with the lookup and save keys in
-      # python-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
+      # ci-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
       # manifests are included because requirements.txt installs '-e ../metadata-ingestion[...]'.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore uv cache
@@ -275,9 +275,9 @@ jobs:
           # Restore-only: Actions caches are ref-scoped, so a PR-side save can never be
           # shared with other PRs — it just mints a per-PR copy against the repo's 10GB
           # budget. The master-scoped entry every PR restores from is written by
-          # python-cache-warmup.yml (push to master), which uses this exact key.
+          # ci-cache-warmup.yml (push to master), which uses this exact key.
           # Key must stay byte-identical with the lookup and save keys in
-          # python-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
+          # ci-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
           # deduplicated across workflow files).
           key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
           restore-keys: |
@@ -358,7 +358,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       # Restore-only, from yarn's default cache dir: the master-scoped entry under this
-      # key is written by python-cache-warmup.yml warm-web-yarn-cache (build-and-test's
+      # key is written by ci-cache-warmup.yml warm-web-yarn-cache (build-and-test's
       # frontend jobs run on Depot runners, whose cache writes GitHub-hosted jobs cannot
       # read). Saving here would only mint a per-PR copy (this workflow is
       # pull_request-only), so we never save.
@@ -403,7 +403,7 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       # Restore-only, from yarn's default cache dir, using the same key family as
       # resusable-playwright-tests.yml (key must stay byte-identical with it and with
-      # python-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
+      # ci-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
       # what PR jobs here can actually read). The playwright- prefix keeps this small
       # entry out of the '<os>-yarn-' family, so a web-cache prefix restore can never
       # land on it; the secondary restore-key still falls back to the datahub-web-react
