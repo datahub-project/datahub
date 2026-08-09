@@ -3,7 +3,7 @@ import logging
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DocFreshnessInfoClass
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urns, unique_dataset_urn
+from tests.utils import delete_urns, unique_dataset_urn, with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,28 @@ def test_doc_freshness_info_round_trips(graph_client):
         assert fresh.verifiedAtTime == VERIFIED_AT_TIME
         assert fresh.actor == ACTOR
         assert fresh.staleReason is None
+
+        # Exercise the @Searchable annotation itself, not just the raw aspect
+        # read above: this is the actual reverse-lookup query the annotation
+        # exists for ("which docs point at this entity"), not a proxy for it.
+        @with_test_retry(max_attempts=15)
+        def _assert_indexed_for_reverse_lookup() -> None:
+            urns = list(
+                graph_client.get_urns_by_filter(
+                    extraFilters=[
+                        {
+                            "field": "docFreshnessVerifiedAgainstUrns",
+                            "negated": False,
+                            "condition": "EQUAL",
+                            "values": [dataset_urn],
+                        }
+                    ],
+                    skip_cache=True,
+                )
+            )
+            assert urns == [dataset_urn]
+
+        _assert_indexed_for_reverse_lookup()
 
         stale_aspect = DocFreshnessInfoClass(
             verifiedAgainstUrns=[dataset_urn],

@@ -21,9 +21,14 @@ record DocFreshnessInfo {
 
   /**
    * URNs (the documented entity itself, plus its lineage upstreams) that the
-   * documentation was checked against at the time of last verification. Always
-   * includes at least the documented entity itself — required, not defaulted,
-   * so a producer can't silently write a verification bound to nothing.
+   * documentation was checked against at the time of last verification. Should
+   * always include at least the documented entity itself — a verification that
+   * doesn't is meaningless. Required rather than defaulted so a producer has to
+   * explicitly decide what to put here instead of silently inheriting an empty
+   * list, but the schema alone can't guarantee non-emptiness or that the
+   * documented entity is actually included; producers are responsible for both,
+   * and a validator (see AspectPayloadValidator) would be needed to enforce it
+   * server-side.
    */
   @Searchable = {
     "/*": {
