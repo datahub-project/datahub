@@ -8,6 +8,7 @@ import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
@@ -18,9 +19,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -206,11 +211,136 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       }
     }
 
+    rows = fillEmptyDateBuckets(rows, buckets, metricColumnNames.size());
+
     GenericTable table = new GenericTable();
     table.setColumnNames(new StringArray(columnNames));
     table.setColumnTypes(new StringArray(columnTypes));
     table.setRows(new StringArrayArray(rows));
     return table;
+  }
+
+  /**
+   * Whether to gap-fill empty DATE grouping buckets between the first and last observed bucket.
+   *
+   * <p>Mirrors {@link
+   * com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO#shouldIncludeEmptyDateBuckets}
+   * ({@code min_doc_count=0} for DAY+). HOUR/MINUTE stay sparse to avoid huge result sets.
+   */
+  static boolean shouldIncludeEmptyDateBuckets(@Nullable TimeWindowSize timeWindowSize) {
+    if (timeWindowSize == null || !timeWindowSize.hasUnit()) {
+      return false;
+    }
+    CalendarInterval unit = timeWindowSize.getUnit();
+    return unit == CalendarInterval.DAY
+        || unit == CalendarInterval.WEEK
+        || unit == CalendarInterval.MONTH
+        || unit == CalendarInterval.QUARTER
+        || unit == CalendarInterval.YEAR;
+  }
+
+  /**
+   * Insert empty interstitial DATE buckets with {@link #ES_NULL_VALUE} metrics for the single-DATE
+   * grouping path used by usage/operations DAY+ queries.
+   */
+  @Nonnull
+  static List<StringArray> fillEmptyDateBuckets(
+      @Nonnull List<StringArray> rows, @Nonnull GroupingBucket[] buckets, int metricColumnCount) {
+    if (rows.isEmpty() || buckets.length != 1) {
+      return rows;
+    }
+    GroupingBucket bucket = buckets[0];
+    if (bucket.getType() != GroupingBucketType.DATE_GROUPING_BUCKET) {
+      return rows;
+    }
+    TimeWindowSize timeWindowSize = bucket.getTimeWindowSize();
+    if (!shouldIncludeEmptyDateBuckets(timeWindowSize)) {
+      return rows;
+    }
+
+    ZoneId zone = zoneForBucket(bucket);
+    CalendarInterval unit = timeWindowSize.getUnit();
+    int multiple = timeWindowSize.hasMultiple() ? timeWindowSize.getMultiple() : 1;
+    if (multiple < 1) {
+      multiple = 1;
+    }
+
+    Map<Long, StringArray> byTimestamp = new LinkedHashMap<>();
+    long min = Long.MAX_VALUE;
+    long max = Long.MIN_VALUE;
+    for (StringArray row : rows) {
+      if (row.isEmpty()) {
+        continue;
+      }
+      long timestampMillis;
+      try {
+        timestampMillis = Long.parseLong(row.get(0));
+      } catch (NumberFormatException e) {
+        return rows;
+      }
+      byTimestamp.put(timestampMillis, row);
+      min = Math.min(min, timestampMillis);
+      max = Math.max(max, timestampMillis);
+    }
+    if (byTimestamp.isEmpty() || min > max) {
+      return rows;
+    }
+
+    List<StringArray> filled = new ArrayList<>();
+    long cursor = min;
+    int safety = 0;
+    final int maxBuckets = 100_000;
+    while (cursor <= max) {
+      StringArray existing = byTimestamp.get(cursor);
+      if (existing != null) {
+        filled.add(existing);
+      } else {
+        List<String> cells = new ArrayList<>(1 + metricColumnCount);
+        cells.add(String.valueOf(cursor));
+        for (int i = 0; i < metricColumnCount; i++) {
+          cells.add(ES_NULL_VALUE);
+        }
+        filled.add(new StringArray(cells));
+      }
+      long next = nextBucketEpochMillis(cursor, unit, multiple, zone);
+      if (next <= cursor || ++safety > maxBuckets) {
+        log.warn(
+            "Stopping date bucket gap-fill after {} steps (cursor={}, next={}, max={})",
+            safety,
+            cursor,
+            next,
+            max);
+        break;
+      }
+      cursor = next;
+    }
+    return filled;
+  }
+
+  static long nextBucketEpochMillis(
+      long epochMillis, @Nonnull CalendarInterval unit, int multiple, @Nonnull ZoneId zone) {
+    ZonedDateTime zdt = Instant.ofEpochMilli(epochMillis).atZone(zone);
+    ZonedDateTime next;
+    switch (unit) {
+      case DAY:
+        next = zdt.plusDays(multiple);
+        break;
+      case WEEK:
+        next = zdt.plusWeeks(multiple);
+        break;
+      case MONTH:
+        next = zdt.plusMonths(multiple);
+        break;
+      case QUARTER:
+        next = zdt.plusMonths(3L * multiple);
+        break;
+      case YEAR:
+        next = zdt.plusYears(multiple);
+        break;
+      default:
+        throw new IllegalArgumentException("Unsupported gap-fill calendar unit: " + unit);
+    }
+    return next.toInstant().toEpochMilli();
   }
 
   private static String formatGroupCell(@Nullable Object o) {
