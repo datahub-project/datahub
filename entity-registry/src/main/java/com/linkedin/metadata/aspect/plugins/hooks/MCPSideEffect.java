@@ -92,6 +92,15 @@ public abstract class MCPSideEffect extends PluginSpec {
    * same MCPs from the same (previous, current) pair regardless of when it runs. It must NOT
    * coalesce (collapse) multiple MCLs into one — the buffer replays every MCL exactly once. See
    * {@code PostCommitHookBuffer} for the lossless-replay contract.
+   *
+   * <p><b>Idempotency against graph state.</b> Replay is at-least-once: an emit failure leaves the
+   * entry in the buffer and the next tick re-runs {@link #postApply} against the then-current graph
+   * state, which may have advanced since the original commit (other MCLs for the same entity may
+   * have landed in the meantime). A hook opting in MUST produce idempotent output in that case —
+   * re-running {@code postApply} for the same (previous, current) MCL pair after the graph has
+   * moved on must not produce contradictory or destructive MCPs. Hooks that query the live graph at
+   * replay time (rather than deriving purely from the MCL's previous/current aspects) must tolerate
+   * seeing a newer graph than at commit time and converge to the correct end state.
    */
   public boolean defersPostCommit() {
     return false;

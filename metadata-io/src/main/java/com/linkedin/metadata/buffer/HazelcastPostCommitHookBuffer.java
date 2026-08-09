@@ -12,6 +12,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -90,9 +91,25 @@ public class HazelcastPostCommitHookBuffer implements PostCommitHookBuffer {
   }
 
   @Override
+  public long nextSequence(int count) {
+    return delegate.nextSequence(count);
+  }
+
+  @Override
   public boolean enqueue(@Nonnull HookKey key, @Nonnull MetadataChangeLog mcl) {
     HookPayload payload = new HookPayload(RecordUtils.toJsonString(mcl));
     return delegate.enqueue(key, payload);
+  }
+
+  @Override
+  public boolean enqueueBatch(@Nonnull List<Map.Entry<HookKey, MetadataChangeLog>> entries) {
+    // MCL → HookPayload (JSON), then one putAll on the framework buffer. Keys are unique
+    // (sequence), so the map preserves every entry.
+    List<Map.Entry<HookKey, HookPayload>> batch = new ArrayList<>(entries.size());
+    for (Map.Entry<HookKey, MetadataChangeLog> e : entries) {
+      batch.add(Map.entry(e.getKey(), new HookPayload(RecordUtils.toJsonString(e.getValue()))));
+    }
+    return delegate.enqueueBatch(batch);
   }
 
   @Override

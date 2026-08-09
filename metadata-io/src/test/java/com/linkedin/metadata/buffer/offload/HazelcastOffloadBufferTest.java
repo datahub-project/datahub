@@ -10,6 +10,7 @@ import static org.testng.Assert.assertTrue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IMap;
 import com.linkedin.metadata.config.offload.MergePolicy;
 import com.linkedin.metadata.config.offload.SizingPolicy;
 import java.io.Serializable;
@@ -81,6 +82,21 @@ public class HazelcastOffloadBufferTest {
         null);
   }
 
+  // Fire-and-forget mergeKeepMaxLong (submitToKey) runs async on the partition thread; the
+  // previous .get(1000ms) sync point is gone, so drain() could race the merge. Poll the underlying
+  // IMap size until it converges to the expected coalesced count before asserting on drain().
+  private void awaitPendingSize(int expected) throws InterruptedException {
+    IMap<TestKey, Long> pending = hazelcastInstance.getMap(MAP_NAME);
+    long deadline = System.currentTimeMillis() + 5_000;
+    while (System.currentTimeMillis() < deadline) {
+      if (pending.size() == expected) {
+        return;
+      }
+      Thread.sleep(10);
+    }
+    // Fall through; the assertion below will fail loudly if the merge did not converge.
+  }
+
   @Test
   public void testNoCoalesceKeepsEveryDistinctKey() {
     hazelcastInstance = newIsolatedInstance();
@@ -95,13 +111,14 @@ public class HazelcastOffloadBufferTest {
   }
 
   @Test
-  public void testKeepMaxLongCoalescesToMaxValue() {
+  public void testKeepMaxLongCoalescesToMaxValue() throws InterruptedException {
     hazelcastInstance = newIsolatedInstance();
     HazelcastOffloadBuffer<TestKey, Long> buffer = keepMaxBuffer();
     TestKey key = new TestKey("a", 0L);
     buffer.enqueue(key, 5L);
     buffer.enqueue(key, 2L);
     buffer.enqueue(key, 9L);
+    awaitPendingSize(1);
 
     List<Map.Entry<TestKey, Long>> batch = buffer.drain(10);
     assertEquals(batch.size(), 1);

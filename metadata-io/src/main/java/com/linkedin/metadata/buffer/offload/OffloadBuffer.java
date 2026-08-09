@@ -65,6 +65,21 @@ public interface OffloadBuffer<K extends Serializable, V extends Serializable> {
    */
   long nextSequence();
 
+  /**
+   * Allocate the next {@code count} sequence numbers in one cluster call and return the highest.
+   * The caller consumes {@code [highest - count + 1 .. highest]} in order. The default impl loops
+   * {@link #nextSequence()}; {@link HazelcastOffloadBuffer} overrides with one {@code
+   * IAtomicLong.addAndGet} so a batch of N MCLs costs one Raft round-trip, not N. Passing {@code
+   * count <= 0} returns {@code 0} without a cluster call.
+   */
+  default long nextSequence(int count) {
+    long last = 0L;
+    for (int i = 0; i < count; i++) {
+      last = nextSequence();
+    }
+    return last;
+  }
+
   /** Drain up to {@code limit} entries (best-effort bounded batch). */
   @Nonnull
   List<Map.Entry<K, V>> drain(int limit);
@@ -74,6 +89,40 @@ public interface OffloadBuffer<K extends Serializable, V extends Serializable> {
 
   /** Re-insert an entry (retry path / poison pill). */
   void requeue(@Nonnull K key, @Nonnull V value);
+
+  /**
+   * Remove a batch of entries in one cluster call. <b>Non-CAS in the Hazelcast impl</b> ({@code
+   * IMap.removeAll(keys)} removes the keys unconditionally, unlike {@link #removeIfSame}'s
+   * compare-and-swap). The caller MUST guarantee no {@link #requeue} of any of these keys between
+   * {@link #drain} and this call — otherwise a requeued entry (new value) would be silently
+   * clobbered. Safe call sites are the success / permanent-drop branches of a {@link DrainAction}
+   * and the drainer's own permanent/backoff drops, where no requeue of these keys occurs in the
+   * same tick. The retry path (remove-then-requeue on the same key) MUST keep per-entry {@link
+   * #removeIfSame}. Default impl loops {@link #removeIfSame} (CAS, correct for tests/NO_OP); {@link
+   * HazelcastOffloadBuffer} overrides with one {@code IMap.removeAll}.
+   */
+  default void removeAll(@Nonnull List<Map.Entry<K, V>> entries) {
+    for (Map.Entry<K, V> e : entries) {
+      removeIfSame(e.getKey(), e.getValue());
+    }
+  }
+
+  /**
+   * Enqueue a batch in one cluster call. Returns {@code false} iff the buffer rejected the whole
+   * batch (at capacity, or transient failure) — the caller MUST then run every entry synchronously
+   * (no data loss). All-or-nothing: either every entry is admitted or none and the caller falls
+   * back for all. The default impl loops {@link #enqueue}; {@link HazelcastOffloadBuffer} overrides
+   * with one {@code IMap.putAll} (NO_COALESCE) so a batch of N costs one round-trip, not N.
+   */
+  default boolean enqueueBatch(@Nonnull List<Map.Entry<K, V>> entries) {
+    boolean allOk = true;
+    for (Map.Entry<K, V> e : entries) {
+      if (!enqueue(e.getKey(), e.getValue())) {
+        allOk = false;
+      }
+    }
+    return allOk;
+  }
 
   /** {@code true} iff this buffer actually defers work (the {@code NO_OP} impl returns false). */
   boolean defersApply();

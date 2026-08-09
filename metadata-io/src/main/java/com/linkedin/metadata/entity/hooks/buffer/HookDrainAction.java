@@ -69,9 +69,7 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
           "Post-commit hook '{}' not found in registry; dropping {} pending replays",
           firstKey.getHookId(),
           entries.size());
-      for (Map.Entry<HookKey, HookPayload> e : entries) {
-        buffer.removeIfSame(e.getKey(), e.getValue());
-      }
+      buffer.removeAll(entries);
       increment("post_commit_hook_missing", entries.size());
       return;
     }
@@ -107,9 +105,10 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
       return;
     }
 
-    for (Map.Entry<HookKey, HookPayload> e : entries) {
-      buffer.removeIfSame(e.getKey(), e.getValue());
-    }
+    // Success: no requeue happened in this branch, so a non-CAS batch remove is safe (one
+    // IMap.removeAll round-trip instead of N per-entry CAS removes). The retry path above
+    // (replaySingle) keeps per-entry removeIfSame because it remove-then-requeues the same key.
+    buffer.removeAll(entries);
     increment("post_commit_hook_replayed", entries.size());
   }
 

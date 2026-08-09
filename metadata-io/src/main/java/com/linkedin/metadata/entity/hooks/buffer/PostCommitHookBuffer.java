@@ -47,6 +47,19 @@ public interface PostCommitHookBuffer {
   long nextSequence();
 
   /**
+   * Allocate the next {@code count} sequence numbers in one cluster call; returns the highest. The
+   * caller consumes {@code [highest - count + 1 .. highest]} in order. Default loops {@link
+   * #nextSequence()}; the Hazelcast impl overrides with one {@code IAtomicLong.addAndGet}.
+   */
+  default long nextSequence(int count) {
+    long last = 0L;
+    for (int i = 0; i < count; i++) {
+      last = nextSequence();
+    }
+    return last;
+  }
+
+  /**
    * Enqueue a committed MCL (under its enriched {@link HookKey}) for deferred replay.
    *
    * @return {@code true} if the entry was durably written to the buffer; {@code false} on
@@ -54,6 +67,22 @@ public interface PostCommitHookBuffer {
    *     MUST fall back to running the hook synchronously so no side effect is silently dropped.
    */
   boolean enqueue(@Nonnull HookKey key, @Nonnull MetadataChangeLog mcl);
+
+  /**
+   * Enqueue a batch of committed MCLs in one cluster call. Returns {@code false} iff the buffer
+   * rejected the whole batch (at capacity, or transient failure) — the caller MUST then run every
+   * entry synchronously (no data loss). All-or-nothing. Default loops {@link #enqueue}; the
+   * Hazelcast impl overrides with one {@code IMap.putAll}.
+   */
+  default boolean enqueueBatch(@Nonnull List<Map.Entry<HookKey, MetadataChangeLog>> entries) {
+    boolean allOk = true;
+    for (Map.Entry<HookKey, MetadataChangeLog> e : entries) {
+      if (!enqueue(e.getKey(), e.getValue())) {
+        allOk = false;
+      }
+    }
+    return allOk;
+  }
 
   /**
    * @return true if callers must NOT run post-commit hooks synchronously; a background drainer will

@@ -51,6 +51,14 @@ public final class HookPayload implements Serializable {
 
   /**
    * Increment and return the new count; used when a replay fails and the key stays in the buffer.
+   *
+   * <p><b>remove → requeue ordering.</b> The drainer's retry path MUST call {@link
+   * OffloadBuffer#removeIfSame} with the OLD payload BEFORE {@link OffloadBuffer#requeue} with the
+   * incremented payload. {@code removeIfSame} is a CAS clear keyed on (key, expected-value): if the
+   * requeue (a plain {@code put} overwriting the value) ran first, the subsequent {@code
+   * removeIfSame} would compare against the NEW value and no-op, leaving the old-value entry
+   * un-removed and effectively losing the retry-count bump. The {@link HookDrainAction} follows
+   * this order; do not reverse it.
    */
   public HookPayload incrementRetry() {
     return new HookPayload(mclJson, retryCount + 1);

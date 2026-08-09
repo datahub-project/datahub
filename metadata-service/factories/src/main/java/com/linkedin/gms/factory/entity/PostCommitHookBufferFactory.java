@@ -5,6 +5,8 @@ import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.buffer.OffloadBufferFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.buffer.HazelcastPostCommitHookBuffer;
+import com.linkedin.metadata.buffer.offload.HazelcastOffloadBuffer;
+import com.linkedin.metadata.buffer.offload.OffloadBuffer;
 import com.linkedin.metadata.buffer.offload.OffloadDrainer;
 import com.linkedin.metadata.config.hazelcast.HazelcastBootstrapProperties;
 import com.linkedin.metadata.config.hooks.PostCommitHookBufferProperties;
@@ -98,21 +100,30 @@ public class PostCommitHookBufferFactory {
       name = HazelcastBootstrapProperties.POST_COMMIT_HOOK_BUFFER_ENABLED,
       havingValue = "true")
   @Nonnull
-  public PostCommitHookBuffer postCommitHookBuffer(
+  public HazelcastOffloadBuffer<HookKey, HookPayload> postCommitHookOffloadBuffer(
       @Qualifier("hazelcastInstance") @Lazy HazelcastInstance hazelcastInstance,
       ConfigurationProvider configurationProvider,
       OffloadBufferFactory offloadBufferFactory,
       @Nullable MetricUtils metricUtils) {
     PostCommitHookBufferProperties props = effectiveProperties(configurationProvider);
-    return new HazelcastPostCommitHookBuffer(
-        offloadBufferFactory.createBuffer(
-            hazelcastInstance,
-            props,
-            MergePolicy.NO_COALESCE,
-            SizingPolicy.REJECT_AT_CAP,
-            HazelcastPostCommitHookBuffer.drainOrder(),
-            "post_commit_hook",
-            metricUtils));
+    return offloadBufferFactory.createBuffer(
+        hazelcastInstance,
+        props,
+        MergePolicy.NO_COALESCE,
+        SizingPolicy.REJECT_AT_CAP,
+        HazelcastPostCommitHookBuffer.drainOrder(),
+        "post_commit_hook",
+        metricUtils);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = HazelcastBootstrapProperties.POST_COMMIT_HOOK_BUFFER_ENABLED,
+      havingValue = "true")
+  @Nonnull
+  public PostCommitHookBuffer postCommitHookBuffer(
+      HazelcastOffloadBuffer<HookKey, HookPayload> postCommitHookOffloadBuffer) {
+    return new HazelcastPostCommitHookBuffer(postCommitHookOffloadBuffer);
   }
 
   @Bean
@@ -132,7 +143,7 @@ public class PostCommitHookBufferFactory {
       havingValue = "true")
   @Nonnull
   public PostCommitHookDrainer postCommitHookDrainer(
-      PostCommitHookBuffer postCommitHookBuffer,
+      OffloadBuffer<HookKey, HookPayload> postCommitHookOffloadBuffer,
       HookContextResolver hookContextResolver,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
       @Qualifier("entityService") @Lazy EntityServiceImpl entityService,
@@ -146,7 +157,7 @@ public class PostCommitHookBufferFactory {
     PostCommitHookSink sink = entityService::ingestSideEffectMcps;
     OffloadDrainer<HookKey, HookPayload> drainer =
         offloadBufferFactory.createDrainer(
-            ((HazelcastPostCommitHookBuffer) postCommitHookBuffer).getDelegate(),
+            postCommitHookOffloadBuffer,
             hookContextResolver,
             systemOperationContext,
             new HookDrainAction(sink, metricUtils),

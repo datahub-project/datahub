@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.retention.buffer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.buffer.offload.DrainAction;
 import com.linkedin.metadata.buffer.offload.OffloadBuffer;
+import com.linkedin.metadata.buffer.offload.UnresolvableOffloadKeyException;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
@@ -95,6 +96,11 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
     List<RetentionKey> successes;
     try {
       successes = retentionService.applyRetentionBatchWithPolicyDefaults(opContext, batchEntries);
+    } catch (UnresolvableOffloadKeyException e) {
+      // Permanent: re-throw unchanged so the framework drainer drops the group. Wrapping it in a
+      // plain RuntimeException would erase the type and make the drainer treat it as transient →
+      // retry the group every tick forever.
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException("Retention group apply failed; leaving for retry", e);
     }
@@ -104,6 +110,12 @@ public class RetentionDrainAction implements DrainAction<RetentionKey, Long> {
     }
 
     Set<RetentionKey> successKeys = new HashSet<>(successes);
+    // Per-entry CAS remove (NOT removeAll): retention keys are (urn, aspect) and are REUSED by
+    // every upsert for that pair. A concurrent ingest can re-merge a higher version (V2 > V1) into
+    // the same key while we drain. removeIfSame(K, V1) CAS-fails on the value mismatch → (K, V2)
+    // survives → re-drained next tick. A non-CAS removeAll(K) would clobber (K, V2) → V2's
+    // retention lost. Hooks use removeAll (unique per-sequence keys, never reused); retention
+    // cannot.
     for (Map.Entry<RetentionKey, Long> entry : entries) {
       if (successKeys.contains(entry.getKey())) {
         buffer.removeIfSame(entry.getKey(), entry.getValue());

@@ -1151,32 +1151,39 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         // carries routing metadata from the request OperationContext so the drainer can replay
         // under the correct (route-aware) context.
         String hookId = hook.getConfig().getClassName();
-        int enqueued = 0;
-        int fallback = 0;
+        List<MCLItem> applicable = new ArrayList<>();
         for (MCLItem item : batch) {
           if (hook.shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName())) {
-            long seq = postCommitHookBuffer.nextSequence();
-            HookKey key =
-                hookContextResolver.enrichKey(opContext, hookId, item.getMetadataChangeLog(), seq);
-            boolean ok = postCommitHookBuffer.enqueue(key, item.getMetadataChangeLog());
-            if (ok) {
-              enqueued++;
-            } else {
-              // Buffer write failed (partition / serialization / CP error). Fall back to running
-              // this single MCL through the hook synchronously so no side effect is silently
-              // dropped — losing the async deferral is acceptable, losing the side effect is not.
-              fallback++;
-              runSyncHook(opContext, hook, List.of(item));
-            }
+            applicable.add(item);
           }
         }
-        if (enqueued > 0) {
-          log.debug("Deferred {} MCLs for async post-commit hook '{}'", enqueued, hookId);
+        if (applicable.isEmpty()) {
+          continue;
         }
-        if (fallback > 0) {
+        // Batched: one nextSequence(N) cluster call + one enqueueBatch (putAll) cluster call for
+        // the whole hook's MCLs, instead of 2N serial per-MCL round-trips on the ingest thread.
+        // The sequence block [end-N+1 .. end] is assigned in MCL order so FIFO within the batch
+        // is preserved; the drain comparator orders by sequence across pods.
+        long end = postCommitHookBuffer.nextSequence(applicable.size());
+        long seq = end - applicable.size() + 1;
+        List<Map.Entry<HookKey, MetadataChangeLog>> entries = new ArrayList<>(applicable.size());
+        for (MCLItem item : applicable) {
+          HookKey key =
+              hookContextResolver.enrichKey(opContext, hookId, item.getMetadataChangeLog(), seq++);
+          entries.add(Map.entry(key, item.getMetadataChangeLog()));
+        }
+        boolean ok = postCommitHookBuffer.enqueueBatch(entries);
+        if (ok) {
+          log.debug("Deferred {} MCLs for async post-commit hook '{}'", applicable.size(), hookId);
+        } else {
+          // Buffer rejected/failed the whole batch (at-cap or transient). Fall back to running
+          // every applicable MCL through the hook synchronously — no side effect is silently
+          // dropped. Losing the async deferral is acceptable, losing the side effect is not.
+          runSyncHook(opContext, hook, applicable);
           log.warn(
-              "Buffer enqueue failed for {} MCL(s) of hook '{}'; fell back to synchronous execution",
-              fallback,
+              "Buffer batch enqueue failed for {} MCL(s) of hook '{}'; fell back to synchronous"
+                  + " execution",
+              applicable.size(),
               hookId);
         }
       } else {

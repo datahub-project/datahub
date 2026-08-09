@@ -59,9 +59,11 @@ public interface HookContextResolver extends OffloadContextResolver<HookKey> {
 
   /**
    * Stable grouping key for drained entries. The drainer groups drained entries by this so that
-   * entries sharing a routing context are replayed together under one {@link #resolveOpContext}.
-   * Implementations should return a value that is stable across calls for the same routing context
-   * (e.g. a route id extracted from the key).
+   * entries sharing a routing context are replayed together under one {@link #resolveOpContext},
+   * and {@code HookDrainAction} replays each group through the single hook named by the group's
+   * first key. Implementations MUST include the hook id (plus any route id) so each group contains
+   * entries for exactly one hook; a constant key would pack different hooks into one group and the
+   * first hook's replay would clear the others' entries without running them.
    */
   @Nonnull
   String groupKey(@Nonnull HookKey key);
@@ -78,6 +80,19 @@ public interface HookContextResolver extends OffloadContextResolver<HookKey> {
       @Nonnull HookKey key, @Nonnull OperationContext systemOperationContext);
 
   /**
+   * Build a plain {@link SimpleHookKey} from an MCL, tolerating null urn/aspectName (defensive —
+   * shared by {@link #NO_OP} and {@link SimpleHookContextResolver} so the null-handling is not
+   * duplicated).
+   */
+  @Nonnull
+  static SimpleHookKey simpleKey(
+      @Nonnull String hookId, @Nonnull MetadataChangeLog mcl, long sequence) {
+    String urn = mcl.getEntityUrn() == null ? "" : mcl.getEntityUrn().toString();
+    String aspectName = mcl.getAspectName() == null ? "" : mcl.getAspectName();
+    return new SimpleHookKey(hookId, urn, aspectName, sequence);
+  }
+
+  /**
    * No-op resolver used when no buffer is wired (and thus no drainer runs). {@link #enrichKey}
    * produces a plain {@link SimpleHookKey} with no routing metadata; {@link #resolveOpContext}
    * returns the passed system context unchanged. Only meaningful as a default field initializer —
@@ -89,14 +104,12 @@ public interface HookContextResolver extends OffloadContextResolver<HookKey> {
         @Override
         public HookKey enrichKey(
             OperationContext opContext, String hookId, MetadataChangeLog mcl, long sequence) {
-          String urn = mcl.getEntityUrn() == null ? "" : mcl.getEntityUrn().toString();
-          String aspectName = mcl.getAspectName() == null ? "" : mcl.getAspectName();
-          return new SimpleHookKey(hookId, urn, aspectName, sequence);
+          return simpleKey(hookId, mcl, sequence);
         }
 
         @Override
         public String groupKey(HookKey key) {
-          return "default";
+          return key.getHookId();
         }
 
         @Override

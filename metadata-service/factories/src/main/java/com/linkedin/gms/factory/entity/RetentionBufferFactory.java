@@ -198,7 +198,8 @@ public class RetentionBufferFactory {
   @Nonnull
   private static RetentionBufferProperties effectiveProperties(
       @Nonnull ConfigurationProvider configurationProvider) {
-    if (configurationProvider.getDatahub().getRetention() != null
+    if (configurationProvider.getDatahub() != null
+        && configurationProvider.getDatahub().getRetention() != null
         && configurationProvider.getDatahub().getRetention().getBuffer() != null) {
       return configurationProvider.getDatahub().getRetention().getBuffer();
     }

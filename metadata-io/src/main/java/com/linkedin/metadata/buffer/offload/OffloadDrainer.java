@@ -5,11 +5,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -72,9 +72,15 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
 
   private final boolean backoffEnabled;
   private final long backoffTicks;
+  // currentTick and the backoff maps are read/written only inside drainBatch(), which is itself
+  // guarded by the cluster-wide drain lock acquired in tick(). ConcurrentHashMap defends against a
+  // non-scheduler caller (test, admin endpoint) invoking tick() concurrently with the scheduler —
+  // a HashMap would corrupt on concurrent put. The single-tick-at-a-time invariant is still
+  // required for correctness (two concurrent ticks on the same pod would race the drain lock and
+  // one would no-op, but the maps must not corrupt even if that guard is ever relaxed).
   private long currentTick = 0L;
-  private final Map<K, Long> transientRetryAt = new HashMap<>();
-  private final Map<K, V> transientRetryValue = new HashMap<>();
+  private final ConcurrentHashMap<K, Long> transientRetryAt = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<K, V> transientRetryValue = new ConcurrentHashMap<>();
 
   public OffloadDrainer(
       @Nonnull OffloadBuffer<K, V> buffer,
@@ -134,7 +140,14 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
     this.backoffTicks = Math.max(1L, backoffTicks);
   }
 
-  /** One drain tick. Idempotent under concurrent ticks (cluster-wide drain lock). */
+  /**
+   * One drain tick. Idempotent under concurrent ticks (cluster-wide drain lock). Must NOT be called
+   * concurrently on the same drainer instance — {@code scheduleWithFixedDelay} guarantees
+   * sequential ticks from one scheduler, but an external caller (test, admin endpoint) invoking
+   * {@code tick()} while the scheduler is running would race the drain lock. The backoff maps use
+   * {@link ConcurrentHashMap} so a race corrupts nothing (one tick no-ops on the lock), but the
+   * single-tick invariant is still required for drain correctness.
+   */
   public void tick() {
     if (!enabled) {
       return;
@@ -163,6 +176,13 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
   }
 
   private void drainBatch() {
+    // currentTick is a monotonic per-tick counter used only for transient-backoff scheduling
+    // (transientRetryAt stores absolute tick deadlines). It is incremented unconditionally even
+    // when the batch is empty so backoff deadlines stay consistent across idle ticks. NOTE:
+    // `enabled` is final (set at construction from the feature flag) — currentTick is NOT
+    // runtime-togglable and the scheduler is not dynamically re-registered; toggling the flag
+    // requires a bean restart. Do not add a runtime toggle without reworking the scheduler
+    // lifecycle.
     currentTick++;
     // Re-merge keys whose transient backoff has expired so they retry on this tick. They were
     // removed from the buffer when the transient failure was caught, so drain() now surfaces them
@@ -188,6 +208,13 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
       return;
     }
     Map<String, List<Map.Entry<K, V>>> groups = new LinkedHashMap<>();
+    // Permanent (unresolvable) drops are collected for a single batch removeAll — these keys are
+    // poison (malformed/routing) and ingest never re-merges a malformed key, so non-CAS is safe.
+    List<Map.Entry<K, V>> unresolvableGroupKey = new ArrayList<>();
+    // Backoff drops are NOT batched: backoff is retention-only (hooks run with backoff off) and
+    // retention keys are reused by concurrent ingest, so a non-CAS removeAll would clobber a
+    // re-merged higher version (and the stale backoff value would later overwrite it). Per-entry
+    // removeIfSame CAS guards exactly this — the entry survives if a higher version re-merged.
     for (Map.Entry<K, V> entry : batch) {
       try {
         String g = contextResolver.groupKey(entry.getKey());
@@ -195,13 +222,15 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
       } catch (UnresolvableOffloadKeyException e) {
         log.warn(
             "Dropping unresolvable {} key {}; {}", metricPrefix, entry.getKey(), e.getMessage());
-        buffer.removeIfSame(entry.getKey(), entry.getValue());
+        unresolvableGroupKey.add(entry);
         increment(metricPrefix + "_unresolvable_key");
       } catch (RuntimeException e) {
         if (backoffEnabled) {
           // Move to backoff limbo so drain() surfaces the keys behind this one; re-merge after
           // backoffTicks. Without this, a persistently-failing key starves the first page (drain is
-          // non-destructive and returns the same first page until removeIfSame clears it).
+          // non-destructive and returns the same first page until removeIfSame clears it). CAS
+          // remove: if a higher version re-merged in the meantime, the entry survives and is
+          // re-drained next tick (the backoff re-merge later coalesces its stale value away).
           buffer.removeIfSame(entry.getKey(), entry.getValue());
           transientRetryAt.put(entry.getKey(), currentTick + backoffTicks);
           transientRetryValue.put(entry.getKey(), entry.getValue());
@@ -219,6 +248,10 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
               e);
         }
       }
+    }
+    // Batch-remove only the permanent (unresolvable) drops: no re-merge of poison keys.
+    if (!unresolvableGroupKey.isEmpty()) {
+      buffer.removeAll(unresolvableGroupKey);
     }
     for (List<Map.Entry<K, V>> group : groups.values()) {
       replayGroup(group);
@@ -239,15 +272,17 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
     } catch (UnresolvableOffloadKeyException e) {
       log.warn(
           "Dropping {} unresolvable {} entries; {}", entries.size(), metricPrefix, e.getMessage());
-      for (Map.Entry<K, V> entry : entries) {
-        buffer.removeIfSame(entry.getKey(), entry.getValue());
-      }
+      buffer.removeAll(entries);
       increment(metricPrefix + "_unresolvable_key", entries.size());
       return;
     } catch (RuntimeException e) {
       if (backoffEnabled) {
         // Same backoff as the groupKey path: move the whole group to the limbo so drain() surfaces
-        // the keys behind them, re-merge after backoffTicks.
+        // the keys behind them, re-merge after backoffTicks. Per-entry removeIfSame CAS (not
+        // removeAll): backoff is retention-only and retention keys are reused by concurrent
+        // ingest, so a non-CAS batch remove would clobber a re-merged higher version and the
+        // stale backoff value would later overwrite it. CAS leaves the entry in place if a
+        // higher version re-merged, so it is re-drained next tick.
         for (Map.Entry<K, V> entry : entries) {
           buffer.removeIfSame(entry.getKey(), entry.getValue());
           transientRetryAt.put(entry.getKey(), currentTick + backoffTicks);
@@ -280,9 +315,7 @@ public class OffloadDrainer<K extends Serializable, V extends Serializable> {
           entries.size(),
           metricPrefix,
           e.getMessage());
-      for (Map.Entry<K, V> entry : entries) {
-        buffer.removeIfSame(entry.getKey(), entry.getValue());
-      }
+      buffer.removeAll(entries);
       increment(metricPrefix + "_unresolvable_key", entries.size());
     } catch (Throwable t) {
       // Transient: leave un-removed entries for the next tick (at-least-once). The action is
