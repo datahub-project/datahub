@@ -78,18 +78,29 @@ export class BrowseV2Page extends BasePage {
     const platformHeader = this.browsePlatformHeaderLocator(platformName);
     await platformHeader.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await platformHeader.click({ force: true });
+    // CI regression (see git history): these three methods are chained
+    // back-to-back with no assertion in between in some tests (platform ->
+    // expand path -> click leaf node). A `force: true` click firing while the
+    // prior click's tree re-render is still in flight can land on a
+    // mid-transition DOM and silently fail to register — the next method's
+    // own waitFor() doesn't protect against this because it's waiting on a
+    // locator whose underlying render this same race can also stall.
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   async expandBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeExpandLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
+    // Wait for animation and DOM updates — see clickBrowsePlatform() above.
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async clickBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
+    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async expectBrowseNodeVisible(nodeName: string): Promise<void> {

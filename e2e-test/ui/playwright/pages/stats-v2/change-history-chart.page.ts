@@ -150,11 +150,13 @@ export class ChangeHistoryChart extends BasePage {
     const dayCell = this.getDayCell(dateString);
     await dayCell.scrollIntoViewIfNeeded();
     await dayCell.hover({ timeout });
-    // Wait for the popover to actually mount (antd's hover-open delay) rather
-    // than guessing a fixed duration; days with no popover just time out fast.
-    await this.getDayPopover(dateString)
-      .waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT })
-      .catch(() => {});
+    // CI regression (see git history): waiting on getDayPopover() here instead
+    // of a short fixed sleep breaks days with no popover content — the wait
+    // burns its full budget with nothing to find, and by the time callers make
+    // their own check the transient hover state has already lapsed. A brief
+    // fixed sleep is the correct tool for an antd hover-open delay with no
+    // universal DOM signal to wait on across both populated and empty days.
+    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   /**

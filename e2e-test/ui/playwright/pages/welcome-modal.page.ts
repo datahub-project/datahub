@@ -116,12 +116,19 @@ export class WelcomeModalPage extends BasePage {
 
   async pressArrowRight(): Promise<void> {
     await this.page.keyboard.press('ArrowRight');
-    // No sleep: the caller's expectSlideXVisible() asserts via a retrying
-    // expect().toBeVisible() (some also poll waitForSlideChange() first).
+    // CI regression (see git history): react-slick's afterChange fires via
+    // setTimeout(speed=500ms), and a second interaction landing mid-transition
+    // can drop it entirely via the ResizeObserver race documented on
+    // clickLastCarouselDot() below. The caller's retrying assertion doesn't
+    // protect against this — if afterChange never fires, the target heading
+    // never renders at all, so the assertion just times out. A fixed wait
+    // matching the transition speed is the least-fragile option here.
+    await this.page.waitForTimeout(500);
   }
 
   async pressArrowLeft(): Promise<void> {
     await this.page.keyboard.press('ArrowLeft');
+    await this.page.waitForTimeout(500);
   }
 
   async closeViaOutsideClick(): Promise<void> {
@@ -132,8 +139,12 @@ export class WelcomeModalPage extends BasePage {
 
   async clickCarouselDot(index: number): Promise<void> {
     await this.carouselDots.nth(index).click();
-    // No sleep: callers assert via expectSlideXVisible() (retrying) or, in the
-    // rapid-navigation test, deliberately click back-to-back without waiting.
+    // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
+    // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
+    // CI regression (see git history): removing this broke both sequential dot
+    // clicks and the rapid-navigation test, via the same afterChange-drop race
+    // documented on clickLastCarouselDot() below.
+    await this.page.waitForTimeout(500);
   }
 
   async clickLastCarouselDot(): Promise<void> {
