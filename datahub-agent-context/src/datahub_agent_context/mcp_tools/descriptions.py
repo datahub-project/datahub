@@ -141,9 +141,15 @@ def update_description(
     """Update description for a DataHub entity or its column (e.g., schema field).
 
     This tool allows you to set, append to, or remove a description for an entity or its column.
-    Useful for documenting datasets, containers, charts, dashboards, data flows, data jobs,
-    ML models, ML model groups, ML feature tables, ML primary keys, tags, glossary terms,
-    glossary nodes, domains, and schema fields.
+
+    Note: DataHub's updateDescription mutation only accepts a fixed set of entity types. Supported:
+    dataset (including its schema fields, via column_path), container, domain, glossaryTerm,
+    glossaryNode, tag, corpGroup, notebook, mlModel, mlModelGroup, mlFeatureTable, mlFeature,
+    mlPrimaryKey, dataProduct, businessAttribute, application, and document. Other types -
+    including chart, dashboard, dataFlow, dataJob, and corpuser - are rejected server-side with
+    "Failed to update description. Unsupported resource type <urn> provided.". The search tool
+    returns unsupported types alongside supported ones, so a bulk documentation pass over search
+    results should filter by entity type first rather than relying on the error.
 
     Args:
         entity_urn: Entity URN to update description for (e.g., dataset URN, container URN)

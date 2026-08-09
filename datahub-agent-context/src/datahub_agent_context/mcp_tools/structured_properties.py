@@ -193,6 +193,14 @@ def add_structured_properties(
     This tool allows you to assign structured properties to multiple entities in a single operation.
     Structured properties are schema-defined metadata fields that can store typed values (strings, numbers, etc.).
 
+    Note: every key in property_values must be the URN of a structured property whose definition
+    already exists in DataHub. This tool only assigns values to existing definitions - it does not
+    create them, and no property-definition tool is exposed here. If a property URN does not exist,
+    the call fails with "Structured property URN does not exist in DataHub: ...". Values are also
+    type-checked against the definition's valueType, so the definition must be in place first. Find
+    existing properties with the search tool; create missing definitions out of band, e.g. via the
+    DataHub UI or the Python SDK.
+
     Args:
         property_values: Dictionary mapping structured property URNs to lists of values.
                         Example: {

@@ -171,6 +171,12 @@ def add_tags(
     Useful for bulk tagging operations like marking multiple datasets as PII, deprecated, or applying
     governance classifications.
 
+    Note: every URN in tag_urns must already exist in DataHub. This tool only assigns existing tags -
+    it does not create them, and no tag-creation tool is exposed here. If a tag URN does not exist,
+    the call fails with "The following tag URNs do not exist in DataHub: ...". Find existing tags with
+    the search tool (entity_type filter "TAG"); create missing ones out of band, e.g. via the DataHub
+    UI or the Python SDK, before calling this tool.
+
     Args:
         tag_urns: List of tag URNs to add (e.g., ["urn:li:tag:PII", "urn:li:tag:Sensitive"])
         entity_urns: List of entity URNs to tag (e.g., dataset URNs, dashboard URNs)
