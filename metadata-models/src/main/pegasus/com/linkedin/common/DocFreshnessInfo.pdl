@@ -5,6 +5,14 @@ namespace com.linkedin.common
  * runbooks) was last verified as accurate against the entity's actual state, so
  * that drift in the entity or its lineage upstreams can flag that documentation
  * as stale without the documentation itself ever changing.
+ *
+ * v1 scope: one verification record per entity, covering that entity's
+ * canonical documentation as a whole (the same granularity as the existing
+ * `documentation` aspect's own staleness would be judged at) — not one record
+ * per external document. An entity documented by multiple independent files
+ * shares a single freshness state; per-document tracking would need a
+ * document/source identifier added to this shape, deferred until there's a
+ * concrete use case for it.
  */
 @Aspect = {
   "name": "docFreshnessInfo"
@@ -13,14 +21,30 @@ record DocFreshnessInfo {
 
   /**
    * URNs (the documented entity itself, plus its lineage upstreams) that the
-   * documentation was checked against at the time of last verification.
+   * documentation was checked against at the time of last verification. Always
+   * includes at least the documented entity itself — required, not defaulted,
+   * so a producer can't silently write a verification bound to nothing.
    */
-  verifiedAgainstUrns: array[Urn] = [ ]
+  @Searchable = {
+    "/*": {
+      "fieldName": "docFreshnessVerifiedAgainstUrns",
+      "fieldType": "URN",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasDocFreshnessVerification",
+      "addHasValuesToFilters": true,
+    }
+  }
+  verifiedAgainstUrns: array[Urn]
 
   /**
    * Fingerprint hash of the entity's schema/ownership/deprecation state (and one
    * hop of its lineage upstreams' state) captured when the documentation was last
    * verified as accurate. Compared against the live fingerprint to detect drift.
+   * The hashing algorithm itself is producer-defined and not specified here —
+   * only a single producer's own fingerprints are meant to be compared against
+   * each other. A producer that changes its algorithm should treat that as a
+   * breaking change requiring every existing record to be re-verified, since an
+   * old and new fingerprint for identical state are not guaranteed to match.
    */
   verifiedAtVersion: string
 
