@@ -89,4 +89,7 @@ public class FeatureFlags {
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
+  // Uses conditional updates on SystemMetadata.version instead of SELECT FOR UPDATE for aspect
+  // writes. Legacy null-version rows fall back to plain updates until stamped.
+  private boolean optimisticLocking = false;
 }

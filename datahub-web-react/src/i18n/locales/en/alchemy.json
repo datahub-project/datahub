@@ -7,6 +7,8 @@
     "calendarChart.weekday.thu": "Thu",
     "calendarChart.weekday.tue": "Tue",
     "calendarChart.weekday.wed": "Wed",
+    "codeBlock.languageSelectLabel": "Language",
+    "codeBlock.truncated": "This code was truncated because it exceeded the maximum length.",
     "colorPicker.invalidHex.error": "Please enter a valid hex color code",
     "datePicker.placeholder": "Select date",
     "editor.addImage.altLabel": "Alt Text",

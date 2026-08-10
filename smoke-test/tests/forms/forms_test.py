@@ -114,31 +114,47 @@ def form_urn(auth_session):
     delete_entity(auth_session, urn)
 
 
-def _assign(auth_session, form: str, urns: List[str], expect_errors: bool = False):
+def _assign(
+    auth_session,
+    form: str,
+    urns: List[str],
+    expect_errors: bool = False,
+    no_sync_wait: bool = False,
+):
     return execute_graphql(
         auth_session,
         BATCH_ASSIGN_FORM,
         {"input": {"formUrn": form, "entityUrns": urns}},
         expect_errors=expect_errors,
+        no_sync_wait=no_sync_wait,
     )
 
 
-def _remove(auth_session, form: str, urns: List[str], expect_errors: bool = False):
+def _remove(
+    auth_session,
+    form: str,
+    urns: List[str],
+    expect_errors: bool = False,
+    no_sync_wait: bool = False,
+):
     return execute_graphql(
         auth_session,
         BATCH_REMOVE_FORM,
         {"input": {"formUrn": form, "entityUrns": urns}},
         expect_errors=expect_errors,
+        no_sync_wait=no_sync_wait,
     )
 
 
 def _assigned_forms(auth_session, urn: str) -> List[str]:
+    # Read-only -- never has state to sync, so always skip the wait. Called in
+    # loops (directly and via _count_assigned) across most tests below.
     query, key = (
         (GET_CHART_FORMS, "chart")
         if urn.startswith("urn:li:chart")
         else (GET_DATASET_FORMS, "dataset")
     )
-    res_data = execute_graphql(auth_session, query, {"urn": urn})
+    res_data = execute_graphql(auth_session, query, {"urn": urn}, no_sync_wait=True)
     forms: Dict[str, Any] = res_data["data"][key]["forms"] or {}
     return [
         association["form"]["urn"]
@@ -280,8 +296,10 @@ def test_batch_remove_form_only_affects_named_form(auth_session, form_urn):
     wait_for_writes_to_sync()
 
     try:
-        _assign(auth_session, form_urn, DATASET_URNS)
-        _assign(auth_session, other_urn, DATASET_URNS)
+        # Both assigns are back-to-back writes with no intermediate read -- the
+        # explicit wait_for_writes_to_sync() below is the single wait for the batch.
+        _assign(auth_session, form_urn, DATASET_URNS, no_sync_wait=True)
+        _assign(auth_session, other_urn, DATASET_URNS, no_sync_wait=True)
         wait_for_writes_to_sync()
 
         _remove(auth_session, form_urn, DATASET_URNS)
@@ -294,5 +312,6 @@ def test_batch_remove_form_only_affects_named_form(auth_session, form_urn):
                 f"removing {form_urn} should not have removed {other_urn} from {urn}"
             )
     finally:
-        _remove(auth_session, other_urn, DATASET_URNS)
-        delete_entity(auth_session, other_urn)
+        # Teardown -- nothing reads this state afterward, so both writes skip the wait.
+        _remove(auth_session, other_urn, DATASET_URNS, no_sync_wait=True)
+        delete_entity(auth_session, other_urn, no_sync_wait=True)

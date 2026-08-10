@@ -118,7 +118,7 @@ def create_property_definition(
         aspect=structured_property_definition,
     )
     graph.emit(mcp)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 def attach_property_to_entity(
@@ -145,7 +145,7 @@ def attach_property_to_entity(
         ),
     )
     graph.emit_mcp(mcp)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 def get_property_from_entity(
@@ -335,7 +335,7 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
     for dataset in Dataset.from_yaml("tests/structured_properties/test_dataset.yaml"):
         for mcp in dataset.generate_mcp():
             graph_client.emit(mcp)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     property_name = "io.acryl.dataManagement.deprecationDate"
     field_name = "[version=2.0].[type=ClickEvent].[type=string].ip"
@@ -512,7 +512,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, ca
 
         for mcp in dataset_patcher.build():
             graph_client.emit(mcp)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
     # Add 1 value for property 1
     patch_one(property_name, property_value1)
@@ -620,7 +620,7 @@ def test_dataset_structured_property_soft_delete_read_mutation(
 
     # Soft delete the structured property
     graph_client.soft_delete_entity(urn=property_urn)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # Make sure it is no longer returned on the dataset
     actual_property_values = get_property_from_entity(
@@ -664,7 +664,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
 
     # Soft delete the structured property
     graph_client.soft_delete_entity(urn=property_urn)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # Perform search, make sure it validates filter and rejects as invalid request
     with pytest.raises(
@@ -716,7 +716,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
     # create and assign 2 structured properties with values
     property1 = create_property(dataset_urns[0], "foo")
     property2 = create_property(dataset_urns[0], "bar")
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # validate #1 & #2 properties assigned
     assert get_property_from_entity(
