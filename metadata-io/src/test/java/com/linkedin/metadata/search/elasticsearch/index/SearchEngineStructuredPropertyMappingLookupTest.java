@@ -77,6 +77,6 @@ public class SearchEngineStructuredPropertyMappingLookupTest {
     MappingMetadata metadata = mock(MappingMetadata.class);
     when(metadata.getSourceAsMap()).thenReturn(source);
     when(response.mappings()).thenReturn(Map.of("entity-index", metadata));
-    when(searchClient.getIndexMapping(any(), any(), any())).thenReturn(response);
+    when(searchClient.getIndexMapping(any(), any())).thenReturn(response);
   }
 }
