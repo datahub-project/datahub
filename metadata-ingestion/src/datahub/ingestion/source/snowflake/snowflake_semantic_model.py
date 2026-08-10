@@ -773,8 +773,8 @@ class SnowflakeSemanticModelMapper:
                 title="Could not parse semantic view metric expression",
                 message=(
                     "A metric expression failed to parse, so its metric-to-metric "
-                    "derivedFrom lineage and Metric → SMD upstreams were skipped. "
-                    "The metric is still emitted."
+                    "derivedFrom lineage and any expression-derived Metric → SMD "
+                    "upstreams were skipped. The metric is still emitted."
                 ),
                 context=f"{semantic_view.name}.{occurrence.name}: {e}",
             )

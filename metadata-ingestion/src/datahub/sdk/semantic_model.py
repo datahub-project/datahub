@@ -475,17 +475,17 @@ class SemanticModel(
         # relationships-without-datasets case is caught.
         if not known_aliases and not strict:
             return
+        # Graph-hydrated models do not reverse-lookup member datasets, so
+        # alias checks would warn on every relationship with an empty local
+        # attachment set. Structural checks above already ran.
+        if not attached_by_urn and self._prev_aspects is not None:
+            return
         # Subset check (not a length comparison): duplicates and instance/URN
         # mixes no longer break coverage detection. An empty declared set with
         # relationships present is full coverage too — the aliases can't match
         # anything, which is exactly the broken case we want to raise on.
         declared_urns = set(self._declared_dataset_urns)
-        # Graph-hydrated models do not reverse-lookup member datasets, so an
-        # empty local declaration is coverage-unknown until something is
-        # explicitly attached — otherwise every relationship alias raises.
-        full_coverage = declared_urns <= set(attached_by_urn) and (
-            bool(attached_by_urn) or self._prev_aspects is None
-        )
+        full_coverage = declared_urns <= set(attached_by_urn)
 
         for rel in rels:
             for alias, columns in (

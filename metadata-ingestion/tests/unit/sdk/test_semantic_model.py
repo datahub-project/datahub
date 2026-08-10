@@ -594,7 +594,7 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     assert "aiContext" not in dr_aspects
 
     # --- Lineage / containment wiring ---
-    # Containment: Metric ↔ SemanticModel (ModeledBy / metrics array).
+    # Containment: Metrics reference their SemanticModel via ModeledBy.
     assert total_revenue.semantic_model == str(model.urn)
     assert double_revenue.semantic_model == str(model.urn)
     assert str(total_revenue.urn) in model.metrics

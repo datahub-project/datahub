@@ -645,13 +645,14 @@ def collect_semantic_model_field_governance(
                 terms = schema_field.glossaryTerms
             if tags is None and terms is None:
                 continue
-            by_column[column_name] = FieldGovernance(
-                column_name=column_name,
+            # Union across SMDs that share a column name (e.g. ID) so iteration
+            # order does not drop governance from earlier datasets.
+            _merge_field_governance(
+                by_column,
+                column_name,
                 is_metric=False,
-                global_tags=tags if isinstance(tags, GlobalTagsClass) else None,
-                glossary_terms=(
-                    terms if isinstance(terms, GlossaryTermsClass) else None
-                ),
+                tags=tags if isinstance(tags, GlobalTagsClass) else None,
+                terms=terms if isinstance(terms, GlossaryTermsClass) else None,
             )
 
     return list(by_column.values())
