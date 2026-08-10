@@ -194,6 +194,144 @@ def test_search_documents_num_results_capped_at_50(
     assert variables["count"] == 50
 
 
+def test_search_documents_hybrid_pagination_past_50(monkeypatch, mock_client):
+    """Test deep hybrid pagination through search_documents (offset > 50).
+
+    The internal fetch must be allowed to page past the caller-facing 50-result
+    cap; this exercises the real boundary by requesting offset 51 and asserting
+    the returned page stays consistent with the caller's offset/count.
+    """
+    monkeypatch.setattr(
+        "datahub_agent_context.mcp_tools.documents.resolve_default_view",
+        lambda graph: None,
+    )
+    docs = [{"entity": {"urn": f"urn:li:document:k_{i:02d}"}} for i in range(60)]
+    mock_client._graph.execute_graphql.side_effect = [
+        {
+            "searchAcrossEntities": {
+                "start": 0,
+                "count": 60,
+                "total": 200,
+                "searchResults": docs,
+                "facets": [],
+            }
+        },
+        {
+            "semanticSearchAcrossEntities": {
+                "start": 0,
+                "count": 1,
+                "total": 200,
+                "searchResults": [docs[2]],
+                "facets": [],
+            }
+        },
+    ]
+
+    with DataHubContext(mock_client):
+        result = search_documents(
+            query="*", semantic_query="x", num_results=5, offset=51
+        )
+
+    assert result["start"] == 51
+    assert result["count"] == 5
+    assert len(result["searchResults"]) == 5
+    assert result["total"] == 200
+    assert {r["entity"]["urn"] for r in result["searchResults"]} == {
+        f"urn:li:document:k_{i:02d}" for i in range(51, 56)
+    }
+
+
+def test_search_documents_hybrid_merge_total_with_semantic_only(
+    monkeypatch, mock_client
+):
+    """Test the successful hybrid-merge total with overlap and a semantic-only hit.
+
+    The semantic search contributes a document the keyword query did not match;
+    the merged response must still report a total that is at least the count and
+    reflects the keyword total when it is larger.
+    """
+    monkeypatch.setattr(
+        "datahub_agent_context.mcp_tools.documents.resolve_default_view",
+        lambda graph: None,
+    )
+    keyword_docs = [{"entity": {"urn": f"urn:li:document:k_{i}"}} for i in range(5)]
+    semantic_docs = [
+        keyword_docs[3],  # overlap with keyword
+        {"entity": {"urn": "urn:li:document:s_only"}},
+    ]
+    mock_client._graph.execute_graphql.side_effect = [
+        {
+            "searchAcrossEntities": {
+                "start": 0,
+                "count": 5,
+                "total": 26,
+                "searchResults": keyword_docs,
+                "facets": [],
+            }
+        },
+        {
+            "semanticSearchAcrossEntities": {
+                "start": 0,
+                "count": 2,
+                "total": 3,
+                "searchResults": semantic_docs,
+                "facets": [],
+            }
+        },
+    ]
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="*", semantic_query="weather", num_results=5)
+
+    returned_urns = {r["entity"]["urn"] for r in result["searchResults"]}
+    # Semantic-only doc is included and the keyword total is preserved.
+    assert "urn:li:document:s_only" in returned_urns
+    assert result["total"] == 26
+    assert result["count"] == min(5, len(returned_urns))
+    assert result["total"] >= result["count"]
+
+
+def test_search_documents_hybrid_total_at_least_count(monkeypatch, mock_client):
+    """Test that hybrid `total` is never smaller than `count`.
+
+    Regression: a keyword search with total=0 plus a single semantic-only hit
+    previously produced total=0, count=1. The merged total must account for
+    fetched semantic-only results.
+    """
+    monkeypatch.setattr(
+        "datahub_agent_context.mcp_tools.documents.resolve_default_view",
+        lambda graph: None,
+    )
+    mock_client._graph.execute_graphql.side_effect = [
+        {
+            "searchAcrossEntities": {
+                "start": 0,
+                "count": 0,
+                "total": 0,
+                "searchResults": [],
+                "facets": [],
+            }
+        },
+        {
+            "semanticSearchAcrossEntities": {
+                "start": 0,
+                "count": 1,
+                "total": 1,
+                "searchResults": [{"entity": {"urn": "urn:li:document:s_only"}}],
+                "facets": [],
+            }
+        },
+    ]
+
+    with DataHubContext(mock_client):
+        result = search_documents(query="x", semantic_query="y", num_results=5)
+
+    assert result["searchResults"][0]["entity"]["urn"] == "urn:li:document:s_only"
+    assert result["total"] == 1
+    assert result["count"] == 1
+    assert result["total"] >= result["count"]
+
+
 def test_search_documents_facet_only(mock_client):
     """Test facet-only query with num_results=0."""
     # Mock response with non-empty facets to verify they're preserved
