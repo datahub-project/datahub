@@ -149,7 +149,6 @@ public class ESIndexBuilder {
   // would wait >3000s for the 5th retry
   private static final int deleteMaxAttempts = 5;
 
-
   // Retry instances for various operations
   private final Retry healthCheckRetry;
   private final Retry settingsUpdateRetry;
@@ -1088,7 +1087,7 @@ public class ESIndexBuilder {
       // documents written to the source after initialSourceDocCount was captured are not guaranteed
       // to reach the destination, and the retained original index is the recovery path for them.
       if (allowMismatch
-          && allowsCountBasedCompletion(taskLookup)
+          && allowsSnapshotFloorCompletion(taskLookup)
           && destCount >= initialSourceDocCount) {
         log.info(
             "Reindex complete (initial-count match): {} -> {} dest={} initialSource={} expected={} taskLookup={}",
@@ -1168,6 +1167,22 @@ public class ESIndexBuilder {
     return lookup == ReindexTaskLookup.BLANK_TASK_ID
         || lookup == ReindexTaskLookup.COMPLETED
         || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /**
+   * Whether the {@code allowDocCountMismatch} exit may complete for this task-lookup outcome.
+   * Stricter than {@link #allowsCountBasedCompletion}: {@code BLANK_TASK_ID} is excluded.
+   *
+   * <p>That exit measures against the source count captured at poll start rather than the current
+   * expected count, so on a live source it clears a lower bar and needs firmer evidence that the
+   * copy finished. {@code NOT_FOUND} supplies it — a usable task id was resolved and ES reports no
+   * such task, so it ran and its record is gone. {@code BLANK_TASK_ID} supplies the opposite: no
+   * usable id was ever available, so nothing is known about the copy. On the legacy resume path a
+   * reindex is positively known to be in flight while the parent task id renders as unset, which
+   * lands here — completing then would swap an alias onto an index still being written.
+   */
+  static boolean allowsSnapshotFloorCompletion(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.COMPLETED || lookup == ReindexTaskLookup.NOT_FOUND;
   }
 
   /**

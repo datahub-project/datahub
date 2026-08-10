@@ -2157,6 +2157,34 @@ public class ESIndexBuilderTest {
   }
 
   /**
+   * A blank or malformed task id resolves to BLANK_TASK_ID, which allowsCountBasedCompletion
+   * accepts but the snapshot-floor exit must not. The legacy resume path reaches
+   * pollReindexCompletion with the parent task id of an in-flight reindex, which renders as unset
+   * and lands here — so completing on the floor alone would promote a copy that is still running.
+   * The count-based completion above is unaffected; it still measures against the current expected
+   * count.
+   */
+  @Test
+  void testPollReindexCompletion_liveSourceBlankTaskId_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_923_058L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            "unset");
+
+    assertFalse(
+        result.completed(),
+        "An unusable task id gives no evidence the copy finished; the snapshot floor must not fire");
+  }
+
+  /**
    * A transient getTask failure resolves to LOOKUP_ERROR, which is not evidence the copy finished.
    * The mismatch path must refuse it on counts alone, matching the rule the count-based completion
    * above already applies.
