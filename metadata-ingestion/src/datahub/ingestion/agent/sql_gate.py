@@ -1,4 +1,4 @@
-from typing import FrozenSet, List, Set
+from typing import Dict, FrozenSet, List, Set
 
 import sqlglot
 from sqlglot import exp
@@ -38,6 +38,28 @@ _QUERY_TEXT_RELATIONS: FrozenSet[str] = frozenset(
 _ALLOWED_VENDOR_FUNCTIONS: FrozenSet[str] = frozenset()
 
 
+# A refusal is the caller's only signal for how to rewrite, so it has to be in
+# SQL terms. sqlglot's node name usually matches the keyword (Insert -> INSERT),
+# but not always: FLUSH PRIVILEGES parses to an Alias, and "got ALIAS" reads like
+# a bug in the caller's own query rather than a refused statement type.
+_STATEMENT_KEYWORDS: Dict[type, str] = {
+    node: keyword
+    for node, keyword in (
+        (getattr(exp, name, None), keyword)
+        for name, keyword in (
+            ("Insert", "INSERT"),
+            ("Update", "UPDATE"),
+            ("Delete", "DELETE"),
+            ("Drop", "DROP"),
+            ("Create", "CREATE"),
+            ("Alter", "ALTER"),
+            ("Merge", "MERGE"),
+        )
+    )
+    if node is not None
+}
+
+
 class SqlScopeError(ValueError):
     """A query was refused because it is not a read of catalog metadata.
 
@@ -69,8 +91,16 @@ def check_query_scope(sql: str, platform: str) -> None:
             f"only SELECT queries over catalog metadata are permitted"
         )
     if not isinstance(statement, exp.Query):
+        keyword = _STATEMENT_KEYWORDS.get(type(statement))
+        if keyword:
+            article = "an" if keyword[0] in "AEIOU" else "a"
+            raise SqlScopeError(
+                f"only SELECT queries are permitted; this is {article} {keyword} "
+                f"statement"
+            )
         raise SqlScopeError(
-            f"only SELECT queries are permitted; got {type(statement).__name__.upper()}"
+            "only SELECT queries over catalog metadata are permitted; this "
+            "statement is not a SELECT"
         )
 
     # Before walking tables: a projection-only call such as

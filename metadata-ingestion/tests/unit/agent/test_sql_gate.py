@@ -219,3 +219,30 @@ def test_error_names_the_offending_table():
     with pytest.raises(SqlScopeError) as exc:
         check_query_scope("SELECT * FROM analytics.events", platform="postgres")
     assert "analytics.events" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "sql,expected",
+    [
+        ("INSERT INTO public.t (id) VALUES (1)", "INSERT"),
+        ("UPDATE public.t SET id = 1", "UPDATE"),
+        ("DELETE FROM public.t", "DELETE"),
+        ("DROP TABLE public.t", "DROP"),
+        ("CREATE TABLE public.t (id INT)", "CREATE"),
+    ],
+)
+def test_a_write_statement_is_named_by_its_sql_keyword(sql, expected):
+    with pytest.raises(SqlScopeError, match=expected):
+        check_query_scope(sql, platform="postgres")
+
+
+def test_an_unmodelled_statement_does_not_leak_a_parser_node_name():
+    # FLUSH PRIVILEGES parses to an Alias node, so the message used to read
+    # "got ALIAS" -- a sqlglot internal that tells a caller nothing and reads
+    # like a bug in their own query. The refusal is the agent's only signal for
+    # how to rewrite, so it has to be in SQL terms.
+    with pytest.raises(SqlScopeError) as exc:
+        check_query_scope("FLUSH PRIVILEGES", platform="mysql")
+    message = str(exc.value)
+    assert "ALIAS" not in message.upper()
+    assert "SELECT" in message
