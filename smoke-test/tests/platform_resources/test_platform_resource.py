@@ -64,7 +64,7 @@ def test_platform_resource_read_write(graph_client, test_id, cleanup_resources):
     platform_resource.to_datahub(graph_client)
     cleanup_resources.append(platform_resource)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     read_platform_resource = PlatformResource.from_datahub(graph_client, key)
     assert read_platform_resource == platform_resource
@@ -84,7 +84,7 @@ def test_platform_resource_search(graph_client, test_id, cleanup_resources):
     platform_resource.to_datahub(graph_client)
     cleanup_resources.append(platform_resource)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     search_results = [
         r for r in PlatformResource.search_by_key(graph_client, key.primary_key)
@@ -131,7 +131,7 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id, cleanup_reso
     )
     platform_resource.to_datahub(graph_client)
     cleanup_resources.append(platform_resource)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     read_platform_resources = [
         r
@@ -169,7 +169,7 @@ def test_platform_resource_listing_by_resource_type(
     )
     platform_resource2.to_datahub(graph_client)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     search_results = [
         r
@@ -212,7 +212,7 @@ def test_platform_resource_listing_complex_queries(graph_client, test_id):
     )
     platform_resource2.to_datahub(graph_client)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     from datahub.api.entities.platformresource.platform_resource import (
         ElasticPlatformResourceQuery,
         LogicalOperator,

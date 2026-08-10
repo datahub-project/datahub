@@ -36,7 +36,6 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
-  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   # Toggle backend test sharding. Repo variable (Settings → Actions → Variables); unset → '' →
   # falsy → defaults OFF, so it flips without a commit and each repo sets its own value.
   SHARDED_TESTS_RUNS_ENABLED: ${{ vars.SHARDED_TESTS_RUNS_ENABLED || 'false' }}
@@ -70,15 +69,28 @@ jobs:
           else
             echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Determine runner type
+      - uses: ./.github/actions/determine-runners
+        id: runners
+        with:
+          # Only fork PRs are community; push/schedule/release/internal PRs are not.
+          is-community-pr: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          has-depot-label: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+          # Heavy Gradle build/test jobs — matches prior depot-ubuntu-*-4 sizing.
+          default_runner_size: large
+      - name: Select runner
         id: set-runner
-        # Use depot runners only when a maintainer has explicitly added the "depot" label.
-        # vars.DEPOT_PROJECT_ID is not accessible to fork PRs, so we rely solely on the label.
+        env:
+          HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+          DEFAULT_RUNNER: ${{ steps.runners.outputs.default-runner }}
+          DEPOT_LABEL_RUNNER: ${{ steps.runners.outputs.depot-label-runner }}
+        # 1. Internal PRs / push / schedule → default-runner (Depot when configured)
+        # 2. Community PRs without depot label → default-runner (ubuntu)
+        # 3. Community PRs with depot label → depot-label-runner (Depot)
         run: |
-          if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
-            echo "runner_type=depot-ubuntu-latest-4" >> "$GITHUB_OUTPUT"
+          if [[ "$HAS_DEPOT_LABEL" == "true" ]]; then
+            echo "runner_type=$DEPOT_LABEL_RUNNER" >> "$GITHUB_OUTPUT"
           else
-            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "runner_type=$DEFAULT_RUNNER" >> "$GITHUB_OUTPUT"
           fi
 
   # Runs unless the sharding toggle (SHARDED_TESTS_RUNS_ENABLED repo variable) is on. When on,

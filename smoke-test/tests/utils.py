@@ -389,13 +389,30 @@ def check_endpoint(auth_session, url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
-def delete_entity(auth_session, urn: str) -> None:
-    delete_json = {"urn": urn}
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
-    )
+def _post(
+    auth_session, url: str, no_sync_wait: bool = False, **kwargs: Any
+) -> requests.Response:
+    """POST helper shared by execute_graphql/delete_entity.
 
+    no_sync_wait=True bypasses TestSessionWrapper's automatic
+    wait_for_writes_to_sync() call by posting via the underlying session
+    directly. Use for all-but-the-last call in a batch of writes where only
+    the final state matters (nothing reads intermediate state) -- wait once
+    after the batch instead of paying a full wait on every call.
+    """
+    post = auth_session.raw_post if no_sync_wait else auth_session.post
+    response = post(url, **kwargs)
     response.raise_for_status()
+    return response
+
+
+def delete_entity(auth_session, urn: str, no_sync_wait: bool = False) -> None:
+    _post(
+        auth_session,
+        f"{auth_session.gms_url()}/entities?action=delete",
+        no_sync_wait=no_sync_wait,
+        json={"urn": urn},
+    )
 
 
 def execute_graphql(
@@ -403,6 +420,7 @@ def execute_graphql(
     query: str,
     variables: Optional[Dict[str, Any]] = None,
     expect_errors: bool = False,
+    no_sync_wait: bool = False,
 ) -> Dict[str, Any]:
     """Execute a GraphQL query with standard error handling.
 
@@ -410,6 +428,11 @@ def execute_graphql(
         auth_session: Authenticated session for making requests
         query: GraphQL query string
         variables: Optional dictionary of GraphQL variables
+        expect_errors: If False (default), assert the response has no errors
+        no_sync_wait: If True, skip TestSessionWrapper's automatic
+            wait_for_writes_to_sync() call. Use for all-but-the-last call in
+            a batch of writes where only the state after the whole batch
+            matters, then wait once explicitly after the batch.
 
     Returns:
         Response data dictionary
@@ -424,10 +447,12 @@ def execute_graphql(
     if variables:
         json_payload["variables"] = variables
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_payload
+    response = _post(
+        auth_session,
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        no_sync_wait=no_sync_wait,
+        json=json_payload,
     )
-    response.raise_for_status()
     res_data = response.json()
 
     assert res_data, "GraphQL response is empty"

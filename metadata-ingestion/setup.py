@@ -198,9 +198,11 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
+    # urllib3 2.x carries security fixes (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441,
+    # CVE-2026-44431), but a 2.x floor is NOT satisfiable for acryl-datahub[all]: the elasticsearch
+    # source extra pins elasticsearch==7.13.4 (held for OpenSearch compat), which requires
+    # urllib3<2. Keep the bound loose here; the 2.x floor is enforced for elasticsearch-free Docker
+    # venvs via docker/snippets/ingestion/constraints.txt.
     "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }

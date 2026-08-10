@@ -254,6 +254,18 @@ Best practices:
 - UI edits typically use dataset-level aspects (`editableSchemaMetadata`)
 - Direct schemaField entity updates are useful for programmatic bulk operations or when working with field-level lineage
 
+### Domains and ownership (optional MCP mirroring)
+
+`schemaField` supports the `domains` and `ownership` aspects. Operators can opt in to copy those aspects from the parent dataset onto each field via MCP side effects:
+
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED` (master — also materializes field key/aliases/status)
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED`
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED`
+
+While a sub-flag is on, dataset domain/ownership upserts and deletes are mirrored to the corresponding field aspects.
+
+**Historical inventory:** After changing these flags, run (or wait for) the non-blocking system-update step `GenerateSchemaFieldsFromSchemaMetadata` with `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED=true`. That step's upgrade id is fingerprinted by the effective domain/ownership flags, so a **first-time** enable or disable of a given combination gets a fresh pass: enable backfills from stored dataset aspects; disable deletes field `domains`/`ownership` for the off flag(s). **Disable cleanup is not provenance-aware** — it removes the aspect from every field under each scanned dataset, including aspects written directly on the schemaField (not only mirrored copies). **Toggling in cycles** (returning to a fingerprint that already SUCCEEDED) does **not** re-run — use **manual reprocess** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS=true`) or clear/modify the `dataHubUpgradeResult` on that fingerprint's `dataHubUpgrade` URN (either is valid). See [Updating DataHub](../../../how/updating-datahub.md) and [Environment Variables](../../../deploy/environment-vars.md#schema-fields-configuration).
+
 ### Feature Flag Dependency
 
 The ability to fetch schemaField entities via GraphQL depends on the `schemaFieldEntityFetchEnabled` feature flag. When disabled:
