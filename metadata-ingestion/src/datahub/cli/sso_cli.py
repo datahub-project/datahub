@@ -157,30 +157,71 @@ def _launch_targets(target: BrowserTarget) -> List[BrowserTarget]:
     return targets
 
 
-def _sso_profile_dir(frontend_url: str, support: bool, browser: str) -> Path:
-    """Return the browser profile directory for one DataHub instance.
+def _instance_key(frontend_url: str, support: bool) -> str:
+    """The name one DataHub instance is stored under.
 
-    The path is keyed by host so that instances behind different identity
-    providers never share cookies. Support logins get their own directory, so a
-    support session is never silently reused as a normal login, or the reverse.
-    It is keyed by engine too, because profiles are not interchangeable between
-    engines.
+    Keyed by host so that instances behind different identity providers never
+    share cookies. Support logins get their own key, so a support session is
+    never silently reused as a normal login, or the reverse.
+
+    The profile directory and the session file both derive from this, and they
+    have to stay in lockstep for a remembered session to reach the profile it
+    was saved beside.
     """
     host = urllib.parse.urlparse(frontend_url).netloc or "unknown-host"
     safe_host = re.sub(r"[^A-Za-z0-9._-]", "_", host)
-    suffix = "-support" if support else ""
-    return SSO_PROFILE_ROOT / browser / f"{safe_host}{suffix}"
+    return safe_host + ("-support" if support else "")
 
 
-def _prepare_profile_dir(profile_dir: Path, fresh_login: bool) -> None:
-    """Create the profile directory, discarding any saved session if asked.
+def _profile_key(target: BrowserTarget) -> str:
+    """The directory name that holds one browser's profiles.
+
+    Keyed by channel as well as engine. Chrome and the Chromium build Playwright
+    ships read the same profile format but encrypt cookies against different
+    operating system keychain entries, so handing one the other's profile loses
+    the saved session and can reset the profile for its real owner.
+    """
+    return f"{target.engine}-{target.channel}" if target.channel else target.engine
+
+
+def _sso_profile_dir(frontend_url: str, support: bool, browser: str) -> Path:
+    """Return the browser profile directory for one DataHub instance."""
+    return SSO_PROFILE_ROOT / browser / _instance_key(frontend_url, support)
+
+
+def _discard_saved_profiles(frontend_url: str, support: bool) -> None:
+    """Remove every saved profile for one instance, whichever browser wrote it.
+
+    --fresh-login has to reach the profiles of browsers this run will not open.
+    Clearing only the current browser leaves the previous user signed in behind
+    the old default, and switching the default back signs them in again.
+
+    Failure is reported rather than ignored: launching on a half-deleted profile
+    is how --fresh-login silently returns the identity it promised to drop.
+    """
+    key = _instance_key(frontend_url, support)
+    if not SSO_PROFILE_ROOT.is_dir():
+        return
+    for browser_dir in SSO_PROFILE_ROOT.iterdir():
+        profile_dir = browser_dir / key
+        if not profile_dir.exists():
+            continue
+        try:
+            shutil.rmtree(profile_dir)
+        except OSError as e:
+            raise click.ClickException(
+                f"--fresh-login could not remove the saved profile at "
+                f"{profile_dir}: {e}\n"
+                "Remove it by hand, otherwise the previous login stays valid."
+            ) from e
+
+
+def _prepare_profile_dir(profile_dir: Path) -> None:
+    """Create the profile directory.
 
     Permissions are tightened to 0700 because the directory holds live identity
     provider session cookies, not just the scoped DataHub token.
     """
-    if fresh_login and profile_dir.exists():
-        shutil.rmtree(profile_dir, ignore_errors=True)
-
     profile_dir.mkdir(parents=True, exist_ok=True)
     for path in (SSO_PROFILE_ROOT, profile_dir):
         try:
@@ -231,7 +272,6 @@ def _open_browser_context(
     frontend_url: str,
     support: bool,
     target: BrowserTarget,
-    fresh_login: bool,
     seed_from: Optional[Path] = None,
     headless: bool = False,
 ) -> Any:
@@ -239,7 +279,7 @@ def _open_browser_context(
 
     Walks the fallback chain, which covers a machine where the requested browser
     is not installed. Each candidate gets its own profile directory, because a
-    profile belongs to one engine and is not interchangeable.
+    profile belongs to one browser build and is not interchangeable.
 
     Raises rather than falling back to a throwaway profile: silently switching
     browser and dropping the saved session hides the cause, and the usual reason
@@ -253,8 +293,8 @@ def _open_browser_context(
     for candidate in tried:
         engine = getattr(playwright, candidate.engine)
         launch_args = {"channel": candidate.channel} if candidate.channel else {}
-        profile_dir = _sso_profile_dir(frontend_url, support, candidate.engine)
-        _prepare_profile_dir(profile_dir, fresh_login)
+        profile_dir = _sso_profile_dir(frontend_url, support, _profile_key(candidate))
+        _prepare_profile_dir(profile_dir)
         if seed_from is not None and candidate.engine == target.engine:
             _seed_profile_dir(profile_dir, seed_from)
         try:
@@ -287,10 +327,7 @@ def _session_file(frontend_url: str, support: bool) -> Path:
     Not keyed by browser: cookies are portable, so a session saved while driving
     one browser still works if the next run drives another.
     """
-    host = urllib.parse.urlparse(frontend_url).netloc or "unknown-host"
-    safe_host = re.sub(r"[^A-Za-z0-9._-]", "_", host)
-    suffix = "-support" if support else ""
-    return SSO_SESSION_ROOT / f"{safe_host}{suffix}.json"
+    return SSO_SESSION_ROOT / f"{_instance_key(frontend_url, support)}.json"
 
 
 def _load_session(path: Path) -> list:
@@ -417,6 +454,54 @@ def _session_cookies_for(
     return list(merged.values())
 
 
+def _actor_urn_from(cookies: list) -> Optional[str]:
+    """Read the actor URN the instance wrote, for a server too old to be asked."""
+    for cookie in cookies:
+        if cookie["name"] == "actor":
+            return urllib.parse.unquote(cookie["value"])
+    return None
+
+
+def _requests_session(cookies: list) -> requests.Session:
+    """A requests session carrying the cookies that belong to this instance."""
+    session = requests.Session()
+    for cookie in cookies:
+        session.cookies.set(
+            cookie["name"],
+            cookie["value"],
+            domain=cookie.get("domain", ""),
+            path=cookie.get("path", "/"),
+        )
+    return session
+
+
+def _confirm_session(session: requests.Session, frontend_url: str) -> Optional[str]:
+    """Ask the instance who these cookies are, or None if they are not signed in.
+
+    The actor cookie alone cannot answer this. A saved session is replayed into
+    the browser before the login runs, and a reused profile carries one from an
+    earlier run, so the cookie is present whether or not the identity provider
+    session behind it is still alive. Only the instance knows, and it is the URN
+    it returns here that the access token is minted against.
+    """
+    try:
+        response = session.post(
+            f"{frontend_url}/api/v2/graphql",
+            json={"query": "query { me { corpUser { urn } } }"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data.get("errors"):
+            return None
+        me = (data.get("data") or {}).get("me") or {}
+        urn = (me.get("corpUser") or {}).get("urn")
+        return urn if isinstance(urn, str) and urn else None
+    except Exception:
+        logger.debug("Could not confirm the session with the instance", exc_info=True)
+        return None
+
+
 def _warn_about_existing_cli_tokens(
     session: requests.Session,
     frontend_url: str,
@@ -485,8 +570,8 @@ def browser_sso_login(
         support: If True, use /support/authenticate path for DataHub Cloud
             support team access to customer instances.
         ticket_id: Support ticket ID, appended to the support auth URL.
-        fresh_login: If True, discard the saved browser profile first. Use this
-            to sign in as a different user.
+        fresh_login: If True, discard the saved browser profiles and the
+            remembered session first. Use this to sign in as a different user.
         seed_profile: Path to an existing browser profile to copy in the first
             time this instance is used, so an identity provider session already
             in that profile skips even the first login. Must be a copy, not a
@@ -515,6 +600,7 @@ def browser_sso_login(
     session_file = _session_file(frontend_url, support)
     if fresh_login:
         session_file.unlink(missing_ok=True)
+        _discard_saved_profiles(frontend_url, support)
 
     restore = (
         _load_session(session_file) if remember_session and not fresh_login else []
@@ -524,8 +610,8 @@ def browser_sso_login(
         (False, timeout_ms)
     ]
 
-    actor_urn = None
-    cookies: list = []
+    actor_urn: Optional[str] = None
+    session: Optional[requests.Session] = None
     with sync_playwright() as p:
         for headless, attempt_timeout in attempts:
             if headless:
@@ -540,7 +626,6 @@ def browser_sso_login(
                 frontend_url,
                 support,
                 target,
-                fresh_login,
                 Path(seed_profile) if seed_profile else None,
                 headless=headless,
             )
@@ -556,6 +641,16 @@ def browser_sso_login(
                     )
 
                 cookies, auth_hosts, before = result
+                scoped = [c for c in cookies if _cookie_applies_to(c, frontend_url)]
+                attempt_session = _requests_session(scoped)
+                confirmed = _confirm_session(attempt_session, frontend_url)
+
+                if confirmed is None and headless:
+                    click.echo("The saved session has expired, opening a browser.")
+                    continue
+
+                session = attempt_session
+                actor_urn = confirmed or _actor_urn_from(scoped)
                 if headless:
                     click.echo("Signed in from the saved session, no browser shown.")
                 if remember_session:
@@ -569,27 +664,9 @@ def browser_sso_login(
             finally:
                 context.close()
 
-    cookies = [c for c in cookies if _cookie_applies_to(c, frontend_url)]
-
-    # Build a requests.Session with the extracted cookies
-    session = requests.Session()
-    for cookie in cookies:
-        session.cookies.set(
-            cookie["name"],
-            cookie["value"],
-            domain=cookie.get("domain", ""),
-            path=cookie.get("path", "/"),
-        )
-
-    # Extract actor URN from the actor cookie
-    for cookie in cookies:
-        if cookie["name"] == "actor":
-            actor_urn = urllib.parse.unquote(cookie["value"])
-            break
-
-    if not actor_urn:
+    if session is None or not actor_urn:
         raise click.ClickException(
-            "SSO login succeeded but no actor cookie found. "
+            "SSO login completed but the instance did not report who signed in. "
             "This may indicate an incompatible DataHub version."
         )
 
