@@ -1,7 +1,6 @@
 import datetime
 import logging
 import os
-from enum import Enum
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
@@ -11,6 +10,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
@@ -22,7 +22,7 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class ProfilingIsolationLevel(str, Enum):
+class ProfilingIsolationLevel(StrEnum):
     AUTOCOMMIT = "AUTOCOMMIT"
     READ_COMMITTED = "READ COMMITTED"
     REPEATABLE_READ = "REPEATABLE READ"
