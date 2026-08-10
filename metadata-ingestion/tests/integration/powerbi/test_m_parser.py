@@ -1659,6 +1659,18 @@ _ODBC_BIGQUERY_NAV_TABLE_ONLY = (
     "in\n    events_Table"
 )
 
+# BigQuery (three-tier) ODBC navigation that surfaces the Kind=Database node
+# (project) and the leaf table but omits the Schema (dataset) level. The dataset
+# must be backfilled from dsn_to_database_schema even though the database tier is
+# already populated, otherwise no project.dataset.table URN can be built.
+_ODBC_BIGQUERY_NAV_DATABASE_NO_SCHEMA = (
+    'let\n    Source = Odbc.DataSource("driver={Simba ODBC Driver};dsn=bq_analytics", '
+    "[HierarchicalNavigation=true]),\n"
+    '    my_project_Database = Source{[Name="my_project",Kind="Database"]}[Data],\n'
+    '    events_Table = my_project_Database{[Name="events",Kind="Table"]}[Data]\n'
+    "in\n    events_Table"
+)
+
 # Hive (two-tier) ODBC navigation that surfaces only the leaf table; the schema
 # level must be backfilled from dsn_to_database_schema.
 _ODBC_HIVE_NAV_MISSING_SCHEMA = (
@@ -1843,6 +1855,45 @@ def test_bigquery_odbc_navigation_wins_over_dsn_mapping():
         {
             "dsn_to_platform_name": {"bq_analytics": "bigquery"},
             "dsn_to_database_schema": {"bq_analytics": "my_project.wrong_dataset"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_bigquery_odbc_navigation_database_node_backfills_schema_from_dsn_mapping():
+    """Three-tier backfill when navigation supplies the Kind=Database node (project)
+    and the leaf table but omits the Schema (dataset): the dataset must still be
+    backfilled from dsn_to_database_schema even though the database tier is populated,
+    yielding project.dataset.table rather than warning and skipping. The navigation
+    project wins over the config's database segment (wrong_project is ignored)."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_DATABASE_NO_SCHEMA,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"bq_analytics": "bigquery"},
+            "dsn_to_database_schema": {"bq_analytics": "wrong_project.analytics_ds"},
         }
     )
 

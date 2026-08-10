@@ -1935,6 +1935,14 @@ class OdbcLineage(AbstractLineage):
             if schema_name is None:
                 schema_name = config_schema
 
+        # Three-tier nav can surface Kind=Database + Kind=Table while omitting the
+        # Schema level. The database tier is already populated, so the block above
+        # skips schema backfill; fill it independently here, otherwise the documented
+        # dsn_to_database_schema remediation cannot repair a missing schema and
+        # lineage is dropped as a truncated database.table.
+        if schema_name is None and data_platform in ODBC_THREE_TIER_PLATFORMS:
+            schema_name = config_schema
+
         # Two-tier nav often surfaces a Kind=Database pseudo-catalog (Hive's "HIVE")
         # while omitting Schema. The pseudo-catalog is dropped for two-tier platforms,
         # so the schema must still be backfilled from config even though the database
