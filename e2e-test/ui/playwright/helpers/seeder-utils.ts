@@ -22,14 +22,48 @@ export type Urn = string;
 // ── Cross-worker artifact locking ────────────────────────────────────────────
 
 /**
- * If a lock file is older than this with its artifact still missing, its
- * holder is assumed to have crashed; another worker reclaims it rather than
- * wedging the whole run.
+ * Live holders refresh the lock mtime on this interval. Must be well below
+ * LOCK_STALE_MS so a healthy producer never looks crashed to followers.
  */
-const LOCK_STALE_MS = 120_000;
+const LOCK_HEARTBEAT_MS = 10_000;
+/**
+ * If a lock file is older than this with its artifact still missing, its
+ * holder is assumed to have crashed (missed several heartbeats); another
+ * worker reclaims it rather than wedging the whole run.
+ */
+const LOCK_STALE_MS = 45_000;
 const LOCK_POLL_MS = 500;
 /** How long a follower will wait for another worker's artifact before giving up. */
 const LOCK_WAIT_TIMEOUT_MS = 180_000;
+
+function newLockToken(): string {
+  return `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Renew mtime while we hold the lock so slow-but-live producers aren't stolen. */
+function startLockHeartbeat(lockPath: string, token: string): NodeJS.Timeout {
+  const heartbeat = setInterval(() => {
+    try {
+      if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+      const now = new Date();
+      fs.utimesSync(lockPath, now, now);
+    } catch {
+      // Lock gone or raced — produce()'s finally will no-op the release.
+    }
+  }, LOCK_HEARTBEAT_MS);
+  heartbeat.unref();
+  return heartbeat;
+}
+
+/** Remove the lock only if we still own it — never delete a reclaimer's lock. */
+function releaseLockIfOwned(lockPath: string, token: string): void {
+  try {
+    if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+    fs.rmSync(lockPath, { force: true });
+  } catch {
+    // Already gone.
+  }
+}
 
 /**
  * Atomically claims responsibility for producing `artifactPath` across
@@ -41,6 +75,11 @@ const LOCK_WAIT_TIMEOUT_MS = 180_000;
  * `fs.openSync(lockPath, 'wx')` is atomic exclusive create -- exactly one
  * caller can win it -- so only the winner produces the artifact while
  * everyone else polls for it instead.
+ *
+ * Ownership is a token written into the lock file; the holder heartbeats
+ * mtime during `produce()` so LOCK_STALE_MS reclaim cannot steal a live
+ * producer, and `finally` only deletes the lock when the token still matches
+ * (so a finishing holder cannot clobber a reclaimer's lock).
  */
 export async function withArtifactLock(artifactPath: string, produce: () => Promise<void>): Promise<void> {
   if (fs.existsSync(artifactPath)) return;
@@ -60,13 +99,20 @@ export async function withArtifactLock(artifactPath: string, produce: () => Prom
     }
 
     if (fd !== undefined) {
-      fs.closeSync(fd);
+      const token = newLockToken();
+      try {
+        fs.writeFileSync(fd, token);
+      } finally {
+        fs.closeSync(fd);
+      }
+      const heartbeat = startLockHeartbeat(lockPath, token);
       try {
         if (!fs.existsSync(artifactPath)) {
           await produce();
         }
       } finally {
-        fs.rmSync(lockPath, { force: true });
+        clearInterval(heartbeat);
+        releaseLockIfOwned(lockPath, token);
       }
       return;
     }
