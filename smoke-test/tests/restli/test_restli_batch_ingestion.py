@@ -152,7 +152,7 @@ def test_restli_batch_ingestion_async(graph_client):
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     aspect = graph_client.get_aspect(
         entity_urn=invalid_mcp.entityUrn, aspect_type=DashboardInfoClass
     )

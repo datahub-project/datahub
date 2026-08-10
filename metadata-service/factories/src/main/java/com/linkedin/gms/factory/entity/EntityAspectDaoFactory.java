@@ -81,7 +81,8 @@ public class EntityAspectDaoFactory {
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null,
             aspectTableResolver,
-            scopedTransactionFactory);
+            scopedTransactionFactory,
+            configurationProvider.getFeatureFlags().isOptimisticLocking());
     if (configurationProvider.getDatahub().isReadOnly()) {
       ebeanAspectDao.setWritable(false);
     }
@@ -95,6 +96,11 @@ public class EntityAspectDaoFactory {
   protected AspectDao createCassandraInstance(
       PrimaryStorageResolver primaryStorageResolver,
       final ConfigurationProvider configurationProvider) {
+    if (configurationProvider.getFeatureFlags().isOptimisticLocking()) {
+      log.warn(
+          "OPTIMISTIC_LOCKING_ENABLED is true, but entityService.impl=cassandra does not implement "
+              + "optimistic locking; the flag is ignored.");
+    }
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
     CassandraAspectDao cassandraAspectDao =

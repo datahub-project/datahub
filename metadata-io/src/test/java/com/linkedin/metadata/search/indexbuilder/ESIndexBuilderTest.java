@@ -1931,15 +1931,8 @@ public class ESIndexBuilderTest {
 
   // --- Incremental reindex tests ---
 
-  /**
-   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
-   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
-   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
-   */
-  @Test
-  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
-      throws Throwable {
-    // numRetries=0 leaves no retry budget and keeps getDocumentCounts' mismatch back-off short.
+  /** Shared poll-completion fixture: zero-retry builder + fixed dest count for both indices. */
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount) throws IOException {
     when(elasticSearchConfiguration.getIndex())
         .thenReturn(
             IndexConfiguration.builder()
@@ -1949,17 +1942,12 @@ public class ESIndexBuilderTest {
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .maxReindexHours(1)
                 .build());
-    ESIndexBuilder builder =
-        new ESIndexBuilder(
-            searchClient,
-            elasticSearchConfiguration,
-            TEST_ES_STRUCT_PROPS_DISABLED,
-            Map.of(),
-            gitVersion);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
 
-    // Destination holds fewer docs than the source (900 of 1000) — the dropped-docs signature.
     CountResponse countResponse = mock(CountResponse.class);
-    when(countResponse.getCount()).thenReturn(900L);
+    when(countResponse.getCount()).thenReturn(destDocCount);
     when(searchClient.count(
             any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
@@ -1969,11 +1957,31 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class)))
         .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
 
-    // ES reports the reindex task itself has COMPLETED, even though the target is short.
-    GetTaskResponse completedTask = mock(GetTaskResponse.class);
-    when(completedTask.isCompleted()).thenReturn(true);
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void stubReindexTaskCompleted(boolean completed) throws IOException {
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenReturn(completed);
     when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
-        .thenReturn(Optional.of(completedTask));
+        .thenReturn(Optional.of(task));
+  }
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(900L);
+    stubReindexTaskCompleted(true);
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
@@ -1983,10 +1991,79 @@ public class ESIndexBuilderTest {
         result.completed(), "A completed-but-short reindex must be reported as not completed");
     assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
     assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
-    // With no retry budget it must give up rather than re-submitting.
     verify(searchClient, never())
         .submitReindexTask(
             any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Mid-copy false positive: dest has already reached the expected count but the ES task is still
+   * running. Poll must not complete — otherwise the launch-time swap gate would accept a partial
+   * copy.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskRunning_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts while the reindex task is still running must not complete");
+  }
+
+  /** Counts match and the ES task reports completed — poll succeeds. */
+  @Test
+  void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Matching counts with a completed task must complete");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+  }
+
+  /**
+   * Destination overshoot after the ES task finishes (writes between launch-time snapshot and
+   * scroll open) must complete — otherwise busy-index ZDU Phase 1 times out forever.
+   */
+  @Test
+  void testPollReindexCompletion_destOvershootAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1005L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Completed task with dest > expected must complete");
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1005L));
+  }
+
+  /**
+   * Transient getTask failures must not complete on matching counts alone — that reopens the
+   * mid-copy false-complete hole.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskLookupError_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("connection reset"));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts during a transient task-status lookup failure must not complete");
   }
 
   @Test

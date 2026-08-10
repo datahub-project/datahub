@@ -608,6 +608,8 @@ entities:
       - glossaryTerms
       - semanticFieldAnnotation
       - aiContext
+      - ownership
+      - domains
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform
