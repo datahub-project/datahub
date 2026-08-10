@@ -362,7 +362,10 @@ def _validate_init_inputs(
     "--fresh-login",
     is_flag=True,
     default=False,
-    help="Discard the saved browser profile before --sso login (use to switch user)",
+    help=(
+        "Discard the saved browser profiles and the remembered session before "
+        "--sso login (use to switch user)"
+    ),
 )
 @click.option(
     "--seed-profile",

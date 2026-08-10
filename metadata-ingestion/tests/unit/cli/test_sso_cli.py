@@ -13,12 +13,51 @@ from datahub.cli.sso_cli import (
     BrowserTarget,
     _cookie_applies_to,
     _launch_targets,
+    _profile_key,
     _session_cookies_for,
     _sso_profile_dir,
     _warn_about_existing_cli_tokens,
     browser_sso_login,
     browser_target,
 )
+
+
+def mock_requests(me: Optional[str] = "urn:li:corpuser:pedro") -> MagicMock:
+    """A stand-in requests module whose GraphQL calls answer plausibly.
+
+    Login asks the instance who is signed in before it trusts any cookie, so a
+    test that leaves that call unanswered exercises the expired-session path
+    instead of the one it is named for. Pass me=None to be that expired session.
+    """
+    module = MagicMock()
+    session = MagicMock()
+    module.Session.return_value = session
+
+    def post(url: str, **kwargs: Any) -> MagicMock:
+        query = kwargs.get("json", {}).get("query", "")
+        response = MagicMock()
+        if "me {" in query:
+            response.json.return_value = {"data": {"me": {"corpUser": {"urn": me}}}}
+        elif "listAccessTokens" in query:
+            response.json.return_value = {
+                "data": {"listAccessTokens": {"total": 0, "tokens": []}}
+            }
+        else:
+            response.json.return_value = {
+                "data": {"createAccessToken": {"accessToken": "tok"}}
+            }
+        return response
+
+    session.post.side_effect = post
+    return module
+
+
+def graphql_call(session: MagicMock, marker: str) -> Any:
+    """The call whose query contains marker, so a probe cannot shift an index."""
+    for call in session.post.call_args_list:
+        if marker in call[1]["json"]["query"]:
+            return call
+    raise AssertionError(f"no GraphQL call containing {marker!r}")
 
 
 @pytest.fixture(autouse=True)
@@ -111,29 +150,8 @@ class TestBrowserSsoLogin:
             },
         ]
 
-        with patch("datahub.cli.sso_cli.requests") as mock_requests:
-            mock_session = MagicMock()
-            mock_requests.Session.return_value = mock_session
-
-            # First call: listAccessTokens (warning check), second: createAccessToken
-            list_response = MagicMock()
-            list_response.json.return_value = {
-                "data": {"listAccessTokens": {"total": 0, "tokens": []}}
-            }
-            create_response = MagicMock()
-            create_response.json.return_value = {
-                "data": {
-                    "createAccessToken": {
-                        "accessToken": "generated-sso-token-xyz",
-                        "metadata": {
-                            "id": "token-id",
-                            "actorUrn": "urn:li:corpuser:john.doe",
-                        },
-                    }
-                }
-            }
-            mock_session.post.side_effect = [list_response, create_response]
-
+        module = mock_requests(me="urn:li:corpuser:john.doe")
+        with patch("datahub.cli.sso_cli.requests", module):
             token_name, access_token = browser_sso_login(
                 "http://localhost:9002",
                 "ONE_HOUR",
@@ -141,18 +159,15 @@ class TestBrowserSsoLogin:
                 ticket_id=ticket_id,
             )
 
-        assert access_token == "generated-sso-token-xyz"
+        assert access_token == "tok"
         assert "cli token" in token_name
         mock_playwright["page"].goto.assert_called_once_with(expected_auth_url)
 
-        # Verify cookies were set on the session
-        assert mock_session.cookies.set.call_count == 2
+        session = module.Session.return_value
+        assert session.cookies.set.call_count == 2
 
-        # Verify GraphQL calls were made (list + create)
-        assert mock_session.post.call_count == 2
-        create_call = mock_session.post.call_args_list[1]
+        create_call = graphql_call(session, "createAccessToken")
         assert create_call[0][0] == "http://localhost:9002/api/v2/graphql"
-        assert "createAccessToken" in create_call[1]["json"]["query"]
         assert (
             create_call[1]["json"]["variables"]["input"]["actorUrn"]
             == "urn:li:corpuser:john.doe"
@@ -169,8 +184,8 @@ class TestBrowserSsoLogin:
 
         mock_playwright["context"].close.assert_called_once()
 
-    def test_no_actor_cookie_raises_error(self, mock_playwright: dict) -> None:
-        """Verify error when actor cookie is missing after login."""
+    def test_an_unidentifiable_login_raises(self, mock_playwright: dict) -> None:
+        """Neither the instance nor a cookie says who signed in."""
         context = mock_playwright["context"]
         context.cookies.return_value = [
             {
@@ -182,10 +197,32 @@ class TestBrowserSsoLogin:
         ]
 
         with (
-            patch("datahub.cli.sso_cli.requests"),
-            pytest.raises(Exception, match="no actor cookie found"),
+            patch("datahub.cli.sso_cli.requests", mock_requests(me=None)),
+            pytest.raises(Exception, match="did not report who signed in"),
         ):
             browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+    def test_the_actor_cookie_stands_in_for_an_older_instance(
+        self, mock_playwright: dict
+    ) -> None:
+        """An instance that cannot answer `me` still has to be usable."""
+        mock_playwright["context"].cookies.return_value = [
+            {
+                "name": "actor",
+                "value": "urn%3Ali%3Acorpuser%3Ajane",
+                "domain": "localhost",
+                "path": "/",
+            },
+        ]
+
+        module = mock_requests(me=None)
+        with patch("datahub.cli.sso_cli.requests", module):
+            browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+        create = graphql_call(module.Session.return_value, "createAccessToken")
+        assert create[1]["json"]["variables"]["input"]["actorUrn"] == (
+            "urn:li:corpuser:jane"
+        )
 
     def test_graphql_error_raises(self, mock_playwright: dict) -> None:
         """Verify error when GraphQL mutation fails."""
@@ -279,6 +316,51 @@ class TestSsoProfileDir:
         )
 
 
+class TestProfileKey:
+    """One directory per browser build, not per engine.
+
+    Chrome and the Chromium build Playwright ships read the same profile format
+    but encrypt cookies against different keychain entries, so sharing a
+    directory loses the saved session the fallback was meant to preserve.
+    """
+
+    def test_a_channel_and_the_bundled_build_are_kept_apart(self) -> None:
+        chrome = _profile_key(BrowserTarget(engine="chromium", channel="chrome"))
+        bundled = _profile_key(BUNDLED_TARGET)
+
+        assert chrome != bundled
+
+    def test_two_channels_on_one_engine_are_kept_apart(self) -> None:
+        chrome = _profile_key(BrowserTarget(engine="chromium", channel="chrome"))
+        edge = _profile_key(BrowserTarget(engine="chromium", channel="msedge"))
+
+        assert chrome != edge
+
+    def test_the_fallback_does_not_reuse_the_channel_profile(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """The regression: falling back must not open Chrome's profile."""
+        pw = mock_playwright["playwright"]
+        pw.chromium.launch_persistent_context.side_effect = [
+            Exception("chrome is not installed"),
+            mock_playwright["context"],
+        ]
+
+        with (
+            patch(
+                "datahub.cli.sso_cli.browser_target",
+                return_value=BrowserTarget(engine="chromium", channel="chrome"),
+            ),
+            patch("datahub.cli.sso_cli.requests", mock_requests()),
+        ):
+            browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+        used = [
+            call[0][0] for call in pw.chromium.launch_persistent_context.call_args_list
+        ]
+        assert len(set(used)) == 2, "the fallback must get its own profile directory"
+
+
 class TestPersistentProfile:
     @pytest.fixture(autouse=True)
     def deterministic_browser(self) -> Iterator[None]:
@@ -286,7 +368,7 @@ class TestPersistentProfile:
             yield
 
     def _login(self, **kwargs: Any) -> None:
-        with patch("datahub.cli.sso_cli.requests"):
+        with patch("datahub.cli.sso_cli.requests", mock_requests()):
             try:
                 browser_sso_login("http://localhost:9002", "ONE_HOUR", **kwargs)
             except Exception:
@@ -331,6 +413,36 @@ class TestPersistentProfile:
         self._login(fresh_login=True)
 
         assert not marker.exists(), "fresh_login must clear the saved session"
+
+    def test_fresh_login_discards_profiles_for_every_browser(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """Change the default browser and the old profile is still a live login.
+
+        Clearing only the browser this run drives leaves the previous user
+        signed in behind the old default, which --fresh-login exists to stop.
+        """
+        stale = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
+        stale.mkdir(parents=True)
+        (stale / "cookies.sqlite").write_text("the previous user")
+
+        self._login(fresh_login=True)
+
+        assert not stale.exists()
+
+    def test_fresh_login_reports_a_profile_it_cannot_remove(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """Launching on a half-deleted profile silently returns the old login."""
+        stale = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
+        stale.mkdir(parents=True)
+
+        with (
+            patch("shutil.rmtree", side_effect=OSError("permission denied")),
+            patch("datahub.cli.sso_cli.requests", mock_requests()),
+            pytest.raises(click.ClickException, match="could not remove"),
+        ):
+            browser_sso_login("http://localhost:9002", "ONE_HOUR", fresh_login=True)
 
     def test_a_locked_profile_is_reported_not_worked_around(
         self, mock_playwright: dict
@@ -399,7 +511,7 @@ class TestLaunchTargets:
 
 class TestBrowserSelection:
     def _login(self, **kwargs: Any) -> None:
-        with patch("datahub.cli.sso_cli.requests"):
+        with patch("datahub.cli.sso_cli.requests", mock_requests()):
             try:
                 browser_sso_login("http://localhost:9002", "ONE_HOUR", **kwargs)
             except Exception:
@@ -458,7 +570,7 @@ class TestBrowserSelection:
 
 class TestSeedProfile:
     def _login(self, **kwargs: Any) -> None:
-        with patch("datahub.cli.sso_cli.requests"):
+        with patch("datahub.cli.sso_cli.requests", mock_requests()):
             try:
                 browser_sso_login("http://localhost:9002", "ONE_HOUR", **kwargs)
             except Exception:
@@ -482,7 +594,7 @@ class TestSeedProfile:
         """An existing session in the seed is what skips the very first login."""
         self._login(seed_profile=str(seed))
 
-        dest = tmp_path / "profiles" / "firefox" / "localhost_9002"
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
         assert (dest / "cookies.sqlite").read_text() == "session-cookies"
         assert (dest / "storage" / "ls.db").read_text() == "local-storage"
 
@@ -493,14 +605,14 @@ class TestSeedProfile:
         """A copied lock pins the profile to the browser that wrote it."""
         self._login(seed_profile=str(seed))
 
-        dest = tmp_path / "profiles" / "firefox" / "localhost_9002"
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
         assert not (dest / excluded).exists()
 
     def test_does_not_overwrite_a_saved_session(
         self, mock_playwright: dict, seed: Path, tmp_path: Path
     ) -> None:
         """Re-seeding would discard the session the previous run just saved."""
-        dest = tmp_path / "profiles" / "firefox" / "localhost_9002"
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
         dest.mkdir(parents=True)
         (dest / "cookies.sqlite").write_text("newer-session")
 
@@ -512,7 +624,7 @@ class TestSeedProfile:
         self, mock_playwright: dict, seed: Path, tmp_path: Path
     ) -> None:
         """--fresh-login empties the directory, so the seed applies again."""
-        dest = tmp_path / "profiles" / "firefox" / "localhost_9002"
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
         dest.mkdir(parents=True)
         (dest / "cookies.sqlite").write_text("stale-session")
 
@@ -619,22 +731,12 @@ class TestCookieScoping:
             },
         ]
 
-        with patch("datahub.cli.sso_cli.requests") as mock_requests:
-            session = MagicMock()
-            mock_requests.Session.return_value = session
-            listed = MagicMock()
-            listed.json.return_value = {
-                "data": {"listAccessTokens": {"total": 0, "tokens": []}}
-            }
-            created = MagicMock()
-            created.json.return_value = {
-                "data": {"createAccessToken": {"accessToken": "tok"}}
-            }
-            session.post.side_effect = [listed, created]
-
+        module = mock_requests(me=None)
+        with patch("datahub.cli.sso_cli.requests", module):
             browser_sso_login("https://dev01.acryl.io", "ONE_HOUR")
 
-        create_call = session.post.call_args_list[1]
+        session = module.Session.return_value
+        create_call = graphql_call(session, "createAccessToken")
         assert (
             create_call[1]["json"]["variables"]["input"]["actorUrn"]
             == "urn:li:corpuser:pedro"
@@ -651,7 +753,7 @@ class TestRememberSession:
     """
 
     def _login(self, **kwargs: Any) -> None:
-        with patch("datahub.cli.sso_cli.requests"):
+        with patch("datahub.cli.sso_cli.requests", mock_requests()):
             try:
                 browser_sso_login("https://dev01.acryl.io", "ONE_HOUR", **kwargs)
             except Exception:
@@ -813,8 +915,10 @@ class TestSilentLogin:
         (root / "dev01.acryl.io.json").write_text(json.dumps(saved))
         return saved
 
-    def _login(self, **kwargs: Any) -> None:
-        with patch("datahub.cli.sso_cli.requests"):
+    def _login(
+        self, me: Optional[str] = "urn:li:corpuser:pedro", **kwargs: Any
+    ) -> None:
+        with patch("datahub.cli.sso_cli.requests", mock_requests(me=me)):
             try:
                 browser_sso_login("https://dev01.acryl.io", "ONE_HOUR", **kwargs)
             except Exception:
@@ -831,12 +935,52 @@ class TestSilentLogin:
     def test_no_window_when_the_saved_session_works(
         self, mock_playwright: dict, _sessions_in_tmp: Path
     ) -> None:
-        self._save(_sessions_in_tmp)
+        saved = self._save(_sessions_in_tmp)
+        mock_playwright["context"].cookies.return_value = [
+            {
+                "domain": "dev01.acryl.io",
+                "name": "actor",
+                "value": "urn%3Ali%3Acorpuser%3Apedro",
+                "path": "/",
+            },
+        ]
 
-        self._login(remember_session=True)
+        module = mock_requests()
+        with patch("datahub.cli.sso_cli.requests", module):
+            browser_sso_login(
+                "https://dev01.acryl.io", "ONE_HOUR", remember_session=True
+            )
 
         assert self._headless_flags(mock_playwright) == [True], (
             "a working session must not open a second, visible browser"
+        )
+        mock_playwright["context"].add_cookies.assert_called_once_with(saved)
+        graphql_call(module.Session.return_value, "createAccessToken")
+
+    def test_an_expired_saved_session_still_opens_a_browser(
+        self, mock_playwright: dict, _sessions_in_tmp: Path
+    ) -> None:
+        """The regression: the replayed actor cookie is not proof of a login.
+
+        --remember-session saves the instance's own actor cookie and replays it
+        before the flow runs, so the wait for that cookie passes the instant the
+        page loads whether or not the provider session behind it is still alive.
+        Only the instance can settle it, and here it says nobody is signed in.
+        """
+        self._save(_sessions_in_tmp)
+        mock_playwright["context"].cookies.return_value = [
+            {
+                "domain": "dev01.acryl.io",
+                "name": "actor",
+                "value": "urn%3Ali%3Acorpuser%3Astale",
+                "path": "/",
+            },
+        ]
+
+        self._login(me=None, remember_session=True)
+
+        assert self._headless_flags(mock_playwright) == [True, False], (
+            "an expired session must hand over to a visible login"
         )
 
     def test_falls_back_to_a_visible_browser(
