@@ -113,11 +113,18 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
+      # save used to race the dependency-heavy jobs for the shared key and poison it.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 21
@@ -263,11 +270,18 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
+      # save used to race the dependency-heavy jobs for the shared key and poison it.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
       # yarn's global download cache (safe to cache; node_modules itself is not — see
       # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
       # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
