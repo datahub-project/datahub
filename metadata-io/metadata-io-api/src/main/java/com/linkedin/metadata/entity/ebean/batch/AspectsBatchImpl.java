@@ -220,11 +220,12 @@ public class AspectsBatchImpl implements AspectsBatch {
                             .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
-                      log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
-                      return null;
+                      // Surface as ValidationException so Rest.li/OpenAPI return 422 instead of
+                      // HTTP 200 with the proposal silently dropped (see #19086).
+                      throw new ValidationException(
+                          "Invalid MetadataChangeProposal: " + e.getMessage());
                     }
                   })
-              .filter(Objects::nonNull)
               .collect(Collectors.toList()));
       return this;
     }
