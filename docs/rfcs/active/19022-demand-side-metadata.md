@@ -8,7 +8,7 @@
 ## Summary
 
 DataHub records what exists. This RFC proposes a first-class way to record what is
-*wanted and missing*: an entity representing an asset consumers have asked for and not
+_wanted and missing_: an entity representing an asset consumers have asked for and not
 found, carrying attributed demand from the consumers that asked, and a lifecycle that ends
 when the asset becomes real.
 
@@ -19,6 +19,7 @@ asset that is not there. Today that search returns nothing and the event is lost
 this proposal the miss is recordable:
 
 ```python
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import make_demand_urn
 from datahub.metadata.schema_classes import DemandClass, DemandRequesterClass
 
@@ -27,10 +28,12 @@ emitter.emit(MetadataChangeProposalWrapper(
     aspect=DemandClass(
         want="monthly recurring revenue by segment",
         requesters=[DemandRequesterClass(
+            requestId="query-log:2026-08-09T12:15:35Z:revenue-copilot",
             requester="urn:li:corpuser:revenue-copilot",
             requestedAt=1786261735023,
             query="SELECT segment, month, SUM(mrr) FROM ? GROUP BY segment, month",
             neededFields=["segment", "month", "mrr"],
+            source="query-log",
         )],
         state="OPEN",
     ),
@@ -140,17 +143,23 @@ record Demand {
 }
 
 record DemandRequester {
-  requester: Urn          // corpuser, corpGroup, or any actor URN
+  requestId: string        // stable per-event key so emitter retries don't double-count
+  requester: Urn           // corpuser, corpGroup, or any actor URN
   requestedAt: Time
-  query: optional string  // what they were trying to run
+  query: optional string   // what they were trying to run, sanitized before storage
   neededFields: array[string]
-  source: string          // how we know: "search", "query-log", "api", ...
+  source: string           // how we know: "search", "query-log", "api", ...
 }
 ```
 
 `source` is deliberately mandatory. Demand harvested from a database error log is weaker
 evidence than demand emitted by an authenticated client, and a reader must be able to tell
-the two apart without inspecting the emitter.
+the two apart without inspecting the emitter. `requestId` is mandatory so that an emitter
+retry replaces its own prior entry instead of counting as a second requester; it is
+opaque to DataHub and the emitter defines what makes two requests "the same" (e.g. a
+query-log offset or a hash of actor + want + time bucket). `query`, when populated, must
+be redacted of literals before emission — the aspect stores a query shape for provenance,
+not a queryable copy of user data.
 
 ### Convergence
 
@@ -161,6 +170,13 @@ convergence silently merges two different wants and is much harder to detect tha
 duplicate.
 
 Deduplication beyond exact-normalised matching is left to a future proposal.
+
+Convergence on one URN is necessary but not sufficient: a plain `emit()` of the `Demand`
+aspect is a whole-value UPSERT, so two requesters racing on the same URN would have the
+second overwrite the first's `requesters` entry instead of appending to it. Merging
+`requesters` across concurrent writers therefore needs an atomic append — either a
+server-side keyed-collection mutation, or a client-side read-current-aspect-then-conditional-write
+retry loop — and this RFC does not yet pick between them; see **Unresolved questions**.
 
 ### Resolution
 
@@ -182,8 +198,8 @@ creation of the asset**, into the demand that motivated it.
 
 ## How we teach this
 
-The term we have found clearest is **demand**, and the framing that lands is: *a catalog is
-a map of what exists; this is a map of what is missing.*
+The term we have found clearest is **demand**, and the framing that lands is: _a catalog is
+a map of what exists; this is a map of what is missing._
 
 Audiences affected: platform teams (a new prioritisation input), ingestion authors (a new
 optional emission path), and application developers (a new entity to render). No existing
@@ -262,10 +278,26 @@ usage data to tune it against.
    property, and we would defer to that.
 2. **Should DataHub itself ever emit demand from a zero-result search**, or should that
    always be an external concern?
-3. **How conservative should want-normalisation be?** We have argued for very conservative,
-   but that guarantees duplicates.
+3. **How conservative should want-normalisation be?** We have argued for stripping
+   punctuation, but that collapses distinct wants that only differ by punctuation (e.g.
+   `re-sign` vs `resign`, `foo.bar` vs `foobar`) onto one URN with no collision detection;
+   escaping instead of stripping, or accepting the duplicate rate that comes with a more
+   literal key, are both on the table.
 4. **Is `EXPIRED` enough of an answer to backlog rot**, or does this need a TTL in the model
    rather than in policy?
+5. **What is the concrete atomic-append mechanism for `requesters`?** A new Restli/GraphQL
+   PATCH-style endpoint, or a documented read-modify-write contract against aspect version —
+   we have not chosen, and the choice affects every emitter's SDK usage.
+6. **What relationship, if any, does `resolvedBy` register in the graph?** As written it is
+   a bare `Urn` field; making "which demand caused this dataset to exist" traversable
+   requires picking a relationship name, direction, and whether the dataset side is derived
+   or requires its own aspect write.
+7. **Should the state machine be enforced server-side** (e.g. rejecting a `RESOLVED` write
+   with no `resolvedBy`, or a write that reopens a terminal record), or is that left to
+   convention the way most DataHub aspects are today?
+8. **Who is allowed to assert `requester`?** As modelled, any principal permitted to write
+   the aspect can attribute a want to any actor URN, including one that never asked;
+   whether that requires a separate `recordedBy`/collector identity is open.
 
 ## Reference implementation
 
