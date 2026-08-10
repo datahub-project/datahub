@@ -837,13 +837,15 @@ class PowerBiDashboardSourceConfig(
     def validate_external_query_requires_advanced_sql(
         self,
     ) -> "PowerBiDashboardSourceConfig":
-        # Federation resolution only runs inside parse_custom_sql when both flags are on.
-        # Fail fast so a configured mapping cannot silently no-op.
+        # Federation resolution only runs while extracting lineage inside
+        # parse_custom_sql, which requires all of these flags. Fail fast so a configured
+        # mapping cannot silently no-op.
         if not self.bigquery_external_query_connection_to_platform:
             return self
         missing = [
             flag
             for flag in (
+                "extract_lineage",
                 "native_query_parsing",
                 "enable_advance_lineage_sql_construct",
             )

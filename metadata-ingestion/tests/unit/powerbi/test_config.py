@@ -274,6 +274,27 @@ class TestPowerBiConfig:
         ):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
+    def test_bigquery_external_query_requires_extract_lineage(self):
+        """Mapping must fail-fast when extract_lineage is off, since federation
+        resolution only runs while extracting lineage."""
+        config_dict = {
+            **self.base_config,
+            # Keep the native/advanced SQL flags on so only extract_lineage is missing;
+            # disable CLL so its flag-combo validator does not fire first.
+            "extract_column_level_lineage": False,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": False,
+            "bigquery_external_query_connection_to_platform": {
+                "proj.us-east1.conn": {"platform": "postgres"}
+            },
+        }
+        with pytest.raises(
+            ValueError,
+            match="bigquery_external_query_connection_to_platform requires these flags",
+        ):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
     def test_get_from_dataset_type_mapping_exact_match(self):
         """Test get_from_dataset_type_mapping with exact match."""
         config = PowerBiDashboardSourceConfig(

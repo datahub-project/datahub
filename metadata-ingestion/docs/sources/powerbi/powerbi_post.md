@@ -148,11 +148,13 @@ engine such as Cloud SQL or AlloyDB. The generic SQL parser cannot resolve those
 calls — the arguments are string literals, not table identifiers — so lineage would
 fail with empty URNs unless you map each connection to its external platform.
 
-**Requirements:** `native_query_parsing: true` and
-`enable_advance_lineage_sql_construct: true`. The target `platform` must be a
-recognized DataHub platform. If you narrow `dataset_type_mapping`, keep the
-target platform's PowerBI name in that mapping so the resolved upstream is not
-filtered out.
+**Requirements:** `native_query_parsing: true`,
+`enable_advance_lineage_sql_construct: true`, and `extract_lineage: true` (the
+default). Federation is resolved while extracting lineage, so configuring the
+mapping with any of these disabled fails config validation rather than silently
+doing nothing. The target `platform` must be a recognized DataHub platform. If
+you narrow `dataset_type_mapping`, keep the target platform's PowerBI name in
+that mapping so the resolved upstream is not filtered out.
 
 **Configuration:**
 
