@@ -145,9 +145,6 @@ class IngestionReplayer:
             # 1. Original sink was datahub-rest (different server URL now)
             # 2. Original sink was file with env vars (e.g., $INGESTION_ARTIFACT_DIR)
             original_sink = self._recipe.get("sink", {})
-            # tempfile.gettempdir() rather than a literal "/tmp": on Windows that
-            # path resolves to C:\tmp, which does not exist by default, so the
-            # air-gapped replay fails with FileNotFoundError before emitting.
             replay_output = str(
                 Path(tempfile.gettempdir())
                 / f"datahub_replay_{self._manifest.run_id}.json"
