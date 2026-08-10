@@ -47,17 +47,23 @@ public class EbeanConfiguration {
   // Default "none". Back-compat: entityWriteAdvisoryLockEnabled=true is treated as "db" when this
   // is
   // unset/"none".
-  private String entityWriteLockBackend = "none";
+  // NOTE: @Builder.Default is required — Lombok's @Builder ignores field initializers otherwise, so
+  // EbeanConfiguration.builder().build() would yield null and defeat the "none" default.
+  @Builder.Default private String entityWriteLockBackend = "none";
 
   // Max seconds to wait to acquire a write lock before proceeding WITHOUT it (CAS still guards).
   // Keeps
   // a slow/absent lock backend from blocking ingest.
-  private int entityWriteLockAcquireTimeoutSeconds = 10;
+  // NOTE: @Builder.Default is required — without it the builder would produce 0, meaning the lock
+  // never waits.
+  @Builder.Default private int entityWriteLockAcquireTimeoutSeconds = 10;
 
   // Hazelcast write-lock lease: auto-release a held lock after this many seconds so a dead/hung
   // holder never wedges a URN. Keep comfortably above realistic batch duration; lease expiry
   // mid-write degrades to CAS (safe), never loss.
-  private int entityWriteLockLeaseSeconds = 300;
+  // NOTE: @Builder.Default is required — without it the builder would produce 0 (immediate lease
+  // expiry).
+  @Builder.Default private int entityWriteLockLeaseSeconds = 300;
 
   // Opt-in: write aspects via optimistic locking (compare-and-set on SystemMetadata.version)
   // instead

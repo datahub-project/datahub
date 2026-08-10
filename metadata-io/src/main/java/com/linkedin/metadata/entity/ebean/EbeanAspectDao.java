@@ -152,8 +152,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // timeout (how long a writer waits for a hot key before falling through to pure CAS) is
   // configurable via entityWriteLockAcquireTimeoutSeconds.
   private static final String MYSQL_LOCK_NAME_PREFIX = "dh_ent:";
-  // Poll interval for Postgres pg_try_advisory_xact_lock while waiting up to the acquire timeout.
+
+  /**
+   * Poll granularity for the Postgres {@code pg_try_advisory_xact_lock} spin-wait within the
+   * acquire timeout. 50ms is a deliberate balance: short enough that a contended waiter reacts to a
+   * released lock within one human-imperceptible tick, long enough that the spin issues at most ~20
+   * round-trips per second per waiting URN (vs a tight loop that would hammer the connection). Not
+   * made configurable to avoid another knob — prefer {@code backend=hazelcast} for large hot-key
+   * batches, where waits are off-connection entirely.
+   */
   private static final long PG_ADVISORY_LOCK_POLL_MILLIS = 50L;
+
+  // Above this URN count, backend=db does many per-URN advisory-lock round trips per batch under
+  // contention; warn once per batch recommending backend=hazelcast (off-connection waits).
+  private static final int PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD = 100;
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -306,14 +318,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * and {@link #deleteUrn} take a transaction-scoped advisory lock per urn <em>before</em>
    * acquiring any row locks, so a multi-row {@code FOR UPDATE} writer (e.g. logical-model linking)
    * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
-   * advisory lock is released automatically on commit/rollback. No-op unless the store is Postgres
-   * and the feature is enabled.
+   * advisory lock is released automatically on commit/rollback (Postgres) or explicitly before
+   * commit (MySQL — see {@link #releaseUrnsForWrite}). No-op unless the store is Postgres or MySQL
+   * and the feature is enabled. Acquire waits are bounded by {@code
+   * entityWriteLockAcquireTimeoutSeconds}, then degrade to lockless (CAS still guards).
    *
-   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn))}. {@code hashtext} is a
-   * 32-bit hash, so distinct urns can collide on the same lock key and serialize against each
-   * other. That is a false serialization: it costs throughput but never affects correctness. It is
-   * acceptable here because the feature is opt-in and collisions are rare relative to the set of
-   * entities being written concurrently.
+   * <p>Postgres is keyed by {@code pg_try_advisory_xact_lock(<namespace>, hashtext(urn))} (polled
+   * up to the acquire timeout). {@code hashtext} is a 32-bit hash, so distinct urns can collide on
+   * the same lock key and serialize against each other. That is a false serialization: it costs
+   * throughput but never affects correctness. It is acceptable here because the feature is opt-in
+   * and collisions are rare relative to the set of entities being written concurrently.
    */
   @Override
   public void lockUrnsForWrite(
@@ -359,9 +373,18 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * hazelcast backend for large hot-key batches.)
    */
   private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
-    final long deadlineMs =
-        System.currentTimeMillis() + entityWriteLockAcquireTimeoutSeconds * 1000L;
+    if (sortedUrns.size() > PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD) {
+      log.warn(
+          "backend=db advisory locking a large batch of {} URNs; this issues per-URN "
+              + "pg_try_advisory_xact_lock round trips and can be slow under contention. Prefer "
+              + "backend=hazelcast for large hot-key batches (waits happen off the DB connection).",
+          sortedUrns.size());
+    }
     for (String urn : sortedUrns) {
+      // Per-URN deadline: each URN gets the full acquire timeout. A single shared deadline would
+      // starve later URNs of any wait budget once an earlier hot URN consumed it.
+      final long deadlineMs =
+          System.currentTimeMillis() + entityWriteLockAcquireTimeoutSeconds * 1000L;
       boolean acquired = tryAdvisoryLockPostgres(urn);
       while (!acquired && System.currentTimeMillis() < deadlineMs) {
         try {
