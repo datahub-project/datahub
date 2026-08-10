@@ -68,7 +68,7 @@ pulls, no containers created, no error — while `docker ps` works fine in the s
 is most likely talking to a different Docker endpoint than your `docker` CLI is.
 
 The quickstart uses the `docker` Python SDK (`docker.from_env()`), which reads the `DOCKER_HOST`
-environment variable but does **not** read Docker CLI *contexts*. Alternative runtimes such as
+environment variable but does **not** read Docker CLI _contexts_. Alternative runtimes such as
 Colima, Rancher Desktop, and Podman install a context instead of exporting `DOCKER_HOST`, so the
 SDK falls back to the default socket path and waits there.
 
