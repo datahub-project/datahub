@@ -8,8 +8,9 @@ jaraco.context>=6.1.0,<7
 # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
 # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
 idna>=3.15,<4.0.0
-# urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixed in >=2.6.3.
-# Not pinned here: acryl-great-expectations (via acryl-datahub[snowflake]) requires urllib3<1.27.
+# urllib3: CVE-2025-50181 (2.5.0); CVE-2025-66418, CVE-2025-66471 (2.6.0); CVE-2026-21441 (2.6.3);
+# CVE-2026-44431 (2.7.0).
+urllib3>=2.7.0,<3.0.0
 # PyJWT: GHSA-xgmm-8j9v-c9wx (JWK-as-HMAC confusion); fixed in >=2.13.0
 PyJWT>=2.13.0
 # pyOpenSSL: CVE-2026-27459
@@ -18,12 +19,13 @@ pyopenssl>=26.0.0
 pyasn1>=0.6.4
 # protobuf (6.x): CVE-2026-0994
 protobuf>=6.33.5,<7.0.0
-# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; keep current patch floor
+# CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; fixed in 3.13.3.
+# CVE-2026-59881 (fixed 3.14.2); CVE-2026-69243, CVE-2026-69244 (fixed 3.14.3).
 # Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
 # conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
-aiohttp>=3.13.4
+aiohttp>=3.14.3
 pillow>=12.1.1
 # CVE-2025-47273: PackageIndex path traversal; fixed in 78.1.1. Cap <82 for pkg_resources.
 setuptools>=80.10.1,<82.0.0
@@ -71,3 +73,8 @@ mlflow-skinny>=3.9.0,<4.0.0
 # DoS (GHSA-c8rr-9gxc-jprv) fixed in 5.12.0. CVE-2026-44660 (dump() write-failure memory
 # leak) fixed in 5.12.1. Cap major until reviewed.
 ujson>=5.12.1,<6
+# Pygments: CVE-2026-4539 (ReDoS in AdlLexer); fixed in 2.20.0.
+Pygments>=2.20.0
+# torch: CVE-2025-3001 (fixed 2.10.0), CVE-2025-3000 (fixed 2.13.0). pytorch-lightning only
+# requires torch>=2.1.0 (no upper bound), so this is compatible. Cap major until reviewed.
+torch>=2.13.0,<3.0.0
