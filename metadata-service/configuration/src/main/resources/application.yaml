@@ -398,7 +398,10 @@ datahub:
       lockMapName: ${POST_COMMIT_HOOK_BUFFER_LOCK_MAP_NAME:post-commit-hook-drain-lock}
       drainBatchSize: ${POST_COMMIT_HOOK_BUFFER_DRAIN_BATCH_SIZE:500}
       # Hard cap on pending MCLs. At cap, enqueue returns false and the hook runs synchronously
-      # (bounded memory, no data loss). Size cost: one cluster-wide IMap.size() per enqueue.
+      # (bounded memory, no data loss). Size cost: one local AtomicInteger (approxSize) check per
+      # enqueue — NOT a cluster-wide IMap.size() round-trip (which would block the ingest hot path).
+      # The cap is enforced per-pod, so the cluster-wide pending total is approximately
+      # ingestingPods × maxPendingEntries; size maxPendingEntries for the per-pod bound you want.
       maxPendingEntries: ${POST_COMMIT_HOOK_BUFFER_MAX_PENDING_ENTRIES:100000}
       # Drain interval for the background drainer (registered programmatically by the shared
       # OffloadBufferFactory's TaskScheduler — no @Scheduled/@EnableScheduling per use).

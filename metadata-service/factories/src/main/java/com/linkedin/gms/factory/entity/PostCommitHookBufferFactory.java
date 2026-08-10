@@ -162,6 +162,11 @@ public class PostCommitHookBufferFactory {
             systemOperationContext,
             new HookDrainAction(sink, metricUtils),
             props,
+            // enabled=true: this bean only exists when the flag is on (@ConditionalOnProperty
+            // above), so the drainer is always enabled when wired. Retention's factory passes
+            // the same literal for the same reason — the on/off gate is the flag, not a per-use
+            // drainer toggle. A separate "drainer enabled" config would be dead weight while the
+            // flag is the single source of truth.
             true,
             "post_commit_hook",
             metricUtils);

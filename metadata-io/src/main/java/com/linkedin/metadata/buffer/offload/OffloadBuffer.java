@@ -4,6 +4,7 @@ import com.linkedin.metadata.config.offload.MergePolicy;
 import com.linkedin.metadata.config.offload.SizingPolicy;
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -124,13 +125,26 @@ public interface OffloadBuffer<K extends Serializable, V extends Serializable> {
    * with one {@code IMap.putAll} (NO_COALESCE) so a batch of N costs one round-trip, not N.
    */
   default boolean enqueueBatch(@Nonnull List<Map.Entry<K, V>> entries) {
-    boolean allOk = true;
+    if (entries.isEmpty()) {
+      return true;
+    }
+    List<Map.Entry<K, V>> admitted = new ArrayList<>(entries.size());
     for (Map.Entry<K, V> e : entries) {
       if (!enqueue(e.getKey(), e.getValue())) {
-        allOk = false;
+        // All-or-nothing: roll back the entries already admitted so the caller's sync
+        // fallback is the only execution (no double work). removeIfSame is CAS, so a
+        // concurrent requeue/re-merge with a newer value is NOT clobbered — a failed
+        // rollback leaves the entry buffered → at-least-once, idempotent hooks, so
+        // correct but redundant. The Hazelcast impl overrides this with one putAll +
+        // best-effort removeAll on failure, avoiding the per-entry loop entirely.
+        for (Map.Entry<K, V> a : admitted) {
+          removeIfSame(a.getKey(), a.getValue());
+        }
+        return false;
       }
+      admitted.add(e);
     }
-    return allOk;
+    return true;
   }
 
   /** {@code true} iff this buffer actually defers work (the {@code NO_OP} impl returns false). */

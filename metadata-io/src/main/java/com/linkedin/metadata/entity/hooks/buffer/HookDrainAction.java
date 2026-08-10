@@ -74,18 +74,52 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
       return;
     }
 
+    // Per-MCL build BEFORE group generation: isolate entries whose MCL cannot be built
+    // (corrupt JSON / deserialization failure) so a poison MCL never forces the whole group
+    // through the failed-group → per-MCL fallback. Without this, a single corrupt MCL makes
+    // group postApply throw every tick → every healthy MCL is re-run one-by-one via replaySingle
+    // each tick until the corrupt one finally poisons after MAX_RETRIES. By pre-splitting,
+    // corrupt-built entries go straight to replaySingle (retry → poison) while healthy entries
+    // flow through ONE group postApply call (no per-MCL fallback, no wasted re-runs). A
+    // transient build failure also routes to replaySingle, which retries it the same way —
+    // correct, since we cannot distinguish a permanent corrupt-JSON failure from a transient
+    // one at build time.
+    List<Map.Entry<HookKey, HookPayload>> healthy = new ArrayList<>(entries.size());
+    List<MCLItem> healthyItems = new ArrayList<>(entries.size());
+    List<Map.Entry<HookKey, HookPayload>> corrupt = new ArrayList<>();
+    for (Map.Entry<HookKey, HookPayload> e : entries) {
+      try {
+        MetadataChangeLog mcl = e.getValue().toMcl();
+        healthyItems.add(MCLItemImpl.builder().build(mcl, retrieverContext.getAspectRetriever()));
+        healthy.add(e);
+      } catch (Throwable t) {
+        corrupt.add(e);
+        log.warn(
+            "Post-commit hook '{}' MCL build failed; isolating for retry/poison urn={} aspect={}",
+            hook.getConfig().getClassName(),
+            e.getKey().getUrn(),
+            e.getKey().getAspectName(),
+            t);
+      }
+    }
+    for (Map.Entry<HookKey, HookPayload> e : corrupt) {
+      replaySingle(opContext, retrieverContext, hook, e, buffer);
+    }
+    if (healthy.isEmpty()) {
+      return;
+    }
+
     List<MCPItem> generated;
     try {
-      List<MCLItem> mclItems = buildMclItems(retrieverContext, entries);
       generated =
-          hook.postApply(opContext, mclItems, retrieverContext).collect(Collectors.toList());
+          hook.postApply(opContext, healthyItems, retrieverContext).collect(Collectors.toList());
     } catch (Throwable t) {
       log.warn(
-          "Post-commit hook '{}' group generation failed ({} MCLs); isolating per-MCL",
+          "Post-commit hook '{}' group generation failed ({} healthy MCLs); per-MCL fallback",
           hook.getConfig().getClassName(),
-          entries.size(),
+          healthy.size(),
           t);
-      for (Map.Entry<HookKey, HookPayload> e : entries) {
+      for (Map.Entry<HookKey, HookPayload> e : healthy) {
         replaySingle(opContext, retrieverContext, hook, e, buffer);
       }
       return;
@@ -99,17 +133,17 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
       log.warn(
           "Post-commit hook '{}' emit failed for {} entries; leaving for retry (at-least-once)",
           hook.getConfig().getClassName(),
-          entries.size(),
+          healthy.size(),
           t);
-      increment("post_commit_hook_emit_failed", entries.size());
+      increment("post_commit_hook_emit_failed", healthy.size());
       return;
     }
 
     // Success: no requeue happened in this branch, so a non-CAS batch remove is safe (one
-    // IMap.removeAll round-trip instead of N per-entry CAS removes). The retry path above
-    // (replaySingle) keeps per-entry removeIfSame because it remove-then-requeues the same key.
-    buffer.removeAll(entries);
-    increment("post_commit_hook_replayed", entries.size());
+    // IMap removeAll round-trip instead of N per-entry CAS removes). Corrupt entries were
+    // already removed/requeued by replaySingle above; only the healthy entries remain here.
+    buffer.removeAll(healthy);
+    increment("post_commit_hook_replayed", healthy.size());
   }
 
   private void replaySingle(
@@ -133,8 +167,15 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
     } catch (Throwable t) {
       HookPayload next = payload.incrementRetry();
       if (next.isPoison()) {
-        log.warn(
-            "Post-commit hook '{}' poison MCL after {} attempts; dropping urn={} aspect={}",
+        // ERROR (not WARN): hooks drive real user-visible state (DataProduct unset, schema
+        // fields, property-definition deletes), so a dropped side effect is an operator-
+        // actionable incident — surface it in error-based alerting. v1 has no DLQ table
+        // (matching the retention drainer); the dropped work is recoverable via a documented
+        // re-sync since these hooks re-derive from current entity state. The
+        // post_commit_hook_poison_dropped metric is the alerting signal.
+        log.error(
+            "Post-commit hook '{}' poison MCL after {} attempts; DROPPING side effect "
+                + "(operator action: re-sync urn to re-derive) urn={} aspect={}",
             hook.getConfig().getClassName(),
             next.getRetryCount(),
             entry.getKey().getUrn(),
@@ -164,17 +205,6 @@ public class HookDrainAction implements DrainAction<HookKey, HookPayload> {
         .filter(h -> hookId.equals(h.getConfig().getClassName()))
         .findFirst()
         .orElse(null);
-  }
-
-  private static List<MCLItem> buildMclItems(
-      @Nonnull RetrieverContext retrieverContext,
-      @Nonnull List<Map.Entry<HookKey, HookPayload>> entries) {
-    List<MCLItem> items = new ArrayList<>(entries.size());
-    for (Map.Entry<HookKey, HookPayload> e : entries) {
-      MetadataChangeLog mcl = e.getValue().toMcl();
-      items.add(MCLItemImpl.builder().build(mcl, retrieverContext.getAspectRetriever()));
-    }
-    return items;
   }
 
   private void increment(@Nonnull String metric, long n) {

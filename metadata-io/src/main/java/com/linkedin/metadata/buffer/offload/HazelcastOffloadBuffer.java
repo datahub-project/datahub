@@ -80,9 +80,12 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
   // than the inline hook execution we are trying to avoid. This counter increments on a successful
   // put and decrements on a successful removeIfSame, so it tracks actual entries approximately
   // (drain() is non-destructive and does not touch it; requeue overwrites an existing key and does
-  // not change the count). It undershoots after a full restart (starts at 0 while the map may have
-  // in-flight entries) and converges as entries drain — acceptable for a bounded-buffer contract
-  // where approximate rejection (admit a few over the cap, or reject a few under) is safe.
+  // not change the count). It is synced to pendingMap.size() ONCE at construction (see constructor)
+  // so a bounced pod does not start at 0 while the shared map still holds other pods' in-flight
+  // entries — without that sync, a restarted pod would admit a full maxPendingEntries on top of
+  // what's already there. After the one-time startup sync it is purely local (no per-enqueue
+  // round-trip), so it can drift from the true cluster-wide total as other pods add/remove; that is
+  // acceptable for a bounded-buffer contract where approximate rejection is safe.
   private final AtomicInteger approxSize = new AtomicInteger(0);
 
   public HazelcastOffloadBuffer(
@@ -105,6 +108,23 @@ public class HazelcastOffloadBuffer<K extends Serializable, V extends Serializab
     this.drainComparator = drainComparator;
     this.metricPrefix = metricPrefix;
     this.metricUtils = metricUtils;
+    // One cluster-wide size() at construction (NOT per enqueue) so a bounced pod's local cap
+    // counter starts at the true shared-map size instead of 0. Without this, a restarted pod
+    // would admit a full maxPendingEntries of new entries on top of the in-flight entries other
+    // pods already buffered — defeating the REJECT_AT_CAP memory bound. Only needed for the
+    // REJECT_AT_CAP path (EVICT_LRU's bound is the Hazelcast EvictionConfig, cluster-wide already,
+    // and never reads approxSize). Best-effort: if size() fails (cluster not yet ready), fall back
+    // to 0 (legacy behaviour) and converge as entries drain.
+    if (sizingPolicy == SizingPolicy.REJECT_AT_CAP) {
+      try {
+        this.approxSize.set(pendingMap.size());
+      } catch (Exception e) {
+        log.warn(
+            "{} buffer startup size() sync failed; approxSize starts at 0 (converges on drain)",
+            metricPrefix,
+            e);
+      }
+    }
   }
 
   @Override

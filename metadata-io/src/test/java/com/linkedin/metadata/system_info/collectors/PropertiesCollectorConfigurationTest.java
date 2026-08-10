@@ -547,10 +547,18 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // template above.
           "datahub.postCommitHook.buffer.mapName",
           "datahub.postCommitHook.buffer.lockMapName",
+          "datahub.postCommitHook.buffer.seqMapName",
           "datahub.postCommitHook.buffer.drainBatchSize",
           "datahub.postCommitHook.buffer.maxPendingEntries",
           "datahub.postCommitHook.buffer.drainIntervalMs",
           "datahub.postCommitHook.buffer.drainLockLeaseMs",
+          "datahub.postCommitHook.buffer.backoffEnabled",
+          "datahub.postCommitHook.buffer.backoffTicks",
+          // Retention buffer backoff tuning (mapName/lockMapName/etc. classified above; the
+          // seqMap is unused for KEEP_MAX_LONG but the field is bindable, so classify defensively).
+          "datahub.retention.buffer.seqMapName",
+          "datahub.retention.buffer.backoffEnabled",
+          "datahub.retention.buffer.backoffTicks",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
