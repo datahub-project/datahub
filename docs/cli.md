@@ -524,11 +524,12 @@ datahub recipe probe run columns --recipe my_recipe.yml --schema public --table 
 datahub recipe probe run topics --recipe my_recipe.yml --limit 50
 ```
 
-SQL sources also accept catalog queries, which is usually faster:
+SQL sources expose a `sql` command for catalog queries, usually faster. It is an ordinary
+command in the `probe methods` list — there is no separate subcommand to learn:
 
 ```shell
-datahub recipe probe sql --recipe my_recipe.yml --limit 50 \
-  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+datahub recipe probe run sql --recipe my_recipe.yml --limit 50 \
+  --query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
 ```
 
 Only single `SELECT` statements over catalog schemas (`information_schema`, plus `pg_catalog`

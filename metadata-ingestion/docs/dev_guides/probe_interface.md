@@ -18,10 +18,10 @@ input was wrong" (2) from "I could not reach the source" (3).
 
 Two things a caller needs, kept deliberately separate:
 
-|                                 | command                               | connection? |
-| ------------------------------- | ------------------------------------- | ----------- |
-| **fetch** — what is in here     | `probe sql`, `probe api`, `probe run` | yes         |
-| **judge** — what gets picked up | `probe filter`                        | **no**      |
+|                                 | command        | connection? |
+| ------------------------------- | -------------- | ----------- |
+| **fetch** — what is in here     | `probe run`    | yes         |
+| **judge** — what gets picked up | `probe filter` | **no**      |
 
 Splitting them is what keeps both simple. Fetching stops needing to know about filters, and
 filtering becomes a pure function over names the caller already has — so a caller can try a
@@ -31,63 +31,10 @@ dozen candidate patterns against one listing without touching the source again.
 a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
 and its docstring is the help text. Nothing is declared twice.
 
-## Adding a catalog-query surface (SQL sources)
+## Everything a connector exposes is a probe method
 
-Implement two members on the connector's probe provider and the rest is free:
-
-```python
-class MyMetadataProbe:
-    sql_dialect = "postgres"          # a name sqlglot resolves; see below
-
-    def execute_sql(self, query: str, limit: int) -> SqlRows:
-        """Run an already-scope-checked query, reading at most `limit` rows."""
-        ...
-```
-
-Then point the config at it:
-
-```python
-class MyConfig(...):
-    def build_probe_provider(self) -> ProbeProvider:
-        return MyMetadataProbe(self.get_client())
-```
-
-Every SQLAlchemy connector already has this through `SqlAlchemyMetadataProbe`, which derives
-its dialect from the engine.
-
-**`execute_sql` must never be a `@probe_method`.** Annotating it would put a raw-SQL parameter
-on `probe run`, reaching the engine without the scope check — the gate would still exist, just
-no longer on the only road. A test pins each provider's `execute_sql` as unannotated; keep it.
-
-### The scope gate
-
-`agent/sql_gate.py` parses with sqlglot and permits only a single `SELECT` whose every table
-reference resolves into the dialect's catalog schemas. It runs in the framework, ahead of the
-provider, so a connector never receives an unvalidated query.
-
-Two of its rules are not obvious:
-
-- **A relation in a catalog schema is not automatically metadata.** `pg_stat_statements` and
-  Snowflake's `ACCOUNT_USAGE.QUERY_HISTORY` carry the literal text of user queries, values in
-  `WHERE` clauses included. Those are excluded by name.
-- **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
-  their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
-  reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
-  `SYSTEM$…`, `EXTERNAL_QUERY`) is unmodelled. Refusing the class is fail-closed where a
-  denylist of names could never be complete.
-
-Everything fails closed, dialect resolution included: a platform that `get_dialect_str` cannot
-map refuses the query outright rather than parsing it against a guessed grammar — which would
-mean clearing a query the parser had misread. If your connector's dialect name differs from
-SQLAlchemy's (`postgresql` vs `postgres`), add it to the map in `sqlalchemy_probe.py`.
-
-**This check is not a security boundary.** It narrows what a probe query can touch; the
-enforcement boundary is the database's own grants. Recommend a read-only role scoped to catalog
-metadata, and say so in the connector's docs.
-
-## Adding metadata getters
-
-For sources with no SQL surface — and for anything a query cannot express — annotate a method:
+There is one execution command. A connector adds capability by annotating a
+method; `probe run <command>` invokes it and `probe methods` describes it.
 
 ```python
 class MySource(...):
@@ -100,6 +47,69 @@ Parameters become CLI flags (`str`/`int`/`bool`, or `Optional` of those) and the
 becomes the help text**, so a caller discovers capability at runtime. Discovery uses `dir()`, so
 annotating the connector's own methods works — a provider can be the source itself.
 
+### Methods that take something dangerous
+
+A catalog query and an API path are still ordinary methods. What makes them safe is that the
+method **declares which parameter carries the dangerous value**, and the framework checks it
+before invoking:
+
+```python
+@probe_method(name="sql", scoped_sql_param="query")
+def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
+    """Run a read-only catalog query."""
+    ...                     # `query` has already been scope-checked
+
+@probe_method(name="api", scoped_path_param="path")
+def api(self, path: str) -> object:
+    """Fetch one listed read endpoint."""
+    ...                     # `path` has already been allowlist-checked
+```
+
+Enforcement lives in `probe_methods._enforce_gates`, never in the method — a connector cannot
+forget a check it does not perform. Same split as `Filters(...)` on a config field: declare the
+fact, let the framework act on it. A declaration naming a parameter that does not exist raises at
+decoration time, because a typo would otherwise gate nothing silently.
+
+An earlier design gave these their own CLI commands so that `probe run` had no path to a query
+surface at all. That was a stronger _kind_ of guarantee — structural rather than enforced — but it
+bought it with two parallel execution paths, and it left `probe methods` an incomplete picture of
+what a connector could do. The guarantee is now "the channel is gated by a declaration the
+framework enforces," which is worth knowing when reviewing a new `scoped_*` declaration.
+
+A provider supplies what each gate needs: `sql_dialect` (a name sqlglot resolves) for queries, and
+`api_allowlist` for paths. A missing `sql_dialect` refuses the query rather than guessing a
+grammar. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs `postgres`),
+add it to the map in `sqlalchemy_probe.py`.
+
+### The scope gate
+
+`agent/sql_gate.py` parses with sqlglot and permits only a single `SELECT` whose every table
+reference resolves into the dialect's catalog schemas. Two of its rules are not obvious:
+
+- **A relation in a catalog schema is not automatically metadata.** `pg_stat_statements` and
+  Snowflake's `ACCOUNT_USAGE.QUERY_HISTORY` carry the literal text of user queries, values in
+  `WHERE` clauses included. Those are excluded by name.
+- **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
+  their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
+  reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
+  `SYSTEM$…`, `EXTERNAL_QUERY`) is unmodelled. Refusing the class is fail-closed where a
+  denylist of names could never be complete.
+
+`agent/api_gate.py` refuses every method but GET, anything that is not a path on the connector's
+own host (absolute URLs, protocol-relative `//host`, `..`, percent-encoded `%2e%2e`), and any path
+outside the allowlist. It is **weaker in kind** than the SQL gate and the docs should not imply
+parity: there is no parser, so it can only match an allowlist, and whether a listed endpoint
+returns metadata or user data is the judgement of whoever listed it.
+
+**Neither is a security boundary.** They narrow what a probe can reach; the enforcement boundary
+is the database's own grants. Recommend a read-only role scoped to catalog metadata.
+
+**A passthrough does not replace typed methods.** A raw record leaves the caller to guess which
+field a pattern is matched against; for a Mode Space that is the raw `name` with no token
+fallback. Fetch generalises; naming and judging do not.
+
+### Providers that must not run `__init__`
+
 If the provider needs connector methods but must not run `__init__` (which typically opens a
 connection and emits telemetry), build an uninitialized instance with `__new__` and prime only
 the attributes those methods touch. `ModeSource.for_probe()` is the worked example.
@@ -109,37 +119,6 @@ reads it back, so an empty result carries its reason.
 
 **Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
 column values, or message payloads.
-
-## Adding an API passthrough (non-SQL sources)
-
-The API analogue of the catalog query. A connector opts in by declaring read endpoints as data
-and supplying one fetch method:
-
-```python
-class MyMetadataProbe:
-    api_allowlist = ("GET /spaces", "GET /spaces/{token}/reports")
-
-    def get_json(self, path: str) -> object:
-        return self._get_request_json(f"{self.base_uri}{path}")
-```
-
-A placeholder matches exactly one path segment. An empty allowlist means nothing is reachable,
-so a connector that has not opted in exposes no endpoints. `get_json` must not be a
-`@probe_method`, for the same reason `execute_sql` must not.
-
-`agent/api_gate.py` refuses every method but GET, anything that is not a path on the
-connector's own host (absolute URLs, protocol-relative `//host`, `..`, percent-encoded
-`%2e%2e`), and any path outside the allowlist.
-
-**This gate is weaker in kind than the SQL one, and the docs should not imply parity.** sqlglot
-lets `sql_gate` reason about what a query _touches_; a path is opaque, so all the API gate can
-do is match an allowlist. Whether a listed endpoint returns metadata or user data is the
-judgement of whoever listed it. One dimension is stronger, though — "only GET" is exact, where
-"only SELECT" needed CTE and subquery analysis to mean anything.
-
-**A passthrough does not replace getters.** A raw record leaves the caller to guess which field
-a pattern is matched against; for a Mode Space that is the raw `name` with no token fallback.
-Fetch generalises; naming and judging do not.
 
 ## Making verdicts match ingestion
 

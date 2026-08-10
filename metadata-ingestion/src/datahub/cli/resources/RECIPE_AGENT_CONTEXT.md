@@ -86,14 +86,16 @@ lists schemas, and `columns(schema, table)` under that. Call one with:
 datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 ```
 
-**SQL sources also accept catalog queries**, which is usually the faster route:
+**SQL sources expose a `sql` command** for catalog queries, usually the faster route. It is
+an ordinary command in the list above — nothing special to remember:
 
 ```bash
-datahub recipe probe sql --recipe recipe.yml --limit 50 \
-  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+datahub recipe probe run sql --recipe recipe.yml --limit 50 \
+  --query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
 ```
 
-Only **single SELECT statements over catalog schemas** are permitted —
+Only **single SELECT statements over catalog schemas** are permitted — the framework checks
+the query before the connector sees it —
 `information_schema`, plus `pg_catalog` on Postgres-likes. Anything else is refused before
 the database sees it, with exit code 2 and a message naming the reference that failed:
 
@@ -111,11 +113,11 @@ multiple statements, non-SELECT statements, and vendor-specific functions (`pg_r
 Results come back as `columns` plus positional `rows`, with `truncated` telling you whether
 more exist beyond `--limit`.
 
-**Non-SQL sources may expose a read passthrough** to their own API, for questions no getter
-anticipated:
+**Some sources expose an `api` command**, a read passthrough to their own API, for questions
+no typed command answers:
 
 ```bash
-datahub recipe probe api --recipe recipe.yml GET /spaces/sp1/reports
+datahub recipe probe run api --recipe recipe.yml --path /spaces/sp1/reports
 ```
 
 Only GET, and only paths the connector lists; anything else exits 2. Prefer `probe run` where a
@@ -216,7 +218,7 @@ datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
 
 - Probe output is **metadata only** — names, types, DDL, constraints, counts. Never table
   rows or message payloads. If you need row data, you are outside this tool's purpose.
-- The scope check on `probe sql` narrows what a query can reach; it is **not** a security
+- The scope check on the `sql` command narrows what a query can reach; it is **not** a security
   boundary. Recommend the recipe authenticate as a read-only role scoped to catalog metadata.
 - An empty result **with** warnings means part of it could not be read — never "this is
   empty". Read `warnings` before concluding a source is empty.
@@ -245,8 +247,9 @@ datahub recipe validate recipe.yml
 # See what this source offers
 datahub recipe probe methods --recipe recipe.yml
 
-# Explore: catalog query (SQL sources) or a getter
-datahub recipe probe sql --recipe recipe.yml "SELECT schema_name FROM information_schema.schemata"
+# Explore: catalog query (SQL sources) or a typed command
+datahub recipe probe run sql --recipe recipe.yml \
+  --query "SELECT schema_name FROM information_schema.schemata"
 datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 
 # Would my filters keep these?
