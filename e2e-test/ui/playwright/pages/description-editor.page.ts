@@ -105,14 +105,7 @@ export default class DescriptionEditorPage extends BasePage {
   }
 
   private async waitForFileUrlAttribute(fileNode: Locator, urlPattern: RegExp): Promise<void> {
-    let actualUrl = '';
-    await this.page.waitForFunction(
-      async () => {
-        actualUrl = (await fileNode.getAttribute('data-file-url')) || '';
-        return actualUrl && urlPattern.test(actualUrl);
-      },
-      { timeout: TIMEOUTS.EXTRA_LONG },
-    );
+    await expect(fileNode).toHaveAttribute('data-file-url', urlPattern, { timeout: TIMEOUTS.EXTRA_LONG });
   }
 
   async verifyFileNodeInEditor(_fileId: string, fileName: string): Promise<void> {
