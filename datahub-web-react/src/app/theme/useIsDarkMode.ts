@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const DARK_MODE_KEY = 'isDarkModeEnabled';
 const DARK_MODE_CHANGE_EVENT = 'datahub-darkmode-change';
@@ -21,13 +21,18 @@ function saveDarkModeToLocalStorage(isDark: boolean) {
  */
 export function useIsDarkMode(): [boolean, () => void] {
     const [isDarkMode, setIsDarkMode] = useState(loadDarkModeFromLocalStorage);
+    const isFirstRender = useRef(true);
 
     const toggleDarkMode = useCallback(() => {
         setIsDarkMode((prev) => !prev);
     }, []);
 
-    // Persist to localStorage and notify other instances when state changes
+    // Persist to localStorage and notify other instances when state changes (skip first render)
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         saveDarkModeToLocalStorage(isDarkMode);
         window.dispatchEvent(new Event(DARK_MODE_CHANGE_EVENT));
     }, [isDarkMode]);

@@ -273,16 +273,23 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
 
     /* ── Typography ───────────────────────────────────────── */
-    h1, h2, h3, h4, h5, h6,
-    .ant-typography:not(.ant-typography-success):not(.ant-typography-danger):not(.ant-typography-warning) {
+    h1, h2, h3, h4, h5, h6 {
+        color: ${(props) => props.theme.colors.text} !important;
+    }
+    .ant-typography {
         color: ${(props) => props.theme.colors.text} !important;
     }
     .ant-typography.ant-typography-secondary {
         color: ${(props) => props.theme.colors.textSecondary} !important;
     }
-    .ant-typography h5,
-    h5.ant-typography {
-        color: ${(props) => props.theme.colors.text} !important;
+    .ant-typography.ant-typography-success {
+        color: ${(props) => props.theme.colors.textSuccess} !important;
+    }
+    .ant-typography.ant-typography-danger {
+        color: ${(props) => props.theme.colors.textError} !important;
+    }
+    .ant-typography.ant-typography-warning {
+        color: ${(props) => props.theme.colors.textWarning} !important;
     }
 
     /* ── Tag ──────────────────────────────────────────────── */
@@ -478,6 +485,9 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     /* ── Switch ───────────────────────────────────────────── */
     .ant-switch {
         background-color: ${(props) => props.theme.colors.bgSurface};
+    }
+    .ant-switch.ant-switch-checked {
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     }
 
     /* ── Tooltip ──────────────────────────────────────────── */
