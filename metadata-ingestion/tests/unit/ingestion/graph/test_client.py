@@ -160,3 +160,48 @@ class TestGetEntityAspectSpecs:
         specs2 = _graph(session2).get_entity_aspect_specs()
         assert specs2 is not None and specs2.supports("dataset", "status")
         assert session2.request.call_count == 0
+
+class TestGetDocumentsByAsset:
+    def test_fetches_and_yields_urns(self) -> None:
+        session = MagicMock()
+        graph = _graph(session)
+        
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "data": {
+                "searchDocuments": {
+                    "total": 3,
+                    "documents": [{"urn": "urn:li:document:1"}, {"urn": "urn:li:document:2"}]
+                }
+            }
+        }
+        page1.raise_for_status.return_value = None
+        
+        page2 = MagicMock()
+        page2.json.return_value = {
+            "data": {
+                "searchDocuments": {
+                    "total": 3,
+                    "documents": [{"urn": "urn:li:document:3"}]
+                }
+            }
+        }
+        page2.raise_for_status.return_value = None
+
+        page3 = MagicMock()
+        page3.json.return_value = {
+            "data": {
+                "searchDocuments": {
+                    "total": 3,
+                    "documents": []
+                }
+            }
+        }
+        page3.raise_for_status.return_value = None
+
+        session.post.side_effect = [page1, page2, page3]
+        
+        urns = list(graph.get_documents_by_asset("urn:li:dataset:test", count=2))
+        assert urns == ["urn:li:document:1", "urn:li:document:2", "urn:li:document:3"]
+        assert session.post.call_count == 3
+
