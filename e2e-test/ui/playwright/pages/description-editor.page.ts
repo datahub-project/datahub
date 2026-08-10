@@ -104,15 +104,23 @@ export default class DescriptionEditorPage extends BasePage {
     await fileNode.waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG });
   }
 
+  private async waitForFileUrlAttribute(fileNode: Locator, urlPattern: RegExp): Promise<void> {
+    let actualUrl = '';
+    await this.page.waitForFunction(
+      async () => {
+        actualUrl = (await fileNode.getAttribute('data-file-url')) || '';
+        return actualUrl && urlPattern.test(actualUrl);
+      },
+      { timeout: TIMEOUTS.EXTRA_LONG },
+    );
+  }
+
   async verifyFileNodeInEditor(_fileId: string, fileName: string): Promise<void> {
     const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -121,10 +129,7 @@ export default class DescriptionEditorPage extends BasePage {
     await expect(fileNode).toBeVisible();
 
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
