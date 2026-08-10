@@ -513,41 +513,47 @@ redacted from all output.
 datahub recipe test-connection --recipe my_recipe.yml
 ```
 
-**Exploring what a source contains.** `probe shape` reports the levels a source exposes;
-`probe list` then walks them, one `--parent` per level:
+**Exploring what a source contains.** Start with `probe methods`, which is connection-free and
+lists what this connector offers — each command's parameters and what it returns:
 
 ```shell
-# What levels does this source have? (connection-free)
-datahub recipe probe shape --recipe my_recipe.yml
-
-# Top level, then descend
-datahub recipe probe list --recipe my_recipe.yml
-datahub recipe probe list --recipe my_recipe.yml --parent my_schema
-datahub recipe probe list --recipe my_recipe.yml --parent my_schema --parent my_table
-```
-
-Each listed object reports whether your recipe's filters would **include** it, and if not,
-which pattern excluded it — so you can check a `table_pattern` does what you intended before
-running an ingestion.
-
-Levels differ by source: `Database → Schema → Table → Column` for Postgres, mssql, and
-Snowflake, `Project → Dataset → Table → Column` for BigQuery, `Schema → Table → Column` for
-most other SQL sources, `Topic` for Kafka.
-A source whose levels branch (a Mode Space holds both Reports and Datasets) reports
-`"linear": false` from `probe shape`; where two sibling levels share a name, qualify the
-parent as `--parent 'Report:my_report'`.
-
-**Reading metadata in detail.** Some connectors expose individual getters:
-
-```shell
-# Which getters does this source offer? Each lists its parameters and what it returns.
 datahub recipe probe methods --recipe my_recipe.yml
 
-# Call one
+# Call one; a command's parameters imply the nesting
 datahub recipe probe run columns --recipe my_recipe.yml --schema public --table orders
-datahub recipe probe run view_definition --recipe my_recipe.yml --schema public --view v_orders
 datahub recipe probe run topics --recipe my_recipe.yml --limit 50
 ```
+
+SQL sources also accept catalog queries, which is usually faster:
+
+```shell
+datahub recipe probe sql --recipe my_recipe.yml --limit 50 \
+  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+```
+
+Only single `SELECT` statements over catalog schemas (`information_schema`, plus `pg_catalog`
+on Postgres-likes) are permitted. Anything else — a user table, a second statement, a
+vendor-specific function — is refused with exit code 2 before the database sees it. The check
+narrows what a query can reach; it is not a security boundary, so point the recipe at a
+read-only role.
+
+**Checking what your filters would do.** `probe filter` judges names you already have, with no
+connection:
+
+```shell
+datahub recipe probe filter --recipe my_recipe.yml \
+  --kind Table --parent public --names orders,users,audit_log_v2
+
+# Try a different pattern without editing the recipe
+datahub recipe probe filter --recipe my_recipe.yml --kind Table --parent public \
+  --names orders,users --try-allow '^public\.ord.*'
+```
+
+Each result reports the `target` the pattern was matched against — which is usually the
+qualified identifier, not the bare name. That matters: `AllowDenyPattern` is start-anchored, so
+`^orders.*` matches nothing when ingestion evaluates `public.orders`. The output also names the
+`pattern_field` that actually decided, which is not always the one named after the kind (MySQL
+copies `table_pattern` into `view_pattern`).
 
 Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
 no column values, no message payloads.

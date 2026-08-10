@@ -1,8 +1,8 @@
-# Adding a probe to a source
+# Adding probe support to a source
 
 The probe interface lets someone — a person at a terminal, or an AI coding assistant — ask a
 live source _"what is in you, and what would my recipe actually pick up?"_ before running an
-ingestion. This guide explains how it works and how to add one to a connector.
+ingestion. This guide explains how it works and how to add it to a connector.
 
 ## Why it exists
 
@@ -14,147 +14,80 @@ will** — which is the part that makes it useful rather than merely convenient.
 Everything prints JSON and every failure has a distinct exit code, so a caller can tell "your
 input was wrong" (2) from "I could not reach the source" (3).
 
-## The two mechanisms
+## The shape of it
 
-A connector can implement either or both. They are different contracts, not two spellings of
-one thing.
+Two things a caller needs, kept deliberately separate:
 
-### 1. Hierarchy walking — `probe shape`, `probe list`
+|                                 | command                  | connection? |
+| ------------------------------- | ------------------------ | ----------- |
+| **fetch** — what is in here     | `probe sql`, `probe run` | yes         |
+| **judge** — what gets picked up | `probe filter`           | **no**      |
 
-The connector **declares its levels**; the framework walks them.
+Splitting them is what keeps both simple. Fetching stops needing to know about filters, and
+filtering becomes a pure function over names the caller already has — so a caller can try a
+dozen candidate patterns against one listing without touching the source again.
 
-```
-probe shape → Schema → Table → Column          (Redshift)
-              Database → Schema → Table → Column   (Postgres, mssql, Snowflake)
-              Topic                            (Kafka)
-              Space → {Report → Query, Dataset}    (Mode — branching)
-```
+`probe methods` lists what a connector offers, connection-free. It is the discovery surface:
+a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
+and its docstring is the help text. Nothing is declared twice.
 
-`probe list [--parent …]` lists the children at a level, one `--parent` per level descended.
-Every object returned reports whether the recipe's filters would **include** it, and if not,
-which pattern excluded it:
+## Adding a catalog-query surface (SQL sources)
 
-```json
-{
-  "name": "orders",
-  "kind": "Table",
-  "fqn": "public.orders",
-  "pattern_field": "table_pattern",
-  "included": false,
-  "excluded_by": "table_pattern"
-}
-```
-
-The output shape is uniform across every connector. That is what lets a caller write
-"will this be ingested?" logic once.
-
-### 2. Metadata getters — `probe methods`, `probe run`
-
-`@probe_method` marks a method as an agent-callable command. Its parameters become CLI flags
-and **its docstring becomes the help text**, so a caller discovers capability at runtime:
-
-```shell
-datahub recipe probe methods --recipe r.yml
-datahub recipe probe run columns --recipe r.yml --schema public --table orders
-```
-
-Unlike the walk, the output shape is per-connector and self-describing.
-
-**Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
-column values, or message payloads.
-
-## Adding hierarchy walking
-
-### Declare the levels
+Implement two members on the connector's probe provider and the rest is free:
 
 ```python
-# mysource_probe.py
-from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes, DatasetSubTypes
+class MyMetadataProbe:
+    sql_dialect = "postgres"          # a name sqlglot resolves; see below
 
-def _schemas(client, config, parent_path):        # -> Sequence[str]
-    return client.list_schemas()
-
-def _tables(client, config, parent_path):
-    return client.list_tables(parent_path[0])     # parent_path[0] is the schema
-
-MYSOURCE_PROBE = ClientProbe(
-    client_factory=lambda config: config.get_client(),
-    close=lambda client: client.close(),
-    levels=[
-        ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_schemas),
-        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables,
-                   parent=DatasetContainerSubTypes.SCHEMA),
-    ],
-)
+    def execute_sql(self, query: str, limit: int) -> SqlRows:
+        """Run an already-scope-checked query, reading at most `limit` rows."""
+        ...
 ```
 
-A lister receives `(client, config, parent_path)` and returns **names**. It does not filter and
-it does not build nodes — the framework does both.
-
-`parent=` defines the tree. Edges, not list order, determine the shape, so a level is
-self-describing and reordering the declaration cannot silently change the hierarchy. Two levels
-sharing a `parent` branch (see Mode: a Space holds both Reports and Datasets), in which case
-`probe shape` reports `"linear": false` and an ambiguous name must be qualified as
-`--parent 'Report:my_report'`.
-
-### Wire the config hooks
-
-A config that owns exactly one `ClientProbe` gets `probe_hierarchy`, `probe_shape`, and
-`list_probe_children` for free from `ProbeableConfigMixin` — inherit it and override the one
-method it asks for:
+Then point the config at it:
 
 ```python
-class MySourceConfig(ProbeableConfigMixin, ...):
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.mysource_probe import MYSOURCE_PROBE
-        return MYSOURCE_PROBE
-```
-
-The lazy import inside `_client_probe()` keeps the probe module off the config's import path.
-The mixin's `probe_hierarchy` calls `_client_probe().hierarchy()`, so it inherits the
-"must not connect" guarantee for free; a **branching** probe needs no special case either —
-`ClientProbe.hierarchy()` already raises `ProbeBranchesError` for a tree that has no single
-chain, and the mixin's `probe_shape()` (also derived from `_client_probe()`) is already the
-right accessor for it. Mode's config overrides only `_client_probe()`, exactly like a linear
-connector; the mixin does the rest.
-
-**Variants are selected by class, never by a source-type list.** `TwoTierSQLAlchemyConfig`
-overrides `_client_probe()` to point at the two-tier probe, so MySQL/Hive/ClickHouse/Teradata get
-`Database → Table → Column` by inheriting it. Postgres and mssql do the same to add their
-`Database` level on top of the generic Schema-top probe they'd otherwise inherit.
-
-If a config doesn't fit that shape — it delegates to another source's own connection object
-(`bigquery-queries`/`snowflake-queries` reuse BigQuery/Snowflake's connection config) rather than
-owning a `ClientProbe` of its own — implement `probe_hierarchy`/`list_probe_children` directly
-instead of using the mixin, exactly as those two configs do.
-
-### Filtering
-
-A level resolves its `AllowDenyPattern` from the config by convention: `Table` →
-`table_pattern` or `table_patterns`. Where the field name doesn't follow from the level's
-subtype — because config naming follows the source's own vocabulary, as it should — declare it
-on the field:
-
-```python
-collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(...)
-```
-
-The connector already knew this fact; declaring it means the probe reads it instead of guessing
-from the name.
-
-## Adding metadata getters
-
-```python
-class MySourceConfig(...):
+class MyConfig(...):
     def build_probe_provider(self) -> ProbeProvider:
         return MyMetadataProbe(self.get_client())
 ```
 
-The provider is any context manager whose methods carry `@probe_method`. Discovery uses
-`dir()`, so **annotating the connector's own methods works** — a provider can be the source
-itself:
+Every SQLAlchemy connector already has this through `SqlAlchemyMetadataProbe`, which derives
+its dialect from the engine.
+
+**`execute_sql` must never be a `@probe_method`.** Annotating it would put a raw-SQL parameter
+on `probe run`, reaching the engine without the scope check — the gate would still exist, just
+no longer on the only road. A test pins each provider's `execute_sql` as unannotated; keep it.
+
+### The scope gate
+
+`agent/sql_gate.py` parses with sqlglot and permits only a single `SELECT` whose every table
+reference resolves into the dialect's catalog schemas. It runs in the framework, ahead of the
+provider, so a connector never receives an unvalidated query.
+
+Two of its rules are not obvious:
+
+- **A relation in a catalog schema is not automatically metadata.** `pg_stat_statements` and
+  Snowflake's `ACCOUNT_USAGE.QUERY_HISTORY` carry the literal text of user queries, values in
+  `WHERE` clauses included. Those are excluded by name.
+- **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
+  their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
+  reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
+  `SYSTEM$…`, `EXTERNAL_QUERY`) is unmodelled. Refusing the class is fail-closed where a
+  denylist of names could never be complete.
+
+Everything fails closed, dialect resolution included: a platform that `get_dialect_str` cannot
+map refuses the query outright rather than parsing it against a guessed grammar — which would
+mean clearing a query the parser had misread. If your connector's dialect name differs from
+SQLAlchemy's (`postgresql` vs `postgres`), add it to the map in `sqlalchemy_probe.py`.
+
+**This check is not a security boundary.** It narrows what a probe query can touch; the
+enforcement boundary is the database's own grants. Recommend a read-only role scoped to catalog
+metadata, and say so in the connector's docs.
+
+## Adding metadata getters
+
+For sources with no SQL surface — and for anything a query cannot express — annotate a method:
 
 ```python
 class MySource(...):
@@ -163,90 +96,98 @@ class MySource(...):
         """Warehouse connections this workspace can query. Returns the raw API records."""
 ```
 
+Parameters become CLI flags (`str`/`int`/`bool`, or `Optional` of those) and the **docstring
+becomes the help text**, so a caller discovers capability at runtime. Discovery uses `dir()`, so
+annotating the connector's own methods works — a provider can be the source itself.
+
 If the provider needs connector methods but must not run `__init__` (which typically opens a
 connection and emits telemetry), build an uninitialized instance with `__new__` and prime only
 the attributes those methods touch. `ModeSource.for_probe()` is the worked example.
 
+A provider that degrades rather than fails exposes a `warnings: List[str]`; `run_probe_method`
+reads it back, so an empty result carries its reason.
+
+**Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
+column values, or message payloads.
+
+## Making verdicts match ingestion
+
+`probe filter` resolves three things per connector. Two have defaults that are usually right.
+
+**Which field filters this kind.** Resolved by convention from the level's subtype (`Table` →
+`table_pattern`). Where the config follows the source's own vocabulary instead, declare it:
+
+```python
+collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(...)
+```
+
+**What string the pattern is matched against.** This is the one that bites. `AllowDenyPattern`
+uses a start-anchored `re.match`, and ingestion rarely matches the bare name — MySQL matches
+`schema.table`, Postgres `db.schema.table`, Druid the bare name. Get it wrong and `^orders$`
+silently matches nothing.
+
+Never re-derive it. The SQL family routes through `SQLCommonConfig.probe_match_target`, which
+calls the connector's own `get_identifier` via the shim in `sql_probe.py`; a connector whose
+real Source isn't a `SQLAlchemySource` overrides `probe_filter_target` instead (see
+`RedshiftConfig`, `UnityCatalogSourceConfig`). A connector whose display name **is** its filter
+target — Kafka topics, Mode spaces — needs no hook at all.
+
+Note the shim resolves a _table's_ identifier. Container kinds (Schema, Database) match on the
+bare name; asking the shim about a schema would build `analytics..public`.
+
+**Structural exclusions the user's patterns don't express.** `default_schemas()` and
+`default_databases()` drop system catalogs whatever the pattern says, and
+`probe_schema_verdict_override` lets a connector answer "is this schema allowed" its own way
+(Redshift's `match_fully_qualified_names` makes ingestion judge `database.schema`). These run
+before the pattern, so a system catalog reports `default_schema` rather than a verdict
+ingestion never makes.
+
 ## The rules that matter
 
-These are the ones learned the expensive way. Each has cost a review round.
+These have each cost a review round.
 
 **Reuse the connector's fetch; never its policy.** Ingestion degrades on error to salvage
 partial metadata; a diagnostic must not, because distinguishing _"nothing here"_ from _"I could
 not look"_ is its entire job. When a connector method looks like the right thing to delegate to
-but filters internally or swallows errors, reach for the layer beneath it — not a
-reimplementation.
+but filters internally or swallows errors, reach for the layer beneath it.
 
 **Beware the function whose name matches your intent.** `_get_definitions_map()` sounds like a
 definitions fetcher; it is a lossy `{name: source}` cache for template expansion.
 `_get_space_name_and_tokens()` sounds like a space lister; it applies `space_pattern` itself, so
-delegating to it would make a _denied_ space vanish instead of appearing as an excluded node.
-Read the target before delegating.
-
-**Filter on the same string ingestion does.** `AllowDenyPattern` uses start-anchored
-`re.match`, so `deny: ["^orders$"]` does not match `public.orders`. If ingestion filters a
-qualified name, the probe must too — use `filter_target` and point it at the connector's own
-identifier function rather than re-deriving it. Druid is the instructive case: its ingestion
-matches the _bare_ table name, so any structural "qualify it with its parents" rule gets Druid
-wrong, and reuse gets it right with no special case.
+delegating to it would make a _denied_ space vanish instead of being reported as excluded. Read
+the target before delegating.
 
 **Never construct a `Source`.** `__init__` typically opens connections and emits telemetry. Use
 a client, or an uninitialized instance.
 
-**Report degradation, don't hide it.** A 404/403 on one sub-listing should degrade that level to
-empty and say so; auth failures and 5xx should raise. `soft_on_status(403, 404, context=…)`
-gives you the split. A classifier that degrades reports via `ctx.warn(…)`, which lands on
-`ProbeResult.warnings`, deduped. An empty result **with** warnings means "part of this could not
-be read" — never "this is empty".
+This is where the probe departs from `test_connection`, and it is worth knowing why. Most
+connectors implement `test_connection` the way a probe wants — Snowflake builds a connection
+config and asks it for a connection; Kafka and Unity Catalog delegate to a purpose-built
+connection test. The SQLAlchemy family is the exception: `SQLAlchemySource.test_connection`
+(`sql/sql_common.py`) calls `cls.create(config_dict, PipelineContext(...))` to borrow one
+method, and the cost is visible in the lines above it, which force `stateful_ingestion.enabled
+= False` so that merely constructing the object doesn't demand a second connection to DataHub.
+That patches one `__init__` side effect; the constructor also emits telemetry and builds a
+`ClassificationHandler`, a `DomainRegistry` and a `SqlParsingAggregator`. Don't copy that branch.
 
-**The hierarchy is a claim about the source.** Shallower than reality and a caller cannot reach
-real objects; deeper and it is offered navigation the recipe cannot use. Add a level only where
-the source can enumerate the tier **and** ingestion can address more than one of them. Trino's
-`database` is a single config-supplied catalog, so it gets no Catalog level; Postgres iterates
-`pg_database` filtered by `database_pattern`, so it does.
-
-**A probe method returning a raw dict returns a raw dict.** The framework redacts what it can
-identify by field type; anything else is the annotating developer's call. If you want precision,
-return typed objects rather than dicts.
-
-## Reference
-
-`ProbeLevel` fields: `kind`, `parent`, plus exactly one lister —
-
-| field           | use                                                                                |
-| --------------- | ---------------------------------------------------------------------------------- |
-| `list_names`    | one lister, level-wide kind and pattern                                            |
-| `sources`       | several listers, each with its own kind and pattern (tables + views)               |
-| `list_items`    | one lister yielding `(name, kind, pattern_field)` per item                         |
-| `pattern_field` | override the conventional field; `UNFILTERED` if the source offers no filter       |
-| `filter_target` | the exact string the pattern is matched against                                    |
-| `classify`      | full verdict override, for structural exclusions the user's patterns don't express |
-
-`Verdict(included: bool, excluded_by: Optional[str])` — `Verdict.include()` for the common case.
-`excluded_by` names a `*_pattern` field or a structural reason (`"default_schema"`,
-`"system_object"`, `"unnamed"`).
+**Report degradation, don't hide it.** A 404/403 on one sub-listing should degrade to empty and
+say so; auth failures and 5xx should raise. `soft_on_status(403, 404, context=…)` gives you the
+split. An empty result **with** warnings means "part of this could not be read" — never "this is
+empty".
 
 ## Testing expectations
 
-- A fake client exercising each level, including a **denied** object asserted as
-  `included: false` with the right `excluded_by`. Use
-  `tests.unit.agent.probe_conformance.assert_verdicts(result, included=[...], excluded={...})`
-  for this check instead of re-deriving the by-name lookup and assertions by hand — see
-  `test_kafka_probe.py` / `test_snowflake_probe.py` for the converted shape. Kind, fqn, and
-  pattern_field assertions stay in the test itself; they vary per connector.
-- The degrade path: a 404 on one sub-listing produces an empty level **and** a warning; auth
-  failures and 5xx raise. Once your fake client is wired to trigger the soft error, assert the
-  result with `assert_degrades_with_warning(result, contains="404")` (see
-  `test_mode_probe.py::test_datasets_404_degrades_to_empty_and_records_a_warning`). Triggering the
-  error itself is connector-specific (an HTTP session double, a SQLAlchemy inspector double, ...)
-  and stays in the test; a hard failure (auth, 5xx) is a plain `pytest.raises(...)` around the
-  same call — there's nothing to wrap there.
-- If the connector has a `get_identifier`-equivalent, assert the probe's filter target equals
-  what ingestion computes for the same inputs. This only applies to the SQLAlchemy family today,
-  where `test_sql_filter_target.py` already covers the shim mechanics in depth; it hasn't been
-  generalised into a shared helper because no other connector shares the shape (an
-  uninitialized-instance shim resolving a `Source` class by convention), and a generic version
-  would flatten away the per-dialect nuance (Redshift/Unity Catalog's `probe_filter_target`
-  override vs. postgres/mssql's database-pinned identifier).
-- The connector's **existing** suites must pass unedited. A probe adds to a connector; it does
+- **The gate, adversarially.** Anything touching `sql_gate` needs attack cases, not happy paths:
+  a user table hidden in a CTE, a subquery, a `UNION` branch, a join; an unqualified name; two
+  statements; a vendor function in projection position (which names no table at all, so a
+  table-based check never sees it). Also test the false-positive side — a legitimate catalog
+  query with a trailing semicolon, a recursive CTE, standard aggregates — because a gate that
+  refuses real queries is also broken.
+- **`execute_sql` stays unannotated.** One assertion per provider.
+- **Filter targets.** If the connector has a `get_identifier` equivalent, assert the probe's
+  target equals what ingestion computes for the same inputs. `test_sql_filter_target.py` covers
+  the SQLAlchemy family, including the Redshift schema override.
+- **The degrade path.** A 404 on one sub-listing produces an empty result **and** a warning; auth
+  failures and 5xx raise.
+- **The connector's existing suites must pass unedited.** A probe adds to a connector; it does
   not change it.

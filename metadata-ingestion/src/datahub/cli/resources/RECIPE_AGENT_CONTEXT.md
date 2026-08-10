@@ -17,6 +17,7 @@ and on error, on stdout and stderr, for top-level and nested secret fields. So y
 `probe` and `test-connection` freely and will only ever see redacted results.
 
 **What you MUST NOT do (these break the boundary):**
+
 - **Never inline a secret value** into a recipe. Always use `${ENV_VAR}` references. If you
   see a plaintext secret in a recipe, you have already been exposed to it — do not copy it;
   recommend switching that field to `${ENV_VAR}` and rerun `validate`.
@@ -32,199 +33,153 @@ and on error, on stdout and stderr, for top-level and nested secret fields. So y
 warn about it — but the boundary is already broken for that recipe because reading the file
 exposed the value. Treat the warning as a prompt to externalize the secret to `${ENV_VAR}`.
 
-## Workflow: Required Order
+**Redaction can over-mask.** Any string equal to a secret is blanked, so if a password
+happens to match a real identifier (a database also named `datahub`), that identifier reports
+as `***` everywhere. If a name comes back masked, that is why; it is not a probe failure.
 
-Follow these steps in sequence:
+## Workflow
 
-1. **Describe** — Inspect config fields and capabilities
+1. **Describe** — config fields and capabilities, no connection
+
    ```bash
    datahub recipe describe <source_type>
    ```
-   Lists all config fields with their types (secret, pattern, plain, nested) and connector capabilities. No connection required.
 
-2. **Scaffold** — Generate a starter recipe
+2. **Scaffold** — a starter recipe with secrets as `${ENV_VAR}` references
+
    ```bash
    datahub recipe scaffold <source_type> > recipe.yml
    ```
-   Creates a template recipe with all required fields set to `${ENV_VAR}` references for secrets.
 
-3. **Edit** — Modify the recipe locally
-   Keep secrets as `${ENV_VAR}` references. Do not inline secret values into the YAML file.
+3. **Edit** — modify the recipe locally, keeping secrets as `${ENV_VAR}`.
 
-4. **Validate** — Check syntax and configuration
+4. **Validate** — schema check, plus warnings for inline secrets
+
    ```bash
-   datahub recipe validate <recipe.yml>
+   datahub recipe validate recipe.yml
    ```
-   Validates the recipe against the connector's real config schema. Warnings highlight any inline-secret fields; recommend externalizing them.
 
-5. **Probe** — Discover the shape, then enumerate live metadata
+5. **Explore** — see what is actually in the source (below).
 
-   First, discover what levels this source declares — connection-free, works for
-   every probe-capable source (SQL databases, Kafka, Snowflake, BigQuery, …), not
-   just SQL:
+6. **Check filters** — see what your patterns would keep (below).
+
+7. **Test connection**
+
    ```bash
-   datahub recipe probe shape --recipe <recipe.yml>
-   ```
-   Most sources are **linear** — one level nests inside the next, e.g. a 3-level
-   SQL source:
-   ```json
-   {
-     "source_type": "snowflake",
-     "supported": true,
-     "linear": true,
-     "hierarchy": ["Database", "Schema", "Table", "Column"],
-     "shape": {
-       "kind": "Database",
-       "children": [
-         {
-           "kind": "Schema",
-           "children": [{ "kind": "Table", "children": [{ "kind": "Column", "children": [] }] }]
-         }
-       ]
-     }
-   }
-   ```
-   A **branching** source (its levels form a tree, not a chain — e.g. a BI
-   workspace holding both reports and dashboards) reports `"linear": false` and
-   `"hierarchy": null`; read `shape` instead, whose `children` list the sibling
-   levels directly under a node:
-   ```json
-   {
-     "source_type": "bi-thing",
-     "supported": true,
-     "linear": false,
-     "hierarchy": null,
-     "shape": {
-       "kind": "Workspace",
-       "children": [
-         { "kind": "Report", "children": [] },
-         { "kind": "Dashboard", "children": [] }
-       ]
-     }
-   }
-   ```
-   `"supported": false` (with `shape`/`hierarchy` both `null`) means this source
-   has no live-probe support at all; fall back to `test-connection`.
-
-   Then list the top level, and descend one `--parent` per level, in the order
-   `shape` reported:
-   ```bash
-   datahub recipe probe list --recipe <recipe.yml>
-   datahub recipe probe list --recipe <recipe.yml> --parent <schema_name>
-   datahub recipe probe list --recipe <recipe.yml> --parent <schema_name> --parent <table_name>
-   ```
-   Returns names and counts only, never row data. Each node reports:
-   - `pattern_field` — which `*_pattern` config filter governs it (edit to refine discovery).
-   - `included` — whether it would actually be ingested given the recipe's filters **and** the source's built-in exclusions (reused from the connector's own ingestion logic, not re-implemented).
-   - `excluded_by` — why a node is dropped: a `*_pattern` field (your filter), `"default_schema"` (system catalog the source always skips, e.g. `information_schema`), or `"system_object"`; `null` when included. One value, `"unnamed"`, means something different from the rest: the source returned a node with no usable name, so the probe couldn't filter or address it at all — this is **not** a prediction that ingestion will skip it, just that the probe can't tell you either way.
-
-   Every node is shown (nothing is hidden), so you can confirm both that your allow/deny filters behave and that system objects are auto-dropped.
-
-   The top-level response also carries a `warnings` list, alongside `nodes`/`truncated`. A non-empty `warnings` means part of the listing couldn't be read cleanly (e.g. one sub-resource returned a permission error) and was shown as empty rather than failing the whole call — treat that differently from a `nodes` list that's empty with no warnings, which means "confirmed empty."
-
-   **Branching sources and ambiguous siblings:** when a `shape` node has more than
-   one child kind, a bare name is ambiguous — qualify it as `Kind:name`. For the
-   branching example above, to list what's inside a report named `my_report`
-   (rather than a dashboard of the same name):
-   ```bash
-   datahub recipe probe list --recipe <recipe.yml> --parent 'Report:my_report'
+   datahub recipe test-connection --recipe recipe.yml
    ```
 
-6. **Probe Methods** — call a metadata getter
+## Exploring a source
 
-   `probe shape`/`probe list` tell you what containers exist. `probe methods`/
-   `probe run` are the other half: point getters that return one specific
-   piece of structural metadata (columns, DDL, constraints, topic config,
-   report SQL, ...) for a container you already found by walking the
-   hierarchy, or already know the name of.
+Two ways in, depending on the connector. Always start with `probe methods`, which is
+connection-free and tells you what this source offers:
 
-   First, discover what this source offers — connection-free, like `probe shape`:
-   ```bash
-   datahub recipe probe methods --recipe <recipe.yml>
-   ```
-   Each entry lists a `command`, its `params` (name, type, required, default),
-   and a `description`. **The description is the getter's own docstring** —
-   the full help text a human or agent reads to decide which method to call
-   and how — so it is not duplicated here: call `probe methods` against your
-   actual source rather than assuming a getter's parameters or behavior from
-   this file, since docstrings can change independently of this doc.
+```bash
+datahub recipe probe methods --recipe recipe.yml
+```
 
-   Then call one:
-   ```bash
-   datahub recipe probe run <command> --recipe <recipe.yml> [--param value ...]
-   ```
-   One example per family:
-   ```bash
-   # SQL-family (Postgres, MySQL, Redshift, Snowflake, BigQuery, Unity Catalog):
-   # columns of a table found via `probe list`
-   datahub recipe probe run columns --recipe <recipe.yml> --schema my_schema --table my_table
+Each entry carries a `command`, its `params`, and a `description` taken from the method's own
+docstring. Parameters imply the nesting: a `tables(schema)` command sits under whatever
+lists schemas, and `columns(schema, table)` under that. Call one with:
 
-   # Kafka: broker-side config for one topic
-   datahub recipe probe run topic_config --recipe <recipe.yml> --topic my_topic
+```bash
+datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
+```
 
-   # Mode: the queries inside one report (name comes from `probe list`; no --parent needed)
-   datahub recipe probe run report_queries --recipe <recipe.yml> --report "My Report"
-   ```
+**SQL sources also accept catalog queries**, which is usually the faster route:
 
-   **Exit codes** — branch on these, not on message text:
-   - `0` — the getter ran and produced a result. Still check `warnings` (below) before treating an empty/partial result as "confirmed empty."
-   - `1` — internal error (a CLI bug); report it rather than retrying with different arguments.
-   - `2` — your input was wrong: an unknown command, a missing/mistyped `--param`, or a name that couldn't be resolved — misspelled, out of scope, or **ambiguous** (the same name resolves to more than one object, e.g. two Mode reports of that name in different spaces). Fix the input and retry.
-   - `3` — the getter's own connection/backend call failed (auth, timeout, a 5xx from the source, or a name search that couldn't complete because a sub-request failed) — not your input's fault; check credentials/connectivity, not spelling.
+```bash
+datahub recipe probe sql --recipe recipe.yml --limit 50 \
+  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+```
 
-   **`warnings`:** both `probe list` and `probe run` output carry a `warnings`
-   list. A non-empty `warnings` alongside an empty or partial `nodes`/`result`
-   means *a sub-fetch could not be read cleanly* — a 403 on one endpoint, an
-   object deleted between listing and fetch — **not** that the thing you
-   asked about doesn't exist. Only an empty result with an empty `warnings`
-   list means "confirmed empty"; don't conflate the two.
+Only **single SELECT statements over catalog schemas** are permitted —
+`information_schema`, plus `pg_catalog` on Postgres-likes. Anything else is refused before
+the database sees it, with exit code 2 and a message naming the reference that failed:
 
-   A getter that needs to resolve a name (e.g. Mode's `report` parameter)
-   **raises** rather than returning `[]` for a name it cannot resolve — exit
-   `2` for not-found/ambiguous, exit `3` if the search itself couldn't
-   complete. So `[]` from a getter always means the object was found and is
-   genuinely empty, never "I couldn't find it."
+```json
+{
+  "error": "'public.orders' is outside the catalog metadata this probe may read; permitted schemas: information_schema"
+}
+```
 
-   Like every probe command, this returns **metadata only** — names, types,
-   DDL, constraints, counts, SQL text — never table rows, cell values, or
-   message payloads.
+Refusals you should expect, and not try to work around: user tables, unqualified table names,
+multiple statements, non-SELECT statements, and vendor-specific functions (`pg_read_file`,
+`dblink`, `load_file`). BigQuery addresses catalog views as
+`<dataset>.INFORMATION_SCHEMA.TABLES`, which is understood.
 
-7. **Test Connection** — Verify connectivity
-   ```bash
-   datahub recipe test-connection --recipe <recipe.yml>
-   ```
-   Confirms the connection succeeds; reports success or connection error.
+Results come back as `columns` plus positional `rows`, with `truncated` telling you whether
+more exist beyond `--limit`.
+
+## Checking what your filters would do
+
+This is the step most worth not skipping, because **you cannot work it out yourself from the
+names alone.**
+
+```bash
+datahub recipe probe filter --recipe recipe.yml \
+  --kind Table --parent public --names orders,users,audit_log_v2
+```
+
+`AllowDenyPattern` matches with a **start-anchored** regex against the identifier _ingestion_
+uses — which is usually **not** the bare name. MySQL matches `schema.table`, Postgres
+`db.schema.table`, Druid the bare name. So a pattern like `^orders.*` looks precise and
+matches **nothing**, because the string being tested is `public.orders`.
+
+Measured against a real MySQL instance, four of six plausible patterns gave the wrong answer
+when reasoned about from bare names. One `allow: ^INNODB.*` suggested 31 tables would be kept;
+ingestion kept **0**. Patterns starting with `.*` happen to agree; anchored ones do not.
+
+Every result reports the `target` it was matched against — read it, because that is what
+explains a surprising verdict:
+
+```json
+{
+  "pattern_field": "table_pattern",
+  "results": [
+    {
+      "name": "audit_log_v2",
+      "target": "public.audit_log_v2",
+      "included": false,
+      "excluded_by": "table_pattern"
+    }
+  ]
+}
+```
+
+`pattern_field` names the field that actually decided, which is not always the one named after
+the kind — MySQL copies `table_pattern` into `view_pattern`, so a view is decided by the
+latter. Edit the field the output names.
+
+**Test a pattern before committing to it** with `--try-allow` / `--try-deny`, which judge
+against a hypothetical instead of the recipe's own:
+
+```bash
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
+  --names orders,users --try-allow '^public\.ord.*'
+```
+
+`probe filter` needs no connection: it judges names you already have.
 
 ## Boundary Rules
 
-**Secret Handling:**
-- You provide a recipe path containing `${ENV_VAR}` references. The CLI resolves secrets inside its own process.
-- Secret values never appear in output (all redacted).
-- Inline-secret recipes (credentials in YAML) are probeable, but `validate` warns; recommend moving to environment variables.
+- Probe output is **metadata only** — names, types, DDL, constraints, counts. Never table
+  rows or message payloads. If you need row data, you are outside this tool's purpose.
+- The scope check on `probe sql` narrows what a query can reach; it is **not** a security
+  boundary. Recommend the recipe authenticate as a read-only role scoped to catalog metadata.
+- An empty result **with** warnings means part of it could not be read — never "this is
+  empty". Read `warnings` before concluding a source is empty.
 
-**Exit Codes:**
-- `0` — Success
-- `2` — Configuration error (schema, missing required field, validation failure)
-- `3` — Connection error (authentication, timeout, network)
-- `1` — Internal error (CLI bug, unexpected state)
+## Error Handling
 
-**Live Probe Support:**
-- `probe shape` + `probe list` are source-agnostic — they follow whatever levels a connector declares, not a fixed SQL-shaped set of flags. Live probes work for SQL-family sources (any connector with `get_sql_alchemy_url()` in its config: Postgres, MySQL, Redshift, Snowflake, BigQuery, Unity Catalog, etc.) and for non-SQL sources that reuse their own client (not raw HTTP): **Kafka** lists Topics, filtered by `topic_patterns`. **Mode** lists Spaces, which branch into Reports (holding Queries) and Datasets, filtered by `space_pattern`/`report_pattern` — a branching source like Mode reports `"linear": false` from `probe shape`, and descending into a Space where a Report and a Dataset share a name needs a qualified `--parent 'Report:name'` (see the branching example above). Any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
-- Other source types return `supported: false` on `probe shape` → fall back to `test-connection` for verification.
+Branch on exit codes, not on message text:
 
-## Probing a Source With No Connector
-
-You do not need a purpose-built connector to interrogate a source — useful when authoring a recipe (or a connector) for a system DataHub doesn't ship support for.
-
-**Any SQL-reachable database** — use the generic `sqlalchemy` source with a `connect_uri`; schema/table/column probing works with no bespoke connector:
-
-```yaml
-source:
-  type: sqlalchemy
-  config:
-    platform: <platform>
-    connect_uri: "<sqlalchemy-url, secrets as ${ENV_VAR}>"
-```
+| code | meaning                                                         |
+| ---- | --------------------------------------------------------------- |
+| 0    | success                                                         |
+| 1    | internal error                                                  |
+| 2    | your input was wrong — bad recipe, bad parameter, refused query |
+| 3    | the source could not be reached                                 |
 
 ## Common Recipes
 
@@ -232,35 +187,20 @@ source:
 # Inspect a connector's config fields
 datahub recipe describe snowflake
 
-# Generate a starter recipe
-datahub recipe scaffold snowflake > my_recipe.yml
+# Generate a starter recipe, then edit it (keep secrets as ${ENV_VAR})
+datahub recipe scaffold snowflake > recipe.yml
+datahub recipe validate recipe.yml
 
-# Edit your recipe (set database, warehouse, user; keep password as ${SNOWFLAKE_PASSWORD})
-# Then validate it
-datahub recipe validate my_recipe.yml
+# See what this source offers
+datahub recipe probe methods --recipe recipe.yml
 
-# Discover the levels this source declares
-datahub recipe probe shape --recipe my_recipe.yml
+# Explore: catalog query (SQL sources) or a getter
+datahub recipe probe sql --recipe recipe.yml "SELECT schema_name FROM information_schema.schemata"
+datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 
-# Probe the top level (e.g. Snowflake's databases)
-datahub recipe probe list --recipe my_recipe.yml
+# Would my filters keep these?
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent public --names orders,users
 
-# Descend one --parent per level, in the order `shape` reported
-datahub recipe probe list --recipe my_recipe.yml --parent my_database --parent my_schema
-
-# Discover the metadata getters this source offers
-datahub recipe probe methods --recipe my_recipe.yml
-
-# Call one against a table found via probe list
-datahub recipe probe run columns --recipe my_recipe.yml --schema my_schema --table my_table
-
-# Test the connection
-datahub recipe test-connection --recipe my_recipe.yml
+# Verify connectivity
+datahub recipe test-connection --recipe recipe.yml
 ```
-
-## Error Handling
-
-Errors are reported with type and message:
-- **Config errors**: Fix the recipe YAML and re-validate.
-- **Connection errors**: Verify credentials, network, and connection parameters; check `test-connection` output.
-- **Probe unsupported**: The source type doesn't support live probing; use `describe` + `test-connection`.
