@@ -193,7 +193,7 @@ class TestGetDocumentsByAsset:
         }
         page2.raise_for_status.return_value = None
 
-        session.post.side_effect = [page1, page2]
+        session.request.side_effect = [page1, page2]
         
         docs = list(graph.get_documents_by_asset(dataset_urn, count=1))
         
@@ -203,13 +203,13 @@ class TestGetDocumentsByAsset:
         ]
         
         # Verify query semantics
-        query_str = session.post.call_args_list[0][1]["json"]["query"]
+        query_str = session.request.call_args_list[0][1]["json"]["query"]
         assert "relatedDocuments" in query_str
         assert "entity(urn: $urn)" in query_str
         assert "searchDocuments" not in query_str
 
         # Verify pagination variables were correct
-        captured_variables = [call[1]["json"]["variables"] for call in session.post.call_args_list]
+        captured_variables = [call[1]["json"]["variables"] for call in session.request.call_args_list]
         assert captured_variables == [
             {
                 "urn": dataset_urn,
@@ -237,7 +237,7 @@ class TestGetDocumentsByAsset:
             }
         }
         page1.raise_for_status.return_value = None
-        session.post.side_effect = [page1]
+        session.request.side_effect = [page1]
         
         docs = list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
         assert docs == []
@@ -254,7 +254,7 @@ class TestGetDocumentsByAsset:
             }
         }
         page1.raise_for_status.return_value = None
-        session.post.side_effect = [page1]
+        session.request.side_effect = [page1]
         
         docs = list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
         assert docs == []
@@ -275,10 +275,10 @@ class TestGetDocumentsByAsset:
             }
         }
         page1.raise_for_status.return_value = None
-        session.post.side_effect = [page1]
+        session.request.side_effect = [page1]
         
         list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
-        query_str = session.post.call_args_list[0][1]["json"]["query"]
+        query_str = session.request.call_args_list[0][1]["json"]["query"]
         
         assert "relatedDocuments" in query_str
         assert "entity(urn: $urn)" in query_str
