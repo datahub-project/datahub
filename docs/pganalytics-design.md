@@ -39,7 +39,7 @@ Durable aggregation lives in Postgres only. This feature does **not** add a new 
 
 **Seal rule:** an hour is sealable when `now >= hour_end + input_lag` (default 900s). Open hours are never watermarked. Day/month compactors only read sealed children.
 
-**Query rule:** product charts use rollups only when requested grain is **≥ hour** and the range is fully sealed; otherwise raw within retention. Sub-hour historical charts require raw retention. Product MAU (`uniqueOn=browserId`) still reads raw until monthly distinct rollups exist for `datahub_usage`, so raw default retention is **1 year** (`DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS`).
+**Query rule:** product charts use rollups only when requested grain is **≥ hour** and the range is fully sealed; otherwise raw within retention. Sub-hour historical charts require raw retention. Product MAU (`uniqueOn=browserId`) still reads raw until monthly distinct rollups exist for `datahub_usage`, so the **product** store keeps raw for **1 year** (`DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS`). Ops families (`api_usage`, `system_usage`) stay on the default store with **90-day** raw (`DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS`).
 
 ## Progressive compaction
 
@@ -94,7 +94,21 @@ DATAHUB_PGANALYTICS_MAINTENANCE_CRON_ENABLED=true
 # DATAHUB_ANALYTICS_COMPACT_WALL_CLOCK_MILLIS=30000
 ```
 
-Optional multi-store overlay: `DATAHUB_PGANALYTICS_CONFIG_FILE` (Spring resource URI). Routing keys are **`metric_family`** values (`datahub_usage`, `api_usage`, `system_usage`).
+Multi-store defaults live in `application.yaml` (override with `DATAHUB_PGANALYTICS_CONFIG_FILE`).
+Routing keys are **`metric_family`** values. Out of the box:
+
+| Store     | Prefix (default)             | Families                    | Raw retention |
+| --------- | ---------------------------- | --------------------------- | ------------- |
+| `default` | `metadata_analytics`         | `api_usage`, `system_usage` | 90 days       |
+| `product` | `metadata_analytics_product` | `datahub_usage`             | 1 year        |
+
+Override via env (`DATAHUB_PGANALYTICS_PRODUCT_*`) or a mounted CONFIG_FILE. Unlisted families use
+`defaultStore`.
+
+Upgrading from a single-store layout: historical `datahub_usage` rows in
+`metadata_analytics_event` are not read after routing switches to `product`. Re-backfill into
+`metadata_analytics_product_event` (or temporarily route `datahub_usage` back to `default`) if you
+need that history in charts.
 
 Registry metrics for `system_usage` / `datahub_usage` live alongside `api_usage` in
 `usage_metric_registry.yaml`.
@@ -127,8 +141,9 @@ per hour/day bucket.
 ## Smoke / SoT testing
 
 - Tracking OpenAPI smoke (`tests/openapi/v1/test_tracking.py`) branches on
-  `DATAHUB_USAGE_EVENTS_IMPLEMENTATION`: under `postgres`, assert inserts into
-  `metadata_analytics_event` and that the ES `datahub_usage_event` index stays empty.
+  `DATAHUB_USAGE_EVENTS_IMPLEMENTATION`: under `postgres`, assert inserts into the product store
+  event table (`metadata_analytics_product_event` by default) and that the ES
+  `datahub_usage_event` index stays empty.
 - Analytics chart smoke (`tests/analytics/`) loads fixture events via
   `backfill_activity_events.py --load-to-postgres` when SoT is postgres (ES load path remains for
   elasticsearch SoT). Charts read JDBC, so ES-only fixtures leave required charts empty under

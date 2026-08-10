@@ -578,11 +578,12 @@ def send_events_to_postgres(
     username: str,
     password: str,
     database: str = "datahub",
-    table: str = "metadata_analytics_event",
+    table: str = "metadata_analytics_product_event",
     batch_size: int = 500,
 ) -> None:
     """
-    Insert synthetic usage events into pgAnalytics (metadata_analytics_event).
+    Insert synthetic usage events into pgAnalytics product store
+    (metadata_analytics_product_event by default).
 
     Column mapping mirrors PostgresAnalyticsEventJson.parseDatahubUsage.
     """

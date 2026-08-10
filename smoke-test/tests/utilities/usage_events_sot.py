@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -14,6 +15,12 @@ logger = logging.getLogger(__name__)
 _SYSTEM_INFO_PATH = "/openapi/v1/system-info/properties/simple"
 _USAGE_EVENTS_PROP = "platformAnalytics.usage-events.implementation"
 _SYSTEM_INFO_TIMEOUT_SEC = 10
+
+# Default product-store event table (postgres.pgAnalytics.stores.product.tablePrefix + _event).
+PRODUCT_USAGE_EVENT_TABLE = os.getenv(
+    "DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE",
+    "metadata_analytics_product_event",
+)
 
 # LoginSource enum name ↔ camelCase ``source`` string (see LoginSource.java).
 _LOGIN_SOURCE_ENUM_BY_CANON = {
@@ -215,7 +222,7 @@ def _search_usage_events_postgres(
             aspect_name,
             (EXTRACT(EPOCH FROM event_time) * 1000)::bigint AS timestamp_ms,
             document
-        FROM metadata_analytics_event
+        FROM {PRODUCT_USAGE_EVENT_TABLE}
         WHERE {" AND ".join(clauses)}
         ORDER BY event_time DESC
         LIMIT %s
@@ -310,11 +317,11 @@ def _assert_tracking_event_in_postgres(unique_id: str, *, event_type: str) -> No
     try:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 SELECT event_type, actor_urn,
                        COALESCE(browser_id, document->>'browserId') AS browser_id,
                        document->>'customField' AS custom_field
-                FROM metadata_analytics_event
+                FROM {PRODUCT_USAGE_EVENT_TABLE}
                 WHERE document->>'customField' = %s
                    OR browser_id = %s
                    OR document->>'browserId' = %s
