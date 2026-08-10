@@ -6,6 +6,11 @@ _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,P
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
 _MIXED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Db.My_Schema.Events,PROD)"
 _OTHER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
+# `_UPPER` with only its leading segment left alone, the casing connectors produce when
+# they lowercase the table name but not the platform instance.
+_INSTANCE_KEPT = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.my_schema.events,PROD)"
+)
 
 
 def _loaded(*urns: str) -> UrnAliasResolver:
@@ -18,16 +23,9 @@ def _loaded(*urns: str) -> UrnAliasResolver:
 # --- cache ------------------------------------------------------------------------
 
 
-def test_cache_matches_a_different_casing() -> None:
-    cache = UrnAliasCache()
-    cache.add(_LOWER)
-
-    assert cache.get(_UPPER) == [_LOWER]
-
-
 def test_cache_distinguishes_unknown_from_known_absent() -> None:
     cache = UrnAliasCache()
-    cache.add(_LOWER)
+    cache.add(_LOWER, _MIXED)
 
     # None means unknown; an empty list would mean known not to exist.
     assert cache.get(_OTHER) is None
@@ -35,22 +33,22 @@ def test_cache_distinguishes_unknown_from_known_absent() -> None:
 
 def test_cache_records_the_same_urn_once() -> None:
     cache = UrnAliasCache()
-    cache.add(_LOWER)
-    cache.add(_LOWER)
+    cache.add(_LOWER, _MIXED)
+    cache.add(_LOWER, _MIXED)
 
-    assert cache.get(_LOWER) == [_LOWER]
+    assert cache.get(_LOWER) == [_MIXED]
     assert cache.count() == 1
 
 
 def test_cache_does_not_hand_out_its_stored_list() -> None:
     cache = UrnAliasCache()
-    cache.add(_LOWER)
+    cache.add(_LOWER, _MIXED)
 
-    entry = cache.get(_UPPER)
+    entry = cache.get(_LOWER)
     assert entry is not None
     entry.append(_OTHER)
 
-    assert cache.get(_UPPER) == [_LOWER]
+    assert cache.get(_LOWER) == [_MIXED]
 
 
 # --- resolver ---------------------------------------------------------------------
@@ -222,3 +220,110 @@ def test_on_demand_lookup_failure_is_not_cached() -> None:
 
 def test_without_a_graph_an_unknown_urn_is_simply_unresolved() -> None:
     assert UrnAliasResolver().resolve(_LOWER) is None
+
+
+# --- casing probe, for a server without the aliases aspect -------------------------
+
+
+def _existing(*urns: str) -> mock.MagicMock:
+    graph = mock.MagicMock()
+    # get_entities drops entities that have none of the requested aspects, so the
+    # response holding a urn is what makes it "exists".
+    graph.get_entities.return_value = {
+        urn: {"datasetKey": (mock.Mock(), None)} for urn in urns
+    }
+    return graph
+
+
+def _unsupported() -> mock._patch:
+    return mock.patch.object(UrnAliasResolver, "_aliases_supported", return_value=False)
+
+
+def test_casing_probe_finds_a_lowercased_stored_urn() -> None:
+    graph = _existing(_LOWER)
+
+    with _unsupported():
+        assert UrnAliasResolver(graph=graph).resolve(_UPPER) == _LOWER
+
+    # The alias search is never issued: the server would answer it with zero hits.
+    graph.get_urns_by_filter.assert_not_called()
+    _, kwargs = graph.get_entities.call_args
+    assert kwargs["urns"] == [_UPPER, _LOWER, _INSTANCE_KEPT]
+
+
+def test_casing_probe_cannot_find_an_uppercased_stored_urn() -> None:
+    # The inherent limit of guessing: lowercasing a reference finds a lowercased entity,
+    # but nothing derives `_UPPER` from `_LOWER`. Only the alias index resolves this.
+    graph = _existing(_UPPER)
+
+    with _unsupported():
+        assert UrnAliasResolver(graph=graph).resolve(_LOWER) is None
+
+
+def test_casing_probe_caches_a_negative_answer() -> None:
+    graph = _existing()
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph)
+        assert resolver.resolve(_OTHER) is None
+        assert resolver.resolve(_OTHER) is None
+
+    assert graph.get_entities.call_count == 1
+
+
+def test_casing_probe_failure_is_not_cached() -> None:
+    graph = mock.MagicMock()
+    graph.get_entities.side_effect = Exception("boom")
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph)
+        assert resolver.resolve(_LOWER) is None
+        assert resolver.resolve(_LOWER) is None
+
+    assert graph.get_entities.call_count == 2
+
+
+def test_casing_probe_does_not_answer_for_a_casing_it_never_probed() -> None:
+    # Both casings are real. Probing `_UPPER` never guesses `_MIXED`, so its answer must
+    # not be reused for `_MIXED` — sharing one entry would resolve `_MIXED` to `_UPPER`.
+    graph = _existing(_UPPER, _MIXED)
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph)
+        assert resolver.resolve(_UPPER) == _UPPER
+        assert resolver.resolve(_MIXED) == _MIXED
+
+    assert graph.get_entities.call_count == 2
+
+
+def test_casing_probe_asks_about_a_shared_candidate_once() -> None:
+    # `_LOWER` is a guess for `_UPPER` as well as its own only guess, and whether it exists
+    # does not depend on who asked — so the second reference needs no query.
+    graph = _existing(_LOWER)
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph)
+        assert resolver.resolve(_UPPER) == _LOWER
+        assert resolver.resolve(_LOWER) == _LOWER
+
+    assert graph.get_entities.call_count == 1
+
+
+def test_casing_probe_negative_answer_covers_only_the_urn_probed() -> None:
+    # Finding nothing records that this URN's guesses missed, not that the name is absent:
+    # a stored casing the guesses never reached is still found when it is asked about.
+    graph = _existing(_MIXED)
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph)
+        assert resolver.resolve(_UPPER) is None
+        assert resolver.resolve(_MIXED) == _MIXED
+
+
+def test_casing_probe_finds_an_instance_kept_stored_urn() -> None:
+    # Neither the reference as written nor its fully lowercased form matches; only the
+    # casing that preserves the leading segment does.
+    graph = _existing(_INSTANCE_KEPT)
+
+    with _unsupported():
+        assert UrnAliasResolver(graph=graph).resolve(_UPPER) == _INSTANCE_KEPT
