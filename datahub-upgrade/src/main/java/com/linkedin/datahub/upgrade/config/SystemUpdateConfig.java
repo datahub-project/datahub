@@ -183,6 +183,11 @@ public class SystemUpdateConfig {
     log.info(
         "Creating EntityService with system update CDC mode override: {}", systemUpdateCDCMode);
 
+    int maxRequestBatchSize =
+        java.util.Optional.ofNullable(configurationProvider.getEbean())
+            .map(com.linkedin.metadata.config.EbeanConfiguration::getQueryKeysCountForBatch)
+            .orElse(com.linkedin.metadata.config.EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT);
+
     EntityServiceImpl entityService =
         new EntityServiceImpl(
             aspectDao,
@@ -193,7 +198,8 @@ public class SystemUpdateConfig {
                 .setCdcModeChangeLog(systemUpdateCDCMode)
                 .setRetry(ebeanMaxTransactionRetry)
                 .setEnableBrowseV2(enableBrowsePathV2)
-                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
+                .setMaxRequestBatchSize(maxRequestBatchSize),
             null);
 
     // Usually NO_OP in upgrade (see method javadoc). Attaches if a buffer bean exists.

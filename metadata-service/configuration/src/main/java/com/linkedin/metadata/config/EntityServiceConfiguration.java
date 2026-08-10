@@ -12,4 +12,12 @@ public class EntityServiceConfiguration {
   @Nullable private Integer retry = null;
   private boolean enableBrowseV2 = false;
   private boolean postCommitRetentionEnabled = false;
+
+  /**
+   * Max items per DB transaction when ingesting aspects. Values &lt;= 0 disable chunking (one txn
+   * for the whole request). Default should match {@link
+   * EbeanConfiguration#DEFAULT_QUERY_KEYS_COUNT} / {@code ebean.queryKeysCountForBatch}. Oversized
+   * API batches are split into successive transactions of this size.
+   */
+  private int maxRequestBatchSize = 0;
 }

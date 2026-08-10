@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -27,6 +28,14 @@ public class EntityServiceFactory {
   @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}")
   private Integer _ebeanMaxTransactionRetry;
 
+  /**
+   * Optional override for ingestAspects transaction chunk size. When unset, uses {@code
+   * ebean.queryKeysCountForBatch} (default 375). Set to {@code 0} to disable chunking (single txn
+   * for the whole request).
+   */
+  @Value("${ENTITY_SERVICE_MAX_REQUEST_BATCH_SIZE:#{null}}")
+  private Integer maxRequestBatchSizeOverride;
+
   @Bean(name = "entityService")
   @DependsOn({"entityAspectDao", "kafkaEventProducer"})
   @Nonnull
@@ -42,6 +51,14 @@ public class EntityServiceFactory {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
+    int maxRequestBatchSize =
+        Optional.ofNullable(configurationProvider.getEbean())
+            .map(com.linkedin.metadata.config.EbeanConfiguration::getQueryKeysCountForBatch)
+            .orElse(com.linkedin.metadata.config.EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT);
+    if (maxRequestBatchSizeOverride != null) {
+      maxRequestBatchSize = maxRequestBatchSizeOverride;
+    }
+
     EntityServiceImpl entityService =
         new EntityServiceImpl(
             aspectDao,
@@ -52,7 +69,8 @@ public class EntityServiceFactory {
                 .setCdcModeChangeLog(featureFlags.isCdcModeChangeLog())
                 .setRetry(_ebeanMaxTransactionRetry)
                 .setEnableBrowseV2(enableBrowsePathV2)
-                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
+                .setMaxRequestBatchSize(maxRequestBatchSize),
             metricUtils);
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.

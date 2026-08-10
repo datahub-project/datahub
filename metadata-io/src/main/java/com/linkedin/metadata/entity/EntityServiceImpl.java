@@ -187,6 +187,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // When true, retention runs after upsert commit (best-effort). When false, legacy in-tx path.
   private final boolean postCommitRetentionEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
+  /**
+   * Max AspectsBatch items per DB transaction when ingesting. {@code <= 0} disables chunking (one
+   * txn for the whole request). Prefer aligning with {@code ebean.queryKeysCountForBatch}.
+   */
+  private final int maxRequestBatchSize;
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -210,8 +215,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = entityServiceConfiguration.isEnableBrowseV2();
     this.postCommitRetentionEnabled = entityServiceConfiguration.isPostCommitRetentionEnabled();
+    this.maxRequestBatchSize = entityServiceConfiguration.getMaxRequestBatchSize();
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
+    log.info("EntityService maxRequestBatchSize is {}", this.maxRequestBatchSize);
   }
 
   /**
@@ -913,7 +920,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Handle throttling
     APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), false);
 
-    IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
+    // Split oversized batches into multiple short FOR UPDATE txns (chunk size =
+    // ebean.queryKeysCountForBatch / maxRequestBatchSize). UI/API can still send one large
+    // request; each chunk commits independently — mid-fail leaves earlier chunks applied.
+    IngestAspectsResult ingestResults =
+        ingestAspectsToLocalDBChunked(opContext, aspectsBatch, overwrite);
 
     // Produce MCLs & run side effects
     List<MetadataChangeLog> mcls =
@@ -1131,6 +1142,55 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 log.debug("Generated {} MCP SideEffects for async processing", count);
               });
     }
+  }
+
+  /**
+   * Runs {@link #ingestAspectsToLocalDB} once, or in successive transactions of at most {@code
+   * maxRequestBatchSize} items when chunking is enabled. Callers still see one logical ingest; each
+   * chunk commits before the next starts.
+   */
+  @Nonnull
+  private IngestAspectsResult ingestAspectsToLocalDBChunked(
+      @Nonnull OperationContext opContext,
+      @Nonnull final AspectsBatch aspectsBatch,
+      boolean overwrite) {
+    if (maxRequestBatchSize <= 0 || aspectsBatch.getItems().size() <= maxRequestBatchSize) {
+      return ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
+    }
+
+    List<BatchItem> items = new ArrayList<>(aspectsBatch.getItems());
+    int totalChunks = (items.size() + maxRequestBatchSize - 1) / maxRequestBatchSize;
+    log.info(
+        "Chunking ingestAspects batch of {} items into {} transactions of at most {}",
+        items.size(),
+        totalChunks,
+        maxRequestBatchSize);
+
+    IngestAspectsResult combined = IngestAspectsResult.EMPTY;
+    int chunkIndex = 0;
+    for (List<BatchItem> chunk : Iterables.partition(items, maxRequestBatchSize)) {
+      chunkIndex++;
+      AspectsBatch chunkBatch =
+          AspectsBatchImpl.builder()
+              .retrieverContext(aspectsBatch.getRetrieverContext())
+              .items(chunk)
+              .build(opContext);
+      try {
+        combined =
+            IngestAspectsResult.combine(
+                combined, ingestAspectsToLocalDB(opContext, chunkBatch, overwrite));
+      } catch (RuntimeException e) {
+        throw new RuntimeException(
+            String.format(
+                "ingestAspects failed on chunk %d/%d after earlier chunks committed (%d results in prior chunks). Cause: %s",
+                chunkIndex,
+                totalChunks,
+                combined.getUpdateAspectResults().size(),
+                e.getMessage()),
+            e);
+      }
+    }
+    return combined;
   }
 
   /**

@@ -19,6 +19,8 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -35,20 +37,13 @@ public class BatchUpdateSoftDeletedResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(null);
-
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(null);
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.STATUS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(Map.of());
 
     stubExistingUrns(
         mockService,
@@ -88,20 +83,18 @@ public class BatchUpdateSoftDeletedResolverTest {
     EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
-            mockService.getAspect(
+            mockService.getLatestAspects(
                 any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalStatus);
-
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(originalStatus);
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.STATUS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(
+            Map.of(
+                UrnUtils.getUrn(TEST_ENTITY_URN_1),
+                List.of(originalStatus),
+                UrnUtils.getUrn(TEST_ENTITY_URN_2),
+                List.of(originalStatus)));
 
     stubExistingUrns(
         mockService,
@@ -138,22 +131,7 @@ public class BatchUpdateSoftDeletedResolverTest {
   public void testGetFailureResourceDoesNotExist() throws Exception {
     EntityService<?> mockService = getMockEntityService();
 
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(null);
-    Mockito.when(
-            mockService.getAspect(
-                any(),
-                Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
-                Mockito.eq(Constants.STATUS_ASPECT_NAME),
-                Mockito.eq(0L)))
-        .thenReturn(null);
-
-    // The first resource does not exist.
+    // The first resource does not exist — status batch read never runs.
     stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
@@ -170,6 +148,8 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     verifyNoIngestProposal(mockService);
+    Mockito.verify(mockService, Mockito.never())
+        .getLatestAspects(any(), any(), any(), any(Boolean.class));
   }
 
   @Test
@@ -195,6 +175,20 @@ public class BatchUpdateSoftDeletedResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityService<?> mockService = getMockEntityService();
+
+    Mockito.when(
+            mockService.getLatestAspects(
+                any(),
+                Mockito.eq(
+                    Set.of(UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+                Mockito.eq(Set.of(Constants.STATUS_ASPECT_NAME)),
+                Mockito.eq(false)))
+        .thenReturn(Map.of());
+
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
