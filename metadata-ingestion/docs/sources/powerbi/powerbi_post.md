@@ -145,8 +145,9 @@ At least one of `default_schema` / `default_database` must be set for an Oracle 
 If you query BigQuery from PowerBI, you may use BigQuery federation
 (`EXTERNAL_QUERY("project.region.connection", "<sql>")`) to run SQL on an external
 engine such as Cloud SQL or AlloyDB. The generic SQL parser cannot resolve those
-calls — the arguments are string literals, not table identifiers — so lineage would
-fail with empty URNs unless you map each connection to its external platform.
+calls — the arguments are string literals, not table identifiers — so the federated
+upstream is skipped (and reported in the ingestion report) unless you map each
+connection to its external platform.
 
 **Requirements:** `native_query_parsing: true`,
 `enable_advance_lineage_sql_construct: true`, and `extract_lineage: true` (the
