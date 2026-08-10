@@ -506,6 +506,7 @@ def test_metric_entities_emitted_with_derived_from_relationships():
     for urn in (revenue_urn, count_urn):
         upstreams = _aspects_for(workunits, urn, MetricUpstreamsClass)
         assert len(upstreams) == 1
+        assert upstreams[0].datasetUpstreams is not None
         assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
     # Derived metric with only metric-to-metric refs has no direct SMD upstreams.
     assert not _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
@@ -650,6 +651,7 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     # Table-bound metric has Metric → SMD lineage via metricUpstreams.
     metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
     assert len(metric_upstreams) == 1
+    assert metric_upstreams[0].datasetUpstreams is not None
     assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
         orders_logical_urn
     ]
@@ -1411,6 +1413,7 @@ def test_shadowed_metric_name_fine_grained_lineage_lands_on_logical_dataset():
     # View-scoped metric with qualified `orders.amount` gets Metric → ORDERS SMD.
     metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
     assert len(metric_upstreams) == 1
+    assert metric_upstreams[0].datasetUpstreams is not None
     assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
         orders_logical_urn
     ]
