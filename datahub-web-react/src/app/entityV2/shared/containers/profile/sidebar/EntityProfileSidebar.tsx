@@ -38,7 +38,7 @@ export const StyledEntitySidebarContainer = styled.div<{
             return '0';
         }
         if (props.$isShowNavBarRedesign) {
-            return '4px 4px 4px 8px';
+            return '0 0 0 8px';
         }
         return '0px 0px 0px 0px';
     }};
