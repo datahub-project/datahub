@@ -59,84 +59,12 @@ import {
   normalizeMcp,
   extractComplexAspects,
   ingestComplexAspects,
+  withArtifactLock,
+  writeJsonAtomic,
   type Mcp,
 } from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
 import { waitForWritesToSync } from '../utils/writes-sync';
-
-// ── Cross-worker artifact locking ────────────────────────────────────────────
-
-/**
- * If a lock file is older than this with its artifact still missing, its
- * holder is assumed to have crashed; another worker reclaims it rather than
- * wedging the whole run.
- */
-const LOCK_STALE_MS = 120_000;
-const LOCK_POLL_MS = 500;
-/** How long a follower will wait for another worker's artifact before giving up. */
-const LOCK_WAIT_TIMEOUT_MS = 180_000;
-
-/**
- * Atomically claims responsibility for producing `artifactPath` across
- * concurrent worker processes sharing the same filesystem (workers_per_shard
- * > 1). `fs.existsSync` + later `fs.writeFileSync` is a check-then-act race:
- * two workers can both observe "absent" before either has written, and both
- * duplicate the work. `fs.openSync(lockPath, 'wx')` is atomic exclusive
- * create — exactly one caller can win it — so only the winner produces the
- * artifact while everyone else polls for it instead.
- */
-async function withArtifactLock(artifactPath: string, produce: () => Promise<void>): Promise<void> {
-  if (fs.existsSync(artifactPath)) return;
-
-  const lockPath = `${artifactPath}.lock`;
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
-
-  for (;;) {
-    if (fs.existsSync(artifactPath)) return;
-
-    let fd: number | undefined;
-    try {
-      fd = fs.openSync(lockPath, 'wx');
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-    }
-
-    if (fd !== undefined) {
-      fs.closeSync(fd);
-      try {
-        if (!fs.existsSync(artifactPath)) {
-          await produce();
-        }
-      } finally {
-        fs.rmSync(lockPath, { force: true });
-      }
-      return;
-    }
-
-    if (Date.now() > deadline) {
-      throw new Error(`Timed out waiting for '${artifactPath}' to be produced by another worker (lock: ${lockPath})`);
-    }
-
-    try {
-      const age = Date.now() - fs.statSync(lockPath).mtimeMs;
-      if (age > LOCK_STALE_MS) fs.rmSync(lockPath, { force: true });
-    } catch {
-      // Lock file may have just been removed by its owner between our existsSync
-      // and statSync — ignore and re-poll.
-    }
-
-    await new Promise<void>((resolve) => setTimeout(resolve, LOCK_POLL_MS));
-  }
-}
-
-/** Write JSON atomically: readers never observe a partially-written file. */
-function writeJsonAtomic(filePath: string, data: unknown): void {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmpPath = `${filePath}.tmp-${process.pid}`;
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
-  fs.renameSync(tmpPath, filePath);
-}
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
 
