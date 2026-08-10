@@ -20,6 +20,7 @@ from typing import Any, List, Optional, cast
 from pydantic import BaseModel
 
 from datahub.executor.dispatcher.default_dispatcher import DefaultDispatcher
+from datahub.executor.execution.executor import Executor
 from datahub.executor.execution.reporting_executor import (
     ReportingExecutor,
     ReportingExecutorConfig,
@@ -82,7 +83,7 @@ class ExecutorAction(Action):
     def __init__(self, config: ExecutorConfig, ctx: PipelineContext):
         self.ctx = ctx
 
-        executors = []
+        executors: List[Executor] = []
 
         executor_config = self._build_executor_config(config, ctx)
         executors.append(ReportingExecutor(executor_config))
