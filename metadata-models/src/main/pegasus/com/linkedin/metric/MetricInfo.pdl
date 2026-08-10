@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 7
+  "schemaVersion": 5
 }
 record MetricInfo includes ExternalReference {
 

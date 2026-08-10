@@ -8,7 +8,7 @@ import com.linkedin.common.ExternalReference
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 7
+  "schemaVersion": 6
 }
 record SemanticModelInfo includes ExternalReference {
 
