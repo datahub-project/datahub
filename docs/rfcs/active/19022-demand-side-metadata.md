@@ -244,13 +244,28 @@ be written by an agent that only speaks to the catalog. The convergence of indep
 requesters — the single most valuable property here — requires a shared namespace, which is
 precisely what a catalog is.
 
+**Model demand as a data contract.** DataHub already ships data contracts, and a contract
+can legitimately be written before the dataset exists — contract-first is an established
+pattern, so this is the closest existing shape and deserves a direct answer. A contract is a
+_producer's promise_ about an asset someone has already decided to build: shape, quality and
+guarantees, negotiated between named parties and authored deliberately, once. Demand runs the
+other way. It is a _consumer's record_ of an asset nobody has decided to build, emitted by a
+failure rather than authored, and useful precisely because it accumulates. A contract cannot
+tell you that four teams needed the same table, because nobody writes a contract for a table
+they did not know to ask for. The two compose rather than compete: a resolved demand record is
+a reasonable trigger for authoring a contract, and that may be the right integration point.
+
 **Do nothing.** The signal continues to be discarded. As the proportion of catalog
 consumers that are agents rises, the volume of silently discarded demand rises with it.
 
 **Prior art.** Package registries solve a version of this with "requested but unpublished"
-names; issue trackers solve the attribution half but not the namespace half. We are not
-aware of a metadata catalog that treats a non-existent asset as a first-class entity, and
-would genuinely welcome being corrected in review.
+names; issue trackers solve the attribution half but not the namespace half. Within catalogs
+specifically, the near neighbours we checked are all adjacent rather than equivalent: access
+requests govern permission to an asset that already exists; catalog Q&A features record a
+human's question rather than an addressable want; and agent-observability tooling captures a
+failed tool call as a trace, routing it to an evaluation dataset rather than back to the
+catalog. We are not aware of a metadata catalog that treats a non-existent asset as a
+first-class entity, and would genuinely welcome being corrected in review.
 
 ## Rollout / Adoption Strategy
 
