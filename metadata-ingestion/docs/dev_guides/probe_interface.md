@@ -18,10 +18,10 @@ input was wrong" (2) from "I could not reach the source" (3).
 
 Two things a caller needs, kept deliberately separate:
 
-|                                 | command                  | connection? |
-| ------------------------------- | ------------------------ | ----------- |
-| **fetch** — what is in here     | `probe sql`, `probe run` | yes         |
-| **judge** — what gets picked up | `probe filter`           | **no**      |
+|                                 | command                               | connection? |
+| ------------------------------- | ------------------------------------- | ----------- |
+| **fetch** — what is in here     | `probe sql`, `probe api`, `probe run` | yes         |
+| **judge** — what gets picked up | `probe filter`                        | **no**      |
 
 Splitting them is what keeps both simple. Fetching stops needing to know about filters, and
 filtering becomes a pure function over names the caller already has — so a caller can try a
@@ -109,6 +109,37 @@ reads it back, so an empty result carries its reason.
 
 **Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
 column values, or message payloads.
+
+## Adding an API passthrough (non-SQL sources)
+
+The API analogue of the catalog query. A connector opts in by declaring read endpoints as data
+and supplying one fetch method:
+
+```python
+class MyMetadataProbe:
+    api_allowlist = ("GET /spaces", "GET /spaces/{token}/reports")
+
+    def get_json(self, path: str) -> object:
+        return self._get_request_json(f"{self.base_uri}{path}")
+```
+
+A placeholder matches exactly one path segment. An empty allowlist means nothing is reachable,
+so a connector that has not opted in exposes no endpoints. `get_json` must not be a
+`@probe_method`, for the same reason `execute_sql` must not.
+
+`agent/api_gate.py` refuses every method but GET, anything that is not a path on the
+connector's own host (absolute URLs, protocol-relative `//host`, `..`, percent-encoded
+`%2e%2e`), and any path outside the allowlist.
+
+**This gate is weaker in kind than the SQL one, and the docs should not imply parity.** sqlglot
+lets `sql_gate` reason about what a query _touches_; a path is opaque, so all the API gate can
+do is match an allowlist. Whether a listed endpoint returns metadata or user data is the
+judgement of whoever listed it. One dimension is stronger, though — "only GET" is exact, where
+"only SELECT" needed CTE and subquery analysis to mean anything.
+
+**A passthrough does not replace getters.** A raw record leaves the caller to guess which field
+a pattern is matched against; for a Mode Space that is the raw `name` with no token fallback.
+Fetch generalises; naming and judging do not.
 
 ## Making verdicts match ingestion
 

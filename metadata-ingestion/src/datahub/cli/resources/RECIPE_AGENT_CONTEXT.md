@@ -111,6 +111,17 @@ multiple statements, non-SELECT statements, and vendor-specific functions (`pg_r
 Results come back as `columns` plus positional `rows`, with `truncated` telling you whether
 more exist beyond `--limit`.
 
+**Non-SQL sources may expose a read passthrough** to their own API, for questions no getter
+anticipated:
+
+```bash
+datahub recipe probe api --recipe recipe.yml GET /spaces/sp1/reports
+```
+
+Only GET, and only paths the connector lists; anything else exits 2. Prefer `probe run` where a
+getter exists — it returns the names patterns are matched against, whereas a raw record leaves
+you guessing which field that is.
+
 ## Checking what your filters would do
 
 This is the step most worth not skipping, because **you cannot work it out yourself from the
