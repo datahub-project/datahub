@@ -25,11 +25,10 @@ If ingestion fails, validate credentials, permissions, connectivity, and scope f
 
 #### Missing Connections
 
-By default, only Airbyte connections with Public API `status: active` are ingested.
-Inactive connections are skipped with no warning. If a connection is visible and healthy
-in the Airbyte UI but missing from DataHub, confirm the Public API reports
-`status: "active"` for that connection id. To ingest inactive connections as well, set
-`include_inactive_connections: true` in the recipe.
+By default only enabled Airbyte connections are ingested. Disabled connections are
+skipped with no warning. If a connection is missing from DataHub, check whether it
+is disabled in Airbyte (or whether its Public API `status` is `"inactive"`). To
+ingest disabled connections as well, set `include_inactive_connections: true`.
 
 #### Authentication Errors
 

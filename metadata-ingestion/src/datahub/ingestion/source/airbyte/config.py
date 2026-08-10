@@ -266,8 +266,10 @@ class AirbyteSourceConfig(
     include_inactive_connections: bool = Field(
         default=False,
         description=(
-            "Whether to ingest Airbyte connections whose Public API status is "
-            "'inactive'. Default false preserves existing behavior (active only)."
+            "Also ingest connections that are disabled in Airbyte. "
+            "By default only enabled connections are ingested; disabled ones "
+            "are skipped with no warning, even if they still appear healthy in "
+            "the Airbyte UI."
         ),
     )
 
