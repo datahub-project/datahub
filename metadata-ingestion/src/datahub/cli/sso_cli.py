@@ -30,6 +30,8 @@ _ACTOR_COOKIE_PRESENT = (
 
 SILENT_ATTEMPT_TIMEOUT_MS = 20_000
 
+GRAPHQL_PATH = "/api/v2/graphql"
+
 
 class BrowserTarget(NamedTuple):
     """How to reach one browser through Playwright.
@@ -265,6 +267,30 @@ def _seed_profile_dir(profile_dir: Path, seed_from: Path) -> None:
             "GrShaderCache",
         ),
     )
+    # copytree carries the seed's mode over, discarding the 0700 set above.
+    _prepare_profile_dir(profile_dir)
+
+
+_PROFILE_PROBLEM_MARKERS = (
+    "already in use",
+    "already running",
+    "processsingleton",
+    "singletonlock",
+    "locked",
+    "permission denied",
+    "is not a directory",
+)
+
+
+def _is_profile_problem(error: Exception) -> bool:
+    """Does this launch failure blame the profile rather than the browser?
+
+    The fallback chain exists for a browser that is not installed. A profile
+    another run holds open, or one left corrupt by a crash, is a different
+    failure: every candidate would hit it, and walking past it hands the user a
+    browser with no saved session and no reason why.
+    """
+    return any(marker in str(error).lower() for marker in _PROFILE_PROBLEM_MARKERS)
 
 
 def _open_browser_context(
@@ -282,8 +308,9 @@ def _open_browser_context(
     profile belongs to one browser build and is not interchangeable.
 
     Raises rather than falling back to a throwaway profile: silently switching
-    browser and dropping the saved session hides the cause, and the usual reason
-    everything fails is another `datahub init --sso` holding the profile lock.
+    browser and dropping the saved session hides the cause. A failure that
+    blames the profile stops the chain outright, since every candidate would
+    hit the same thing.
 
     The caller closes only the context; leaving sync_playwright() tears down the
     browser behind it.
@@ -302,6 +329,14 @@ def _open_browser_context(
                 str(profile_dir), headless=headless, **launch_args
             )
         except Exception as e:
+            if _is_profile_problem(e):
+                raise click.ClickException(
+                    f"Could not open the saved profile at {profile_dir} with "
+                    f"{_describe(candidate)}: {e}\n"
+                    "If another `datahub init --sso` is running, finish it "
+                    "first. If one crashed and left the profile locked, retry "
+                    "with --fresh-login."
+                ) from e
             last_error = e
             logger.debug("Could not launch %s", _describe(candidate), exc_info=True)
             continue
@@ -341,18 +376,27 @@ def _load_session(path: Path) -> list:
         return []
 
 
-def _save_session(path: Path, cookies: list) -> None:
-    """Store the cookies this login established, owner-readable only."""
+def _save_session(path: Path, cookies: list) -> bool:
+    """Store the cookies this login established, owner-readable only.
+
+    Returns whether the file was written, so the caller does not promise the
+    user a session that a full disk or a read-only directory just swallowed.
+    """
     if not cookies:
-        return
+        return False
     try:
         SSO_SESSION_ROOT.mkdir(parents=True, exist_ok=True)
         SSO_SESSION_ROOT.chmod(0o700)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as handle:
+            # O_CREAT only applies its mode to a new file, so a file that
+            # already existed keeps whatever it was created with.
+            os.fchmod(handle.fileno(), 0o600)
             json.dump(cookies, handle)
+        return True
     except OSError:
         logger.debug("Could not save session to %s", path, exc_info=True)
+        return False
 
 
 def _run_login_attempt(
@@ -379,7 +423,16 @@ def _run_login_attempt(
     hosts = {urllib.parse.urlparse(auth_url).hostname}
 
     def note_host(frame: Any) -> None:
+        """Record where the login itself went, and nothing else.
+
+        Subframes are the page's own business — trackers, embeds, widgets — and
+        counting them would put every one of their hosts in scope for the
+        cookies --remember-session writes to disk. The redirect chain that
+        carries the login is the top-level frame only.
+        """
         try:
+            if frame.parent_frame is not None:
+                return
             host = urllib.parse.urlparse(frame.url).hostname
         except Exception:
             return
@@ -404,16 +457,40 @@ def _run_login_attempt(
 def _cookie_matches_host(cookie: dict, host: str) -> bool:
     """Would a browser send this cookie to that host?
 
-    Ordinary cookie host matching: an exact host, or a parent domain of it.
+    RFC 6265 host matching. A leading dot marks a domain cookie, which reaches
+    subdomains. Without it the cookie is host-only and reaches exactly the host
+    that set it, so an `actor` cookie a seeded profile holds for a parent domain
+    must not be read as this instance's.
     """
-    domain = (cookie.get("domain") or "").lstrip(".")
-    return bool(domain) and (host == domain or host.endswith(f".{domain}"))
+    domain = cookie.get("domain") or ""
+    if domain.startswith("."):
+        base = domain[1:]
+        return bool(base) and (host == base or host.endswith(f".{base}"))
+    return bool(domain) and host == domain
+
+
+def _cookie_matches_path(cookie: dict, request_path: str) -> bool:
+    """Would a browser send this cookie to that path?"""
+    path = cookie.get("path") or "/"
+    if request_path == path:
+        return True
+    if not request_path.startswith(path):
+        return False
+    return path.endswith("/") or request_path[len(path) :].startswith("/")
 
 
 def _cookie_applies_to(cookie: dict, frontend_url: str) -> bool:
-    """Would a browser send this cookie to that URL?"""
-    host = urllib.parse.urlparse(frontend_url).hostname or ""
-    return _cookie_matches_host(cookie, host)
+    """Would a browser send this cookie to the API call login is about to make?
+
+    Host, path and Secure all have to agree. Anything looser reads cookies the
+    instance would never receive, and the actor URN is taken from this set.
+    """
+    parsed = urllib.parse.urlparse(frontend_url)
+    if not _cookie_matches_host(cookie, parsed.hostname or ""):
+        return False
+    if cookie.get("secure") and parsed.scheme != "https":
+        return False
+    return _cookie_matches_path(cookie, GRAPHQL_PATH)
 
 
 def _cookie_key(cookie: dict) -> Tuple[str, str, str]:
@@ -486,7 +563,7 @@ def _confirm_session(session: requests.Session, frontend_url: str) -> Optional[s
     """
     try:
         response = session.post(
-            f"{frontend_url}/api/v2/graphql",
+            f"{frontend_url}{GRAPHQL_PATH}",
             json={"query": "query { me { corpUser { urn } } }"},
             timeout=30,
         )
@@ -510,7 +587,7 @@ def _warn_about_existing_cli_tokens(
     """Best-effort warning about existing CLI tokens for the current user."""
     try:
         response = session.post(
-            f"{frontend_url}/api/v2/graphql",
+            f"{frontend_url}{GRAPHQL_PATH}",
             json={
                 "query": """query listAccessTokens($input: ListAccessTokenInput!) {
                     listAccessTokens(input: $input) {
@@ -630,7 +707,19 @@ def browser_sso_login(
                 headless=headless,
             )
             try:
-                result = _run_login_attempt(context, auth_url, attempt_timeout, restore)
+                try:
+                    result = _run_login_attempt(
+                        context, auth_url, attempt_timeout, restore
+                    )
+                except Exception:
+                    # A silent attempt has a visible one behind it, so anything
+                    # that goes wrong there is just a failed attempt. Only the
+                    # visible one has nothing left to try.
+                    if not headless:
+                        raise
+                    logger.debug("The silent attempt failed", exc_info=True)
+                    result = None
+
                 if result is None:
                     if headless:
                         click.echo("Saved session did not work, opening a browser.")
@@ -655,11 +744,17 @@ def browser_sso_login(
                     click.echo("Signed in from the saved session, no browser shown.")
                 if remember_session:
                     keep = _session_cookies_for(cookies, auth_hosts, before, restore)
-                    _save_session(session_file, keep)
-                    hosts_kept = sorted({c.get("domain", "") for c in keep})
-                    click.echo(
-                        f"Remembered {len(keep)} cookies for {', '.join(hosts_kept)}."
-                    )
+                    if _save_session(session_file, keep):
+                        hosts_kept = sorted({c.get("domain", "") for c in keep})
+                        click.echo(
+                            f"Remembered {len(keep)} cookies for "
+                            f"{', '.join(hosts_kept)}."
+                        )
+                    else:
+                        click.echo(
+                            "Could not remember this session, so the next run "
+                            f"will sign in again. See {session_file}."
+                        )
                 break
             finally:
                 context.close()
@@ -703,7 +798,7 @@ def browser_sso_login(
     }
 
     response = session.post(
-        f"{frontend_url}/api/v2/graphql", json=json_payload, timeout=30
+        f"{frontend_url}{GRAPHQL_PATH}", json=json_payload, timeout=30
     )
     response.raise_for_status()
 

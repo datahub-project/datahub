@@ -666,8 +666,9 @@ class TestAllBrowsersFail:
         with no saved session and no explanation, so say what was tried instead.
         """
         pw = mock_playwright["playwright"]
-        pw.firefox.launch_persistent_context.side_effect = Exception("profile locked")
-        pw.chromium.launch_persistent_context.side_effect = Exception("profile locked")
+        missing = Exception("Executable doesn't exist at /ms-playwright/firefox")
+        pw.firefox.launch_persistent_context.side_effect = missing
+        pw.chromium.launch_persistent_context.side_effect = missing
 
         with (
             patch(
@@ -682,9 +683,32 @@ class TestAllBrowsersFail:
         assert "moz-firefox" in message
         assert "bundled firefox" in message
         assert "bundled chromium" in message
-        assert "profile locked" in message
+        assert "Executable doesn't exist" in message
         assert "--fresh-login" in message
         pw.chromium.launch.assert_not_called()
+
+    def test_a_profile_problem_stops_the_chain(self, mock_playwright: dict) -> None:
+        """Every candidate would hit the same lock, so trying them all is noise.
+
+        Worse, it ends on bundled Chromium with an empty profile: a browser the
+        user did not pick, with no saved session and no reason given.
+        """
+        pw = mock_playwright["playwright"]
+        pw.firefox.launch_persistent_context.side_effect = Exception(
+            "ProcessSingleton: the profile is already in use"
+        )
+
+        with (
+            patch(
+                "datahub.cli.sso_cli.browser_target",
+                return_value=BrowserTarget(engine="firefox", channel="moz-firefox"),
+            ),
+            pytest.raises(click.ClickException, match="already in use"),
+        ):
+            browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+        assert pw.firefox.launch_persistent_context.call_count == 1
+        pw.chromium.launch_persistent_context.assert_not_called()
 
 
 class TestCookieScoping:
@@ -693,8 +717,9 @@ class TestCookieScoping:
         [
             ("dev01.acryl.io", True),
             (".dev01.acryl.io", True),
-            ("acryl.io", True),
             (".acryl.io", True),
+            # Host-only: acryl.io set it for itself, not for its subdomains.
+            ("acryl.io", False),
             ("taxact.acryl.io", False),
             ("acryl.okta.com", False),
             ("localhost", False),
@@ -707,6 +732,30 @@ class TestCookieScoping:
         assert (
             _cookie_applies_to({"domain": domain}, "https://dev01.acryl.io") is expected
         )
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("/", True),
+            ("/api", True),
+            ("/api/v2/graphql", True),
+            ("/api/v3", False),
+            ("/authenticate", False),
+        ],
+    )
+    def test_only_cookies_the_api_path_would_receive(
+        self, path: str, expected: bool
+    ) -> None:
+        """The actor URN is read from this set, so a scoped cookie must not join."""
+        cookie = {"domain": "dev01.acryl.io", "path": path}
+
+        assert _cookie_applies_to(cookie, "https://dev01.acryl.io") is expected
+
+    def test_a_secure_cookie_is_not_read_over_plain_http(self) -> None:
+        cookie = {"domain": "localhost", "path": "/", "secure": True}
+
+        assert not _cookie_applies_to(cookie, "http://localhost:9002")
+        assert _cookie_applies_to(cookie, "https://localhost:9002")
 
     def test_actor_is_not_taken_from_another_tenant(
         self, mock_playwright: dict
@@ -779,6 +828,7 @@ class TestRememberSession:
             if event == "framenavigated":
                 frame = MagicMock()
                 frame.url = "https://acryl.okta.com/oauth2/v1/authorize"
+                frame.parent_frame = None
                 callback(frame)
 
         mock_playwright["page"].on.side_effect = fire
@@ -805,6 +855,43 @@ class TestRememberSession:
         noise = {"domain": ".google.com", "name": "SID", "value": "x", "path": "/"}
         fresh = {"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}
         self._cookies(mock_playwright, [noise, fresh])
+
+        self._login(remember_session=True)
+
+        saved = json.loads((_sessions_in_tmp / "dev01.acryl.io.json").read_text())
+        assert [c["name"] for c in saved] == ["sid"]
+
+    def test_a_subframe_does_not_widen_what_is_saved(
+        self, mock_playwright: dict, _sessions_in_tmp: Path
+    ) -> None:
+        """A tracker in an iframe is not part of the login.
+
+        Counting every frame host put its whole domain in scope, so an unrelated
+        cookie the login never touched was written to disk in plaintext.
+        """
+
+        def fire(event: str, callback: Callable[[Any], None]) -> None:
+            if event != "framenavigated":
+                return
+            for url, parent in (
+                ("https://acryl.okta.com/oauth2/v1/authorize", None),
+                ("https://ads.example.com/pixel", MagicMock()),
+            ):
+                frame = MagicMock()
+                frame.url = url
+                frame.parent_frame = parent
+                callback(frame)
+
+        mock_playwright["page"].on.side_effect = fire
+        tracker = {
+            "domain": "ads.example.com",
+            "name": "uid",
+            "value": "t",
+            "path": "/",
+        }
+        okta = {"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}
+        # Both look unchanged, so only the navigation signal can pull them in.
+        mock_playwright["context"].cookies.return_value = [tracker, okta]
 
         self._login(remember_session=True)
 
@@ -852,6 +939,42 @@ class TestRememberSession:
 
         path = _sessions_in_tmp / "dev01.acryl.io.json"
         assert path.stat().st_mode & 0o777 == 0o600
+
+    def test_an_existing_session_file_is_tightened_too(
+        self, mock_playwright: dict, _sessions_in_tmp: Path
+    ) -> None:
+        """O_CREAT applies its mode on create only, so a re-save kept 0644."""
+        _sessions_in_tmp.mkdir(parents=True)
+        path = _sessions_in_tmp / "dev01.acryl.io.json"
+        path.write_text("[]")
+        path.chmod(0o644)
+        self._cookies(
+            mock_playwright,
+            [{"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}],
+        )
+
+        self._login(remember_session=True)
+
+        assert path.stat().st_mode & 0o777 == 0o600
+
+    def test_a_failed_write_is_not_reported_as_remembered(
+        self,
+        mock_playwright: dict,
+        _sessions_in_tmp: Path,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """Claiming a session was stored sends the user back for no reason."""
+        self._cookies(
+            mock_playwright,
+            [{"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}],
+        )
+
+        with patch("datahub.cli.sso_cli.os.open", side_effect=OSError("disk full")):
+            self._login(remember_session=True)
+
+        out = capsys.readouterr().out
+        assert "Remembered" not in out
+        assert "Could not remember this session" in out
 
     def test_restores_on_the_next_run(
         self, mock_playwright: dict, _sessions_in_tmp: Path
@@ -996,6 +1119,37 @@ class TestSilentLogin:
         self._login(remember_session=True)
 
         assert self._headless_flags(mock_playwright) == [True, False]
+
+    def test_a_crashing_silent_attempt_still_opens_a_browser(
+        self, mock_playwright: dict, _sessions_in_tmp: Path
+    ) -> None:
+        """Not every silent failure is a timeout.
+
+        An identity provider redirecting to a custom scheme, a TLS error, a
+        blocked headless launch — each raises rather than returning, and each
+        used to kill the run instead of handing over to a visible login.
+        """
+        self._save(_sessions_in_tmp)
+        mock_playwright["page"].goto.side_effect = [
+            Exception("net::ERR_ABORTED"),
+            None,
+        ]
+
+        self._login(remember_session=True)
+
+        assert self._headless_flags(mock_playwright) == [True, False]
+
+    def test_the_visible_attempt_does_not_swallow_its_error(
+        self, mock_playwright: dict
+    ) -> None:
+        """There is nothing behind it, so failing quietly would just hang."""
+        mock_playwright["page"].goto.side_effect = Exception("net::ERR_ABORTED")
+
+        with (
+            patch("datahub.cli.sso_cli.requests", mock_requests()),
+            pytest.raises(Exception, match="ERR_ABORTED"),
+        ):
+            browser_sso_login("https://dev01.acryl.io", "ONE_HOUR")
 
     def test_no_silent_attempt_without_a_saved_session(
         self, mock_playwright: dict
