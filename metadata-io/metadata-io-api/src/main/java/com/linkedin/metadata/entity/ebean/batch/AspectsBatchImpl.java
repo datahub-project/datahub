@@ -34,9 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Builder(toBuilder = true)
 public class AspectsBatchImpl implements AspectsBatch {
 
@@ -220,10 +218,11 @@ public class AspectsBatchImpl implements AspectsBatch {
                             .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
-                      // Surface as ValidationException so Rest.li/OpenAPI return 422 instead of
-                      // HTTP 200 with the proposal silently dropped (see #19086).
+                      // Surface as ValidationException so API layers reject the request instead of
+                      // HTTP 200 with the proposal silently dropped (see #19086). Preserve the
+                      // IllegalArgumentException cause so GraphQL maps this to BAD_REQUEST.
                       throw new ValidationException(
-                          "Invalid MetadataChangeProposal: " + e.getMessage());
+                          "Invalid MetadataChangeProposal: " + e.getMessage(), e);
                     }
                   })
               .collect(Collectors.toList()));

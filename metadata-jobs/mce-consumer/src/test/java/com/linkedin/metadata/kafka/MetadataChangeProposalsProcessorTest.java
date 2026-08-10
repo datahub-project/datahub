@@ -225,9 +225,6 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
-    when(mockEntityService.ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false)))
-        .thenThrow(
-            new IllegalArgumentException("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
 
     // Execute test
     processor.consume(mockConsumerRecord);
@@ -241,11 +238,16 @@ public class MetadataChangeProposalsProcessorTest {
     verify(mockKafkaProducer, times(1))
         .produceFailedMetadataChangeProposal(eq(opContext), eq(List.of(mcp)), any(Throwable.class));
 
-    // Verify error handling
+    // Invalid fabric type fails during AspectsBatch construction (ValidationException wrapping
+    // IllegalArgumentException), before EntityService.ingestProposal is invoked.
     Throwable validationException = exceptionCaptor.getValue();
     verify(mockSpan).recordException(validationException);
-    verify(mockSpan)
-        .setStatus(StatusCode.ERROR, "ERROR :: /origin :: \"INVALID\" is not an enum symbol");
+    assertTrue(
+        validationException
+            .getMessage()
+            .contains("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
+    assertTrue(validationException.getCause() instanceof IllegalArgumentException);
+    verify(mockSpan).setStatus(StatusCode.ERROR, validationException.getMessage());
   }
 
   @Test
