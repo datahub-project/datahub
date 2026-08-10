@@ -684,8 +684,20 @@ class TestAllBrowsersFail:
         assert "bundled firefox" in message
         assert "bundled chromium" in message
         assert "Executable doesn't exist" in message
-        assert "--fresh-login" in message
+        # Only the builds Playwright has to download, and only those tried.
+        assert "playwright install chromium firefox" in message
         pw.chromium.launch.assert_not_called()
+
+    def test_a_driveable_default_needs_no_download(self) -> None:
+        """Chrome, Edge and Firefox are driven where they already are.
+
+        Telling every user to run `playwright install chromium` asks for a
+        150MB download that only a machine defaulting to Safari — or to
+        something Playwright cannot drive — actually needs.
+        """
+        for handler in ("com.google.chrome", "MSEdgeHTM", "org.mozilla.firefox"):
+            with patch("datahub.cli.sso_cli._os_browser_handler", return_value=handler):
+                assert browser_target().channel is not None
 
     def test_a_profile_problem_stops_the_chain(self, mock_playwright: dict) -> None:
         """Every candidate would hit the same lock, so trying them all is noise.

@@ -338,7 +338,10 @@ def _validate_init_inputs(
     "--sso",
     is_flag=True,
     default=False,
-    help="Open browser for SSO login (requires: pip install 'acryl-datahub[sso]' && playwright install chromium)",
+    help=(
+        "Open browser for SSO login, using the browser your OS defaults to "
+        "(requires: pip install 'acryl-datahub[sso]')"
+    ),
 )
 @click.option(
     "--oauth",
