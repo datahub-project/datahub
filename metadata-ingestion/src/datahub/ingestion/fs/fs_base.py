@@ -1,8 +1,8 @@
+import re
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Iterable
 from urllib import parse
-import re
 
 # Matches Windows absolute paths like "C:\..." or "C:/...". urlparse()
 # misreads the drive letter as a URL scheme (e.g. "c"), so these must be
