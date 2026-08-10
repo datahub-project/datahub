@@ -730,6 +730,11 @@ module.exports = {
         },
         {
           type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
           id: "docs/managed-datahub/remote-executor/monitoring",
           className: "saasOnly",
         },
