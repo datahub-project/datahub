@@ -239,7 +239,7 @@ const BASE_FEATURE_FLAGS = {
 // guard. Under workers_per_shard > 1, fullyParallel can still schedule this
 // describe block's own tests across two workers, each running beforeAll
 // concurrently. Force one worker so it stays genuinely single-shot.
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'default' });
 
 test.describe('lineage v3 — lineage graph', () => {
   let lineagePage: LineageV3Page;

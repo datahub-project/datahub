@@ -19,7 +19,7 @@ on:
         default: "quickstart"
         type: string
       workers_per_shard:
-        description: "EXPERIMENTAL: Playwright --workers per shard. Default 1 is the proven, unchanged behavior; >1 is an unvalidated trial (see PFP-5479 ranked fix #6) -- multiple worker processes will share one shard's stack and filesystem."
+        description: "EXPERIMENTAL: Playwright --workers per shard. Default 1 is the proven, unchanged behavior; >1 is an unvalidated trial -- multiple worker processes will share one shard's stack and filesystem."
         required: false
         default: "1"
         type: string

@@ -124,9 +124,9 @@ export async function withArtifactLock(artifactPath: string, produce: () => Prom
     try {
       const age = Date.now() - fs.statSync(lockPath).mtimeMs;
       if (age > LOCK_STALE_MS) fs.rmSync(lockPath, { force: true });
-    } catch {
-      // Lock file may have just been removed by its owner between our existsSync
-      // and statSync — ignore and re-poll.
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      // Lock file was removed between the acquisition attempt and stat/rm; re-poll.
     }
 
     await new Promise<void>((resolve) => setTimeout(resolve, LOCK_POLL_MS));

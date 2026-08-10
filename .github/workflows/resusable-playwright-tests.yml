@@ -52,7 +52,7 @@ on:
         type: boolean
         default: false
       workers_per_shard:
-        description: "Playwright --workers per shard. EXPERIMENTAL (see PFP-5479 ranked fix #6) -- default 1 matches every non-experimental caller's existing behavior. >1 is unproven: each worker is a separate process sharing this shard's single stack (one GMS/Kafka/ES/MySQL instance on a 4-vCPU runner) and its filesystem (the .seeded/{feature}.json check-then-act has a real, if likely-harmless, race across worker processes). Do not raise the default without a trial run first."
+        description: "Number of Playwright workers per shard. Defaults to 1; values above 1 share the shard's stack and filesystem."
         required: false
         type: string
         default: "1"

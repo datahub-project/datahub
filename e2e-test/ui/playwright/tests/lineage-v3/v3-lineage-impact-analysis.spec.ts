@@ -69,7 +69,7 @@ const UI_TEXT = {
 // tests across two workers, each running its own beforeAll concurrently and
 // racing the delete/recreate against each other's async graph-edge
 // propagation. Force one worker so beforeAll is genuinely single-shot.
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'default' });
 
 test.describe('impact analysis', () => {
   let lineagePage: LineageV3Page;
