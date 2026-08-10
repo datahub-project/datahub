@@ -267,9 +267,9 @@ class AirbyteSourceConfig(
         default=False,
         description=(
             "Also ingest connections that are disabled in Airbyte. "
-            "By default only enabled connections are ingested; disabled ones "
-            "are skipped with no warning, even if they still appear healthy in "
-            "the Airbyte UI."
+            "By default, connections reported as inactive are skipped with no "
+            "warning, even if they still appear healthy in the Airbyte UI."
+
         ),
     )
 
