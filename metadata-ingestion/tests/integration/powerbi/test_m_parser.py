@@ -1628,11 +1628,13 @@ def test_bigquery_external_query_outer_extraction_parse_failure_warns():
 
 
 @pytest.mark.integration
-def test_bigquery_external_query_extraction_failure_still_resolves_native_tables():
-    # extract_external_queries uses a strict sqlglot.parse that can hard-fail (parse_failed)
-    # even when the more tolerant DataHub aggregator can still resolve the native BigQuery
-    # tables in the same query. The extraction failure is reported once (at extraction
-    # time), and the native upstream must NOT be discarded by an early return.
+def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
+    # When extract_external_queries hits a sqlglot parse error it sets parse_failed and
+    # returns the query UNCHANGED (EXTERNAL_QUERY calls are not stripped to placeholders,
+    # per its frozen __post_init__ invariant references/unresolvable must be empty). The
+    # raw federation syntax cannot be resolved into native BigQuery upstreams, so no
+    # lineage is emitted and the failure is reported exactly once (at extraction time),
+    # not re-reported by a second native parse attempt.
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
@@ -1654,11 +1656,16 @@ def test_bigquery_external_query_extraction_failure_still_resolves_native_tables
         }
     )
 
+    raw_query = (
+        "with tab as (select * from "
+        'EXTERNAL_QUERY("my_project.us-east1.my_connection", '
+        '"SELECT account_name FROM ext_schema.usage_report")) select account_name from tab'
+    )
     with patch(
         "datahub.ingestion.source.powerbi.m_query.native_sql_parser.extract_external_queries",
         return_value=native_sql_parser.ExternalQueryExtraction(
             references=[],
-            rewritten_query="SELECT a FROM my_project.my_dataset.native_table",
+            rewritten_query=raw_query,
             parse_failed=True,
         ),
     ):
@@ -1672,12 +1679,11 @@ def test_bigquery_external_query_extraction_failure_still_resolves_native_tables
             platform_instance_resolver=platform_instance_resolver,
         )
 
-    urns = {dpt.urn for dpt in combine_upstreams_from_lineage(lineages)}
-    assert urns == {
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
-    }
-    # Reported exactly once (at extraction); the tolerant native reparse succeeded, so it
-    # must not add a second report for the same root cause.
+    # No upstreams: the federation could not be stripped and the raw query cannot be
+    # resolved to native BigQuery tables.
+    assert combine_upstreams_from_lineage(lineages) == []
+    # Reported exactly once, at extraction time; the native parser is not re-invoked to
+    # re-report the same root cause.
     assert reporter.m_query_external_query_parse_errors == 1
     assert len(reporter.warnings) == 1
 
