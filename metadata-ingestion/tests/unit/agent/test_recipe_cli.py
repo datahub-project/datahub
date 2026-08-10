@@ -51,9 +51,9 @@ def test_probe_error_output_redacts_secret(tmp_path, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("connection failed for account with password s3cr3t")
 
-    monkeypatch.setattr(mod, "run_probe_sql", boom)
+    monkeypatch.setattr(mod, "run_probe_method", boom)
     result = CliRunner().invoke(
-        recipe, ["probe", "sql", "--recipe", str(recipe_file), "SELECT 1"]
+        recipe, ["probe", "run", "columns", "--recipe", str(recipe_file)]
     )
     assert "s3cr3t" not in result.output
     assert "s3cr3t" not in (result.stderr or "")
@@ -77,9 +77,9 @@ def test_probe_error_output_redacts_nested_secret(tmp_path, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("connection failed with client_secret nestedsecret")
 
-    monkeypatch.setattr(mod, "run_probe_sql", boom)
+    monkeypatch.setattr(mod, "run_probe_method", boom)
     result = CliRunner().invoke(
-        recipe, ["probe", "sql", "--recipe", str(recipe_file), "SELECT 1"]
+        recipe, ["probe", "run", "columns", "--recipe", str(recipe_file)]
     )
     assert "nestedsecret" not in result.output
     assert "nestedsecret" not in (result.stderr or "")

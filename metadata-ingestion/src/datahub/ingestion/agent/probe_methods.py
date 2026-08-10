@@ -37,6 +37,13 @@ class ProbeMethodSpec:
     command: str
     params: List[ProbeParam]
     description: str
+    # Names a parameter carrying raw SQL. The framework scope-checks it before
+    # invoking the method, so a provider cannot reach its engine with an
+    # unchecked query even though the query arrives as an ordinary parameter.
+    scoped_sql_param: Optional[str] = None
+    # Names a parameter carrying an API path, checked against the provider's
+    # api_allowlist the same way.
+    scoped_path_param: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -46,7 +53,13 @@ class ProbeMethodSpec:
         }
 
     @classmethod
-    def from_func(cls, fn: Callable, name: Optional[str]) -> "ProbeMethodSpec":
+    def from_func(
+        cls,
+        fn: Callable,
+        name: Optional[str],
+        scoped_sql_param: Optional[str] = None,
+        scoped_path_param: Optional[str] = None,
+    ) -> "ProbeMethodSpec":
         sig = inspect.signature(fn)
         params: List[ProbeParam] = []
         for pname, p in sig.parameters.items():
@@ -72,7 +85,24 @@ class ProbeMethodSpec:
                 f"probe method '{fn.__name__}' must have a docstring — it is the "
                 f"help text shown to users and to the agent"
             )
-        return cls(command=name or fn.__name__, params=params, description=doc)
+        declared = {p.name for p in params}
+        for label, scoped in (
+            ("scoped_sql_param", scoped_sql_param),
+            ("scoped_path_param", scoped_path_param),
+        ):
+            if scoped is not None and scoped not in declared:
+                raise ValueError(
+                    f"probe method '{fn.__name__}' declares {label}='{scoped}' "
+                    f"but has no such parameter; the framework would have "
+                    f"nothing to check"
+                )
+        return cls(
+            command=name or fn.__name__,
+            params=params,
+            description=doc,
+            scoped_sql_param=scoped_sql_param,
+            scoped_path_param=scoped_path_param,
+        )
 
 
 def _resolve_annotation(
@@ -93,7 +123,11 @@ def _resolve_annotation(
     return _TYPE_NAMES[ann], required
 
 
-def probe_method(name: Optional[str] = None) -> Callable[[Callable], Callable]:
+def probe_method(
+    name: Optional[str] = None,
+    scoped_sql_param: Optional[str] = None,
+    scoped_path_param: Optional[str] = None,
+) -> Callable[[Callable], Callable]:
     """Mark a provider method as an agent/CLI probe command.
 
     Command name defaults to the method name (override via ``name``). Non-self
@@ -106,7 +140,11 @@ def probe_method(name: Optional[str] = None) -> Callable[[Callable], Callable]:
     def deco(fn: Callable) -> Callable:
         # setattr (not `fn.__probe_command__ = ...`) because `fn: Callable` has no
         # such attribute — this keeps mypy clean without widening the parameter type.
-        setattr(fn, "__probe_command__", ProbeMethodSpec.from_func(fn, name))  # noqa: B010
+        setattr(  # noqa: B010
+            fn,
+            "__probe_command__",
+            ProbeMethodSpec.from_func(fn, name, scoped_sql_param, scoped_path_param),
+        )
         return fn
 
     return deco
@@ -219,6 +257,43 @@ def _bound_method(provider: object, command: str) -> Callable:
     raise ValueError(f"no probe method bound for command '{command}'")
 
 
+def _enforce_gates(
+    spec: ProbeMethodSpec, provider: object, call_kwargs: Dict[str, object]
+) -> None:
+    """Check a scoped parameter before the provider ever sees it.
+
+    Here rather than inside each getter on purpose: a connector cannot forget a
+    check it does not perform. A getter declares which parameter carries raw SQL
+    or an API path, and the framework is the only thing that gates it -- the same
+    "declare, framework enforces" split as Filters(...) on a config field.
+
+    Needs the live provider, since the dialect and the endpoint allowlist are
+    properties of the connector's client, not of the declaration.
+    """
+    if spec.scoped_sql_param is not None:
+        # Lazy import: the gates pull in sqlglot, which a probe that runs no
+        # queries should not pay for.
+        from datahub.ingestion.agent.sql_gate import check_query_scope
+
+        dialect = getattr(provider, "sql_dialect", None)
+        if not isinstance(dialect, str) or not dialect:
+            raise ValueError(
+                f"probe method '{spec.command}' takes SQL but its provider "
+                f"declares no sql_dialect, so the query cannot be checked"
+            )
+        check_query_scope(str(call_kwargs[spec.scoped_sql_param]), platform=dialect)
+
+    if spec.scoped_path_param is not None:
+        from datahub.ingestion.agent.api_gate import check_api_request
+
+        # GET-only is the rule, so the method is not the caller's to choose.
+        check_api_request(
+            "GET",
+            str(call_kwargs[spec.scoped_path_param]),
+            getattr(provider, "api_allowlist", ()),
+        )
+
+
 def run_probe_method(
     source_type: str,
     config_dict: Dict[str, object],
@@ -237,6 +312,7 @@ def run_probe_method(
     call_kwargs = _coerce_kwargs(specs[command], kwargs)
     config = config_class_for(source_type).model_validate(config_dict)
     with config.build_probe_provider() as provider:
+        _enforce_gates(specs[command], provider, call_kwargs)
         result = _bound_method(provider, command)(**call_kwargs)
         # Optional, source-agnostic: a provider that degrades a sub-fetch
         # instead of failing outright (see agent.probe.ProbeSoftError) may

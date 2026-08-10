@@ -1,7 +1,8 @@
 import itertools
-from typing import Any
+from typing import Any, Dict
 
-from datahub.ingestion.agent.sql_query import SqlRows
+from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.sql_query import sql_result
 
 
 class BigQueryMetadataProbe:
@@ -22,15 +23,18 @@ class BigQueryMetadataProbe:
     def __exit__(self, *exc: object) -> None:
         self._client.close()
 
-    def execute_sql(self, query: str, limit: int) -> SqlRows:
-        """Run an already-scope-checked query. NOT a @probe_method: annotating
-        it would expose raw SQL through `probe run`, skipping the check."""
+    @probe_method(name="sql", scoped_sql_param="query")
+    def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
+        """Run a read-only catalog query. The framework scope-checks `query`
+        before calling this, so only a single SELECT over catalog schemas gets
+        through. Returns columns plus positional rows."""
         # max_results caps what BigQuery pages back, so a broad catalog query
         # does not stream an entire result set to be thrown away.
-        iterator = self._client.query(query).result(max_results=limit)
+        # One past the limit, so truncation is observed not inferred.
+        iterator = self._client.query(query).result(max_results=limit + 1)
         columns = [field.name for field in iterator.schema]
         rows = [
             [row[column] for column in columns]
-            for row in itertools.islice(iterator, limit)
+            for row in itertools.islice(iterator, limit + 1)
         ]
-        return SqlRows(columns=columns, rows=rows)
+        return sql_result(columns, rows, limit)

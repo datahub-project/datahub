@@ -534,6 +534,7 @@ def test_probe_methods_registered():
     # surface, so `probe sql` cannot enumerate it and these are the only way to
     # walk a workspace.
     assert commands == [
+        "api",
         "data_sources",
         "datasets",
         "definitions",

@@ -43,9 +43,13 @@ class ModeProbeSource(ModeSource):
         "GET /definitions",
     )
 
-    def get_json(self, path: str) -> object:
-        """Fetch one already-checked path. NOT a @probe_method: annotating it
-        would put an arbitrary path on `probe run`, skipping the allowlist."""
+    @probe_method(name="api", scoped_path_param="path")
+    def api(self, path: str) -> object:
+        """Fetch one read endpoint from Mode's API, for a question no other
+        getter answers. Only GET, and only a path in api_allowlist above -- the
+        framework checks `path` before calling this. Prefer a typed getter where
+        one exists: it returns the names patterns are matched against, whereas a
+        raw record leaves you guessing which field that is."""
         return self._get_request_json(f"{self.workspace_uri}{path}")
 
     def __exit__(self, *exc: object) -> None:
