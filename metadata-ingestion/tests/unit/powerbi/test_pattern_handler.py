@@ -859,10 +859,11 @@ def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
     )
 
 
-def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
-    """Nav Database blocks splicing schema from a two-part DSN mapping. Three-tier
-    platforms then warn instead of emitting database.table or a fabricated
-    database.schema.table URN.
+def test_odbc_three_tier_database_table_backfills_schema_from_dsn_mapping():
+    """Three-tier nav that supplies Database + Table but omits Schema must backfill
+    the missing schema from dsn_to_database_schema (the nav-supplied database wins
+    over the mapping's first segment), yielding database.schema.table rather than
+    warning and dropping lineage.
     """
     instance = _build_odbc_lineage(
         dsn_to_database_schema={"snow_dsn": "ANALYTICS.PUBLIC"},
@@ -885,11 +886,9 @@ def test_odbc_three_tier_database_table_ignores_two_part_dsn_mapping():
         detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
     )
 
-    assert result.upstreams == []
-    assert any(
-        w.title == "Can not determine qualified table name"
-        for w in instance.reporter.warnings
-    )
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+    ]
 
 
 def test_odbc_two_part_mysql_allows_database_table_fallback():

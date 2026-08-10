@@ -1886,6 +1886,53 @@ class OdbcLineage(AbstractLineage):
 
         return self._transform_lineage_urns(lineage, override_platform_in_urn)
 
+    def _qualify_odbc_navigation_table(
+        self,
+        data_platform: str,
+        database_name: Optional[str],
+        schema_name: Optional[str],
+        table_name: Optional[str],
+        config_database: Optional[str],
+        config_schema: Optional[str],
+    ) -> Optional[str]:
+        """Build the fully-qualified upstream name from an ODBC hierarchical
+        navigation, backfilling tiers missing from navigation with
+        dsn_to_database_schema values (navigation always wins). Returns None when a
+        required tier cannot be resolved, so the caller warns and skips.
+
+        URN shapes mirror each platform's standalone connector:
+          - two-tier (Oracle/Hive): schema.table; any Kind=Database pseudo-catalog is
+            dropped, and a single-segment DSN value is treated as the schema.
+          - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
+            skips rather than emitting a truncated database.table.
+          - Athena: navigation is catalog.database.table, later stripped to
+            database.table by the caller, so its database occupies the schema slot.
+          - everything else (MySQL/Teradata/ClickHouse/...): database.table, and the
+            schema tier is never backfilled to avoid splicing a spurious middle level.
+        """
+        if table_name is None:
+            return None
+
+        if data_platform in ODBC_TWO_TIER_PLATFORMS:
+            schema = schema_name or config_schema or config_database
+            return f"{schema}.{table_name}" if schema else None
+
+        database = database_name or config_database
+        schema = schema_name
+        if schema is None and (
+            data_platform in ODBC_THREE_TIER_PLATFORMS
+            or data_platform
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
+            schema = config_schema
+
+        if database is not None and schema is not None:
+            return f"{database}.{schema}.{table_name}"
+        # Three-tier platforms must not fall back to a truncated database.table.
+        if database is not None and data_platform not in ODBC_THREE_TIER_PLATFORMS:
+            return f"{database}.{table_name}"
+        return None
+
     def expression_lineage(
         self,
         data_access_func_detail: DataAccessFunctionDetail,
@@ -1897,7 +1944,6 @@ class OdbcLineage(AbstractLineage):
         database_name = None
         schema_name = None
         table_name = None
-        qualified_table_name = None
 
         temp_accessor: Optional[IdentifierAccessor] = (
             data_access_func_detail.identifier_accessor
@@ -1923,70 +1969,34 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        # Backfill missing high-order tiers from dsn_to_database_schema (nav wins).
-        # Only the database tier is backfilled here; schema backfill is deferred to
-        # the platform-shape-aware blocks below so that genuine database.table
-        # platforms (MySQL/Teradata/ClickHouse) never get a spurious schema spliced
-        # in from a two-segment mapping. Skip prepending a DSN database onto
-        # Schema+Table for two-tier platforms (Oracle/Hive): that mapping is for SQL
-        # parsing / three-tier project backfill, and would force database.schema.table
-        # URNs that mismatch the standalone connector's default schema.table shape.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
-        if database_name is None:
-            if data_platform not in ODBC_TWO_TIER_PLATFORMS or schema_name is None:
-                database_name = config_database
+        qualified_table_name = self._qualify_odbc_navigation_table(
+            data_platform=data_platform,
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name=table_name,
+            config_database=config_database,
+            config_schema=config_schema,
+        )
 
-        # Three-tier nav can surface Kind=Database + Kind=Table while omitting the
-        # Schema level. The database tier is already populated, so the block above
-        # skips schema backfill; fill it independently here, otherwise the documented
-        # dsn_to_database_schema remediation cannot repair a missing schema and
-        # lineage is dropped as a truncated database.table.
-        if schema_name is None and data_platform in ODBC_THREE_TIER_PLATFORMS:
-            schema_name = config_schema
-
-        # Two-tier nav often surfaces a Kind=Database pseudo-catalog (Hive's "HIVE")
-        # while omitting Schema. The pseudo-catalog is dropped for two-tier platforms,
-        # so the schema must still be backfilled from config even though the database
-        # tier was populated — otherwise the block above skips it and lineage is lost.
-        # Restricted to two-tier so genuine database.table platforms (MySQL/Athena)
-        # never get a spurious schema spliced in.
-        if schema_name is None and data_platform in ODBC_TWO_TIER_PLATFORMS:
-            schema_name = config_schema
-
-        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
-            if schema_name is not None:
-                qualified_table_name = f"{schema_name}.{table_name}"
-            else:
-                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
-                # schema; emitting it would produce a dangling URN. Surface instead.
+        if qualified_table_name is None:
+            if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+                # database_name here is a Kind=Database pseudo-catalog (e.g. Hive's
+                # "HIVE"), not a real schema; emitting it would produce a dangling URN.
                 self.reporter.warning(
                     title="Cannot build two-tier ODBC table name",
                     message="Two-tier ODBC navigation had no schema level; skipping lineage.",
                     context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
                 )
-                return Lineage.empty()
-        elif (
-            database_name is not None
-            and schema_name is not None
-            and table_name is not None
-        ):
-            qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
-        elif (
-            database_name is not None
-            and table_name is not None
-            and data_platform not in ODBC_THREE_TIER_PLATFORMS
-        ):
-            qualified_table_name = f"{database_name}.{table_name}"
-
-        if not qualified_table_name:
-            self.reporter.warning(
-                title="Can not determine qualified table name",
-                message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
-                context=(
-                    f"table-name={self.table.full_name}, data-platform={data_platform}, "
-                    f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
-                ),
-            )
+            else:
+                self.reporter.warning(
+                    title="Can not determine qualified table name",
+                    message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
+                    context=(
+                        f"table-name={self.table.full_name}, data-platform={data_platform}, "
+                        f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
+                    ),
+                )
             return Lineage.empty()
 
         logger.debug(

@@ -1701,6 +1701,29 @@ _ODBC_HIVE_NAV_DATABASE_NO_SCHEMA = (
     "in\n    user_profile_Table"
 )
 
+# Oracle (two-tier) ODBC navigation that surfaces Schema + Table. Oracle URNs are
+# schema.table (OracleSource defaults add_database_name_to_urn=False), so no
+# database tier is prepended.
+_ODBC_ORACLE_NAV_SCHEMA_TABLE = (
+    'let\n    Source = Odbc.DataSource("driver={Oracle in OraClient19Home1};'
+    'dsn=oracle_prod", [HierarchicalNavigation=true]),\n'
+    '    SALES_Schema = Source{[Name="SALES",Kind="Schema"]}[Data],\n'
+    '    ORDERS_Table = SALES_Schema{[Name="ORDERS",Kind="Table"]}[Data]\n'
+    "in\n    ORDERS_Table"
+)
+
+# Oracle (two-tier) ODBC navigation that surfaces a Kind=Database pseudo-catalog
+# and the leaf table but omits Schema. With no dsn_to_database_schema mapping the
+# schema cannot be resolved, so lineage must warn and skip rather than emit a
+# truncated database.table URN.
+_ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA = (
+    'let\n    Source = Odbc.DataSource("driver={Oracle in OraClient19Home1};'
+    'dsn=oracle_prod", [HierarchicalNavigation=true]),\n'
+    '    ORCLPDB_Database = Source{[Name="ORCLPDB",Kind="Database"]}[Data],\n'
+    '    ORDERS_Table = ORCLPDB_Database{[Name="ORDERS",Kind="Table"]}[Data]\n'
+    "in\n    ORDERS_Table"
+)
+
 
 @pytest.mark.integration
 def test_bigquery_odbc_navigation_missing_project_warns():
@@ -1884,6 +1907,41 @@ def test_bigquery_odbc_navigation_wins_over_dsn_mapping():
 
 
 @pytest.mark.integration
+def test_hive_odbc_navigation_single_segment_dsn_mapping_backfills_schema():
+    """Two-tier single-segment backfill: Hive navigation exposes only the leaf
+    table, and a one-part dsn_to_database_schema value supplies the schema. The
+    resolver places a one-part value in the database slot, so the schema.table
+    fallback must read it when no explicit schema segment is present."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_HIVE_NAV_MISSING_SCHEMA,
+        name="user_profile",
+        full_name="product_analytics.user_profile",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"hive_prod": "product_analytics"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
+    )
+
+
+@pytest.mark.integration
 def test_bigquery_odbc_navigation_database_node_backfills_schema_from_dsn_mapping():
     """Three-tier backfill when navigation supplies the Kind=Database node (project)
     and the leaf table but omits the Schema (dataset): the dataset must still be
@@ -1987,6 +2045,71 @@ def test_hive_odbc_navigation_database_node_still_backfills_schema():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_odbc_navigation_schema_table_two_tier_urn():
+    """Oracle two-tier success path: ODBC navigation exposes Schema + Table and the
+    connector emits a schema.table URN (no database tier), matching OracleSource's
+    default add_database_name_to_urn=False shape."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_ORACLE_NAV_SCHEMA_TABLE,
+        name="ORDERS",
+        full_name="SALES.ORDERS",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_odbc_navigation_missing_schema_warns_and_skips():
+    """Oracle two-tier failure path: ODBC navigation exposes a Kind=Database
+    pseudo-catalog and the leaf table but no Schema, and no dsn_to_database_schema
+    mapping is configured. Oracle is schema.table, so no truncated database.table
+    URN must be emitted — lineage is skipped with a warning."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA,
+        name="ORDERS",
+        full_name="SALES.ORDERS",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert "Cannot build two-tier ODBC table name" in warning_titles, (
+        f"Expected the two-tier table-name warning; got: {warning_titles}"
     )
 
 
