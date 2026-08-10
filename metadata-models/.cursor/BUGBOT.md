@@ -14,3 +14,9 @@ mirroring the key), then:
 If GraphQL/OpenAPI exposes a new model field, then:
 - Check resolvers, mappers, and search mappings for follow-through — not just the
   `.pdl` edit.
+
+## Timeseries fields
+
+If timeseries aspects/rows add time or measure fields, then:
+- Flag missing `@TimeseriesField` (and related) annotations.
+- Per-observation attributes (e.g. origin) must not live only on the definition.

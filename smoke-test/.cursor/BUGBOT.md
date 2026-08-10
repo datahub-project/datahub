@@ -12,3 +12,7 @@ If an existing smoke test is tagged `@pytest.mark.release_tests` (not
 `release_tests_extended`), then:
 - High: `smoke.sh` excludes `release_tests`, silently dropping smoke coverage.
 - Body: "Use release_tests_extended for nightly-only extended coverage."
+
+
+If a test registers multiple mocks/intercepts for the same GraphQL/operation, then:
+- Flag flaky mock races; one active mock per operation.

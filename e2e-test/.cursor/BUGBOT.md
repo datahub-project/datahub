@@ -25,3 +25,7 @@ If a suite expects pre-seeded entities but does not set
 `test.use({ featureName: '...' })` and does not self-seed via `apiMock`/API, then:
 - Flag High flaky/missing-data risk.
 - Body: "featureName loads tests/<feature>/fixtures/data.json once per worker."
+
+
+If a test registers multiple mocks/intercepts for the same GraphQL/operation, then:
+- Flag flaky mock races; one active mock per operation.
