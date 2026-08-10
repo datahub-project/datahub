@@ -61,11 +61,10 @@ The --sso flag requires Playwright (pick your package manager):
     uv pip install 'acryl-datahub[sso]'
     pip install 'playwright>=1.40.0'
 
-That is usually all. Login drives the browser your operating system already
-defaults to, so Chrome, Edge and Firefox need nothing downloaded.
+Login opens your default browser. If that is Chrome, Edge or Firefox,
+installing Playwright is all you need.
 
-Only a default Playwright cannot drive — Safari, for instance — needs a browser
-downloaded for it to use instead:
+Safari cannot be automated. If Safari is your default, also run:
     playwright install chromium\
 """
 
