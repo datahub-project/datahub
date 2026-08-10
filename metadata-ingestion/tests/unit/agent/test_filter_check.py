@@ -90,3 +90,29 @@ def test_a_kind_the_config_has_no_pattern_for_is_a_clear_error():
             parent_path=["information_schema"],
             names=TABLES,
         )
+
+
+def test_a_table_with_no_parent_is_judged_on_its_bare_name_with_a_warning():
+    # Without the container the shim would build ".orders" for MySQL (or
+    # "db..orders" for Postgres) -- a string ingestion never evaluates. Reporting
+    # a confident verdict from that is worse than saying the target is degraded.
+    result = check_filters(
+        source_type="mysql",
+        config_dict=MYSQL_CONFIG,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=[],
+        names=["orders"],
+    )
+    assert result.results[0].target == "orders"
+    assert any("bare name" in w for w in result.warnings)
+
+
+def test_the_warning_is_recorded_once_not_per_name():
+    result = check_filters(
+        source_type="mysql",
+        config_dict=MYSQL_CONFIG,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=[],
+        names=["a", "b", "c"],
+    )
+    assert len(result.warnings) == 1

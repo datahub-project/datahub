@@ -71,11 +71,35 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
         # schema override in _structural_verdict, not here.
         return ctx.name
 
+    if not ctx.parent_path:
+        # Without the container we cannot build the identifier ingestion uses:
+        # the shim emits ".orders" for MySQL, "db..orders" for Postgres. A pattern
+        # judged against that is judged against a string ingestion never sees.
+        # Deliberately does not name the object: the reason is connector-wide,
+        # and ClassifyContext.warn dedupes by message so one cause is reported
+        # once rather than once per name judged.
+        ctx.warn(
+            "no parent given, so these were judged on their bare names; this "
+            "source filters on a qualified identifier, so pass the containing "
+            "schema/database to get the verdict ingestion actually makes"
+        )
+        return ctx.name
+
     resolver = getattr(config, "probe_match_target", None)
     if not callable(resolver):
         return ctx.name
     target = resolver(ctx)
-    return target if isinstance(target, str) and target else ctx.name
+    if not isinstance(target, str) or not target:
+        return ctx.name
+    if target.startswith(".") or ".." in target:
+        # A missing component the connector expected. Match on the bare name and
+        # flag it rather than report a verdict from an impossible identifier.
+        ctx.warn(
+            f"could not build a complete identifier for '{ctx.name}' (got "
+            f"'{target}'); judged on its bare name instead"
+        )
+        return ctx.name
+    return target
 
 
 def _structural_verdict(
