@@ -1087,6 +1087,40 @@ def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
     ]
 
 
+def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
+    """Athena's Kind=Database node is only the strippable catalog; without a
+    schema (Athena's real database) the connector must not emit catalog.table —
+    that leading catalog would masquerade as the database and point at the wrong
+    dataset. A one-part dsn mapping fills the catalog slot, not the schema, so it
+    cannot rescue this either: warn and skip instead."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI
