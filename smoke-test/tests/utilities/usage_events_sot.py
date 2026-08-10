@@ -13,6 +13,36 @@ logger = logging.getLogger(__name__)
 
 _SYSTEM_INFO_PATH = "/openapi/v1/system-info/properties/simple"
 _USAGE_EVENTS_PROP = "platformAnalytics.usage-events.implementation"
+_SYSTEM_INFO_TIMEOUT_SEC = 10
+
+# LoginSource enum name ↔ camelCase ``source`` string (see LoginSource.java).
+_LOGIN_SOURCE_ENUM_BY_CANON = {
+    "passwordreset": "PASSWORD_RESET",
+    "passwordlogin": "PASSWORD_LOGIN",
+    "fallbacklogin": "FALLBACK_LOGIN",
+    "signuplinklogin": "SIGN_UP_LINK_LOGIN",
+    "guestlogin": "GUEST_LOGIN",
+    "ssologin": "SSO_LOGIN",
+}
+
+
+def canonicalize_login_source(value: Any | None) -> Optional[str]:
+    """Normalize loginSource to the OpenAPI enum-name form (e.g. PASSWORD_LOGIN)."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    return _LOGIN_SOURCE_ENUM_BY_CANON.get(raw.replace("_", "").lower(), raw)
+
+
+def login_sources_equivalent(actual: Any | None, expected: Any | None) -> bool:
+    """True when values match as enum name or camelCase LoginSource.source."""
+    if expected is None:
+        return True
+    if actual is None:
+        return False
+    return canonicalize_login_source(actual) == canonicalize_login_source(expected)
 
 
 def resolve_usage_events_implementation(
@@ -75,9 +105,13 @@ def _get_system_info_props(
     url = f"{base_url}{_SYSTEM_INFO_PATH}"
     try:
         if auth_session is not None and hasattr(auth_session, "get"):
-            response = auth_session.get(url)
+            try:
+                response = auth_session.get(url, timeout=_SYSTEM_INFO_TIMEOUT_SEC)
+            except TypeError:
+                # Some session wrappers may not forward timeout.
+                response = auth_session.get(url)
         else:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=_SYSTEM_INFO_TIMEOUT_SEC)
         if response.status_code != 200:
             return None
         props = response.json()
@@ -207,7 +241,7 @@ def _search_usage_events_postgres(
         document = row.get("document") or {}
         if not isinstance(document, dict):
             document = {}
-        login_source = document.get("loginSource")
+        login_source = canonicalize_login_source(document.get("loginSource"))
         event = {
             "eventType": row.get("event_type") or document.get("type"),
             "actorUrn": row.get("actor_urn") or document.get("actorUrn"),

@@ -45,7 +45,9 @@ def test_resolve_prefers_gms_over_env(monkeypatch):
     monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
 
     class _Session:
-        def get(self, url):
+        def get(self, url, timeout=None):
+            assert timeout == usage_events_sot._SYSTEM_INFO_TIMEOUT_SEC
+
             class _Resp:
                 status_code = 200
 
@@ -67,8 +69,9 @@ def test_resolve_gms_without_gms_url_method(monkeypatch):
     monkeypatch.delenv("DATAHUB_FRONTEND_URL", raising=False)
 
     class _PlainSession:
-        def get(self, url):
+        def get(self, url, timeout=None):
             assert url.startswith("http://localhost:8080/")
+            assert timeout == usage_events_sot._SYSTEM_INFO_TIMEOUT_SEC
 
             class _Resp:
                 status_code = 200
@@ -90,9 +93,25 @@ def test_resolve_falls_back_to_env_when_gms_unavailable(monkeypatch):
     monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
 
     class _Session:
-        def get(self, url):
+        def get(self, url, timeout=None):
             raise ConnectionError("gms down")
 
     assert (
         usage_events_sot.resolve_usage_events_implementation(_Session()) == "postgres"
+    )
+
+
+def test_canonicalize_login_source_enum_and_camel_case():
+    assert (
+        usage_events_sot.canonicalize_login_source("passwordLogin") == "PASSWORD_LOGIN"
+    )
+    assert (
+        usage_events_sot.canonicalize_login_source("PASSWORD_LOGIN") == "PASSWORD_LOGIN"
+    )
+    assert usage_events_sot.canonicalize_login_source("signUpLinkLogin") == (
+        "SIGN_UP_LINK_LOGIN"
+    )
+    assert usage_events_sot.login_sources_equivalent("passwordLogin", "PASSWORD_LOGIN")
+    assert not usage_events_sot.login_sources_equivalent(
+        "signUpLinkLogin", "PASSWORD_LOGIN"
     )

@@ -13,7 +13,10 @@ from tests.tokens.token_utils import (
     wait_for_no_tokens_matching,
 )
 from tests.utilities.domains import Domain
-from tests.utilities.usage_events_sot import search_usage_events
+from tests.utilities.usage_events_sot import (
+    login_sources_equivalent,
+    search_usage_events,
+)
 from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
@@ -600,7 +603,9 @@ def filter_audit_events(
             continue
         if entity_urn is not None and event.get("entityUrn") != entity_urn:
             continue
-        if login_source is not None and event.get("loginSource") != login_source:
+        if login_source is not None and not login_sources_equivalent(
+            event.get("loginSource"), login_source
+        ):
             continue
         if (
             after_timestamp_ms is not None
