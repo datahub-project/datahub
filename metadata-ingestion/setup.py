@@ -43,6 +43,11 @@ base_requirements = {
     # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
     # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
+    # Floor at 2.5.0 — the highest the airflow-plugin CI
+    # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
+    # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies, keeping this bound Airflow-satisfiable.
+    "urllib3>=2.5.0,<3.0",
 }
 
 gcp_sm_common = {
@@ -198,12 +203,6 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # urllib3 2.x carries security fixes (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441,
-    # CVE-2026-44431), but a 2.x floor is NOT satisfiable for acryl-datahub[all]: the elasticsearch
-    # source extra pins elasticsearch==7.13.4 (held for OpenSearch compat), which requires
-    # urllib3<2. Keep the bound loose here; the 2.x floor is enforced for elasticsearch-free Docker
-    # venvs via docker/snippets/ingestion/constraints.txt.
-    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
