@@ -39,7 +39,7 @@ Durable aggregation lives in Postgres only. This feature does **not** add a new 
 
 **Seal rule:** an hour is sealable when `now >= hour_end + input_lag` (default 900s). Open hours are never watermarked. Day/month compactors only read sealed children.
 
-**Query rule:** product charts use rollups only when requested grain is **≥ hour** and the range is fully sealed; otherwise raw within retention. Sub-hour historical charts require raw retention.
+**Query rule:** product charts use rollups only when requested grain is **≥ hour** and the range is fully sealed; otherwise raw within retention. Sub-hour historical charts require raw retention. Product MAU (`uniqueOn=browserId`) still reads raw until monthly distinct rollups exist for `datahub_usage`, so raw default retention is **1 year** (`DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS`).
 
 ## Progressive compaction
 
