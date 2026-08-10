@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
+from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -156,6 +157,18 @@ class SQLCommonConfig(
         from datahub.ingestion.source.sql.sql_probe import SQL_PROBE
 
         return SQL_PROBE
+
+    def probe_match_target(self, ctx: ClassifyContext) -> str:
+        """The exact string ingestion filters this node's pattern against.
+
+        Routes to sql_probe's get_identifier shim, so the connection-free
+        `probe filter` path and the hierarchy walk resolve the identifier the
+        same single way. Distinct from probe_filter_target below, which is the
+        per-connector *override* that shim consults first.
+        """
+        from datahub.ingestion.source.sql.sql_probe import _identifier_target
+
+        return _identifier_target(ctx)
 
     def probe_filter_target(
         self, schema: str, entity: str, warn: Callable[[str], None]

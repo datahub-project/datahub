@@ -6,6 +6,7 @@ from typing import Dict, List, NoReturn, Optional, Set, Tuple
 import click
 import yaml
 
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe import (
@@ -316,6 +317,70 @@ def probe_methods_cmd(recipe_path: str) -> None:
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: see test_connection -- exception text may embed a resolved
         # secret (validation input_value / connection string password).
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
+
+
+@probe_group.command(name="filter")
+@click.option("--recipe", "recipe_path", required=True)
+@click.option(
+    "--kind",
+    required=True,
+    help="The subtype being judged, e.g. Table, View, Schema, Topic. Selects "
+    "which *_pattern field applies.",
+)
+@click.option(
+    "--parent",
+    "parents",
+    multiple=True,
+    help="Container names above these objects, outermost first. Part of the "
+    "identifier most connectors filter on, so omitting it changes the answer.",
+)
+@click.option(
+    "--names",
+    required=True,
+    help="Comma-separated object names to judge, as returned by `probe sql`.",
+)
+@click.option(
+    "--try-allow",
+    "try_allow",
+    multiple=True,
+    help="Judge against this allow pattern instead of the recipe's, to test a "
+    "change before making it.",
+)
+@click.option("--try-deny", "try_deny", multiple=True, help="As --try-allow, for deny.")
+def probe_filter_cmd(
+    recipe_path: str,
+    kind: str,
+    parents: Tuple[str, ...],
+    names: str,
+    try_allow: Tuple[str, ...],
+    try_deny: Tuple[str, ...],
+) -> None:
+    """Would the recipe's filters keep these objects, and what decided?
+
+    Needs no connection: it judges names you already have. Each result reports
+    the `target` the pattern was matched against, which is usually the
+    qualified identifier rather than the bare name -- that is what explains a
+    pattern matching nothing.
+    """
+    secret_values: Set[str] = set()
+    try:
+        source_type, resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
+        result = check_filters(
+            source_type=source_type,
+            config_dict=resolved,
+            kind=kind,
+            parent_path=list(parents),
+            names=[n.strip() for n in names.split(",") if n.strip()],
+            try_allow=list(try_allow),
+            try_deny=list(try_deny),
+        )
+        _emit(redact(result.to_dict(), secret_values))
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
         _fail(redacted, EXIT_USER)
