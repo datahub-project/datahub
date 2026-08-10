@@ -14,12 +14,12 @@ record UsageFeatures {
   /**
    * Total SQL query count over the last 30 days.
    */
-  queryCountLast30Days: optional int
+  queryCountLast30Days: optional long
 
   /**
    * Unique user count over the last 30 days.
    */
-  uniqueUserCountLast30Days: optional int
+  uniqueUserCountLast30Days: optional long
 
   /**
    * URNs of the top users by query count over the last 30 days.
@@ -29,17 +29,17 @@ record UsageFeatures {
   /**
    * Percentile rank of query count relative to all datasets, over the last 30 days.
    */
-  queryCountPercentileLast30Days: optional float
+  queryCountPercentileLast30Days: optional int
 
   /**
    * Percentile rank of unique user count relative to all datasets, over the last 30 days.
    */
-  uniqueUserPercentileLast30Days: optional float
+  uniqueUserPercentileLast30Days: optional int
 
   /**
    * Blended search ranking multiplier derived from usage signals.
    */
-  combinedSearchRankingMultiplier: optional double
+  combinedSearchRankingMultiplier: optional float
 
   /**
    * Timestamp (epoch ms) of the most recent DML operation on this dataset, pre-computed
