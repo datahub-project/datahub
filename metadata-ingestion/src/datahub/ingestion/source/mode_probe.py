@@ -25,6 +25,29 @@ class ModeProbeSource(ModeSource):
     # which no type checker can see priming an attribute.
     warnings: List[str]
 
+    # Read endpoints `probe api` may reach. These are the listings the getters
+    # below already cover, plus the per-object detail endpoints they do not --
+    # the escape hatch for a question no getter anticipated.
+    #
+    # This does NOT replace the getters. A raw record leaves the caller to guess
+    # which field a pattern is matched against, and for a Space that is the raw
+    # "name" with no token fallback (see _space_pattern_name) -- connector
+    # knowledge a passthrough cannot carry.
+    api_allowlist = (
+        "GET /spaces",
+        "GET /spaces/{token}/reports",
+        "GET /spaces/{token}/datasets",
+        "GET /reports/{token}/queries",
+        "GET /reports/{token}",
+        "GET /data_sources",
+        "GET /definitions",
+    )
+
+    def get_json(self, path: str) -> object:
+        """Fetch one already-checked path. NOT a @probe_method: annotating it
+        would put an arbitrary path on `probe run`, skipping the allowlist."""
+        return self._get_request_json(f"{self.workspace_uri}{path}")
+
     def __exit__(self, *exc: object) -> None:
         self.session.close()
 

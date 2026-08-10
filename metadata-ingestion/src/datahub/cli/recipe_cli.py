@@ -6,6 +6,7 @@ from typing import Dict, NoReturn, Optional, Set, Tuple
 import click
 import yaml
 
+from datahub.ingestion.agent.api_query import run_probe_api
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
@@ -240,6 +241,38 @@ def probe_methods_cmd(recipe_path: str) -> None:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
         _fail(redacted, EXIT_USER)
+
+
+@probe_group.command(name="api")
+@click.argument("method")
+@click.argument("path")
+@click.option("--recipe", "recipe_path", required=True)
+def probe_api_cmd(method: str, path: str, recipe_path: str) -> None:
+    """Fetch one read endpoint from the source's own API.
+
+    Only GET, and only paths the connector lists (exit 2 otherwise). The
+    allowlist is the boundary here -- unlike `probe sql` there is no parser to
+    reason about what a listed endpoint returns.
+    """
+    secret_values: Set[str] = set()
+    try:
+        source_type, resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
+        result = run_probe_api(source_type, resolved, method, path)
+        # SECURITY: normalize to pure JSON types before redacting, so a driver
+        # object nested in the response cannot smuggle a secret past the
+        # redactor (which only inspects str/dict/list values).
+        safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
+        _emit(redact(safe, secret_values))
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
+    except Exception as exc:
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
 
 
 @probe_group.command(name="filter")
