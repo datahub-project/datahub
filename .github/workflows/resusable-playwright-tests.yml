@@ -172,11 +172,13 @@ jobs:
         env:
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
         run: |
           python3 ../../../.github/scripts/shard_playwright_tests.py \
             --tests-dir tests \
             --weights-file playwright_test_weights.json \
             --shard "$SHARD" --shard-count "$SHARD_COUNT" \
+            --workers-per-shard "$WORKERS_PER_SHARD" \
             --output /tmp/playwright-shard-files.txt
 
       - name: Run Playwright tests
