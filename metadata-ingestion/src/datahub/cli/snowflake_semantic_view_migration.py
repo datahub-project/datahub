@@ -627,7 +627,7 @@ def collect_semantic_model_field_governance(
         for schema_field in _schema_metadata_fields(graph, related.urn):
             column_name = _simple_column_name(schema_field.fieldPath)
             field_urn = make_schema_field_urn(
-                semantic_model_urn,
+                related.urn,
                 _semantic_model_field_path(column_name, convert_urns_to_lowercase),
             )
             aspects = graph.get_aspects_for_entity(

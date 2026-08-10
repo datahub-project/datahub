@@ -480,7 +480,12 @@ class SemanticModel(
         # relationships present is full coverage too — the aliases can't match
         # anything, which is exactly the broken case we want to raise on.
         declared_urns = set(self._declared_dataset_urns)
-        full_coverage = declared_urns <= set(attached_by_urn)
+        # Graph-hydrated models do not reverse-lookup member datasets, so an
+        # empty local declaration is coverage-unknown until something is
+        # explicitly attached — otherwise every relationship alias raises.
+        full_coverage = declared_urns <= set(attached_by_urn) and (
+            bool(attached_by_urn) or self._prev_aspects is None
+        )
 
         for rel in rels:
             for alias, columns in (

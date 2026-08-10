@@ -92,10 +92,14 @@ def test_metric_upstream_datasets() -> None:
     assert isinstance(upstreams, MetricUpstreamsClass)
     assert upstreams.datasetUpstreams == [EdgeClass(destinationUrn=smd_urn)]
 
-    metric.add_upstream_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)"
-    )
-    assert len(metric.upstream_datasets) == 2
+    customers_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)"
+    metric.add_upstream_dataset(customers_urn)
+    assert metric.upstream_datasets == [smd_urn, customers_urn]
+    aspects = _aspects_by_name(metric)
+    assert aspects["metricUpstreams"].datasetUpstreams == [
+        EdgeClass(destinationUrn=smd_urn),
+        EdgeClass(destinationUrn=customers_urn),
+    ]
 
 
 def test_metric_name_defaults_to_id() -> None:

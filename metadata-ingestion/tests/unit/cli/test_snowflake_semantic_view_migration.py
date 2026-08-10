@@ -55,7 +55,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    SemanticModelInfoClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
@@ -326,11 +325,6 @@ def _schema_field(
         ),
         jsonProps=json_props,
     )
-
-
-def _semantic_model_info(*dataset_urns: str) -> SemanticModelInfoClass:
-    # Membership is member-side; semanticModelInfo no longer lists datasets.
-    return SemanticModelInfoClass(name="sales_analytics")
 
 
 def _schema_metadata(*fields: SchemaFieldClass) -> SchemaMetadataClass:

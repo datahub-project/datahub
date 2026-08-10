@@ -304,14 +304,15 @@ class Metric(
         Dataset URNs so lineage flows Metric → SMD → Physical Dataset.
         """
         self._ensure_metric_upstreams().datasetUpstreams = [
-            EdgeClass(destinationUrn=str(ds)) for ds in as_input_list(upstream_datasets)
+            EdgeClass(destinationUrn=str(DatasetUrn.from_string(str(ds))))
+            for ds in as_input_list(upstream_datasets)
         ]
 
     def add_upstream_dataset(self, dataset: UpstreamDatasetInputType) -> None:
         upstreams = self._ensure_metric_upstreams()
         if upstreams.datasetUpstreams is None:
             upstreams.datasetUpstreams = []
-        dest = str(dataset)
+        dest = str(DatasetUrn.from_string(str(dataset)))
         if all(edge.destinationUrn != dest for edge in upstreams.datasetUpstreams):
             upstreams.datasetUpstreams.append(EdgeClass(destinationUrn=dest))
 

@@ -508,8 +508,11 @@ def test_metric_entities_emitted_with_derived_from_relationships():
         assert len(upstreams) == 1
         assert upstreams[0].datasetUpstreams is not None
         assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
-    # Derived metric with only metric-to-metric refs has no direct SMD upstreams.
-    assert not _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
+    # Derived metric with only metric-to-metric refs has empty datasetUpstreams
+    # (still emitted so re-ingestion clears any stale server-side edges).
+    avg_upstreams = _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
+    assert len(avg_upstreams) == 1
+    assert avg_upstreams[0].datasetUpstreams == []
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -1585,6 +1588,12 @@ def test_derived_metric_resolves_table_qualified_references():
     assert len(relationships) == 1
     derived_urns = sorted(d.destinationUrn for d in relationships[0].derivedFrom)
     assert derived_urns == sorted([gross_urn, net_urn])
+
+    # Qualified TABLE.METRIC refs must not also become direct Metric → SMD edges;
+    # lineage reaches SMDs transitively via derivedFrom.
+    total_upstreams = _aspects_for(workunits, total_urn, MetricUpstreamsClass)
+    assert len(total_upstreams) == 1
+    assert total_upstreams[0].datasetUpstreams == []
 
 
 def test_primary_key_does_not_leak_across_same_named_columns():
