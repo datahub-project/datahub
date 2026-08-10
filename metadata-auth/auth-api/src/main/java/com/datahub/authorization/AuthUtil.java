@@ -115,6 +115,22 @@ public class AuthUtil {
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Collection<MetadataChangeProposal> mcps) {
+    return isAPIAuthorized(session, apiGroup, entityRegistry, mcps, null);
+  }
+
+  /**
+   * Authorize MCPs with optional entity-existence awareness. When {@code entityExists} is provided,
+   * UPSERT/UPDATE/RESTATE against a non-existent entity use the CREATE privilege path ({@code
+   * CREATE_ENTITY}), and CREATE_ENTITY against an existing entity uses the UPDATE privilege path
+   * ({@code EDIT_ENTITY}) so create-only callers cannot overwrite. PATCH always uses UPDATE ({@code
+   * EDIT_ENTITY}), never CREATE.
+   */
+  public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiGroup apiGroup,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Collection<MetadataChangeProposal> mcps,
+      @Nullable final Map<Urn, Boolean> entityExists) {
 
     List<Pair<Pair<ChangeType, Urn>, MetadataChangeProposal>> changeUrnMCPs =
         mcps.stream()
@@ -134,7 +150,8 @@ public class AuthUtil {
         isAPIAuthorizedUrns(
             session,
             apiGroup,
-            changeUrnMCPs.stream().map(Pair::getFirst).collect(Collectors.toSet()));
+            changeUrnMCPs.stream().map(Pair::getFirst).collect(Collectors.toSet()),
+            entityExists);
 
     return changeUrnMCPs.stream()
         .map(
@@ -150,18 +167,56 @@ public class AuthUtil {
       @Nonnull final AuthorizationSession session,
       @Nonnull final ApiGroup apiGroup,
       @Nonnull final Collection<Pair<ChangeType, Urn>> changeTypeUrns) {
+    return isAPIAuthorizedUrns(session, apiGroup, changeTypeUrns, null);
+  }
+
+  /**
+   * @param entityExists optional map of URN → whether the entity already exists (key aspect
+   *     present). When null, behavior matches the historical change-type-only privilege mapping.
+   *     When non-null, only URNs present as keys use existence-aware remapping; a missing key falls
+   *     back to the historical change-type-only mapping for that URN (does not treat absence as
+   *     "does not exist").
+   */
+  public static Map<Pair<ChangeType, Urn>, Integer> isAPIAuthorizedUrns(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiGroup apiGroup,
+      @Nonnull final Collection<Pair<ChangeType, Urn>> changeTypeUrns,
+      @Nullable final Map<Urn, Boolean> entityExists) {
 
     return changeTypeUrns.stream()
         .distinct()
         .map(
             changeTypePair -> {
               final Urn urn = changeTypePair.getSecond();
+              final boolean existenceKnown = entityExists != null && entityExists.containsKey(urn);
+              final boolean exists = existenceKnown && Boolean.TRUE.equals(entityExists.get(urn));
               switch (changeTypePair.getFirst()) {
                 case CREATE:
+                  // Aspect-level create-if-not-exists: privilege remains EDIT_ENTITY.
+                  if (!isAPIAuthorized(
+                      session,
+                      lookupAPIPrivilege(apiGroup, UPDATE, urn.getEntityType()),
+                      new EntitySpec(urn.getEntityType(), urn.toString()),
+                      Collections.emptyList())) {
+                    return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                  }
+                  break;
                 case UPSERT:
                 case UPDATE:
                 case RESTATE:
+                  {
+                    final ApiOperation apiOperation = existenceKnown && !exists ? CREATE : UPDATE;
+                    if (!isAPIAuthorized(
+                        session,
+                        lookupAPIPrivilege(apiGroup, apiOperation, urn.getEntityType()),
+                        new EntitySpec(urn.getEntityType(), urn.toString()),
+                        Collections.emptyList())) {
+                      return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                    }
+                    break;
+                  }
                 case PATCH:
+                  // PATCH never uses CREATE_ENTITY — always Edit Entity.
                   if (!isAPIAuthorized(
                       session,
                       lookupAPIPrivilege(apiGroup, UPDATE, urn.getEntityType()),
@@ -171,14 +226,18 @@ public class AuthUtil {
                   }
                   break;
                 case CREATE_ENTITY:
-                  if (!isAPIAuthorized(
-                      session,
-                      lookupAPIPrivilege(apiGroup, CREATE, urn.getEntityType()),
-                      new EntitySpec(urn.getEntityType(), urn.toString()),
-                      Collections.emptyList())) {
-                    return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                  {
+                    // Entity must not exist for CREATE_ENTITY privilege; if it exists require EDIT.
+                    final ApiOperation apiOperation = existenceKnown && exists ? UPDATE : CREATE;
+                    if (!isAPIAuthorized(
+                        session,
+                        lookupAPIPrivilege(apiGroup, apiOperation, urn.getEntityType()),
+                        new EntitySpec(urn.getEntityType(), urn.toString()),
+                        Collections.emptyList())) {
+                      return Pair.of(changeTypePair, HttpStatus.SC_FORBIDDEN);
+                    }
+                    break;
                   }
-                  break;
                 case DELETE:
                   if (!isAPIAuthorized(
                       session,

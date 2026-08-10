@@ -391,7 +391,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
                 aspect=initial_info,
             )
         )
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         patch_ops = [
             {
@@ -430,7 +430,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
         )
 
         graph_client.emit_mcp(patch_mcp)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         patched_info = graph_client.get_aspect(assertion_urn, AssertionInfoClass)
         assert patched_info is not None

@@ -804,6 +804,76 @@ class TestMigrateContainers:
         )
         emitter.emit_mcp.assert_not_called()
 
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_skips_containers_missing_subtypes(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """Containers without subTypes must not abort the migration (KeyError)."""
+        from datahub.cli.migrate import _migrate_containers
+
+        mock_get.return_value = [
+            {
+                "urn": "urn:li:container:missing-subtypes",
+                "aspects": {
+                    "containerProperties": {
+                        "value": {
+                            "customProperties": {
+                                "platform": "snowflake",
+                                "instance": "oldinst",
+                                "env": "PROD",
+                                "database": "db1",
+                            }
+                        }
+                    },
+                },
+            }
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+        emitter.emit_mcp.assert_not_called()
+
+    @patch("datahub.cli.migrate._process_container_relationships")
+    @patch("datahub.cli.migration_utils.clone_aspect", return_value=[])
+    @patch("datahub.cli.migrate._get_containers_for_migration")
+    def test_skips_containers_missing_container_properties(
+        self, mock_get: MagicMock, _mock_clone: MagicMock, _mock_rels: MagicMock
+    ) -> None:
+        """Containers without containerProperties are skipped, not crashed."""
+        from datahub.cli.migrate import _migrate_containers
+
+        mock_get.return_value = [
+            {
+                "urn": "urn:li:container:missing-props",
+                "aspects": {
+                    "subTypes": {"value": {"typeNames": ["Database"]}},
+                },
+            },
+            {"urn": "urn:li:container:no-aspects", "aspects": {}},
+        ]
+        emitter = MagicMock()
+        _migrate_containers(
+            env="PROD",
+            platform="snowflake",
+            target_instance="newinst",
+            should_migrate=lambda props: True,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            rest_emitter=emitter,
+        )
+        emitter.emit_mcp.assert_not_called()
+
 
 # --- checkpoint / resume ---
 

@@ -810,7 +810,17 @@ jobs:
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           PYTEST_XDIST_WORKERS: "3"
+          # GMS here runs with a 1s bulk-flush and 1s index refresh interval
+          # (see run-quickstart.sh), so the trailing post-wait sleep can match.
+          # The library default stays conservative for other environments.
+          ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
+          # On a retry, fall back to the conservative aggregate-lag wait. It is
+          # the wrong default (under full concurrent load the lag may never
+          # reach zero) but the right choice here: a retry runs a smaller
+          # filtered set under much less write pressure, so a wait-related
+          # flake gets a second chance with the stronger guarantee.
+          DATAHUB_TEST_FORCE_LEGACY_WAIT: ${{ github.run_attempt > 1 && 'true' || '' }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
             echo "=========================================="
