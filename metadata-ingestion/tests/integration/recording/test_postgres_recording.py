@@ -146,9 +146,7 @@ class TestPostgreSQLRecording:
                 replay_pipeline = Pipeline.create(replay_recipe)
                 replay_pipeline.run()
 
-            # Get replay output file. Derive the directory the same way the
-            # replayer does instead of hardcoding /tmp, so the assertion holds
-            # wherever the temp directory happens to be.
+            # Get replay output file
             replay_output = (
                 Path(tempfile.gettempdir())
                 / "datahub_replay_test-postgres-recording.json"
