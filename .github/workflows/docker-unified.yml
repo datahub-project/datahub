@@ -313,8 +313,11 @@ jobs:
       #
       # cache-read-only defaults to `ref_name != default_branch`, which is the same
       # master-only-write rule the hand-rolled version enforced with an `if:` --
-      # important here, because base_build runs alongside 7 pytest batches and 8
-      # Playwright shards that must not all write.
+      # important here because pytest_tests and playwright_test each fan out into
+      # many concurrent shard jobs sharing this same branch-scoped cache
+      # namespace. Restricting writes to master keeps every PR's shards from also
+      # saving into it, which would churn/evict entries and contribute to
+      # exhausting the repo's 10GB Actions cache budget (see build-cache-1 below).
       #
       # build-cache-1 is excluded: task outputs come from the Depot remote build
       # cache (cache.depot.dev), and including it here is what has been reported to
