@@ -90,7 +90,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # columns. Unlike the schema cache it can hold URNs with no schemaMetadata.
         # Filled by whoever bulk-loads this resolver; with a graph it also resolves
         # references the bulk load never covered, the trade-off resolve_table makes.
-        self.urn_aliases = UrnAliasResolver(graph=graph)
+        self.urn_aliases = UrnAliasResolver(
+            graph=graph, platform_instance=self.platform_instance
+        )
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
