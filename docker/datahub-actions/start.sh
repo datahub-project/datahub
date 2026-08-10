@@ -24,6 +24,17 @@ if [ -d "/home/datahub/.aws-ro/sso/cache" ]; then
     echo "AWS SSO token copy complete."
 fi
 
+# Install anything named by ACTIONS_EXTRA_PACKAGES before starting, so a custom action
+# can bring its own dependencies. Refuses rather than continues when the image cannot
+# install at runtime.
+INSTALL_EXTRA_PACKAGES="${DATAHUB_ACTIONS_INSTALL_EXTRA_PACKAGES_PATH:-/install_extra_packages.sh}"
+if [ -x "$INSTALL_EXTRA_PACKAGES" ]; then
+  "$INSTALL_EXTRA_PACKAGES" || exit 1
+elif [ -n "${ACTIONS_EXTRA_PACKAGES:-}" ]; then
+  echo "ACTIONS_EXTRA_PACKAGES is set but $INSTALL_EXTRA_PACKAGES is missing" >&2
+  exit 1
+fi
+
 # Wait for GMS health (replaces dockerize, which is not always present or on PATH in Wolfi images)
 wait_for_gms_ready() {
   local protocol="${DATAHUB_GMS_PROTOCOL:-http}"
