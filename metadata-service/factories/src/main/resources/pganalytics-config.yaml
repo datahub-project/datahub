@@ -1,6 +1,5 @@
 # Optional pgAnalytics multi-store overlay (DATAHUB_PGANALYTICS_CONFIG_FILE).
-# Empty stub — defaults live in application.yaml.
+# Defaults (product store + datahub_usage routing) live in application.yaml.
+# Mount a file here only to override stores/routing; omit `stores`/`routing` keys you want to keep.
 postgres:
-  pgAnalytics:
-    stores: {}
-    routing: {}
+  pgAnalytics: {}

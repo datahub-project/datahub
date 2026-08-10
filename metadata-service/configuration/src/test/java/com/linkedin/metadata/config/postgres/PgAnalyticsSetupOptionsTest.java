@@ -43,6 +43,37 @@ public class PgAnalyticsSetupOptionsTest {
   }
 
   @Test
+  public void productStore_routesDatahubUsageWithLongerRawRetention() {
+    PostgresSqlSetupProperties props = enabledDefaults();
+    PostgresSqlSetupProperties.PgAnalytics.StoreConfig product =
+        new PostgresSqlSetupProperties.PgAnalytics.StoreConfig();
+    product.setTablePrefix("metadata_analytics_product");
+    PostgresSqlSetupProperties.PgAnalytics.Retention productRetention =
+        new PostgresSqlSetupProperties.PgAnalytics.Retention();
+    productRetention.setRawMaxAgeSeconds(31536000);
+    productRetention.setHourlyMaxAgeSeconds(15552000);
+    productRetention.setDailyMaxAgeSeconds(46656000);
+    productRetention.setMonthlyMaxAgeSeconds(94608000);
+    product.setRetention(productRetention);
+    props.getPgAnalytics().getStores().put("product", product);
+    props.getPgAnalytics().getRouting().put("datahub_usage", "product");
+
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgAnalyticsSetupOptions options = props.buildPgAnalyticsOptions();
+    assertNotNull(options);
+    assertEquals(
+        options.resolveStore("datahub_usage").qualifiedEventTable(),
+        "public.metadata_analytics_product_event");
+    assertEquals(options.resolveStore("datahub_usage").getRawMaxAgeSeconds(), 31536000);
+    assertEquals(
+        options.resolveStore("api_usage").qualifiedEventTable(), "public.metadata_analytics_event");
+    assertEquals(options.resolveStore("api_usage").getRawMaxAgeSeconds(), 7776000);
+    assertEquals(
+        options.resolveStore("system_usage").qualifiedEventTable(),
+        "public.metadata_analytics_event");
+  }
+
+  @Test
   public void namedStore_partialMaintenanceInheritsCronEnabled() {
     PostgresSqlSetupProperties props = enabledDefaults();
     props.getPgAnalytics().getMaintenance().setCronEnabled(true);

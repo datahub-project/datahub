@@ -17,7 +17,10 @@ import pytest
 import requests
 
 from tests.utilities import env_vars
-from tests.utilities.usage_events_sot import resolve_usage_events_implementation
+from tests.utilities.usage_events_sot import (
+    PRODUCT_USAGE_EVENT_TABLE,
+    resolve_usage_events_implementation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +128,8 @@ def _validate_analytics_data_in_postgres() -> None:
             try:
                 with conn.cursor() as cur:
                     cur.execute(
-                        """
-                        SELECT count(*) FROM metadata_analytics_event
+                        f"""
+                        SELECT count(*) FROM {PRODUCT_USAGE_EVENT_TABLE}
                         WHERE metric_family = 'datahub_usage'
                           AND event_type = 'EntitySectionViewEvent'
                           AND upper(entity_type) = 'DATASET'
