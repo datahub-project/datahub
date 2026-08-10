@@ -122,6 +122,46 @@ Only GET, and only paths the connector lists; anything else exits 2. Prefer `pro
 getter exists — it returns the names patterns are matched against, whereas a raw record leaves
 you guessing which field that is.
 
+## Which levels a source has, and in what order
+
+`describe` tells you which config fields gate a hierarchy level. Read `filters` on each pattern
+field — a level-bearing pattern reports the kind it filters, and one that filters something
+outside the hierarchy reports `null`:
+
+```bash
+datahub recipe describe postgres
+```
+
+```
+database_pattern   filters: "Database"
+schema_pattern     filters: "Schema"
+table_pattern      filters: "Table"
+view_pattern       filters: "View"
+procedure_pattern  filters: null      <- a real filter, not a level
+profile_pattern    filters: null
+user_email_pattern filters: null
+```
+
+This matters more than it looks: Snowflake has fifteen pattern fields and only four are levels.
+Guessing from the name would have you editing `procedure_pattern` to fix a missing table.
+
+**Containment order is not machine-readable** — `Database` and `Schema` as names do not say which
+contains which. Use this table, and note that a source's levels are a subset of it:
+
+| family                       | order                                       |
+| ---------------------------- | ------------------------------------------- |
+| Postgres, MSSQL, Snowflake   | Database → Schema → Table/View → Column     |
+| BigQuery                     | Project → Dataset → Table/View → Column     |
+| MySQL and other two-tier SQL | Database → Table/View → Column              |
+| Redshift, most other SQL     | Schema → Table/View → Column                |
+| Kafka                        | Topic                                       |
+| Mode                         | Space → Report → Query, and Space → Dataset |
+
+**You rarely need the order to diagnose something.** Each `probe filter --kind X` answer is
+correct on its own, so to find out why an object was skipped you can check its own kind first and
+then walk outwards — table, then schema, then database — stopping at the first `included: false`.
+Order matters only if you want to enumerate a source top-down.
+
 ## Checking what your filters would do
 
 This is the step most worth not skipping, because **you cannot work it out yourself from the

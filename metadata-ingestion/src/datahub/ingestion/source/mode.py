@@ -35,10 +35,15 @@ from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
-from typing_extensions import Self
+from typing_extensions import Annotated, Self
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
 )
@@ -262,14 +267,16 @@ class ModeConfig(
         "default_schema", month="January", year=2025
     )
 
-    space_pattern: AllowDenyPattern = Field(
+    space_pattern: Annotated[AllowDenyPattern, Filters("Space")] = Field(
         default=AllowDenyPattern(
             deny=["^Personal$"],
         ),
         description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
     )
 
-    report_pattern: AllowDenyPattern = Field(
+    report_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.MODE_REPORT)
+    ] = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns for Mode reports to filter in ingestion. "
         "Matched against the report name. "

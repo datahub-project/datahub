@@ -167,6 +167,20 @@ def _is_json_safe(value: object) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
 
 
+def _declared_filter_kind(field_info: FieldInfo) -> Optional[str]:
+    """The level this field filters, if the config declares one.
+
+    Read only from an explicit Filters(...) annotation, never inferred from the
+    field name: `procedure_pattern` and `profile_pattern` are real filters that
+    gate no hierarchy level, and reversing the name convention would report them
+    as levels.
+    """
+    for meta in field_info.metadata:
+        if isinstance(meta, Filters):
+            return str(meta.kind)
+    return None
+
+
 def _classify(name: str, field_info: FieldInfo) -> FieldSpec:
     kind = _kind_for(field_info.annotation)
     required = field_info.is_required()
@@ -183,6 +197,7 @@ def _classify(name: str, field_info: FieldInfo) -> FieldSpec:
         type_name=_type_name(field_info.annotation),
         default=default,
         description=field_info.description,
+        filters=_declared_filter_kind(field_info),
     )
 
 

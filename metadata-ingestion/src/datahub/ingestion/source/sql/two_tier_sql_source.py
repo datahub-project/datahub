@@ -6,11 +6,13 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.reflection import Inspector
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, SchemaKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -23,7 +25,9 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )

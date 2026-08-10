@@ -206,3 +206,34 @@ def test_no_probe_capable_config_declares_conflicting_hints():
                 if len(names) > 1:
                     conflicts[f"{obj.__name__}:{kind}"] = sorted(names)
     assert not conflicts, conflicts
+
+
+def test_describe_marks_which_pattern_fields_gate_a_level():
+    # The reverse of pattern resolution, and the reason it exists: postgres has
+    # seven AllowDenyPattern fields and only four are hierarchy levels. A caller
+    # walking the source has to tell them apart, and the field name alone does
+    # not say -- procedure_pattern and profile_pattern look exactly like
+    # table_pattern.
+    from datahub.ingestion.agent.introspect import describe_source
+
+    by_name = {f.name: f for f in describe_source("postgres").fields}
+    assert by_name["database_pattern"].filters == "Database"
+    assert by_name["schema_pattern"].filters == "Schema"
+    assert by_name["table_pattern"].filters == "Table"
+    assert by_name["view_pattern"].filters == "View"
+
+    # Real filters, but not levels.
+    assert by_name["profile_pattern"].filters is None
+    assert by_name["procedure_pattern"].filters is None
+    assert by_name["user_email_pattern"].filters is None
+
+
+def test_a_two_tier_source_does_not_report_schema_as_a_level():
+    # MySQL's container is the database; its schema_pattern is vestigial (and
+    # HiddenFromDocs). Reporting it as a level would send a caller to edit a
+    # field that gates nothing.
+    from datahub.ingestion.agent.introspect import describe_source
+
+    by_name = {f.name: f for f in describe_source("mysql").fields}
+    assert by_name["database_pattern"].filters == "Database"
+    assert by_name["schema_pattern"].filters is None

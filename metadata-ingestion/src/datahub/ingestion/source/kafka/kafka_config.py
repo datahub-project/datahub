@@ -1,14 +1,16 @@
 from typing import Dict, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.agent.probe_methods import ProbeProvider
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
@@ -76,7 +78,7 @@ class KafkaSourceConfig(
         default_factory=KafkaConsumerConnectionConfig
     )
 
-    topic_patterns: AllowDenyPattern = Field(
+    topic_patterns: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TOPIC)] = Field(
         default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     )
 

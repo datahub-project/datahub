@@ -31,7 +31,9 @@ from sqlalchemy.engine.reflection import Inspector
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-from datahub.configuration.common import AllowDenyPattern
+from typing_extensions import Annotated
+
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -49,6 +51,7 @@ from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.postgres.lineage import PostgresLineageExtractor
 from datahub.ingestion.source.sql.postgres.query import (
     POSTGRES_SYSTEM_DATABASES,
@@ -138,9 +141,9 @@ class PostgresAuthMode(StrEnum):
 
 class BasePostgresConfig(BasicSQLAlchemyConfig):
     scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern(deny=["information_schema"])
-    )
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(default=AllowDenyPattern(deny=["information_schema"]))
 
     # Authentication configuration
     auth_mode: PostgresAuthMode = Field(
@@ -159,7 +162,9 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
 
 
 class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for databases to filter in ingestion. "

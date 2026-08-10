@@ -40,6 +40,13 @@ class FieldSpec:
     type_name: str
     default: Optional[object]
     description: Optional[str]
+    # For an AllowDenyPattern field, the hierarchy level it filters, when the
+    # config declares one via Filters(...). None means either "not a pattern" or
+    # "a pattern that does not gate a level" -- profile_pattern and
+    # user_email_pattern are real filters but not levels, and a caller walking a
+    # source needs to tell those apart. Never guessed from the field name: a
+    # wrong answer here would send a caller to edit the wrong line.
+    filters: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -49,6 +56,7 @@ class FieldSpec:
             "type_name": self.type_name,
             "default": self.default,
             "description": self.description,
+            "filters": self.filters,
         }
 
 
