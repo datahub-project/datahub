@@ -501,14 +501,18 @@ Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub
    ```
 
 2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
-3. A [personal access token](../../authentication/personal-access-tokens.md)
+3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
+
+:::note
+On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — the self-hosted MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
+:::
 
 ### Connecting & Authenticating
 
 The self-hosted server authenticates via environment variables:
 
 - `DATAHUB_GMS_URL` — your DataHub GMS endpoint
-- `DATAHUB_GMS_TOKEN` — your personal access token
+- `DATAHUB_GMS_TOKEN` — your personal access token; omit it if Metadata Service Authentication is disabled on your instance
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
