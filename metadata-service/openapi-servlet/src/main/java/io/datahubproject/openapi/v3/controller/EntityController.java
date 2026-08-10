@@ -3,7 +3,6 @@ package io.datahubproject.openapi.v3.controller;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
@@ -433,22 +432,12 @@ public class EntityController
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(
-        opContext, UPDATE, List.of(entityName))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
+    // Per-URN auth after toMCPBatch (existence-aware + domains). Do not gate on type-level
+    // UPDATE: EntitySpec(type, "") has no DOMAIN field, so domain-scoped edit policies cannot
+    // match a type-only check (same rationale as create paths dropping type-level CREATE).
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
-    // Existence-aware document CREATE/UPDATE for PATCH of missing document URNs.
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
-        opContext,
-        UPDATE,
-        batch.getItems().stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
+    assertBatchItemsAuthorized(opContext, authentication, batch.getItems());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -506,12 +495,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedWriteEntityTypes(opContext, CREATE, entityTypes)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     // Build a single batch containing all entities from all types by combining individual batches
+    // (per-URN auth below; no type-level CREATE — domain-scoped policies cannot match empty URN).
     List<BatchItem> allBatchItems = new ArrayList<>();
 
     for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
@@ -524,21 +509,13 @@ public class EntityController
       allBatchItems.addAll(entityTypeBatch.getItems());
     }
 
-    // Existence-aware document CREATE/UPDATE after URNs are known from the batch.
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
-        opContext,
-        CREATE,
-        allBatchItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     // Create a combined batch with all items
     AspectsBatch batch =
         AspectsBatchImpl.builder()
             .items(allBatchItems)
             .retrieverContext(opContext.getRetrieverContext())
             .build(opContext);
+    assertBatchItemsAuthorized(opContext, authentication, allBatchItems);
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     // Group results by entity type for response structure

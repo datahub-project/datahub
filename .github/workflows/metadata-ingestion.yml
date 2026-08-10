@@ -181,6 +181,10 @@ jobs:
           source metadata-ingestion/venv/bin/activate
           python metadata-ingestion/scripts/selective_ci_checks.py --validate
       - name: Run metadata-ingestion tests
+        env:
+          # Covers the selective connector jobs below, which invoke pytest directly and
+          # so never pick up the PYTHONFAULTHANDLER set in metadata-ingestion/build.gradle.
+          PYTHONFAULTHANDLER: "1"
         run: |
           # matrix.command is set for Gradle batch jobs (testQuick, testIntegrationBatch*)
           # For selective connector tests, test_path and connector come from the dynamic matrix

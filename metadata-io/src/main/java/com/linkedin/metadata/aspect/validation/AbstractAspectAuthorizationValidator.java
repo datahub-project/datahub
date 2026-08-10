@@ -97,4 +97,13 @@ public abstract class AbstractAspectAuthorizationValidator extends AspectPayload
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    return Stream.empty();
+  }
 }

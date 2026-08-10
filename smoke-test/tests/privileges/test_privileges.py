@@ -54,7 +54,7 @@ def privileges_and_test_user_setup(admin_session):
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Verify clean state
     logger.info("=" * 80)
@@ -101,7 +101,7 @@ def privileges_and_test_user_setup(admin_session):
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
 
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 @with_test_retry(max_attempts=10)
@@ -389,7 +389,7 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
     # Create a access token
     _ensure_can_create_access_token(user_session, create_access_token)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # List access tokens first to get token id
     list_access_tokens = {

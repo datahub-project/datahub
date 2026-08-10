@@ -89,7 +89,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
           // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
           // catches it without needing a new keyword in SENSITIVE_PATTERNS.
-          "ingestion.cliVersionMatrix.http.authToken");
+          "ingestion.cliVersionMatrix.authToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -535,6 +535,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
           "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           "datahub.usage.aggregation.flush.includeAgentNameDimension",
+          // Post-commit retention buffer (coalesce + drain)
+          "datahub.retention.buffer.mapName",
+          "datahub.retention.buffer.lockMapName",
+          "datahub.retention.buffer.maxPendingEntries",
+          "datahub.retention.buffer.drainBatchSize",
+          "datahub.retention.buffer.drainIntervalMs",
+          "datahub.retention.buffer.drainLockLeaseMs",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
@@ -544,6 +551,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.datasetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
+          "featureFlags.postCommitRetentionEnabled",
+          "featureFlags.retentionBufferEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
@@ -592,6 +601,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.i18nEnabled",
           "featureFlags.timeseriesAspectBatchLoadEnabled",
           "featureFlags.timeseriesAspectAggBatchLoadEnabled",
+          "featureFlags.entityHealthBatchLoadEnabled",
           "featureFlags.datasetStatsSummaryBatchLoadEnabled",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
@@ -854,9 +864,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.deploymentId",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
-          "ingestion.cliVersionMatrix.http.refreshSeconds",
-          "ingestion.cliVersionMatrix.http.url",
-          "ingestion.cliVersionMatrix.source",
+          "ingestion.cliVersionMatrix.refreshSeconds",
+          // Storage location of the matrix document (s3://, gs://, file://, http(s)://).
+          // Non-sensitive,
+          // matching the existing datahub.objectStorage.uri classification.
+          "ingestion.cliVersionMatrix.uri",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
@@ -934,6 +946,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.schemaFieldsFromSchemaMetadata.delayMs",
           "systemUpdate.schemaFieldsFromSchemaMetadata.enabled",
           "systemUpdate.schemaFieldsFromSchemaMetadata.limit",
+          "systemUpdate.schemaFieldsFromSchemaMetadata.reprocess.enabled",
           "systemUpdate.waitForSystemUpdate",
           "systemUpdate.entityConsistency.checkIds",
           "systemUpdate.entityConsistency.dryRun",
@@ -951,6 +964,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.sideEffects.aliases.enabled",
           "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
           "metadataChangeProposal.sideEffects.schemaField.enabled",
+          "metadataChangeProposal.sideEffects.schemaField.domain.enabled",
+          "metadataChangeProposal.sideEffects.schemaField.ownership.enabled",
           "metadataChangeProposal.throttle.components.apiRequests.enabled",
           "metadataChangeProposal.throttle.components.mceConsumer.enabled",
           "metadataChangeProposal.throttle.timeseries.enabled",
