@@ -1,9 +1,25 @@
 from typing import Dict, List, Optional
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.sql_query import SqlRows
+
+# SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
+# name is passed through so the scope check refuses it rather than guessing a
+# grammar (see sql_gate._resolve_dialect).
+_SQLALCHEMY_TO_SQLGLOT_DIALECT: Dict[str, str] = {
+    "postgresql": "postgres",
+    "awsathena": "athena",
+    "teradatasql": "teradata",
+}
+
+
+def sqlglot_dialect_for(sqlalchemy_dialect_name: str) -> str:
+    return _SQLALCHEMY_TO_SQLGLOT_DIALECT.get(
+        sqlalchemy_dialect_name, sqlalchemy_dialect_name
+    )
 
 
 class SqlAlchemyMetadataProbe:
@@ -16,6 +32,22 @@ class SqlAlchemyMetadataProbe:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
         self._insp = inspect(engine)
+
+    @property
+    def sql_dialect(self) -> str:
+        return sqlglot_dialect_for(self._engine.dialect.name)
+
+    def execute_sql(self, query: str, limit: int) -> SqlRows:
+        """Run a catalog query. NOT a @probe_method on purpose: annotating it
+        would expose raw SQL through `probe run`, bypassing the scope check.
+        agent.sql_query.execute_scoped_sql is the only supported caller, and it
+        checks the query before reaching this method."""
+        with self._engine.connect() as conn:
+            result = conn.execute(text(query))
+            rows = result.fetchmany(limit)
+            return SqlRows(
+                columns=list(result.keys()), rows=[list(row) for row in rows]
+            )
 
     def __enter__(self) -> "SqlAlchemyMetadataProbe":
         return self

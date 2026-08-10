@@ -26,6 +26,7 @@ from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
 )
+from datahub.ingestion.agent.sql_query import run_probe_sql
 
 EXIT_OK = 0
 EXIT_INTERNAL = 1
@@ -318,6 +319,59 @@ def probe_methods_cmd(recipe_path: str) -> None:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
         _fail(redacted, EXIT_USER)
+
+
+@probe_group.command(name="sql")
+@click.argument("query")
+@click.option("--recipe", "recipe_path", required=True)
+@click.option(
+    "--limit",
+    default=50,
+    type=int,
+    help="Maximum rows to return. One row beyond this is read so `truncated` "
+    "reports whether more exist.",
+)
+@click.option(
+    "--report-to",
+    "report_to",
+    default=None,
+    help="Write the redacted result as JSON to this file, in addition to stdout.",
+)
+def probe_sql_cmd(
+    query: str, recipe_path: str, limit: int, report_to: Optional[str]
+) -> None:
+    """Run a read-only catalog query against the recipe's source.
+
+    Only single SELECT statements over the dialect's catalog schemas are
+    permitted; anything else is refused before the connector sees it (exit 2).
+    The check narrows what a query can touch -- it is not a security boundary,
+    so the recipe should authenticate as a read-only role.
+    """
+    secret_values: Set[str] = set()
+    try:
+        source_type, resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
+        result = run_probe_sql(source_type, resolved, query, limit)
+        # SECURITY: normalize to pure JSON types before redacting, so a driver
+        # object nested in a row cannot smuggle a secret past the redactor
+        # (which only inspects str/dict/list values).
+        safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
+        payload = redact(safe, secret_values)
+        if report_to:
+            with open(report_to, "w") as f:
+                json.dump(payload, f)
+        _emit(payload)
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        # A refused query lands here: SqlScopeError is a ValueError, so a scope
+        # rejection reads as bad input rather than an unreachable source.
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
+    except Exception as exc:
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
 
 
 @probe_group.command(

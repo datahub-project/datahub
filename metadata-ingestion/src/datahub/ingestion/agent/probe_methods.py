@@ -147,7 +147,7 @@ class ProbeMethodResult:
 # Returns the connector's config class. Typed Any because get_config_class is
 # injected by the @config_class decorator at runtime — mypy can't see it, nor the
 # pydantic model API (model_validate) / probe_provider_class contract on the result.
-def _config_class(source_type: str) -> Any:
+def config_class_for(source_type: str) -> Any:
     from datahub.ingestion.source.source_registry import source_registry
 
     try:
@@ -164,7 +164,7 @@ def _config_class(source_type: str) -> Any:
 
 
 def _provider_class(source_type: str) -> Optional[type]:
-    getter = getattr(_config_class(source_type), "probe_provider_class", None)
+    getter = getattr(config_class_for(source_type), "probe_provider_class", None)
     return getter() if callable(getter) else None
 
 
@@ -235,7 +235,7 @@ def run_probe_method(
             f"available: {', '.join(sorted(specs)) or '(none)'}"
         )
     call_kwargs = _coerce_kwargs(specs[command], kwargs)
-    config = _config_class(source_type).model_validate(config_dict)
+    config = config_class_for(source_type).model_validate(config_dict)
     with config.build_probe_provider() as provider:
         result = _bound_method(provider, command)(**call_kwargs)
         # Optional, source-agnostic: a provider that degrades a sub-fetch

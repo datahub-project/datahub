@@ -144,7 +144,7 @@ def _patch(monkeypatch):
     import datahub.ingestion.agent.probe_methods as pm
 
     monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProvider)
-    monkeypatch.setattr(pm, "_config_class", lambda st: _FakeConfig)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
     return pm
 
 
@@ -207,7 +207,7 @@ def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
     import datahub.ingestion.agent.probe_methods as pm
 
     monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProviderWithWarnings)
-    monkeypatch.setattr(pm, "_config_class", lambda st: _FakeConfigWithWarnings)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfigWithWarnings)
     res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
     assert res.warnings == [
         "definitions listing returned HTTP 403; treating it as empty."
@@ -215,8 +215,8 @@ def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
 
 
 def test_list_probe_methods_unknown_source_raises_value_error():
-    # Exercises the real registry (no _config_class/_provider_class monkeypatch)
-    # so the KeyError -> ValueError guard in _config_class is actually hit.
+    # Exercises the real registry (no config_class_for/_provider_class monkeypatch)
+    # so the KeyError -> ValueError guard in config_class_for is actually hit.
     with pytest.raises(ValueError):
         list_probe_methods("definitely_not_a_source")
 
