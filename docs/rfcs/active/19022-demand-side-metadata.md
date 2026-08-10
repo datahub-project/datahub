@@ -30,7 +30,7 @@ emitter.emit(MetadataChangeProposalWrapper(
         requesters=[DemandRequesterClass(
             requestId="query-log:2026-08-09T12:15:35Z:revenue-copilot",
             requester="urn:li:corpuser:revenue-copilot",
-            requestedAt=1786261735023,
+            requestedAt=1786277735000,
             query="SELECT segment, month, SUM(mrr) FROM ? GROUP BY segment, month",
             neededFields=["segment", "month", "mrr"],
             source="query-log",
@@ -157,7 +157,13 @@ evidence than demand emitted by an authenticated client, and a reader must be ab
 the two apart without inspecting the emitter. `requestId` is mandatory so that an emitter
 retry replaces its own prior entry instead of counting as a second requester; it is
 opaque to DataHub and the emitter defines what makes two requests "the same" (e.g. a
-query-log offset or a hash of actor + want + time bucket). `query`, when populated, must
+query-log offset or a hash of actor + want + time bucket). Because it is opaque and
+source-local, it is **not globally unique**: two collectors can legitimately mint the same
+value, and deduplicating on `requestId` alone would let one collector's retry silently
+overwrite another collector's real request. The de-duplication key is therefore the pair
+`(collector, requestId)`, which presumes the collector is modelled as an identity in its own
+right — see the open question below on who may assert a `requester`, since these are the same
+question seen from two directions. `query`, when populated, must
 be redacted of literals before emission — the aspect stores a query shape for provenance,
 not a queryable copy of user data.
 
