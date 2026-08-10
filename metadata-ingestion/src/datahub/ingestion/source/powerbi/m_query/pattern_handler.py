@@ -1935,6 +1935,15 @@ class OdbcLineage(AbstractLineage):
             if schema_name is None:
                 schema_name = config_schema
 
+        # Two-tier nav often surfaces a Kind=Database pseudo-catalog (Hive's "HIVE")
+        # while omitting Schema. The pseudo-catalog is dropped for two-tier platforms,
+        # so the schema must still be backfilled from config even though the database
+        # tier was populated — otherwise the block above skips it and lineage is lost.
+        # Restricted to two-tier so genuine database.table platforms (MySQL/Athena)
+        # never get a spurious schema spliced in.
+        if schema_name is None and data_platform in ODBC_TWO_TIER_PLATFORMS:
+            schema_name = config_schema
+
         if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
             if schema_name is not None:
                 qualified_table_name = f"{schema_name}.{table_name}"

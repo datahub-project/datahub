@@ -770,9 +770,10 @@ def test_odbc_three_tier_platform_keeps_database():
 
 def test_odbc_two_tier_platform_with_no_schema():
     """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
-    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
-    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
-    must be skipped with a warning instead."""
+    Schema level, and no dsn_to_database_schema mapping to supply one, must NOT fall
+    through to ``database.table`` — that pseudo-catalog (e.g. "HIVE") is not a real
+    schema and would yield a dangling URN. The lineage must be skipped with a
+    warning instead."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -796,6 +797,36 @@ def test_odbc_two_tier_platform_with_no_schema():
         w.title == "Cannot build two-tier ODBC table name"
         for w in instance.reporter.warnings
     )
+
+
+def test_odbc_two_tier_platform_database_node_backfills_schema_from_dsn():
+    """Two-tier nav that surfaces the Kind=Database pseudo-catalog ("HIVE") but no
+    Schema must still backfill the schema from dsn_to_database_schema (the database
+    tier being populated must not strand the schema backfill), yielding
+    ``schema.table`` with the pseudo-catalog dropped."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"hive_dsn": "hive_catalog.product_analytics"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn="hive_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
 
 
 def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():

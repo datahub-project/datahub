@@ -1668,6 +1668,17 @@ _ODBC_HIVE_NAV_MISSING_SCHEMA = (
     "in\n    user_profile_Table"
 )
 
+# Real-world Hive (two-tier) ODBC navigation: it surfaces the Kind=Database
+# pseudo-catalog ("HIVE") but no Schema level. The schema must still be backfilled
+# from dsn_to_database_schema even though the database tier is already populated.
+_ODBC_HIVE_NAV_DATABASE_NO_SCHEMA = (
+    'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};'
+    'server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n'
+    '    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n'
+    '    user_profile_Table = HIVE_Database{[Name="user_profile",Kind="Table"]}[Data]\n'
+    "in\n    user_profile_Table"
+)
+
 
 @pytest.mark.integration
 def test_bigquery_odbc_navigation_missing_project_warns():
@@ -1859,6 +1870,40 @@ def test_hive_odbc_navigation_schema_from_dsn_mapping():
         columns=[],
         measures=[],
         expression=_ODBC_HIVE_NAV_MISSING_SCHEMA,
+        name="user_profile",
+        full_name="product_analytics.user_profile",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_hive_odbc_navigation_database_node_still_backfills_schema():
+    """Two-tier backfill when navigation supplies the Kind=Database pseudo-catalog
+    ("HIVE") but omits Schema: the configured schema must still be backfilled and the
+    pseudo-catalog dropped, yielding schema.table rather than warning and skipping."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_HIVE_NAV_DATABASE_NO_SCHEMA,
         name="user_profile",
         full_name="product_analytics.user_profile",
     )
