@@ -23,6 +23,14 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
 
+#### Missing Connections
+
+By default, only Airbyte connections with Public API `status: active` are ingested.
+Inactive connections are skipped with no warning. If a connection is visible and healthy
+in the Airbyte UI but missing from DataHub, confirm the Public API reports
+`status: "active"` for that connection id. To ingest inactive connections as well, set
+`include_inactive_connections: true` in the recipe.
+
 #### Authentication Errors
 
 Verify that your OAuth2 client credentials are correct and have not expired. For OSS deployments, confirm the API is reachable at the `/api/public/v1` path prefix.

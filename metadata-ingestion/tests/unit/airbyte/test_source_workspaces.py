@@ -122,7 +122,9 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
 
     mock_client.list_workspaces.assert_called_once()
     mock_client.list_connections.assert_called_once_with(
-        "workspace-1", pattern=AllowDenyPattern.allow_all()
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=False,
     )
     mock_client.get_connection.assert_called_once_with("connection-1")
     mock_client.get_source.assert_called_once_with("source-1")
@@ -189,6 +191,35 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     source = AirbyteSource(config, mock_ctx)
     pipelines = list(source._get_pipelines())
     assert len(pipelines) == 0
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_get_pipelines_passes_include_inactive_connections(
+    mock_create_client, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+        include_inactive_connections=True,
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-1",
+        name="Test Workspace",
+    )
+    mock_client.list_workspaces.return_value = [workspace]
+    mock_client.list_connections.return_value = []
+
+    list(source._get_pipelines())
+
+    mock_client.list_connections.assert_called_once_with(
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=True,
+    )
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")

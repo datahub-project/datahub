@@ -27,6 +27,7 @@ source:
     extract_column_level_lineage: true # Extract column-level lineage information
     include_statuses: true             # Include connection job statuses
     job_statuses_limit: 100            # Max number of job statuses to retrieve
+    # include_inactive_connections: false  # Opt in to ingest inactive Airbyte connections
     
     # Lineage emission mode
     incremental_lineage: true          # Emit lineage as patch (incremental) rather than full replacement

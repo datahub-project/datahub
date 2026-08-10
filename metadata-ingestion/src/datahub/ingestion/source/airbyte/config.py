@@ -263,6 +263,14 @@ class AirbyteSourceConfig(
         "Use this to override platform details for specific destinations.",
     )
 
+    include_inactive_connections: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Airbyte connections whose Public API status is "
+            "'inactive'. Default false preserves existing behavior (active only)."
+        ),
+    )
+
     include_statuses: bool = Field(
         default=True,
         description="Whether to ingest run statuses",
