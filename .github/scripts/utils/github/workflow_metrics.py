@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from typing import Any
 from utils.datetime_utils import parse_dt, duration_seconds
 
+# Events where pull_requests[].base.ref is a meaningful PR base branch.
+_PR_TRIGGER_EVENTS = frozenset({"pull_request", "pull_request_target"})
+
 
 @dataclass
 class StepMetrics:
@@ -101,6 +104,7 @@ class WorkflowMetrics:
     triggering_actor: str | None
     pull_request_number: int | None
     pull_request_url: str | None
+    base_branch: str | None
     head_branch: str | None
     head_sha: str | None
     conclusion: str | None
@@ -120,19 +124,26 @@ class WorkflowMetrics:
     ) -> "WorkflowMetrics":
         run_started = parse_dt(data.get("run_started_at"))
         run_completed = parse_dt(data.get("updated_at"))
-        # pull_requests is populated only when the triggering event is pull_request
+        trigger_event = data.get("event")
         pr = (data.get("pull_requests") or [None])[0]
         actor_obj: dict[str, Any] = data.get("actor") or {}
         triggering_actor_obj: dict[str, Any] = data.get("triggering_actor") or {}
+        # PR-trigger-only: GitHub can associate open PRs with push/etc. runs too
+        base_branch = (
+            (pr.get("base") or {}).get("ref")
+            if pr and trigger_event in _PR_TRIGGER_EVENTS
+            else None
+        )
         return cls(
             id=data.get("workflow_id"),
             name=data.get("name"),
             run_id=run_id,
-            trigger_event=data.get("event"),
+            trigger_event=trigger_event,
             actor=actor_obj.get("login"),
             triggering_actor=triggering_actor_obj.get("login"),
             pull_request_number=pr.get("number") if pr else None,
             pull_request_url=pr.get("url") if pr else None,
+            base_branch=base_branch,
             head_branch=data.get("head_branch"),
             head_sha=data.get("head_sha"),
             conclusion=data.get("conclusion"),

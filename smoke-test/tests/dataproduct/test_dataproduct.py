@@ -185,7 +185,7 @@ def test_create_data_product(graph_client, ingest_cleanup_data):
         dataset_urns
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     validate_listing(graph_client, data_product_urn, dataset_urns)
     validate_relationships(graph_client, data_product_urn, dataset_urns)
@@ -199,7 +199,7 @@ def test_create_data_product(graph_client, ingest_cleanup_data):
             "description": "New Description",
         },
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Data Product Properties
     data_product_props = graph_client.get_aspect(

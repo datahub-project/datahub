@@ -62,6 +62,7 @@ public class AggregationQueryBuilderTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(CachingAspectRetriever.class);
@@ -94,6 +95,19 @@ public class AggregationQueryBuilderTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinition.data()))));
+
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
 
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
@@ -447,6 +461,28 @@ public class AggregationQueryBuilderTest {
             "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
             "structuredProperties.hello.keyword",
             DEFAULT_FILTER));
+  }
+
+  @Test
+  public void testAggregateOverUrnStructuredProperty() {
+    // URN SPs aggregate on the parent keyword field — no .keyword subfield.
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+            List.of("structuredProperties.steward"));
+    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.steward", DEFAULT_FILTER));
   }
 
   @Test

@@ -111,7 +111,7 @@ def _assert_page_not_slowed_by_scale(
     baseline_median = _median(timed_fn())
 
     scale_setup()
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(3)
 
     timed_fn()
@@ -314,7 +314,7 @@ def test_domains_page_perf_with_domain_scoped_policies(
             },
         )
         dataset_urns = _ingest_perf_datasets(graph_client, child_domain_urn, run_id)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
         time.sleep(3)
 
         user_session = login_as(PERF_USER_EMAIL, PERF_USER_PASSWORD)

@@ -39,7 +39,8 @@ background: ${props.theme.colors.bgSelectedSubtle};
  `
             : `
  &:hover {
-background-color: ${props.theme.colors.bg};
+background-color: ${props.theme.colors.bgHover};
+        box-shadow: ${props.theme.colors.shadowFocus};
  }
  `}
 

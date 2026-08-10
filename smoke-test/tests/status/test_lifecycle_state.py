@@ -283,7 +283,7 @@ class TestLifecycleStageAPIs:
         """
         stage_name = f"TestStage {_unique_id()}"
         stage_urn = self._ingest_stage(stage_name, hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_listed():
@@ -309,13 +309,13 @@ class TestLifecycleStageAPIs:
         Status aspect reflects it.
         """
         stage_urn = self._ingest_stage("MutationTest", hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Mutation Test {_unique_id()}"
         doc_id = _unique_id("lc-mut")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         result = execute_graphql(
             auth_session,
@@ -326,7 +326,7 @@ class TestLifecycleStageAPIs:
             f"setLifecycleStage errors: {result.get('errors')}"
         )
         assert result["data"]["setLifecycleStage"] is True
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         status = _get_status(auth_session, urn)
         assert status.get("lifecycleStage") == stage_urn, (
@@ -341,7 +341,7 @@ class TestLifecycleStageAPIs:
         )
         assert "errors" not in result
         assert result["data"]["setLifecycleStage"] is True
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         status = _get_status(auth_session, urn)
         assert status.get("lifecycleStage") is None
@@ -353,13 +353,13 @@ class TestLifecycleStageAPIs:
         search (global search bar). Clearing the stage restores visibility.
         """
         stage_urn = self._ingest_stage("HiddenStage", hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Search Test {_unique_id()}"
         doc_id = _unique_id("lc-search")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible():
@@ -369,7 +369,7 @@ class TestLifecycleStageAPIs:
         _assert_visible()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_hidden():
@@ -382,7 +382,7 @@ class TestLifecycleStageAPIs:
         logger.info("Hidden stage excludes entity from cross-entity search")
 
         _set_lifecycle_stage_via_rest(auth_session, urn, None)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_again():
@@ -398,13 +398,13 @@ class TestLifecycleStageAPIs:
         (searchDocuments) even when the doc is in a hideInSearch=true stage.
         """
         stage_urn = self._ingest_stage("HiddenOwnerStage", hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Owner Test {_unique_id()}"
         doc_id = _unique_id("lc-owner")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_before():
@@ -414,7 +414,7 @@ class TestLifecycleStageAPIs:
         _assert_visible_before()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_still_visible_to_owner():
@@ -446,13 +446,13 @@ class TestLifecycleStageAPIs:
             entity_types=["dataset", "document"],
         )
         self.created_stage_urns.append(stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Visible Test {_unique_id()}"
         doc_id = _unique_id("lc-vis")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_before():
@@ -462,7 +462,7 @@ class TestLifecycleStageAPIs:
         _assert_visible_before()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_still_visible():
@@ -498,13 +498,13 @@ class TestLifecycleStageAPIs:
             entity_types=["dataset", "document"],
         )
         self.created_stage_urns.append(draft_stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Draft Test {_unique_id()}"
         doc_id = _unique_id("lc-draft")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_before():
@@ -514,7 +514,7 @@ class TestLifecycleStageAPIs:
         _assert_visible_before()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, draft_stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_hidden_from_owner():
