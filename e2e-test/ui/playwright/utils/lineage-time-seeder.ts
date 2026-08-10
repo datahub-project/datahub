@@ -31,7 +31,21 @@ import { gmsUrl } from './constants';
 import type { DataHubLogger } from './logger';
 import { withArtifactLock, writeJsonAtomic } from '../helpers/seeder-utils';
 
-const STATE_FILE = path.join(__dirname, '../.seeded/lineage-time-range.json');
+/**
+ * Run-scoped so cross-worker dedupe lasts for one `npx playwright test`
+ * invocation only. Timestamps in this seeder are relative to Date.now(); a
+ * sticky `.seeded/lineage-time-range.json` would skip reseeding on later local
+ * runs and leave stale absolute edges that break moving-window assertions.
+ *
+ * Shared across workers via CI run id+attempt, or the Playwright runner's pid
+ * (workers are child processes of that runner).
+ */
+function lineageTimeRangeStateFile(): string {
+  const runId = process.env.GITHUB_RUN_ID
+    ? `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}`
+    : `ppid-${process.ppid}`;
+  return path.join(__dirname, '../.seeded', `lineage-time-range-${runId}.json`);
+}
 
 // ── Timestamp helpers ─────────────────────────────────────────────────────────
 
@@ -203,8 +217,10 @@ async function ingestProposal(
 // ── Public seeding entry point ────────────────────────────────────────────────
 
 /**
- * Seed all time-range lineage scenarios, guarded by withArtifactLock so it
- * only actually runs once across the whole test run.
+ * Seed all time-range lineage scenarios, guarded by withArtifactLock on a
+ * run-scoped state file so it only actually runs once across workers in this
+ * Playwright invocation (not across later local runs — timestamps are relative
+ * to Date.now()).
  *
  * Two different spec files (v3-lineage-impact-analysis.spec.ts and
  * v3-lineage-graph.spec.ts) each call this from their own test.beforeAll,
@@ -224,9 +240,10 @@ export async function seedTimeRangeLineage(
   gmsToken: string,
   logger?: DataHubLogger,
 ): Promise<void> {
-  await withArtifactLock(STATE_FILE, async () => {
+  const stateFile = lineageTimeRangeStateFile();
+  await withArtifactLock(stateFile, async () => {
     await doSeedTimeRangeLineage(request, gmsToken, logger);
-    writeJsonAtomic(STATE_FILE, { seededAt: new Date().toISOString() });
+    writeJsonAtomic(stateFile, { seededAt: new Date().toISOString() });
   });
 }
 
