@@ -1416,38 +1416,144 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         start: int = 0,
         count: int = 20,
     ) -> Iterable[str]:
-        """
-        Yields Document URNs connected to the provided data asset via native Context Documents.
-        """
-        params: dict = {
-            "input": {
-                "start": start,
-                "count": count,
-                "relatedAssets": [urn],
-            }
+        query = """
+        fragment relatedDocumentsFields on RelatedDocumentsResult {
+          start
+          count
+          total
+          documents {
+            urn
+          }
         }
-        query: str = """
-            query searchDocuments($input: SearchDocumentsInput!) {
-              searchDocuments(input: $input) {
-                total
-                documents {
-                  urn
-                }
+
+        query getRelatedDocuments(
+          $urn: String!,
+          $input: RelatedDocumentsInput!
+        ) {
+          entity(urn: $urn) {
+            ... on Dataset {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
               }
             }
+            ... on Dashboard {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on Chart {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on DataJob {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on DataFlow {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on Container {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on MLModel {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on MLModelGroup {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on MLPrimaryKey {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on MLFeature {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on MLFeatureTable {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on DataProduct {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on Domain {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on GlossaryTerm {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on GlossaryNode {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+            ... on Application {
+              relatedDocuments(input: $input) {
+                ...relatedDocumentsFields
+              }
+            }
+          }
+        }
         """
 
-        while True:
-            response = self.execute_graphql(query, variables=params)
-            payload = response.get("searchDocuments", {})
-            documents = payload.get("documents", [])
-            for doc in documents:
-                if "urn" in doc:
-                    yield doc["urn"]
+        next_start = start
 
-            if not documents:
+        while True:
+            # IMPORTANT: construct a NEW dict every iteration.
+            # Don't mutate one dict because that's exactly what broke the current test.
+            variables = {
+                "urn": urn,
+                "input": {
+                    "start": next_start,
+                    "count": count,
+                },
+            }
+
+            response = self.execute_graphql(query, variables=variables)
+
+            entity = response.get("entity")
+            if not entity:
                 break
-            params["input"]["start"] += len(documents)
+
+            result = entity.get("relatedDocuments")
+            if not result:
+                break
+
+            documents = result.get("documents") or []
+
+            for document in documents:
+                document_urn = document.get("urn")
+                if document_urn:
+                    yield document_urn
+
+            returned = len(documents)
+            if returned == 0:
+                break
+
+            next_start += returned
+
+            total = result.get("total")
+            if isinstance(total, int) and next_start >= total:
+                break
 
     def execute_graphql(
         self,
