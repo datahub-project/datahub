@@ -327,13 +327,11 @@ class CacheConfig(ConfigModel):
 class AdvancedConfig(ConfigModel):
     """Advanced configuration options."""
 
-    # default_factory with tempfile.gettempdir() rather than a literal "/tmp":
-    # on Windows that path resolves to C:\tmp, which does not exist by default,
-    # so the source fails unless every user overrides work_dir by hand.
     work_dir: str = Field(
         default_factory=lambda: str(
             Path(tempfile.gettempdir()) / "unstructured_datahub"
-        )
+        ),
+        description="Working directory for intermediate processing files",
     )
     preserve_outputs: bool = Field(default=False)
     output_format: Literal["json", "xml"] = Field(default="json")
