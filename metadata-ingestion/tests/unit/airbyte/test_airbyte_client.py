@@ -256,7 +256,9 @@ class TestAirbyteClientBase:
             def list_destinations(self, workspace_id, pattern=None):
                 return []
 
-            def list_connections(self, workspace_id, pattern=None):
+            def list_connections(
+                self, workspace_id, pattern=None, include_inactive=False
+            ):
                 return []
 
         class IncompleteClient(AirbyteBaseClient):
