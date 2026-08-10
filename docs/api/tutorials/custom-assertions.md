@@ -174,11 +174,18 @@ The upsert API will return the unique identifier (URN) for the assertion if you 
 To create or update a custom assertion in Python, use `client.assertions.sync_custom_assertion`.
 This wraps the same `upsertCustomAssertion` GraphQL mutation.
 
+:::note
+`client.assertions` is provided by the `acryl-datahub-cloud` package. On an
+open-source `acryl-datahub` install it raises
+`SdkUsageError: AssertionsClient is not installed`, so use the
+`DataHubGraph.upsert_custom_assertion` form shown below instead.
+:::
+
 ```python
 {{ inline /metadata-ingestion/examples/library/sync_custom_assertion.py show_path_as_comment }}
 ```
 
-Lower-level `DataHubGraph.upsert_custom_assertion` is also available if you are not using the V2 SDK:
+Lower-level `DataHubGraph.upsert_custom_assertion` is also available if you are not using the V2 SDK, and is the supported path on open-source DataHub:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/upsert_custom_assertion.py show_path_as_comment }}
