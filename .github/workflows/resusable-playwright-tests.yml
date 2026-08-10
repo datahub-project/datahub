@@ -167,6 +167,11 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Check for cross-fixture entity conflicts
+        working-directory: e2e-test/ui/playwright
+        run: |
+          python3 ../../../.github/scripts/check_playwright_fixture_conflicts.py
+
       - name: Compute duration-weighted shard file list
         working-directory: e2e-test/ui/playwright
         env:

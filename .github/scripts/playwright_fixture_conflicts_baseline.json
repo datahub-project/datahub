@@ -1,0 +1,279 @@
+[
+  {
+    "urn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "aspectName": "assertionInfo",
+    "files": [
+      "test-data/data.json",
+      "test-data/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "aspectName": "assertionRunEvent",
+    "files": [
+      "test-data/data.json",
+      "test-data/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.customers,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "tests/application/fixtures/data.json",
+      "tests/siblings-v2/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/autocomplete-v2/fixtures/data.json",
+      "tests/mutations-v2/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+    "aspectName": "globalTags",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+    "aspectName": "ownership",
+    "files": [
+      "test-data/data.json",
+      "tests/mutations-v2/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "test-data/data.json",
+      "test-data/data.json",
+      "tests/mutations-v2/fixtures/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,Playwright_logging_events,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "tests/business-attributes/fixtures/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/manage-tags/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
+    "aspectName": "ownership",
+    "files": [
+      "test-data/data.json",
+      "tests/manage-tags/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "test-data/data.json",
+      "tests/manage-tags/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SchemaBlameTesterDataset,PROD)",
+    "aspectName": "ownership",
+    "files": [
+      "tests/schema-blame/fixtures/data.json",
+      "tests/schema-blame/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SchemaBlameTesterDataset,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "tests/schema-blame/fixtures/data.json",
+      "tests/schema-blame/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+    "aspectName": "globalTags",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+    "aspectName": "ownership",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created_no_tag,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_users_created_no_tag,PROD)",
+    "aspectName": "schemaMetadata",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/mutations/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)",
+    "aspectName": "incidentsSummary",
+    "files": [
+      "test-data/data.json",
+      "tests/mutations/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node1,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node2,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_lineage_filtering.node3,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage.node2_dataset,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node4,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node5,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_lineage_filtering.node6,PROD)",
+    "aspectName": "datasetProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/lineage-v3/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:glossaryNode:PlaywrightNode",
+    "aspectName": "glossaryNodeInfo",
+    "files": [
+      "test-data/data.json",
+      "tests/business-attributes/fixtures/data.json",
+      "tests/glossary/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightColumnInfoType",
+    "aspectName": "glossaryTermInfo",
+    "files": [
+      "test-data/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm",
+    "aspectName": "glossaryTermInfo",
+    "files": [
+      "test-data/data.json",
+      "tests/business-attributes/fixtures/data.json",
+      "tests/search/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:incident:test",
+    "aspectName": "incidentInfo",
+    "files": [
+      "test-data/data.json",
+      "test-data/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:tag:Playwright",
+    "aspectName": "ownership",
+    "files": [
+      "test-data/data.json",
+      "tests/business-attributes/fixtures/data.json"
+    ]
+  },
+  {
+    "urn": "urn:li:tag:Playwright",
+    "aspectName": "tagProperties",
+    "files": [
+      "test-data/data.json",
+      "tests/business-attributes/fixtures/data.json"
+    ]
+  }
+]
