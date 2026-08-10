@@ -150,7 +150,7 @@ class TestWrapperStdinContent:
             patch(
                 "datahub.executor.execution.wrapper_common.subprocess.Popen",
                 return_value=mock_process,
-            ),
+            ) as mock_popen,
             pytest.raises(SystemExit),
         ):
             run_ingest.main()
@@ -160,3 +160,9 @@ class TestWrapperStdinContent:
         parsed = yaml.safe_load(written)
         assert parsed["source"]["config"]["pw"] == "hidden"
         assert "${SECRET}" not in written
+
+        # Venv isolation, asserted on the command actually spawned rather than by
+        # grepping the wrapper's source: the CLI must come from the target venv, not
+        # from whatever `datahub` happens to be on PATH.
+        cmd = mock_popen.call_args[0][0]
+        assert cmd[0] == str(venv_dir / "datahub")

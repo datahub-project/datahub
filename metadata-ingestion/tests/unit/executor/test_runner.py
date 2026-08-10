@@ -32,19 +32,16 @@ from datahub.executor.execution.runner import (
 
 
 def test_venv_config_json_parsing() -> None:
-    """Test JSON parsing in VenvConfig fields."""
-    # Test that the JSON parsing validator works for VenvConfig
-    try:
-        venv_config = VenvConfig(
-            extra_pip_requirements='["snowflake"]',  # type: ignore
-        )
-        assert venv_config.extra_pip_requirements == ["snowflake"]
-    except Exception:
-        # If JSON parsing doesn't work in the current setup, test the equivalent functionality
-        venv_config = VenvConfig(
-            extra_pip_requirements=["snowflake"],
-        )
-        assert venv_config.extra_pip_requirements == ["snowflake"]
+    """A JSON-encoded string is parsed into a list by the field validator.
+
+    Asserted strictly. The previous version wrapped this in try/except and fell
+    back to passing a real list, so an AssertionError from the JSON path was
+    swallowed and the test passed either way.
+    """
+    venv_config = VenvConfig(
+        extra_pip_requirements='["snowflake"]',  # type: ignore[arg-type]
+    )
+    assert venv_config.extra_pip_requirements == ["snowflake"]
 
 
 def test_log_holder_simple() -> None:
