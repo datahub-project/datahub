@@ -397,6 +397,32 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         );
         const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
         logger.info('global data ready', { seededAt: state.seededAt, entityCount: state.entityCount });
+
+        // TEMPORARY DIAGNOSTIC -- remove after root-causing the glossaryRelatedTerms failure.
+        try {
+          const diagCtx = await request.newContext({
+            baseURL: gmsUrl(),
+            extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
+          });
+          const termUrn = 'urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm';
+          const aspectResp = await diagCtx.get(
+            `${gmsUrl()}/aspects/${encodeURIComponent(termUrn)}?aspect=glossaryRelatedTerms&version=0`,
+          );
+          logger.warn('DIAG aspect glossaryRelatedTerms', {
+            status: aspectResp.status(),
+            body: (await aspectResp.text()).slice(0, 500),
+          });
+          const relResp = await diagCtx.get(
+            `${gmsUrl()}/relationships?urn=${encodeURIComponent(termUrn)}&types=HasA&direction=OUTGOING`,
+          );
+          logger.warn('DIAG relationships HasA OUTGOING', {
+            status: relResp.status(),
+            body: (await relResp.text()).slice(0, 500),
+          });
+          await diagCtx.dispose();
+        } catch (err) {
+          logger.warn('DIAG failed', { error: String(err) });
+        }
       }
 
       if (!featureName) {
