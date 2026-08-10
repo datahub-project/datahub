@@ -471,7 +471,7 @@ class TestEdgeCases:
 class TestIntegrationScenarios:
     """Test integration scenarios combining multiple features."""
 
-    def test_s3_with_lazy_loading(self):
+    def test_s3_with_aws_config(self):
         """Test S3 processing with lazy loading enabled."""
         # Create a proper AWS config dict
         aws_config_dict = {

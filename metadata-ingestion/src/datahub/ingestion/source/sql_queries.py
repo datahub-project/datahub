@@ -24,6 +24,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
@@ -68,6 +69,7 @@ logger = logging.getLogger(__name__)
 
 CONSECUTIVE_AGGREGATOR_FAILURE_THRESHOLD = 5
 
+# Listed explicitly for readability even though several are OSError subclasses.
 _SYSTEMIC_ERRORS = (
     GraphError,
     ConnectionError,
@@ -120,6 +122,10 @@ class SqlQueriesSourceConfig(
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
         description="AWS configuration for S3 access. Required when query_file is an S3 URI (s3://).",
+    )
+
+    _enable_lazy_schema_loading_removed = pydantic_removed_field(
+        "enable_lazy_schema_loading", "August", 2026
     )
 
     @field_validator("temp_table_patterns")
@@ -175,7 +181,6 @@ class SqlQueriesSource(Source):
     Implementation notes:
     - Uses SqlParsingAggregator for query parsing and deduplication
     - Optionally uses SchemaResolver to fetch table schemas from DataHub for better parsing accuracy
-    - Supports lazy schema loading to reduce memory usage and startup time
     - Maintains temp table mappings across queries using session_id
     """
 
@@ -196,9 +201,6 @@ class SqlQueriesSource(Source):
         if self.config.use_schema_resolver:
             self.report.schema_resolver_report = SchemaResolverReport()
 
-            logger.info(
-                "Using lazy schema loading - schemas will be fetched on-demand and cached"
-            )
             self.schema_resolver = SchemaResolver(
                 platform=self.config.platform,
                 platform_instance=self.config.platform_instance,
@@ -285,7 +287,6 @@ class SqlQueriesSource(Source):
                         message="Query skipped due to failure when adding query to SQL parsing aggregator",
                         context=entry.query,
                         exc=e,
-                        log=False,
                     )
                     if (
                         consecutive_failures
@@ -300,7 +301,7 @@ class SqlQueriesSource(Source):
                         )
                         return
 
-        if self.report.num_entries_processed == 0:
+        if self.report.num_queries_processed_sequential == 0:
             self.report.failure(
                 title="No entries processed",
                 message="No query entries were successfully processed from input file",
@@ -317,7 +318,9 @@ class SqlQueriesSource(Source):
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
         try:
-            s3_client = self.config.aws_config.get_s3_client()  # type: ignore[union-attr]
+            if self.config.aws_config is None:
+                raise ValueError("aws_config must be set for S3 URIs")
+            s3_client = self.config.aws_config.get_s3_client()
             file_stream_ctx = smart_open.open(
                 self.config.query_file, mode="r", transport_params={"client": s3_client}
             )
@@ -330,12 +333,34 @@ class SqlQueriesSource(Source):
             )
             raise
 
-        with file_stream_ctx as file_stream:
-            yield from self._parse_lines(file_stream)
+        try:
+            with file_stream_ctx as file_stream:
+                yield from self._parse_lines(file_stream)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raise
+        except Exception as e:
+            self.report.failure(
+                title="S3 stream error",
+                message="Error reading S3 stream mid-transfer",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
 
     def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
         """Parse local query file."""
-        with open(self.config.query_file) as f:
+        try:
+            f = open(self.config.query_file)
+        except OSError as e:
+            self.report.failure(
+                title="Local file read error",
+                message="Failed to open local query file",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+        with f:
             yield from self._parse_lines(f)
 
     def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
@@ -347,7 +372,7 @@ class SqlQueriesSource(Source):
             try:
                 query_dict = json.loads(stripped, strict=False)
                 entry = QueryEntry.create(query_dict, config=self.config)
-            except (json.JSONDecodeError, ValueError) as e:
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
                 self.report.num_entries_failed += 1
                 self.report.warning(
                     title="Error processing query entry",
