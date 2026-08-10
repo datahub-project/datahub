@@ -1,25 +1,72 @@
+import json
 import logging
+import os
+import plistlib
+import re
+import shutil
+import subprocess
+import sys
 import urllib.parse
 from datetime import datetime
-from typing import Optional, Tuple
+from pathlib import Path
+from typing import Any, List, NamedTuple, Optional, Tuple
 
 import click
 import requests
+
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 
 logger = logging.getLogger(__name__)
 
 CLI_TOKEN_PREFIX = "cli token "
 
+SSO_PROFILE_ROOT = Path(DATAHUB_ROOT_FOLDER) / "sso-browser-profiles"
+
+SSO_SESSION_ROOT = Path(DATAHUB_ROOT_FOLDER) / "sso-sessions"
+
+_ACTOR_COOKIE_PRESENT = (
+    """() => document.cookie.split('; ').some(c => c.startsWith('actor='))"""
+)
+
+SILENT_ATTEMPT_TIMEOUT_MS = 20_000
+
+
+class BrowserTarget(NamedTuple):
+    """How to reach one browser through Playwright.
+
+    ``engine`` is the Playwright browser type. ``channel`` names an installation
+    already present on the machine, or is None for the build Playwright ships.
+
+    ``engine`` also decides the on-disk profile format, which is why profiles are
+    stored per engine: they are not interchangeable between engines.
+    """
+
+    engine: str
+    channel: Optional[str]
+
+
+BUNDLED_TARGET = BrowserTarget(engine="chromium", channel=None)
+
+_OS_HANDLER_TARGETS: Tuple[Tuple[str, BrowserTarget], ...] = (
+    ("firefox", BrowserTarget(engine="firefox", channel="moz-firefox")),
+    ("edge", BrowserTarget(engine="chromium", channel="msedge")),
+    ("chrome", BrowserTarget(engine="chromium", channel="chrome")),
+)
+
 _INSTALL_HELP = """\
-The --sso flag requires Playwright and a Chromium browser.
+The --sso flag requires Playwright and a browser for it to drive.
 
 Step 1 — Install the Python package (pick your package manager):
     pip install 'acryl-datahub[sso]'
     uv pip install 'acryl-datahub[sso]'
     pip install 'playwright>=1.40.0'
 
-Step 2 — Download the Chromium browser binary:
-    playwright install chromium\
+Step 2 — Download a fallback browser binary:
+    playwright install chromium
+
+Login drives the browser your operating system already defaults to where it
+can, so no download is usually needed for it. The bundled build above is the
+fallback when that browser cannot be driven.\
 """
 
 
@@ -36,6 +83,338 @@ def _check_playwright_ready() -> None:
         raise click.UsageError(
             "Playwright is not installed.\n\n" + _INSTALL_HELP
         ) from e
+
+
+def _os_browser_handler() -> Optional[str]:
+    """Return the raw handler the operating system registered for https."""
+    try:
+        if sys.platform == "darwin":
+            plist = (
+                Path.home()
+                / "Library/Preferences/com.apple.LaunchServices"
+                / "com.apple.launchservices.secure.plist"
+            )
+            with plist.open("rb") as handle:
+                handlers = plistlib.load(handle).get("LSHandlers", [])
+            for handler in handlers:
+                if handler.get("LSHandlerURLScheme") == "https":
+                    return handler.get("LSHandlerRoleAll")
+            return None
+
+        if sys.platform.startswith("linux"):
+            result = subprocess.run(
+                ["xdg-settings", "get", "default-web-browser"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.stdout.strip() or None
+
+        if sys.platform == "win32":
+            import winreg
+
+            key = (
+                r"Software\Microsoft\Windows\Shell\Associations"
+                r"\UrlAssociations\https\UserChoice"
+            )
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as handle:
+                return winreg.QueryValueEx(handle, "ProgId")[0]
+    except Exception:
+        logger.debug("Could not read the default browser", exc_info=True)
+    return None
+
+
+def browser_target() -> BrowserTarget:
+    """Resolve which browser to drive from the operating system's own choice.
+
+    Falls back to the bundled build, which is always present once
+    `playwright install chromium` has run.
+    """
+    handler = (_os_browser_handler() or "").lower()
+    for fingerprint, target in _OS_HANDLER_TARGETS:
+        if fingerprint in handler:
+            return target
+    return BUNDLED_TARGET
+
+
+def _describe(target: BrowserTarget) -> str:
+    """Name a target the way it should read in command output."""
+    return target.channel or f"bundled {target.engine}"
+
+
+def _launch_targets(target: BrowserTarget) -> List[BrowserTarget]:
+    """The targets to try, in order.
+
+    Dropping the channel keeps the same engine but uses the build Playwright
+    ships, covering a machine where that browser is not installed without
+    silently switching engine. The bundled target is the last resort.
+    """
+    targets = [target]
+    if target.channel:
+        targets.append(BrowserTarget(engine=target.engine, channel=None))
+    if BUNDLED_TARGET not in targets:
+        targets.append(BUNDLED_TARGET)
+    return targets
+
+
+def _sso_profile_dir(frontend_url: str, support: bool, browser: str) -> Path:
+    """Return the browser profile directory for one DataHub instance.
+
+    The path is keyed by host so that instances behind different identity
+    providers never share cookies. Support logins get their own directory, so a
+    support session is never silently reused as a normal login, or the reverse.
+    It is keyed by engine too, because profiles are not interchangeable between
+    engines.
+    """
+    host = urllib.parse.urlparse(frontend_url).netloc or "unknown-host"
+    safe_host = re.sub(r"[^A-Za-z0-9._-]", "_", host)
+    suffix = "-support" if support else ""
+    return SSO_PROFILE_ROOT / browser / f"{safe_host}{suffix}"
+
+
+def _prepare_profile_dir(profile_dir: Path, fresh_login: bool) -> None:
+    """Create the profile directory, discarding any saved session if asked.
+
+    Permissions are tightened to 0700 because the directory holds live identity
+    provider session cookies, not just the scoped DataHub token.
+    """
+    if fresh_login and profile_dir.exists():
+        shutil.rmtree(profile_dir, ignore_errors=True)
+
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    for path in (SSO_PROFILE_ROOT, profile_dir):
+        try:
+            path.chmod(0o700)
+        except OSError:
+            logger.debug("Could not tighten permissions on %s", path, exc_info=True)
+
+
+def _seed_profile_dir(profile_dir: Path, seed_from: Path) -> None:
+    """Copy an existing browser profile in, so even the first login is skipped.
+
+    Point this at a copy of a profile you already sign in with, and its identity
+    provider session comes along. Never point it at a profile the browser
+    currently has open: browsers hold an exclusive lock and a live copy is torn.
+
+    Only runs into an empty directory. Once a session is saved here, re-seeding
+    would throw it away, which is what --fresh-login is for.
+    """
+    if any(profile_dir.iterdir()):
+        return
+
+    if not seed_from.is_dir():
+        raise click.UsageError(f"--seed-profile is not a directory: {seed_from}")
+
+    click.echo(f"Seeding browser profile from {seed_from} ...")
+    shutil.copytree(
+        seed_from,
+        profile_dir,
+        dirs_exist_ok=True,
+        symlinks=False,
+        ignore=shutil.ignore_patterns(
+            "lock",
+            ".parentlock",
+            "parent.lock",
+            "compatibility.ini",
+            "SingletonLock",
+            "SingletonCookie",
+            "cache2",
+            "startupCache",
+            "shader-cache",
+            "GrShaderCache",
+        ),
+    )
+
+
+def _open_browser_context(
+    playwright: Any,
+    frontend_url: str,
+    support: bool,
+    target: BrowserTarget,
+    fresh_login: bool,
+    seed_from: Optional[Path] = None,
+    headless: bool = False,
+) -> Any:
+    """Open a browser context, preferring the user's browser and saved session.
+
+    Walks the fallback chain, which covers a machine where the requested browser
+    is not installed. Each candidate gets its own profile directory, because a
+    profile belongs to one engine and is not interchangeable.
+
+    Raises rather than falling back to a throwaway profile: silently switching
+    browser and dropping the saved session hides the cause, and the usual reason
+    everything fails is another `datahub init --sso` holding the profile lock.
+
+    The caller closes only the context; leaving sync_playwright() tears down the
+    browser behind it.
+    """
+    tried = _launch_targets(target)
+    last_error: Optional[Exception] = None
+    for candidate in tried:
+        engine = getattr(playwright, candidate.engine)
+        launch_args = {"channel": candidate.channel} if candidate.channel else {}
+        profile_dir = _sso_profile_dir(frontend_url, support, candidate.engine)
+        _prepare_profile_dir(profile_dir, fresh_login)
+        if seed_from is not None and candidate.engine == target.engine:
+            _seed_profile_dir(profile_dir, seed_from)
+        try:
+            context = engine.launch_persistent_context(
+                str(profile_dir), headless=headless, **launch_args
+            )
+        except Exception as e:
+            last_error = e
+            logger.debug("Could not launch %s", _describe(candidate), exc_info=True)
+            continue
+
+        if candidate != target:
+            click.echo(
+                f"Note: {_describe(target)} unavailable, using {_describe(candidate)}."
+            )
+        return context
+
+    raise click.ClickException(
+        "Could not open a browser for SSO login. Tried: "
+        f"{', '.join(_describe(t) for t in tried)}.\n"
+        f"Last error: {last_error}\n"
+        "If another `datahub init --sso` is running, finish it first. If one "
+        "crashed and left the profile locked, retry with --fresh-login."
+    )
+
+
+def _session_file(frontend_url: str, support: bool) -> Path:
+    """Where a remembered login is stored for one instance.
+
+    Not keyed by browser: cookies are portable, so a session saved while driving
+    one browser still works if the next run drives another.
+    """
+    host = urllib.parse.urlparse(frontend_url).netloc or "unknown-host"
+    safe_host = re.sub(r"[^A-Za-z0-9._-]", "_", host)
+    suffix = "-support" if support else ""
+    return SSO_SESSION_ROOT / f"{safe_host}{suffix}.json"
+
+
+def _load_session(path: Path) -> list:
+    """Read a remembered login, treating any damage as simply absent."""
+    try:
+        with path.open() as handle:
+            saved = json.load(handle)
+        return saved if isinstance(saved, list) else []
+    except (OSError, ValueError):
+        logger.debug("Could not read saved session %s", path, exc_info=True)
+        return []
+
+
+def _save_session(path: Path, cookies: list) -> None:
+    """Store the cookies this login established, owner-readable only."""
+    if not cookies:
+        return
+    try:
+        SSO_SESSION_ROOT.mkdir(parents=True, exist_ok=True)
+        SSO_SESSION_ROOT.chmod(0o700)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            json.dump(cookies, handle)
+    except OSError:
+        logger.debug("Could not save session to %s", path, exc_info=True)
+
+
+def _run_login_attempt(
+    context: Any,
+    auth_url: str,
+    timeout_ms: int,
+    restore: list,
+) -> Optional[Tuple[list, set, set]]:
+    """Make one pass at the login.
+
+    Returns every cookie in the context, the hosts the flow navigated through,
+    and a snapshot of the cookies present before it started, or None if the
+    actor cookie never appeared. Returning None rather
+    than raising is what lets a silent attempt fall back to a visible one.
+    """
+    if restore:
+        try:
+            context.add_cookies(restore)
+        except Exception:
+            logger.debug("Could not restore session", exc_info=True)
+
+    page = context.pages[0] if context.pages else context.new_page()
+
+    hosts = {urllib.parse.urlparse(auth_url).hostname}
+
+    def note_host(frame: Any) -> None:
+        try:
+            host = urllib.parse.urlparse(frame.url).hostname
+        except Exception:
+            return
+        if host:
+            hosts.add(host)
+
+    before = {(c["domain"], c["name"], c["value"]) for c in context.cookies()}
+
+    page.on("framenavigated", note_host)
+    page.goto(auth_url)
+
+    # Wait for the actor cookie, which signals successful SSO login.
+    try:
+        page.wait_for_function(_ACTOR_COOKIE_PRESENT, timeout=timeout_ms)
+    except Exception:
+        logger.debug("Actor cookie did not appear within %dms", timeout_ms)
+        return None
+
+    return context.cookies(), {h for h in hosts if h}, before
+
+
+def _cookie_matches_host(cookie: dict, host: str) -> bool:
+    """Would a browser send this cookie to that host?
+
+    Ordinary cookie host matching: an exact host, or a parent domain of it.
+    """
+    domain = (cookie.get("domain") or "").lstrip(".")
+    return bool(domain) and (host == domain or host.endswith(f".{domain}"))
+
+
+def _cookie_applies_to(cookie: dict, frontend_url: str) -> bool:
+    """Would a browser send this cookie to that URL?"""
+    host = urllib.parse.urlparse(frontend_url).hostname or ""
+    return _cookie_matches_host(cookie, host)
+
+
+def _cookie_key(cookie: dict) -> Tuple[str, str, str]:
+    """What makes a cookie the same cookie for storage purposes."""
+    return (cookie.get("domain", ""), cookie.get("name", ""), cookie.get("path", "/"))
+
+
+def _session_cookies_for(
+    cookies: list, hosts: set, before: set, previous: list
+) -> list:
+    """The cookies worth remembering as this instance's login.
+
+    Three signals, because each alone has failed in practice:
+
+    - hosts the flow navigated through, which is the identity provider and the
+      instance;
+    - hosts whose cookies this run added or changed, in case a navigation went
+      unobserved;
+    - whatever was already saved, merged underneath so a run served entirely
+      from the browser profile — which creates nothing new and may visit
+      nobody — cannot erase a working session.
+    """
+    changed_hosts = {
+        (c.get("domain") or "").lstrip(".")
+        for c in cookies
+        if (c["domain"], c["name"], c["value"]) not in before
+    }
+    scope = {h for h in (set(hosts) | changed_hosts) if h}
+
+    merged = {_cookie_key(c): c for c in previous}
+    merged.update(
+        {
+            _cookie_key(c): c
+            for c in cookies
+            if any(_cookie_matches_host(c, h) for h in scope)
+        }
+    )
+    return list(merged.values())
 
 
 def _warn_about_existing_cli_tokens(
@@ -89,8 +468,15 @@ def browser_sso_login(
     timeout_ms: int = 120_000,
     support: bool = False,
     ticket_id: Optional[str] = None,
+    fresh_login: bool = False,
+    seed_profile: Optional[str] = None,
+    remember_session: bool = False,
 ) -> Tuple[str, str]:
     """Open browser for SSO login, extract session, generate access token.
+
+    Follows the operating system's default browser unless told otherwise, and
+    reuses a per-instance profile under ~/.datahub, so a still-valid identity
+    provider session skips the login form on later runs.
 
     Args:
         frontend_url: The DataHub frontend URL (e.g. http://localhost:9002).
@@ -98,6 +484,17 @@ def browser_sso_login(
         timeout_ms: How long to wait for SSO login to complete, in milliseconds.
         support: If True, use /support/authenticate path for DataHub Cloud
             support team access to customer instances.
+        ticket_id: Support ticket ID, appended to the support auth URL.
+        fresh_login: If True, discard the saved browser profile first. Use this
+            to sign in as a different user.
+        seed_profile: Path to an existing browser profile to copy in the first
+            time this instance is used, so an identity provider session already
+            in that profile skips even the first login. Must be a copy, not a
+            profile the browser currently has open.
+        remember_session: If True, store the cookies this login establishes and
+            replay them next time. Needed when the identity provider issues an
+            in-memory session, which no browser writes to disk. Writes that
+            session to ~/.datahub/sso-sessions as 0600.
 
     Returns:
         Tuple of (token_name, access_token).
@@ -110,40 +507,69 @@ def browser_sso_login(
     from playwright.sync_api import sync_playwright
 
     auth_path = "/support/authenticate" if support else "/authenticate"
-    if support:
-        click.echo("Opening browser for support SSO login...")
-    else:
-        click.echo("Opening browser for SSO login...")
-    click.echo("Complete the login in your browser.\n")
+    auth_url = f"{frontend_url}{auth_path}"
+    if support and ticket_id:
+        auth_url += "?" + urllib.parse.urlencode({"ticket_id": ticket_id})
 
+    target = browser_target()
+    session_file = _session_file(frontend_url, support)
+    if fresh_login:
+        session_file.unlink(missing_ok=True)
+
+    restore = (
+        _load_session(session_file) if remember_session and not fresh_login else []
+    )
+
+    attempts = ([(True, SILENT_ATTEMPT_TIMEOUT_MS)] if restore else []) + [
+        (False, timeout_ms)
+    ]
+
+    actor_urn = None
+    cookies: list = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        try:
-            context = browser.new_context()
-            page = context.new_page()
+        for headless, attempt_timeout in attempts:
+            if headless:
+                click.echo("Trying the saved session in the background...")
+            else:
+                which = "support SSO" if support else "SSO"
+                click.echo(f"Opening browser for {which} login...")
+                click.echo("Complete the login in your browser.\n")
 
-            auth_url = f"{frontend_url}{auth_path}"
-            if support and ticket_id:
-                auth_url += "?" + urllib.parse.urlencode({"ticket_id": ticket_id})
-            page.goto(auth_url)
-
-            # Wait for the actor cookie, which signals successful SSO login.
-            actor_urn = None
+            context = _open_browser_context(
+                p,
+                frontend_url,
+                support,
+                target,
+                fresh_login,
+                Path(seed_profile) if seed_profile else None,
+                headless=headless,
+            )
             try:
-                page.wait_for_function(
-                    """() => document.cookie.split('; ').some(c => c.startsWith('actor='))""",
-                    timeout=timeout_ms,
-                )
-            except Exception as e:
-                raise click.ClickException(
-                    f"SSO login timed out after {timeout_ms // 1000} seconds. "
-                    "Please try again."
-                ) from e
+                result = _run_login_attempt(context, auth_url, attempt_timeout, restore)
+                if result is None:
+                    if headless:
+                        click.echo("Saved session did not work, opening a browser.")
+                        continue
+                    raise click.ClickException(
+                        f"SSO login timed out after {attempt_timeout // 1000} "
+                        "seconds. Please try again."
+                    )
 
-            # Extract cookies from the browser context
-            cookies = context.cookies()
-        finally:
-            browser.close()
+                cookies, auth_hosts, before = result
+                if headless:
+                    click.echo("Signed in from the saved session, no browser shown.")
+                if remember_session:
+                    keep = _session_cookies_for(cookies, auth_hosts, before, restore)
+                    _save_session(session_file, keep)
+                    hosts_kept = sorted({c.get("domain", "") for c in keep})
+                    click.echo(
+                        f"Remembered {len(keep)} cookies for {', '.join(hosts_kept)}."
+                    )
+                break
+            finally:
+                context.close()
+
+    cookies = [c for c in cookies if _cookie_applies_to(c, frontend_url)]
 
     # Build a requests.Session with the extracted cookies
     session = requests.Session()

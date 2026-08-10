@@ -636,7 +636,13 @@ class TestSSOLogin:
 
         # Verify frontend URL derivation: 8080 -> 9002
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
+            "http://localhost:9002",
+            "ONE_MONTH",
+            support=False,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=False,
         )
 
     def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
@@ -657,7 +663,13 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
+            "http://localhost:9002",
+            "ONE_MONTH",
+            support=False,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=False,
         )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
@@ -681,6 +693,9 @@ class TestSSOLogin:
             "ONE_HOUR",
             support=False,
             ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=False,
         )
 
     def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
@@ -700,7 +715,13 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "https://customer.acryl.io", "ONE_HOUR", support=True, ticket_id=None
+            "https://customer.acryl.io",
+            "ONE_HOUR",
+            support=True,
+            ticket_id=None,
+            fresh_login=False,
+            seed_profile=None,
+            remember_session=False,
         )
 
     def test_support_without_sso_errors(
