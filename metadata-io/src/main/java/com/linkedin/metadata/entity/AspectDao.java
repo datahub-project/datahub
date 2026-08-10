@@ -430,23 +430,12 @@ public interface AspectDao {
   /**
    * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
    * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
-   * lock per urn when enabled. Used to prevent lock-order deadlocks between multi-row writes (e.g.
-   * logical-model linking) and concurrent hard-deletes touching the same rows.
+   * lock per urn when enabled. The lock is Postgres-only ({@code pg_advisory_xact_lock}) and
+   * auto-releases on commit/rollback, so no explicit release is needed. Used to prevent lock-order
+   * deadlocks between multi-row writes (e.g. logical-model linking) and concurrent hard-deletes
+   * touching the same rows.
    */
   default void lockUrnsForWrite(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
-    // no-op by default
-  }
-
-  /**
-   * Release per-entity advisory locks taken by {@link #lockUrnsForWrite} for the same {@code urns}
-   * that are NOT transaction-scoped (MySQL {@code GET_LOCK} is session-scoped and must be released
-   * explicitly on the acquiring connection; Postgres advisory locks auto-release on
-   * commit/rollback, so this is a no-op there). Keyed by {@code urns} — no JVM-side registry of
-   * held locks. Must be called while the acquiring transaction/connection is still active. Default
-   * no-op.
-   */
-  default void releaseUrnsForWrite(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
     // no-op by default
   }

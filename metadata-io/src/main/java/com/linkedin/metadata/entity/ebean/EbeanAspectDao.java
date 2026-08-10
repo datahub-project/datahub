@@ -9,7 +9,6 @@ import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.hash.Hashing;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -55,7 +54,6 @@ import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -137,21 +135,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // index
   // order, so none of this is needed and nothing changes there.
   private final boolean isPostgres;
-  // Opt-in per-entity write serialization via the DB advisory lock (Postgres pg_advisory / MySQL
-  // GET_LOCK).
+  // Opt-in per-entity write serialization via the Postgres advisory lock (pg_advisory_xact_lock).
   private final boolean entityWriteAdvisoryLockEnabled;
   // Max seconds a db-backend advisory-lock acquire waits (bounded) before proceeding lockless — CAS
-  // still guards. Wired from ebean.entityWriteLockAcquireTimeoutSeconds; applies to both Postgres
-  // (pg_try_advisory_xact_lock poll) and MySQL (GET_LOCK timeout).
+  // still guards. Wired from ebean.entityWriteLockAcquireTimeoutSeconds; bounds the Postgres
+  // pg_try_advisory_xact_lock poll.
   private final int entityWriteLockAcquireTimeoutSeconds;
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
-  // MySQL named-lock prefix. GET_LOCK names are capped at 64 chars, so the urn is hashed. The
-  // acquire
-  // timeout (how long a writer waits for a hot key before falling through to pure CAS) is
-  // configurable via entityWriteLockAcquireTimeoutSeconds.
-  private static final String MYSQL_LOCK_NAME_PREFIX = "dh_ent:";
 
   /**
    * Poll granularity for the Postgres {@code pg_try_advisory_xact_lock} spin-wait within the
@@ -318,16 +310,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * and {@link #deleteUrn} take a transaction-scoped advisory lock per urn <em>before</em>
    * acquiring any row locks, so a multi-row {@code FOR UPDATE} writer (e.g. logical-model linking)
    * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
-   * advisory lock is released automatically on commit/rollback (Postgres) or explicitly before
-   * commit (MySQL — see {@link #releaseUrnsForWrite}). No-op unless the store is Postgres or MySQL
-   * and the feature is enabled. Acquire waits are bounded by {@code
-   * entityWriteLockAcquireTimeoutSeconds}, then degrade to lockless (CAS still guards).
+   * advisory lock ({@code pg_advisory_xact_lock}) is released automatically on commit/rollback, so
+   * no explicit release is needed. No-op unless the store is Postgres and the feature is enabled.
+   * Acquire waits are bounded by {@code entityWriteLockAcquireTimeoutSeconds}, then degrade to
+   * lockless (CAS still guards).
    *
-   * <p>Postgres is keyed by {@code pg_try_advisory_xact_lock(<namespace>, hashtext(urn))} (polled
-   * up to the acquire timeout). {@code hashtext} is a 32-bit hash, so distinct urns can collide on
-   * the same lock key and serialize against each other. That is a false serialization: it costs
-   * throughput but never affects correctness. It is acceptable here because the feature is opt-in
-   * and collisions are rare relative to the set of entities being written concurrently.
+   * <p>Keyed by {@code pg_try_advisory_xact_lock(<namespace>, hashtext(urn))} (polled up to the
+   * acquire timeout). {@code hashtext} is a 32-bit hash, so distinct urns can collide on the same
+   * lock key and serialize against each other. That is a false serialization: it costs throughput
+   * but never affects correctness. It is acceptable here because the feature is opt-in and
+   * collisions are rare relative to the set of entities being written concurrently.
    */
   @Override
   public void lockUrnsForWrite(
@@ -335,8 +327,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!canWrite || !entityWriteAdvisoryLockEnabled || urns.isEmpty()) {
       return;
     }
-    if (!isPostgres && dialect != Dialect.MYSQL) {
-      return; // advisory locking is implemented only for Postgres and MySQL/MariaDB
+    if (!isPostgres) {
+      return; // advisory locking is implemented only for Postgres
     }
     txnFactory.runInScope(
         opContext,
@@ -353,24 +345,21 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           // the deterministic write order the persist path applies.
           final List<String> sortedUrns =
               urns.stream().distinct().sorted().collect(Collectors.toList());
-          if (isPostgres) {
-            lockUrnsPostgres(sortedUrns);
-          } else {
-            lockUrnsMysql(sortedUrns);
-          }
+          lockUrnsPostgres(sortedUrns);
           return null;
         });
   }
 
   /**
-   * Postgres: per-urn {@code pg_try_advisory_xact_lock} (non-blocking, returns a boolean and never
-   * raises, so it can't abort the transaction), polled in sorted order up to {@link
-   * #entityWriteLockAcquireTimeoutSeconds}. On timeout the write proceeds WITHOUT the lock — CAS on
-   * {@code SystemMetadata.version} remains the correctness floor — rather than pinning the pooled
-   * connection indefinitely as the blocking {@code pg_advisory_xact_lock} would. Released
-   * automatically on commit/rollback. (Per-urn round trips, unlike the old single VALUES batch, are
-   * the cost of honoring the acquire timeout; the db backend is the simple fallback — prefer the
-   * hazelcast backend for large hot-key batches.)
+   * Postgres: per-urn {@code pg_try_advisory_xact_lock} (non-blocking; returns a boolean —
+   * true=acquired, false=contended), polled in sorted order up to {@link
+   * #entityWriteLockAcquireTimeoutSeconds}. A false is a held lock (poll); a query error is NOT
+   * polled — it propagates to the outer transaction retry (see {@link #tryAdvisoryLockPostgres}).
+   * On timeout the write proceeds WITHOUT the lock — CAS on {@code SystemMetadata.version} remains
+   * the correctness floor — rather than pinning the pooled connection indefinitely as the blocking
+   * {@code pg_advisory_xact_lock} would. Released automatically on commit/rollback. (Per-urn round
+   * trips, unlike the old single VALUES batch, are the cost of honoring the acquire timeout; the db
+   * backend is the simple fallback — prefer the hazelcast backend for large hot-key batches.)
    */
   private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
     if (sortedUrns.size() > PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD) {
@@ -405,107 +394,21 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
   }
 
+  /**
+   * @return {@code true} = lock acquired, {@code false} = held by another writer (contended — the
+   *     caller polls until the acquire timeout). A query/runtime error is NOT contention: it is
+   *     typically a broken/aborted transaction that cannot "proceed lockless", so it PROPAGATES to
+   *     the outer {@code runInTransactionWithRetry}, which re-runs in a fresh transaction — rather
+   *     than being polled repeatedly as if it were a held lock.
+   */
   private boolean tryAdvisoryLockPostgres(@Nonnull String urn) {
-    try {
-      final SqlRow row =
-          server
-              .sqlQuery("select pg_try_advisory_xact_lock(:ns, hashtext(:urn)) as acquired")
-              .setParameter("ns", ADVISORY_LOCK_NAMESPACE)
-              .setParameter("urn", urn)
-              .findOne();
-      return row != null && Boolean.TRUE.equals(row.getBoolean("acquired"));
-    } catch (RuntimeException e) {
-      log.warn(
-          "pg_try_advisory_xact_lock failed for urn={}; proceeding lockless (CAS still guards).",
-          urn,
-          e);
-      return false;
-    }
-  }
-
-  /**
-   * MySQL/MariaDB: session-scoped {@code GET_LOCK} per urn, acquired in sorted order, bound to the
-   * active transaction's connection, bounded by {@code entityWriteLockAcquireTimeoutSeconds}. A
-   * timeout ({@code GET_LOCK} returns 0) or error (null) lets the write proceed WITHOUT the lock —
-   * CAS on {@code SystemMetadata.version} remains the correctness floor — rather than blocking the
-   * ingest thread on a hot key. {@code GET_LOCK} is session-scoped, so {@link #releaseUrnsForWrite}
-   * must release the SAME urns on the SAME connection before commit; the lock names are recomputed
-   * from the urns, so no JVM-side registry of held locks is kept (that would race under pooling).
-   */
-  private void lockUrnsMysql(@Nonnull List<String> sortedUrns) {
-    for (String urn : sortedUrns) {
-      final String name = mysqlLockName(urn);
-      Integer acquired;
-      try {
-        SqlRow row =
-            server
-                .sqlQuery("select GET_LOCK(:name, :timeout) as acquired")
-                .setParameter("name", name)
-                .setParameter("timeout", entityWriteLockAcquireTimeoutSeconds)
-                .findOne();
-        acquired = row == null ? null : row.getInteger("acquired");
-      } catch (RuntimeException e) {
-        log.warn(
-            "GET_LOCK failed for urn={}; proceeding without advisory lock (CAS still guards).",
-            urn,
-            e);
-        acquired = null;
-      }
-      if (acquired == null || acquired != 1) {
-        log.warn(
-            "GET_LOCK for urn={} returned {} (timeout/error); proceeding without advisory lock, "
-                + "CAS still guards correctness.",
-            urn,
-            acquired);
-      }
-    }
-  }
-
-  /**
-   * Deterministic MySQL lock name for a urn. Acquire and release both derive the name from the urn
-   * via this method (no stored name), so they always target the same lock — the property that keeps
-   * the stateless release correct. MySQL caps lock names at 64 chars, so the urn is hashed; a
-   * collision causes a false serialization (throughput cost, never a correctness issue), matching
-   * Postgres hashtext.
-   */
-  @VisibleForTesting
-  @Nonnull
-  static String mysqlLockName(@Nonnull String urn) {
-    // 64-bit murmur3 (not String.hashCode's 32-bit) so unrelated hot URNs don't collide into false
-    // serialization. 16 hex chars + prefix stays well under MySQL's 64-char GET_LOCK name limit.
-    return MYSQL_LOCK_NAME_PREFIX
-        + Long.toHexString(Hashing.murmur3_128().hashString(urn, StandardCharsets.UTF_8).asLong());
-  }
-
-  /**
-   * Release per-entity advisory locks for {@code urns}. No-op on Postgres (transaction-scoped, auto
-   * released on commit/rollback). On MySQL, {@code RELEASE_LOCK} the same session-scoped names that
-   * {@link #lockUrnsForWrite} took — recomputed from {@code urns}, so there is NO JVM-side registry
-   * to race under connection pooling. MUST run while the acquiring transaction (hence connection)
-   * is still active — the ingest path calls it from a {@code finally} before commit. A missed
-   * release (e.g. connection killed) is freed when the session-scoped lock's connection is
-   * closed/reset by the pool; and any waiter is bounded by {@code
-   * entityWriteLockAcquireTimeoutSeconds} (after which it degrades to CAS), so a leak is a
-   * throughput cost, never a correctness issue.
-   */
-  @Override
-  public void releaseUrnsForWrite(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
-    if (dialect != Dialect.MYSQL || !entityWriteAdvisoryLockEnabled || urns.isEmpty()) {
-      return;
-    }
-    if (!hasActiveTransaction("releaseUrnsForWrite")) {
-      return; // must run on the acquiring connection; without an active txn it can't
-    }
-    for (String urn : urns.stream().distinct().collect(Collectors.toList())) {
-      final String name = mysqlLockName(urn);
-      try {
-        server.sqlQuery("select RELEASE_LOCK(:name)").setParameter("name", name).findOne();
-      } catch (RuntimeException e) {
-        log.warn(
-            "RELEASE_LOCK failed for urn={} (freed on connection close / acquire timeout)", urn, e);
-      }
-    }
+    final SqlRow row =
+        server
+            .sqlQuery("select pg_try_advisory_xact_lock(:ns, hashtext(:urn)) as acquired")
+            .setParameter("ns", ADVISORY_LOCK_NAMESPACE)
+            .setParameter("urn", urn)
+            .findOne();
+    return row != null && Boolean.TRUE.equals(row.getBoolean("acquired"));
   }
 
   /**
@@ -933,67 +836,60 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
           // Opt-in per-entity write serialization (advisory lock), taken before any row locks.
           // No-op unless enabled; when on, it serializes this delete against a concurrent multi-row
-          // write (e.g. logical-model linking) on the same entity. Postgres = transaction-scoped
-          // (auto-released on commit/rollback); MySQL = session-scoped GET_LOCK, released in the
-          // finally below on the same connection.
+          // write (e.g. logical-model linking) on the same entity. Postgres transaction-scoped
+          // pg_advisory_xact_lock, auto-released on commit/rollback.
           lockUrnsForWrite(opContext, List.of(urn));
-          try {
 
-            // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
-            // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
-            // DELETEs below otherwise lock rows in the engine's scan order (physical/CTID order on
-            // PostgreSQL), unrelated to key order, so a concurrent multi-row FOR UPDATE write and
-            // this
-            // hard-delete could acquire overlapping rows in opposite orders and deadlock. The
-            // explicit
-            // ORDER BY (not the query's natural order) is what makes PostgreSQL place a Sort below
-            // its
-            // LockRows node so locks are actually taken in key order. On MySQL/InnoDB the bulk
-            // DELETEs
-            // already lock the primary-key rows in index order, so no up-front lock is needed and
-            // this
-            // block is skipped. The lock query hydrates only this one urn's rows (bounded by its
-            // aspect/version count) purely to take the locks. (canWrite is guaranteed true by the
-            // early return above.)
-            if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
-              // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the
-              // matched
-              // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
-              // locks.
+          // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
+          // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
+          // DELETEs below otherwise lock rows in the engine's scan order (physical/CTID order on
+          // PostgreSQL), unrelated to key order, so a concurrent multi-row FOR UPDATE write and
+          // this
+          // hard-delete could acquire overlapping rows in opposite orders and deadlock. The
+          // explicit
+          // ORDER BY (not the query's natural order) is what makes PostgreSQL place a Sort below
+          // its
+          // LockRows node so locks are actually taken in key order. On MySQL/InnoDB the bulk
+          // DELETEs
+          // already lock the primary-key rows in index order, so no up-front lock is needed and
+          // this
+          // block is skipped. The lock query hydrates only this one urn's rows (bounded by its
+          // aspect/version count) purely to take the locks. (canWrite is guaranteed true by the
+          // early return above.)
+          if (isPostgres && hasActiveTransaction("deleteUrn ordered lock")) {
+            // Select only the key columns (urn, aspect, version): FOR UPDATE still locks the
+            // matched
+            // rows, but this avoids hydrating the metadata/systemMetadata LOBs purely to take the
+            // locks.
+            server
+                .find(EbeanAspectV2.class)
+                .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn)
+                .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
+                .forUpdate()
+                .findList();
+          }
+
+          // First, delete all non-key aspects
+          int nonKeyCount =
               server
-                  .find(EbeanAspectV2.class)
-                  .select(EbeanAspectV2.KEY_ORDER_BY_SQL)
+                  .createQuery(EbeanAspectV2.class)
                   .where()
                   .eq(EbeanAspectV2.URN_COLUMN, urn)
-                  .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
-                  .forUpdate()
-                  .findList();
-            }
+                  .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                  .delete();
 
-            // First, delete all non-key aspects
-            int nonKeyCount =
-                server
-                    .createQuery(EbeanAspectV2.class)
-                    .where()
-                    .eq(EbeanAspectV2.URN_COLUMN, urn)
-                    .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-                    .delete();
+          // Then, delete the key aspect
+          int keyCount =
+              server
+                  .createQuery(EbeanAspectV2.class)
+                  .where()
+                  .eq(EbeanAspectV2.URN_COLUMN, urn)
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+                  .delete();
 
-            // Then, delete the key aspect
-            int keyCount =
-                server
-                    .createQuery(EbeanAspectV2.class)
-                    .where()
-                    .eq(EbeanAspectV2.URN_COLUMN, urn)
-                    .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
-                    .delete();
-
-            return nonKeyCount + keyCount;
-          } finally {
-            // Release the session-scoped MySQL GET_LOCK on this connection before the txn ends.
-            // No-op on Postgres (auto-released on commit/rollback).
-            releaseUrnsForWrite(opContext, List.of(urn));
-          }
+          return nonKeyCount + keyCount;
         });
   }
 

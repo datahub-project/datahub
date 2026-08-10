@@ -31,14 +31,13 @@ public class EbeanConfiguration {
 
   // Opt-in: serialize concurrent writes/deletes per entity before acquiring row locks, to reduce
   // hot-key contention and prevent lock-order deadlocks between a multi-row FOR UPDATE write and a
-  // hard-delete. Postgres uses a transaction-scoped pg_advisory_xact_lock (auto-released); MySQL
-  // uses a session-scoped GET_LOCK released explicitly on the same connection. No-op on other
-  // engines and when disabled (the default).
+  // hard-delete. Postgres-only: a transaction-scoped pg_advisory_xact_lock (auto-released on
+  // commit). No-op on other engines and when disabled (the default).
   private boolean entityWriteAdvisoryLockEnabled;
 
   // Write-lock backend for the OL + scoped-retry mode: "none" | "db" | "hazelcast".
   //   none      = no serialization; concurrent writers rely purely on CAS (may thrash on hot keys).
-  //   db        = DB advisory lock (Postgres pg_advisory / MySQL GET_LOCK) — simple, no extra
+  //   db        = DB advisory lock (Postgres-only pg_advisory_xact_lock) — simple, no extra
   // infra,
   //               but a waiter holds a pooled DB connection while blocked.
   //   hazelcast = distributed IMap lock — keeps lock waits OFF the DB connection pool (preferred
@@ -83,8 +82,8 @@ public class EbeanConfiguration {
   private TransactionRetryConfiguration transactionRetry = new TransactionRetryConfiguration();
 
   /**
-   * Whether the DAO's in-transaction advisory lock (Postgres pg_advisory / MySQL GET_LOCK) is
-   * active. Single source of truth so backend selection is coherent and cannot silently no-lock or
+   * Whether the DAO's in-transaction advisory lock (Postgres-only pg_advisory_xact_lock) is active.
+   * Single source of truth so backend selection is coherent and cannot silently no-lock or
    * double-lock:
    *
    * <ul>
