@@ -187,6 +187,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // When true, retention runs after upsert commit (best-effort). When false, legacy in-tx path.
   private final boolean postCommitRetentionEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
+
   /**
    * Max AspectsBatch items per DB transaction when ingesting. {@code <= 0} disables chunking (one
    * txn for the whole request). Prefer aligning with {@code ebean.queryKeysCountForBatch}.
@@ -1183,10 +1184,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         throw new RuntimeException(
             String.format(
                 "ingestAspects failed on chunk %d/%d after earlier chunks committed (%d results in prior chunks). Cause: %s",
-                chunkIndex,
-                totalChunks,
-                combined.getUpdateAspectResults().size(),
-                e.getMessage()),
+                chunkIndex, totalChunks, combined.getUpdateAspectResults().size(), e.getMessage()),
             e);
       }
     }

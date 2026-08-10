@@ -1662,8 +1662,7 @@ public class EntityServiceImplTest {
     svc.ingestAspects(opContext, batch, true, true);
 
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
-    verify(dao, times(3))
-        .runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    verify(dao, times(3)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
     List<AspectsBatch> chunks = batchCaptor.getAllValues();
     assertEquals(chunks.get(0).getItems().size(), 2);
     assertEquals(chunks.get(1).getItems().size(), 2);
@@ -1688,8 +1687,7 @@ public class EntityServiceImplTest {
     svc.ingestAspects(opContext, batch, true, true);
 
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
-    verify(dao, times(1))
-        .runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    verify(dao, times(1)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
     assertEquals(
         batchCaptor.getValue().getItems().size(), EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT);
   }
@@ -1713,8 +1711,7 @@ public class EntityServiceImplTest {
     svc.ingestAspects(opContext, batch, true, true);
 
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
-    verify(dao, times(1))
-        .runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    verify(dao, times(1)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
     assertEquals(batchCaptor.getValue().getItems().size(), oversized);
   }
 
