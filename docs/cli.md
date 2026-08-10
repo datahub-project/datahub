@@ -527,11 +527,15 @@ It needs Playwright:
 pip install 'acryl-datahub[sso]'
 ```
 
-That is usually all. Login drives the browser your operating system already defaults to, so Chrome, Edge and Firefox need nothing downloaded. Only a default Playwright cannot drive — Safari, for instance — needs a browser downloaded for it to use instead, and the CLI tells you which if it comes to that:
+If your default browser is Chrome, Edge or Firefox, that is everything — the login opens the browser you already have.
+
+Playwright cannot automate Safari. If Safari is your default, run this once and the login opens that Chromium instead:
 
 ```shell
 playwright install chromium
 ```
+
+If no browser can be opened at all, the error tells you which one to install.
 
 Then:
 

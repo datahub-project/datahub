@@ -66,10 +66,12 @@ datahub init --sso --host https://your-instance.example.com/gms --token-duration
 pip install 'acryl-datahub[sso]'   # or: uv pip install 'acryl-datahub[sso]'
 ```
 
-Login drives the browser the operating system defaults to, so Chrome, Edge and
-Firefox need nothing downloaded. Only a default Playwright cannot drive (Safari,
-or an unrecognised handler) needs `playwright install chromium`; the command
-names the browser to download if no launch succeeds.
+`--sso` opens the computer's default browser. If that is Chrome, Edge or
+Firefox, there is nothing else to install.
+
+Playwright cannot automate Safari. If Safari is the default, run
+`playwright install chromium` once, and login opens that Chromium instead. If
+no browser can be opened at all, the error says which one to install.
 
 The browser profile is reused per instance, so a still-valid identity provider
 session skips the login form on later runs. `--fresh-login` discards it to sign
