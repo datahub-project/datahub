@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
@@ -8,6 +8,7 @@ from datahub.ingestion.agent.probe import (
     ProbeSoftError,
     soft_on_status,
 )
+from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
     ModeConfig,
@@ -46,8 +47,91 @@ class ModeProbeSource(ModeSource):
     block exits, mirroring _close_mode_client for the hierarchy probe's
     client."""
 
+    # Read back by run_probe_method after each command. Declared here (rather
+    # than only assigned in for_probe) because for_probe builds via __new__,
+    # which no type checker can see priming an attribute.
+    warnings: List[str]
+
     def __exit__(self, *exc: object) -> None:
         self.session.close()
+
+    @classmethod
+    def for_probe(
+        cls, config: ModeConfig, session: Any, workspace_uri: str
+    ) -> "ModeProbeSource":
+        probe = super().for_probe(config, session, workspace_uri)
+        # run_probe_method reads this back after each command, so a listing that
+        # degraded reports why instead of looking like an empty workspace.
+        probe.warnings = []
+        return probe
+
+    def _listing(self, fetch: Callable[[], List[str]]) -> List[str]:
+        """Run one listing, turning a soft error into a warning rather than a
+        silent empty result -- the distinction between "nothing here" and "I
+        could not look" is the whole point of a diagnostic."""
+        try:
+            return fetch()
+        except ProbeSoftError as exc:
+            message = str(exc)
+            if message not in self.warnings:
+                self.warnings.append(message)
+            return []
+
+    @probe_method()
+    def spaces(self) -> List[str]:
+        """Every space (Mode's UI calls them Collections) in this workspace,
+        including ones space_pattern would exclude -- a denied space is
+        reported, not hidden, so `probe filter` can explain it."""
+        return self._listing(
+            lambda: [_space_pattern_name(space) for space in _fetch_spaces(self)]
+        )
+
+    @probe_method()
+    def reports(self, space: str) -> List[str]:
+        """Reports in one space, by space name. Excludes archived reports when
+        the recipe sets exclude_archived, matching what ingestion would see."""
+        return self._listing(lambda: [_display_name(r) for r in self._reports(space)])
+
+    @probe_method()
+    def datasets(self, space: str) -> List[str]:
+        """Datasets in one space, by space name. A Mode dataset is a special
+        kind of report, so these come from the space's /datasets endpoint."""
+        return self._listing(lambda: [_display_name(d) for d in self._datasets(space)])
+
+    @probe_method()
+    def queries(self, space: str, report: str) -> List[str]:
+        """Queries belonging to one report, addressed by space and report name."""
+        return self._listing(
+            lambda: [_display_name(q) for q in self._queries(space, report)]
+        )
+
+    def _space_token_or_raise(self, space: str) -> str:
+        token = _space_token(self, space)
+        if token is None:
+            raise ProbeSoftError(
+                f"no space named '{space}' found among this workspace's spaces"
+            )
+        return token
+
+    def _reports(self, space: str) -> List[Dict[str, Any]]:
+        return _fetch_reports(self, self._space_token_or_raise(space))
+
+    def _datasets(self, space: str) -> List[Dict[str, Any]]:
+        token = self._space_token_or_raise(space)
+        url = f"{self.workspace_uri}/spaces/{token}/datasets?filter=all"
+        return _get_embedded_paged(
+            self, url, "reports", context=f"datasets listing for space '{space}'"
+        )
+
+    def _queries(self, space: str, report: str) -> List[Dict[str, Any]]:
+        space_token = self._space_token_or_raise(space)
+        report_token = _report_token(self, space_token, report)
+        if report_token is None:
+            raise ProbeSoftError(f"no report named '{report}' found in space '{space}'")
+        url = f"{self.workspace_uri}/reports/{report_token}/queries"
+        return _get_embedded(
+            self, url, "queries", context=f"queries listing for report '{report}'"
+        )
 
 
 def _get_embedded(

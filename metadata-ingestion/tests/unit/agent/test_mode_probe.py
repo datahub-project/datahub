@@ -554,4 +554,14 @@ def test_probe_methods_registered():
     # data_sources/definitions (annotated on ModeSource itself) are found on
     # ModeProbeSource too, the class build_probe_provider actually returns.
     commands = [c for c, _ in _iter_specs(ModeProbeSource)]
-    assert commands == ["data_sources", "definitions"]
+    # The four listings are declared on ModeProbeSource itself: Mode has no SQL
+    # surface, so `probe sql` cannot enumerate it and these are the only way to
+    # walk a workspace.
+    assert commands == [
+        "data_sources",
+        "datasets",
+        "definitions",
+        "queries",
+        "reports",
+        "spaces",
+    ]
