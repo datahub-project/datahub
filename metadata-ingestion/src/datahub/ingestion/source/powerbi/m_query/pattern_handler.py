@@ -1886,6 +1886,25 @@ class OdbcLineage(AbstractLineage):
 
         return self._transform_lineage_urns(lineage, override_platform_in_urn)
 
+    def _resolve_oracle_default_database(
+        self, platform_pair: DataPlatformPair, server_name: str
+    ) -> Optional[str]:
+        """Oracle over ODBC opts into 3-part database.schema.table URNs only when
+        default_database is configured under server_to_platform_instance (i.e. the
+        Oracle ingestion runs add_database_name_to_urn=true); otherwise it stays
+        2-part. Resolve against the federated platform_pair, not the ODBC pair."""
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=platform_pair,
+                data_platform_server=server_name,
+            )
+        )
+        return (
+            platform_detail.default_database
+            if isinstance(platform_detail, OraclePlatformDetail)
+            else None
+        )
+
     def _qualify_odbc_navigation_table(
         self,
         data_platform: str,
@@ -1894,6 +1913,7 @@ class OdbcLineage(AbstractLineage):
         table_name: Optional[str],
         config_database: Optional[str],
         config_schema: Optional[str],
+        oracle_default_database: Optional[str] = None,
     ) -> Optional[str]:
         """Build the fully-qualified upstream name from an ODBC hierarchical
         navigation, backfilling tiers missing from navigation with
@@ -1902,7 +1922,10 @@ class OdbcLineage(AbstractLineage):
 
         URN shapes mirror each platform's standalone connector:
           - two-tier (Oracle/Hive): schema.table; any Kind=Database pseudo-catalog is
-            dropped, and a single-segment DSN value is treated as the schema.
+            dropped, and a single-segment DSN value is treated as the schema. Oracle
+            additionally emits database.schema.table when the user opts in via
+            server_to_platform_instance `default_database` (oracle_default_database),
+            mirroring standalone Oracle's add_database_name_to_urn=true.
           - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
             skips rather than emitting a truncated database.table.
           - Athena: navigation is catalog.database.table, later stripped to
@@ -1915,7 +1938,11 @@ class OdbcLineage(AbstractLineage):
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS:
             schema = schema_name or config_schema or config_database
-            return f"{schema}.{table_name}" if schema else None
+            if schema is None:
+                return None
+            if oracle_default_database is not None:
+                return f"{oracle_default_database}.{schema}.{table_name}"
+            return f"{schema}.{table_name}"
 
         database = database_name or config_database
         schema = schema_name
@@ -1970,6 +1997,10 @@ class OdbcLineage(AbstractLineage):
                 break
 
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
+        oracle_default_database = self._resolve_oracle_default_database(
+            platform_pair, server_name
+        )
+
         qualified_table_name = self._qualify_odbc_navigation_table(
             data_platform=data_platform,
             database_name=database_name,
@@ -1977,6 +2008,7 @@ class OdbcLineage(AbstractLineage):
             table_name=table_name,
             config_database=config_database,
             config_schema=config_schema,
+            oracle_default_database=oracle_default_database,
         )
 
         if qualified_table_name is None:

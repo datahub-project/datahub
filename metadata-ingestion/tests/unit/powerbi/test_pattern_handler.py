@@ -685,12 +685,15 @@ def test_remap_column_lineage_empty_inputs():
 # ---------------------------------------------------------------------------
 
 
-def _build_odbc_lineage(**config_overrides: object) -> OdbcLineage:
+def _build_odbc_lineage(
+    *, platform_detail: Optional[PlatformDetail] = None, **config_overrides: object
+) -> OdbcLineage:
     """OdbcLineage with a column-less table (so create_table_column_lineage is a
-    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    no-op) and a resolver that returns the given PlatformDetail (a plain, no-instance
+    PlatformDetail by default)."""
     table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
     resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
-    resolver.get_platform_instance.return_value = PlatformDetail()
+    resolver.get_platform_instance.return_value = platform_detail or PlatformDetail()
     return OdbcLineage(
         ctx=MagicMock(spec=PipelineContext),
         table=table,
@@ -1024,6 +1027,36 @@ def test_odbc_oracle_nav_database_dropped_for_two_part_urn():
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
+def test_odbc_oracle_default_database_emits_three_part_urn():
+    """When the user opts in via server_to_platform_instance default_database
+    (matching an Oracle ingestion running add_database_name_to_urn=true), Oracle
+    ODBC navigation must emit database.schema.table so the URN connects to the
+    3-part Oracle entities — mirroring OracleLineage's effective_db behavior."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="ORCL")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.employees,PROD)"
     ]
 
 
