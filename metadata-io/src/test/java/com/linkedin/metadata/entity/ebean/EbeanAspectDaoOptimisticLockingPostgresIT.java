@@ -62,10 +62,11 @@ import org.testng.annotations.Test;
  * predicate against the winner's committed row): exactly one UPDATE matches, the other matches zero
  * rows. Every test isolates itself with a unique urn, so it never depends on table-global state.
  *
- * <p><b>MySQL coverage lives elsewhere.</b> This class is Postgres-specific; the MySQL CAS predicate
- * ({@code systemmetadata->>'$.version'}) is verified by {@code EbeanOptimisticLockingMysqlIT} (and the
- * shared {@code EbeanOptimisticLockingDialectIT} assertions) via {@code MysqlTestUtils}, run by the
- * {@code :metadata-io:testMysql} suite ({@code testng-mysql.xml}).
+ * <p><b>MySQL coverage lives elsewhere.</b> This class is Postgres-specific; the MySQL CAS
+ * predicate ({@code systemmetadata->>'$.version'}) is verified by {@code
+ * EbeanOptimisticLockingMysqlIT} (and the shared {@code EbeanOptimisticLockingDialectIT}
+ * assertions) via {@code MysqlTestUtils}, run by the {@code :metadata-io:testMysql} suite ({@code
+ * testng-mysql.xml}).
  */
 public class EbeanAspectDaoOptimisticLockingPostgresIT {
 
