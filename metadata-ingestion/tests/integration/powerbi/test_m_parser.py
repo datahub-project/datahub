@@ -1580,10 +1580,14 @@ def test_bigquery_external_query_mixed_resolved_and_unmapped():
 
 
 @pytest.mark.integration
-def test_bigquery_external_query_outer_extraction_parse_failure_warns():
-    # When the outer query cannot be parsed at all (extract_external_queries flags
-    # parse_failed), the federated lineage it could not extract must be reported. sqlglot
-    # rarely hard-fails on real text, so extraction is patched to simulate the failure.
+def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
+    # When extract_external_queries hits a sqlglot parse error it sets parse_failed and
+    # returns the query UNCHANGED (EXTERNAL_QUERY calls are not stripped to placeholders,
+    # per its frozen __post_init__ invariant references/unresolvable must be empty). The
+    # raw federation syntax cannot be resolved into native BigQuery upstreams, so no
+    # lineage is emitted and the dropped federated lineage surfaces as a warning reported
+    # exactly once (at extraction time), not re-reported by a second native parse attempt.
+    # sqlglot rarely hard-fails on real text, so extraction is patched to force the failure.
     table = powerbi_data_classes.Table(
         name="mytable",
         full_name="dev.public.mytable",
@@ -1609,64 +1613,6 @@ def test_bigquery_external_query_outer_extraction_parse_failure_warns():
         "datahub.ingestion.source.powerbi.m_query.native_sql_parser.extract_external_queries",
         return_value=native_sql_parser.ExternalQueryExtraction(
             references=[], rewritten_query="SELECT 1 AS one", parse_failed=True
-        ),
-    ):
-        lineages: List[
-            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-        ] = parser.get_upstream_tables(
-            table,
-            reporter,
-            ctx=ctx,
-            config=config,
-            platform_instance_resolver=platform_instance_resolver,
-        )
-
-    assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_parse_errors == 1
-    # The dropped federated lineage must surface as a warning, not be silently swallowed.
-    assert len(reporter.warnings) >= 1
-
-
-@pytest.mark.integration
-def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
-    # When extract_external_queries hits a sqlglot parse error it sets parse_failed and
-    # returns the query UNCHANGED (EXTERNAL_QUERY calls are not stripped to placeholders,
-    # per its frozen __post_init__ invariant references/unresolvable must be empty). The
-    # raw federation syntax cannot be resolved into native BigQuery upstreams, so no
-    # lineage is emitted and the failure is reported exactly once (at extraction time),
-    # not re-reported by a second native parse attempt.
-    table = powerbi_data_classes.Table(
-        name="mytable",
-        full_name="dev.public.mytable",
-        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        override_config={
-            "native_query_parsing": True,
-            "enable_advance_lineage_sql_construct": True,
-            "bigquery_external_query_connection_to_platform": {
-                "my_project.us-east1.my_connection": {
-                    "platform": "postgres",
-                    "default_database": "ext_db",
-                }
-            },
-        }
-    )
-
-    raw_query = (
-        "with tab as (select * from "
-        'EXTERNAL_QUERY("my_project.us-east1.my_connection", '
-        '"SELECT account_name FROM ext_schema.usage_report")) select account_name from tab'
-    )
-    with patch(
-        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.extract_external_queries",
-        return_value=native_sql_parser.ExternalQueryExtraction(
-            references=[],
-            rewritten_query=raw_query,
-            parse_failed=True,
         ),
     ):
         lineages: List[
