@@ -105,8 +105,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
           "authentication.authenticators[*].configs.salt",
-          // Named-store JDBC passwords from DATAHUB_PGTIMESERIES_CONFIG_FILE / ConfigMap
-          "postgres.pgTimeseries.stores.*.pool.password");
+          // Named-store JDBC passwords from CONFIG_FILE / ConfigMap
+          "postgres.pgTimeseries.stores.*.pool.password",
+          "postgres.pgAnalytics.stores.*.pool.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -190,7 +191,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.maintenance.*",
           "postgres.pgQueue.retention.*",
           "postgres.pgQueue.producer.*",
-          // Named pgTimeseries stores/routing from DATAHUB_PGTIMESERIES_CONFIG_FILE.
+          // Named pgTimeseries / pgAnalytics stores/routing from CONFIG_FILE.
           // Do not use stores.*.*.* or stores.*.pool.*: those also match pool.password.
           "postgres.pgTimeseries.stores.*",
           "postgres.pgTimeseries.stores.*.schema",
@@ -213,6 +214,27 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgTimeseries.stores.*.pool.waitTimeoutMillis",
           "postgres.pgTimeseries.routing.*",
           "postgres.pgTimeseries.routing.*.*",
+          "postgres.pgAnalytics.stores.*",
+          "postgres.pgAnalytics.stores.*.schema",
+          "postgres.pgAnalytics.stores.*.tablePrefix",
+          "postgres.pgAnalytics.stores.*.partitioning",
+          "postgres.pgAnalytics.stores.*.partitioning.*",
+          "postgres.pgAnalytics.stores.*.retention",
+          "postgres.pgAnalytics.stores.*.retention.*",
+          "postgres.pgAnalytics.stores.*.maintenance",
+          "postgres.pgAnalytics.stores.*.maintenance.*",
+          "postgres.pgAnalytics.stores.*.pool",
+          "postgres.pgAnalytics.stores.*.pool.url",
+          "postgres.pgAnalytics.stores.*.pool.driver",
+          "postgres.pgAnalytics.stores.*.pool.username",
+          "postgres.pgAnalytics.stores.*.pool.minConnections",
+          "postgres.pgAnalytics.stores.*.pool.maxConnections",
+          "postgres.pgAnalytics.stores.*.pool.maxInactiveTimeSeconds",
+          "postgres.pgAnalytics.stores.*.pool.maxAgeMinutes",
+          "postgres.pgAnalytics.stores.*.pool.leakTimeMinutes",
+          "postgres.pgAnalytics.stores.*.pool.waitTimeoutMillis",
+          "postgres.pgAnalytics.routing.*",
+          "postgres.pgAnalytics.routing.*.*",
           "datahub.gms.rateLimits.capacity.rules[*].*",
           "datahub.gms.rateLimits.endpoint.rules[*].*",
           "datahub.gms.rateLimits.scoped.heavyResolvers.*.*");
