@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 SERIAL_MODE_PATTERN = re.compile(r"""mode:\s*['"]serial['"]""")
+DESCRIBE_SKIP_PATTERN = re.compile(r"""describe\.skip\(""")
 
 
 def discover_spec_files(tests_dir: Path) -> List[str]:
@@ -58,11 +59,22 @@ def find_serial_files(tests_dir: Path, spec_files: List[str]) -> set:
     in the file. Conservative at file granularity (no per-describe-block
     weights exist to do better): a file with any serial block is treated as
     fully atomic for floor purposes, even if only part of it is serial.
+
+    A file containing describe.skip(...) anywhere is excluded even if it also
+    matches the serial pattern: as of writing, every serial file that also
+    uses describe.skip wraps the *entire* suite in that skip (mutations/
+    add-users.spec.ts, dataset-ownership.spec.ts,
+    manage-ingestion-secret-privilege.spec.ts) -- those tests never run, so
+    treating their weight as an unavoidable floor is a false positive, not a
+    conservative approximation. This is a text-search heuristic, not an AST
+    check: a file that skips only PART of its suite while another part
+    outside the skip is genuinely serial would be wrongly excluded here. No
+    such file exists in this repo today.
     """
     serial_files = set()
     for f in spec_files:
         content = (tests_dir / f).read_text(encoding="utf-8", errors="ignore")
-        if SERIAL_MODE_PATTERN.search(content):
+        if SERIAL_MODE_PATTERN.search(content) and not DESCRIBE_SKIP_PATTERN.search(content):
             serial_files.add(f)
     return serial_files
 
