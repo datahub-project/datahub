@@ -1,4 +1,5 @@
 import pytest
+
 from datahub.ingestion.fs.fs_base import get_path_schema
 
 
