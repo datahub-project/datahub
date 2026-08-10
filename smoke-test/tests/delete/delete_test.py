@@ -117,7 +117,7 @@ def test_delete_reference(graph_client, test_setup):
     # Delete references to the tag
     graph_client.delete_references_to_urn(tag_urn, dry_run=False)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Validate that references no longer exist
     references_count, related_aspects = graph_client.delete_references_to_urn(

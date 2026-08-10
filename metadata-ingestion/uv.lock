@@ -1193,7 +1193,6 @@ microstrategy = [
 ]
 mlflow = [
     { name = "mlflow-skinny" },
-    { name = "setuptools" },
 ]
 mode = [
     { name = "cachetools" },
@@ -2496,7 +2495,6 @@ requires-dist = [
     { name = "setuptools", marker = "extra == 'all'", specifier = "<82" },
     { name = "setuptools", marker = "extra == 'dev'", specifier = "<82.0.0" },
     { name = "setuptools", marker = "extra == 'docs'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'mlflow'", specifier = "<82" },
     { name = "setuptools", marker = "extra == 'powerbi'", specifier = "<82" },
     { name = "simple-salesforce", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'dev'", specifier = "<2.0.0" },
