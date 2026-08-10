@@ -1,7 +1,8 @@
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set
 
 from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.metadata.schema_classes import DatasetKeyClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -10,15 +11,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The `aliases` aspect's search field, an exact-match keyword. Filter values are OR'd, so
-# one query can carry a whole batch of keys.
+# The `aliases` aspect's search field. Filter values are OR'd, so one query carries a batch.
 _LOWERCASED_URN_FIELD = "lowercasedUrn"
 
 _DATASET_ENTITY_TYPE = "dataset"
 
-# Whether a bulk load should fill its URN index. Off by default: the index holds a whole
-# platform's URNs in memory. Set once per ingestion, before any source exists — see
-# PipelineContext.
+# Off by default: a bulk load holds a whole platform's URNs in memory. Set once per
+# ingestion, before any source exists — see PipelineContext.
 _LOAD_URN_ALIASES = False
 
 
@@ -31,11 +30,10 @@ def urn_alias_loading_enabled() -> bool:
     return _LOAD_URN_ALIASES
 
 
-def _alias_lookup_key(urn: str) -> Optional[str]:
-    """The value GMS indexes in ``aliases.lowercasedUrn`` for `urn`, or None for a non-dataset.
+def _lowercased_urn(urn: str) -> Optional[str]:
+    """`urn` with the dataset name lowercased, or None for a non-dataset URN.
 
-    Mirrors ``AliasesUtils.lowercaseDatasetUrn``: only the dataset name is lowercased, the
-    platform and environment are left alone.
+    Mirrors ``AliasesUtils.lowercaseDatasetUrn``, the value GMS indexes in ``aliases``.
     """
     try:
         dataset = DatasetUrn.from_string(urn)
@@ -48,9 +46,40 @@ def _alias_lookup_key(urn: str) -> Optional[str]:
     )
 
 
+def _instance_kept_candidate(urn: str) -> Optional[str]:
+    """`urn` with all but the first name segment lowercased, or None if the name has no dot.
+
+    Mirrors ``SchemaResolver.get_urn_for_table``'s `mixed` casing. A URN alone cannot tell a
+    platform instance from a database name; guessing wrong yields a URN nothing matches.
+    """
+    try:
+        dataset = DatasetUrn.from_string(urn)
+    except InvalidUrnError:
+        return None
+    instance, separator, rest = dataset.name.partition(".")
+    if not separator:
+        return None
+    return str(
+        DatasetUrn(
+            platform=dataset.platform,
+            name=f"{instance}.{rest.lower()}",
+            env=dataset.env,
+        )
+    )
+
+
+def _casing_candidates(urn: str) -> List[str]:
+    """The casings of `urn` worth probing for when the server has no `aliases` aspect."""
+    candidates = [urn]
+    for candidate in (_lowercased_urn(urn), _instance_kept_candidate(urn)):
+        if candidate is not None and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
 def _has_lowercased_name(urn: str) -> bool:
-    # The name only: a URN's scaffolding (`dataPlatform`, the env) is mixed case whatever
-    # the entity is called, so `urn == urn.lower()` is never true.
+    """Whether `urn`'s dataset name is already all lowercase."""
+    # The name only: a URN's scaffolding is mixed case whatever the entity is called.
     try:
         name = DatasetUrn.from_string(urn).name
     except InvalidUrnError:
@@ -59,39 +88,30 @@ def _has_lowercased_name(urn: str) -> bool:
 
 
 class UrnAliasCache:
-    """Stores dataset URNs by their alias lookup key, for case-insensitive lookup.
-
-    `add` and `get` derive the key from a plain URN; a non-dataset URN has no key and is
-    ignored.
-    """
+    """Stores the dataset URNs a key resolves to. The key is supplied by the caller."""
 
     def __init__(self) -> None:
         # A list per key: two datasets differing only by case can both exist.
         self._urns_by_key: Dict[str, List[str]] = {}
         self._count = 0
 
-    def add(self, urn: str) -> None:
-        """Add `urn` to those stored for its key, leaving any others in place."""
-        key = _alias_lookup_key(urn)
-        if key is None:
-            return
-        entry = self._urns_by_key.setdefault(key, [])
+    def add(self, key: str, urn: str) -> None:
+        """Add `urn` under `key`, keeping any URNs already there."""
+        entry = self._urns_by_key.get(key) or []
         if urn in entry:
             return
-        entry.append(urn)
+        # Reassigned rather than appended in place, so a file-backed store would persist it.
+        self._urns_by_key[key] = entry + [urn]
         self._count += 1
 
-    def get(self, urn: str) -> Optional[List[str]]:
-        """URNs stored for `urn` ignoring case. None means unknown, `[]` means known absent."""
-        key = _alias_lookup_key(urn)
-        if key is None:
-            return None
+    def get(self, key: str) -> Optional[List[str]]:
+        """URNs stored under `key`. None means unknown, `[]` means known absent."""
         entry = self._urns_by_key.get(key)
         # Copied so callers cannot mutate the store.
         return list(entry) if entry is not None else None
 
     def replace(self, key: str, urns: List[str]) -> None:
-        """Make `urns` the complete set stored for `key`; an empty list records known absent."""
+        """Make `urns` the complete set stored under `key`; `[]` records known absent."""
         previous = self._urns_by_key.get(key)
         if previous is not None:
             self._count -= len(previous)
@@ -103,73 +123,183 @@ class UrnAliasCache:
         return self._count
 
 
-class UrnAliasResolver:
-    """Resolves a dataset URN to the dataset URNs DataHub stores for it, ignoring case.
-
-    Answers from a local index, filled by a bulk load up front or, given a `graph`, by an
-    on-demand lookup.
-    """
-
-    def __init__(self, graph: Optional["DataHubGraph"] = None) -> None:
-        self._cache = UrnAliasCache()
-        self._graph = graph
+class _Lookup(Protocol):
+    """How a reference is matched against the dataset URNs DataHub stores."""
 
     def add(self, urn: str) -> None:
-        self._cache.add(urn)
-
-    def find_matches(self, urn: str) -> List[str]:
-        """Stored URNs matching `urn` ignoring case."""
-        self.prefetch([urn])
-        return self._cache.get(urn) or []
+        """Record `urn` as stored, from a bulk load."""
 
     def prefetch(self, urns: List[str]) -> None:
-        """Fill the index for every URN it doesn't already answer, in one query."""
-        unknown = [urn for urn in urns if self._cache.get(urn) is None]
-        if unknown:
-            self._query_matches(unknown)
+        """Learn what is not already known about `urns`, in one query."""
 
-    def _query_matches(self, urns: List[str]) -> None:
-        """Query DataHub for all of `urns` at once and cache the answers."""
-        if self._graph is None:
+    def matches(self, urn: str) -> List[str]:
+        """Stored URNs matching `urn` ignoring case, from what is already known."""
+
+    def count(self) -> int:
+        """How many stored URNs are recorded."""
+
+
+class _AliasIndexLookup:
+    """Matches via the `aliases.lowercasedUrn` index: one search returns every stored casing,
+    including casings nothing could have guessed.
+    """
+
+    def __init__(self, graph: Optional["DataHubGraph"]) -> None:
+        self._graph = graph
+        self._cache = UrnAliasCache()
+
+    def add(self, urn: str) -> None:
+        key = _lowercased_urn(urn)
+        if key is not None:
+            self._cache.add(key, urn)
+
+    def matches(self, urn: str) -> List[str]:
+        key = _lowercased_urn(urn)
+        if key is None:
+            return []
+        return self._cache.get(key) or []
+
+    def prefetch(self, urns: List[str]) -> None:
+        graph = self._graph
+        if graph is None:
             return
-        # One bucket per key: URNs differing only in the casing of the name share a key,
-        # so one query value and one cache write covers all of them.
+        # One key covers every casing of a name; doubles as the accumulator for the response.
         matches_by_key: Dict[str, List[str]] = {}
         for urn in urns:
-            key = _alias_lookup_key(urn)
-            if key is not None:
-                matches_by_key.setdefault(key, [])
+            key = _lowercased_urn(urn)
+            if key is not None and self._cache.get(key) is None:
+                matches_by_key[key] = []
         if not matches_by_key:
             return
 
+        keys = list(matches_by_key)
         try:
             stored_urns = list(
-                self._graph.get_urns_by_filter(
+                graph.get_urns_by_filter(
                     entity_types=[_DATASET_ENTITY_TYPE],
                     extraFilters=[
                         SearchFilterRule(
                             field=_LOWERCASED_URN_FIELD,
                             condition="EQUAL",
-                            values=list(matches_by_key.keys()),
+                            values=keys,
                         ).to_raw()
                     ],
                 )
             )
         except Exception as e:
-            # Not cached: a failure stored as "known absent" would decline every later
+            # Not recorded: a failure cached as "absent" would decline every later
             # reference to the same entity for the rest of the run.
             logger.warning(
-                f"URN alias lookup failed for {len(matches_by_key)} key(s): {e}",
-                exc_info=True,
+                f"URN alias lookup failed for {len(keys)} key(s): {e}", exc_info=True
             )
             return
 
         for stored_urn in stored_urns:
-            key = _alias_lookup_key(stored_urn)
+            key = _lowercased_urn(stored_urn)
             if key in matches_by_key:
                 matches_by_key[key].append(stored_urn)
         for key, matches in matches_by_key.items():
             self._cache.replace(key, matches)
+
+    def count(self) -> int:
+        return self._cache.count()
+
+
+class _CasingProbeLookup:
+    """Matches by guessing casings and checking whether each exact URN exists.
+
+    The fallback with no `aliases` aspect, so only guessable casings are findable. Existence
+    is keyed by the exact URN, so two references never inherit each other's answer.
+    """
+
+    def __init__(self, graph: Optional["DataHubGraph"]) -> None:
+        self._graph = graph
+        # Keyed by the exact URN: `[urn]` where it exists, `[]` where it does not.
+        self._cache = UrnAliasCache()
+
+    def add(self, urn: str) -> None:
+        # Only proves existence: absence is never recorded, so unknown casings still probe.
+        self._cache.add(urn, urn)
+
+    def matches(self, urn: str) -> List[str]:
+        return [
+            candidate
+            for candidate in _casing_candidates(urn)
+            if self._cache.get(candidate)
+        ]
+
+    def prefetch(self, urns: List[str]) -> None:
+        graph = self._graph
+        if graph is None:
+            return
+        # Checked per candidate rather than against the whole index, which can be far
+        # larger than the batch.
+        seen: Set[str] = set()
+        unknown: List[str] = []
+        for urn in urns:
+            if _lowercased_urn(urn) is None:
+                continue
+            for candidate in _casing_candidates(urn):
+                if candidate in seen or self._cache.get(candidate) is not None:
+                    continue
+                seen.add(candidate)
+                unknown.append(candidate)
+        if not unknown:
+            return
+
+        try:
+            entities = graph.get_entities(
+                entity_name=_DATASET_ENTITY_TYPE,
+                urns=unknown,
+                aspects=[DatasetKeyClass.ASPECT_NAME],
+            )
+        except Exception as e:
+            # Not recorded: a failure cached as "absent" would decline every later
+            # reference to the same entity for the rest of the run.
+            logger.warning(
+                f"URN casing probe failed for {len(unknown)} URN(s): {e}", exc_info=True
+            )
+            return
+
+        # get_entities drops entities with none of the requested aspects, so presence means
+        # "exists". Not schemaMetadata: a schemaless dataset is exactly what this must find.
+        existing = set(entities)
+        for candidate in unknown:
+            self._cache.replace(candidate, [candidate] if candidate in existing else [])
+
+    def count(self) -> int:
+        return self._cache.count()
+
+
+class UrnAliasResolver:
+    """Resolves a dataset URN to the dataset URNs DataHub stores for it, ignoring case.
+
+    Matching is delegated to the alias index, or to a casing probe when the server has no
+    `aliases` aspect; which URN to pick out of either's answer is decided here.
+    """
+
+    def __init__(self, graph: Optional["DataHubGraph"] = None) -> None:
+        self._lookup: _Lookup = (
+            _AliasIndexLookup(graph)
+            if self._aliases_supported()
+            else _CasingProbeLookup(graph)
+        )
+
+    def _aliases_supported(self) -> bool:
+        # yet to decide how to handle if feature is supported or not, for now we will assume it is supported
+        return True
+
+    def add(self, urn: str) -> None:
+        self._lookup.add(urn)
+
+    def prefetch(self, urns: List[str]) -> None:
+        """Learn what is not already known about `urns`, in one query."""
+        self._lookup.prefetch(urns)
+
+    def find_matches(self, urn: str) -> List[str]:
+        """Stored URNs matching `urn` ignoring case."""
+        self._lookup.prefetch([urn])
+        return self._lookup.matches(urn)
 
     def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
         """The dataset URN DataHub stores for `urn`, or None without a single match.
@@ -186,4 +316,4 @@ class UrnAliasResolver:
         return None
 
     def cached_urn_count(self) -> int:
-        return self._cache.count()
+        return self._lookup.count()
