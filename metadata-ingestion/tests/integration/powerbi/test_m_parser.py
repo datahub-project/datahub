@@ -1659,6 +1659,16 @@ _ODBC_BIGQUERY_NAV_TABLE_ONLY = (
     "in\n    events_Table"
 )
 
+# MySQL (database.table fallback) ODBC navigation that surfaces only the leaf
+# table. A two-segment dsn_to_database_schema value must not splice a spurious
+# schema tier: only the database level is backfilled, keeping the URN two-part.
+_ODBC_MYSQL_NAV_TABLE_ONLY = (
+    'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};'
+    'server=10.1.10.1;dsn=testdb01", [HierarchicalNavigation=true]),\n'
+    '    employees_Table = Source{[Name="employees",Kind="Table"]}[Data]\n'
+    "in\n    employees_Table"
+)
+
 # BigQuery (three-tier) ODBC navigation that surfaces the Kind=Database node
 # (project) and the leaf table but omits the Schema (dataset) level. The dataset
 # must be backfilled from dsn_to_database_schema even though the database tier is
@@ -2012,6 +2022,41 @@ def test_mysql_odbc_navigation_two_part_dsn_mapping_does_not_add_schema_tier():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_navigation_table_only_two_part_dsn_mapping_stays_two_part():
+    """database.table fallback guard: MySQL navigation exposes only the leaf table,
+    so the database tier is backfilled from dsn_to_database_schema. A two-segment
+    mapping value must not additionally splice a schema tier — MySQL has no schema
+    level, so the URN must stay database.table (warehouse.employees)."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_MYSQL_NAV_TABLE_ONLY,
+        name="employees",
+        full_name="employees.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,warehouse.employees,PROD)"
     )
 
 

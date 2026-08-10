@@ -1924,16 +1924,17 @@ class OdbcLineage(AbstractLineage):
                 break
 
         # Backfill missing high-order tiers from dsn_to_database_schema (nav wins).
-        # Skip prepending a DSN database onto Schema+Table for two-tier platforms
-        # (Oracle/Hive): that mapping is for SQL parsing / three-tier project
-        # backfill, and would force database.schema.table URNs that mismatch the
-        # standalone connector's default schema.table shape.
+        # Only the database tier is backfilled here; schema backfill is deferred to
+        # the platform-shape-aware blocks below so that genuine database.table
+        # platforms (MySQL/Teradata/ClickHouse) never get a spurious schema spliced
+        # in from a two-segment mapping. Skip prepending a DSN database onto
+        # Schema+Table for two-tier platforms (Oracle/Hive): that mapping is for SQL
+        # parsing / three-tier project backfill, and would force database.schema.table
+        # URNs that mismatch the standalone connector's default schema.table shape.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
         if database_name is None:
             if data_platform not in ODBC_TWO_TIER_PLATFORMS or schema_name is None:
                 database_name = config_database
-            if schema_name is None:
-                schema_name = config_schema
 
         # Three-tier nav can surface Kind=Database + Kind=Table while omitting the
         # Schema level. The database tier is already populated, so the block above
