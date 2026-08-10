@@ -6,8 +6,9 @@ _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,P
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
 _MIXED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Db.My_Schema.Events,PROD)"
 _OTHER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
-# `_UPPER` with only its leading segment left alone, the casing connectors produce when
-# they lowercase the table name but not the platform instance.
+# `_UPPER` with only the platform instance left alone, the casing connectors produce when
+# they lowercase the table name but not the instance.
+_PLATFORM_INSTANCE = "MY_DB"
 _INSTANCE_KEPT = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.my_schema.events,PROD)"
 )
@@ -247,8 +248,10 @@ def test_casing_probe_finds_a_lowercased_stored_urn() -> None:
 
     # The alias search is never issued: the server would answer it with zero hits.
     graph.get_urns_by_filter.assert_not_called()
+    # No platform instance configured, so there is no third casing to guess — the same two
+    # `resolve_table` tries.
     _, kwargs = graph.get_entities.call_args
-    assert kwargs["urns"] == [_UPPER, _LOWER, _INSTANCE_KEPT]
+    assert kwargs["urns"] == [_UPPER, _LOWER]
 
 
 def test_casing_probe_cannot_find_an_uppercased_stored_urn() -> None:
@@ -322,8 +325,38 @@ def test_casing_probe_negative_answer_covers_only_the_urn_probed() -> None:
 
 def test_casing_probe_finds_an_instance_kept_stored_urn() -> None:
     # Neither the reference as written nor its fully lowercased form matches; only the
-    # casing that preserves the leading segment does.
+    # casing that preserves the configured platform instance does.
     graph = _existing(_INSTANCE_KEPT)
 
     with _unsupported():
-        assert UrnAliasResolver(graph=graph).resolve(_UPPER) == _INSTANCE_KEPT
+        resolver = UrnAliasResolver(graph=graph, platform_instance=_PLATFORM_INSTANCE)
+        assert resolver.resolve(_UPPER) == _INSTANCE_KEPT
+
+    _, kwargs = graph.get_entities.call_args
+    assert kwargs["urns"] == [_UPPER, _LOWER, _INSTANCE_KEPT]
+
+
+def test_casing_probe_keeps_the_instance_however_the_reference_spells_it() -> None:
+    # The configured instance is matched case-insensitively, and kept as the reference
+    # wrote it — that is the casing DataHub was given.
+    graph = _existing(_INSTANCE_KEPT)
+
+    with _unsupported():
+        resolver = UrnAliasResolver(
+            graph=graph, platform_instance=_PLATFORM_INSTANCE.lower()
+        )
+        assert resolver.resolve(_UPPER) == _INSTANCE_KEPT
+
+
+def test_casing_probe_ignores_an_instance_the_reference_does_not_carry() -> None:
+    # The reference belongs to some other namespace, so there is no instance to preserve
+    # and guessing one would only waste a slot in the batch.
+    graph = _existing()
+
+    with _unsupported():
+        UrnAliasResolver(graph=graph, platform_instance="other_instance").resolve(
+            _UPPER
+        )
+
+    _, kwargs = graph.get_entities.call_args
+    assert kwargs["urns"] == [_UPPER, _LOWER]

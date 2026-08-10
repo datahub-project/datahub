@@ -46,19 +46,22 @@ def _lowercased_urn(urn: str) -> Optional[str]:
     )
 
 
-def _instance_kept_candidate(urn: str) -> Optional[str]:
-    """`urn` with all but the first name segment lowercased, or None if the name has no dot.
+def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
+    """`urn` with the table name lowercased but the platform instance left alone.
 
-    Mirrors ``SchemaResolver.get_urn_for_table``'s `mixed` casing. A URN alone cannot tell a
-    platform instance from a database name; guessing wrong yields a URN nothing matches.
+    Mirrors ``SchemaResolver.get_urn_for_table``'s `mixed` casing, which some connectors
+    produce. None when `urn` does not carry `platform_instance`.
     """
     try:
         dataset = DatasetUrn.from_string(urn)
     except InvalidUrnError:
         return None
-    instance, separator, rest = dataset.name.partition(".")
-    if not separator:
+    prefix = f"{platform_instance}."
+    name = dataset.name
+    # Matched case-insensitively: a reference may spell the instance any way.
+    if not name.lower().startswith(prefix.lower()):
         return None
+    instance, rest = name[: len(prefix) - 1], name[len(prefix) :]
     return str(
         DatasetUrn(
             platform=dataset.platform,
@@ -68,10 +71,15 @@ def _instance_kept_candidate(urn: str) -> Optional[str]:
     )
 
 
-def _casing_candidates(urn: str) -> List[str]:
+def _casing_candidates(urn: str, platform_instance: Optional[str]) -> List[str]:
     """The casings of `urn` worth probing for when the server has no `aliases` aspect."""
     candidates = [urn]
-    for candidate in (_lowercased_urn(urn), _instance_kept_candidate(urn)):
+    extras = [_lowercased_urn(urn)]
+    # Without an instance there is nothing to leave alone, and `resolve_table` likewise
+    # drops its `mixed` candidate as a duplicate of the lowercased one.
+    if platform_instance:
+        extras.append(_instance_kept_candidate(urn, platform_instance))
+    for candidate in extras:
         if candidate is not None and candidate not in candidates:
             candidates.append(candidate)
     return candidates
@@ -212,8 +220,11 @@ class _CasingProbeLookup:
     is keyed by the exact URN, so two references never inherit each other's answer.
     """
 
-    def __init__(self, graph: Optional["DataHubGraph"]) -> None:
+    def __init__(
+        self, graph: Optional["DataHubGraph"], platform_instance: Optional[str]
+    ) -> None:
         self._graph = graph
+        self._platform_instance = platform_instance
         # Keyed by the exact URN: `[urn]` where it exists, `[]` where it does not.
         self._cache = UrnAliasCache()
 
@@ -224,7 +235,7 @@ class _CasingProbeLookup:
     def matches(self, urn: str) -> List[str]:
         return [
             candidate
-            for candidate in _casing_candidates(urn)
+            for candidate in _casing_candidates(urn, self._platform_instance)
             if self._cache.get(candidate)
         ]
 
@@ -239,7 +250,7 @@ class _CasingProbeLookup:
         for urn in urns:
             if _lowercased_urn(urn) is None:
                 continue
-            for candidate in _casing_candidates(urn):
+            for candidate in _casing_candidates(urn, self._platform_instance):
                 if candidate in seen or self._cache.get(candidate) is not None:
                     continue
                 seen.add(candidate)
@@ -278,11 +289,17 @@ class UrnAliasResolver:
     `aliases` aspect; which URN to pick out of either's answer is decided here.
     """
 
-    def __init__(self, graph: Optional["DataHubGraph"] = None) -> None:
+    def __init__(
+        self,
+        graph: Optional["DataHubGraph"] = None,
+        platform_instance: Optional[str] = None,
+    ) -> None:
+        # platform_instance is read only by the casing probe: the alias index keys on the
+        # whole name lowercased, instance prefix included.
         self._lookup: _Lookup = (
             _AliasIndexLookup(graph)
             if self._aliases_supported()
-            else _CasingProbeLookup(graph)
+            else _CasingProbeLookup(graph, platform_instance)
         )
 
     def _aliases_supported(self) -> bool:
