@@ -944,6 +944,17 @@ jobs:
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
+      # Validated via repeated manual workflow_dispatch trials on this PR (see
+      # resusable-playwright-tests.yml's workers_per_shard input description
+      # for the fixes that made this safe): the seeding-fixture TOCTOU race,
+      # the v2-manage-policies.spec.ts missing serial guard, and the
+      # cross-file lineage-time-seeder race are all fixed, and multiple clean
+      # full-suite runs at workers_per_shard=2 confirm no regressions plus a
+      # real ~15-20% cut in the Playwright stage's wall clock. Wired here
+      # (rather than raising the reusable workflow's own default) so this is
+      # the one opted-in caller; other callers of resusable-playwright-tests
+      # keep inheriting workers_per_shard=1 unless they explicitly ask for 2.
+      workers_per_shard: "2"
     secrets: inherit
 
   playwright_report:
