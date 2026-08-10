@@ -69,12 +69,6 @@
             }
           },
           {
-            "com.linkedin.glossary.GlossaryRelatedTerms": {
-              "isRelatedTerms": [],
-              "hasRelatedTerms": []
-            }
-          },
-          {
             "com.linkedin.common.Ownership": {
               "owners": [
                 {
