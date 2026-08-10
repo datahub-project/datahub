@@ -10,6 +10,7 @@ from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
 from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
+from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
@@ -185,3 +186,10 @@ class BigQueryConnectionConfig(ProbeableConfigMixin, GCPWIFConfig):
         )
 
         return BIGQUERY_PROBE
+
+    def build_probe_provider(self) -> "ProbeProvider":
+        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
+            BigQueryMetadataProbe,
+        )
+
+        return BigQueryMetadataProbe(self.get_bigquery_client())

@@ -189,6 +189,30 @@ def test_permits_standard_functions_over_catalog_tables():
     )
 
 
+def test_permits_bigquery_dataset_qualified_information_schema():
+    # BigQuery addresses it as <dataset>.INFORMATION_SCHEMA.<VIEW>, and because
+    # BigQuery table names may contain dots its dialect parses the last two
+    # parts as one name -- so the schema marker is not in the `db` slot.
+    check_query_scope(
+        "SELECT table_name FROM mydataset.INFORMATION_SCHEMA.TABLES",
+        platform="bigquery",
+    )
+
+
+def test_permits_bigquery_project_qualified_information_schema():
+    check_query_scope(
+        "SELECT table_name FROM myproject.mydataset.INFORMATION_SCHEMA.TABLES",
+        platform="bigquery",
+    )
+
+
+def test_rejects_a_bigquery_user_table():
+    with pytest.raises(SqlScopeError, match="orders"):
+        check_query_scope(
+            "SELECT * FROM myproject.mydataset.orders", platform="bigquery"
+        )
+
+
 def test_error_names_the_offending_table():
     # The agent has to be able to rewrite the query, so the message must say
     # which reference failed rather than only that something did.

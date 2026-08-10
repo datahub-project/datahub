@@ -147,10 +147,22 @@ def _check_table(
             f"'{rendered}' is a function in FROM position, not a catalog table"
         )
 
-    name = table.name
-    schema = table.db
+    # Flattened, because dialects disagree about which slot holds what.
+    # BigQuery table names may contain dots, so its dialect parses
+    # `mydataset.INFORMATION_SCHEMA.TABLES` as db='mydataset' and
+    # name='INFORMATION_SCHEMA.TABLES' -- the schema marker is inside the name.
+    # Splitting every slot and reading positionally is the one rule that holds
+    # for that as well as Postgres's db.schema.table.
+    parts = [
+        piece
+        for part in (table.catalog, table.db, table.name)
+        if part
+        for piece in part.split(".")
+        if piece
+    ]
 
-    if not schema:
+    if len(parts) < 2:
+        name = parts[0] if parts else table.name
         # A CTE alias reads as an unqualified table; refusing it would reject
         # legitimate catalog queries that use WITH.
         if name.lower() in cte_names:
@@ -160,14 +172,15 @@ def _check_table(
             f"catalog metadata; qualify it (e.g. {INFORMATION_SCHEMA}.{name})"
         )
 
-    rendered = _render(table)
+    relation, schema = parts[-1], parts[-2]
+    rendered = ".".join(parts)
 
     if schema.lower() not in allowed:
         raise SqlScopeError(
             f"'{rendered}' is outside the catalog metadata this probe may read; "
             f"permitted schemas: {', '.join(sorted(allowed))}"
         )
-    if name.lower() in _QUERY_TEXT_RELATIONS:
+    if relation.lower() in _QUERY_TEXT_RELATIONS:
         raise SqlScopeError(
             f"'{rendered}' exposes the text of user queries, which can embed "
             f"row values, so it is excluded even though its schema is catalog"
