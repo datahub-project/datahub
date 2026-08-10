@@ -135,6 +135,8 @@ Requirements:
 
 - #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
 
+- **(CLI / `datahub init --sso`)** SSO login drives the browser the operating system defaults to for `https` instead of a bundled Chromium, and reuses a per-instance profile under `~/.datahub/sso-browser-profiles` (0700), so a still-valid identity provider session skips the login form on later runs. Login now confirms who signed in with the instance rather than trusting the `actor` cookie. Three new flags, each rejected without `--sso`: `--fresh-login` discards the saved profiles and session to sign in as somebody else; `--seed-profile DIR` copies an existing browser profile in on first use; `--remember-session` stores the login cookies in `~/.datahub/sso-sessions` (0600) and replays them, which is needed only when the identity provider issues a session cookie no browser writes to disk, and makes the next login run headless. **Action:** none — existing `datahub init --sso` invocations behave the same, minus the repeated login.
+
 ### Environment Variables
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
