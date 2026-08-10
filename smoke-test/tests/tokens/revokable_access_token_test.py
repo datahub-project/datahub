@@ -15,6 +15,7 @@ from .token_utils import (
     removeUser,
     token_name_filter,
     wait_for_no_tokens_matching,
+    wait_for_tokens_matching,
     wait_for_user_in_list,
 )
 
@@ -152,11 +153,9 @@ def test_admin_can_create_list_and_revoke_tokens(auth_session):
     assert res_data["data"]["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
 
     # Using a super account, list the previously created token.
-    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listAccessTokens"]["total"] is not None
-    assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
+    res_data = wait_for_tokens_matching(
+        admin_session, SUITE_TOKEN_FILTER, expected_count=1
+    )
     assert (
         res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == admin_user_urn
     )
@@ -204,11 +203,9 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(auth_session):
     wait_for_writes_to_sync(mae_only=True)
 
     # Using a super account, list the previously created tokens.
-    res_data = listAccessTokens(admin_session, filters=SUITE_TOKEN_FILTER)
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listAccessTokens"]["total"] is not None
-    assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
+    res_data = wait_for_tokens_matching(
+        admin_session, SUITE_TOKEN_FILTER, expected_count=1
+    )
     assert (
         res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
         == REVOKE_SUITE_USER_URN
@@ -251,17 +248,11 @@ def test_non_admin_can_create_list_revoke_tokens(auth_session):
     wait_for_writes_to_sync(mae_only=True)
 
     # User should be able to list his own token
-    res_data = listAccessTokens(
-        user_session,
-        [
-            {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            *SUITE_TOKEN_FILTER,
-        ],
-    )
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listAccessTokens"]["total"] is not None
-    assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
+    owner_filters = [
+        {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
+        *SUITE_TOKEN_FILTER,
+    ]
+    res_data = wait_for_tokens_matching(user_session, owner_filters, expected_count=1)
     assert (
         res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
         == REVOKE_SUITE_USER_URN
@@ -324,17 +315,11 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_session):
     # Admin should be able to list other tokens
     user_session.cookies.clear()
     admin_session = auth_session
-    res_data = listAccessTokens(
-        admin_session,
-        [
-            {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
-            *SUITE_TOKEN_FILTER,
-        ],
-    )
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listAccessTokens"]["total"] is not None
-    assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
+    owner_filters = [
+        {"field": "ownerUrn", "values": [REVOKE_SUITE_USER_URN]},
+        *SUITE_TOKEN_FILTER,
+    ]
+    res_data = wait_for_tokens_matching(admin_session, owner_filters, expected_count=1)
     assert (
         res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
         == REVOKE_SUITE_USER_URN

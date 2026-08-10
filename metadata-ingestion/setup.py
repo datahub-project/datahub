@@ -198,9 +198,11 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
+    # urllib3 2.x carries security fixes (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441,
+    # CVE-2026-44431), but a 2.x floor is NOT satisfiable for acryl-datahub[all]: the elasticsearch
+    # source extra pins elasticsearch==7.13.4 (held for OpenSearch compat), which requires
+    # urllib3<2. Keep the bound loose here; the 2.x floor is enforced for elasticsearch-free Docker
+    # venvs via docker/snippets/ingestion/constraints.txt.
     "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
@@ -614,11 +616,8 @@ plugins: Dict[str, Set[str]] = {
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
-    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
-    # UnsupportedProductError
-    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
-    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
+    "elasticsearch": {"opensearch-py>=2.6.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -701,9 +700,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
