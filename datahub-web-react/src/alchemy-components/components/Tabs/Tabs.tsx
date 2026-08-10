@@ -191,17 +191,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
         }
     }
 
-    ${({ $stickyHeader }) =>
+    ${({ $stickyHeader, theme }) =>
         $stickyHeader &&
         `
             .ant-tabs-nav::before {
                 display: none;
             }
-            
+    
             .ant-tabs-nav-wrap::before {
                 display: none;
             }
-            
+
             .ant-tabs-nav-list::after {
                 content: '';
                 position: absolute;
@@ -209,7 +209,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
+                background-color: ${theme.colors.bgSelectedSubtle};
             }
         `}
 

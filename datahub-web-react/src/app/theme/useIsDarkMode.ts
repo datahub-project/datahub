@@ -23,14 +23,14 @@ export function useIsDarkMode(): [boolean, () => void] {
     const [isDarkMode, setIsDarkMode] = useState(loadDarkModeFromLocalStorage);
 
     const toggleDarkMode = useCallback(() => {
-        setIsDarkMode((prev) => {
-            const next = !prev;
-            saveDarkModeToLocalStorage(next);
-            // Notify other hook instances in the same tab
-            window.dispatchEvent(new Event(DARK_MODE_CHANGE_EVENT));
-            return next;
-        });
+        setIsDarkMode((prev) => !prev);
     }, []);
+
+    // Persist to localStorage and notify other instances when state changes
+    useEffect(() => {
+        saveDarkModeToLocalStorage(isDarkMode);
+        window.dispatchEvent(new Event(DARK_MODE_CHANGE_EVENT));
+    }, [isDarkMode]);
 
     // Sync with other hook instances when they toggle dark mode
     useEffect(() => {

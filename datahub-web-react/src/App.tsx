@@ -107,7 +107,7 @@ export const InnerApp: React.VFC = () => {
 
     return (
         <HelmetProvider>
-            <CustomThemeProvider isDarkMode={isDarkMode}>
+            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
                 <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />

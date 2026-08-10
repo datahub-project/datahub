@@ -10,9 +10,10 @@ import { CustomThemeContext } from '@src/customThemeContext';
 interface Props {
     children: React.ReactNode;
     isDarkMode?: boolean;
+    injectGlobalStyles?: boolean;
 }
 
-const CustomThemeProvider = ({ children, isDarkMode = false }: Props) => {
+const CustomThemeProvider = ({ children, isDarkMode = false, injectGlobalStyles = false }: Props) => {
     // Note: AppConfigContext not provided yet, so this call relies on the DEFAULT_APP_CONFIG
     const customThemeId = useCustomThemeId();
 
@@ -27,7 +28,7 @@ const CustomThemeProvider = ({ children, isDarkMode = false }: Props) => {
     return (
         <CustomThemeContext.Provider value={{ theme, updateTheme: setTheme }}>
             <ThemeProvider theme={theme}>
-                <GlobalThemeStyles />
+                {injectGlobalStyles && <GlobalThemeStyles />}
                 {children}
             </ThemeProvider>
         </CustomThemeContext.Provider>
