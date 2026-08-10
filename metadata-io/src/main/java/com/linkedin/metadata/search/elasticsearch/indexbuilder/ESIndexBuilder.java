@@ -149,6 +149,14 @@ public class ESIndexBuilder {
   // would wait >3000s for the 5th retry
   private static final int deleteMaxAttempts = 5;
 
+  /**
+   * Consecutive polls the destination document count must hold steady before {@code
+   * pollReindexCompletion} will accept an {@code allowDocCountMismatch} completion whose reindex
+   * task is unobservable. Only reached when the task API resolves neither a running nor a stored
+   * completed task; an observably running task blocks completion regardless of this value.
+   */
+  private static final int MISMATCH_STABLE_POLLS_WITHOUT_TASK = 3;
+
   // Retry instances for various operations
   private final Retry healthCheckRetry;
   private final Retry settingsUpdateRetry;
@@ -963,17 +971,16 @@ public class ESIndexBuilder {
     final long pollStartTimeMillis = documentCountsLastUpdated;
     final long pollStartDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
-    // Stall counter and progress snapshot for the allowDocCountMismatch exit path.
-    float lastProgressPercentage = 0f;
-    int reindexStalledCount = 0;
-    // Source count captured before the loop starts. The source receives writes during reindex
-    // so its live count grows; this snapshot is the stable baseline for the exit conditions.
+    // Source count captured before the loop starts. The source receives writes during reindex so
+    // its live count grows; this snapshot is the stable baseline for the mismatch exit condition.
     final long initialSourceDocCount = documentCounts.getFirst();
     final boolean allowMismatch =
         config.getBuildIndices().isAllowDocCountMismatch()
             && config.getBuildIndices().isCloneIndices();
-    final float mismatchAllowPercentage =
-        allowMismatch ? config.getBuildIndices().getAllowDocCountMismatchPercentage() : 100f;
+    // Consecutive polls in which the destination count has not advanced. Only consulted when the
+    // reindex task is unobservable; see the mismatch exit below.
+    long lastDestDocCount = documentCounts.getSecond();
+    int destStalledPolls = 0;
 
     while (System.currentTimeMillis() < timeoutAt) {
       log.info(
@@ -990,6 +997,15 @@ public class ESIndexBuilder {
         // Stall-detection bookkeeping only; the ETA below is computed unconditionally.
         documentCountsLastUpdated = currentTime;
         documentCounts = latestCounts;
+      }
+
+      // Track the destination side on its own. The pair above also moves when the live source
+      // count drifts, which says nothing about whether the copy is still advancing.
+      if (documentCounts.getSecond() == lastDestDocCount) {
+        destStalledPolls++;
+      } else {
+        destStalledPolls = 0;
+        lastDestDocCount = documentCounts.getSecond();
       }
 
       estimatedMinutesRemaining =
@@ -1027,59 +1043,45 @@ public class ESIndexBuilder {
           activeTaskId,
           describeReindexTaskStatus(taskStatus));
 
-      // When allowDocCountMismatch=true and cloneIndices=true the source index keeps receiving
-      // writes (pre-process hooks, MAE consumer) during reindex so its document count is always
-      // slightly ahead of the destination. The exact-match condition above can never be satisfied
-      // against a live-write source. These exits allow the loop to complete once the destination
-      // is close enough. cloneIndices=true is required as a safety precondition: the original
-      // index is preserved as a backup, and any missing docs are re-written by the MAE consumer
-      // replaying Kafka events once GMS restarts against the new index.
-      if (allowMismatch) {
-        // Exit 1: destination caught up to the source count at loop start.
-        if (documentCounts.getSecond() >= initialSourceDocCount) {
-          log.info(
-              "Reindex complete (initial-count match): {} -> {} target={} initialSource={} currentSource={}",
-              sourceIndex,
-              destIndex,
-              documentCounts.getSecond(),
-              initialSourceDocCount,
-              documentCounts.getFirst());
-          return new PollReindexResult(true, latestReindexInfo, documentCounts);
-        }
-
-        // Exit 2: destination reached the configured percentage of the live source count.
-        if (progressPercentage >= mismatchAllowPercentage) {
-          log.info(
-              "Reindex complete (threshold): {} -> {} progress={}% threshold={}% "
-                  + "currentSource={} target={} initialSource={}",
-              sourceIndex,
-              destIndex,
-              String.format("%.4f", progressPercentage),
-              mismatchAllowPercentage,
-              documentCounts.getFirst(),
-              documentCounts.getSecond(),
-              initialSourceDocCount);
-          return new PollReindexResult(true, latestReindexInfo, documentCounts);
-        }
-
-        // Exit 3: progress stalled above the threshold for 2+ consecutive iterations.
-        if (Math.abs(progressPercentage - lastProgressPercentage) < 0.001f) {
-          reindexStalledCount++;
-          if (progressPercentage > mismatchAllowPercentage && reindexStalledCount >= 2) {
-            log.info(
-                "Reindex complete (stall): {} -> {} progress={}% stalledIterations={} source={} target={}",
-                sourceIndex,
-                destIndex,
-                String.format("%.4f", progressPercentage),
-                reindexStalledCount,
-                documentCounts.getFirst(),
-                documentCounts.getSecond());
-            return new PollReindexResult(true, latestReindexInfo, documentCounts);
-          }
-        } else {
-          reindexStalledCount = 0;
-        }
-        lastProgressPercentage = progressPercentage;
+      // With a live expectedCountSupplier the source index keeps receiving writes during the
+      // reindex (synchronous pre-process index updates, MAE consumer), so its count stays ahead of
+      // the destination and the exact-match condition above can never be satisfied. When
+      // allowDocCountMismatch=true the loop instead succeeds once the destination has copied at
+      // least as many documents as the source held when polling began.
+      //
+      // Guards that keep this from declaring success on a partial index:
+      //   - the task must not be observably running, so a destination merely passing through the
+      //     snapshot count mid-copy does not qualify;
+      //   - cloneIndices=true must be set, preserving the original index as a backup.
+      // Documents written to the source after initialSourceDocCount was captured are not guaranteed
+      // to be present in the destination; the clone is the recovery path for them.
+      //
+      // Task absence is ambiguous rather than negative. A 404 from the task API means ES resolved
+      // neither a running nor a stored completed task: normally the result persists in .tasks and
+      // reports completed=true, but the record is gone for good if the coordinating node restarted
+      // mid-reindex, .tasks was deleted, or a re-submit did not hand back a task id. Requiring
+      // completed=true outright would let any of those hang the upgrade until timeout -- the very
+      // failure this method is being fixed for. So absence falls back to a second-best liveness
+      // signal: the destination count holding steady across consecutive polls, which shows the copy
+      // is no longer advancing. An observably running task still blocks the exit either way.
+      final boolean taskObservablyRunning = taskStatus.map(t -> !t.isCompleted()).orElse(false);
+      final boolean copyQuiesced =
+          taskStatus.isPresent() || destStalledPolls >= MISMATCH_STABLE_POLLS_WITHOUT_TASK;
+      if (allowMismatch
+          && !taskObservablyRunning
+          && copyQuiesced
+          && documentCounts.getSecond() >= initialSourceDocCount) {
+        log.info(
+            "Reindex complete (initial-count match, {}): {} -> {} target={} initialSource={} currentSource={}",
+            taskStatus.isPresent()
+                ? "task completed"
+                : "task unobservable, destination count stable for " + destStalledPolls + " polls",
+            sourceIndex,
+            destIndex,
+            documentCounts.getSecond(),
+            initialSourceDocCount,
+            documentCounts.getFirst());
+        return new PollReindexResult(true, latestReindexInfo, documentCounts);
       }
 
       // A completed task whose destination is still short of the source dropped documents. Waiting

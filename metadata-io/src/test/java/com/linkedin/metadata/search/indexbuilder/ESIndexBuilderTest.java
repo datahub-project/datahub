@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1991,9 +1993,39 @@ public class ESIndexBuilderTest {
 
   // ---------------------------------------------------------------------------
   // allowDocCountMismatch exit-condition tests
+  //
+  // The mismatch exit succeeds when the destination has copied at least as many documents as the
+  // source held when polling began (initialSourceDocCount), provided the reindex task is not
+  // observably running. Task state is three-valued, and each state is covered below:
+  //
+  //   present + completed=false -> definitely running   -> must NOT exit
+  //   present + completed=true  -> definitely finished   -> exits immediately
+  //   absent (404)              -> ambiguous             -> exits only after the destination count
+  //                                                         holds steady for MISMATCH_STABLE_POLLS
+  //                                                         (3) consecutive polls
+  //
+  // Counts throughout are modelled on the v1.6.0 stg upgrade that motivated the fix: a ~14M-doc
+  // index whose live source count kept climbing past the destination, so exact equality could
+  // never be reached.
   // ---------------------------------------------------------------------------
 
-  private ESIndexBuilder buildMismatchBuilder(int numRetries) {
+  /** Well-formed task id, so tryGetReindexTaskStatus consults the getTask mock. */
+  private static final String RESOLVABLE_TASK_ID = "node1:99";
+
+  /**
+   * Blank task id: tryGetReindexTaskStatus short-circuits to Optional.empty() without calling
+   * getTask. Stands in for the permanent-404 case (node restarted mid-reindex, .tasks deleted, or a
+   * re-submit that returned no task id).
+   */
+  private static final String UNRESOLVABLE_TASK_ID = "";
+
+  /**
+   * @param noProgressRetryMinutes 0 makes the no-progress re-trigger fire on the first iteration,
+   *     which (with numRetries=0) breaks the loop immediately. Negative tests use 0 so they finish
+   *     in milliseconds instead of waiting out the 5-minute production timer; tests that must
+   *     observe several polls pass a non-zero value.
+   */
+  private ESIndexBuilder buildMismatchBuilder(int numRetries, int noProgressRetryMinutes) {
     when(elasticSearchConfiguration.getIndex())
         .thenReturn(
             IndexConfiguration.builder()
@@ -2005,7 +2037,7 @@ public class ESIndexBuilderTest {
                 .build());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
     when(buildIndicesConfig.isCloneIndices()).thenReturn(true);
-    when(buildIndicesConfig.getAllowDocCountMismatchPercentage()).thenReturn(99.99f);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(noProgressRetryMinutes);
     when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
     when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
     return new ESIndexBuilder(
@@ -2027,51 +2059,181 @@ public class ESIndexBuilderTest {
             any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
             any(RequestOptions.class)))
         .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+  }
+
+  /** Stubs getTask to report a task with the given completion state. */
+  private void mockTaskCompleted(boolean completed) throws IOException {
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenReturn(completed);
     when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
-        .thenReturn(Optional.empty());
+        .thenReturn(Optional.of(task));
   }
 
   /**
-   * Exit 1: destination caught up to the source count captured at loop start. supplier=14_000_050
-   * (live source), dest=14_000_060 (> initialSourceDocCount=14_000_050). Exit 0 (exact match)
-   * cannot fire because source != dest.
+   * Task reports completed and the destination has reached the source count captured at loop start,
+   * so the mismatch exit fires on the first poll. The destination overshoots the snapshot
+   * (14_000_060 vs 14_000_050), mirroring the stg upgrade where the destination briefly exceeded
+   * the live source count; exact-match still cannot fire because the two counts differ.
    */
   @Test
-  void testPollReindexCompletion_allowMismatch_exit1_initialCountMatch() throws Throwable {
-    ESIndexBuilder builder = buildMismatchBuilder(0);
-    // dest(14_000_060) >= initialSourceDocCount(14_000_050) → Exit 1
+  void testPollReindexCompletion_taskCompletedAndDestAtSnapshot_exits() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
+    mockDestCount(14_000_060L);
+    mockTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertTrue(
+        result.completed(), "dest >= initialSourceDocCount with a completed task must complete");
+  }
+
+  /**
+   * Reproduces the v1.6.0 stg upgrade that motivated this fix, using counts taken from that log.
+   * GMS keeps writing to the source while the reindex runs, so the source drifts upward (13_923_058
+   * -> 13_923_068 -> 13_923_071) while the destination converges on the count the source held when
+   * polling began and then stops. Source and destination are therefore never equal on any poll, so
+   * the exact-match exit can never fire and the pre-fix loop polled until the job was killed. The
+   * snapshot floor completes it instead.
+   */
+  @Test
+  void testPollReindexCompletion_liveSourceNeverEqualsDest_completesAtSnapshot() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
+
+    // Source counts as observed in the stg log: the snapshot, then live-write drift.
+    Iterator<Long> liveSource = List.of(13_923_058L, 13_923_068L, 13_923_071L).iterator();
+    // Destination: mid-copy on the first read, then holds at the source's loop-start snapshot.
+    Iterator<Long> destCounts = List.of(13_625_285L, 13_923_058L, 13_923_058L).iterator();
+
+    CountResponse destResp = mock(CountResponse.class);
+    when(destResp.getCount()).thenAnswer(in -> destCounts.next());
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(destResp);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+    // The ES task has finished; the destination stalling is what exposes the moving target.
+    mockTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", liveSource::next, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertTrue(
+        result.completed(), "A live source that never equals the destination must still complete");
+    assertEquals(
+        result.finalDocumentCounts().getSecond(),
+        Long.valueOf(13_923_058L),
+        "Completion must be reported at the destination count that reached the snapshot");
+    assertNotEquals(
+        result.finalDocumentCounts().getFirst(),
+        result.finalDocumentCounts().getSecond(),
+        "Exact-match must not be what completed this run");
+  }
+
+  /**
+   * Regression test for the partial-index risk: a still-running reindex must never be reported
+   * complete, even though the destination count already satisfies the snapshot floor. Without the
+   * task guard the loop would swap an alias onto an index the copy was still writing to.
+   */
+  @Test
+  void testPollReindexCompletion_taskStillRunning_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(14_000_060L);
+    mockTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertFalse(
+        result.completed(), "An observably running reindex task must block the mismatch exit");
+  }
+
+  /**
+   * Task unobservable (404). The exit is still reachable — requiring completed=true outright would
+   * reintroduce the hang this fix exists to prevent — but only once the destination count has held
+   * steady across MISMATCH_STABLE_POLLS_WITHOUT_TASK consecutive polls.
+   *
+   * <p>The number of polls is asserted, not just the outcome. getDocumentCounts reads the
+   * destination exactly once per call when numRetries=0, so a run that exits on the third stable
+   * poll reads it four times: once before the loop, then once per poll. That assertion is what pins
+   * the stability gate down — an outcome-only check would pass identically if the exit fired on the
+   * first poll, or if the gate were deleted.
+   */
+  @Test
+  void testPollReindexCompletion_taskUnobservable_exitsAfterDestCountStabilises() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
     mockDestCount(14_000_060L);
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
-            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), "");
+            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), UNRESOLVABLE_TASK_ID);
 
-    assertTrue(result.completed(), "Exit 1 should fire: dest >= initialSourceDocCount");
+    assertTrue(
+        result.completed(),
+        "A stable destination count must eventually complete when task status is unavailable");
+    verify(searchClient, times(4))
+        .count(any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class));
   }
 
   /**
-   * Exit 2: destination reached the configured percentage threshold. source grew to 14_000_100 so
-   * dest(13_999_900) < initialSource(14_000_100). progress = 13_999_900 / 14_000_100 * 100 =
-   * 99.9986% >= 99.99%.
+   * The stall counter restarts whenever the destination advances, so completion lands three stable
+   * polls after the copy actually stops rather than three polls after the loop began. Here the
+   * destination moves on the first poll and then holds, pushing the exit out to the fourth poll —
+   * five destination reads including the pre-loop one. A counter that never reset would have
+   * completed one poll earlier, at four reads.
    */
   @Test
-  void testPollReindexCompletion_allowMismatch_exit2_threshold() throws Throwable {
-    ESIndexBuilder builder = buildMismatchBuilder(0);
-    mockDestCount(13_999_900L);
+  void testPollReindexCompletion_taskUnobservable_stallCounterResetsWhenDestAdvances()
+      throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
+
+    Iterator<Long> destCounts =
+        List.of(13_999_000L, 14_000_060L, 14_000_060L, 14_000_060L, 14_000_060L).iterator();
+    CountResponse destResp = mock(CountResponse.class);
+    when(destResp.getCount()).thenAnswer(in -> destCounts.next());
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(destResp);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
-            opContext, "src", "dest", () -> 14_000_100L, 1, new HashMap<>(), "");
+            opContext, "src", "dest", () -> 14_000_050L, 1, new HashMap<>(), UNRESOLVABLE_TASK_ID);
 
-    assertTrue(result.completed(), "Exit 2 should fire: progress >= 99.99% threshold");
+    assertTrue(result.completed(), "Completion must follow three polls of a steady destination");
+    verify(searchClient, times(5))
+        .count(any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class));
   }
 
-  // Exit 3 (stall) is a defence-in-depth fallback: Exit 2 (>= threshold) fires first when
-  // progress is above the threshold. Exit 3 covers the edge case where floating-point rounding
-  // places progress just above the threshold but Exit 2's >= comparison misses it.
-  // Verified in production (stg upgrade, 99.99991%). Tested indirectly via Exit 2 test.
+  /**
+   * The snapshot floor holds independently of task state: a completed task whose destination is
+   * short of initialSourceDocCount dropped documents and must not be reported complete.
+   */
+  @Test
+  void testPollReindexCompletion_destBelowSnapshot_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_999_000L);
+    mockTaskCompleted(true);
 
-  /** allowDocCountMismatch=false: mismatch exits must NOT fire; loop returns not-completed. */
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", () -> 14_000_000L, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertFalse(
+        result.completed(), "dest below initialSourceDocCount must not satisfy the mismatch exit");
+  }
+
+  /** allowDocCountMismatch=false: the mismatch exit must NOT fire; loop returns not-completed. */
   @Test
   void testPollReindexCompletion_allowMismatchFalse_doesNotExitEarly() throws Throwable {
     when(elasticSearchConfiguration.getIndex())
@@ -2085,6 +2247,7 @@ public class ESIndexBuilderTest {
                 .build());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
     when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
     when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
     when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
     ESIndexBuilder builder =
@@ -2094,17 +2257,18 @@ public class ESIndexBuilderTest {
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
             gitVersion);
-    mockDestCount(13_923_058L);
+    // dest exceeds the loop-start source snapshot, so only the disabled flag can block the exit.
+    mockDestCount(13_923_071L);
+    mockTaskCompleted(true);
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
-            opContext, "src", "dest", () -> 13_923_071L, 1, new HashMap<>(), "");
+            opContext, "src", "dest", () -> 13_923_058L, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
 
-    assertFalse(
-        result.completed(), "Mismatch exits must not fire when allowDocCountMismatch=false");
+    assertFalse(result.completed(), "Mismatch exit must not fire when allowDocCountMismatch=false");
   }
 
-  /** cloneIndices=false: mismatch exits must NOT fire even when allowDocCountMismatch=true. */
+  /** cloneIndices=false: no backup index exists, so the mismatch exit must NOT fire. */
   @Test
   void testPollReindexCompletion_cloneIndicesFalse_doesNotExitEarly() throws Throwable {
     when(elasticSearchConfiguration.getIndex())
@@ -2117,8 +2281,8 @@ public class ESIndexBuilderTest {
                 .maxReindexHours(1)
                 .build());
     when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
-    when(buildIndicesConfig.isCloneIndices()).thenReturn(false); // no backup — exits must not fire
-    when(buildIndicesConfig.getAllowDocCountMismatchPercentage()).thenReturn(99.99f);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(false); // no backup — exit must not fire
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
     when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
     when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
     ESIndexBuilder builder =
@@ -2128,13 +2292,15 @@ public class ESIndexBuilderTest {
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
             gitVersion);
-    mockDestCount(13_923_058L);
+    // dest exceeds the loop-start source snapshot, so only the disabled flag can block the exit.
+    mockDestCount(13_923_071L);
+    mockTaskCompleted(true);
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
-            opContext, "src", "dest", () -> 13_923_071L, 1, new HashMap<>(), "");
+            opContext, "src", "dest", () -> 13_923_058L, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
 
-    assertFalse(result.completed(), "Mismatch exits must not fire when cloneIndices=false");
+    assertFalse(result.completed(), "Mismatch exit must not fire when cloneIndices=false");
   }
 
   @Test
