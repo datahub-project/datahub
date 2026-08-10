@@ -403,7 +403,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
     });
 };
 
-/** Return return filter incident as per selected type status and other things
+/** Return filter incident as per selected type status and other things
  * it returns transformated into
  * 1. group of incidents as per type , status
  * 2. Transform data into {@link IncidentListTableRow }  data

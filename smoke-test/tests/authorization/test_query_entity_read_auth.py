@@ -120,14 +120,14 @@ def _query_auth_setup_impl(graph_client, auth_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     admin_session = get_frontend_session()
     clear_polices(admin_session, name_prefixes=QUERY_AUTH_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     admin_session = create_user(admin_session, TEST_USER_EMAIL, TEST_USER_PASSWORD)
     yield
@@ -137,7 +137,7 @@ def _query_auth_setup_impl(graph_client, auth_session):
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     for urn in [QUERY_ENTITY_URN, SUBJECT_DATASET_URN]:
         try:
