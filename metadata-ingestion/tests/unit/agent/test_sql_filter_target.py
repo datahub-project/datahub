@@ -1,9 +1,8 @@
 from types import SimpleNamespace
 from typing import Any, Callable, List
 
-from datahub.ingestion.agent.probe import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.sql.sql_probe import (
-    _classify_container,
     _identifier_target,
     _shim_inspector,
 )
@@ -363,54 +362,56 @@ def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
     assert len(warn.messages) == 1
 
 
-def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
-    """redshift.py's cache_tables_and_views (and _process_table/_process_view)
-    all gate schema iteration through is_schema_allowed(schema_pattern,
-    schema, database, match_fully_qualified_names) -- so once that flag is
-    on, ingestion checks "database.schema" against schema_pattern, not the
-    bare schema name alone. sql_probe.py's generic _classify_container only
-    ever checks the bare name; RedshiftConfig.probe_schema_verdict_override
-    must correct that for Redshift specifically, the same way
-    probe_filter_target corrects the Table level below it."""
-    from datahub.configuration.common import AllowDenyPattern
-    from datahub.ingestion.source.redshift.config import RedshiftConfig
+def _schema_verdict(config_dict, name="public"):
+    """Drive the same Redshift rule through the command that owns it now."""
+    from datahub.ingestion.agent.filter_check import check_filters
 
-    bare_name_deny = RedshiftConfig(
-        host_port="localhost:5439",
-        database="analytics",
-        match_fully_qualified_names=True,
-        schema_pattern=AllowDenyPattern(deny=[r"^public$"]),
+    result = check_filters(
+        source_type="redshift",
+        config_dict=config_dict,
+        kind="Schema",
+        parent_path=[],
+        names=[name],
+    )
+    return result.results[0]
+
+
+_REDSHIFT = {"host_port": "localhost:5439", "database": "analytics"}
+
+
+def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
+    """redshift.py gates schema iteration through is_schema_allowed(...,
+    match_fully_qualified_names) -- so once that flag is on, ingestion checks
+    "database.schema" against schema_pattern, not the bare schema name.
+    RedshiftConfig.probe_schema_verdict_override carries that, and
+    filter_check consults it before applying the pattern generically."""
+    bare_name_deny = _schema_verdict(
+        {
+            **_REDSHIFT,
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"deny": [r"^public$"]},
+        }
     )
     # A deny anchored to the bare schema name no longer excludes once
     # match_fully_qualified_names is on: ingestion checks "analytics.public".
-    verdict = _classify_container(_container_ctx(bare_name_deny, "public"))
-    assert verdict.included is True
-    assert verdict.excluded_by is None
+    assert bare_name_deny.included is True
+    assert bare_name_deny.excluded_by is None
 
-    fully_qualified_deny = RedshiftConfig(
-        host_port="localhost:5439",
-        database="analytics",
-        match_fully_qualified_names=True,
-        schema_pattern=AllowDenyPattern(deny=[r"^analytics\.public$"]),
+    qualified_deny = _schema_verdict(
+        {
+            **_REDSHIFT,
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"deny": [r"^analytics\.public$"]},
+        }
     )
-    verdict = _classify_container(_container_ctx(fully_qualified_deny, "public"))
-    assert verdict.included is False
-    assert verdict.excluded_by == "schema_pattern"
+    assert qualified_deny.included is False
+    assert qualified_deny.excluded_by == "schema_pattern"
 
 
 def test_redshift_schema_verdict_unchanged_when_flag_is_off():
-    """match_fully_qualified_names defaults to False, so
-    probe_schema_verdict_override must be a no-op (return None) in that case
-    -- the bare-name check stays exactly as every other SQL connector's
-    does, matching Redshift's own real behavior when the flag is unset."""
-    from datahub.configuration.common import AllowDenyPattern
-    from datahub.ingestion.source.redshift.config import RedshiftConfig
-
-    config = RedshiftConfig(
-        host_port="localhost:5439",
-        database="analytics",
-        schema_pattern=AllowDenyPattern(deny=[r"^public$"]),
-    )
-    verdict = _classify_container(_container_ctx(config, "public"))
+    """match_fully_qualified_names defaults to False, so the override must be a
+    no-op and the bare-name check stays exactly as every other SQL connector's
+    does -- matching Redshift's own behaviour when the flag is unset."""
+    verdict = _schema_verdict({**_REDSHIFT, "schema_pattern": {"deny": [r"^public$"]}})
     assert verdict.included is False
     assert verdict.excluded_by == "schema_pattern"

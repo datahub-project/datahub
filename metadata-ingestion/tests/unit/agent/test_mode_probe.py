@@ -6,15 +6,12 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.probe import UNNAMED, ProbeSoftError
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
-    MODE_PROBE,
     ModeProbeSource,
     _get_embedded_paged,
-    list_mode_children,
 )
-from tests.unit.agent.probe_conformance import assert_degrades_with_warning
 
 _WORKSPACE = "https://app.mode.com/api/acryltest"
 
@@ -305,92 +302,68 @@ def _real_config(**over):
     return ModeConfig(**base)
 
 
-def test_mode_shape_branches_under_space():
-    shape = MODE_PROBE.shape().to_dict()
-    assert shape["kind"] == "Space"
-    children = shape["children"]
-    assert isinstance(children, list)
-    # A Space holds BOTH reports and datasets — the branch.
-    assert sorted(c["kind"] for c in children) == ["Dataset", "Report"]
-    assert MODE_PROBE.is_linear is False
+def _probe(cfg):
+    """The provider ModeConfig.build_probe_provider returns, over the fake session."""
+    return ModeProbeSource.for_probe(cfg, cfg._session, _WORKSPACE)
 
 
-def test_spaces_apply_space_pattern():
-    by_name = {n.name: n for n in list_mode_children(_cfg(), [], 100).nodes}
-    assert by_name["Personal"].included is True
-    assert by_name["Personal"].pattern_field == "space_pattern"
-    assert by_name["Archive"].included is False
-    assert by_name["Archive"].excluded_by == "space_pattern"
+def test_spaces_lists_every_space_including_denied_ones():
+    # A denied space is reported, not hidden: `probe filter` explains it, and
+    # hiding it would make a workspace look emptier than it is.
+    assert "Archive" in _probe(_cfg()).spaces()
 
 
-def test_spaces_hierarchy_tests_the_same_raw_name_space_token_does():
-    # Regression guard: _spaces() used to report a null-named space by its
-    # DISPLAY name (token fallback), while _space_token() (used to resolve a
-    # --parent value back to a space) already tested the raw name -- so a
-    # pattern denying the literal token string (e.g. "^sp7$") excluded the
-    # space from the hierarchy listing but NOT from resolution: the same
-    # physical space got two different verdicts depending which code path
-    # asked. sp7 (see _RESPONSES) has no "name" key at all. Both paths now
-    # test "" for it, so it can no longer be addressed by its token either --
-    # it surfaces as an unnamed, unaddressable node (probe.py's own
-    # convention for a lister with no usable name to filter or descend into),
-    # not a space_pattern-excluded one.
-    cfg = _cfg(space_pattern=AllowDenyPattern(allow=[".*"], deny=["^sp7$"]))
-    nodes = list_mode_children(cfg, [], 100).nodes
-    unnamed = [n for n in nodes if n.name == UNNAMED]
-    assert len(unnamed) == 1
-    assert unnamed[0].excluded_by == "unnamed"
-    assert "sp7" not in {n.name for n in nodes}
+def test_spaces_report_the_same_raw_name_space_token_resolves_by():
+    # Regression guard: spaces() once reported a null-named space by its token
+    # while _space_token() matched on the raw name, so one physical space got
+    # two identities depending which path asked. sp7 (see _RESPONSES) has no
+    # "name" key; both paths now agree on "".
+    names = _probe(_cfg()).spaces()
+    assert "" in names
+    assert "sp7" not in names
 
 
-def test_listing_a_space_merges_reports_and_datasets():
-    nodes = list_mode_children(_cfg(), ["Personal"], 100).nodes
-    kinds = {n.name: str(n.kind) for n in nodes}
-    assert kinds == {"Weekly": "Report", "Seed": "Dataset"}
-    # Reports are filterable; datasets are not (Mode offers no dataset_pattern).
-    by_name = {n.name: n for n in nodes}
-    assert by_name["Weekly"].pattern_field == "report_pattern"
-    assert by_name["Seed"].pattern_field is None
+def test_reports_and_datasets_are_separate_listings_of_one_space():
+    probe = _probe(_cfg())
+    assert probe.reports("Personal") == ["Weekly"]
+    # Despite the /datasets path, Mode embeds these under the "reports" HAL key.
+    assert probe.datasets("Personal") == ["Seed"]
 
 
-def test_descending_into_a_report_needs_a_qualifier():
-    with pytest.raises(ValueError, match="ambiguous|Report:"):
-        list_mode_children(_cfg(), ["Personal", "Weekly"], 100)
+def test_queries_are_addressed_by_space_and_report_name():
+    assert _probe(_cfg()).queries("Personal", "Weekly") == ["q_main"]
 
 
-def test_qualified_descent_lists_queries():
-    nodes = list_mode_children(_cfg(), ["Personal", "Report:Weekly"], 100).nodes
-    assert [n.name for n in nodes] == ["q_main"]
+def test_an_unknown_space_degrades_with_a_warning_not_a_false_empty():
+    probe = _probe(_cfg())
+    assert probe.reports("NoSuchSpace") == []
+    assert any("NoSuchSpace" in w for w in probe.warnings)
 
 
-def test_hierarchy_probe_closes_session():
+def test_the_provider_closes_its_session():
     cfg = _cfg()
-    list_mode_children(cfg, [], 100)
+    with _probe(cfg):
+        pass
     assert cfg._session.closed is True
 
 
 def test_exclude_restricted_hides_restricted_spaces():
-    cfg = _cfg(exclude_restricted=True)
-    names = {n.name for n in list_mode_children(cfg, [], 100).nodes}
-    assert "RestrictedSpace" not in names
+    assert "RestrictedSpace" not in _probe(_cfg(exclude_restricted=True)).spaces()
 
 
 def test_restricted_spaces_visible_by_default():
-    cfg = _cfg()  # exclude_restricted defaults to False, matching ModeConfig
-    names = {n.name for n in list_mode_children(cfg, [], 100).nodes}
-    assert "RestrictedSpace" in names
+    # exclude_restricted defaults to False, matching ModeConfig.
+    assert "RestrictedSpace" in _probe(_cfg()).spaces()
 
 
 def test_exclude_archived_hides_archived_reports():
-    cfg = _cfg(exclude_archived=True)
-    names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
-    assert names == {"NewReport"}
+    probe = _probe(_cfg(exclude_archived=True))
+    assert probe.reports("SharedSpaceA") == ["NewReport"]
 
 
 def test_archived_reports_visible_by_default():
-    cfg = _cfg()  # exclude_archived defaults to False, matching ModeConfig
-    names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
-    assert names == {"NewReport", "OldReport"}
+    probe = _probe(_cfg())
+    assert set(probe.reports("SharedSpaceA")) == {"NewReport", "OldReport"}
 
 
 def test_datasets_404_degrades_to_empty_and_records_a_warning():
@@ -402,11 +375,12 @@ def test_datasets_404_degrades_to_empty_and_records_a_warning():
     # distinguishable from "this space genuinely has no datasets" -- the
     # warning is that distinction.
     cfg = _cfg(session=_DatasetsFailSession())
-    result = list_mode_children(cfg, ["Personal"], 100)
-    kinds = {n.name: str(n.kind) for n in result.nodes}
-    assert kinds == {"Weekly": "Report"}  # Datasets degraded to [], not raised
-    assert_degrades_with_warning(result, contains="404")
-    assert len(result.warnings) == 1
+    probe = _probe(cfg)
+    # Reports still list; only the failing sibling listing degrades.
+    assert probe.reports("Personal") == ["Weekly"]
+    assert probe.datasets("Personal") == []
+    assert len(probe.warnings) == 1
+    assert "404" in probe.warnings[0]
 
 
 def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
@@ -415,15 +389,17 @@ def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
     # the same parent name independently, so each contributes its own
     # warning (see _reports/_datasets) instead of the call quietly returning
     # nodes=[], warnings=[].
-    result = list_mode_children(_cfg(), ["NoSuchSpace"], 100)
-    assert result.nodes == []
-    assert len(result.warnings) == 2
-    assert all("NoSuchSpace" in w for w in result.warnings)
+    probe = _probe(_cfg())
+    assert probe.reports("NoSuchSpace") == []
+    assert probe.datasets("NoSuchSpace") == []
+    # One shared reason, deduped, rather than one per listing asked.
+    assert len(probe.warnings) == 1
+    assert "NoSuchSpace" in probe.warnings[0]
 
 
 def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
     cfg = _cfg(exclude_personal_collections=False)
-    list_mode_children(cfg, [], 100)
+    _probe(cfg).spaces()
     spaces_calls = [
         c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
     ]
@@ -435,7 +411,7 @@ def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
 
 def test_spaces_listing_sends_filter_custom_when_excluding_personal_collections():
     cfg = _cfg(exclude_personal_collections=True)
-    list_mode_children(cfg, [], 100)
+    _probe(cfg).spaces()
     spaces_calls = [
         c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
     ]
@@ -445,7 +421,7 @@ def test_spaces_listing_sends_filter_custom_when_excluding_personal_collections(
 
 def test_requests_use_the_configured_timeout():
     cfg = _cfg(api_options=_api_options(timeout=7))
-    list_mode_children(cfg, [], 100)
+    _probe(cfg).spaces()
     assert cfg._session.timeouts
     assert all(t == 7 for t in cfg._session.timeouts)
 

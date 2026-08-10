@@ -8,6 +8,7 @@ from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
     Verdict,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 
 @dataclass
@@ -54,7 +55,7 @@ class FilterCheckResult:
         }
 
 
-def _match_target(config: Any, ctx: ClassifyContext) -> str:
+def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
     """The string this connector's ingestion would filter on for one node.
 
     Resolved by asking the config, never by re-deriving it here: the SQL family
@@ -62,11 +63,59 @@ def _match_target(config: Any, ctx: ClassifyContext) -> str:
     and a connector whose display name IS its filter target -- Kafka topics,
     Mode spaces -- needs no hook and falls through to the bare name.
     """
+    if kind in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
+        # The SQL shim resolves a *table's* identifier (db.schema.table); asked
+        # about a container it would build "analytics..public". The hierarchy
+        # attached it to Table/View levels only, and containers matched on the
+        # bare name -- with Redshift's fully-qualified rule handled by the
+        # schema override in _structural_verdict, not here.
+        return ctx.name
+
     resolver = getattr(config, "probe_match_target", None)
     if not callable(resolver):
         return ctx.name
     target = resolver(ctx)
     return target if isinstance(target, str) and target else ctx.name
+
+
+def _structural_verdict(
+    config: Any, kind: str, name: str, pattern_field: Optional[str]
+) -> Optional[Verdict]:
+    """Exclusions the source applies before the user's pattern is consulted.
+
+    Kept from the hierarchy's schema classifier rather than dropped with it: a
+    system catalog is skipped whatever schema_pattern says, and Redshift's
+    match_fully_qualified_names makes ingestion judge "database.schema" instead
+    of the bare name. Reporting a plain pattern verdict for either would be a
+    verdict ingestion does not make. None means "no structural rule applies --
+    fall through to the pattern".
+    """
+    if kind == DatasetContainerSubTypes.DATABASE:
+        default_databases = getattr(config, "default_databases", None)
+        if callable(default_databases) and name.lower() in {
+            d.lower() for d in default_databases()
+        }:
+            # Postgres templates, SQL Server's system databases: dropped
+            # whatever database_pattern says.
+            return Verdict(False, "default_database")
+        return None
+
+    if kind != DatasetContainerSubTypes.SCHEMA:
+        # Structural rules below are schema-level; a table named like a system
+        # schema must not inherit them.
+        return None
+
+    default_schemas = getattr(config, "default_schemas", None)
+    if callable(default_schemas) and name.lower() in {
+        s.lower() for s in default_schemas()
+    }:
+        return Verdict(False, "default_schema")
+
+    override = getattr(config, "probe_schema_verdict_override", None)
+    allowed = override(schema=name) if callable(override) else None
+    if allowed is not None:
+        return Verdict.include() if allowed else Verdict(False, pattern_field)
+    return None
 
 
 def check_filters(
@@ -129,8 +178,8 @@ def check_filters(
             parent_path=tuple(parent_path),
             warn=warn,
         )
-        target = _match_target(config, ctx)
-        verdict = (
+        target = _match_target(config, kind, ctx)
+        verdict = _structural_verdict(config, kind, name, pattern_field) or (
             Verdict.include()
             if pattern.allowed(target)
             else Verdict(False, pattern_field)

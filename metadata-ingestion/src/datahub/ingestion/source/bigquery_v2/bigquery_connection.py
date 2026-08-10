@@ -9,7 +9,6 @@ from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
-from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
@@ -31,7 +30,7 @@ class BigQueryAuthType(StrEnum):
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
 
 
-class BigQueryConnectionConfig(ProbeableConfigMixin, GCPWIFConfig):
+class BigQueryConnectionConfig(GCPWIFConfig):
     """Connection configuration for BigQuery.
 
     Supports three authentication modes:
@@ -174,18 +173,6 @@ class BigQueryConnectionConfig(ProbeableConfigMixin, GCPWIFConfig):
         # based on the credentials or environment variables.
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
-
-    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
-    # BigQuery is a 3-level namespace (project -> dataset -> table) reached via the
-    # BigQuery client, so it declares its own hierarchy instead of the generic
-    # SQLAlchemy 2-level probe.
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
-            BIGQUERY_PROBE,
-        )
-
-        return BIGQUERY_PROBE
 
     def build_probe_provider(self) -> "ProbeProvider":
         from datahub.ingestion.source.bigquery_v2.bigquery_probe import (

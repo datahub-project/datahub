@@ -12,7 +12,6 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -66,7 +65,6 @@ class SQLFilterConfig(ConfigModel):
 
 
 class SQLCommonConfig(
-    ProbeableConfigMixin,
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
@@ -151,12 +149,6 @@ class SQLCommonConfig(
     @classmethod
     def default_schemas(cls) -> FrozenSet[str]:
         return frozenset()
-
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.sql.sql_probe import SQL_PROBE
-
-        return SQL_PROBE
 
     def probe_match_target(self, ctx: ClassifyContext) -> str:
         """The exact string ingestion filters this node's pattern against.

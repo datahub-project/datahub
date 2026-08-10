@@ -32,7 +32,6 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
@@ -69,7 +68,7 @@ class SnowflakePermissionError(MetaError):
     """A permission error has happened"""
 
 
-class SnowflakeConnectionConfig(ProbeableConfigMixin, ConfigModel):
+class SnowflakeConnectionConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
 
     _connection = auto_connection_resolver()
@@ -317,17 +316,6 @@ class SnowflakeConnectionConfig(ProbeableConfigMixin, ConfigModel):
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
-
-    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
-    # Snowflake is database-aware (database -> schema -> table), unlike the generic
-    # SQL 2-level probe, so it declares its own hierarchy and listing.
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.snowflake.snowflake_probe import (
-            SNOWFLAKE_PROBE,
-        )
-
-        return SNOWFLAKE_PROBE
 
     def build_probe_provider(self) -> "ProbeProvider":
         from datahub.ingestion.source.snowflake.snowflake_probe import (

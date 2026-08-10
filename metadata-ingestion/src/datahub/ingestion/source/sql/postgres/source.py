@@ -35,7 +35,6 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.ingestion.agent.probe import ClientProbe
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -313,16 +312,6 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
         # appearing. Reuses PostgresQuery's own exclusion list so the probe
         # and the query it mirrors cannot drift apart.
         return frozenset(POSTGRES_SYSTEM_DATABASES)
-
-    # Postgres iterates real databases via database_pattern -- unlike the
-    # generic Schema-top SQL_PROBE this class would otherwise inherit from
-    # SQLCommonConfig, it gets a real Database level on top, the way
-    # TwoTierSQLAlchemyConfig overrides these same two hooks for its own shape.
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.sql.sql_probe import POSTGRES_PROBE
-
-        return POSTGRES_PROBE
 
 
 @platform_name("Postgres")

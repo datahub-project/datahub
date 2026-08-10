@@ -8,7 +8,6 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
@@ -69,7 +68,6 @@ class ProfilerConfig(GEProfilingConfig):
 
 
 class KafkaSourceConfig(
-    ProbeableConfigMixin,
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -149,12 +147,6 @@ class KafkaSourceConfig(
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
-
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.kafka.kafka_probe import KAFKA_PROBE
-
-        return KAFKA_PROBE
 
     @classmethod
     def probe_provider_class(cls) -> type:

@@ -1,40 +1,13 @@
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional
 
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
-from datahub.ingestion.agent.probe import (
-    UNFILTERED,
-    ClientProbe,
-    ProbeLevel,
-    ProbeSoftError,
-    soft_on_status,
-)
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
 from datahub.ingestion.source.mode import (
     ModeConfig,
     ModeSource,
     is_archived_report,
     is_restricted_space,
 )
-
-# Mode's API calls this level "space"; the connector's emitted container subtype
-# is "Collection" (Mode renamed Spaces to Collections in its UI). No shared
-# subtype means "Space", so this uses the API's own term.
-MODE_SPACE: ProbeNodeKind = "Space"
-
-
-def _build_mode_client(config: ModeConfig) -> ModeSource:
-    """Builds the same uninitialized ModeSource shim as
-    ModeConfig.build_probe_provider (see ModeSource.for_probe), so this probe and
-    the data_sources/definitions probe commands share one fetch path. Uses
-    __new__, never __init__: __init__ opens a session, hits /api/verify, and
-    resolves space_tokens -- side effects a read-only probe must not repeat."""
-    session, workspace_uri = config.get_mode_session()
-    return ModeSource.for_probe(config, session, workspace_uri)
-
-
-def _close_mode_client(client: ModeSource) -> None:
-    client.session.close()
 
 
 class ModeProbeSource(ModeSource):
@@ -235,105 +208,3 @@ def _report_token(
         if _display_name(report) == report_name:
             return report.get("token")
     return None
-
-
-def _spaces(
-    client: ModeSource, config: ModeConfig, parent_path: List[str]
-) -> Sequence[str]:
-    # `config` unused: identical object to client.config; kept to satisfy
-    # ClientProbe's LevelLister shape.
-    return [_space_pattern_name(space) for space in _fetch_spaces(client)]
-
-
-def _reports(
-    client: ModeSource, config: ModeConfig, parent_path: List[str]
-) -> Sequence[str]:
-    space_name = parent_path[0]
-    space_token = _space_token(client, space_name)
-    if space_token is None:
-        # Raise (not return []) so ClientProbe.list_children records a warning
-        # instead of a false empty listing; the sibling Dataset level resolves
-        # this independently, so this failure alone must not abort it.
-        raise ProbeSoftError(
-            f"no space named '{space_name}' found among this workspace's "
-            f"spaces; cannot list its reports"
-        )
-    return [_display_name(r) for r in _fetch_reports(client, space_token)]
-
-
-def _datasets(
-    client: ModeSource, config: ModeConfig, parent_path: List[str]
-) -> Sequence[str]:
-    space_name = parent_path[0]
-    space_token = _space_token(client, space_name)
-    if space_token is None:
-        # See _reports -- this level resolves the same parent independently.
-        raise ProbeSoftError(
-            f"no space named '{space_name}' found among this workspace's "
-            f"spaces; cannot list its datasets"
-        )
-    # Paginated with ?filter=all, like _fetch_reports. Embedded under the
-    # "reports" HAL key despite the "/datasets" path -- a Mode "dataset" is a
-    # special kind of report. mode.py's own dataset listing does not apply
-    # exclude_archived, so this doesn't either.
-    url = f"{client.workspace_uri}/spaces/{space_token}/datasets?filter=all"
-    datasets = _get_embedded_paged(
-        client,
-        url,
-        "reports",
-        context=f"datasets listing for space '{space_name}'",
-    )
-    return [_display_name(dataset) for dataset in datasets]
-
-
-def _queries(
-    client: ModeSource, config: ModeConfig, parent_path: List[str]
-) -> Sequence[str]:
-    space_name, report_name = parent_path[0], parent_path[1]
-    space_token = _space_token(client, space_name)
-    if space_token is None:
-        raise ProbeSoftError(
-            f"no space named '{space_name}' found among this workspace's "
-            f"spaces; cannot list queries under it"
-        )
-    report_token = _report_token(client, space_token, report_name)
-    if report_token is None:
-        raise ProbeSoftError(
-            f"no report named '{report_name}' found in space '{space_name}'; "
-            f"cannot list its queries"
-        )
-    url = f"{client.workspace_uri}/reports/{report_token}/queries"
-    queries = _get_embedded(
-        client,
-        url,
-        "queries",
-        context=f"queries listing for report '{report_name}'",
-    )
-    return [_display_name(query) for query in queries]
-
-
-# Mode is a Space holding BOTH Reports and Datasets -- the first branching probe.
-# Its API is token-addressed while parent_path carries names, so each lister
-# above resolves the parent name to its token via a re-fetch. Dataset and Query
-# take UNFILTERED: Mode declares no dataset_pattern/query_pattern for them.
-MODE_PROBE = ClientProbe(
-    client_factory=_build_mode_client,
-    close=_close_mode_client,
-    levels=[
-        ProbeLevel(MODE_SPACE, list_names=_spaces),
-        ProbeLevel(BIAssetSubTypes.MODE_REPORT, list_names=_reports, parent=MODE_SPACE),
-        ProbeLevel(
-            BIAssetSubTypes.MODE_DATASET, UNFILTERED, _datasets, parent=MODE_SPACE
-        ),
-        ProbeLevel(
-            BIAssetSubTypes.MODE_QUERY,
-            UNFILTERED,
-            _queries,
-            parent=BIAssetSubTypes.MODE_REPORT,
-        ),
-    ],
-)
-
-
-def list_mode_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
-    return MODE_PROBE.list_children(config, parent_path, limit)

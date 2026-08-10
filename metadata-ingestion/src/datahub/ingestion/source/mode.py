@@ -50,7 +50,6 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
-from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider, probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -225,7 +224,6 @@ class ModeAPIConfig(ConfigModel):
 
 
 class ModeConfig(
-    ProbeableConfigMixin,
     StatefulIngestionConfigBase,
     DatasetLineageProviderConfigBase,
 ):
@@ -366,16 +364,6 @@ class ModeConfig(
         _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
         hierarchy lister, so this decision lives in exactly one place."""
         return "custom" if self.exclude_personal_collections else "all"
-
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        # A Space holds both Reports and Datasets, so this branches: the
-        # mixin's probe_hierarchy() raises ProbeBranchesError and probe_shape()
-        # is the accessor, both derived from this same ClientProbe -- no
-        # special-casing needed here for the branch.
-        from datahub.ingestion.source.mode_probe import MODE_PROBE
-
-        return MODE_PROBE
 
     @classmethod
     def probe_provider_class(cls) -> type:

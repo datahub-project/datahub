@@ -35,7 +35,6 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.agent.probe import ClientProbe
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -352,16 +351,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # appearing. Reuses MSSQLQuery's own exclusion list so the probe and
         # the query it mirrors cannot drift apart.
         return frozenset(MSSQL_SYSTEM_DATABASES)
-
-    # mssql iterates real databases via database_pattern -- unlike the generic
-    # Schema-top SQL_PROBE this class would otherwise inherit from
-    # SQLCommonConfig, it gets a real Database level on top, the way
-    # TwoTierSQLAlchemyConfig overrides these same two hooks for its own shape.
-    @classmethod
-    def _client_probe(cls) -> ClientProbe:
-        from datahub.ingestion.source.sql.sql_probe import MSSQL_PROBE
-
-        return MSSQL_PROBE
 
     def get_sql_alchemy_url(
         self,

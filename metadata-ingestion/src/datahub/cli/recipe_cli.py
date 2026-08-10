@@ -1,7 +1,7 @@
 import importlib.resources
 import json
 import sys
-from typing import Dict, List, NoReturn, Optional, Set, Tuple
+from typing import Dict, NoReturn, Optional, Set, Tuple
 
 import click
 import yaml
@@ -9,12 +9,6 @@ import yaml
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
-from datahub.ingestion.agent.probe import (
-    ProbeBranchesError,
-    probe,
-    probe_hierarchy,
-    probe_shape,
-)
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
@@ -201,80 +195,6 @@ def test_connection(recipe_path: str) -> None:
 @recipe.group(name="probe")
 def probe_group() -> None:
     """Live source probes (need a resolved secret)."""
-
-
-@probe_group.command(name="shape")
-@click.option("--recipe", "recipe_path", required=True)
-def probe_shape_cmd(recipe_path: str) -> None:
-    # Connection-free: describes the levels this source declares, so a caller
-    # knows what to pass to `probe list --parent`. A branching source has no
-    # single chain, so `hierarchy` is null and `shape` carries the tree.
-    try:
-        source_type, _resolved, _secrets = _resolve_for_probe(_load_recipe(recipe_path))
-        shape = probe_shape(source_type)
-        try:
-            hierarchy: Optional[List[str]] = [
-                str(k) for k in (probe_hierarchy(source_type) or [])
-            ] or None
-        except ProbeBranchesError:
-            # A tree has no single chain; `shape` carries it instead. Catch the
-            # specific error so an unrelated ValueError still surfaces.
-            hierarchy = None
-        _emit(
-            {
-                "source_type": source_type,
-                "supported": shape is not None,
-                "linear": hierarchy is not None,
-                "hierarchy": hierarchy,
-                "shape": shape.to_dict() if shape else None,
-            }
-        )
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
-
-
-@probe_group.command(name="list")
-@click.option("--recipe", "recipe_path", required=True)
-@click.option(
-    "--parent",
-    "parents",
-    multiple=True,
-    help="Parent container name, repeated in hierarchy order to descend a level "
-    "(e.g. --parent my_schema --parent my_table). Omit to list the top level.",
-)
-@click.option("--limit", default=200, type=int)
-@click.option(
-    "--report-to",
-    "report_to",
-    default=None,
-    help="Write the redacted probe result as JSON to this file (in addition to "
-    "stdout). Used by the executor's probe task to capture a structured report.",
-)
-def probe_list(
-    recipe_path: str, parents: Tuple[str, ...], limit: int, report_to: Optional[str]
-) -> None:
-    # Source-agnostic lister: descends whatever hierarchy the source declares via
-    # probe_hierarchy(), so non-SQL shapes (Kafka topics, ThoughtSpot worksheets)
-    # work without the SQL-shaped --database/--schema/--table flags.
-    secret_values: Set[str] = set()
-    try:
-        source_type, resolved, secret_values = _resolve_for_probe(
-            _load_recipe(recipe_path)
-        )
-        result = probe(source_type, resolved, list(parents), limit)
-        payload = redact(result.to_dict(), secret_values)
-        if report_to:
-            with open(report_to, "w") as f:
-                json.dump(payload, f)
-        _emit(payload)
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_USER)
-    except Exception as exc:
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_CONNECTION)
 
 
 def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, str]:
