@@ -576,6 +576,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "aspect": "datasetUsageStatistics",
             "startTimeMillis": start_timestamp,
             "endTimeMillis": end_timestamp,
+            "limit": 10000,
         }
         headers: Dict[str, Any] = {}
         url = f"{self._gms_server}/aspects?action=getTimeseriesAspectValues"
@@ -585,8 +586,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 url, data=json.dumps(payload), headers=headers
             )
             if response.status_code != 200:
-                logger.debug(
-                    f"Non 200 status found while fetching usage aspects - {response.status_code}"
+                logger.warning(
+                    f"Non-200 fetching usage aspects for {entity_urn}: HTTP {response.status_code}"
                 )
                 return None
             json_resp = response.json()
