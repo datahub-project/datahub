@@ -47,6 +47,7 @@ extraEnvs:
   - name: UV_CACHE_DIR
     value: /tmp/uv-cache # same emptyDir as /tmp/datahub/ingest → hardlinks work
 ```
+
 :::
 
 Even with hardlinking, size ephemeral storage — Fargate
