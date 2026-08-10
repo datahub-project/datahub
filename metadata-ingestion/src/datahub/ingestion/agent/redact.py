@@ -2,6 +2,16 @@ from typing import Dict, Set, Tuple
 
 _MASK = "***"
 
+# Below this length a value is matched only against a whole string, never as a
+# substring. Substring masking is deliberately blunt -- it is what catches a
+# password embedded in a driver error or a connection string -- but on a very
+# short value it corrupts every identifier and dict key that happens to contain
+# those characters ("name" -> "n***me" for a one-character secret), producing
+# output an agent cannot read while masking nothing that could plausibly be a
+# credential. Whole-value matches are still masked at any length, so this
+# narrows the blast radius rather than dropping protection.
+_MIN_SUBSTRING_SECRET_LEN = 4
+
 _SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "password",
     "sasl",
@@ -44,11 +54,20 @@ def redact(payload: object, secret_values: Set[str]) -> object:
     if not secret_values:
         return payload
     if isinstance(payload, str):
-        # Substring redaction is best-effort defense-in-depth: it can over-mask
-        # short values and won't catch secrets that were transformed or encoded.
+        # Best-effort defense-in-depth: this still over-masks when a secret
+        # happens to equal a real identifier (a database named the same as the
+        # password reports as "***"), and it cannot catch a secret that was
+        # transformed or encoded on the way out. Over-masking is the safe
+        # failure, so it stays.
         redacted = payload
         for secret in secret_values:
-            if secret and secret in redacted:
+            if not secret:
+                continue
+            if len(secret) < _MIN_SUBSTRING_SECRET_LEN:
+                if redacted == secret:
+                    redacted = _MASK
+                continue
+            if secret in redacted:
                 redacted = redacted.replace(secret, _MASK)
         return redacted
     if isinstance(payload, dict):

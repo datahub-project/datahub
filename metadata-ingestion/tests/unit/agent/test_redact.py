@@ -32,3 +32,27 @@ def test_empty_secrets_is_noop():
 def test_redacts_secret_in_dict_key():
     out = redact({"user_s3cr3t_key": "value"}, {"s3cr3t"})
     assert "s3cr3t" not in str(out)
+
+
+def test_a_very_short_secret_does_not_mangle_surrounding_text():
+    # Substring masking on a 1-3 character value corrupts every identifier and
+    # key it appears in ("name" -> "n***me"), producing output an agent cannot
+    # use, while masking nothing that is plausibly a credential.
+    payload = {"name": "metadata_aspect_v2", "kind": "Table"}
+    assert redact(payload, {"a"}) == payload
+
+
+def test_a_very_short_secret_is_still_masked_on_an_exact_match():
+    # Protection is narrowed, not dropped: a field whose whole value is the
+    # secret is still masked.
+    assert redact({"password_echo": "a"}, {"a"}) == {"password_echo": "***"}
+
+
+def test_a_realistic_secret_is_still_masked_inside_longer_text():
+    # The defence-in-depth case that matters: a credential embedded in a
+    # connection string or driver error must not survive.
+    out = redact(
+        {"error": "could not connect to postgresql://u:hunter2@db:5432/x"},
+        {"hunter2"},
+    )
+    assert "hunter2" not in str(out)
