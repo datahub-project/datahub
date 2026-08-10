@@ -512,6 +512,20 @@ The self-hosted server authenticates via environment variables:
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
+### Verify from the Terminal
+
+Before adding the server to an MCP client, call a read-only tool directly to check the DataHub connection. Replace the example URN and environment variables with values from your instance.
+
+```bash
+uvx --from 'fastmcp-slim[server]' fastmcp call \
+  --command "env DATAHUB_GMS_URL=<your-datahub-url> DATAHUB_GMS_TOKEN=<your-datahub-token> uvx mcp-server-datahub@latest" \
+  --target get_lineage \
+  --input-json '{"urn":"urn:li:dataset:(urn:li:dataPlatform:snowflake,my_database.my_schema.my_table,PROD)","upstream":false,"max_hops":1,"max_results":10}' \
+  --json
+```
+
+The response should contain a `structured_content` object with a `downstreams` result. An empty `searchResults` array means the server connected successfully but found no downstream lineage for that URN. Authentication and connection failures surface as an error or timeout instead.
+
 ### Configure
 
 <details>
