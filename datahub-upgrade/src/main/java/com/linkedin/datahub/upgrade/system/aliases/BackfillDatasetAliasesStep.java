@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.aliases;
 import static com.linkedin.metadata.Constants.ALIASES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
@@ -34,13 +35,11 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,29 +111,17 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    boolean previousRunFinal =
-        prevResult
-            .filter(
-                result ->
-                    DataHubUpgradeState.SUCCEEDED.equals(result.getState())
-                        || DataHubUpgradeState.ABORTED.equals(result.getState()))
-            .isPresent();
-
-    if (previousRunFinal && reprocessEnabled) {
-      log.info("{}: reprocess enabled, ignoring previous final state and re-running.", id());
+    if (reprocessEnabled) {
       return false;
     }
 
-    if (previousRunFinal) {
-      log.info(
-          "{} was already run. State: {} Skipping.",
-          id(),
-          prevResult.map(DataHubUpgradeResult::getState));
+    boolean previouslyRun =
+        entityService.exists(
+            context.opContext(), getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+    if (previouslyRun) {
+      log.info("{} was already run. Skipping.", id());
     }
-    return previousRunFinal;
+    return previouslyRun;
   }
 
   @Override

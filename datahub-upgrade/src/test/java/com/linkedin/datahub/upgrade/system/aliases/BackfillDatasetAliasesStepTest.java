@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -40,7 +41,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -48,7 +48,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -82,8 +81,6 @@ public class BackfillDatasetAliasesStepTest {
     when(mockContext.upgrade()).thenReturn(mockUpgrade);
     when(mockContext.report()).thenReturn(mock(UpgradeReport.class));
     when(mockContext.opContext()).thenReturn(OP_CONTEXT);
-    when(mockUpgrade.getUpgradeResult(any(OperationContext.class), any(Urn.class), any()))
-        .thenReturn(Optional.empty());
   }
 
   private BackfillDatasetAliasesStep buildStep(boolean reprocessEnabled) {
@@ -291,21 +288,17 @@ public class BackfillDatasetAliasesStepTest {
   }
 
   @Test
-  public void testSkipsWhenAlreadySucceeded() {
-    when(mockUpgrade.getUpgradeResult(any(OperationContext.class), any(Urn.class), any()))
-        .thenReturn(
-            Optional.of(new DataHubUpgradeResult().setState(DataHubUpgradeState.SUCCEEDED)));
+  public void testSkipsWhenAlreadyRun() {
+    when(mockEntityService.exists(
+            any(OperationContext.class), any(Urn.class), anyString(), anyBoolean()))
+        .thenReturn(true);
 
     assertTrue(buildStep(false).skip(mockContext));
-    assertFalse(buildStep(true).skip(mockContext), "reprocess must override a final marker");
+    assertFalse(buildStep(true).skip(mockContext), "reprocess must override a previous run");
   }
 
   @Test
-  public void testDoesNotSkipWithoutFinalMarker() {
-    when(mockUpgrade.getUpgradeResult(any(OperationContext.class), any(Urn.class), any()))
-        .thenReturn(
-            Optional.of(new DataHubUpgradeResult().setState(DataHubUpgradeState.IN_PROGRESS)));
-
+  public void testDoesNotSkipWithoutMarker() {
     assertFalse(buildStep(false).skip(mockContext));
   }
 }
