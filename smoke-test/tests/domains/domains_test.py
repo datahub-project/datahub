@@ -98,7 +98,11 @@ def test_set_unset_domain(auth_session, dataset_urn):
             unsetDomain(entityUrn: $entityUrn)}"""
     unset_domain_variables: Dict[str, Any] = {"entityUrn": dataset_urn}
 
-    res_data = execute_graphql(auth_session, unset_domain_query, unset_domain_variables)
+    # Skip the sync wait -- setDomain follows immediately with no intermediate
+    # read, and only the combined state after both mutations is checked below.
+    res_data = execute_graphql(
+        auth_session, unset_domain_query, unset_domain_variables, no_sync_wait=True
+    )
 
     assert res_data["data"]["unsetDomain"] is True
 
@@ -179,10 +183,17 @@ def test_delete_parent_domain_immediately_after_child_deletion(auth_session):
     child_urn = f"urn:li:domain:{child_id}"
 
     try:
+        # Skip the sync wait -- CreateDomainResolver only checks parent existence
+        # via entityClient.exists() (primary store), not search, so the child
+        # create below doesn't need the parent indexed yet. The child create
+        # DOES need a real wait (kept below): the race test needs the child
+        # actually indexed as a child of the parent before the delete race window
+        # starts, or there'd be no child to race against.
         res = execute_graphql(
             auth_session,
             _CREATE_DOMAIN_MUTATION,
             {"input": {"id": parent_id, "name": f"Race Test Parent {run_id}"}},
+            no_sync_wait=True,
         )
         assert res["data"]["createDomain"] == parent_urn
 
