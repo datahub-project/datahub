@@ -521,10 +521,15 @@ datahub init --host https://<your-instance-id>.acryl.io/gms --token <your-token>
 
 If your instance sits behind an identity provider (Okta, Azure AD, Google, and so on), `--sso` opens a browser, lets you sign in the way you normally do, and writes the resulting token to `~/.datahubenv`. You never copy a token out of the UI.
 
-It needs Playwright and a browser to drive:
+It needs Playwright:
 
 ```shell
 pip install 'acryl-datahub[sso]'
+```
+
+That is usually all. Login drives the browser your operating system already defaults to, so Chrome, Edge and Firefox need nothing downloaded. Only a default Playwright cannot drive — Safari, for instance — needs a browser downloaded for it to use instead, and the CLI tells you which if it comes to that:
+
+```shell
 playwright install chromium
 ```
 
@@ -538,7 +543,7 @@ datahub init --sso
 datahub init --host https://<your-instance-id>.acryl.io/gms --sso --token-duration ONE_MONTH
 ```
 
-**Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — so your existing session, enterprise policy and certificate store all apply. There is no flag to choose it: change your default browser and the next login follows. If that browser cannot be driven, the CLI falls back to the Chromium that Playwright downloaded and says so.
+**Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — driven where it is already installed, so your existing session, enterprise policy and certificate store all apply. There is no flag to choose it: change your default browser and the next login follows. If your default cannot be driven, the CLI falls back to a browser Playwright downloaded and says so.
 
 **Signing in only once.** The browser profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
 

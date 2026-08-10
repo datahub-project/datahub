@@ -56,28 +56,27 @@ _OS_HANDLER_TARGETS: Tuple[Tuple[str, BrowserTarget], ...] = (
 )
 
 _INSTALL_HELP = """\
-The --sso flag requires Playwright and a browser for it to drive.
-
-Step 1 — Install the Python package (pick your package manager):
+The --sso flag requires Playwright (pick your package manager):
     pip install 'acryl-datahub[sso]'
     uv pip install 'acryl-datahub[sso]'
     pip install 'playwright>=1.40.0'
 
-Step 2 — Download a fallback browser binary:
-    playwright install chromium
+That is usually all. Login drives the browser your operating system already
+defaults to, so Chrome, Edge and Firefox need nothing downloaded.
 
-Login drives the browser your operating system already defaults to where it
-can, so no download is usually needed for it. The bundled build above is the
-fallback when that browser cannot be driven.\
+Only a default Playwright cannot drive — Safari, for instance — needs a browser
+downloaded for it to use instead:
+    playwright install chromium\
 """
 
 
 def _check_playwright_ready() -> None:
     """Verify that playwright is importable.
 
-    Raises click.UsageError with step-by-step install instructions if not.
-    If the chromium browser binary is missing, Playwright itself will raise
-    a clear error at launch time telling the user to run `playwright install`.
+    Raises click.UsageError with install instructions if not. Nothing is checked
+    about browsers here: which one is needed depends on the operating system's
+    own default, and the usual answer is one already installed. A machine that
+    genuinely has none gets told which to download when the launch fails.
     """
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
@@ -129,8 +128,9 @@ def _os_browser_handler() -> Optional[str]:
 def browser_target() -> BrowserTarget:
     """Resolve which browser to drive from the operating system's own choice.
 
-    Falls back to the bundled build, which is always present once
-    `playwright install chromium` has run.
+    A channel means the installation the machine already has, so the common
+    answer needs no download. Falls back to the bundled build, which is what a
+    default Playwright cannot drive — Safari, say — has to use instead.
     """
     handler = (_os_browser_handler() or "").lower()
     for fingerprint, target in _OS_HANDLER_TARGETS:
@@ -347,12 +347,16 @@ def _open_browser_context(
             )
         return context
 
+    # Every candidate without a channel is a build Playwright has to download,
+    # so a machine that reaches here has not downloaded any of them.
+    missing = sorted({c.engine for c in tried if c.channel is None})
     raise click.ClickException(
         "Could not open a browser for SSO login. Tried: "
         f"{', '.join(_describe(t) for t in tried)}.\n"
         f"Last error: {last_error}\n"
-        "If another `datahub init --sso` is running, finish it first. If one "
-        "crashed and left the profile locked, retry with --fresh-login."
+        "Install the browser your operating system defaults to, or download "
+        "one for Playwright to drive instead:\n"
+        f"    playwright install {' '.join(missing)}"
     )
 
 

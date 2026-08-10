@@ -64,8 +64,18 @@ datahub init --sso --host https://your-instance.example.com/gms --token-duration
 
 ```bash
 pip install 'acryl-datahub[sso]'   # or: uv pip install 'acryl-datahub[sso]'
-playwright install chromium
 ```
+
+Login drives the browser the operating system defaults to, so Chrome, Edge and
+Firefox need nothing downloaded. Only a default Playwright cannot drive (Safari,
+or an unrecognised handler) needs `playwright install chromium`; the command
+names the browser to download if no launch succeeds.
+
+The browser profile is reused per instance, so a still-valid identity provider
+session skips the login form on later runs. `--fresh-login` discards it to sign
+in as somebody else, `--seed-profile DIR` copies an existing profile in on first
+use, and `--remember-session` stores and replays the login cookies for providers
+whose session cookie no browser persists. All three require `--sso`.
 
 `--sso` is mutually exclusive with `--token`, `--username`, and `--password`.
 If Playwright is not installed, the command prints step-by-step install instructions and exits.
