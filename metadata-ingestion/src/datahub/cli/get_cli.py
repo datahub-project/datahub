@@ -66,6 +66,16 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
         if len(aspect_data) == 1 and "key" in next(iter(aspect_data)).lower():
             raise click.ClickException(f"urn {urn} not found")
 
+    # If it's a Context Document and the user didn't request a specific aspect, render it nicely
+    if not aspect and urn.startswith("urn:li:document:") and "documentInfo" in aspect_data:
+        doc_info = aspect_data["documentInfo"].get("value", aspect_data["documentInfo"]) if isinstance(aspect_data["documentInfo"], dict) else {}
+        title = doc_info.get("title", "Untitled Document")
+        contents = doc_info.get("contents", {}).get("text")
+        if contents:
+            click.echo(click.style(f"\n# {title}", fg="cyan", bold=True))
+            click.echo("\n" + contents + "\n")
+            click.echo(click.style("--- (Metadata Below) ---", fg="blue", bold=True))
+
     click.echo(
         json.dumps(
             aspect_data,
