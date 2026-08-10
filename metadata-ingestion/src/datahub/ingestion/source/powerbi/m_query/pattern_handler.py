@@ -1601,12 +1601,10 @@ ODBC_THREE_TIER_PLATFORMS = {
 
 ATHENA_PLATFORM = SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
 
-# Three-tier platforms plus Athena. All of these must resolve a schema tier before
-# a URN can be built (for Athena that tier is its real database — the Kind=Database
-# navigation node is only the strippable catalog), backfilling it from
-# dsn_to_database_schema, and must warn-and-skip rather than fall back to a
-# truncated/wrong database.table edge when it cannot be resolved.
-ODBC_SCHEMA_REQUIRED_PLATFORMS = ODBC_THREE_TIER_PLATFORMS | {ATHENA_PLATFORM}
+# Platforms that backfill a missing schema tier from dsn_to_database_schema:
+# three-tier platforms need the middle tier, and Athena needs its real database
+# (which occupies the schema slot below the strippable Kind=Database catalog).
+ODBC_SCHEMA_BACKFILL_PLATFORMS = ODBC_THREE_TIER_PLATFORMS | {ATHENA_PLATFORM}
 
 
 class OdbcLineage(AbstractLineage):
@@ -1939,8 +1937,9 @@ class OdbcLineage(AbstractLineage):
             skips rather than emitting a truncated database.table.
           - Athena: navigation is catalog.database.table, later stripped to
             database.table by the caller, so its database occupies the schema slot.
-            The Kind=Database node is only the strippable catalog, so a missing
-            schema (Athena's real database) skips rather than emitting catalog.table.
+            The Kind=Database node is only the strippable catalog, so a nav-supplied
+            catalog with no schema skips rather than emitting catalog.table; a
+            config-supplied database (one-part DSN) still yields database.table.
           - everything else (MySQL/Teradata/ClickHouse/...): database.table, and the
             schema tier is never backfilled to avoid splicing a spurious middle level.
         """
@@ -1957,14 +1956,21 @@ class OdbcLineage(AbstractLineage):
 
         database = database_name or config_database
         schema = schema_name
-        if schema is None and data_platform in ODBC_SCHEMA_REQUIRED_PLATFORMS:
+        if schema is None and data_platform in ODBC_SCHEMA_BACKFILL_PLATFORMS:
             schema = config_schema
 
         if database is not None and schema is not None:
             return f"{database}.{schema}.{table_name}"
-        # Schema-required platforms (three-tier + Athena) must not fall back to a
-        # truncated database.table (for Athena that would emit catalog.table).
-        if database is not None and data_platform not in ODBC_SCHEMA_REQUIRED_PLATFORMS:
+        # Three-tier platforms must not fall back to a truncated database.table.
+        if data_platform in ODBC_THREE_TIER_PLATFORMS:
+            return None
+        # Athena's Kind=Database node is the strippable catalog, not its database,
+        # so a nav-supplied catalog without a schema would emit catalog.table (a
+        # wrong-dataset edge) — skip. A config-only database (one-part DSN, i.e.
+        # database_name is None) is the user's Athena database, so still emit it.
+        if data_platform == ATHENA_PLATFORM and database_name is not None:
+            return None
+        if database is not None:
             return f"{database}.{table_name}"
         return None
 

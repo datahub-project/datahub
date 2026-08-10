@@ -1121,6 +1121,35 @@ def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
     )
 
 
+def test_odbc_athena_table_only_one_part_dsn_emits_database_table():
+    """Table-only Athena navigation with a one-part dsn_to_database_schema value
+    supplies the database (no navigation catalog is present), so a valid 2-part
+    database.table URN must still be emitted — not skipped. Backfilling only the
+    catalog is pointless for Athena (it is stripped), so a one-part mapping is the
+    user's database."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "accounts")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI
