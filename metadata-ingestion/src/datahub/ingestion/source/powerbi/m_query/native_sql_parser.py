@@ -189,7 +189,11 @@ def _parse_statements(
     Uses ``sqlglot.parse`` (not ``parse_one``) so multi-statement PowerBI SQL is kept.
     Raises ``SqlglotError`` if the query is not valid SQL; callers decide how to react.
     """
-    return [stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None]
+    return [
+        stmt
+        for stmt in sqlglot.parse(query, dialect=dialect)
+        if isinstance(stmt, exp.Expression)
+    ]
 
 
 def _is_single_statement(query: str, platform: str) -> bool:
