@@ -616,11 +616,8 @@ plugins: Dict[str, Set[str]] = {
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
-    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
-    # UnsupportedProductError
-    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
-    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
+    "elasticsearch": {"opensearch-py>=2.6.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -703,9 +700,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
