@@ -137,16 +137,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // index
   // order, so none of this is needed and nothing changes there.
   private final boolean isPostgres;
-  // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres only).
+  // Opt-in per-entity write serialization via the DB advisory lock (Postgres pg_advisory / MySQL
+  // GET_LOCK).
   private final boolean entityWriteAdvisoryLockEnabled;
+  // Max seconds a db-backend advisory-lock acquire waits (bounded) before proceeding lockless — CAS
+  // still guards. Wired from ebean.entityWriteLockAcquireTimeoutSeconds; applies to both Postgres
+  // (pg_try_advisory_xact_lock poll) and MySQL (GET_LOCK timeout).
+  private final int entityWriteLockAcquireTimeoutSeconds;
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
-  // MySQL named-lock prefix + acquire timeout. GET_LOCK names are capped at 64 chars, so the urn is
-  // hashed. The timeout bounds how long a writer waits for a hot key before falling through to pure
-  // CAS (optimistic) rather than blocking the ingest thread indefinitely.
+  // MySQL named-lock prefix. GET_LOCK names are capped at 64 chars, so the urn is hashed. The
+  // acquire
+  // timeout (how long a writer waits for a hot key before falling through to pure CAS) is
+  // configurable via entityWriteLockAcquireTimeoutSeconds.
   private static final String MYSQL_LOCK_NAME_PREFIX = "dh_ent:";
-  private static final int MYSQL_LOCK_TIMEOUT_SECONDS = 10;
+  // Poll interval for Postgres pg_try_advisory_xact_lock while waiting up to the acquire timeout.
+  private static final long PG_ADVISORY_LOCK_POLL_MILLIS = 50L;
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -234,6 +241,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // none/unset -> the legacy entityWriteAdvisoryLockEnabled boolean. Prevents silent no-lock on
     // backend=db and double-lock on backend=hazelcast.
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isDbAdvisoryLockActive();
+    this.entityWriteLockAcquireTimeoutSeconds =
+        ebeanConfiguration.getEntityWriteLockAcquireTimeoutSeconds();
     this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
     if (optimisticLocking) {
       log.info(
@@ -340,37 +349,65 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   /**
-   * Postgres: transaction-scoped {@code pg_advisory_xact_lock} over a VALUES list in one round trip
-   * (a logical-model link can carry thousands of urns; a round trip per urn would swamp the DB).
-   * The VALUES scan evaluates the (void-returning) function once per row, in list order; result
-   * discarded. Released automatically on commit/rollback.
+   * Postgres: per-urn {@code pg_try_advisory_xact_lock} (non-blocking, returns a boolean and never
+   * raises, so it can't abort the transaction), polled in sorted order up to {@link
+   * #entityWriteLockAcquireTimeoutSeconds}. On timeout the write proceeds WITHOUT the lock — CAS on
+   * {@code SystemMetadata.version} remains the correctness floor — rather than pinning the pooled
+   * connection indefinitely as the blocking {@code pg_advisory_xact_lock} would. Released
+   * automatically on commit/rollback. (Per-urn round trips, unlike the old single VALUES batch, are
+   * the cost of honoring the acquire timeout; the db backend is the simple fallback — prefer the
+   * hazelcast backend for large hot-key batches.)
    */
   private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
-    final StringBuilder sql =
-        new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
-    for (int i = 0; i < sortedUrns.size(); i++) {
-      if (i > 0) {
-        sql.append(", ");
+    final long deadlineMs =
+        System.currentTimeMillis() + entityWriteLockAcquireTimeoutSeconds * 1000L;
+    for (String urn : sortedUrns) {
+      boolean acquired = tryAdvisoryLockPostgres(urn);
+      while (!acquired && System.currentTimeMillis() < deadlineMs) {
+        try {
+          Thread.sleep(PG_ADVISORY_LOCK_POLL_MILLIS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+        acquired = tryAdvisoryLockPostgres(urn);
       }
-      sql.append("(:u").append(i).append(")");
+      if (!acquired) {
+        log.warn(
+            "pg_try_advisory_xact_lock for urn={} not acquired within {}s; proceeding without the "
+                + "advisory lock (CAS still guards correctness).",
+            urn,
+            entityWriteLockAcquireTimeoutSeconds);
+      }
     }
-    sql.append(") as v(urn)");
-    final SqlQuery lockQuery =
-        server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
-    for (int i = 0; i < sortedUrns.size(); i++) {
-      lockQuery.setParameter("u" + i, sortedUrns.get(i));
+  }
+
+  private boolean tryAdvisoryLockPostgres(@Nonnull String urn) {
+    try {
+      final SqlRow row =
+          server
+              .sqlQuery("select pg_try_advisory_xact_lock(:ns, hashtext(:urn)) as acquired")
+              .setParameter("ns", ADVISORY_LOCK_NAMESPACE)
+              .setParameter("urn", urn)
+              .findOne();
+      return row != null && Boolean.TRUE.equals(row.getBoolean("acquired"));
+    } catch (RuntimeException e) {
+      log.warn(
+          "pg_try_advisory_xact_lock failed for urn={}; proceeding lockless (CAS still guards).",
+          urn,
+          e);
+      return false;
     }
-    lockQuery.findList();
   }
 
   /**
    * MySQL/MariaDB: session-scoped {@code GET_LOCK} per urn, acquired in sorted order, bound to the
-   * active transaction's connection, bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS}. A timeout
-   * ({@code GET_LOCK} returns 0) or error (null) lets the write proceed WITHOUT the lock — CAS on
-   * {@code SystemMetadata.version} remains the correctness floor — rather than blocking the ingest
-   * thread on a hot key. {@code GET_LOCK} is session-scoped, so {@link #releaseUrnsForWrite} must
-   * release the SAME urns on the SAME connection before commit; the lock names are recomputed from
-   * the urns, so no JVM-side registry of held locks is kept (that would race under pooling).
+   * active transaction's connection, bounded by {@code entityWriteLockAcquireTimeoutSeconds}. A
+   * timeout ({@code GET_LOCK} returns 0) or error (null) lets the write proceed WITHOUT the lock —
+   * CAS on {@code SystemMetadata.version} remains the correctness floor — rather than blocking the
+   * ingest thread on a hot key. {@code GET_LOCK} is session-scoped, so {@link #releaseUrnsForWrite}
+   * must release the SAME urns on the SAME connection before commit; the lock names are recomputed
+   * from the urns, so no JVM-side registry of held locks is kept (that would race under pooling).
    */
   private void lockUrnsMysql(@Nonnull List<String> sortedUrns) {
     for (String urn : sortedUrns) {
@@ -381,7 +418,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             server
                 .sqlQuery("select GET_LOCK(:name, :timeout) as acquired")
                 .setParameter("name", name)
-                .setParameter("timeout", MYSQL_LOCK_TIMEOUT_SECONDS)
+                .setParameter("timeout", entityWriteLockAcquireTimeoutSeconds)
                 .findOne();
         acquired = row == null ? null : row.getInteger("acquired");
       } catch (RuntimeException e) {
@@ -423,8 +460,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * {@link #lockUrnsForWrite} took — recomputed from {@code urns}, so there is NO JVM-side registry
    * to race under connection pooling. MUST run while the acquiring transaction (hence connection)
    * is still active — the ingest path calls it from a {@code finally} before commit. A missed
-   * release (e.g. connection killed) is bounded by {@link #MYSQL_LOCK_TIMEOUT_SECONDS} on the next
-   * acquire, never a correctness issue.
+   * release (e.g. connection killed) is freed when the session-scoped lock's connection is
+   * closed/reset by the pool; and any waiter is bounded by {@code
+   * entityWriteLockAcquireTimeoutSeconds} (after which it degrades to CAS), so a leak is a
+   * throughput cost, never a correctness issue.
    */
   @Override
   public void releaseUrnsForWrite(

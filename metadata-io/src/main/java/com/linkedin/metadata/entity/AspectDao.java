@@ -243,6 +243,12 @@ public interface AspectDao {
               .orElse(null);
 
       if (expectedVersion == null) {
+        // Legacy row written before optimistic locking stamped a version. There is nothing to CAS
+        // against, so this is an UNCONDITIONAL last-writer-wins update — CAS does NOT guard these
+        // rows, and concurrent writers to the same legacy URN can clobber each other until a write
+        // stamps a version. The write gate (when enabled) still serializes them; with no gate,
+        // legacy rows behave exactly as they did before OL. One-time, self-healing: the next write
+        // stamps a version and subsequent writes take the CAS path below.
         Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
             saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
         return new ConditionalSaveResult(
