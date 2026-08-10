@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -45,12 +46,13 @@ public class EntityServiceFactory {
         new EntityServiceImpl(
             aspectDao,
             eventProducer,
-            featureFlags.isAlwaysEmitChangeLog(),
-            featureFlags.isCdcModeChangeLog(),
             featureFlags.getPreProcessHooks(),
-            _ebeanMaxTransactionRetry,
-            enableBrowsePathV2,
-            featureFlags.isPostCommitRetentionEnabled(),
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
+                .setCdcModeChangeLog(featureFlags.isCdcModeChangeLog())
+                .setRetry(_ebeanMaxTransactionRetry)
+                .setEnableBrowseV2(enableBrowsePathV2)
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
             metricUtils);
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.

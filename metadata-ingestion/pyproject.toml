@@ -701,7 +701,6 @@ microstrategy = [
 
 mlflow = [
     "mlflow-skinny>=2.3.0,<2.21.0",
-    "setuptools<82",
 ]
 
 mode = [

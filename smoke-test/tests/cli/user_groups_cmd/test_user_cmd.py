@@ -77,7 +77,7 @@ def test_user_upsert(auth_session: Any) -> None:
         datahub_upsert_user(auth_session, datahub_user)
 
     # Initial wait for writes
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # Retry logic for getting all users and assertion
     for attempt in range(max_retries):
@@ -121,7 +121,7 @@ def test_user_upsert(auth_session: Any) -> None:
                 # Wait before retrying
                 time.sleep(wait_time)
                 # Additional sync wait
-                wait_for_writes_to_sync()
+                wait_for_writes_to_sync(mcp_only=True)
             else:
                 # On last attempt, let the assertion error propagate
                 raise
