@@ -283,7 +283,7 @@ def _cfg(session=None, **over):
 def _real_config(**over):
     """A real ModeConfig (not _cfg()'s duck-typed SimpleNamespace), for the
     method-probe tests below: ModeSource.for_probe() takes the concrete
-    ModeConfig -- the same type build_probe_provider passes in production --
+    ModeConfig -- the same type for_config passes in production --
     since its shim's `.config` is read by mode.py's own _get_request_json
     (self.config.api_options.*)."""
     base: Dict[str, Any] = dict(
@@ -303,7 +303,7 @@ def _real_config(**over):
 
 
 def _probe(cfg):
-    """The provider ModeConfig.build_probe_provider returns, over the fake session."""
+    """The provider ModeProbeSource.for_config returns, over the fake session."""
     return ModeProbeSource.for_probe(cfg, cfg._session, _WORKSPACE)
 
 
@@ -465,9 +465,9 @@ def test_requests_use_the_configured_timeout():
 def _method_probe(session=None, **cfg_over):
     # data_sources/definitions delegate their fetch to a real ModeSource shim
     # -- see ModeSource.for_probe -- so this needs a real ModeConfig,
-    # matching what build_probe_provider passes in production. Builds a
+    # matching what for_config passes in production. Builds a
     # ModeProbeSource, not a plain ModeSource, matching what
-    # build_probe_provider actually returns (its __exit__ closes the ad hoc
+    # for_config actually returns (its __exit__ closes the ad hoc
     # session -- see ModeProbeSource's docstring).
     session = session or _FakeSession()
     cfg = _real_config(**cfg_over)
@@ -564,7 +564,7 @@ def test_probe_methods_registered():
 
     # _iter_specs uses dir(), which includes inherited attributes -- so
     # data_sources/definitions (annotated on ModeSource itself) are found on
-    # ModeProbeSource too, the class build_probe_provider actually returns.
+    # ModeProbeSource too, the class probe_provider_class actually returns.
     commands = [c for c, _ in _iter_specs(ModeProbeSource)]
     # The four listings are declared on ModeProbeSource itself: Mode has no SQL
     # surface, so `probe sql` cannot enumerate it and these are the only way to

@@ -118,6 +118,10 @@ def test_iter_specs_walks_mro_sorted():
 
 
 class _FakeProvider:
+    @classmethod
+    def for_config(cls, config):
+        return cls()
+
     def __enter__(self):
         return self
 
@@ -138,9 +142,6 @@ class _FakeConfig:
     @classmethod
     def model_validate(cls, d):
         return cls()
-
-    def build_probe_provider(self):
-        return _FakeProvider()
 
 
 def _patch(monkeypatch):
@@ -192,7 +193,7 @@ def test_run_probe_method_reports_no_warnings_when_provider_has_none(monkeypatch
 
 
 class _FakeProviderWithWarnings(_FakeProvider):
-    """A provider that degraded a sub-fetch (see agent.probe.ProbeSoftError)
+    """A provider that degraded a sub-fetch (see agent.verdicts.ProbeSoftError)
     and reports it via its own `warnings` attribute -- duck-typed, not part
     of the ProbeProvider Protocol, since run_probe_method reads it via
     getattr rather than requiring every provider to declare it."""
@@ -201,16 +202,11 @@ class _FakeProviderWithWarnings(_FakeProvider):
         self.warnings = ["definitions listing returned HTTP 403; treating it as empty."]
 
 
-class _FakeConfigWithWarnings(_FakeConfig):
-    def build_probe_provider(self):
-        return _FakeProviderWithWarnings()
-
-
 def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
     import datahub.ingestion.agent.probe_methods as pm
 
     monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProviderWithWarnings)
-    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfigWithWarnings)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
     res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
     assert res.warnings == [
         "definitions listing returned HTTP 403; treating it as empty."
@@ -255,6 +251,10 @@ class _GatedProvider:
     sql_dialect = "postgres"
     ran: List[str] = []
 
+    @classmethod
+    def for_config(cls, config: object) -> "_GatedProvider":
+        return cls()
+
     def __enter__(self) -> "_GatedProvider":
         return self
 
@@ -276,9 +276,6 @@ class _GatedConfig:
     @classmethod
     def model_validate(cls, d: object) -> "_GatedConfig":
         return cls()
-
-    def build_probe_provider(self) -> _GatedProvider:
-        return _GatedProvider()
 
 
 def _patch_gated(monkeypatch):

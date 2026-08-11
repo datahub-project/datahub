@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 
 
 class KafkaMetadataProbe:
@@ -18,6 +19,32 @@ class KafkaMetadataProbe:
         self._admin = admin
         self._registry = registry
         self._timeout = timeout
+
+    @classmethod
+    def for_config(cls, config: KafkaSourceConfig) -> "KafkaMetadataProbe":
+        """Build the consumer, admin and registry clients this probe reads through.
+
+        lazy: confluent_kafka and the registry client are heavy optional deps, and
+        importing them at module scope would put them on the config import path.
+        """
+        from datahub.ingestion.source.confluent_schema_registry import (
+            get_kafka_schema_registry_client,
+        )
+        from datahub.ingestion.source.kafka.kafka import (
+            get_kafka_admin_client,
+            get_kafka_consumer,
+        )
+
+        # 10s is a floor, not a default: admin/registry calls need enough time
+        # against a possibly-slow broker, so a lower configured timeout is
+        # deliberately overridden rather than honored as-is.
+        timeout = max(10, getattr(config.connection, "client_timeout_seconds", 10))
+        return cls(
+            consumer=get_kafka_consumer(config.connection),
+            admin=get_kafka_admin_client(config.connection),
+            registry=get_kafka_schema_registry_client(config.connection),
+            timeout=timeout,
+        )
 
     def __enter__(self) -> "KafkaMetadataProbe":
         return self

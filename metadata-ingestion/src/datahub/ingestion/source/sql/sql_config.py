@@ -13,7 +13,6 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -208,19 +207,6 @@ class SQLCommonConfig(
         )
 
         return SqlAlchemyMetadataProbe
-
-    def build_probe_provider(self) -> ProbeProvider:
-        # lazy: keep sqlalchemy engine construction off the config import path
-        from sqlalchemy import create_engine
-
-        from datahub.ingestion.source.sql.sql_probe import engine_options
-        from datahub.ingestion.source.sql.sqlalchemy_probe import (
-            SqlAlchemyMetadataProbe,
-        )
-
-        return SqlAlchemyMetadataProbe(
-            create_engine(self.get_sql_alchemy_url(), **engine_options(self))
-        )
 
 
 class SQLAlchemyConnectionConfig(ConfigModel):

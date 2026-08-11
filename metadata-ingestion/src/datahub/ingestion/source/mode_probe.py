@@ -67,6 +67,16 @@ class ModeProbeSource(ModeSource):
         self.session.close()
 
     @classmethod
+    def for_config(cls, config: ModeConfig) -> "ModeProbeSource":
+        """Open an ad hoc session for this probe call.
+
+        Separate from for_probe below, which takes an already-built session so a
+        test can supply a fake one.
+        """
+        session, workspace_uri = config.get_mode_session()
+        return cls.for_probe(config, session, workspace_uri)
+
+    @classmethod
     def for_probe(
         cls, config: ModeConfig, session: Any, workspace_uri: str
     ) -> "ModeProbeSource":

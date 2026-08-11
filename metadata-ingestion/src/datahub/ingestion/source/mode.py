@@ -55,7 +55,7 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
-from datahub.ingestion.agent.probe_methods import ProbeProvider, probe_method
+from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -378,12 +378,6 @@ class ModeConfig(
 
         return ModeProbeSource
 
-    def build_probe_provider(self) -> ProbeProvider:
-        from datahub.ingestion.source.mode_probe import ModeProbeSource
-
-        session, workspace_uri = self.get_mode_session()
-        return ModeProbeSource.for_probe(self, session, workspace_uri)
-
 
 class HTTPError429(HTTPError):
     pass
@@ -661,7 +655,7 @@ class ModeSource(StatefulIngestionSourceBase):
         below builds whichever class for_probe was called on -- so
         mode_probe.py's ModeProbeSource.for_probe(...) both runs and
         type-checks as returning a ModeProbeSource, with no override needed
-        to narrow it. Used by ModeConfig.build_probe_provider() (via
+        to narrow it. Used by ModeProbeSource.for_config() (via
         ModeProbeSource) so the probe's data_sources/definitions commands --
         the connector's own _get_data_sources_by_id/_get_definitions_map,
         annotated with @probe_method in place -- fetch through this exact
@@ -676,7 +670,7 @@ class ModeSource(StatefulIngestionSourceBase):
         __init__ with a dummy PipelineContext: __init__ opens its own
         session, hits /api/verify to test the connection, and resolves
         space_tokens for ingestion -- all side effects a read-only probe
-        doesn't want repeated (build_probe_provider already built session/
+        doesn't want repeated (for_config already built session/
         workspace_uri once via config.get_mode_session()) and has no
         PipelineContext to perform anyway.
 

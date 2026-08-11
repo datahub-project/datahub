@@ -193,6 +193,21 @@ def probe_method(
 
 
 class ProbeProvider(Protocol):
+    """What a connector's probe provider must be: constructible from the recipe's
+    config, and a context manager so whatever it opened gets closed.
+
+    `for_config` lives here rather than as a second hook on the config class so
+    that `probe_provider_class()` is the ONLY place naming the provider. When the
+    config named it twice -- once for discovery, once for construction -- the two
+    could disagree, and for Snowflake and BigQuery they did: both advertised six
+    SQLAlchemy getters their own provider does not have, each of which failed at
+    invocation. One naming site makes that unrepresentable rather than merely
+    tested for.
+    """
+
+    @classmethod
+    def for_config(cls, config: Any) -> "ProbeProvider": ...
+
     def __enter__(self) -> "ProbeProvider": ...
 
     def __exit__(self, *exc: object) -> None: ...
@@ -396,7 +411,16 @@ def run_probe_method(
         specs[command], _coerce_kwargs(specs[command], kwargs)
     )
     config = config_class_for(source_type).model_validate(config_dict)
-    with config.build_probe_provider() as provider:
+    builder = getattr(provider_cls, "for_config", None)
+    if not callable(builder):
+        raise ValueError(
+            f"probe provider '{provider_cls.__name__}' for source "
+            f"'{source_type}' has no for_config(config) classmethod, so it "
+            f"cannot be built from the recipe"
+        )
+    # The same class discovery described, so the two cannot disagree about what
+    # this source can do.
+    with builder(config) as provider:
         _enforce_gates(specs[command], provider, call_kwargs)
         result = _bound_method(provider, command)(**call_kwargs)
         # Optional, source-agnostic: a provider that degrades a sub-fetch

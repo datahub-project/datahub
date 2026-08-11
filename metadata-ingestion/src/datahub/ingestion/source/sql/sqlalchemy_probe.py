@@ -5,6 +5,7 @@ from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_query import sql_result
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
 # name is passed through so the scope check refuses it rather than guessing a
@@ -32,6 +33,23 @@ class SqlAlchemyMetadataProbe:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
         self._insp = inspect(engine)
+
+    @classmethod
+    def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
+        """Build over an engine of this recipe's own making.
+
+        Engine construction lives here rather than on the config because the
+        provider is what needs it, and because `probe_provider_class()` is then
+        the config's only statement about which provider it has.
+        """
+        # lazy: keep sqlalchemy engine construction off the config import path
+        from sqlalchemy import create_engine
+
+        from datahub.ingestion.source.sql.sql_probe import engine_options
+
+        return cls(
+            create_engine(config.get_sql_alchemy_url(), **engine_options(config))
+        )
 
     def __enter__(self) -> "SqlAlchemyMetadataProbe":
         return self

@@ -3,6 +3,9 @@ from typing import Any, Dict, List
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_query import sql_result
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 
 
 class SnowflakeMetadataProbe:
@@ -16,6 +19,12 @@ class SnowflakeMetadataProbe:
 
     def __init__(self, connection: Any) -> None:
         self._connection = connection
+
+    @classmethod
+    def for_config(cls, config: SnowflakeConnectionConfig) -> "SnowflakeMetadataProbe":
+        """Reuse the connector's own connection builder, so a probe query
+        authenticates and retries exactly as ingestion does."""
+        return cls(config.get_connection())
 
     def __enter__(self) -> "SnowflakeMetadataProbe":
         return self

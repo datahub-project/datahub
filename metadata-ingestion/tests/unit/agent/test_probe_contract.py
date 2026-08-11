@@ -14,7 +14,7 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
@@ -107,40 +107,78 @@ def test_the_scan_actually_reached_providers():
     )
 
 
-def test_discovery_and_execution_describe_the_same_provider():
-    """`probe methods` and `probe run` must resolve to one provider class.
+def test_every_advertised_provider_can_actually_be_built_and_has_commands():
+    """`probe methods` describes a provider; `probe run` builds and invokes it.
 
-    Discovery reads config.probe_provider_class(); execution calls
-    config.build_probe_provider(). A connector that overrides one and inherits
-    the other advertises commands that fail at invocation -- Snowflake and
-    BigQuery each advertised six SQLAlchemy getters their own probe does not
-    have, and every one of them would have raised "no probe method bound".
+    Both now go through the single class `probe_provider_class()` returns, so they
+    cannot name different things -- the Snowflake/BigQuery bug, where discovery
+    inherited the SQLAlchemy answer while execution used the connector's own
+    client, is unrepresentable rather than merely tested for. What is still worth
+    checking is that the class it names is usable: constructible from a config,
+    and carrying at least one command to run.
     """
-    mismatched: Dict[str, str] = {}
+    broken: Dict[str, str] = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue  # covered by test_the_scan_actually_reached_providers
+        if provider_cls is None:
+            continue
+        if not callable(getattr(provider_cls, "for_config", None)):
+            broken[source_type] = (
+                f"{provider_cls.__name__} has no for_config(config) classmethod"
+            )
+        elif not _iter_specs(provider_cls):
+            broken[source_type] = f"{provider_cls.__name__} declares no probe methods"
+    assert broken == {}, broken
+
+
+# Every hook the framework reads off a config by name. A method that looks like one
+# of these but is not exactly one is the failure this list exists to catch.
+_CONFIG_HOOKS = frozenset(
+    {
+        "probe_provider_class",
+        "probe_match_target",
+        "probe_filter_target",
+        "probe_schema_verdict_override",
+    }
+)
+
+
+def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
+    """A misspelled verdict hook is silence, and silence here is a wrong answer.
+
+    The framework resolves these by name (`getattr(config, "probe_match_target")`),
+    so `probe_match_targets` does not fail -- it is simply never called, the probe
+    falls back to matching on the bare name, and it reports a verdict the
+    connector's ingestion does not make. Nothing else in the stack can notice.
+
+    Only covers the `probe_`-prefixed hooks. `default_schemas` and
+    `default_databases` have base definitions on SQLCommonConfig, so a typo there
+    shadows nothing and is not detectable this way; assert those against ingestion
+    instead.
+    """
+    unknown: Dict[str, List[str]] = {}
     for source_type in sorted(source_registry.mapping):
         try:
             config_cls = config_class_for(source_type)
         except Exception:
-            continue  # covered by test_the_scan_actually_reached_providers
-        if config_cls is None or not hasattr(config_cls, "probe_provider_class"):
             continue
-        declared = _defining_class(config_cls, "probe_provider_class")
-        built = _defining_class(config_cls, "build_probe_provider")
-        if declared != built:
-            mismatched[source_type] = (
-                f"probe_provider_class on {declared}, build_probe_provider on {built}"
-            )
-    assert mismatched == {}, (
-        "override probe_provider_class and build_probe_provider on the same class "
-        f"-- they must name one provider: {mismatched}"
+        if config_cls is None:
+            continue
+        for klass in config_cls.__mro__:
+            suspects = [
+                name
+                for name in vars(klass)
+                if name.startswith("probe_") and name not in _CONFIG_HOOKS
+            ]
+            if suspects:
+                unknown[klass.__name__] = sorted(suspects)
+    assert unknown == {}, (
+        "these look like probe hooks but the framework reads none of them, so they "
+        f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}: {unknown}"
     )
-
-
-def _defining_class(cls: type, attr: str) -> Optional[str]:
-    for klass in cls.__mro__:
-        if attr in vars(klass):
-            return klass.__name__
-    return None
 
 
 def test_the_tripwire_fires_on_an_undeclared_query_parameter():

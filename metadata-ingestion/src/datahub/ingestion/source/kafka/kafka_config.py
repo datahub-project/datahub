@@ -9,7 +9,6 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
@@ -155,24 +154,3 @@ class KafkaSourceConfig(
         from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 
         return KafkaMetadataProbe
-
-    def build_probe_provider(self) -> ProbeProvider:
-        from datahub.ingestion.source.confluent_schema_registry import (
-            get_kafka_schema_registry_client,
-        )
-        from datahub.ingestion.source.kafka.kafka import (
-            get_kafka_admin_client,
-            get_kafka_consumer,
-        )
-        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
-
-        # 10s is a floor, not a default: admin/registry calls need enough time
-        # against a possibly-slow broker, so a lower configured timeout is
-        # deliberately overridden rather than honored as-is.
-        timeout = max(10, getattr(self.connection, "client_timeout_seconds", 10))
-        return KafkaMetadataProbe(
-            consumer=get_kafka_consumer(self.connection),
-            admin=get_kafka_admin_client(self.connection),
-            registry=get_kafka_schema_registry_client(self.connection),
-            timeout=timeout,
-        )

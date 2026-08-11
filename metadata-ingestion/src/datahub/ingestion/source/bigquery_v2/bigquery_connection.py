@@ -9,7 +9,6 @@ from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
-from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
@@ -174,11 +173,9 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
 
-    # Overridden together with build_probe_provider below, and it has to be: this
-    # is what `probe methods` describes, while build_probe_provider is what
-    # `probe run` invokes. Inheriting the SQLAlchemy answer here would advertise
-    # six typed getters that only exist on that provider, and each would fail at
-    # invocation. tests/unit/agent/test_probe_contract.py pins the pairing.
+    # Overrides the SQLAlchemy answer inherited from SQLCommonConfig: this
+    # connector probes through its own client, not a second engine. Inheriting it
+    # would advertise six typed getters that provider does not have.
     @classmethod
     def probe_provider_class(cls) -> type:
         from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
@@ -186,10 +183,3 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         )
 
         return BigQueryMetadataProbe
-
-    def build_probe_provider(self) -> "ProbeProvider":
-        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
-            BigQueryMetadataProbe,
-        )
-
-        return BigQueryMetadataProbe(self.get_bigquery_client())

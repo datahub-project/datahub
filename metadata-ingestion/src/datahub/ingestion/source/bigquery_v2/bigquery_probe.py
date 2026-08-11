@@ -3,6 +3,9 @@ from typing import Any, Dict
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_query import sql_result
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
+)
 
 
 class BigQueryMetadataProbe:
@@ -16,6 +19,13 @@ class BigQueryMetadataProbe:
 
     def __init__(self, client: Any) -> None:
         self._client = client
+
+    @classmethod
+    def for_config(cls, config: BigQueryConnectionConfig) -> "BigQueryMetadataProbe":
+        """Reuse the connector's own client builder rather than a second
+        SQLAlchemy engine, so credentials resolve the way ingestion resolves
+        them."""
+        return cls(config.get_bigquery_client())
 
     def __enter__(self) -> "BigQueryMetadataProbe":
         return self
