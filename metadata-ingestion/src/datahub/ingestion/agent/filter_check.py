@@ -71,6 +71,14 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
         # schema override in _structural_verdict, not here.
         return ctx.name
 
+    resolver = getattr(config, "probe_match_target", None)
+    if not callable(resolver):
+        # The display name IS what this source filters on -- Kafka topics, Mode
+        # spaces. Checked before the parent, because warning here would tell an
+        # agent to distrust a correct answer and go looking for a container that
+        # does not exist.
+        return ctx.name
+
     if not ctx.parent_path:
         # Without the container we cannot build the identifier ingestion uses:
         # the shim emits ".orders" for MySQL, "db..orders" for Postgres. A pattern
@@ -83,10 +91,6 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
             "source filters on a qualified identifier, so pass the containing "
             "schema/database to get the verdict ingestion actually makes"
         )
-        return ctx.name
-
-    resolver = getattr(config, "probe_match_target", None)
-    if not callable(resolver):
         return ctx.name
     target = resolver(ctx)
     if not isinstance(target, str) or not target:

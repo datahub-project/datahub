@@ -116,3 +116,60 @@ def test_the_warning_is_recorded_once_not_per_name():
         names=["a", "b", "c"],
     )
     assert len(result.warnings) == 1
+
+
+def test_a_source_whose_name_is_its_target_does_not_ask_for_a_parent():
+    """The no-parent warning must only fire where a parent would change the answer.
+
+    Kafka topics and Mode spaces are what their patterns match, so there is no
+    container to pass. Warning anyway told an agent to distrust a correct verdict and
+    go looking for one -- and the likeliest thing it learns from that is to ignore
+    warnings, which is the worst outcome, because the SQL family's warning is real.
+    """
+    result = check_filters(
+        source_type="kafka",
+        config_dict={
+            "connection": {"bootstrap": "broker:29092"},
+            "topic_patterns": {"allow": ["^events.*"]},
+        },
+        kind="Topic",
+        parent_path=[],
+        names=["events.orders", "audit_log"],
+    )
+    assert result.warnings == []
+    assert [(v.name, v.target, v.included) for v in result.results] == [
+        ("events.orders", "events.orders", True),
+        ("audit_log", "audit_log", False),
+    ]
+
+
+def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
+    # And the parent changes the verdict, which is why it is worth asking for: the
+    # same pattern gives the opposite answer with and without it.
+    mysql: Dict[str, object] = {
+        "host_port": "h:3306",
+        "username": "u",
+        "password": "p",
+        "database": "analytics",
+        "table_pattern": {"allow": [r"^analytics\.ord.*"]},
+    }
+    without = check_filters(
+        source_type="mysql",
+        config_dict=mysql,
+        kind="Table",
+        parent_path=[],
+        names=["orders"],
+    )
+    assert without.results[0].included is False
+    assert any("qualified identifier" in w for w in without.warnings)
+
+    with_parent = check_filters(
+        source_type="mysql",
+        config_dict=mysql,
+        kind="Table",
+        parent_path=["analytics"],
+        names=["orders"],
+    )
+    assert with_parent.results[0].target == "analytics.orders"
+    assert with_parent.results[0].included is True
+    assert with_parent.warnings == []
