@@ -2,7 +2,8 @@
 whose absences are the point.
 """
 
-from typing import Any, Dict, Iterator, List, Union
+from datetime import datetime
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import pytest
 
@@ -14,12 +15,19 @@ from datahub.ingestion.agent.probe_methods import (
     _enforce_gates,
     _iter_specs,
 )
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
-from datahub.ingestion.source.hex.api import HexApiConnection
+from datahub.ingestion.source.hex.api import HexApiConnection, HexApiReport
 from datahub.ingestion.source.hex.config import HexSourceConfig
 from datahub.ingestion.source.hex.constants import HEX_CATEGORY_KIND
 from datahub.ingestion.source.hex.hex_probe import HexMetadataProbe
-from datahub.ingestion.source.hex.model import Category, Component, Project, Status
+from datahub.ingestion.source.hex.model import (
+    Category,
+    Component,
+    Project,
+    RunRecord,
+    Status,
+)
 
 # A real-shaped Hex id: UUID, which is why "export" is not a possible id.
 PROJECT_ID = "c8f815c8-88c2-4dea-981f-69f544d6165d"
@@ -30,9 +38,12 @@ class _FakeApi:
 
     base_url = "https://app.hex.tech/api/v1"
 
-    def __init__(self) -> None:
+    def __init__(self, enterprise: bool = True) -> None:
         self.session = type("_S", (), {"close": lambda self: None})()
         self.sweeps: List[bool] = []
+        self.queried_ids: List[str] = []
+        self.enterprise = enterprise
+        self.report = HexApiReport()
 
     def _auth_header(self) -> Dict[str, str]:
         return {"Authorization": "Bearer tok"}
@@ -57,6 +68,30 @@ class _FakeApi:
                 description=None,
                 categories=[Category(name="Design")],
             )
+
+    def fetch_queried_tables(self, hex_item_id: str) -> Optional[List[dict]]:
+        self.queried_ids.append(hex_item_id)
+        if self.enterprise:
+            return [{"tableName": "ANALYTICS.PUBLIC.ORDERS"}, {"tableName": None}]
+        # What the real one does on a non-Enterprise workspace: records why and
+        # returns None rather than raising, so the caller can distinguish "no
+        # tables" from "this tier cannot answer".
+        self.report.warning(
+            title="queriedTables unavailable on this workspace",
+            message="The endpoint requires a Hex Enterprise workspace.",
+        )
+        return None
+
+    def fetch_latest_run(self, project_id: str) -> Optional[RunRecord]:
+        return RunRecord(
+            run_id="r1",
+            status="COMPLETED",
+            start_time=datetime(2026, 1, 1),
+            elapsed_seconds=12.5,
+        )
+
+    def fetch_workspace_id(self) -> Optional[str]:
+        return "ws-123"
 
     def fetch_connections(self) -> Dict[str, HexApiConnection]:
         # The type the real fetch_connections returns -- NOT model.HexConnection,
@@ -143,6 +178,8 @@ def test_connections_are_keyed_the_way_connection_platform_map_is():
         "/projects/export",
         "/users",
         f"/projects/{PROJECT_ID}",
+        f"/projects/{PROJECT_ID}/runs",
+        f"/projects/{PROJECT_ID}/queriedTables",
     ],
 )
 def test_the_endpoints_carrying_cell_sql_or_pii_are_unreachable(path: str) -> None:
@@ -157,16 +194,11 @@ def test_the_endpoints_carrying_cell_sql_or_pii_are_unreachable(path: str) -> No
         _enforce_gates(_spec("api"), _probe(), {"path": path})
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/projects",
-        f"/projects/{PROJECT_ID}/runs",
-        f"/projects/{PROJECT_ID}/queriedTables",
-        "/data-connections",
-    ],
-)
+@pytest.mark.parametrize("path", ["/projects", "/data-connections"])
 def test_the_listed_read_endpoints_are_reachable(path: str) -> None:
+    # Only the two listings. Everything Hex addresses by id has a typed command,
+    # so no {placeholder} appears in the allowlist at all -- which is what keeps
+    # /projects/export out of it (a placeholder matches any single segment).
     _enforce_gates(_spec("api"), _probe(), {"path": path})
 
 
@@ -229,3 +261,52 @@ def test_the_provider_closes_the_session_it_opened():
     with HexMetadataProbe(api):  # type: ignore[arg-type]
         pass
     assert closed == [True]
+
+
+def test_queried_tables_delegates_to_hexs_own_fetcher():
+    # Reaching /queriedTables as a raw path would work and would lose the tier
+    # handling below, which is the reason this command exists at all.
+    api = _FakeApi(enterprise=True)
+    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    assert probe.queried_tables("Revenue, EMEA") == ["ANALYTICS.PUBLIC.ORDERS"]
+    # Addressed by title: the id was resolved here, so no caller ever holds one.
+    assert api.queried_ids == [PROJECT_ID]
+
+
+def test_a_non_enterprise_workspace_reports_why_rather_than_looking_empty():
+    # fetch_queried_tables returns None on 403 and records that the endpoint needs
+    # Enterprise. Raw, that same call is an HTTPError with no explanation; here the
+    # empty result arrives with the connector's own reason attached.
+    api = _FakeApi(enterprise=False)
+    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    assert probe.queried_tables("Revenue, EMEA") == []
+    assert any("Enterprise" in w for w in probe.warnings)
+
+
+def test_an_unknown_title_degrades_with_a_warning_not_a_false_empty():
+    probe = _probe()
+    with pytest.raises(ProbeSoftError, match="NoSuchProject"):
+        probe.queried_tables("NoSuchProject")
+
+
+def test_latest_run_reports_what_include_run_history_would_ingest():
+    assert _probe().latest_run("Revenue, EMEA") == {
+        "run_id": "r1",
+        "status": "COMPLETED",
+        "start_time": "2026-01-01 00:00:00",
+        "elapsed_seconds": 12.5,
+    }
+
+
+def test_workspace_reports_the_id_every_urn_is_scoped_by():
+    assert _probe().workspace() == {"workspace_id": "ws-123"}
+
+
+def test_the_probe_surfaces_the_connectors_own_warnings():
+    # run_probe_method reads `warnings` back after each command, so anything HexApi
+    # recorded while serving it reaches the caller.
+    api = _FakeApi(enterprise=True)
+    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    assert probe.warnings == []
+    api.report.warning(title="Something degraded", message="and here is why")
+    assert probe.warnings == ["Something degraded: and here is why"]

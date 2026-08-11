@@ -2,6 +2,7 @@ from typing import Dict, List, Type, Union
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.config import HexSourceConfig
@@ -28,20 +29,20 @@ class HexMetadataProbe(RestApiPassthrough):
     #       that same cell SQL. It is also a POST, which the gate refuses anyway.
     #   /users                       -- a user directory is PII, not metadata.
     #
-    # /projects/{id} is absent for a different reason: a {placeholder} matches any
-    # single segment, so allowlisting it would also allow GET /projects/export.
-    # The typed commands already return project metadata, so the entry buys
-    # nothing and costs that.
+    # No id-addressed entry at all. Everything Hex addresses by project id --
+    # detail, runs, queriedTables -- has a typed command below that takes the
+    # project TITLE and resolves the id itself, so no id needs to leave the probe
+    # and no {placeholder} needs to appear here. That matters twice over: a
+    # placeholder matches any single segment, so "GET /projects/{id}" would also
+    # permit "GET /projects/export", and a raw path bypasses what api.py's
+    # fetchers add (see queried_tables below).
     #
-    # /projects is the bootstrap: the only route to a project id, which the two
-    # id-addressed entries need and which no typed command returns (they return
-    # the title a pattern is matched against).
+    # What remains is the two listings, kept because a raw record carries fields a
+    # typed command projects away -- the escape hatch for a question no command
+    # anticipated.
     api_allowlist = (
         "GET /projects",
-        "GET /projects/{id}/runs",
-        "GET /projects/{id}/queriedTables",
         "GET /data-connections",
-        "GET /users/me",
     )
 
     def __init__(self, api: HexApi) -> None:
@@ -74,6 +75,20 @@ class HexMetadataProbe(RestApiPassthrough):
         # HexApi's own header builder rather than restating "Bearer {token}":
         # if the connector's auth scheme changes, a probe request changes with it.
         return self._api._auth_header()
+
+    @property
+    def warnings(self) -> List[str]:
+        """What HexApi recorded while serving this command.
+
+        run_probe_method reads this back, so a command that came back empty
+        carries the connector's own reason for it rather than looking like an
+        empty workspace -- fetch_queried_tables returning None because the
+        workspace is not Enterprise is the case that matters.
+        """
+        return [
+            f"{entry.title}: {entry.message}" if entry.message else str(entry.title)
+            for entry in self._api.report.warnings
+        ]
 
     @probe_method(kind=BIAssetSubTypes.HEX_PROJECT, row_limit_param="limit")
     def projects(self, limit: int = 200) -> List[Dict[str, object]]:
@@ -122,6 +137,53 @@ class HexMetadataProbe(RestApiPassthrough):
             }
             for connection_id, conn in self._api.fetch_connections().items()
         }
+
+    @probe_method(row_limit_param="limit")
+    def queried_tables(self, project: str, limit: int = 200) -> List[str]:
+        """Warehouse tables Hex itself resolved for one project, by project title
+        -- the lineage question, answered without parsing any SQL. Empty with a
+        warning when the workspace is not on Hex's Enterprise tier, which is the
+        tier this endpoint needs; ingestion then falls back to parsing cell SQL,
+        so an empty result here does not mean lineage will be absent."""
+        rows = self._api.fetch_queried_tables(self._project_id_or_raise(project))
+        return [
+            str(row.get("tableName")) for row in (rows or []) if row.get("tableName")
+        ][:limit]
+
+    @probe_method()
+    def latest_run(self, project: str) -> Dict[str, object]:
+        """The most recent run of one project, by project title: status, start
+        time and elapsed seconds. What include_run_history would ingest."""
+        run = self._api.fetch_latest_run(self._project_id_or_raise(project))
+        if run is None:
+            return {}
+        return {
+            "run_id": run.run_id,
+            "status": run.status,
+            "start_time": str(run.start_time),
+            "elapsed_seconds": run.elapsed_seconds,
+        }
+
+    @probe_method()
+    def workspace(self) -> Dict[str, object]:
+        """The workspace id this token resolves to -- what ingestion looks up
+        first, and what every emitted URN is scoped by."""
+        return {"workspace_id": self._api.fetch_workspace_id()}
+
+    def _project_id_or_raise(self, title: str) -> str:
+        """Resolve a project title to the id Hex addresses it by.
+
+        The probe addresses objects by the title a pattern is matched against, so
+        a caller never needs an id -- which is also why no id-addressed path is in
+        the allowlist. Costs one /projects sweep, the same inherent cost Mode pays
+        resolving a space name to a token.
+        """
+        for item in self._api.fetch_projects(include_components=True):
+            if item.title == title:
+                return item.id
+        raise ProbeSoftError(
+            f"no project or component titled '{title}' found in this workspace"
+        )
 
     def _items(
         self,
