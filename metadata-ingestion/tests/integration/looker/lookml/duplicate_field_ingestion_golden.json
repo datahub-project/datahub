@@ -305,6 +305,9 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -319,6 +322,9 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -333,6 +339,9 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -347,6 +356,9 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -361,6 +373,9 @@
                     },
                     "nativeDataType": "time",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -375,6 +390,9 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
                     "isPartOfKey": false
                 }
             ],
