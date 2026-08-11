@@ -632,6 +632,41 @@ class TestSeedProfile:
 
         assert (dest / "cookies.sqlite").read_text() == "session-cookies"
 
+    def test_a_seed_from_another_engine_is_refused(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """A Chromium profile in a Firefox directory is not a working profile.
+
+        The engine guard only kept seeds out of the *fallback* browsers, so a
+        seed for the wrong engine was still copied into the one being driven.
+        """
+        chromium_seed = tmp_path / "chrome-profile"
+        (chromium_seed / "Default").mkdir(parents=True)
+        (chromium_seed / "Local State").write_text("{}")
+
+        with pytest.raises(click.UsageError, match="chromium profile"):
+            browser_sso_login(
+                "http://localhost:9002",
+                "ONE_HOUR",
+                seed_profile=str(chromium_seed),
+            )
+
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
+        assert not (dest / "Local State").exists()
+
+    def test_a_seed_of_no_known_engine_is_allowed(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """Refusing an unfamiliar layout would block a directory that works."""
+        seed = tmp_path / "unknown-profile"
+        seed.mkdir()
+        (seed / "something.dat").write_text("session")
+
+        self._login(seed_profile=str(seed))
+
+        dest = tmp_path / "profiles" / "firefox-moz-firefox" / "localhost_9002"
+        assert (dest / "something.dat").exists()
+
     def test_missing_seed_is_a_usage_error(
         self, mock_playwright: dict, tmp_path: Path
     ) -> None:
@@ -698,6 +733,44 @@ class TestAllBrowsersFail:
         for handler in ("com.google.chrome", "MSEdgeHTM", "org.mozilla.firefox"):
             with patch("datahub.cli.sso_cli._os_browser_handler", return_value=handler):
                 assert browser_target().channel is not None
+
+    def test_no_install_advice_when_no_browser_was_reported_missing(
+        self, mock_playwright: dict
+    ) -> None:
+        """`playwright install` fixes a browser Playwright does not have.
+
+        A build that is present but will not start needs its own error read.
+        Advising an install there sends the user to a command that reports
+        nothing to do, and buries the reason underneath it.
+        """
+        pw = mock_playwright["playwright"]
+        broken = Exception("Failed to launch: libnss3.so: cannot open shared object")
+        pw.firefox.launch_persistent_context.side_effect = broken
+        pw.chromium.launch_persistent_context.side_effect = broken
+
+        with pytest.raises(click.ClickException) as err:
+            browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+        message = str(err.value)
+        assert "playwright install" not in message
+        assert "libnss3.so" in message
+
+    def test_install_advice_names_only_the_browsers_reported_missing(
+        self, mock_playwright: dict
+    ) -> None:
+        pw = mock_playwright["playwright"]
+        pw.firefox.launch_persistent_context.side_effect = Exception(
+            "Failed to launch: libnss3.so: cannot open shared object"
+        )
+        pw.chromium.launch_persistent_context.side_effect = Exception(
+            "Executable doesn't exist at /ms-playwright/chromium-1234/chrome"
+        )
+
+        with pytest.raises(click.ClickException) as err:
+            browser_sso_login("http://localhost:9002", "ONE_HOUR")
+
+        # Not "chromium firefox": firefox is installed, it just would not start.
+        assert str(err.value).rstrip().endswith("playwright install chromium")
 
     def test_a_profile_problem_stops_the_chain(self, mock_playwright: dict) -> None:
         """Every candidate would hit the same lock, so trying them all is noise.
