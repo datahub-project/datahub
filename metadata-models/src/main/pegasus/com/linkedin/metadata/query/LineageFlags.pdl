@@ -28,17 +28,15 @@ record LineageFlags {
       ignoreAsHops: optional map[string, array[Urn]]
 
     /**
-     * Include lineage results for entities that have no entity of their own, rather than dropping
-     * them. Lineage graphs routinely point at such entities -- fine-grained lineage writes graph
-     * edges without materializing the schema fields they connect -- and joining lineage results
-     * against the entity index silently discards every one of them.
+     * Read results off the lineage graph rather than by looking each one up in the entity search
+     * index. Chiefly this returns entities that have no entity of their own, which the index has
+     * nothing to return for: lineage graphs point at those constantly, since fine-grained lineage
+     * writes graph edges without materializing the schema fields it connects. They cannot be
+     * hydrated, so they come back as a urn and entity type only.
      *
-     * These entities cannot be hydrated, so they are returned as a urn and entity type only.
-     *
-     * Not recommended for general use. Results have to be read off the graph rather than the entity
-     * index, which is only possible under narrow conditions: a "*" query, no sort criteria, and
-     * filters limited to the fields derivable from a urn alone. A request that sets this and meets
-     * none of those is rejected rather than quietly answered without the entities it asked for.
+     * Use with care. It is only possible under narrow conditions -- a "*" query, no sort criteria,
+     * and filters limited to the fields derivable from a urn alone -- and endpoints that cannot
+     * serve it reject the request rather than quietly answering without the entities it asked for.
      */
-    includeGhostEntities: optional boolean = false
+    useLightningMode: optional boolean = false
 }

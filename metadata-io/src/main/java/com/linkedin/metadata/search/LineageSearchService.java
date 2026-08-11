@@ -259,13 +259,13 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
 
-      boolean includeGhostEntities =
+      boolean useLightningMode =
           Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
-              .map(LineageFlags::isIncludeGhostEntities)
+              .map(LineageFlags::isUseLightningMode)
               .orElse(false);
 
       if (canDoLightning(
-          lineageRelationships, finalInput, reducedFilters, sortCriteria, includeGhostEntities)) {
+          lineageRelationships, finalInput, reducedFilters, sortCriteria, useLightningMode)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         LineageSearchResult lineageSearchResult =
@@ -282,19 +282,12 @@ public class LineageSearchService {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
-      } else if (includeGhostEntities) {
+      } else if (useLightningMode) {
         // Falling through would answer from the entity index, which has nothing to return for an
-        // entity that does not exist -- so the caller would silently get a short count rather than
-        // the results it asked for
+        // entity that does not exist -- so the caller would silently get a short result rather than
+        // what it asked for
         throw new IllegalArgumentException(
-            String.format(
-                "includeGhostEntities requires the graph-only lineage path, which cannot serve this "
-                    + "query. It needs a '*' query, no sort criteria, and filters only on %s, but "
-                    + "got query '%s', %d sort criteria, and filters on %s.",
-                LIGHTNING_FILTER_FIELDS,
-                finalInput,
-                sortCriteria == null ? 0 : sortCriteria.size(),
-                filterFields(reducedFilters)));
+            unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
       } else {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult =
@@ -328,7 +321,7 @@ public class LineageSearchService {
       String input,
       Filter inputFilters,
       List<SortCriterion> sortCriteria,
-      boolean includeGhostEntities) {
+      boolean useLightningMode) {
     boolean simpleFilters =
         inputFilters == null
             || inputFilters.getOr() == null
@@ -339,15 +332,28 @@ public class LineageSearchService {
                             .allMatch(
                                 criterion1 ->
                                     LIGHTNING_FILTER_FIELDS.contains(criterion1.getField())));
-    // Use lightning path when including ghost entities -- it gives us the exact results we want
+    // Use lightning path when the caller asks for it -- it gives us the exact results we want
     boolean worthwhile =
-        includeGhostEntities
+        useLightningMode
             || lineageRelationships.size()
                 > appConfig.getCache().getSearch().getLineage().getLightningThreshold();
     return worthwhile
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
+  }
+
+  /** Explains why lightning mode cannot be served, naming what the request actually asked for. */
+  private static String unservableLightningMessage(
+      String input, @Nullable List<SortCriterion> sortCriteria, @Nullable Filter filters) {
+    return String.format(
+        "useLightningMode reads results off the lineage graph, which cannot serve this query. It "
+            + "needs a '*' query, no sort criteria, and filters only on %s, but got query '%s', %d "
+            + "sort criteria, and filters on %s.",
+        LIGHTNING_FILTER_FIELDS,
+        input,
+        sortCriteria == null ? 0 : sortCriteria.size(),
+        filterFields(filters));
   }
 
   /** The distinct fields the filters constrain, for reporting what a query asked for. */
@@ -890,6 +896,17 @@ public class LineageSearchService {
       Filter reducedFilters =
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+
+      // Scrolling has no graph-only path: paging is done by the entity index, which has nothing to
+      // return for an entity that does not exist
+      if (Optional.ofNullable(opContext.getSearchContext().getLineageFlags())
+          .map(LineageFlags::isUseLightningMode)
+          .orElse(false)) {
+        throw new IllegalArgumentException(
+            "useLightningMode is not supported when scrolling across lineage; use "
+                + "searchAcrossLineage instead.");
+      }
+
       LineageScrollResult scrollResult =
           getScrollResultInBatches(
               opContext,

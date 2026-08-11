@@ -202,11 +202,11 @@ public class ValidationUtils {
                       lineageSearchResult.getLineageSearchPath(), SetMode.IGNORE_NULL)
                   .setNumEntities(lineageSearchResult.getNumEntities());
 
-          // Ghost entities have nothing in SQL to exist, so enforcing existence would drop exactly
-          // the results the caller asked to keep
-          boolean includeGhostEntities =
+          // Lightning mode reads results off the graph, which points at entities that were never
+          // materialized, so enforcing existence would drop exactly what the caller asked to keep
+          boolean useLightningMode =
               Optional.ofNullable(opContext.getSearchContext().getLineageFlags())
-                  .map(LineageFlags::isIncludeGhostEntities)
+                  .map(LineageFlags::isUseLightningMode)
                   .orElse(false);
 
           LineageSearchEntityArray validatedEntities =
@@ -215,7 +215,7 @@ public class ValidationUtils {
                       lineageSearchResult.getEntities(),
                       LineageSearchEntity::getEntity,
                       entityService,
-                      !includeGhostEntities,
+                      !useLightningMode,
                       true)
                   .collect(Collectors.toCollection(LineageSearchEntityArray::new));
           validatedLineageSearchResult.setEntities(validatedEntities);

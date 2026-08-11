@@ -218,20 +218,18 @@ input LineageFlags {
   ignoreAsHops: [EntityTypeToPlatforms!]
 
   """
-  Whether to include lineage results for entities that have no entity of their own, rather than
-  dropping them. Such entities are returned as a urn and entity type only, as there is nothing to
-  hydrate them from.
+  Read results off the lineage graph rather than by looking each one up in the entity search index.
+  Chiefly this returns entities that have no entity of their own, which the index has nothing to
+  return for -- lineage graphs point at those constantly, since fine-grained lineage writes graph
+  edges without materializing the schema fields it connects. They cannot be hydrated, so they come
+  back as a urn and entity type only.
 
-  Not recommended for general use. Results have to come off the lineage graph rather than the
-  search index, since the index has nothing to return for an entity that does not exist, and that
-  is only possible under narrow conditions: the query must be "*", no sort may be requested, and
-  filters are limited to the few fields derivable from a urn alone (platform, origin, parent).
-  A request that sets this flag and meets none of those conditions is rejected rather than quietly
-  answered without the entities it asked for. Prefer leaving it unset unless you specifically need
-  to count lineage that points at entities which were never materialized -- most commonly schema
-  fields connected by fine-grained lineage.
+  Use with care. It is only possible under narrow conditions: the query must be "*", no sort may be
+  requested, and filters are limited to the few fields derivable from a urn alone (platform, origin,
+  parent). Endpoints that cannot serve it reject the request rather than quietly answering without
+  the entities it asked for; scrollAcrossLineage does not support it at all.
   """
-  includeGhostEntities: Boolean
+  useLightningMode: Boolean
 }
 
 input EntityTypeToPlatforms {

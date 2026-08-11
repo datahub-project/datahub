@@ -56,8 +56,8 @@ public class LineageFlagsInputMapper
     if (lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       result.setEntitiesExploredPerHopLimit(lineageFlags.getEntitiesExploredPerHopLimit());
     }
-    if (lineageFlags.getIncludeGhostEntities() != null) {
-      result.setIncludeGhostEntities(lineageFlags.getIncludeGhostEntities());
+    if (lineageFlags.getUseLightningMode() != null) {
+      result.setUseLightningMode(lineageFlags.getUseLightningMode());
     }
     return result;
   }

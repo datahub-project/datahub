@@ -1025,16 +1025,16 @@ public class LineageSearchServiceTest {
   }
 
   @Test
-  public void testCanDoLightningForGhostEntities() {
+  public void testCanDoLightningWhenRequested() {
     List<LineageRelationship> tinyResult = oneRelationship();
     Filter filter = QueryUtils.newFilter("platform", "urn:li:dataPlatform:kafka");
 
     // Below the threshold the entity index path is still preferred...
     assertFalse(_lineageSearchService.canDoLightning(tinyResult, "*", filter, null, false));
-    // ...but ghost entities are only reachable here, so take it whatever the result size
+    // ...but a caller can ask for it whatever the result size
     assertTrue(_lineageSearchService.canDoLightning(tinyResult, "*", filter, null, true));
 
-    // Filters this path cannot answer from a urn keep it off, ghosts or not
+    // Filters this path cannot answer from a urn keep it off, requested or not
     Filter unsupported = QueryUtils.newFilter("description", "anything");
     assertFalse(_lineageSearchService.canDoLightning(tinyResult, "*", unsupported, null, true));
   }
@@ -1067,14 +1067,14 @@ public class LineageSearchServiceTest {
   }
 
   @Test
-  public void testGhostEntitiesRejectedWhenLightningUnavailable() throws Exception {
-    // A query string forces the entity-index path, which cannot return entities that do not exist,
-    // so asking for ghosts there has to fail rather than quietly come back short
+  public void testLightningModeRejectedWhenUnservable() throws Exception {
+    // A query string cannot be served off the graph, so asking for lightning mode there has to fail
+    // rather than quietly fall back to the entity index and come back short
     Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
     List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
 
     OperationContext ghostContext =
-        _operationContext.withLineageFlags(f -> new LineageFlags().setIncludeGhostEntities(true));
+        _operationContext.withLineageFlags(f -> new LineageFlags().setUseLightningMode(true));
 
     EntityLineageResult mockLineageResult = new EntityLineageResult();
     mockLineageResult.setTotal(0);
@@ -1113,6 +1113,23 @@ public class LineageSearchServiceTest {
             null,
             0,
             10));
+
+    // Scrolling has no graph-only path at all, so it refuses regardless of the query
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageSearchService.scrollAcrossLineage(
+                ghostContext,
+                sourceUrn,
+                LineageDirection.DOWNSTREAM,
+                entities,
+                null,
+                1,
+                null,
+                null,
+                null,
+                "5m",
+                10));
   }
 
   private EntityLineageResult createMockEntityLineageResult() {

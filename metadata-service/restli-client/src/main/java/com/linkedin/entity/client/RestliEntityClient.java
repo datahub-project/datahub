@@ -787,6 +787,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.filterParam(filter);
     }
     LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+    if (Boolean.TRUE.equals(lineageFlags.isUseLightningMode())) {
+      throw new IllegalArgumentException(
+          "useLightningMode cannot be requested through the Restli client, which does not carry it "
+              + "to the server.");
+    }
     if (lineageFlags.getStartTimeMillis() != null) {
       requestBuilder.startTimeMillisParam(lineageFlags.getStartTimeMillis());
     }
@@ -838,6 +843,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.scrollIdParam(scrollId);
     }
     LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+    if (Boolean.TRUE.equals(lineageFlags.isUseLightningMode())) {
+      throw new IllegalArgumentException(
+          "useLightningMode cannot be requested through the Restli client, which does not carry it "
+              + "to the server.");
+    }
     if (lineageFlags.getStartTimeMillis() != null) {
       requestBuilder.startTimeMillisParam(lineageFlags.getStartTimeMillis());
     }
