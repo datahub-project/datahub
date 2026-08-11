@@ -48,6 +48,11 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
     this.leaseSeconds = leaseSeconds;
   }
 
+  @Override
+  public boolean isActive() {
+    return true;
+  }
+
   @Nonnull
   @Override
   public LockHandle acquire(@Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {

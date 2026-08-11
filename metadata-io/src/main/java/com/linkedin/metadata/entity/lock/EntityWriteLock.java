@@ -26,6 +26,15 @@ public interface EntityWriteLock {
   @Nonnull
   LockHandle acquire(@Nonnull OperationContext opContext, @Nonnull Collection<String> urns);
 
+  /**
+   * True when this is a real, serializing gate (not the no-op). Callers use it to skip a redundant
+   * secondary serialization — e.g. the DAO's Postgres advisory lock — when this gate already
+   * serializes the same URNs off-connection. Default false.
+   */
+  default boolean isActive() {
+    return false;
+  }
+
   /** Releases the locks taken by one {@link #acquire} call. {@link #close()} never throws. */
   interface LockHandle extends AutoCloseable {
     @Override

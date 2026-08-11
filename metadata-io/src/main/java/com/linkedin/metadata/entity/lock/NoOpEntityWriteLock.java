@@ -6,8 +6,8 @@ import javax.annotation.Nonnull;
 
 /**
  * No pre-transaction serialization: concurrent writers rely purely on optimistic-locking CAS. Used
- * when {@code entityWriteLockBackend=none}, or {@code =db} (the DB advisory lock lives in the DAO,
- * not here), or when {@code =hazelcast} but no Hazelcast instance is available.
+ * when {@code entityWriteLockBackend=none}, or when {@code =hazelcast} but no Hazelcast instance is
+ * available.
  */
 public final class NoOpEntityWriteLock implements EntityWriteLock {
 

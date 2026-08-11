@@ -195,7 +195,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // (e.g. Hazelcast) is injected by EntityWriteLockFactory via setEntityWriteLock. Serializes
   // concurrent writers on the base URNs OFF the DB connection before the transaction opens, so a
   // hot key queues in the lock backend instead of thrashing CAS and pinning a pooled connection.
-  @Nonnull private EntityWriteLock entityWriteLock = new NoOpEntityWriteLock();
+  // volatile: assigned once post-construction by setEntityWriteLock (Spring startup) before any
+  // request thread reads it; volatile publishes that write safely to serving threads.
+  @Nonnull private volatile EntityWriteLock entityWriteLock = new NoOpEntityWriteLock();
 
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
@@ -235,17 +237,36 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private static final EntityWriteLock.LockHandle NOOP_WRITE_GATE = () -> {};
 
   /**
-   * Acquires the pre-transaction write gate on {@code urns} when running in scoped mode, otherwise
-   * returns a no-op handle. Use with try-with-resources; {@link EntityWriteLock.LockHandle#close()}
-   * never throws. Centralizes the scoped-mode check so ingest and delete share one gate seam.
+   * Acquires the pre-transaction write gate on {@code urns} when the gate is engaged (see {@link
+   * #writeGateEngaged()}), otherwise returns a no-op handle. Use with try-with-resources; {@link
+   * EntityWriteLock.LockHandle#close()} never throws. Centralizes the engaged check so ingest and
+   * delete share one gate seam.
    */
   @Nonnull
   private EntityWriteLock.LockHandle acquireWriteGate(
       @Nonnull final OperationContext opContext, @Nonnull final Collection<String> urns) {
-    if (aspectDao.isOptimisticLockingEnabled() && aspectDao.isScopedRetryEnabled()) {
+    if (writeGateEngaged()) {
       return entityWriteLock.acquire(opContext, urns);
     }
     return NOOP_WRITE_GATE;
+  }
+
+  /**
+   * Whether a real pre-transaction write gate will serialize these writes: optimistic-locking mode
+   * (the gate targets CAS thrash, not the FOR UPDATE path) with a non-no-op backend. Independent of
+   * scoped retry — serializing hot-key writers off-connection helps under full-batch retry too.
+   * Single source of truth so taking the gate and skipping the now-redundant DAO advisory lock
+   * never disagree.
+   *
+   * <p>This is a static (config-level) decision, evaluated before {@code acquire()} runs. The gate
+   * is best-effort: on acquire timeout or a Hazelcast outage it degrades to lockless CAS (not to
+   * the advisory lock). So when the gate is engaged the advisory lock is skipped unconditionally —
+   * it is NOT a per-write fallback for a failed gate acquire. CAS remains the correctness guard in
+   * all cases; a degraded gate simply means that write gets plain OL behavior (bounded thrash). The
+   * factory warns at startup when both the gate and the advisory are enabled.
+   */
+  private boolean writeGateEngaged() {
+    return aspectDao.isOptimisticLockingEnabled() && entityWriteLock.isActive();
   }
 
   /**
@@ -1546,13 +1567,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               final Map<String, Set<String>> urnAspects =
                                   batchWithDefaults.getUrnAspectsMap();
 
-                              // Opt-in per-entity write serialization (advisory lock), taken before
-                              // any row locks so this write serializes against a concurrent
-                              // hard-delete on the same entity. Postgres transaction-scoped
-                              // pg_advisory_xact_lock, auto-released on commit/rollback. No-op
-                              // unless
-                              // enabled.
-                              aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+                              // Opt-in per-entity write serialization (Postgres advisory lock),
+                              // taken before any row locks so this write serializes against a
+                              // concurrent hard-delete. Skipped when the pre-transaction write gate
+                              // is engaged — the gate already serializes the same URNs
+                              // off-connection, so the advisory would be a redundant per-URN round
+                              // trip.
+                              if (!writeGateEngaged()) {
+                                aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+                              }
 
                               // Write-intent read: pin primary. The DAO uses SELECT FOR UPDATE in
                               // legacy mode and skips the row lock in optimistic mode, where CAS
@@ -3648,6 +3671,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
                           gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
 
+                          // Re-entrant gate acquire: this nested ingest re-acquires the write gate
+                          // for the SAME urn on the SAME thread that already holds it (taken in
+                          // deleteAspectWithoutMCL). The Hazelcast IMap lock is re-entrant per
+                          // (thread, key), so this does not self-deadlock; the no-op backend is
+                          // trivially re-entrant too.
                           this.ingestProposal(opContext, gmce, auditStamp, false);
                         }
                       } else {
@@ -3939,11 +3967,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     final Map<String, Set<String>> urnAspects = batch.getUrnAspectsMap();
 
-    // Opt-in per-entity write serialization (advisory lock), taken before the read/CAS so
-    // concurrent writers on a hot URN queue instead of thrashing CAS, and so this write serializes
-    // against a concurrent hard-delete on the same entity. Postgres transaction-scoped
-    // pg_advisory_xact_lock, auto-released on commit/rollback. No-op unless enabled.
-    aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+    // Opt-in per-entity write serialization (Postgres advisory lock), taken before the read/CAS.
+    // Skipped when the pre-transaction write gate is engaged — the gate already serializes the same
+    // URNs off-connection, so the advisory would be a redundant per-URN round trip.
+    if (!writeGateEngaged()) {
+      aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+    }
 
     // read #1 — initial database state.
     final Map<String, Map<String, SystemAspect>> batchAspects =

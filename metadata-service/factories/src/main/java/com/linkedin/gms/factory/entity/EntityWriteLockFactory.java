@@ -20,8 +20,7 @@ import org.springframework.context.annotation.Configuration;
  *   <li>{@code hazelcast} — distributed per-URN gate that keeps lock waits off the DB connection
  *       pool (preferred when connections are the bottleneck). Falls back to no-op with a warning if
  *       no Hazelcast instance is available (never fails startup).
- *   <li>{@code db} / {@code none} — no pre-transaction gate here; {@code db} uses the DAO's
- *       advisory lock instead, {@code none} relies purely on CAS.
+ *   <li>{@code none} — no pre-transaction gate; relies purely on CAS.
  * </ul>
  */
 @Slf4j
@@ -46,16 +45,26 @@ public class EntityWriteLockFactory {
                 + "run lockless (optimistic-locking CAS still guards correctness).");
         return new NoOpEntityWriteLock();
       }
-      if (!(ebean.isOptimisticLockingEnabled() && ebean.isScopedRetryEnabled())) {
-        // The gate only activates on the scoped path; wired-but-bypassed otherwise. Surface it so
-        // an
-        // operator who set the backend but not the mode flags isn't silently unprotected.
+      if (!ebean.isOptimisticLockingEnabled()) {
+        // The gate only activates in optimistic-locking mode (it targets CAS thrash, not the FOR
+        // UPDATE path); wired-but-bypassed otherwise. Surface it so an operator who set the backend
+        // but not optimisticLockingEnabled isn't silently unprotected.
         log.warn(
             "entityWriteLockBackend=hazelcast but the write gate only activates when "
-                + "optimisticLockingEnabled AND scopedRetryEnabled are both true — it is wired but "
-                + "currently bypassed (optimisticLockingEnabled={}, scopedRetryEnabled={}).",
-            ebean.isOptimisticLockingEnabled(),
-            ebean.isScopedRetryEnabled());
+                + "optimisticLockingEnabled=true — it is wired but currently bypassed.");
+      }
+      if (ebean.isEntityWriteAdvisoryLockEnabled()) {
+        // Both the Hazelcast gate and the Postgres advisory lock are enabled. When the gate is
+        // engaged the advisory lock is skipped (avoids double-locking). Note the gate is
+        // best-effort:
+        // on acquire timeout or a Hazelcast outage it degrades to lockless CAS, NOT to the advisory
+        // lock — so the advisory does NOT serve as a fallback here. Enable only one unless the
+        // deadlock-ordering advisory is wanted for the non-OL FOR UPDATE path.
+        log.warn(
+            "Both entityWriteLockBackend=hazelcast and entityWriteAdvisoryLockEnabled=true are set. "
+                + "In optimistic-locking mode the Postgres advisory lock is skipped while the gate is "
+                + "engaged, and the gate degrades to lockless CAS (not the advisory) on "
+                + "timeout/outage — the advisory is not a gate fallback.");
       }
       final long leaseSeconds = ebean.getEntityWriteLockLeaseSeconds();
       log.info(
@@ -70,14 +79,13 @@ public class EntityWriteLockFactory {
           leaseSeconds);
     }
 
-    // none | db -> no pre-transaction gate (the DB advisory lock, if any, lives in the DAO).
-    if ("none".equals(backend) || "db".equals(backend)) {
-      log.info("Entity write-lock backend: {} (no pre-transaction gate).", backend);
+    if ("none".equals(backend)) {
+      log.info("Entity write-lock backend: none (no pre-transaction gate).");
     } else {
       // Typo/misconfig: surface it. Degrades to lockless (CAS still guards) rather than failing
       // startup, but a WARN so it is not mistaken for an intentional "none".
       log.warn(
-          "Unrecognized entityWriteLockBackend='{}' (expected none|db|hazelcast); running with no "
+          "Unrecognized entityWriteLockBackend='{}' (expected none|hazelcast); running with no "
               + "pre-transaction gate (CAS still guards).",
           backend);
     }

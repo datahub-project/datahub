@@ -35,17 +35,14 @@ public class EbeanConfiguration {
   // commit). No-op on other engines and when disabled (the default).
   private boolean entityWriteAdvisoryLockEnabled;
 
-  // Write-lock backend for the OL + scoped-retry mode: "none" | "db" | "hazelcast".
-  //   none      = no serialization; concurrent writers rely purely on CAS (may thrash on hot keys).
-  //   db        = DB advisory lock (Postgres-only pg_advisory_xact_lock) — simple, no extra
-  // infra,
-  //               but a waiter holds a pooled DB connection while blocked.
-  //   hazelcast = distributed IMap lock — keeps lock waits OFF the DB connection pool (preferred
-  // when
-  //               connections are the bottleneck); best-effort, CAS remains the correctness guard.
-  // Default "none". Back-compat: entityWriteAdvisoryLockEnabled=true is treated as "db" when this
-  // is
-  // unset/"none".
+  // Pre-transaction write-gate backend for the OL + scoped-retry hot-key path: "none" |
+  // "hazelcast".
+  //   none      = no gate; concurrent writers rely purely on CAS (may thrash on hot keys).
+  //   hazelcast = distributed IMap lock — serializes hot-key writers OFF the DB connection pool
+  //               (the intended answer when connections are the bottleneck); best-effort, CAS
+  //               remains the correctness guard.
+  // Default "none". Independent of entityWriteAdvisoryLockEnabled (the Postgres deadlock-ordering
+  // advisory lock); either, both, or neither may be enabled.
   // NOTE: @Builder.Default is required — Lombok's @Builder ignores field initializers otherwise, so
   // EbeanConfiguration.builder().build() would yield null and defeat the "none" default.
   @Builder.Default private String entityWriteLockBackend = "none";
@@ -81,33 +78,9 @@ public class EbeanConfiguration {
   @Builder.Default
   private TransactionRetryConfiguration transactionRetry = new TransactionRetryConfiguration();
 
-  /**
-   * Whether the DAO's in-transaction advisory lock (Postgres-only pg_advisory_xact_lock) is active.
-   * Single source of truth so backend selection is coherent and cannot silently no-lock or
-   * double-lock:
-   *
-   * <ul>
-   *   <li>{@code entityWriteLockBackend=db} → active (the "db" backend IS the DAO advisory lock).
-   *   <li>{@code entityWriteLockBackend=hazelcast} → NOT active (the Hazelcast pre-transaction gate
-   *       is the lock; this prevents double-locking even if the legacy boolean is left true).
-   *   <li>{@code entityWriteLockBackend=none}/unset → active only if the legacy {@code
-   *       entityWriteAdvisoryLockEnabled} boolean is true (back-compat).
-   * </ul>
-   */
   /** Backend value normalized to lower-case (null → "none"). Single owner of the parse rule. */
   public String getNormalizedEntityWriteLockBackend() {
     return entityWriteLockBackend == null ? "none" : entityWriteLockBackend.trim().toLowerCase();
-  }
-
-  public boolean isDbAdvisoryLockActive() {
-    String backend = getNormalizedEntityWriteLockBackend();
-    if ("db".equals(backend)) {
-      return true;
-    }
-    if ("hazelcast".equals(backend)) {
-      return false;
-    }
-    return entityWriteAdvisoryLockEnabled;
   }
 
   /** Test-only config with defaults; note {@code entityWriteAdvisoryLockEnabled} is off. */

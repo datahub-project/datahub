@@ -155,8 +155,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   private static final long PG_ADVISORY_LOCK_POLL_MILLIS = 50L;
 
-  // Above this URN count, backend=db does many per-URN advisory-lock round trips per batch under
-  // contention; warn once per batch recommending backend=hazelcast (off-connection waits).
+  // Above this URN count, the advisory lock does many per-URN round trips per batch under
+  // contention; warn once per batch recommending the hazelcast write gate (off-connection waits).
   private static final int PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD = 100;
 
   public EbeanAspectDao(
@@ -241,10 +241,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         new TransactionRetryPolicy(
             retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
-    // Coherent backend selection: db -> on, hazelcast -> off (the pre-txn gate is the lock),
-    // none/unset -> the legacy entityWriteAdvisoryLockEnabled boolean. Prevents silent no-lock on
-    // backend=db and double-lock on backend=hazelcast.
-    this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isDbAdvisoryLockActive();
+    // Postgres deadlock-ordering advisory lock — independent of the Hazelcast write-gate backend.
+    this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
     this.entityWriteLockAcquireTimeoutSeconds =
         ebeanConfiguration.getEntityWriteLockAcquireTimeoutSeconds();
     this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
@@ -364,9 +362,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
     if (sortedUrns.size() > PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD) {
       log.warn(
-          "backend=db advisory locking a large batch of {} URNs; this issues per-URN "
+          "advisory locking a large batch of {} URNs; this issues per-URN "
               + "pg_try_advisory_xact_lock round trips and can be slow under contention. Prefer "
-              + "backend=hazelcast for large hot-key batches (waits happen off the DB connection).",
+              + "entityWriteLockBackend=hazelcast for large hot-key batches (waits off the DB "
+              + "connection).",
           sortedUrns.size());
     }
     for (String urn : sortedUrns) {
