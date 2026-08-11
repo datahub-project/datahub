@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, Sequence
 
+from datahub.ingestion.agent.probe_methods import clamp_item_limit
+
 _JSON_SAFE_TYPES = (str, int, float, bool)
 
 
@@ -24,7 +26,13 @@ def sql_result(
 
     Callers fetch one row beyond `limit` so truncation is observed rather than
     inferred from a full page.
+
+    Clamps `limit` again even though the framework already bounded the fetch
+    (probe_methods._bounded_kwargs): this is the last thing every provider's
+    result passes through, so it is where a provider that builds rows some other
+    way still cannot emit more than MAX_PROBE_ITEMS.
     """
+    limit = clamp_item_limit(limit)
     kept: List[List[object]] = [
         [_json_safe(value) for value in row] for row in rows[:limit]
     ]

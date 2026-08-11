@@ -43,7 +43,7 @@ class SqlAlchemyMetadataProbe:
     def sql_dialect(self) -> str:
         return sqlglot_dialect_for(self._engine.dialect.name)
 
-    @probe_method(name="sql", scoped_sql_param="query")
+    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
     def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
         """Run a read-only catalog query. Only a single SELECT over the dialect's
         catalog schemas is permitted -- the framework scope-checks `query` before

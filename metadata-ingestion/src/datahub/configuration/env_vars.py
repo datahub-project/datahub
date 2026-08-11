@@ -395,6 +395,22 @@ def get_disable_secret_masking() -> bool:
     return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
 
 
+def get_disable_agent_probe_raw_access() -> bool:
+    """
+    Refuse the recipe probe's raw passthrough commands (`sql`, `api`).
+
+    For an operator who does not want an agent issuing its own queries or API
+    calls against a source at all. The probe's typed listings keep working, so
+    recipe diagnosis still functions -- this withholds only the commands that
+    take a caller-supplied query or path.
+
+    An environment variable rather than a recipe field because the agent authors
+    the recipe: a field there would let it grant itself the access. Set it where
+    the probe runs (the ingestion executor).
+    """
+    return os.getenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================

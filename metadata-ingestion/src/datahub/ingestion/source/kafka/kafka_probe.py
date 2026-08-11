@@ -27,7 +27,7 @@ class KafkaMetadataProbe:
         if callable(close):
             close()
 
-    @probe_method(kind=DatasetSubTypes.TOPIC)
+    @probe_method(kind=DatasetSubTypes.TOPIC, row_limit_param="limit")
     def topics(self, limit: int = 500) -> List[Dict[str, object]]:
         """Live topics on the broker with partition and replication counts.
         Internal topics (name starting with '__') are hidden. Metadata only —
@@ -61,7 +61,7 @@ class KafkaMetadataProbe:
         entries = future.result(timeout=self._timeout)
         return {name: entry.value for name, entry in entries.items()}
 
-    @probe_method()
+    @probe_method(row_limit_param="limit")
     def consumer_groups(self, limit: int = 200) -> List[str]:
         """Consumer-group ids known to the cluster."""
         future = self._admin.list_consumer_groups(request_timeout=self._timeout)
@@ -69,7 +69,7 @@ class KafkaMetadataProbe:
         groups = [g.group_id for g in getattr(listing, "valid", [])]
         return sorted(groups)[:limit]
 
-    @probe_method()
+    @probe_method(row_limit_param="limit")
     def subjects(self, limit: int = 500) -> List[str]:
         """Schema Registry subjects (the schemas that map to topics)."""
         return sorted(self._registry.get_subjects())[:limit]

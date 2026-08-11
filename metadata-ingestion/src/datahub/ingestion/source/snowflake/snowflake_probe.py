@@ -23,7 +23,7 @@ class SnowflakeMetadataProbe:
     def __exit__(self, *exc: object) -> None:
         self._connection.close()
 
-    @probe_method(name="sql", scoped_sql_param="query")
+    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
     def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
         """Run a read-only catalog query. The framework scope-checks `query`
         before calling this, so only a single SELECT over catalog schemas gets

@@ -13,7 +13,27 @@ from typing import (
     get_origin,
 )
 
+from datahub.configuration.env_vars import get_disable_agent_probe_raw_access
+
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
+
+# The most items any probe command may return, whatever the caller asked for.
+# Probe output is read by an agent with a finite context window, and a listing
+# can legitimately run to tens of thousands (one row per column in a large
+# warehouse, one topic per tenant on a shared cluster), so an unbounded limit
+# floods the reader rather than informing it. Well above any listing a person
+# reads through, well below a flood.
+MAX_PROBE_ITEMS = 1000
+
+
+def clamp_item_limit(limit: int) -> int:
+    """Bound a caller's limit into a range that can actually be returned.
+
+    A limit at or below zero is the interesting case: `items[:0]` and
+    `items[:-1]` both "work" but mean nothing a caller intended -- `-1` silently
+    drops the last item and then reports the result as truncated.
+    """
+    return max(1, min(int(limit), MAX_PROBE_ITEMS))
 
 
 @dataclass
@@ -44,6 +64,11 @@ class ProbeMethodSpec:
     # Names a parameter carrying an API path, checked against the provider's
     # api_allowlist the same way.
     scoped_path_param: Optional[str] = None
+    # Names a parameter bounding how many rows the method returns. Declared so
+    # the framework can clamp it *before* invoking: a getter fetches `limit + 1`
+    # rows, so a limit of 10_000_000 is a fetch the connector really performs,
+    # and trimming the output afterwards would be too late to matter.
+    row_limit_param: Optional[str] = None
     # The DataHub subtype the returned names are, for a command that returns a
     # listing. Declared here because the getter knows it and the caller would
     # otherwise have to guess an exact subtype string to pass to `probe filter`.
@@ -68,6 +93,7 @@ class ProbeMethodSpec:
         scoped_sql_param: Optional[str] = None,
         scoped_path_param: Optional[str] = None,
         kind: Optional[str] = None,
+        row_limit_param: Optional[str] = None,
     ) -> "ProbeMethodSpec":
         sig = inspect.signature(fn)
         params: List[ProbeParam] = []
@@ -98,6 +124,7 @@ class ProbeMethodSpec:
         for label, scoped in (
             ("scoped_sql_param", scoped_sql_param),
             ("scoped_path_param", scoped_path_param),
+            ("row_limit_param", row_limit_param),
         ):
             if scoped is not None and scoped not in declared:
                 raise ValueError(
@@ -112,6 +139,7 @@ class ProbeMethodSpec:
             scoped_sql_param=scoped_sql_param,
             scoped_path_param=scoped_path_param,
             kind=str(kind) if kind is not None else None,
+            row_limit_param=row_limit_param,
         )
 
 
@@ -138,6 +166,7 @@ def probe_method(
     scoped_sql_param: Optional[str] = None,
     scoped_path_param: Optional[str] = None,
     kind: Optional[Any] = None,
+    row_limit_param: Optional[str] = None,
 ) -> Callable[[Callable], Callable]:
     """Mark a provider method as an agent/CLI probe command.
 
@@ -155,7 +184,7 @@ def probe_method(
             fn,
             "__probe_command__",
             ProbeMethodSpec.from_func(
-                fn, name, scoped_sql_param, scoped_path_param, kind
+                fn, name, scoped_sql_param, scoped_path_param, kind, row_limit_param
             ),
         )
         return fn
@@ -179,7 +208,7 @@ class ProbeMethodResult:
     # so a caller can pass it to `probe filter` without knowing the vocabulary.
     kind: Optional[str] = None
     # Non-fatal problems the provider hit while building `result` (see
-    # agent.probe.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
+    # agent.verdicts.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
     # it degraded to an empty/partial contribution instead of failing the
     # whole command. Mirrors ProbeResult.warnings (same rationale, same
     # shape) for the probe_run side of the framework. A provider surfaces
@@ -274,6 +303,23 @@ def _bound_method(provider: object, command: str) -> Callable:
     raise ValueError(f"no probe method bound for command '{command}'")
 
 
+def _bounded_kwargs(
+    spec: ProbeMethodSpec, call_kwargs: Dict[str, object]
+) -> Dict[str, object]:
+    """Clamp a declared row-limit parameter into the returnable range.
+
+    Separate from _enforce_gates because it is a different kind of act: gates
+    refuse, this one adjusts. An omitted limit is left out so the getter's own
+    default applies rather than being overwritten with a framework guess.
+    """
+    if spec.row_limit_param is None or spec.row_limit_param not in call_kwargs:
+        return call_kwargs
+    raw = call_kwargs[spec.row_limit_param]
+    # _coerce already made this an int for an int-annotated parameter.
+    assert isinstance(raw, int)
+    return {**call_kwargs, spec.row_limit_param: clamp_item_limit(raw)}
+
+
 def _enforce_gates(
     spec: ProbeMethodSpec, provider: object, call_kwargs: Dict[str, object]
 ) -> None:
@@ -287,6 +333,19 @@ def _enforce_gates(
     Needs the live provider, since the dialect and the endpoint allowlist are
     properties of the connector's client, not of the declaration.
     """
+    is_passthrough = (
+        spec.scoped_sql_param is not None or spec.scoped_path_param is not None
+    )
+    if is_passthrough and get_disable_agent_probe_raw_access():
+        # Withholds only the passthroughs; typed getters take no caller-supplied
+        # query or path, so there is nothing in them to withhold.
+        raise ValueError(
+            f"probe command '{spec.command}' takes a caller-supplied query or "
+            f"path, and raw probe access is switched off here "
+            f"(DATAHUB_PROBE_DISABLE_RAW_ACCESS); this connector's other probe "
+            f"commands still work"
+        )
+
     if spec.scoped_sql_param is not None:
         # Lazy import: the gates pull in sqlglot, which a probe that runs no
         # queries should not pay for.
@@ -303,12 +362,19 @@ def _enforce_gates(
     if spec.scoped_path_param is not None:
         from datahub.ingestion.agent.api_gate import check_api_request
 
+        allowlist = getattr(provider, "api_allowlist", None)
+        if allowlist is None:
+            # Distinct from an unlisted path, which is the caller's to fix. An
+            # absent allowlist means no path can ever work, so reporting it as
+            # "not in this connector's allowlist" would send the caller off to
+            # rewrite a path when the connector is what is incomplete. Mirrors
+            # the missing-sql_dialect refusal above.
+            raise ValueError(
+                f"probe method '{spec.command}' takes an API path but its "
+                f"provider declares no api_allowlist, so no path can be permitted"
+            )
         # GET-only is the rule, so the method is not the caller's to choose.
-        check_api_request(
-            "GET",
-            str(call_kwargs[spec.scoped_path_param]),
-            getattr(provider, "api_allowlist", ()),
-        )
+        check_api_request("GET", str(call_kwargs[spec.scoped_path_param]), allowlist)
 
 
 def run_probe_method(
@@ -326,13 +392,15 @@ def run_probe_method(
             f"unknown probe method '{command}' for source '{source_type}'; "
             f"available: {', '.join(sorted(specs)) or '(none)'}"
         )
-    call_kwargs = _coerce_kwargs(specs[command], kwargs)
+    call_kwargs = _bounded_kwargs(
+        specs[command], _coerce_kwargs(specs[command], kwargs)
+    )
     config = config_class_for(source_type).model_validate(config_dict)
     with config.build_probe_provider() as provider:
         _enforce_gates(specs[command], provider, call_kwargs)
         result = _bound_method(provider, command)(**call_kwargs)
         # Optional, source-agnostic: a provider that degrades a sub-fetch
-        # instead of failing outright (see agent.probe.ProbeSoftError) may
+        # instead of failing outright (see agent.verdicts.ProbeSoftError) may
         # expose its own `warnings` list to report that here. Duck-typed
         # rather than part of the ProbeProvider Protocol, since most
         # providers have nothing to report and shouldn't need to declare it.

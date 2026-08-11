@@ -12,7 +12,9 @@ import pytest
 
 from datahub.ingestion.agent.api_gate import ApiScopeError
 from datahub.ingestion.agent.probe_methods import (
+    MAX_PROBE_ITEMS,
     ProbeMethodSpec,
+    _bounded_kwargs,
     _enforce_gates,
     probe_method,
 )
@@ -26,7 +28,7 @@ class FakeSqlProvider:
     def __init__(self) -> None:
         self.ran: List[str] = []
 
-    @probe_method(name="sql", scoped_sql_param="query")
+    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
     def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
         """Run a catalog query."""
         self.ran.append(query)
@@ -50,6 +52,13 @@ class DialectlessProvider:
     @probe_method(name="sql", scoped_sql_param="query")
     def sql(self, query: str) -> Dict[str, object]:
         """Run a catalog query."""
+        return {}
+
+
+class AllowlistlessProvider:
+    @probe_method(name="api", scoped_path_param="path")
+    def api(self, path: str) -> object:
+        """Fetch an endpoint, without listing which ones exist."""
         return {}
 
 
@@ -99,6 +108,65 @@ def test_a_listed_path_passes_the_gate():
     _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces/sp1/reports"})
 
 
+def test_a_provider_with_no_allowlist_at_all_is_a_provider_bug():
+    # Distinct from an unlisted path: falling through to an empty allowlist would
+    # blame the caller ("not in this connector's allowlist") for a connector that
+    # never listed anything, sending them to rewrite a path that cannot work.
+    provider = AllowlistlessProvider()
+    with pytest.raises(ValueError, match="no api_allowlist") as caught:
+        _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
+    assert not isinstance(caught.value, ApiScopeError)
+
+
+def test_a_row_limit_beyond_the_maximum_is_clamped_before_the_fetch():
+    # The getter fetches `limit + 1` rows, so an unclamped limit is a fetch the
+    # connector actually performs -- capping the output afterwards would be too
+    # late to matter.
+    bounded = _bounded_kwargs(
+        _spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1", "limit": 10_000_000}
+    )
+    assert bounded["limit"] == MAX_PROBE_ITEMS
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_a_row_limit_below_one_is_clamped_to_one(limit: int) -> None:
+    # rows[:-1] silently drops the last row and still reports truncated=True.
+    bounded = _bounded_kwargs(
+        _spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1", "limit": limit}
+    )
+    assert bounded["limit"] == 1
+
+
+def test_a_row_limit_within_range_is_left_alone():
+    bounded = _bounded_kwargs(
+        _spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1", "limit": 50}
+    )
+    assert bounded["limit"] == 50
+
+
+def test_an_omitted_row_limit_is_left_to_the_getter_default():
+    bounded = _bounded_kwargs(_spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1"})
+    assert "limit" not in bounded
+
+
+def test_declaring_a_row_limit_param_that_does_not_exist_is_rejected_at_import():
+    with pytest.raises(ValueError, match="no such parameter"):
+
+        class Broken:
+            @probe_method(row_limit_param="lmit")
+            def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
+                """Typo in the declared row-limit parameter."""
+                return {}
+
+
+def test_sql_result_will_not_emit_more_than_the_maximum():
+    # Defence in depth: the clamp above bounds the fetch, and this bounds what a
+    # provider that builds its own rows can hand back.
+    out = sql_result(["c"], [[i] for i in range(MAX_PROBE_ITEMS + 10)], 10_000_000)
+    assert out["row_count"] == MAX_PROBE_ITEMS
+    assert out["truncated"] is True
+
+
 def test_declaring_a_parameter_that_does_not_exist_is_rejected_at_import():
     # A typo'd declaration would silently gate nothing, so it fails loudly where
     # the decorator is applied rather than at call time.
@@ -109,6 +177,42 @@ def test_declaring_a_parameter_that_does_not_exist_is_rejected_at_import():
             def sql(self, query: str) -> Dict[str, object]:
                 """Typo in the declared parameter name."""
                 return {}
+
+
+def test_an_operator_can_switch_raw_access_off_entirely(monkeypatch):
+    # An env var rather than a recipe field on purpose: the agent writes the
+    # recipe, so a recipe field would let it grant itself the access.
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+    provider = FakeSqlProvider()
+    with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
+        _enforce_gates(
+            _spec(provider, "sql"),
+            provider,
+            {"query": "SELECT table_name FROM information_schema.tables"},
+        )
+    assert provider.ran == []
+
+
+def test_the_switch_covers_api_passthrough_too(monkeypatch):
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+    provider = FakeApiProvider()
+    with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
+        _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
+
+
+def test_the_switch_leaves_typed_getters_working(monkeypatch):
+    # It turns off the passthroughs, not the probe: a connector's typed listings
+    # take no caller-supplied query or path, so there is nothing to withhold.
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+
+    class TypedProvider:
+        @probe_method()
+        def columns(self, schema: str, table: str) -> List[str]:
+            """Columns of a table."""
+            return ["a"]
+
+    provider = TypedProvider()
+    _enforce_gates(_spec(provider, "columns"), provider, {"schema": "s", "table": "t"})
 
 
 def test_sql_result_trims_to_the_limit_and_flags_truncation():
