@@ -260,7 +260,7 @@ class DataHubDocumentsSourceConfig(
         default=0,
         description="Minimum text length in characters to process. Default 0 "
         "processes all non-empty documents; set > 0 to skip short documents. "
-        "Empty documents are still governed by skip_empty_text.",
+        "Empty documents are always skipped.",
     )
     # Override from base class to enable stateful ingestion by default
     # This ensures stateful ingestion is always available for:

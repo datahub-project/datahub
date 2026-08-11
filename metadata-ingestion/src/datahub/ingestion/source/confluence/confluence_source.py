@@ -182,7 +182,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         # Content filtering
         filtering:
-          min_text_length: 100
+          min_text_length: 100  # optional; default 0 embeds all non-empty pages
           include_empty_docs: false
 
         # Stateful ingestion
