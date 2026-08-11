@@ -174,6 +174,19 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
 
+    # Overridden together with build_probe_provider below, and it has to be: this
+    # is what `probe methods` describes, while build_probe_provider is what
+    # `probe run` invokes. Inheriting the SQLAlchemy answer here would advertise
+    # six typed getters that only exist on that provider, and each would fail at
+    # invocation. tests/unit/agent/test_probe_contract.py pins the pairing.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
+            BigQueryMetadataProbe,
+        )
+
+        return BigQueryMetadataProbe
+
     def build_probe_provider(self) -> "ProbeProvider":
         from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
             BigQueryMetadataProbe,

@@ -317,6 +317,19 @@ class SnowflakeConnectionConfig(ConfigModel):
         self.options["connect_args"] = options_connect_args
         return self.options
 
+    # Overridden together with build_probe_provider below, and it has to be: this
+    # is what `probe methods` describes, while build_probe_provider is what
+    # `probe run` invokes. Inheriting the SQLAlchemy answer here would advertise
+    # six typed getters that only exist on that provider, and each would fail at
+    # invocation. tests/unit/agent/test_probe_contract.py pins the pairing.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.snowflake.snowflake_probe import (
+            SnowflakeMetadataProbe,
+        )
+
+        return SnowflakeMetadataProbe
+
     def build_probe_provider(self) -> "ProbeProvider":
         from datahub.ingestion.source.snowflake.snowflake_probe import (
             SnowflakeMetadataProbe,
