@@ -8,10 +8,14 @@
 #   image_build_modules  Comma-separated Gradle modules for base_build to bake.
 #                        Empty means there is nothing to build; base_build still
 #                        runs, so every downstream `needs:` keeps its meaning.
-#   image_version_env    KEY=VALUE lines pinning each reused image to
-#                        `quickstart`. Jobs that boot a stack append these to
-#                        $GITHUB_ENV; compose reads them as per-service
-#                        overrides of DATAHUB_VERSION.
+#   image_version_env    KEY=VALUE lines pinning each reused image to the exact
+#                        digest `quickstart` resolved to when this plan ran
+#                        (`quickstart@sha256:...`), not the bare floating tag --
+#                        a run's jobs can pull over a 10+ minute window, during
+#                        which master can finish a build and move the tag.
+#                        Jobs that boot a stack append these to $GITHUB_ENV;
+#                        compose reads them as per-service overrides of
+#                        DATAHUB_VERSION.
 #   image_built_repos    Space-separated docker repo names that were baked, so
 #                        run-quickstart.sh can assert compose actually resolved
 #                        them to this PR's tag rather than the reused one.
@@ -151,22 +155,29 @@ module_is_affected() {
   [[ " ${affected} " == *" $1 "* ]]
 }
 
-# Resolve a tag against Docker Hub using an anonymous pull token. The setup
-# runner has no docker login, and these repos are public, so this avoids
-# depending on registry credentials just to answer "does the tag exist".
-tag_exists() {
-  local repo="$1" tag="$2" token
+# Resolve a tag to its manifest digest against Docker Hub using an anonymous
+# pull token. The setup runner has no docker login, and these repos are
+# public, so this avoids depending on registry credentials just to answer
+# "does the tag exist, and what does it currently point at". Prints the
+# digest (e.g. "sha256:abcd...") on stdout and returns 0 if the tag resolves;
+# prints nothing and returns 1 if it is missing or the lookup fails.
+resolve_manifest_digest() {
+  local repo="$1" tag="$2" token response digest
   # A missing tag is an expected outcome, not an error, so curl's own diagnostics
   # are dropped -- the caller logs the decision it reached either way.
   token=$(curl -fsSL --max-time 30 \
     "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" \
     2>/dev/null | jq -r '.token') || return 1
-  curl -fsL --max-time 30 --head -o /dev/null \
+  response=$(curl -fsL --max-time 30 --head \
     -H "Authorization: Bearer ${token}" \
     -H "Accept: application/vnd.oci.image.index.v1+json" \
     -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
     -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-    "https://registry-1.docker.io/v2/${repo}/manifests/${tag}" 2>/dev/null
+    "https://registry-1.docker.io/v2/${repo}/manifests/${tag}" 2>/dev/null) || return 1
+  digest=$(printf '%s' "${response}" | tr -d '\r' |
+    awk -F': ' 'tolower($1) == "docker-content-digest" {print $2; exit}')
+  [[ -n "${digest}" ]] || return 1
+  printf '%s\n' "${digest}"
 }
 
 # Reasons to bake the whole set, checked before any per-image reasoning so the
@@ -213,11 +224,12 @@ for entry in "${IMAGES[@]}"; do
   reuse_tag="${QUICKSTART_TAG}${tag_suffix}"
 
   decision="build"
+  digest=""
   if [[ -n "${full_build_reason}" ]]; then
     why="${full_build_reason}"
   elif module_is_affected "${module}"; then
     why="affected by this diff"
-  elif ! tag_exists "${DOCKER_REGISTRY}/${repo}" "${reuse_tag}"; then
+  elif ! digest=$(resolve_manifest_digest "${DOCKER_REGISTRY}/${repo}" "${reuse_tag}"); then
     # Cheaper to discover here than inside seven parallel batch jobs that boot a
     # whole stack against an image that turns out not to exist.
     why="${reuse_tag} did not resolve in the registry"
@@ -232,9 +244,17 @@ for entry in "${IMAGES[@]}"; do
     summary+=("| \`${repo}\` | build | ${why} |")
     echo "build ${repo}: ${why}"
   else
-    version_env+=("${version_var}=${QUICKSTART_TAG}")
-    summary+=("| \`${repo}\` | \`${reuse_tag}\` | ${why} |")
-    echo "reuse ${repo}:${reuse_tag}: ${why}"
+    # Pin to the digest resolved above, not the bare floating tag: a run's
+    # jobs pull images at different wall-clock times over a window that can
+    # exceed 10 minutes, during which a master build finishing mid-run can
+    # move `quickstart` out from under a job that hasn't pulled yet. Docker/OCI
+    # references allow a tag and a digest together (name:tag@digest) -- the
+    # digest is authoritative for the pull, the tag stays purely cosmetic --
+    # so this needs no change to the compose templates' `${VAR:-...}` tag
+    # defaulting.
+    version_env+=("${version_var}=${reuse_tag}@${digest}")
+    summary+=("| \`${repo}\` | \`${reuse_tag}@${digest}\` | ${why} |")
+    echo "reuse ${repo}:${reuse_tag}@${digest}: ${why}"
   fi
 done
 

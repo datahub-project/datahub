@@ -9,8 +9,9 @@
 # out of sync with the repo. A new top-level module that nobody classifies has to
 # keep forcing a full build, and the only thing that notices is this test.
 #
-# Registry lookups are served by a stub curl on PATH, so the real tag_exists code
-# path runs without network. Run: .github/scripts/test_resolve_image_builds.sh
+# Registry lookups are served by a stub curl on PATH, so the real
+# resolve_manifest_digest code path runs without network.
+# Run: .github/scripts/test_resolve_image_builds.sh
 
 set -uo pipefail
 
@@ -23,7 +24,10 @@ trap 'rm -rf "${STUB_DIR}" "${WORK_DIR}"' EXIT
 
 # Stub curl. Auth requests return a token; manifest requests succeed unless the
 # tag is listed in MISSING_TAGS, which lets a test drive the "tag did not
-# resolve" backstop without inventing a repo that does not exist.
+# resolve" backstop without inventing a repo that does not exist. A successful
+# manifest request emits a Docker-Content-Digest header derived from the tag
+# name, so resolve_manifest_digest has something deterministic to extract and
+# every tag gets a distinguishable (fake) digest.
 cat >"${STUB_DIR}/curl" <<'STUB'
 #!/bin/bash
 url="${*: -1}"
@@ -34,6 +38,10 @@ fi
 for missing in ${MISSING_TAGS:-}; do
   [[ "$url" == *"/manifests/${missing}" ]] && exit 22
 done
+tag="${url##*/manifests/}"
+fake_hash=$(printf '%s' "${tag}" | cksum | cut -d' ' -f1)
+echo "HTTP/1.1 200 OK"
+printf 'Docker-Content-Digest: sha256:%064d\r\n' "${fake_hash}"
 exit 0
 STUB
 chmod +x "${STUB_DIR}/curl"
@@ -73,6 +81,38 @@ check() {
     "${name}" "${expected:-<none>}" "${actual:-<none>}"
 }
 
+# check_version_env <name> <expected image_version_env line> <env assignments...>
+# Same harness as check(), asserting one line of the image_version_env heredoc
+# output instead of image_build_modules -- covers the digest-pinning path that
+# check() cannot see.
+check_version_env() {
+  local name="$1" expected="$2"
+  shift 2
+
+  local out="${WORK_DIR}/out" summary="${WORK_DIR}/summary"
+  : >"${out}"
+  : >"${summary}"
+
+  if ! PATH="${STUB_DIR}:${PATH}" \
+    GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
+    env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
+    PR_PUBLISH=false SMOKE_BUILD_TASK= \
+    "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
+    failed=$((failed + 1))
+    printf '  FAIL  %s\n        resolver exited nonzero\n' "${name}"
+    return
+  fi
+
+  if grep -qF "${expected}" "${out}"; then
+    passed=$((passed + 1))
+    printf '  ok    %s\n' "${name}"
+    return
+  fi
+  failed=$((failed + 1))
+  printf '  FAIL  %s\n        expected image_version_env to contain: %s\n        actual image_version_env block:\n%s\n' \
+    "${name}" "${expected}" "$(sed -n '/^image_version_env<</,/^IMAGE_VERSION_ENV_EOF$/p' "${out}")"
+}
+
 ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions"
 
 echo "nothing that reaches an image"
@@ -87,6 +127,14 @@ echo "ingestion only rebuilds actions"
 check "metadata-ingestion" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/emitter/rest_emitter.py"]'
 check "datahub-actions" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/src/x.py"]'
 check "actions readme (baked into image)" ":datahub-actions" 'CHANGED_FILES=["datahub-actions/README.md"]'
+
+echo "reused images are pinned to a digest, not the bare floating tag"
+check_version_env "reused image pinned to quickstart@digest" \
+  "DATAHUB_GMS_VERSION=quickstart@sha256:0000000000000000000000000000000000000000000000000000003571886052" \
+  'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py"]'
+check_version_env "reused -slim image pinned to its own digest" \
+  "DATAHUB_ACTIONS_VERSION=quickstart-slim@sha256:0000000000000000000000000000000000000000000000000000004119348442" \
+  'CHANGED_FILES=["smoke-test/tests/a_test.py"]'
 check "ingestion plus docs" ":datahub-actions" 'CHANGED_FILES=["metadata-ingestion/src/datahub/x.py","docs/a.md","smoke-test/tests/b_test.py"]'
 
 echo "any JVM-image path builds the full set (measured: narrowing saved nothing)"

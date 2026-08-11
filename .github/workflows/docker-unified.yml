@@ -127,8 +127,11 @@ jobs:
       # Gradle modules base_build has to bake; empty means every image in the
       # quickstart set can be reused as-is.
       image_build_modules: ${{ steps.image-build-plan.outputs.image_build_modules }}
-      # KEY=VALUE lines pinning each reused image to the floating `quickstart`
-      # tag. Jobs that boot a stack append these to $GITHUB_ENV before calling
+      # KEY=VALUE lines pinning each reused image to the exact digest
+      # `quickstart` resolved to when the plan ran (quickstart@sha256:...), not
+      # the bare floating tag, so every job in this run uses the identical
+      # image even if master finishes a build and moves the tag mid-run. Jobs
+      # that boot a stack append these to $GITHUB_ENV before calling
       # run-quickstart.sh; images absent from the map fall back to DATAHUB_VERSION.
       image_version_env: ${{ steps.image-build-plan.outputs.image_version_env }}
       # Docker repos baked for this run. run-quickstart.sh fails if any of them
@@ -656,9 +659,12 @@ jobs:
           IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
         run: |
           # Per-service overrides for the images this PR cannot affect, which are
-          # served from the last set that passed smoke tests on master. Images
-          # absent here fall through to DATAHUB_VERSION and come from the depot
-          # pull above. Empty on a full build.
+          # served from the last set that passed smoke tests on master, pinned to
+          # the exact digest resolved when the plan ran (not the bare floating
+          # `quickstart` tag) so every job in this run uses the same image even
+          # if master finishes a build and moves the tag mid-run. Images absent
+          # here fall through to DATAHUB_VERSION and come from the depot pull
+          # above. Empty on a full build.
           printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
 
       - name: Run quickstart
@@ -861,9 +867,12 @@ jobs:
           IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
         run: |
           # Per-service overrides for the images this PR cannot affect, which are
-          # served from the last set that passed smoke tests on master. Images
-          # absent here fall through to DATAHUB_VERSION and come from the depot
-          # pull above. Empty on a full build.
+          # served from the last set that passed smoke tests on master, pinned to
+          # the exact digest resolved when the plan ran (not the bare floating
+          # `quickstart` tag) so every job in this run uses the same image even
+          # if master finishes a build and moves the tag mid-run. Images absent
+          # here fall through to DATAHUB_VERSION and come from the depot pull
+          # above. Empty on a full build.
           printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
 
       - name: Run quickstart
