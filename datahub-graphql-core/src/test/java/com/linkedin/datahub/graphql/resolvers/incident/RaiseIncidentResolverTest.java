@@ -259,6 +259,35 @@ public class RaiseIncidentResolverTest {
   }
 
   @Test
+  public void testGetWithEmptyIdThrowsBadRequest() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    RaiseIncidentInput testInput = new RaiseIncidentInput();
+    testInput.setId("");
+    testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.SQL);
+    testInput.setResourceUrn("urn:li:dataset:(test,test,test)");
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+
+    RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
+
+    try {
+      resolver.get(mockEnv).get();
+      Assert.fail("Expected exception was not thrown");
+    } catch (ExecutionException e) {
+      Assert.assertTrue(e.getCause() instanceof DataHubGraphQLException);
+      Assert.assertEquals(
+          ((DataHubGraphQLException) e.getCause()).errorCode(),
+          DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+    Mockito.verifyNoInteractions(mockClient);
+  }
+
+  @Test
   public void testGetWithIdCreatesAtGivenUrn() throws Exception {
     final String callerId = "checkout-drift-2026-08-01-poll-status";
     final Urn expectedUrn = UrnUtils.getUrn("urn:li:incident:" + callerId);
