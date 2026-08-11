@@ -136,6 +136,34 @@ Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `over
 so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
 not at import.
 
+### If your source speaks SQL but is not SQLAlchemy-backed
+
+Inherit `SqlCatalogPassthrough` (`agent/sql_passthrough.py`) and implement one method:
+
+```python
+class BigQueryMetadataProbe(SqlCatalogPassthrough):
+    sql_dialect = "bigquery"          # the gate parses against this; required
+
+    def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
+        iterator = self._client.query(query).result(max_results=limit)
+        columns = [field.name for field in iterator.schema]
+        return CatalogRows(columns=columns, rows=[...])
+
+    def __exit__(self, *exc: object) -> None:   # yours: what closing means differs
+        self._client.close()
+```
+
+Snowflake, BigQuery and the SQLAlchemy family each had their own `sql`, differing only
+in how the driver yields columns and rows — a DictCursor, a `RowIterator` with a schema, a
+`CursorResult`. `rows_from_mappings` handles the dict-per-row shape for you.
+
+**The base owns the fetch-one-past-the-limit convention, and that is the reason it exists.**
+`truncated` is computed by comparing rows returned against the limit, so an adapter that fetches
+exactly `limit` reports `truncated: false` for a result set that was cut short — and an agent then
+concludes it has seen every table in the catalog. Your `execute_catalog_query` is handed
+`limit + 1` already; return everything asked for, do not re-clamp, and do not fetch the whole
+result set to slice it afterwards, because on a paged API the discarded pages are real requests.
+
 ### If your source has a REST API
 
 Inherit `RestApiPassthrough` (`agent/rest_passthrough.py`) rather than writing an `api` method.

@@ -134,6 +134,51 @@ def test_every_advertised_provider_can_actually_be_built_and_has_commands():
     assert broken == {}, broken
 
 
+def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
+    """The gate refuses a query outright when the provider has no sql_dialect.
+
+    That is the right runtime behaviour, but it only surfaces when someone runs a
+    query. Checked here so a connector that adds a `sql` command and forgets the
+    dialect fails in CI rather than on a customer's first probe.
+    """
+    missing: Dict[str, str] = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue
+        if provider_cls is None:
+            continue
+        for command, spec in _iter_specs(provider_cls):
+            if spec.scoped_sql_param and not hasattr(provider_cls, "sql_dialect"):
+                missing[f"{source_type}.{command}"] = (
+                    f"{provider_cls.__name__} takes SQL but declares no sql_dialect"
+                )
+    assert missing == {}, missing
+
+
+def test_every_provider_is_a_context_manager():
+    """__exit__ is where a probe's connection gets closed.
+
+    SqlCatalogPassthrough supplies __enter__ but deliberately not __exit__, since
+    what closing means differs -- dispose a pool, close a connection, close a
+    client. A provider that inherits the first and forgets the second fails only
+    when `probe run` opens the `with` block, which is after a connection exists.
+    """
+    incomplete: Dict[str, str] = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue
+        if provider_cls is None:
+            continue
+        missing = [m for m in ("__enter__", "__exit__") if not hasattr(provider_cls, m)]
+        if missing:
+            incomplete[source_type] = f"{provider_cls.__name__} lacks {missing}"
+    assert incomplete == {}, incomplete
+
+
 # Every hook the framework reads off a config by name. A method that looks like one
 # of these but is not exactly one is the failure this list exists to catch.
 _CONFIG_HOOKS = frozenset(

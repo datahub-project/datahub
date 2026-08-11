@@ -4,7 +4,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.sql_query import sql_result
+from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
@@ -23,7 +23,7 @@ def sqlglot_dialect_for(sqlalchemy_dialect_name: str) -> str:
     )
 
 
-class SqlAlchemyMetadataProbe:
+class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     """Metadata-only probe methods backed by the SQLAlchemy Inspector.
 
     Every SQLAlchemy-based SQL connector inherits these. No method runs
@@ -51,9 +51,6 @@ class SqlAlchemyMetadataProbe:
             create_engine(config.get_sql_alchemy_url(), **engine_options(config))
         )
 
-    def __enter__(self) -> "SqlAlchemyMetadataProbe":
-        return self
-
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()
 
@@ -61,18 +58,13 @@ class SqlAlchemyMetadataProbe:
     def sql_dialect(self) -> str:
         return sqlglot_dialect_for(self._engine.dialect.name)
 
-    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
-    def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
-        """Run a read-only catalog query. Only a single SELECT over the dialect's
-        catalog schemas is permitted -- the framework scope-checks `query` before
-        this method is called (see probe_methods._enforce_gates), so a user table,
-        a second statement or a vendor function is refused before the engine sees
-        it. Returns columns plus positional rows."""
+    def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         with self._engine.connect() as conn:
             result = conn.execute(text(query))
-            # One row past the limit, so truncation is observed not inferred.
-            rows = result.fetchmany(limit + 1)
-            return sql_result(list(result.keys()), [list(r) for r in rows], limit)
+            rows = result.fetchmany(limit)
+            return CatalogRows(
+                columns=list(result.keys()), rows=[list(row) for row in rows]
+            )
 
     @probe_method()
     def foreign_keys(self, schema: str, table: str) -> List[Dict[str, object]]:
