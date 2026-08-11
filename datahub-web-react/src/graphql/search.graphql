@@ -29,8 +29,14 @@ fragment semanticModelSearchFields on SemanticModel {
     }
 }
 
-# Lean fields for compact home-widget cards. Omits ownership, tags, lineage, health,
-# structured properties, and Dataset stats/access (those stay on autoCompleteFields).
+# Lean per-result fields for compact home / list cards (name, platform/icon, minimal
+# deprecation). Intentionally omits structuredProperties, ownership, domain association,
+# tags/glossaryTerms, lineage, health, dataset stats, and graph-driving fields
+# (parentContainers/parentDomains/parentNodes, siblingsSearch, relationships) — those
+# dominate home-widget fan-out and are not rendered by EntityLink /
+# DomainMiniPreview / TagLink / GlossaryTermMiniPreview. siblings.isPrimary is retained
+# for useGetSearchAssets → combineSiblingsInSearchResults primary-sibling dedup.
+# Autocomplete restores the graph fields via autoCompleteFields.
 fragment searchResultCardFields on Entity {
     urn
     type
@@ -51,69 +57,11 @@ fragment searchResultCardFields on Entity {
                 actor
             }
         }
-        parentContainers {
-            ...parentContainersFields
-        }
         subTypes {
             typeNames
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
-                        }
-                    }
-                }
-            }
-        }
-        siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
-            @skip(if: $skipSiblingsSearch) {
-            count
-            total
-            searchResults {
-                entity {
-                    urn
-                    type
-                    ... on Dataset {
-                        exists
-                        platform {
-                            ...platformFields
-                        }
-                        parentContainers {
-                            ...parentContainersFields
-                        }
-                        name
-                        properties {
-                            name
-                            description
-                            qualifiedName
-                            externalUrl
-                            lastModified {
-                                time
-                                actor
-                            }
-                        }
-                    }
-                }
-            }
         }
         deprecation {
             deprecated
@@ -159,9 +107,6 @@ fragment searchResultCardFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        parentContainers {
-            ...parentContainersFields
-        }
         subTypes {
             typeNames
         }
@@ -183,9 +128,6 @@ fragment searchResultCardFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        parentContainers {
-            ...parentContainersFields
-        }
         subTypes {
             typeNames
         }
@@ -206,9 +148,6 @@ fragment searchResultCardFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
         }
         subTypes {
             typeNames
@@ -234,9 +173,6 @@ fragment searchResultCardFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        parentContainers {
-            ...parentContainersFields
-        }
         subTypes {
             typeNames
         }
@@ -249,9 +185,6 @@ fragment searchResultCardFields on Entity {
         hierarchicalName
         properties {
             name
-        }
-        parentNodes {
-            ...parentNodesFields
         }
         displayProperties {
             ...displayPropertiesFields
@@ -271,9 +204,6 @@ fragment searchResultCardFields on Entity {
     ... on Domain {
         properties {
             name
-        }
-        parentDomains {
-            ...parentDomainsFields
         }
         displayProperties {
             ...displayPropertiesFields
@@ -296,9 +226,6 @@ fragment searchResultCardFields on Entity {
                 properties {
                     name
                 }
-                parentDomains {
-                    ...parentDomainsFields
-                }
             }
         }
     }
@@ -316,9 +243,6 @@ fragment searchResultCardFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
         }
         subTypes {
             typeNames
@@ -357,17 +281,6 @@ fragment searchResultCardFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
-            relationships {
-                entity {
-                    ... on MLFeatureTable {
-                        platform {
-                            ...platformFields
-                        }
-                    }
-                }
-            }
-        }
         deprecation {
             deprecated
         }
@@ -376,17 +289,6 @@ fragment searchResultCardFields on Entity {
         name
         dataPlatformInstance {
             ...dataPlatformInstanceFields
-        }
-        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
-            relationships {
-                entity {
-                    ... on MLFeatureTable {
-                        platform {
-                            ...platformFields
-                        }
-                    }
-                }
-            }
         }
     }
     ... on MLModel {
@@ -474,12 +376,123 @@ fragment searchResultCardFields on Entity {
     }
 }
 
+# Autocomplete / search-bar results: card fields plus dataset stats/access and the
+# graph-driving fields omitted from searchResultCardFields (needed by AutoCompleteEntity
+# parent path, sibling combine, and MLFeature/MLPrimaryKey platform icon resolution).
 fragment autoCompleteFields on Entity {
     ...searchResultCardFields
     ... on Dataset {
         ...datasetStatsFields
         access {
             ...getAccess
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                        platform {
+                            ...platformFields
+                        }
+                        parentContainers {
+                            ...parentContainersFields
+                        }
+                        name
+                        properties {
+                            name
+                            description
+                            qualifiedName
+                            externalUrl
+                            lastModified {
+                                time
+                                actor
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ... on Dashboard {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on Chart {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on DataFlow {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on DataJob {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on GlossaryTerm {
+        parentNodes {
+            ...parentNodesFields
+        }
+    }
+    ... on Domain {
+        parentDomains {
+            ...parentDomainsFields
+        }
+    }
+    ... on DataProduct {
+        domain {
+            domain {
+                urn
+                type
+                properties {
+                    name
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+            }
+        }
+    }
+    ... on Container {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on MLFeature {
+        featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ... on MLPrimaryKey {
+        featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
+            relationships {
+                entity {
+                    ... on MLFeatureTable {
+                        platform {
+                            ...platformFields
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1798,7 +1811,9 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!, $sk
     }
 }
 
-query getSearchResultsForMultipleCards($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
+# Home-widget / compact-card search: lean per-result fragment (no structuredProperties/stats/ownership,
+# no graph-driving parent*/siblingsSearch/relationships fields).
+query getSearchResultsForMultipleCards($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         start
         count
