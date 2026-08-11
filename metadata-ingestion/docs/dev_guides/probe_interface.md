@@ -136,6 +136,45 @@ Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `over
 so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
 not at import.
 
+### If your source has a REST API
+
+Inherit `RestApiPassthrough` (`agent/rest_passthrough.py`) rather than writing an `api` method.
+The gate validates the _input_ either way — that comes from `scoped_path_param` — but the _call_ is
+where every connector was getting something slightly different: a bare `requests.get` instead of
+the connector's own session (which on Hex means escaping the rate limiter installed in
+`HexApi.__init__`), a missing timeout, a missing `raise_for_status` so a 403 body reaches the agent
+as though it were a listing, or the wrong base URL.
+
+```python
+class HexMetadataProbe(RestApiPassthrough):
+    api_allowlist = ("GET /projects", "GET /projects/{id}/runs")
+
+    def __init__(self, api: HexApi) -> None:
+        self.api_session = api.session
+        self.api_base_url = api.base_url
+
+    def api_headers(self) -> Dict[str, str]:
+        return api._auth_header()      # the connector's scheme, not a restated one
+```
+
+Override `api_fetch_json(url)` where the connector's own fetcher does more than `requests` does —
+Mode's logs a curl equivalent and counts rate-limit retries, and a probe that bypassed it would
+behave differently from ingestion on the same call.
+
+**Writing the allowlist is the part nothing can do for you.** Two rules earned the hard way:
+
+- **A relation being in a metadata API does not make it metadata.** Hex's `/cells` returns
+  `SqlCell.sql_source` — the raw SQL of a notebook cell, so a `WHERE` literal is a row value
+  arriving by another route. It is excluded for exactly the reason `sql_gate` excludes
+  `pg_stat_statements`. `/projects/export` embeds the same SQL.
+- **A `{placeholder}` matches any single segment, literal siblings included.** `GET /projects/{id}`
+  also permits `GET /projects/export`. Where a sibling route exists that you do not want reachable,
+  do not allowlist the `{id}` shape above it — Hex omits that entry for this reason, and loses
+  nothing, because its typed commands already return project metadata.
+
+Leaving an allowlist unset is not a way to allow everything: it permits nothing, and the refusal
+says the _provider_ is incomplete rather than blaming the caller's path.
+
 ### If your source IS in the SQL family
 
 `probe_filter_target` is not a framework hook and is deliberately absent from the table above:
