@@ -1,17 +1,21 @@
-# Ingestion / cloud packaging Bugbot rules
+# Ingestion / published-package Bugbot rules
 
 ## ES usage / ranking queries
 
-If `query_builder.py` or usage reporters filter URN fields, then:
+If `query_builder.py` or usage reporters filter URN / ID fields, then:
 
-- Require `.keyword` on URN/ID fields; Critical if missing.
-- Prefer ES-side prefix filters over full event scans + client filter.
+- Require an exact keyword mapping: use `.keyword` only when that subfield
+  exists; if the field is already mapped as `keyword`, query it directly (do not
+  invent `urn.keyword` on an already-keyword field).
+- Critical when an analyzed URN/ID field is queried as if it were exact.
+- Prefer ES-side prefix/term filters over full event scans + client filter when
+  an equivalent indexed exact field exists.
 
 ## Packaging
 
 If `setup.py`, `pyproject.toml`, `requirements*.txt`, or a Dockerfile introduces
 an editable (`-e`) or path dependency on `metadata-ingestion` for a published
-or SaaS-deployed package, then:
+package, then:
 
 - Blocking. Use a pinned released version.
 - Title: "Pin published dependency"

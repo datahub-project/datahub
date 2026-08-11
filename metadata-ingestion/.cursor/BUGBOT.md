@@ -7,7 +7,8 @@ into the process environment) to feed a third-party SDK, then:
 
 - High security. Inject via settings object, constructor, or credential provider
   (see `looker_lib_wrapper.py` `_DataHubLookerApiSettings`).
-- Body: "Secrets in the process env are visible via /proc/<pid>/environ."
+- Body: "Secrets in the process environment become global process state and can
+  leak to child processes and diagnostics; prefer programmatic injection."
 
 If a Pydantic config adds password / token / API-key fields as plain `str`, then:
 
@@ -40,16 +41,12 @@ full registration chain, then:
 ## Lineage
 
 If connector code sets per-connector sqlglot dialects or hand-rolls SQL lineage
-instead of `SqlParsingAggregator` / `create_lineage_from_sql_statements` with a
-platform map, then:
+(or otherwise bypasses `SqlParsingAggregator` /
+`create_lineage_from_sql_statements` with a platform map — e.g. Tableau native
+SQL, SQLAlchemy dialect crutches), then:
 
-- Flag correctness/consistency risk. Prefer the central aggregator.
-
-If a connector adds or changes a SQL parsing path that bypasses sqlglot /
-`SqlParsingAggregator` (e.g. Tableau native SQL, SQLAlchemy dialect crutches),
-then:
-
-- Flag accuracy risk. Prefer sqlglot or a shared dialect fix over a local parser.
+- Flag correctness/consistency risk. Prefer the central aggregator / sqlglot or a
+  shared dialect fix over a local parser.
 
 If a connector emits column-level lineage but leaves edges coarse (no schema
 resolve from graph / known URNs / case-insensitive column match when peers do),
@@ -59,11 +56,14 @@ then:
 
 ## Breaking recipe / URN changes
 
-If an ingestion source changes URN format, recipe config keys, or default
-hierarchy/region/scan behavior, then:
+If an ingestion source **removes, renames, or incompatibly redefines** recipe
+config keys, changes URN format, or changes default hierarchy/region/scan
+behavior in a breaking way, then:
 
 - High. Prefer transparent upgrade / dual-read; do not break existing recipes.
 - Flag missing entries in `docs/how/updating-datahub.md` and connector `*_pre.md`.
+- Do not flag backward-compatible **additions** of optional recipe keys as
+  breaking.
 
 If a PR changes URN normalization / `convert_urns_to_lowercase` / platform-instance
 casing, then:

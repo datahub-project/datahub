@@ -1,24 +1,15 @@
 # metadata-io Bugbot rules
 
-If a PR adds a new `@ConfigurationProperties` field, env-backed setting, or other
-config property that can surface via system info, then:
+# Classification + redaction for new config properties is in the root
 
-- Flag missing classification in
-  `PropertiesCollectorConfigurationTest` (sensitive vs non-sensitive lists).
-- High security: unclassified properties may leak secrets in system-info APIs.
-- Title: "Classify new config property"
+# `.cursor/BUGBOT.md` (config often lands under `metadata-service/`). Keep
 
-## Embedding / semantic backfills
+# metadata-io-specific notes here only.
 
-If loaders call embedding providers in a loop, then:
+If this module changes `PropertiesCollector` redaction patterns or
+`PropertiesCollectorConfigurationTest` lists, then:
 
-- Separate systemic vs per-item failure; do not abort the corpus on one poison doc.
-- Wrap credential/token supply in the same exception normalization as HTTP calls.
-
-## Kafka / oversized aspects
-
-If consumer or emission code handles oversized aspects / `RecordTooLargeException`,
-then:
-
-- High when the failure crashes the consumer pod instead of DLQ, skip, or
-  validation reject.
+- Verify sensitive keys are both classified **and** actually redacted at runtime
+  (test list alone does not redact — keys must match `SENSITIVE_PATTERNS` or an
+  extended pattern).
+- Title: "Config redaction must match classification"

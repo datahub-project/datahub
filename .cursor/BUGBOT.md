@@ -22,10 +22,8 @@ exist in stored metadata, then:
 - Flag deletion without deprecation or migration / dual-read.
 - Body: "Deprecate instead of deleting; add migration if renaming stored aspects."
 - Label: compatibility
-
-If GraphQL/aspect fields are renamed, then:
-
-- Flag missing dual-read / mapper backfill for historical rows still on the old shape.
+- Do not emit a second comment for the same rename under a separate "GraphQL/aspect
+  fields renamed" heading — this rule already covers dual-read / backfill.
 
 If a Java/TS constructor, fixture, CLI flag, or `test.use` signature changes, then:
 
@@ -42,15 +40,34 @@ If `FeatureFlags.java` gains a field, then:
 
 - Flag missing `scripts/dev/datahub-dev.sh sync-flags` / flag-classification refresh.
 
-If validation is added only in a GraphQL resolver, Rest controller, or OpenAPI
-handler, then:
+If validation of a **persisted aspect payload** is added only in a GraphQL
+resolver, Rest controller, or OpenAPI handler, then:
 
-- Flag it. Validation must live in an `AspectPayloadValidator` registered in
-  `SpringStandardPluginConfiguration` so all APIs are protected.
+- Flag it. Aspect payload validation must live in an `AspectPayloadValidator`
+  registered in `SpringStandardPluginConfiguration` so GraphQL, OpenAPI, and
+  Rest.li are all protected.
+- Do not flag ordinary request/DTO validation that is not an aspect write
+  (authz checks, query-arg bounds, transport-only shapes).
 
 If resolvers throw on auth failure, then:
 
 - Prefer naming the missing privilege in the error (Medium–High for admin mutations).
+
+## Config property classification
+
+If a PR adds a new `@ConfigurationProperties` field, env-backed setting, or other
+config property that can surface via system info (often under `metadata-service/`
+or `metadata-io/`), then:
+
+- Flag missing classification in
+  `PropertiesCollectorConfigurationTest` (sensitive vs non-sensitive lists /
+  templates).
+- High security when a secret-like key would be visible in system-info APIs.
+- Classification lists do **not** drive runtime redaction. For secrets, also
+  verify `PropertiesCollector` redacts the key (name matches an existing
+  `SENSITIVE_PATTERNS` keyword, or extend those patterns) — do not stop at the
+  test list alone.
+- Title: "Classify new config property"
 
 ## Assertion operators
 
@@ -66,17 +83,19 @@ then:
 If a query filters or aggregates on a URN / ID field using the analyzed mapping
 (e.g. `entityUrn` without `.keyword`), then:
 
-- Blocking. URNs tokenize on `:`; prefixes/terms silently match nothing in prod.
-- Bad: `{"prefix": {"entityUrn": "urn:li:..."}}` or `term` on `entityUrn`
-- Good: `entityUrn.keyword` (or an explicitly keyword-mapped field)
-- Title: "Use .keyword for URN/ID filters"
+- Blocking. Analyzed URN fields lose exact full-URN semantics (`:` tokenization);
+  prefixes/terms may match nothing or match unintended tokens.
+- Bad: `{"prefix": {"entityUrn": "urn:li:..."}}` or `term` on analyzed `entityUrn`
+- Good: `entityUrn.keyword` **or** a field that is already mapped as `keyword`
+  (do not append `.keyword` to an already-keyword field).
+- Title: "Use keyword mapping for URN/ID filters"
 - Label: correctness
 
-If a query scans a broad event/index and comments claim client-side filtering,
-then:
+If a query scans a broad event/index and filters hits in application code, then:
 
-- High. Push the filter into ES (prefix/term on `.keyword`) instead of pulling
-  unmatched hits and filtering in Python/Java.
+- High only when an equivalent indexed keyword/exact field exists to push the
+  filter into ES (prefix/term on that field). Do not demand ES pushdown for values
+  that exist only in an unindexed payload or need app-level decoding.
 
 ## Time units
 
@@ -84,8 +103,10 @@ If code compares timestamps, TTLs, expire/purge thresholds, or durations across
 APIs, then:
 
 - Check ms vs seconds (`reportedAt`, Kafka timestamps, sweeper thresholds).
-- Bad: `time.time()` / seconds threshold compared to ms `reportedAt` (always false).
-- Flag unit mismatches as High/Critical.
+- Bad: `time.time()` (seconds) used in a `<` / `>` expire check against ms
+  `reportedAt` (comparison is invalid / always wrong for the intended window).
+- Flag confirmed unit mismatches as High/Critical — do not assume every
+  seconds-vs-ms pairing is false without checking operator and operand order.
 
 ## Auth between services
 
@@ -114,17 +135,6 @@ synchronization, then:
 
 - Flag race; use a lock or atomic snapshot.
 
-## Billing / rollups / watermarks
-
-If billing, usage, or rollup code changes transaction IDs, watermarks, window
-stamps, or aggregation (`LATEST` vs first-seen / min / MAX-of-measure), then:
-
-- Flag non-deterministic IDs on Kafka retry (do not stamp buckets with newest
-  event Instant when the stamp is for windowing/txn identity).
-- Flag dual watermarks for the same source events (split-brain).
-- Flag silent drops of Tier C / usage events when flags default off.
-- Prefer High/Critical for revenue or metering correctness.
-
 ## Batch job failure scope
 
 If a backfill, embedding loader, or bulk processor aborts the entire run on
@@ -133,27 +143,33 @@ non-retryable errors, then:
 - Distinguish systemic failures (auth, wrong model/dimensions, bad credentials)
   from per-item failures (oversized/poison document).
 - Per-item: record + continue. Systemic: fail fast.
-- Token/credential acquisition must be inside the same guarded normalization
-  path as the remote call (not before `try`).
+- Token/credential **acquisition** failures are systemic: fail the run (or gate
+  once at run start). Do not put acquisition in a per-item catch/continue path
+  that retries tokens for every item or normalizes an auth outage as item
+  failures. Remote-call exceptions for individual docs stay per-item.
 
 ## System upgrade / bootstrap steps
 
 If an `UpgradeStep` or bootstrap job deletes search documents or mutates
-cluster state, then:
+cluster state in a non-idempotent way, then:
 
 - Flag missing completion marker so the step becomes skippable after success.
-- High when deletes are at-most-once / non-idempotent and the step would re-run.
+- High when deletes are at-most-once and the step would re-run unsafely.
+- Do not require `skip()` after first success for intentional per-deploy
+  reconciliation steps that deliberately re-run.
 
-If a PR touches `CleanUpIndicesStep`, `IncrementalReindexCatchUpStep`, or ZDU
-step ordering, then:
+If a PR touches `CleanIndicesStep` (runtime id `CleanUpIndicesStep`),
+`IncrementalReindexCatchUpStep`, or ZDU step ordering, then:
 
 - High / Critical when cleanup can delete ES backing indices still needed by
   incomplete catch-up (alias-less ≠ orphan during ZDU).
 
 If a PR bumps an existing bootstrap MCP file version (templates, defaults that
-write org/user state), then:
+write org/user state with UPSERT/overwrite semantics), then:
 
 - High overwrite risk. Prefer a new bootstrap file or idempotent/migration guard.
+- Do not flag CREATE-only bootstrap MCPs (e.g. templates that reject when the
+  entity already exists) as overwrite risks solely due to a version bump.
 
 ## User status / eligibility
 
@@ -173,19 +189,25 @@ state), then:
 
 ## Kafka consumer failure paths
 
-If a PR handles aspect/MCL emission or Kafka consumer error handling, then:
+If a PR handles aspect/MCL **producer** emission failures, then:
+
+- Prefer reject/propagate so writers know the write failed; do not treat an
+  unqualified drop as success.
+
+If a PR handles Kafka **consumer** error handling for aspect/MCL records, then:
 
 - High when `RecordTooLargeException` / oversized aspects crash the consumer
-  instead of DLQ, drop, or validation reject.
+  instead of DLQ, quarantine, or validation reject.
 - Per-item poison records must not crash-loop the pod.
 
 ## Multi-surface fixes
 
-If a bugfix touches identifier quoting, casing, escaping, or auth scheme in
+If a bug fix touches identifier quoting, casing, escaping, or auth scheme in
 one layer (executor / UI / GMS) only, then:
 
-- Flag missing twin fixes in other emitters of the same identifiers
-  (ingestion, parsers, authoring UI).
+- First check whether another emitter duplicates the same transformation or
+  scheme. Flag missing twin fixes only when a peer path shares the buggy
+  behavior — do not speculate about unrelated emitters.
 
 ## Competing key / side-index schemes
 
@@ -215,19 +237,21 @@ If default nav/redirect targets change, then:
 
 - Flag targets that can be feature-flagged off or privilege-gated (blank landing).
 
-## Packaging / deploy (SaaS)
+## Packaging / logging
 
-If a Dockerfile, requirements file, or service build copies or editable-installs
-local `metadata-ingestion` (`COPY`, `-e`, path deps) for a deployable service,
-then:
+If a Dockerfile, requirements file, or service build editable-installs or
+path-depends on local `metadata-ingestion` for a **published** package or
+deployable image, then:
 
-- Flag it. SaaS must use pinned published wheels/releases.
+- Flag it. Prefer a pinned released version.
 - Label: packaging
 
 If Logback XML is added/changed under `metadata-jobs/*/src/main/resources`, then:
 
-- Flag that these are often ignored at runtime; logging should be configured via
-  helm/charts, not the jar resources.
+- Medium note only when runtime clearly loads an external/helm Logback config
+  that ignores the jar resource. Do not blanket-reject every
+  `src/main/resources/logback.xml` change — MCE/MAE images often ship and use
+  the jar's Logback file.
 
 ## Search pagination
 
@@ -266,16 +290,21 @@ aspects (or otherwise batches conflicting default-aspect writes), then:
 
 If UI/API uses empty string as a missing URN/id sentinel, then:
 
-- High. Prefer null/undefined/Optional.empty; empty string hides bugs.
-  If new code reads DB/search rows and dereferences URN/id fields without a null
-  guard on a path that historically sees corrupt/partial rows, then:
+- Medium by default (prefer null/undefined/Optional.empty; empty string hides
+  bugs). Raise to High only when a demonstrated contract breaks (write/read path
+  treats `""` as a real URN or drops required identity).
+
+If new code reads DB/search rows and dereferences URN/id fields without a null
+guard on a path that historically sees corrupt/partial rows, then:
+
 - Medium. Flag NPE risk; do not demand guards on every field access.
 
 ## Frontend
 
 If new code calls `crypto.randomUUID()` directly in browser code, then:
 
-- High: fails outside secure contexts. Use `mintRequestId` / agentChatUtils.
+- High: fails outside secure contexts. Use the `uuid` package (`import { v4 as
+uuidv4 } from 'uuid'`), matching existing frontend usage.
 
 If styled UI introduces hardcoded hex colors, `REDESIGN_COLORS`, `ANTD_GRAY`, or
 raw alchemy palette imports, then:

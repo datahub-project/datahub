@@ -1,11 +1,9 @@
 # docs-website Bugbot rules
 
-If a PR adds or materially edits hand-authored docs under `docs/` (not
-`docs/generated/`) without a matching entry in `docs-website/sidebars.js`, then:
-- Medium: doc may publish but never appear in nav.
-- Title: "Missing sidebars.js entry"
+If `sidebars.js` is edited, then:
 
-If a DataHub Cloud release note is added under
-`docs/managed-datahub/release-notes/` without being the first entry under
-"DataHub Cloud Release History" in `sidebars.js`, then:
-- Flag: release note won't show in sidebar (newer releases go at the top).
+- When a hand-authored doc under `docs/` (not `docs/generated/`) was added in the
+  same PR, flag a missing sidebar entry (Medium).
+- When a DataHub Cloud release note under `docs/managed-datahub/release-notes/`
+  is added, it must be the **first** entry under "DataHub Cloud Release History"
+  (newer releases go at the top).

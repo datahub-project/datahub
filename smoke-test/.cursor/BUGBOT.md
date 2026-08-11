@@ -4,18 +4,18 @@ If a PR adds or extends tests under `smoke-test/tests/cypress/`, then:
 
 - Flag: Cypress is deprecated (2026-06-30). New UI automation must use Playwright.
 
-If code under `smoke-test/tests/read_only/` asserts `total > 0`, inlines GraphQL
-in the test file, or adds test-local helpers instead of `metadata_operations.py`,
+If code under `smoke-test/tests/read_only/` asserts a non-empty deployment state
+(e.g. `total > 0`, required entity presence) without handling the empty case,
 then:
 
 - High: read-only tests must work on empty deployments.
+- Do not flag merely for inlining GraphQL or using a test-local helper when the
+  assertions tolerate empty results.
 
-If an existing smoke test is tagged `@pytest.mark.release_tests` (not
-`release_tests_extended`), then:
+If a test registers multiple independently active `page.route` / HTTP intercept
+handlers that can concurrently match the same request without deterministic
+ordering, then:
 
-- High: `smoke.sh` excludes `release_tests`, silently dropping smoke coverage.
-- Body: "Use release_tests_extended for nightly-only extended coverage."
-
-If a test registers multiple mocks/intercepts for the same GraphQL/operation, then:
-
-- Flag flaky mock races; one active mock per operation.
+- Flag flaky mock races.
+- Do not flag sequential or explicitly ordered mock registrations, or intentional
+  single-handler replacements.
