@@ -176,7 +176,8 @@ names alone.**
 
 ```bash
 datahub recipe probe filter --recipe recipe.yml \
-  --kind Table --parent public --names orders,users,audit_log_v2
+  --kind Table --parent public \
+  --name orders --name users --name audit_log_v2
 ```
 
 `AllowDenyPattern` matches with a **start-anchored** regex against the identifier _ingestion_
@@ -214,7 +215,7 @@ against a hypothetical instead of the recipe's own:
 
 ```bash
 datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
-  --names orders,users --try-allow '^public\.ord.*'
+  --name orders --name users --try-allow '^public\.ord.*'
 ```
 
 `probe filter` needs no connection: it judges names you already have.
@@ -258,7 +259,8 @@ datahub recipe probe run sql --recipe recipe.yml \
 datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 
 # Would my filters keep these?
-datahub recipe probe filter --recipe recipe.yml --kind Table --parent public --names orders,users
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
+  --name orders --name users
 
 # Verify connectivity
 datahub recipe test-connection --recipe recipe.yml

@@ -153,7 +153,7 @@ def test_report_to_writes_the_redacted_payload(monkeypatch, tmp_path):
             _recipe_file(tmp_path),
             "--kind",
             "Table",
-            "--names",
+            "--name",
             "orders",
             "--report-to",
             str(out_file),
@@ -163,3 +163,48 @@ def test_report_to_writes_the_redacted_payload(monkeypatch, tmp_path):
     written = json.loads(out_file.read_text())
     assert "s3cr3t" not in json.dumps(written)
     assert written["results"][0]["target"] == "***.orders"
+
+
+def test_a_name_containing_a_comma_is_judged_whole(monkeypatch, tmp_path):
+    """--name is exact, not comma-separated.
+
+    Mode collections are human-named and a quoted SQL identifier may contain a
+    comma, so splitting on it would judge two names that do not exist and report
+    both as excluded -- a wrong answer that looks like a real verdict. The
+    executor previously skipped such names with a warning because the CLI could
+    not express them.
+    """
+    seen = {}
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mysql", {}, set()))
+
+    def fake_check(**kwargs):
+        seen.update(kwargs)
+        from datahub.ingestion.agent.filter_check import FilterCheckResult
+
+        return FilterCheckResult(
+            source_type="mysql",
+            kind="Space",
+            parent_path=[],
+            pattern_field="space_pattern",
+            results=[],
+        )
+
+    monkeypatch.setattr(rc, "check_filters", fake_check)
+    result = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Space",
+            "--name",
+            "Finance, EMEA",
+            "--name",
+            "Sales",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen["names"] == ["Finance, EMEA", "Sales"]

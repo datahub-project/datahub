@@ -247,9 +247,14 @@ def probe_methods_cmd(recipe_path: str) -> None:
     "identifier most connectors filter on, so omitting it changes the answer.",
 )
 @click.option(
-    "--names",
+    "--name",
+    "names",
+    multiple=True,
     required=True,
-    help="Comma-separated object names to judge, as returned by `probe sql`.",
+    help="An object name to judge, exactly as the source reports it. Repeat for "
+    "each name. Not comma-separated: a Mode collection or a quoted SQL "
+    "identifier may legitimately contain a comma, and splitting on it would "
+    "judge names that do not exist.",
 )
 @click.option(
     "--try-allow",
@@ -270,7 +275,7 @@ def probe_filter_cmd(
     recipe_path: str,
     kind: str,
     parents: Tuple[str, ...],
-    names: str,
+    names: Tuple[str, ...],
     try_allow: Tuple[str, ...],
     try_deny: Tuple[str, ...],
     report_to: Optional[str],
@@ -292,7 +297,7 @@ def probe_filter_cmd(
             config_dict=resolved,
             kind=kind,
             parent_path=list(parents),
-            names=[n.strip() for n in names.split(",") if n.strip()],
+            names=list(names),
             try_allow=list(try_allow),
             try_deny=list(try_deny),
         )
