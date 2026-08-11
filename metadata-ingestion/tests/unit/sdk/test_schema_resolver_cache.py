@@ -176,8 +176,8 @@ def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
     resolver = _load(graph)
 
     # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
-    assert resolver.urn_aliases.find_matches(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
-    assert resolver.urn_aliases.find_matches(_SCHEMALESS_URN_UPPERCASED) == [
+    assert resolver.urn_aliases.find_match(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    assert resolver.urn_aliases.find_match(_SCHEMALESS_URN_UPPERCASED) == [
         _SCHEMALESS_URN
     ]
     # ...but only the one with a schema is in the schema cache.

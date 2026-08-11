@@ -546,6 +546,6 @@ def test_a_urn_can_be_recorded_without_a_schema():
 
     resolver.urn_aliases.add(_ALIAS_LOWER)
 
-    assert resolver.urn_aliases.find_matches(_ALIAS_UPPER) == [_ALIAS_LOWER]
+    assert resolver.urn_aliases.find_match(_ALIAS_UPPER) == [_ALIAS_LOWER]
     # The schema cache must stay empty: a URN we know exists is not a schema we know.
     assert resolver.schema_count() == 0
