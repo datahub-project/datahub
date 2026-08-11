@@ -1725,245 +1725,157 @@ _ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA = (
 )
 
 
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_missing_project_warns():
-    """Reproduce 'Can not determine qualified table name': the ODBC navigation
-    resolves to bigquery but exposes only dataset.table, so no project.dataset.table
-    URN can be built and no dsn_to_database_schema mapping is configured."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_platform_name": {"bq_analytics": "bigquery"}}
-    )
-
-    lineages: List[Lineage] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )
-
-    assert combine_upstreams_from_lineage(lineages) == []
-    warning_titles = [entry.title for entry in reporter.warnings]
-    assert "Can not determine qualified table name" in warning_titles, (
-        f"Expected the qualified-table-name warning; got: {warning_titles}"
-    )
-
-
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_project_from_dsn_mapping():
-    """dsn_to_database_schema supplies the missing BigQuery project when the ODBC
-    navigation only exposes dataset.table, so a full 3-part URN is built."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
+# Each case exercises a distinct ODBC navigation / dsn_to_database_schema backfill
+# branch: (expression, table name, full_name, override_config, expected_urn).
+_ODBC_NAV_SUCCESS_CASES = [
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        "events",
+        "analytics.events",
         {
             "dsn_to_platform_name": {"bq_analytics": "bigquery"},
             "dsn_to_database_schema": {"bq_analytics": "my_project"},
-        }
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_project_and_dataset_from_dsn_mapping():
-    """When ODBC navigation exposes only the leaf table, a two-part
-    dsn_to_database_schema value (project.dataset) supplies both missing levels."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_TABLE_ONLY,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)",
+        id="bigquery-project-from-dsn-mapping",
+    ),
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_TABLE_ONLY,
+        "events",
+        "analytics.events",
         {
             "dsn_to_platform_name": {"bq_events": "bigquery"},
             "dsn_to_database_schema": {"bq_events": "my_project.analytics_ds"},
-        }
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_table_only_single_segment_mapping_warns():
-    """Three-tier guard: ODBC navigation exposes only the leaf table and
-    dsn_to_database_schema has a single segment (project only), so the dataset
-    level is missing. BigQuery requires project.dataset.table, so no truncated
-    two-part URN must be emitted — instead lineage is skipped with a warning."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_TABLE_ONLY,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {
-            "dsn_to_platform_name": {"bq_events": "bigquery"},
-            "dsn_to_database_schema": {"bq_events": "my_project"},
-        }
-    )
-
-    lineages: List[Lineage] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )
-
-    assert combine_upstreams_from_lineage(lineages) == []
-    warning_titles = [entry.title for entry in reporter.warnings]
-    assert "Can not determine qualified table name" in warning_titles, (
-        f"Expected the qualified-table-name warning; got: {warning_titles}"
-    )
-
-
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_wins_over_dsn_mapping():
-    """Navigation values take precedence over dsn_to_database_schema. Navigation
-    supplies the dataset (analytics_ds), so only the missing project is filled
-    from config; the config schema (wrong_dataset) must be ignored."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)",
+        id="bigquery-project-and-dataset-from-dsn-mapping",
+    ),
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        "events",
+        "analytics.events",
         {
             "dsn_to_platform_name": {"bq_analytics": "bigquery"},
             "dsn_to_database_schema": {"bq_analytics": "my_project.wrong_dataset"},
-        }
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_hive_odbc_navigation_single_segment_dsn_mapping_backfills_schema():
-    """Two-tier single-segment backfill: Hive navigation exposes only the leaf
-    table, and a one-part dsn_to_database_schema value supplies the schema. The
-    resolver places a one-part value in the database slot, so the schema.table
-    fallback must read it when no explicit schema segment is present."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_HIVE_NAV_MISSING_SCHEMA,
-        name="user_profile",
-        full_name="product_analytics.user_profile",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_database_schema": {"hive_prod": "product_analytics"}}
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_bigquery_odbc_navigation_database_node_backfills_schema_from_dsn_mapping():
-    """Three-tier backfill when navigation supplies the Kind=Database node (project)
-    and the leaf table but omits the Schema (dataset): the dataset must still be
-    backfilled from dsn_to_database_schema even though the database tier is populated,
-    yielding project.dataset.table rather than warning and skipping. The navigation
-    project wins over the config's database segment (wrong_project is ignored)."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_BIGQUERY_NAV_DATABASE_NO_SCHEMA,
-        name="events",
-        full_name="analytics.events",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)",
+        id="bigquery-navigation-wins-over-dsn-mapping",
+    ),
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_DATABASE_NO_SCHEMA,
+        "events",
+        "analytics.events",
         {
             "dsn_to_platform_name": {"bq_analytics": "bigquery"},
             "dsn_to_database_schema": {"bq_analytics": "wrong_project.analytics_ds"},
-        }
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)",
+        id="bigquery-database-node-backfills-schema",
+    ),
+    pytest.param(
+        _ODBC_HIVE_NAV_MISSING_SCHEMA,
+        "user_profile",
+        "product_analytics.user_profile",
+        {"dsn_to_database_schema": {"hive_prod": "product_analytics"}},
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)",
+        id="hive-single-segment-dsn-backfills-schema",
+    ),
+    pytest.param(
+        _ODBC_HIVE_NAV_MISSING_SCHEMA,
+        "user_profile",
+        "product_analytics.user_profile",
+        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}},
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)",
+        id="hive-two-part-dsn-backfills-schema",
+    ),
+    pytest.param(
+        _ODBC_HIVE_NAV_DATABASE_NO_SCHEMA,
+        "user_profile",
+        "product_analytics.user_profile",
+        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}},
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)",
+        id="hive-database-node-still-backfills-schema",
+    ),
+    pytest.param(
+        _ODBC_ORACLE_NAV_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {},
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)",
+        id="oracle-schema-table-two-tier",
+    ),
+    pytest.param(
+        M_QUERIES[35],
+        "employees",
+        "employees.employees",
+        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}},
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)",
+        id="mysql-database-table-two-part-dsn-no-schema-tier",
+    ),
+    pytest.param(
+        _ODBC_MYSQL_NAV_TABLE_ONLY,
+        "employees",
+        "employees.employees",
+        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}},
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,warehouse.employees,PROD)",
+        id="mysql-table-only-two-part-stays-two-part",
+    ),
+]
+
+# (expression, table name, full_name, override_config, expected_warning_title) for
+# navigation that cannot build a fully-qualified name and must warn and skip.
+_ODBC_NAV_WARN_CASES = [
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        "events",
+        "analytics.events",
+        {"dsn_to_platform_name": {"bq_analytics": "bigquery"}},
+        "Can not determine qualified table name",
+        id="bigquery-missing-project",
+    ),
+    pytest.param(
+        _ODBC_BIGQUERY_NAV_TABLE_ONLY,
+        "events",
+        "analytics.events",
+        {
+            "dsn_to_platform_name": {"bq_events": "bigquery"},
+            "dsn_to_database_schema": {"bq_events": "my_project"},
+        },
+        "Can not determine qualified table name",
+        id="bigquery-table-only-single-segment-mapping",
+    ),
+    pytest.param(
+        _ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA,
+        "ORDERS",
+        "SALES.ORDERS",
+        {},
+        "Cannot build two-tier ODBC table name",
+        id="oracle-missing-schema",
+    ),
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "expression, name, full_name, override_config, expected_urn",
+    _ODBC_NAV_SUCCESS_CASES,
+)
+def test_odbc_navigation_builds_expected_urn(
+    expression, name, full_name, override_config, expected_urn
+):
+    """ODBC hierarchical navigation (plus optional dsn_to_database_schema backfill)
+    builds the expected upstream URN. Each param id names the platform-shape /
+    backfill branch being exercised."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=expression,
+        name=name,
+        full_name=full_name,
     )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(override_config)
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -1974,129 +1886,30 @@ def test_bigquery_odbc_navigation_database_node_backfills_schema_from_dsn_mappin
     )[0].upstreams
 
     assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
-    )
+    assert data_platform_tables[0].urn == expected_urn
 
 
 @pytest.mark.integration
-def test_hive_odbc_navigation_schema_from_dsn_mapping():
-    """Two-tier backfill: Hive navigation exposes only the leaf table, and a
-    two-part dsn_to_database_schema value supplies the schema (the pseudo-catalog
-    database part is dropped for two-tier platforms)."""
+@pytest.mark.parametrize(
+    "expression, name, full_name, override_config, expected_warning_title",
+    _ODBC_NAV_WARN_CASES,
+)
+def test_odbc_navigation_warns_and_skips(
+    expression, name, full_name, override_config, expected_warning_title
+):
+    """ODBC hierarchical navigation that cannot build a fully-qualified name for a
+    platform whose standalone connector requires it must warn and skip rather than
+    emit a truncated URN. Each param id names the scenario."""
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
-        expression=_ODBC_HIVE_NAV_MISSING_SCHEMA,
-        name="user_profile",
-        full_name="product_analytics.user_profile",
+        expression=expression,
+        name=name,
+        full_name=full_name,
     )
 
     reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}}
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_hive_odbc_navigation_database_node_still_backfills_schema():
-    """Two-tier backfill when navigation supplies the Kind=Database pseudo-catalog
-    ("HIVE") but omits Schema: the configured schema must still be backfilled and the
-    pseudo-catalog dropped, yielding schema.table rather than warning and skipping."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_HIVE_NAV_DATABASE_NO_SCHEMA,
-        name="user_profile",
-        full_name="product_analytics.user_profile",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}}
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_oracle_odbc_navigation_schema_table_two_tier_urn():
-    """Oracle two-tier success path: ODBC navigation exposes Schema + Table and the
-    connector emits a schema.table URN (no database tier), matching OracleSource's
-    default add_database_name_to_urn=False shape."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_ORACLE_NAV_SCHEMA_TABLE,
-        name="ORDERS",
-        full_name="SALES.ORDERS",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances()
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_oracle_odbc_navigation_missing_schema_warns_and_skips():
-    """Oracle two-tier failure path: ODBC navigation exposes a Kind=Database
-    pseudo-catalog and the leaf table but no Schema, and no dsn_to_database_schema
-    mapping is configured. Oracle is schema.table, so no truncated database.table
-    URN must be emitted — lineage is skipped with a warning."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA,
-        name="ORDERS",
-        full_name="SALES.ORDERS",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances(override_config)
 
     lineages: List[Lineage] = parser.get_upstream_tables(
         table,
@@ -2108,78 +1921,8 @@ def test_oracle_odbc_navigation_missing_schema_warns_and_skips():
 
     assert combine_upstreams_from_lineage(lineages) == []
     warning_titles = [entry.title for entry in reporter.warnings]
-    assert "Cannot build two-tier ODBC table name" in warning_titles, (
-        f"Expected the two-tier table-name warning; got: {warning_titles}"
-    )
-
-
-@pytest.mark.integration
-def test_mysql_odbc_navigation_two_part_dsn_mapping_does_not_add_schema_tier():
-    """Two-part path guard: MySQL navigation exposes Database + Table (no Schema),
-    which is genuinely a two-part database.table name. A two-part
-    dsn_to_database_schema value (intended for the ODBC SQL-parsing path) must not
-    splice a spurious schema tier into the middle — the URN stays database.table."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=M_QUERIES[35],
-        name="employees",
-        full_name="employees.employees",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}}
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
-    )
-
-
-@pytest.mark.integration
-def test_mysql_odbc_navigation_table_only_two_part_dsn_mapping_stays_two_part():
-    """database.table fallback guard: MySQL navigation exposes only the leaf table,
-    so the database tier is backfilled from dsn_to_database_schema. A two-segment
-    mapping value must not additionally splice a schema tier — MySQL has no schema
-    level, so the URN must stay database.table (warehouse.employees)."""
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=_ODBC_MYSQL_NAV_TABLE_ONLY,
-        name="employees",
-        full_name="employees.employees",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    ctx, config, platform_instance_resolver = get_default_instances(
-        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}}
-    )
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
-
-    assert len(data_platform_tables) == 1
-    assert (
-        data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,warehouse.employees,PROD)"
+    assert expected_warning_title in warning_titles, (
+        f"Expected warning '{expected_warning_title}'; got: {warning_titles}"
     )
 
 
