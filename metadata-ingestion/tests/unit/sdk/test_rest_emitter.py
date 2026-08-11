@@ -199,7 +199,7 @@ class TestDataHubRestEmitter:
     def test_from_emitter_copies_auth_to_config_session(self) -> None:
         from datahub.ingestion.graph.client import DataHubGraph
 
-        auth = object()
+        auth = MagicMock(name="oauth-auth")
         emitter = DatahubRestEmitter(
             MOCK_GMS_ENDPOINT,
             server_config_retry_max_times=0,
