@@ -109,19 +109,9 @@ class LineageMixin(SqlmeshSourceBase):
         effective: _EffectiveProjectConfig,
         sqlmesh_ctx: "SqlmeshContextType",
     ) -> Optional[UpstreamLineageClass]:
-        """
-        Build upstream lineage using 3-category handling:
-
-        Category 1 — Managed models (in context.models):
-            target → urn:li:dataPlatform:sqlmesh,...
-
-        Category 2 — Declared external (context.models, kind=EXTERNAL):
-            default → urn:li:dataPlatform:sqlmesh,... (Source entity)
-            skip_external_models_in_lineage=True → warehouse URN directly
-
-        Category 3 — Undeclared implicit (context.get_model() returns None):
-            target → warehouse URN directly (no sqlmesh entity exists for these)
-        """
+        # Each dep is routed to its URN by _resolve_dep_urn (managed vs declared
+        # external vs undeclared taxonomy lives there); here we only drop deps
+        # denied by model_name_pattern and build the UpstreamClass list.
         raw_deps: Set[Any] = getattr(model, "depends_on", None) or set()
         if not raw_deps:
             logger.debug(

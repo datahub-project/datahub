@@ -108,32 +108,10 @@ class SqlmeshSource(
     profiling, usage); SQLMesh contributes lineage, schema, and model definitions.
     DataHub's SiblingAssociationHook merges both in the UI.
 
-    **Recommended workflow:**
-
-    1. Run warehouse ingestion with ``schema_pattern.deny: ["^sqlmesh__.*"]`` to
-       exclude SQLMesh's internal fingerprinted tables.
-    2. Run this connector — creates SQLMesh entities and siblings.
-    3. DataHub merges both views automatically.
-
-    **URN stitching:** sibling URNs must match exactly. Key settings:
-
-    - ``target_platform``: auto-detected from gateway connection; override only
-      when detection is wrong (e.g. force ``postgres`` instead of ``gcp_postgres``)
-    - ``target_platform_instance``: must match your warehouse connector's
-      ``platform_instance`` exactly
-    - ``default_catalog``: set when model names are 2-part (``schema.model``) but
-      your warehouse connector emits 3-part URNs (``catalog.schema.table``)
-
-    Example recipe (OSS SQLMesh on Snowflake, run from GitHub Actions)::
-
-        source:
-          type: sqlmesh
-          config:
-            project_path: .              # checked-out repo root
-            gateway: snowflake_prod
-            target_platform_instance: prod_snowflake  # must match Snowflake connector
-            default_catalog: analytics                 # if model names are 2-part
-            env: PROD
+    Sibling stitching hinges on the sqlmesh and warehouse URNs matching exactly,
+    which is why ``target_platform`` / ``target_platform_instance`` /
+    ``default_catalog`` exist — see their config field docs and the connector
+    guide for setup.
     """
 
     config: SqlmeshSourceConfig
