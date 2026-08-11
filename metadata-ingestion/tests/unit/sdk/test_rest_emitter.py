@@ -8,29 +8,15 @@ from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 import requests
+from requests import Response, Session
+from requests.adapters import HTTPAdapter
+
 from datahub.configuration.common import (
     ConfigurationError,
     OperationalError,
     TraceTimeoutError,
     TraceValidationError,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    Status,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProfile,
-    DatasetProperties,
-)
-from datahub.metadata.schema_classes import (
-    KEY_ASPECT_NAMES,
-    KEY_ASPECTS,
-    ChangeTypeClass,
-)
-from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.server_config_util import RestServiceConfig
-from requests import Response, Session
-from requests.adapters import HTTPAdapter
-
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.response_helper import TraceData
@@ -48,7 +34,21 @@ from datahub.emitter.rest_emitter import (
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetProfile,
+    DatasetProperties,
+)
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    KEY_ASPECTS,
+    ChangeTypeClass,
+)
 from datahub.sdk.main_client import DataHubClient
+from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.server_config_util import RestServiceConfig
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 

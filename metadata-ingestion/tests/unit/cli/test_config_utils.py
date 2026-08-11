@@ -3,6 +3,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 import yaml
+
 from datahub.cli import config_utils
 from datahub.cli.config_utils import (
     DATAHUB_CONFIG_PATH,
