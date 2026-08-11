@@ -97,8 +97,17 @@ starts these services:
 
 `datahub-system-update` is expected to be **missing** from that list. It is a one-shot job that
 `datahub-gms` and `datahub-frontend-react` wait on with `service_completed_successfully`, so it
-runs to completion and exits before the stack finishes coming up. An exited
-`datahub-system-update` is normal; one that exited non-zero is not, and its logs will say why.
+runs to completion and exits before the stack finishes coming up.
+
+Because `docker container ls` only shows running containers, use `-a` to tell a successful
+system update apart from a failed one:
+
+```shell
+docker container ls -a --filter name=system-update
+```
+
+`Exited (0)` is the healthy outcome. Any other exit code is a real failure — pass the name
+from that output to `docker logs` to see why.
 
 Older versions of this page listed ZooKeeper, a standalone Schema Registry, Kibana, Neo4j,
 Elasticsearch and separate `datahub-mae-consumer` / `datahub-mce-consumer` containers. The
@@ -117,9 +126,13 @@ For `datahub-frontend-react`, you should see a log similar to this at the end of
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9002
 ```
 
-## My elasticsearch or broker container exited with error or was stuck forever
+## My search or broker container exited with error or was stuck forever
 
 If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+
+The sample below was captured on an older release, so it names `elasticsearch`, `zookeeper` and
+`schema-registry`. On the current quickstart the equivalent containers are `search`
+(OpenSearch) and `broker` (Kafka in KRaft mode) — the symptom and the fix are the same.
 
 ```
 datahub-gms             | 2020/04/03 14:34:26 Problem with request: Get http://elasticsearch:9200: dial tcp 172.19.0.5:9200: connect: connection refused. Sleeping 1s
