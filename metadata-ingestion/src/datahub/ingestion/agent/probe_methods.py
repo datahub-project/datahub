@@ -457,7 +457,29 @@ def run_probe_method(
     # this source can do.
     with builder(config) as provider:
         _enforce_gates(specs[command], provider, call_kwargs)
-        result = _bound_method(provider, command)(**call_kwargs)
+        try:
+            result = _bound_method(provider, command)(**call_kwargs)
+        except NotImplementedError as exc:
+            # A dialect that does not implement a reflection method raises this, and
+            # it is the one failure a caller cannot reason its way out of: without
+            # this branch it falls to recipe_cli's catch-all and exits 3, "I could
+            # not reach the source" -- so an agent concludes the source is
+            # unreachable and retries, when the connection was fine and the engine
+            # simply has no such concept. ValueError maps to exit 2, which is the
+            # honest answer: the command was the wrong one to ask for.
+            #
+            # Deliberately NOT backed by a per-dialect capability table. Everything
+            # else about an unsupported command is already derivable by the caller:
+            # the result carries source_type, and a dialect that answers oddly
+            # answers in a self-describing way -- Trino's get_indexes returns
+            # {"name": "partition", ...} because it reflects partition keys, which an
+            # agent that knows Trino reads for what it is.
+            raise ValueError(
+                f"source '{source_type}' does not support the '{command}' command: "
+                f"its SQL dialect does not implement it. The source was reached "
+                f"fine -- this is a limit of the engine, so choose another command "
+                f"rather than retrying"
+            ) from exc
         # Optional, source-agnostic: a provider that degrades a sub-fetch
         # instead of failing outright (see agent.verdicts.ProbeSoftError) may
         # expose its own `warnings` list to report that here. Duck-typed

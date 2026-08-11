@@ -307,3 +307,51 @@ def test_run_probe_method_admits_a_query_the_gate_allows(monkeypatch):
     result = pm.run_probe_method("x", {}, "sql", {"query": query})
     assert result.result == {"ok": True}
     assert _GatedProvider.ran == [query]
+
+
+def test_a_dialect_that_cannot_answer_says_so_instead_of_looking_unreachable(
+    monkeypatch,
+):
+    """An unsupported reflection method must not read as a connection failure.
+
+    SQLAlchemy dialects raise NotImplementedError for reflection they do not support
+    -- table_comment on Trino, MSSQL and ClickHouse among them. Without this branch
+    the exception reaches recipe_cli's catch-all and exits 3, "I could not reach the
+    source", so an agent concludes the source is unreachable and retries. Exit 2 is
+    the truth: the connection was fine, the command was the wrong one to ask for.
+    """
+    import datahub.ingestion.agent.probe_methods as pm
+
+    class _Unsupporting:
+        @classmethod
+        def for_config(cls, config: object) -> "_Unsupporting":
+            return cls()
+
+        def __enter__(self) -> "_Unsupporting":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @probe_method()
+        def table_comment(self, schema: str, table: str) -> dict:
+            """The table's stored comment, where the dialect has them."""
+            raise NotImplementedError()
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Unsupporting
+
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Unsupporting)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    with pytest.raises(ValueError, match="does not support the 'table_comment'") as err:
+        pm.run_probe_method("trino", {}, "table_comment", {"schema": "s", "table": "t"})
+    # ValueError is what recipe_cli maps to the user-error exit code; anything else
+    # lands in the catch-all and is reported as a connection problem.
+    assert "reached" in str(err.value)
