@@ -33,8 +33,12 @@ record LineageFlags {
      * edges without materializing the schema fields they connect -- and joining lineage results
      * against the entity index silently discards every one of them.
      *
-     * These entities cannot be hydrated, so they are returned as a urn and entity type only, and
-     * filters that are evaluated by the search index cannot be applied to them.
+     * These entities cannot be hydrated, so they are returned as a urn and entity type only.
+     *
+     * Not recommended for general use. Results have to be read off the graph rather than the entity
+     * index, which is only possible under narrow conditions: a "*" query, no sort criteria, and
+     * filters limited to the fields derivable from a urn alone. A request that sets this and meets
+     * none of those is rejected rather than quietly answered without the entities it asked for.
      */
     includeGhostEntities: optional boolean = false
 }

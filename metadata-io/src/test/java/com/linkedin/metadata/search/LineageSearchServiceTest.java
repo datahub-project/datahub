@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -1063,6 +1064,55 @@ public class LineageSearchServiceTest {
             Condition.EQUAL, true, "urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
     assertFalse(LineageSearchService.passesParentCriteria(dbtColumn, notSibling));
     assertTrue(LineageSearchService.passesParentCriteria(warehouseColumn, notSibling));
+  }
+
+  @Test
+  public void testGhostEntitiesRejectedWhenLightningUnavailable() throws Exception {
+    // A query string forces the entity-index path, which cannot return entities that do not exist,
+    // so asking for ghosts there has to fail rather than quietly come back short
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+
+    OperationContext ghostContext =
+        _operationContext.withLineageFlags(f -> new LineageFlags().setIncludeGhostEntities(true));
+
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(0);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+    when(_graphService.getImpactLineage(
+            eq(ghostContext), eq(sourceUrn), any(LineageGraphFilters.class), anyInt()))
+        .thenReturn(mockLineageResult);
+    when(_lineageRegistry.getEntitiesWithLineageToEntityType(DATASET_ENTITY_NAME))
+        .thenReturn(Collections.singleton(DATASET_ENTITY_NAME));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageSearchService.searchAcrossLineage(
+                ghostContext,
+                sourceUrn,
+                LineageDirection.DOWNSTREAM,
+                entities,
+                "some query",
+                1,
+                null,
+                null,
+                0,
+                10));
+
+    // The same request without a query string is served by the graph-only path
+    assertNotNull(
+        _lineageSearchService.searchAcrossLineage(
+            ghostContext,
+            sourceUrn,
+            LineageDirection.DOWNSTREAM,
+            entities,
+            null,
+            1,
+            null,
+            null,
+            0,
+            10));
   }
 
   private EntityLineageResult createMockEntityLineageResult() {

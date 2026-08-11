@@ -282,6 +282,19 @@ public class LineageSearchService {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
+      } else if (includeGhostEntities) {
+        // Falling through would answer from the entity index, which has nothing to return for an
+        // entity that does not exist -- so the caller would silently get a short count rather than
+        // the results it asked for
+        throw new IllegalArgumentException(
+            String.format(
+                "includeGhostEntities requires the graph-only lineage path, which cannot serve this "
+                    + "query. It needs a '*' query, no sort criteria, and filters only on %s, but "
+                    + "got query '%s', %d sort criteria, and filters on %s.",
+                LIGHTNING_FILTER_FIELDS,
+                finalInput,
+                sortCriteria == null ? 0 : sortCriteria.size(),
+                filterFields(reducedFilters)));
       } else {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult =
@@ -335,6 +348,18 @@ public class LineageSearchService {
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
+  }
+
+  /** The distinct fields the filters constrain, for reporting what a query asked for. */
+  private static Set<String> filterFields(@Nullable Filter filters) {
+    if (filters == null || filters.getOr() == null) {
+      return Set.of();
+    }
+    return filters.getOr().stream()
+        .map(ConjunctiveCriterion::getAnd)
+        .flatMap(CriterionArray::stream)
+        .map(Criterion::getField)
+        .collect(Collectors.toCollection(java.util.TreeSet::new));
   }
 
   /**
