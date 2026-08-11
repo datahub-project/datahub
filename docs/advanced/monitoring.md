@@ -24,19 +24,19 @@ DataHub's observability strategy consists of two complementary approaches:
 
 1. Metrics Collection
 
-    **Purpose:** Aggregate statistical data about system behavior over time
-    **Technology:** Transitioning from DropWizard/JMX to Micrometer
+   **Purpose:** Aggregate statistical data about system behavior over time
+   **Technology:** Transitioning from DropWizard/JMX to Micrometer
 
-    **Current State:** DropWizard metrics exposed via JMX, collected by Prometheus
-    **Future Direction:** Native Micrometer integration for Spring-based metrics
-    **Compatibility:** Prometheus-compatible format with support for other metrics backends
+   **Current State:** DropWizard metrics exposed via JMX, collected by Prometheus
+   **Future Direction:** Native Micrometer integration for Spring-based metrics
+   **Compatibility:** Prometheus-compatible format with support for other metrics backends
 
-    Key Metrics Categories:
+   Key Metrics Categories:
 
-    - Performance Metrics: Request latency, throughput, error rates
-    - Resource Metrics: CPU, memory utilization
-    - Application Metrics: Cache hit rates, queue depths, processing times
-    - Business Metrics: Entity counts, ingestion rates, search performance
+   - Performance Metrics: Request latency, throughput, error rates
+   - Resource Metrics: CPU, memory utilization
+   - Application Metrics: Cache hit rates, queue depths, processing times
+   - Business Metrics: Entity counts, ingestion rates, search performance
 
 ### GMS HTTP service rate limiting metrics
 
@@ -46,20 +46,20 @@ These metrics are **not** MCP ingestion throttle or Kafka lag backpressure — f
 
 2. Distributed Tracing
 
-    **Purpose:** Track individual requests as they flow through multiple services and components
-    **Technology:** OpenTelemetry-based instrumentation
+   **Purpose:** Track individual requests as they flow through multiple services and components
+   **Technology:** OpenTelemetry-based instrumentation
 
-    - Provides end-to-end visibility of request lifecycles
-    - Automatically instruments popular libraries (Kafka, JDBC, Elasticsearch)
-    - Supports multiple backend systems (Jaeger, Zipkin, etc.)
-    - Enables custom span creation with minimal code changes
+   - Provides end-to-end visibility of request lifecycles
+   - Automatically instruments popular libraries (Kafka, JDBC, Elasticsearch)
+   - Supports multiple backend systems (Jaeger, Zipkin, etc.)
+   - Enables custom span creation with minimal code changes
 
-    Key Benefits:
+   Key Benefits:
 
-    - Visualize request flow across microservices
-    - Identify latency hotspots
-    - Understand service dependencies
-    - Debug complex distributed transactions
+   - Visualize request flow across microservices
+   - Identify latency hotspots
+   - Understand service dependencies
+   - Debug complex distributed transactions
 
 ## GraphQL Instrumentation (Micrometer)
 
@@ -80,37 +80,37 @@ Consider this GraphQL query:
 
 ```graphql
 query getSearchResults {
-    search(input: { query: "sales data" }) {
-        searchResults {
-            entity {
-                ... on Dataset {
-                    name
-                    owner {
-                        # Path: /search/searchResults/entity/owner
-                        corpUser {
-                            displayName
-                        }
-                    }
-                    lineage {
-                        # Path: /search/searchResults/entity/lineage
-                        upstreamCount
-                        downstreamCount
-                        upstreamEntities {
-                            urn
-                            name
-                        }
-                    }
-                    schemaMetadata {
-                        # Path: /search/searchResults/entity/schemaMetadata
-                        fields {
-                            fieldPath
-                            description
-                        }
-                    }
-                }
+  search(input: { query: "sales data" }) {
+    searchResults {
+      entity {
+        ... on Dataset {
+          name
+          owner {
+            # Path: /search/searchResults/entity/owner
+            corpUser {
+              displayName
             }
+          }
+          lineage {
+            # Path: /search/searchResults/entity/lineage
+            upstreamCount
+            downstreamCount
+            upstreamEntities {
+              urn
+              name
+            }
+          }
+          schemaMetadata {
+            # Path: /search/searchResults/entity/schemaMetadata
+            fields {
+              fieldPath
+              description
+            }
+          }
         }
+      }
     }
+  }
 }
 ```
 
@@ -189,18 +189,18 @@ The GraphQL instrumentation is implemented through `GraphQLTimingInstrumentation
 
 - **Type**: Timer with percentiles (p50, p95, p99)
 - **Tags**:
-    - `operation`: Operation name (e.g., "getSearchResultsForMultiple")
-    - `operation.type`: Query, mutation, or subscription
-    - `success`: true/false based on error presence
-    - `field.filtering`: Filtering mode applied (DISABLED, ALL_FIELDS, BY_OPERATION, BY_PATH, BY_BOTH)
+  - `operation`: Operation name (e.g., "getSearchResultsForMultiple")
+  - `operation.type`: Query, mutation, or subscription
+  - `success`: true/false based on error presence
+  - `field.filtering`: Filtering mode applied (DISABLED, ALL_FIELDS, BY_OPERATION, BY_PATH, BY_BOTH)
 - **Use Case**: Monitor overall GraphQL performance, identify slow operations
 
 **Metric: `graphql.request.errors`**
 
 - **Type**: Counter
 - **Tags**:
-    - `operation`: Operation name
-    - `operation.type`: Query, mutation, or subscription
+  - `operation`: Operation name
+  - `operation.type`: Query, mutation, or subscription
 - **Use Case**: Track error rates by operation
 
 #### Field-Level Metrics
@@ -209,11 +209,11 @@ The GraphQL instrumentation is implemented through `GraphQLTimingInstrumentation
 
 - **Type**: Timer with percentiles (p50, p95, p99)
 - **Tags**:
-    - `parent.type`: GraphQL parent type (e.g., "Dataset", "User")
-    - `field`: Field name being resolved
-    - `operation`: Operation name context
-    - `success`: true/false
-    - `path`: Field path (optional, controlled by `fieldLevelPathEnabled`)
+  - `parent.type`: GraphQL parent type (e.g., "Dataset", "User")
+  - `field`: Field name being resolved
+  - `operation`: Operation name context
+  - `success`: true/false
+  - `path`: Field path (optional, controlled by `fieldLevelPathEnabled`)
 - **Use Case**: Identify slow field resolvers, optimize data fetching
 
 **Metric: `graphql.field.errors`**
@@ -226,8 +226,8 @@ The GraphQL instrumentation is implemented through `GraphQLTimingInstrumentation
 
 - **Type**: Counter
 - **Tags**:
-    - `operation`: Operation name
-    - `filtering.mode`: Active filtering mode
+  - `operation`: Operation name
+  - `filtering.mode`: Active filtering mode
 - **Use Case**: Monitor instrumentation coverage and overhead
 
 ### Configuration Guide
@@ -236,12 +236,12 @@ The GraphQL instrumentation is implemented through `GraphQLTimingInstrumentation
 
 ```yaml
 graphQL:
-    metrics:
-        # Master switch for all GraphQL metrics
-        enabled: ${GRAPHQL_METRICS_ENABLED:true}
+  metrics:
+    # Master switch for all GraphQL metrics
+    enabled: ${GRAPHQL_METRICS_ENABLED:true}
 
-        # Enable field-level resolver metrics
-        fieldLevelEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_ENABLED:false}
+    # Enable field-level resolver metrics
+    fieldLevelEnabled: ${GRAPHQL_METRICS_FIELD_LEVEL_ENABLED:false}
 ```
 
 #### Selective Field Instrumentation
@@ -315,28 +315,28 @@ Field-level instrumentation overhead varies by:
 
 1. **Start Conservative**: Begin with field-level metrics disabled
 
-    ```yaml
-    fieldLevelEnabled: false
-    ```
+   ```yaml
+   fieldLevelEnabled: false
+   ```
 
 2. **Target Known Issues**: Enable selectively for problematic operations
 
-    ```yaml
-    fieldLevelEnabled: true
-    fieldLevelOperations: "slowSearchQuery,complexLineageQuery"
-    ```
+   ```yaml
+   fieldLevelEnabled: true
+   fieldLevelOperations: "slowSearchQuery,complexLineageQuery"
+   ```
 
 3. **Use Path Patterns Wisely**: Focus on expensive resolver paths
 
-    ```yaml
-    fieldLevelPaths: "/search/**,/**/lineage/**"
-    ```
+   ```yaml
+   fieldLevelPaths: "/search/**,/**/lineage/**"
+   ```
 
 4. **Avoid Path Tags in Production**: High cardinality risk
 
-    ```yaml
-    fieldLevelPathEnabled: false # Keep this false
-    ```
+   ```yaml
+   fieldLevelPathEnabled: false # Keep this false
+   ```
 
 5. **Monitor Instrumentation Overhead**: Track the `graphql.fields.instrumented` metric
 
@@ -346,34 +346,34 @@ Field-level instrumentation overhead varies by:
 
 ```yaml
 graphQL:
-    metrics:
-        enabled: true
-        fieldLevelEnabled: true
-        fieldLevelOperations: "" # All operations
-        fieldLevelPathEnabled: true # Include paths for debugging
-        trivialDataFetchersEnabled: true
+  metrics:
+    enabled: true
+    fieldLevelEnabled: true
+    fieldLevelOperations: "" # All operations
+    fieldLevelPathEnabled: true # Include paths for debugging
+    trivialDataFetchersEnabled: true
 ```
 
 #### Production - Targeted Monitoring
 
 ```yaml
 graphQL:
-    metrics:
-        enabled: true
-        fieldLevelEnabled: true
-        fieldLevelOperations: "getSearchResultsForMultiple,searchAcrossLineage"
-        fieldLevelPaths: "/search/results/*,/lineage/upstream/**,/lineage/downstream/**"
-        fieldLevelPathEnabled: false
-        trivialDataFetchersEnabled: false
+  metrics:
+    enabled: true
+    fieldLevelEnabled: true
+    fieldLevelOperations: "getSearchResultsForMultiple,searchAcrossLineage"
+    fieldLevelPaths: "/search/results/*,/lineage/upstream/**,/lineage/downstream/**"
+    fieldLevelPathEnabled: false
+    trivialDataFetchersEnabled: false
 ```
 
 #### Production - Minimal Overhead
 
 ```yaml
 graphQL:
-    metrics:
-        enabled: true
-        fieldLevelEnabled: false # Only request-level metrics
+  metrics:
+    enabled: true
+    fieldLevelEnabled: false # Only request-level metrics
 ```
 
 ### Debugging Slow Queries
@@ -382,14 +382,14 @@ When investigating GraphQL performance issues:
 
 1. **Enable request-level metrics first** to identify slow operations
 2. **Temporarily enable field-level metrics** for the slow operation:
-    ```yaml
-    fieldLevelOperations: "problematicQuery"
-    ```
+   ```yaml
+   fieldLevelOperations: "problematicQuery"
+   ```
 3. **Analyze field duration metrics** to find bottlenecks
 4. **Optionally enable path tags** (briefly) for precise identification:
-    ```yaml
-    fieldLevelPathEnabled: true # Temporary only!
-    ```
+   ```yaml
+   fieldLevelPathEnabled: true # Temporary only!
+   ```
 5. **Optimize identified resolvers** and disable detailed instrumentation
 
 ### Integration with Monitoring Stack
@@ -398,10 +398,10 @@ The GraphQL metrics integrate seamlessly with DataHub's monitoring infrastructur
 
 - **Prometheus**: Metrics exposed at `/actuator/prometheus`
 - **Grafana**: Create dashboards showing:
-    - Request rates and latencies by operation
-    - Error rates and types
-    - Field resolver performance heatmaps
-    - Top slow operations and fields
+  - Request rates and latencies by operation
+  - Error rates and types
+  - Field resolver performance heatmaps
+  - Top slow operations and fields
 
 Example Prometheus queries:
 
@@ -459,7 +459,7 @@ Consumer Group Performance:
 Kafka queue time instrumentation is implemented across all DataHub consumers:
 
 - MetadataChangeProposals (MCP) Processor - SQL entity updates
-    - BatchMetadataChangeProposals (MCP) Processor - Bulk SQL entity updates
+  - BatchMetadataChangeProposals (MCP) Processor - Bulk SQL entity updates
 - MetadataChangeLog (MCL) Processor & Hooks - Elasticsearch & downstream aspect operations
 - DataHubUsageEventsProcessor - Usage analytics events
 - PlatformEventProcessor - Platform operations & external consumers
@@ -475,10 +475,10 @@ Metric: `messaging.queue.time`
 - Type: Timer with configurable percentiles and SLO buckets
 - Unit: Milliseconds
 - Tags:
-    - `messaging.system`: `kafka` or `pgqueue`
-    - `topic`: Logical topic name (e.g., `MetadataChangeProposal_v1`)
-    - `consumer.group`: Consumer group ID (e.g., `generic-mce-consumer`)
-    - `messaging.priority`: pgQueue WFQ band index only (omitted for Kafka)
+  - `messaging.system`: `kafka` or `pgqueue`
+  - `topic`: Logical topic name (e.g., `MetadataChangeProposal_v1`)
+  - `consumer.group`: Consumer group ID (e.g., `generic-mce-consumer`)
+  - `messaging.priority`: pgQueue WFQ band index only (omitted for Kafka)
 - Use Case: Monitor end-to-end latency from message production to consumer processing
 
 #### Statistical Distribution
@@ -497,16 +497,16 @@ Default Configuration:
 
 ```yaml
 kafka:
-    consumer:
-        metrics:
-            # Percentiles to calculate
-            percentiles: "0.5,0.95,0.99,0.999"
+  consumer:
+    metrics:
+      # Percentiles to calculate
+      percentiles: "0.5,0.95,0.99,0.999"
 
-            # Service Level Objective buckets (seconds)
-            slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
+      # Service Level Objective buckets (seconds)
+      slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
 
-            # Maximum expected queue time
-            maxExpectedValue: 86400 # 24 hours (seconds)
+      # Maximum expected queue time
+      maxExpectedValue: 86400 # 24 hours (seconds)
 ```
 
 #### Key Monitoring Patterns
@@ -603,19 +603,19 @@ Hook latency metrics are configured separately from Kafka consumer metrics to al
 
 ```yaml
 datahub:
-    metrics:
-        # Measures the time from request to post-MCL hook execution
-        hookLatency:
-            # Percentiles to calculate for latency distribution
-            percentiles: "0.5,0.95,0.99,0.999"
+  metrics:
+    # Measures the time from request to post-MCL hook execution
+    hookLatency:
+      # Percentiles to calculate for latency distribution
+      percentiles: "0.5,0.95,0.99,0.999"
 
-            # Service Level Objective buckets (seconds)
-            # These define the latency targets you want to track
-            slo: "300,1800,3000,10800,21600,43200" # 5m, 30m, 1h, 3h, 6h, 12h
+      # Service Level Objective buckets (seconds)
+      # These define the latency targets you want to track
+      slo: "300,1800,3000,10800,21600,43200" # 5m, 30m, 1h, 3h, 6h, 12h
 
-            # Maximum expected latency (seconds)
-            # Values above this are considered outliers
-            maxExpectedValue: 86000 # 24 hours
+      # Maximum expected latency (seconds)
+      # Values above this are considered outliers
+      maxExpectedValue: 86000 # 24 hours
 ```
 
 ### Metrics Collected
@@ -627,7 +627,7 @@ Metric: `datahub.request.hook.queue.time`
 - Type: Timer with configurable percentiles and SLO buckets
 - Unit: Milliseconds
 - Tags:
-    - `hook`: Name of the MCL hook being executed (e.g., "IngestionSchedulerHook", "SiblingsHook")
+  - `hook`: Name of the MCL hook being executed (e.g., "IngestionSchedulerHook", "SiblingsHook")
 - Use Case: Monitor the complete latency from request submission to hook exe
 
 #### Key Monitoring Patterns
@@ -715,10 +715,10 @@ See [Aspect Size Validation](mcp-mcl.md#aspect-size-validation) for details.
 
 ```yaml
 datahub:
-    validation:
-        aspectSize:
-            metrics:
-                sizeBuckets: [1048576, 5242880, 10485760, 15728640]
+  validation:
+    aspectSize:
+      metrics:
+        sizeBuckets: [1048576, 5242880, 10485760, 15728640]
 ```
 
 Default buckets (1MB, 5MB, 10MB, 15MB) create ranges: 0-1MB, 1MB-5MB, 5MB-10MB, 10MB-15MB, 15MB+
@@ -760,8 +760,8 @@ When caches are registered with Micrometer, comprehensive metrics are automatica
 
 - **`cache.size`** (Gauge) - Current number of entries in the cache
 - **`cache.gets`** (Counter) - Cache access attempts, tagged with:
-    - `result=hit` - Successful cache hits
-    - `result=miss` - Cache misses requiring backend fetch
+  - `result=hit` - Successful cache hits
+  - `result=miss` - Cache misses requiring backend fetch
 - **`cache.puts`** (Counter) - Number of entries added to cache
 - **`cache.evictions`** (Counter) - Number of entries evicted
 - **`cache.eviction.weight`** (Counter) - Total weight of evicted entries (for size-based eviction)
@@ -790,32 +790,32 @@ DataHub uses multiple cache layers, each automatically instrumented:
 
 ```yaml
 cache.client.entityClient:
-    enabled: true
-    maxBytes: 104857600 # 100MB
-    entityAspectTTLSeconds:
-        corpuser:
-            corpUserInfo: 20 # Short TTL for frequently changing data
-            corpUserKey: 300 # Longer TTL for stable data
-        structuredProperty:
-            propertyDefinition: 300
-            structuredPropertyKey: 86400 # 1 day for very stable data
+  enabled: true
+  maxBytes: 104857600 # 100MB
+  entityAspectTTLSeconds:
+    corpuser:
+      corpUserInfo: 20 # Short TTL for frequently changing data
+      corpUserKey: 300 # Longer TTL for stable data
+    structuredProperty:
+      propertyDefinition: 300
+      structuredPropertyKey: 86400 # 1 day for very stable data
 ```
 
 #### 2. Usage Statistics Cache
 
 ```yaml
 cache.client.usageClient:
-    enabled: true
-    maxBytes: 52428800 # 50MB
-    defaultTTLSeconds: 86400 # 1 day
-    # Caches expensive usage calculations
+  enabled: true
+  maxBytes: 52428800 # 50MB
+  defaultTTLSeconds: 86400 # 1 day
+  # Caches expensive usage calculations
 ```
 
 #### 3. Search & Lineage Cache
 
 ```yaml
 cache.search.lineage:
-    ttlSeconds: 86400 # 1 day
+  ttlSeconds: 86400 # 1 day
 ```
 
 ### Monitoring Best Practices
@@ -824,16 +824,16 @@ cache.search.lineage:
 
 1. **Hit Rate by Cache Type**
 
-    ```promql
-    # Alert if hit rate drops below 70%
-    cache_hit_rate < 0.7
-    ```
+   ```promql
+   # Alert if hit rate drops below 70%
+   cache_hit_rate < 0.7
+   ```
 
 2. **Memory Pressure**
-    ```promql
-    # High eviction rate relative to puts
-    rate(cache_evictions_total[5m]) / rate(cache_puts_total[5m]) > 0.1
-    ```
+   ```promql
+   # High eviction rate relative to puts
+   rate(cache_evictions_total[5m]) / rate(cache_puts_total[5m]) > 0.1
+   ```
 
 ## Thread Pool Executor Monitoring (Micrometer)
 
@@ -869,32 +869,32 @@ performance under load.
 
 ```yaml
 graphQL.concurrency:
-    separateThreadPool: true
-    corePoolSize: 20 # Base threads
-    maxPoolSize: 200 # Scale under load
-    keepAlive: 60 # Seconds before idle thread removal
-    # Handles complex GraphQL query resolution
+  separateThreadPool: true
+  corePoolSize: 20 # Base threads
+  maxPoolSize: 200 # Scale under load
+  keepAlive: 60 # Seconds before idle thread removal
+  # Handles complex GraphQL query resolution
 ```
 
 #### 2. Batch Processing Executors
 
 ```yaml
 entityClient.restli:
-    get:
-        batchConcurrency: 2 # Parallel batch processors
-        batchQueueSize: 500 # Task buffer
-        batchThreadKeepAlive: 60
-    ingest:
-        batchConcurrency: 2
-        batchQueueSize: 500
+  get:
+    batchConcurrency: 2 # Parallel batch processors
+    batchQueueSize: 500 # Task buffer
+    batchThreadKeepAlive: 60
+  ingest:
+    batchConcurrency: 2
+    batchQueueSize: 500
 ```
 
 #### 3. Search & Analytics Executors
 
 ```yaml
 timeseriesAspectService.query:
-    concurrency: 10 # Parallel query threads
-    queueSize: 500 # Buffered queries
+  concurrency: 10 # Parallel query threads
+  queueSize: 500 # Buffered queries
 ```
 
 ### Critical Monitoring Patterns
@@ -945,8 +945,8 @@ rate(executor_completed_total[5m])
 1. **Measure baseline**: Monitor under normal load
 2. **Stress test**: Identify saturation points
 3. **Set alerts**:
-    - Warning at 70% utilization
-    - Critical at 90% utilization
+   - Warning at 70% utilization
+   - Critical at 90% utilization
 4. **Auto-scale**: Consider dynamic pool sizing based on queue depth
 
 ## Distributed Tracing
@@ -993,33 +993,33 @@ popular monitoring systems, allowing you to instrument your JVM-based applicatio
 
 1. Native Spring Integration
 
-    As DataHub uses Spring Boot, Micrometer provides seamless integration with:
+   As DataHub uses Spring Boot, Micrometer provides seamless integration with:
 
-    - Auto-configuration of common metrics
-    - Built-in metrics for HTTP requests, JVM, caches, and more
-    - Spring Boot Actuator endpoints for metrics exposure
-    - Automatic instrumentation of Spring components
+   - Auto-configuration of common metrics
+   - Built-in metrics for HTTP requests, JVM, caches, and more
+   - Spring Boot Actuator endpoints for metrics exposure
+   - Automatic instrumentation of Spring components
 
 2. Multi-Backend Support
 
-    Unlike the legacy DropWizard approach that primarily targets JMX, Micrometer natively supports:
+   Unlike the legacy DropWizard approach that primarily targets JMX, Micrometer natively supports:
 
-    - Prometheus (recommended for cloud-native deployments)
-    - JMX (for backward compatibility)
-    - StatsD
-    - CloudWatch
-    - Datadog
-    - New Relic
-    - And many more...
+   - Prometheus (recommended for cloud-native deployments)
+   - JMX (for backward compatibility)
+   - StatsD
+   - CloudWatch
+   - Datadog
+   - New Relic
+   - And many more...
 
 3. Dimensional Metrics
 
-    Micrometer embraces modern dimensional metrics with **labels/tags**, enabling:
+   Micrometer embraces modern dimensional metrics with **labels/tags**, enabling:
 
-    - Rich querying and aggregation capabilities
-    - Better cardinality control
-    - More flexible dashboards and alerts
-    - Natural integration with cloud-native monitoring systems
+   - Rich querying and aggregation capabilities
+   - Better cardinality control
+   - More flexible dashboards and alerts
+   - Natural integration with cloud-native monitoring systems
 
 ## Micrometer Transition Plan
 
@@ -1068,33 +1068,33 @@ Key Decisions and Rationale:
 
 1. Dual Registry Approach
 
-    **Decision:** Run both systems in parallel with tag-based routing
+   **Decision:** Run both systems in parallel with tag-based routing
 
-    **Rationale:**
+   **Rationale:**
 
-    - Zero downtime or disruption
-    - Gradual migration at component level
-    - Easy rollback if issues arise
+   - Zero downtime or disruption
+   - Gradual migration at component level
+   - Easy rollback if issues arise
 
 2. Prometheus as Primary Target
 
-    **Decision:** Focus on Prometheus for new metrics
+   **Decision:** Focus on Prometheus for new metrics
 
-    **Rationale:**
+   **Rationale:**
 
-    - Industry standard for cloud-native applications
-    - Rich query language and ecosystem
-    - Better suited for dimensional metrics
+   - Industry standard for cloud-native applications
+   - Rich query language and ecosystem
+   - Better suited for dimensional metrics
 
 3. Observation API Adoption
 
-    **Decision:** Promote Observation API for new instrumentation
+   **Decision:** Promote Observation API for new instrumentation
 
-    **Rationale:**
+   **Rationale:**
 
-    - Single instrumentation for metrics + traces
-    - Reduced code complexity
-    - Consistent naming across telemetry types
+   - Single instrumentation for metrics + traces
+   - Reduced code complexity
+   - Consistent naming across telemetry types
 
 ### API usage aggregation metrics
 
@@ -1192,7 +1192,7 @@ dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and Da
 
 **Micrometer (Spring Actuator / Play):** Docker images for GMS, MAE consumer, MCE consumer, and the Play frontend set
 `MANAGEMENT_SERVER_PORT` to **4319** by default (see container `start.sh`). Micrometer Prometheus text is served at
-`http://<container>:4319/actuator/prometheus` on a separate HTTP listener. The quickstart compose profile only runs two of these containers — `datahub-gms` and `datahub-frontend-react`, since it sets `MAE_CONSUMER_ENABLED` and `MCE_CONSUMER_ENABLED` on GMS instead of starting standalone consumers — and it `expose`s 4319 on both while additionally **publishing** the `datahub-gms` one to the host, so `localhost:4319` must be free. JVM/JMX metrics remain on **4318** when
+`http://<container>:4319/actuator/prometheus` on a separate HTTP listener. The quickstart compose profile runs only two of these containers — `datahub-gms` and `datahub-frontend-react`, since it sets `MAE_CONSUMER_ENABLED` and `MCE_CONSUMER_ENABLED` on GMS instead of starting standalone consumers — and it `expose`s 4319 on both while additionally **publishing** the `datahub-gms` one to the host, so `localhost:4319` must be free. JVM/JMX metrics remain on **4318** when
 `ENABLE_PROMETHEUS=true`. The example [prometheus.yaml](../../docker/monitoring/prometheus.yaml) includes a `micrometer`
 scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
 application port; set it when you want a separate management listener (Spring maps the env var to
