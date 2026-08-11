@@ -100,11 +100,6 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
   }
 
   @Override
-  public boolean isOptional() {
-    return true;
-  }
-
-  @Override
   public boolean skip(UpgradeContext context) {
     if (reprocessEnabled) {
       return false;
@@ -178,9 +173,7 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
                     .setSkipCache(true)
                     .setSkipHighlighting(true)
                     .setSkipAggregates(true)
-                    // An alias is identity, not visibility, and this scan is the last chance to
-                    // write one: the side effect fires only on the key aspect and the marker
-                    // stops any later run. A dataset hidden from search today may be visible
+                    // A dataset hidden from search today may be visible
                     // tomorrow, so every default that trims search results is turned off here.
                     .setIncludeSoftDeleted(true)
                     .setFilterNonLatestVersions(false)
