@@ -29,6 +29,13 @@ extend type Query {
   ): ScrollAcrossLineageResults
 
   """
+  How many entities a graph query on a node reaches, without returning any of them
+  """
+  searchAcrossLineageCounts(
+    input: SearchAcrossLineageCountsInput!
+  ): SearchAcrossLineageCounts
+
+  """
   Autocomplete a search query against a specific DataHub Entity Type
   """
   autoComplete(input: AutoCompleteInput!): AutoCompleteResults
@@ -216,6 +223,64 @@ input LineageFlags {
   a large amount of additional hops to occur and should be used with caution.
   """
   ignoreAsHops: [EntityTypeToPlatforms!]
+}
+
+"""
+Input for counting what a graph query on a node reaches. Deliberately narrow: it carries only what
+is needed to count, so there is no paging, sorting, or free-text query to configure.
+"""
+input SearchAcrossLineageCountsInput {
+  """
+  Urn of the source node
+  """
+  urn: String!
+
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: LineageDirection!
+
+  """
+  Entity types to count. If not provided, all entities are counted.
+  """
+  types: [EntityType!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
+
+  """
+  Whether to count entities that were never materialized, which lineage graphs point at constantly
+  -- fine-grained lineage writes graph edges without creating the schema fields it connects. The
+  entity index has nothing to return for those, so counting them means reading the count off the
+  graph instead.
+
+  That count is approximate: a relation whose parent no longer exists is still counted, and
+  view-based access control is not applied, neither of which is true of a count taken from the
+  index. It also cannot be combined with a query or a sort, which this input does not offer.
+  """
+  includeGhostEntities: Boolean
+
+  """
+  Whether to count soft deleted entities
+  """
+  includeSoftDeleted: Boolean
+}
+
+"""
+How many entities a graph query on a node reaches
+"""
+type SearchAcrossLineageCounts {
+  """
+  The number of entities reached
+  """
+  total: Int!
 }
 
 input EntityTypeToPlatforms {
