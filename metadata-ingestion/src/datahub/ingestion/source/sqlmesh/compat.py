@@ -33,29 +33,44 @@ try:
 except ImportError:
     SqlmeshContextType = Any  # type: ignore[assignment,misc]
 
-if SqlmeshContext is not None:
-    # SQLMesh's ProcessPoolExecutor(mp_context=fork) deadlocks when the DataHub
-    # async sink thread pool is already running — the child process inherits
-    # locks held by other threads (allocator arena, stdio buffer, libcurl
-    # connection cache) but no thread alive in the child to release them.
-    # Repro is reliable on macOS (libdispatch + malloc_zone hold non-atfork
-    # locks); on Linux glibc's pthread_atfork handlers reset most of these so
-    # the same scenario "usually" works. Patch unconditionally because the
-    # remaining locks (logging, numpy C-ext init, requests session pool) can
-    # still strand a fork on Linux under contention, and the parallel-parse
-    # speedup is small in practice.
-    #
-    # Applied at import time (rather than deferred to connector init) on
-    # purpose: sqlmesh.core.loader / .model.cache bind
-    # create_process_pool_executor by name when they are imported, and the
-    # patch must be in place before any SqlmeshContext is constructed. Importing
-    # this module is the connector's earliest hook that reliably precedes that.
-    #
-    # These are private SQLMesh internals, so a version bump can rename them.
-    # sqlmesh itself is installed at this point, so a failure here means an
-    # API rename rather than a missing package — log loudly and carry on
-    # without the patch instead of pretending sqlmesh is absent.
+# Idempotency sentinel for _install_process_pool_patch(): the patch is a global
+# module-state mutation, so it must run at most once per process.
+_process_pool_patched = False
+
+
+def _install_process_pool_patch() -> None:
+    """Replace SQLMesh's process-pool factory with a synchronous in-process one.
+
+    SQLMesh's ``ProcessPoolExecutor(mp_context=fork)`` deadlocks when the DataHub
+    async sink thread pool is already running — the child process inherits locks
+    held by other threads (allocator arena, stdio buffer, libcurl connection
+    cache) but no thread alive in the child to release them. Repro is reliable on
+    macOS (libdispatch + malloc_zone hold non-atfork locks); on Linux glibc's
+    pthread_atfork handlers reset most of these so the same scenario "usually"
+    works. We patch unconditionally because the remaining locks (logging, numpy
+    C-ext init, requests session pool) can still strand a fork on Linux under
+    contention, and the parallel-parse speedup is small in practice.
+
+    Deferred to connector init (rather than run at import time) so importing this
+    module has no global side effects. It only has to be in place before the
+    first ``SqlmeshContext`` is constructed: ``sqlmesh.core.loader`` /
+    ``.model.cache`` call ``create_process_pool_executor`` by name *at call time*,
+    so replacing the module attribute now — even after those modules were
+    imported — redirects their call sites. Idempotent via ``_process_pool_patched``.
+
+    These are private SQLMesh internals, so a version bump can rename them.
+    sqlmesh is installed whenever this runs (the connector guards on
+    ``SqlmeshContext is None`` first), so a failure here means an API rename
+    rather than a missing package — log loudly and carry on without the patch.
+    """
+    global _process_pool_patched
+    if _process_pool_patched or SqlmeshContext is None:
+        return
+    _process_pool_patched = True
+
     try:
+        import sqlmesh.core.loader as _loader_mod
+        import sqlmesh.core.model.cache as _cache_mod
         from sqlmesh.utils.process import SynchronousPoolExecutor
 
         def _sync_pool(
@@ -77,9 +92,6 @@ if SqlmeshContext is not None:
         # at import time. Hitting the factory in sqlmesh.utils.process is not
         # enough — call sites that did `from ... import create_process_pool_executor`
         # have their own binding.
-        import sqlmesh.core.loader as _loader_mod
-        import sqlmesh.core.model.cache as _cache_mod
-
         _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
         _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
     except ImportError:
@@ -89,6 +101,7 @@ if SqlmeshContext is not None:
             "which can hang when the DataHub async sink is active.",
             exc_info=True,
         )
+
 
 # SQLMesh uses ProcessPoolExecutor internally to parse SQL models. Serialise
 # context initialisation to avoid racing over worker process spawning.

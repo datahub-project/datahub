@@ -33,6 +33,7 @@ from datahub.ingestion.source.sqlmesh.compat import (
     SqlmeshContextType,
     SqlmeshModel,
     _install_enterprise_config_compat_patches,
+    _install_process_pool_patch,
     _install_tobiko_local_state_fallback_shim,
     _scoped_tobiko_cloud_env,
     _sqlmesh_context_load_lock,
@@ -50,7 +51,6 @@ from datahub.ingestion.source.sqlmesh.constants import (
 )
 from datahub.ingestion.source.sqlmesh.containers import ContainerMixin
 from datahub.ingestion.source.sqlmesh.lineage import LineageMixin
-from datahub.ingestion.source.sqlmesh.metadata_tests import MetadataTestMixin
 from datahub.ingestion.source.sqlmesh.models import (
     _CapabilityProbes,
     _EffectiveProjectConfig,
@@ -95,7 +95,6 @@ class SqlmeshSource(
     ProfilingMixin,
     ContainerMixin,
     SchemaMixin,
-    MetadataTestMixin,
     SiblingsMixin,
     StatefulIngestionSourceBase,
 ):
@@ -184,8 +183,8 @@ class SqlmeshSource(
         # a multi-gateway project warns once per unknown gateway, not per model.
         self._warned_missing_gateways: set = set()
         # Set True only after a project load completes; post-ingest emitters
-        # (metadata tests, audit run events) are gated on it so a failed setup
-        # doesn't write partial, unlinkable metadata.
+        # (audit run events) are gated on it so a failed setup doesn't write
+        # partial, unlinkable metadata.
         self._ingest_succeeded = False
 
     @classmethod
@@ -207,15 +206,13 @@ class SqlmeshSource(
         yield from self._emit_platform_registration()
         self._ingest_succeeded = False
         yield from self._ingest_project()
-        # Metadata tests and audit run events depend on state populated during a
-        # successful project load (_resolved_effective, the URN cache). If
-        # ingestion aborted on a config/IO failure (e.g. an unreadable
-        # tobiko_cloud_token_file), skip them so a failed run stays atomic
-        # rather than writing partial, unlinkable metadata.
+        # Audit run events depend on state populated during a successful project
+        # load (_resolved_effective, the URN cache). If ingestion aborted on a
+        # config/IO failure (e.g. an unreadable tobiko_cloud_token_file), skip
+        # them so a failed run stays atomic rather than writing partial,
+        # unlinkable metadata.
         if not self._ingest_succeeded:
             return
-        if self.config.emit_metadata_tests:
-            yield from self._emit_metadata_tests()
         if self.config.audit_results_path:
             yield from self._emit_audit_run_events(self.config.audit_results_path)
 
@@ -272,6 +269,11 @@ class SqlmeshSource(
         init_kwargs: Dict[str, Any] = {"paths": [effective.project_path]}
         if effective.gateway:
             init_kwargs["gateway"] = effective.gateway
+
+        # Redirect SQLMesh's process-pool factory to a synchronous in-process
+        # one before any Context is constructed, so model parsing can't fork a
+        # worker that deadlocks against the DataHub async sink. Idempotent.
+        _install_process_pool_patch()
 
         # Apply EnterpriseConfig load-time compat patches (Snowflake application
         # Literal + loader convert_config_type isinstance short-circuit). Both
@@ -454,7 +456,7 @@ class SqlmeshSource(
                         self.report.report_model_failed(fqn, str(e))
 
                 # Project load + model emission completed; post-ingest emitters
-                # (metadata tests, audit run events) are now safe to run.
+                # (audit run events) are now safe to run.
                 self._ingest_succeeded = True
             except Exception as e:
                 # Any failure in post-load setup (capability probe, per-gateway

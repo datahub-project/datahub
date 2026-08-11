@@ -16,6 +16,8 @@ single unified view in the UI.
   in the SQLMesh project config—the source plugin loads the SQLMesh context which opens
   a connection to resolve model metadata
 
+### Concepts and setup
+
 The rest of this section covers the concepts and setup you need before configuring
 a recipe.
 
@@ -264,7 +266,7 @@ the report. Different emissions depend on different probes.
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Dataset entities + schema + lineage                  | nothing (just project files)                                                         |
 | Sibling URN routing                                  | nothing                                                                              |
-| Assertion **definitions** (audit, freshness, volume) | nothing                                                                              |
+| Assertion **definitions** (audit only)               | nothing                                                                              |
 | Assertion **run events** (audit pass/fail)           | `audit_results_path` JSON file (no probes needed)                                    |
 | Volume `DatasetProfile.rowCount`                     | `has_state` (for authoritative fingerprint name) + `has_warehouse_query` (for COUNT) |
 | Pipeline `OperationAspect.lastUpdatedTimestamp`      | `has_state` (for `snapshot.updated_ts`)                                              |

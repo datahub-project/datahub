@@ -1826,56 +1826,6 @@ class TestStaleFingerprintDetection:
         assert "sqlmesh.fingerprint_stale" not in props
 
 
-class TestMetadataTestEmission:
-    def _test_infos(self, source: SqlmeshSource) -> dict:
-        with patch(
-            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
-            return_value=_make_mock_context(
-                {"star.dim_developer": _make_mock_model()}, {}
-            ),
-        ):
-            workunits = list(source.get_workunits_internal())
-        return {
-            str(getattr(wu.metadata, "entityUrn", "")): getattr(
-                wu.metadata, "aspect", None
-            )
-            for wu in workunits
-            if str(getattr(wu.metadata, "entityUrn", "")).startswith("urn:li:test:")
-        }
-
-    def test_emits_documentation_and_ownership_tests_with_valid_dsl(self):
-        source = _make_source({"sqlmesh_platform_instance": "proj1"})
-        infos = self._test_infos(source)
-        assert len(infos) == 2
-        by_name = {info.name: info for info in infos.values()}
-        assert any("documentation" in n for n in by_name)
-        assert any("owners" in n for n in by_name)
-        for info in infos.values():
-            definition = _json.loads(info.definition.json)
-            # Scope: platform + instance conditions, dataset type
-            assert definition["on"]["types"] == ["dataset"]
-            props = [c["property"] for c in definition["on"]["conditions"]["and"]]
-            assert "dataPlatformInstance.platform" in props
-            assert "dataPlatformInstance.instance" in props
-            assert "rules" in definition
-            assert "proj1" in info.name or "SQLMesh" in info.name
-
-    def test_urns_stable_across_runs_and_distinct_per_instance(self):
-        urns_a1 = set(
-            self._test_infos(_make_source({"sqlmesh_platform_instance": "a"}))
-        )
-        urns_a2 = set(
-            self._test_infos(_make_source({"sqlmesh_platform_instance": "a"}))
-        )
-        urns_b = set(self._test_infos(_make_source({"sqlmesh_platform_instance": "b"})))
-        assert urns_a1 == urns_a2
-        assert urns_a1.isdisjoint(urns_b)
-
-    def test_no_tests_emitted_when_disabled(self):
-        source = _make_source({"emit_metadata_tests": False})
-        assert self._test_infos(source) == {}
-
-
 class TestConfigValidation:
     def test_target_platform_sqlmesh_rejected(self):
         # Guards the common misconfiguration of pointing the warehouse platform

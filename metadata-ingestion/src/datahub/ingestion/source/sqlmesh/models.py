@@ -145,14 +145,6 @@ def parse_model_audits(model: "SqlmeshModel") -> List["_ModelAudit"]:
     return audits
 
 
-class _MetadataTestSpec(BaseModel):
-    suffix: str
-    name: str
-    description: str
-    # DataHub Metadata Test rule DSL (nested JSON), assembled at the call site.
-    rules: Dict[str, Any]
-
-
 def _probe_capabilities(
     sqlmesh_ctx: "SqlmeshContextType",
     graph: Optional["DataHubGraph"],

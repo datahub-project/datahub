@@ -562,18 +562,6 @@ class SqlmeshSourceConfig(
             "When not set, the owner field value is used as-is."
         ),
     )
-    emit_metadata_tests: bool = Field(
-        default=True,
-        description=(
-            "Emit DataHub Metadata Test entities (``urn:li:test:…``) enforcing "
-            "governance standards on this project's models: models must have "
-            "documentation, and models must have owners. Scoped to this "
-            "project's sqlmesh platform (and ``sqlmesh_platform_instance`` when "
-            "set). Any DataHub instance stores the test definitions; evaluating "
-            "them requires a deployment with a Metadata Tests runner "
-            "(DataHub Cloud). Set to false to skip emitting them."
-        ),
-    )
     # Removed: the connector no longer synthesises FRESHNESS / VOLUME assertion
     # definitions, nor an anomaly-detection opt-in marker. Freshness and volume
     # monitoring is expressed with DataHub monitors created against the

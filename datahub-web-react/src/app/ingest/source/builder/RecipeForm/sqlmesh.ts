@@ -235,10 +235,15 @@ export const SQLMESH_REMOVE_STALE_METADATA: RecipeField = {
         return i18next.t('ingestion.sourceBuilder:sqlmesh.removeStaleMetadata.tooltip');
     },
     type: FieldType.BOOLEAN,
-    // Bind the toggle to stateful_ingestion.enabled: remove_stale_metadata is a no-op
-    // unless stateful ingestion is on, so the setter flips both together to avoid an
-    // invalid partial state (remove_stale set without enabled).
-    fieldPath: statefulIngestionEnabledPath,
+    fieldPath: removeStaleMetadataPath,
+    // Read reflects the labelled setting itself (remove_stale_metadata) so a recipe
+    // with stateful ingestion on but stale-delete off renders unchecked, rather than
+    // reading stateful_ingestion.enabled and showing the opposite of the real setting.
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, removeStaleMetadataPath) === true,
+    // Write flips both keys together: remove_stale_metadata is a no-op unless stateful
+    // ingestion is enabled, so turning it on sets enabled too, and turning it off drops
+    // remove_stale (leaving enabled untouched isn't possible without a partial state, so
+    // we clear enabled as well to avoid an orphaned stateful_ingestion.enabled: false).
     setValueOnRecipeOverride: (recipe: any, value: boolean) => {
         if (value) {
             return set(set({ ...recipe }, statefulIngestionEnabledPath, true), removeStaleMetadataPath, true);
