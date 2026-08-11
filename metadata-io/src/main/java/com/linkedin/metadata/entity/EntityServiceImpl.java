@@ -1434,9 +1434,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   // sleepBeforeRetry — both perturb the shared retry path used by
                                   // the
                                   // OL-base and PL modes and cannot be validated without ITs.
-                                  // TODO(op-locking Mode B / lock-placement pass): release the gate
-                                  // during outer-retry backoff, or move to per-branch atomic commit
-                                  // units under Mode B.
                                   final Set<Urn> unresolved = batchWriteResult.conflictedUrns();
                                   final int attempts = scopedAttempt;
                                   opContext
@@ -3676,6 +3673,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // deleteAspectWithoutMCL). The Hazelcast IMap lock is re-entrant per
                           // (thread, key), so this does not self-deadlock; the no-op backend is
                           // trivially re-entrant too.
+                          //
+                          // KNOWN LIMITATION (lock-placement pass): this synchronous nested ingest
+                          // runs its MCL emission + post-commit retention while the outer write
+                          // gate
+                          // is still held, so concurrent writers on this URN wait for the full
+                          // soft-delete ingest, not just its DB transaction. Liveness-only, not
+                          // correctness (reentrant; CAS still guards; the lease bounds any hang),
+                          // on
+                          // an infrequent path (key-aspect soft-delete under same-URN contention).
+                          // Scoping the gate to just the DB write here needs the same
+                          // lock-placement
+                          // refactor as the outer-retry-backoff case and is deferred with it.
                           this.ingestProposal(opContext, gmce, auditStamp, false);
                         }
                       } else {
