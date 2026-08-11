@@ -167,6 +167,7 @@ export class EntityDocumentationPage extends BasePage {
         }
         // Dismiss a stuck modal before retrying the drawer → edit flow.
         await this.page.keyboard.press('Escape').catch(() => undefined);
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * attempt);
       }
     }
@@ -176,8 +177,10 @@ export class EntityDocumentationPage extends BasePage {
 
   async openAddLinkForm(): Promise<void> {
     await this.addRelatedButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
     await this.page.getByText('Add link').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
