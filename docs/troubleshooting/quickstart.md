@@ -86,14 +86,14 @@ datahub docker check
 You can also list the running containers with `docker container ls`. The quickstart profile
 starts these services:
 
-| Service (hostname)        | Image                            | Published host ports |
-| ------------------------- | -------------------------------- | -------------------- |
-| `datahub-gms`             | `acryldata/datahub-gms`          | 8080, 4319           |
-| `datahub-frontend-react`  | `acryldata/datahub-frontend-react` | 9002               |
-| `broker`                  | `confluentinc/cp-kafka`          | 9092                 |
-| `mysql`                   | `mysql`                          | 3306                 |
-| `search`                  | `opensearchproject/opensearch`   | 9200                 |
-| `actions`                 | `acryldata/datahub-actions`      | none                 |
+| Service (hostname)       | Image                              | Published host ports |
+| ------------------------ | ---------------------------------- | -------------------- |
+| `datahub-gms`            | `acryldata/datahub-gms`            | 8080, 4319           |
+| `datahub-frontend-react` | `acryldata/datahub-frontend-react` | 9002                 |
+| `broker`                 | `confluentinc/cp-kafka`            | 9092                 |
+| `mysql`                  | `mysql`                            | 3306                 |
+| `search`                 | `opensearchproject/opensearch`     | 9200                 |
+| `actions`                | `acryldata/datahub-actions`        | none                 |
 
 `datahub-system-update` is expected to be **missing** from that list. It is a one-shot job that
 `datahub-gms` and `datahub-frontend-react` wait on with `service_completed_successfully`, so it
