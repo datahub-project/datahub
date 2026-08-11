@@ -1,15 +1,8 @@
-from datahub.ingestion.agent.models import (
-    FieldKind,
-    FieldSpec,
-    ProbeLeafKind,
-    ProbeNode,
-    ProbeResult,
-    SourceSpec,
-)
-from datahub.ingestion.source.common.subtypes import (
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-)
+"""What `probe describe` serialises. ProbeNode/ProbeResult tests went with those
+types: they described the deleted hierarchy's output shape, which nothing produces.
+"""
+
+from datahub.ingestion.agent.models import FieldKind, FieldSpec, SourceSpec
 
 
 def test_field_spec_to_dict_serializes_kind_as_string():
@@ -25,44 +18,6 @@ def test_field_spec_to_dict_serializes_kind_as_string():
     assert d["kind"] == "secret"
     assert d["name"] == "password"
     assert d["required"] is True
-
-
-def test_probe_node_kind_serializes_to_subtype_string():
-    node = ProbeNode(
-        name="orders",
-        kind=DatasetSubTypes.TABLE,
-        fqn="db.public.orders",
-        pattern_field="table_pattern",
-    )
-    d = node.to_dict()
-    assert d["kind"] == "Table"
-    assert d["pattern_field"] == "table_pattern"
-
-
-def test_probe_result_round_trips_nodes():
-    result = ProbeResult(
-        source_type="snowflake",
-        supported=True,
-        parent_path=["MY_DB"],
-        nodes=[
-            ProbeNode(
-                name="PUBLIC",
-                kind=DatasetContainerSubTypes.SCHEMA,
-                fqn="MY_DB.PUBLIC",
-                pattern_field="schema_pattern",
-            )
-        ],
-        truncated=False,
-        fallback=None,
-    )
-    d = result.to_dict()
-    assert d["supported"] is True
-    nodes = d["nodes"]
-    assert isinstance(nodes, list)
-    first_node = nodes[0]
-    assert isinstance(first_node, dict)
-    assert first_node["kind"] == "Schema"
-    assert d["parent_path"] == ["MY_DB"]
 
 
 def test_source_spec_to_dict():
@@ -85,7 +40,3 @@ def test_source_spec_to_dict():
     first_capability = capabilities[0]
     assert isinstance(first_capability, dict)
     assert first_capability["supported"] is True
-
-
-def test_probe_leaf_kind_column():
-    assert str(ProbeLeafKind.COLUMN) == "Column"

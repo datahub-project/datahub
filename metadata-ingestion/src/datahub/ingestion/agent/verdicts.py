@@ -2,8 +2,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional, Tuple
 
-from typing_extensions import TypeGuard
-
 
 @dataclass(frozen=True)
 class Verdict:
@@ -51,28 +49,6 @@ _INCLUDED = Verdict.include()
 # and are always included.
 UNFILTERED: str = "__unfiltered__"
 
-# Stand-in for a node whose lister produced no usable name. Listers are declared
-# to return Sequence[str], but real APIs break that contract — Mode hands back
-# reports with name=null. Such a node can be neither filtered
-# (AllowDenyPattern.allowed raises TypeError on a non-string) nor addressed as a
-# --parent, but it does exist, and a probe is a diagnostic: "two unnamed reports
-# live here" is more useful to a caller than a dropped row or a stack trace.
-UNNAMED: str = "<unnamed>"
-
-# Reported like the connectors' own structural exclusions ("system_object",
-# "default_schema"): a statement about what the probe can address, not a
-# prediction that ingestion would skip the object.
-_UNNAMED_VERDICT = Verdict(False, "unnamed")
-
-
-def _usable_name(name: object) -> TypeGuard[str]:
-    """Whether a lister gave us a name we can filter on and descend into."""
-    return isinstance(name, str) and bool(name.strip())
-
-
-def _join_fqn(prefix: Optional[str], name: str) -> str:
-    return f"{prefix}.{name}" if prefix else name
-
 
 @dataclass(frozen=True)
 class ClassifyContext:
@@ -86,14 +62,10 @@ class ClassifyContext:
     parent_path: Tuple[str, ...]
     # Report that this node's classification degraded rather than raised (e.g.
     # a connector couldn't resolve its exact ingestion identifier and matched
-    # on a less-precise stand-in instead). Feeds the same ProbeResult.warnings
+    # on a less-precise stand-in instead). Feeds the same ProbeMethodResult.warnings
     # list ProbeSoftError does, deduplicated by list_children so a single
     # connector-wide reason isn't appended once per node it's classified for.
     warn: Callable[[str], None]
-
-
-# classify(ctx) -> Verdict
-LevelClassifier = Callable[[ClassifyContext], Verdict]
 
 
 def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> Verdict:
@@ -132,7 +104,7 @@ class ProbeSoftError(Exception):
     manifested, but it is a real limitation of the current per-level
     granularity, not per-lister-within-a-level.
 
-    list_children records str(exc) on ProbeResult.warnings and continues
+    run_probe_method records str(exc) on ProbeMethodResult.warnings and continues
     with the remaining sibling levels. Source-agnostic: any connector's
     lister may raise it, not just Mode's.
     """

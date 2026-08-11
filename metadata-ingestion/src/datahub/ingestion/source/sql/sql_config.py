@@ -183,7 +183,7 @@ class SQLCommonConfig(
         `warn` reports a degrade -- an override that cannot return its exact
         ingestion identifier and is falling back to something less precise
         (see UnityCatalogSourceConfig's override, the only one that calls it
-        today) -- onto the same ProbeResult.warnings list ProbeSoftError
+        today) -- onto the same ProbeMethodResult.warnings list ProbeSoftError
         feeds. It dedupes by message, so a connector-wide reason called once
         per node classified in a level is only recorded once per probe call.
         """

@@ -201,7 +201,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         # Message is connector-wide (source_cls + the missing attribute), not
         # per-node: ctx.warn dedupes on the message (see
         # ClientProbe.list_children's warn closure), so including ctx.fqn here
-        # would defeat that dedupe and flood ProbeResult.warnings with one
+        # would defeat that dedupe and flood ProbeMethodResult.warnings with one
         # near-identical entry per table.
         ctx.warn(
             f"{source_cls.__name__}.get_identifier needs source state the "

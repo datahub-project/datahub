@@ -648,7 +648,7 @@ class UnityCatalogSourceConfig(
         accuracy versus ingestion's "catalog.schema.table" -- silently
         returning it would repeat the exact defect this stage exists to
         remove, just for a different reason. So the degrade is reported via
-        `warn`, which feeds the same ProbeResult.warnings list ProbeSoftError
+        `warn`, which feeds the same ProbeMethodResult.warnings list ProbeSoftError
         does (see ClassifyContext.warn), not just explained here in a
         docstring the agent never sees.
         """

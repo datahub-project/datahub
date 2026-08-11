@@ -19,7 +19,7 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
-from datahub.ingestion.agent.sql_query import sql_result
+from datahub.ingestion.agent.sql_passthrough import sql_result
 
 
 class FakeSqlProvider:

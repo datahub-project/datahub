@@ -225,8 +225,7 @@ class ProbeMethodResult:
     # Non-fatal problems the provider hit while building `result` (see
     # agent.verdicts.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
     # it degraded to an empty/partial contribution instead of failing the
-    # whole command. Mirrors ProbeResult.warnings (same rationale, same
-    # shape) for the probe_run side of the framework. A provider surfaces
+    # whole command. A provider surfaces
     # these by exposing its own `warnings: List[str]` attribute, which
     # run_probe_method reads back after the call; a provider with no such
     # attribute always reports an empty list here.
