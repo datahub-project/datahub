@@ -51,6 +51,7 @@ class DatahubClientConfig(ConfigModel):
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
     server_config_refresh_interval: Optional[int] = None
+    server_config_retry_max_times: Optional[int] = None
     tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
     # Default emit mode for emit calls that don't pass one. None falls back to the
     # emitter's global default. Not used by the `datahub-rest` sink (it has `mode`).

@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ChangeTypeClass,
 )
+from datahub.sdk.main_client import DataHubClient
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
 
@@ -165,6 +166,42 @@ class TestDataHubRestEmitter:
         )
         assert emitter._session_config.retry_status_codes == [418]
         assert emitter._session_config.retry_max_times == 42
+
+    def test_server_config_uses_dedicated_retry_policy(self, mock_response) -> None:
+        emitter = DatahubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            retry_max_times=42,
+            server_config_retry_max_times=0,
+        )
+
+        assert (
+            emitter._session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total == 42
+        )
+        assert emitter._config_session is not None
+        assert (
+            emitter._config_session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total
+            == 0
+        )
+
+        config_session = MagicMock(spec=Session)
+        config_session.get.return_value = mock_response
+        emitter._config_session = config_session
+        emitter._session = MagicMock(spec=Session)
+
+        emitter.fetch_server_config()
+
+        config_session.get.assert_called_once_with(f"{MOCK_GMS_ENDPOINT}/config")
+        emitter._session.get.assert_not_called()
+
+    def test_datahub_client_from_env_passes_config_retry_limit(self) -> None:
+        with patch("datahub.sdk.main_client.get_default_graph") as get_default_graph:
+            DataHubClient.from_env(server_config_retry_max_times=0)
+
+        get_default_graph.assert_called_once_with(
+            client_mode=ClientMode.SDK,
+            datahub_component=None,
+            server_config_retry_max_times=0,
+        )
 
     def test_datahub_rest_emitter_extra_params(self) -> None:
         emitter = DatahubRestEmitter(
