@@ -585,7 +585,7 @@ class TestFreshnessAndVolumeSignals:
         # Operator/scope/aggregation are structured on customAssertion (dbt
         # parity), not stringified into customProperties.
         assert infos[0].customAssertion.operator == "NOT_NULL"
-        assert infos[0].customAssertion.field is not None
+        assert infos[0].customAssertion.field == "id"
 
     def test_builtin_audit_carries_std_parameters(self):
         """A built-in with bounds (accepted_range) emits structured
