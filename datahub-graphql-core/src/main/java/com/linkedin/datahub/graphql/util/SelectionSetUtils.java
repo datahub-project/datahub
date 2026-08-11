@@ -41,10 +41,7 @@ public class SelectionSetUtils {
   public static Set<String> selectedSubFieldNames(
       @Nonnull final DataFetchingEnvironment environment) {
     final Set<String> names = new HashSet<>();
-    final Map<String, FragmentDefinition> fragments = environment.getFragmentsByName();
-    for (Field field : environment.getMergedField().getFields()) {
-      collectFieldNames(field.getSelectionSet(), fragments, names);
-    }
+    walk(environment, names, null);
     return names;
   }
 
@@ -52,31 +49,74 @@ public class SelectionSetUtils {
    * True when the caller selected at least one sub-field and every selected sub-field is in {@code
    * allowed}. An empty selection is treated as ineligible rather than as trivially satisfying the
    * constraint.
+   *
+   * <p>Stops at the first sub-field outside {@code allowed} rather than collecting the whole
+   * selection, since the answer cannot change after that.
    */
   public static boolean selectsOnly(
       @Nonnull final DataFetchingEnvironment environment, @Nonnull final Set<String> allowed) {
-    final Set<String> selected = selectedSubFieldNames(environment);
-    return !selected.isEmpty() && allowed.containsAll(selected);
+    final Set<String> selected = new HashSet<>();
+    final boolean foundDisallowed = walk(environment, selected, allowed);
+    return !foundDisallowed && !selected.isEmpty();
   }
 
-  private static void collectFieldNames(
+  /**
+   * @param allowed when non-null, the walk stops as soon as a field outside this set is selected
+   * @return true if the walk stopped early on a disallowed field
+   */
+  private static boolean walk(
+      final DataFetchingEnvironment environment,
+      final Set<String> out,
+      @Nullable final Set<String> allowed) {
+    final Map<String, FragmentDefinition> fragments = environment.getFragmentsByName();
+    // A fragment reached twice contributes nothing new, and re-expanding it makes a document whose
+    // fragments spread each other repeatedly cost 2^depth to walk. Expanding each at most once
+    // keeps this linear in the size of the document (and makes cycles harmless).
+    final Set<String> visitedFragments = new HashSet<>();
+    for (Field field : environment.getMergedField().getFields()) {
+      if (collectFieldNames(field.getSelectionSet(), fragments, visitedFragments, out, allowed)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean collectFieldNames(
       @Nullable final SelectionSet selectionSet,
       final Map<String, FragmentDefinition> fragments,
-      final Set<String> out) {
+      final Set<String> visitedFragments,
+      final Set<String> out,
+      @Nullable final Set<String> allowed) {
     if (selectionSet == null) {
-      return;
+      return false;
     }
     for (Selection<?> selection : selectionSet.getSelections()) {
       if (selection instanceof Field) {
-        out.add(((Field) selection).getName());
+        final String name = ((Field) selection).getName();
+        out.add(name);
+        if (allowed != null && !allowed.contains(name)) {
+          return true;
+        }
       } else if (selection instanceof InlineFragment) {
-        collectFieldNames(((InlineFragment) selection).getSelectionSet(), fragments, out);
+        if (collectFieldNames(
+            ((InlineFragment) selection).getSelectionSet(),
+            fragments,
+            visitedFragments,
+            out,
+            allowed)) {
+          return true;
+        }
       } else if (selection instanceof FragmentSpread) {
-        final FragmentDefinition fragment = fragments.get(((FragmentSpread) selection).getName());
-        if (fragment != null) {
-          collectFieldNames(fragment.getSelectionSet(), fragments, out);
+        final String name = ((FragmentSpread) selection).getName();
+        final FragmentDefinition fragment = fragments.get(name);
+        if (fragment != null
+            && visitedFragments.add(name)
+            && collectFieldNames(
+                fragment.getSelectionSet(), fragments, visitedFragments, out, allowed)) {
+          return true;
         }
       }
     }
+    return false;
   }
 }

@@ -18,6 +18,7 @@ import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -47,6 +48,110 @@ public class SelectionSetUtilsTest {
 
     assertEquals(
         SelectionSetUtils.selectedSubFieldNames(env), ImmutableSet.of("total", "searchResults"));
+  }
+
+  @Test
+  public void testRepeatedFragmentSpreadsAreExpandedOnce() {
+    // Each fragment spreads the next one twice, so a walk that re-expands every occurrence costs
+    // 2^DEPTH. The document itself is tiny and cycle-free, so it passes validation and reaches the
+    // resolver: without memoisation a request like this pins a thread for minutes. Expanding each
+    // fragment at most once keeps the walk linear, so this returns immediately.
+    final int depth = 30;
+    final Map<String, FragmentDefinition> fragments = new HashMap<>();
+    for (int i = 0; i < depth; i++) {
+      fragments.put(
+          "F" + i,
+          fragment(
+              "F" + i,
+              ImmutableList.of(
+                  new FragmentSpread("F" + (i + 1)), new FragmentSpread("F" + (i + 1)))));
+    }
+    fragments.put("F" + depth, fragment("F" + depth, ImmutableList.of(field("total"))));
+
+    final DataFetchingEnvironment env = env(ImmutableList.of(new FragmentSpread("F0")), fragments);
+
+    assertEquals(SelectionSetUtils.selectedSubFieldNames(env), ImmutableSet.of("total"));
+    assertTrue(SelectionSetUtils.selectsOnly(env, ImmutableSet.of("total")));
+  }
+
+  @Test
+  public void testAliasedFieldsUseTheirUnderlyingName() {
+    // The response key is irrelevant; what matters is which field the server must resolve. An
+    // aliased `searchResults` still means hits are being read, so it must disqualify a count-only
+    // caller -- treating the alias as the name would silently serve counts to someone wanting hits.
+    final DataFetchingEnvironment aliasedHits =
+        env(
+            ImmutableList.of(Field.newField("searchResults").alias("count").build()),
+            Collections.emptyMap());
+    assertEquals(
+        SelectionSetUtils.selectedSubFieldNames(aliasedHits), ImmutableSet.of("searchResults"));
+    assertFalse(SelectionSetUtils.selectsOnly(aliasedHits, ImmutableSet.of("total")));
+
+    final DataFetchingEnvironment aliasedTotal =
+        env(
+            ImmutableList.of(Field.newField("total").alias("searchResults").build()),
+            Collections.emptyMap());
+    assertTrue(SelectionSetUtils.selectsOnly(aliasedTotal, ImmutableSet.of("total")));
+  }
+
+  @Test
+  public void testNestedFieldSelectionsAreNotCollected() {
+    // Only the immediate sub-fields matter. Descending into `searchResults { entity { urn } }`
+    // would surface `entity`/`urn` as if the caller had selected them at this level, which would
+    // disqualify every caller and defeat the point of the check.
+    final Field hitsWithSubSelection =
+        Field.newField("searchResults")
+            .selectionSet(
+                selectionSet(
+                    ImmutableList.of(
+                        Field.newField("entity")
+                            .selectionSet(selectionSet(ImmutableList.of(field("urn"))))
+                            .build())))
+            .build();
+    final DataFetchingEnvironment env =
+        env(ImmutableList.of(field("total"), hitsWithSubSelection), Collections.emptyMap());
+
+    assertEquals(
+        SelectionSetUtils.selectedSubFieldNames(env), ImmutableSet.of("total", "searchResults"));
+  }
+
+  @Test
+  public void testDisallowedFieldIsFoundThroughFragments() {
+    // The early exit has to propagate back up through both recursive branches. If it were dropped,
+    // selectsOnly would wrongly report a count-only selection for a caller reading hits.
+    final DataFetchingEnvironment throughSpread =
+        env(
+            ImmutableList.of(field("total"), new FragmentSpread("outer")),
+            ImmutableMap.of(
+                "outer", fragment("outer", ImmutableList.of(new FragmentSpread("inner"))),
+                "inner", fragment("inner", ImmutableList.of(field("searchResults")))));
+    assertFalse(SelectionSetUtils.selectsOnly(throughSpread, ImmutableSet.of("total")));
+
+    final DataFetchingEnvironment throughInlineFragment =
+        env(
+            ImmutableList.of(
+                field("total"),
+                InlineFragment.newInlineFragment()
+                    .selectionSet(selectionSet(ImmutableList.of(field("searchResults"))))
+                    .build()),
+            Collections.emptyMap());
+    assertFalse(SelectionSetUtils.selectsOnly(throughInlineFragment, ImmutableSet.of("total")));
+  }
+
+  @Test
+  public void testCyclicFragmentsTerminate() {
+    // graphql-java rejects fragment cycles before execution, so this should be unreachable in
+    // practice -- but expanding each fragment once makes the walk terminate anyway rather than
+    // recursing until the stack dies.
+    final DataFetchingEnvironment env =
+        env(
+            ImmutableList.of(new FragmentSpread("a")),
+            ImmutableMap.of(
+                "a", fragment("a", ImmutableList.of(field("total"), new FragmentSpread("b"))),
+                "b", fragment("b", ImmutableList.of(new FragmentSpread("a")))));
+
+    assertEquals(SelectionSetUtils.selectedSubFieldNames(env), ImmutableSet.of("total"));
+    assertTrue(SelectionSetUtils.selectsOnly(env, ImmutableSet.of("total")));
   }
 
   @Test
@@ -93,6 +198,9 @@ public class SelectionSetUtilsTest {
 
     assertEquals(
         SelectionSetUtils.selectedSubFieldNames(env), ImmutableSet.of("total", "searchResults"));
+    // The disallowed field is only in the second merged field, so the loop over merged fields must
+    // keep going rather than answering from the first one alone.
+    assertFalse(SelectionSetUtils.selectsOnly(env, ImmutableSet.of("total")));
   }
 
   @Test
@@ -115,6 +223,24 @@ public class SelectionSetUtilsTest {
 
     assertTrue(SelectionSetUtils.selectedSubFieldNames(env).contains("searchResults"));
     assertFalse(SelectionSetUtils.selectsOnly(env, ImmutableSet.of("total")));
+
+    // Same for a directive on the spread itself, which is a separate branch of the walk.
+    final DataFetchingEnvironment skippedSpread =
+        env(
+            ImmutableList.of(
+                field("total"),
+                FragmentSpread.newFragmentSpread("hits")
+                    .directives(Collections.singletonList(skipIfTrue()))
+                    .build()),
+            ImmutableMap.of("hits", fragment("hits", ImmutableList.of(field("searchResults")))));
+    assertFalse(SelectionSetUtils.selectsOnly(skippedSpread, ImmutableSet.of("total")));
+  }
+
+  private static Directive skipIfTrue() {
+    return Directive.newDirective()
+        .name("skip")
+        .argument(Argument.newArgument("if", BooleanValue.newBooleanValue(true).build()).build())
+        .build();
   }
 
   @Test
