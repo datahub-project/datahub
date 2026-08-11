@@ -68,6 +68,12 @@ STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 # abctl v0.30.3 deploys Airbyte 1.8+
 ABCTL_VERSION = "v0.30.3"
 
+# Pin the Airbyte helm CHART version (abctl installs from the v2 chart repo, whose versions are
+# 2.x.x — distinct from the Airbyte *app* version). abctl defaults --chart-version to "latest",
+# which drifted to chart 2.2.0 (app 2.2.0) whose auth flow this test doesn't handle (401s). Chart
+# 2.0.17 packages app 1.8.5, the last 1.8.x release the test targets.
+AIRBYTE_CHART_VERSION = "2.0.17"
+
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
 
 

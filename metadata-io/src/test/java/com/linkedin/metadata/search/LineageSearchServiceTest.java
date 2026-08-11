@@ -117,7 +117,7 @@ public class LineageSearchServiceTest {
             .sideEffects(
                 MetadataChangeProposalConfig.SideEffectsConfig.builder()
                     .schemaField(
-                        MetadataChangeProposalConfig.SideEffectConfig.builder()
+                        MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig.builder()
                             .enabled(false)
                             .build())
                     .build())

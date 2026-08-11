@@ -190,7 +190,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     appConfig
         .getMetadataChangeProposal()
         .getSideEffects()
-        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
     appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     appConfig.setElasticSearch(getElasticSearchConfiguration());
     appConfig.setGraphService(TEST_GRAPH_SERVICE_CONFIG);

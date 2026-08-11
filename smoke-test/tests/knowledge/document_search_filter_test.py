@@ -15,10 +15,16 @@ import time
 import uuid
 
 import pytest
+import tenacity
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
+
+# Same env-driven timing as with_test_retry(), but scoped to a single retryable
+# condition (see _fetch_related_documents) rather than any exception.
+_RETRY_SLEEP, _RETRY_TIMES = get_sleep_info()
 
 
 def execute_graphql(
@@ -88,6 +94,64 @@ def _create_document(
         assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
     return urn
+
+
+class _DocumentNotIndexedYet(Exception):
+    """The document is not visible in the graph index yet -- worth retrying."""
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(_RETRY_TIMES),
+    wait=tenacity.wait_fixed(_RETRY_SLEEP),
+    retry=tenacity.retry_if_exception_type(_DocumentNotIndexedYet),
+    reraise=True,
+)
+def _fetch_related_documents(auth_session, dataset_urn: str, expected_doc_urn: str):
+    """Read an entity's relatedDocuments, retrying until the document shows up.
+
+    relatedDocuments is a reverse relationship lookup served by the graph index,
+    so it only reflects the write once the MCL has been consumed *and* indexed.
+    Waiting on the consumer offset does not cover the indexing step, and a fixed
+    sleep is just a guess at how long that takes on any given runner -- retry
+    instead, matching test_scroll_lineage.py::_assert_lineage_edges.
+
+    Only the not-yet-indexed case retries. An HTTP error or a GraphQL error
+    payload is not transient, so it propagates on the first attempt rather than
+    costing every genuine failure the full retry budget.
+    """
+    related_query = """
+        query GetDatasetDocs($urn: String!, $input: RelatedDocumentsInput!) {
+          dataset(urn: $urn) {
+            relatedDocuments(input: $input) {
+              total
+              documents {
+                urn
+                info { title }
+                settings { showInGlobalContext }
+              }
+            }
+          }
+        }
+    """
+    related_vars = {
+        "urn": dataset_urn,
+        "input": {"start": 0, "count": 100},
+    }
+    related_res = execute_graphql(auth_session, related_query, related_vars)
+    assert "errors" not in related_res, f"GraphQL errors: {related_res.get('errors')}"
+
+    related_docs = related_res["data"]["dataset"]["relatedDocuments"]
+    found_urns = [doc["urn"] for doc in related_docs["documents"]]
+
+    # Context-only document SHOULD appear in relatedDocuments. This is the key
+    # distinction: relatedDocuments shows context docs, global search does not.
+    if expected_doc_urn not in found_urns:
+        raise _DocumentNotIndexedYet(
+            f"Context-only document {expected_doc_urn} SHOULD appear in relatedDocuments. "
+            f"Found: {found_urns}. "
+            f"Context documents are meant to be discovered through their related entities."
+        )
+    return related_docs
 
 
 def _delete_document(auth_session, urn: str):
@@ -349,45 +413,9 @@ def test_related_documents_shows_context_only_documents(auth_session):
     assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
     wait_for_writes_to_sync(mae_only=True)
-    time.sleep(5)  # Wait for search indexing
-
-    # Query relatedDocuments on the dataset
-    related_query = """
-        query GetDatasetDocs($urn: String!, $input: RelatedDocumentsInput!) {
-          dataset(urn: $urn) {
-            relatedDocuments(input: $input) {
-              total
-              documents {
-                urn
-                info { title }
-                settings { showInGlobalContext }
-              }
-            }
-          }
-        }
-    """
-    related_vars = {
-        "urn": dataset_urn,
-        "input": {"start": 0, "count": 100},
-    }
 
     try:
-        related_res = execute_graphql(auth_session, related_query, related_vars)
-        assert "errors" not in related_res, (
-            f"GraphQL errors: {related_res.get('errors')}"
-        )
-
-        related_docs = related_res["data"]["dataset"]["relatedDocuments"]
-        found_urns = [doc["urn"] for doc in related_docs["documents"]]
-
-        # Context-only document SHOULD appear in relatedDocuments
-        # This is the key distinction: relatedDocuments shows context docs,
-        # while global search does not.
-        assert doc_urn in found_urns, (
-            f"Context-only document {doc_urn} SHOULD appear in relatedDocuments. "
-            f"Found: {found_urns}. "
-            f"Context documents are meant to be discovered through their related entities."
-        )
+        related_docs = _fetch_related_documents(auth_session, dataset_urn, doc_urn)
 
         # Verify it has showInGlobalContext=false
         our_doc = next(

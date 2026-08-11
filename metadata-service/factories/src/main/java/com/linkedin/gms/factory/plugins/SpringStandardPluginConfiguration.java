@@ -25,6 +25,7 @@ import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
@@ -148,22 +149,44 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.schemaField.enabled",
       havingValue = "true")
-  public MCPSideEffect schemaFieldSideEffect() {
+  public MCPSideEffect schemaFieldSideEffect(ConfigurationProvider configurationProvider) {
+    var schemaFieldConfig =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled = schemaFieldConfig != null && schemaFieldConfig.isDomainEnabled();
+    boolean ownershipEnabled = schemaFieldConfig != null && schemaFieldConfig.isOwnershipEnabled();
+
+    List<AspectPluginConfig.EntityAspectName> supported =
+        new java.util.ArrayList<>(
+            List.of(
+                AspectPluginConfig.EntityAspectName.builder()
+                    .entityName(Constants.DATASET_ENTITY_NAME)
+                    .aspectName(Constants.STATUS_ASPECT_NAME)
+                    .build(),
+                AspectPluginConfig.EntityAspectName.builder()
+                    .entityName(Constants.DATASET_ENTITY_NAME)
+                    .aspectName(Constants.SCHEMA_METADATA_ASPECT_NAME)
+                    .build()));
+    if (domainEnabled) {
+      supported.add(
+          AspectPluginConfig.EntityAspectName.builder()
+              .entityName(Constants.DATASET_ENTITY_NAME)
+              .aspectName(Constants.DOMAINS_ASPECT_NAME)
+              .build());
+    }
+    if (ownershipEnabled) {
+      supported.add(
+          AspectPluginConfig.EntityAspectName.builder()
+              .entityName(Constants.DATASET_ENTITY_NAME)
+              .aspectName(Constants.OWNERSHIP_ASPECT_NAME)
+              .build());
+    }
+
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .enabled(true)
             .className(SchemaFieldSideEffect.class.getName())
             .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
-            .supportedEntityAspectNames(
-                List.of(
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DATASET_ENTITY_NAME)
-                        .aspectName(Constants.STATUS_ASPECT_NAME)
-                        .build(),
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DATASET_ENTITY_NAME)
-                        .aspectName(Constants.SCHEMA_METADATA_ASPECT_NAME)
-                        .build()))
+            .supportedEntityAspectNames(supported)
             .build();
 
     // prevent recursive dependency from using primary bean
@@ -172,9 +195,15 @@ public class SpringStandardPluginConfiguration {
     entityChangeEventGeneratorRegistry.register(
         SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
 
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    log.info(
+        "Initialized {} (domainEnabled={}, ownershipEnabled={})",
+        SchemaFieldSideEffect.class.getName(),
+        domainEnabled,
+        ownershipEnabled);
     return new SchemaFieldSideEffect()
         .setConfig(config)
+        .setDomainEnabled(domainEnabled)
+        .setOwnershipEnabled(ownershipEnabled)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
   }
 
@@ -527,6 +556,28 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.domainWrite.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator domainWriteAuthorizationValidator() {
+    return new DomainWriteAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DomainWriteAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(DOMAINS_ASPECT_NAME)
                             .build()))
                 .build());
   }
