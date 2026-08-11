@@ -150,7 +150,7 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.IN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
-        value_kwarg="values",
+        value_kwarg="is_in",
         value_is_set=True,
     ),
 }
