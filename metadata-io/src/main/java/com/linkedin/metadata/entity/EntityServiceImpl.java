@@ -3930,7 +3930,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   @Nonnull
   static Set<Pair<Urn, String>> committedKeysOf(@Nonnull BatchWriteResult batchWriteResult) {
-    return batchWriteResult.committed().stream()
+    return batchWriteResult.committedResults().stream()
         .map(result -> Pair.of(result.getUrn(), result.getAspectName()))
         .collect(Collectors.toSet());
   }

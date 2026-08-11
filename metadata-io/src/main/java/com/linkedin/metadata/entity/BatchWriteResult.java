@@ -36,14 +36,14 @@ public final class BatchWriteResult {
   }
 
   @Nonnull
-  public List<AspectWriteResult> failures() {
+  public List<AspectWriteResult> failureResults() {
     return results.stream()
         .filter(r -> r.getOutcome() == AspectWriteOutcome.FAILED)
         .collect(Collectors.toList());
   }
 
   @Nonnull
-  public List<AspectWriteResult> committed() {
+  public List<AspectWriteResult> committedResults() {
     return results.stream()
         .filter(r -> r.getOutcome() == AspectWriteOutcome.COMMITTED)
         .collect(Collectors.toList());

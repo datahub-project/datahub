@@ -195,4 +195,41 @@ public class HazelcastEntityWriteLockTest {
     EntityWriteLock.LockHandle handle = lock.acquire(opContext, List.of("urn:a"));
     handle.close(); // must not throw
   }
+
+  /**
+   * A waiter that can't acquire a genuinely-held key within the timeout proceeds WITHOUT the lock
+   * (best-effort), never blocking or throwing, and never stealing/releasing the holder's lock. Uses
+   * acquireTimeout=0 so the contended tryLock returns immediately — deterministic, no sleeps.
+   */
+  @Test
+  public void acquireTimesOutOnHeldKeyAndProceedsLockless() throws Exception {
+    final HazelcastEntityWriteLock lock = new HazelcastEntityWriteLock(hz, MAP, 0, 60);
+    final CountDownLatch held = new CountDownLatch(1);
+    final CountDownLatch release = new CountDownLatch(1);
+    final ExecutorService holder = Executors.newSingleThreadExecutor();
+    try {
+      holder.submit(
+          () -> {
+            map.lock(
+                "urn:x"); // Hazelcast IMap locks are thread-owned — hold it off the test thread
+            held.countDown();
+            release.await(10, TimeUnit.SECONDS);
+            map.unlock("urn:x");
+            return null;
+          });
+      assertTrue(held.await(10, TimeUnit.SECONDS));
+
+      // Contended acquire with timeout=0 returns immediately without acquiring (the test would hang
+      // if it blocked). The key stays owned by the holder; the no-op handle must not release it.
+      EntityWriteLock.LockHandle handle = lock.acquire(opContext, List.of("urn:x"));
+      assertTrue(map.isLocked("urn:x"), "waiter must not have acquired the held key");
+      handle.close();
+      assertTrue(map.isLocked("urn:x"), "close must not release a lock the waiter never held");
+    } finally {
+      release.countDown();
+      holder.shutdown();
+      assertTrue(holder.awaitTermination(10, TimeUnit.SECONDS));
+    }
+    assertTrue(map.tryLock("urn:x", 0, TimeUnit.SECONDS), "key is free once the holder releases");
+  }
 }

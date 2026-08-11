@@ -25,9 +25,9 @@ public class BatchWriteResultTest {
                 AspectWriteResult.failed(URN_A, "keyAspect", new IllegalStateException("nope")),
                 AspectWriteResult.noop(URN_B, "keyAspect")));
 
-    assertEquals(result.committed().size(), 1);
-    assertEquals(result.committed().get(0).getUrn(), URN_A);
-    assertEquals(result.failures().size(), 1);
+    assertEquals(result.committedResults().size(), 1);
+    assertEquals(result.committedResults().get(0).getUrn(), URN_A);
+    assertEquals(result.failureResults().size(), 1);
     assertEquals(result.conflictedUrns(), java.util.Set.of(URN_B));
     assertTrue(result.hasConflicts());
   }
@@ -49,7 +49,7 @@ public class BatchWriteResultTest {
 
     assertFalse(result.hasConflicts());
     assertTrue(result.conflictedUrns().isEmpty());
-    assertTrue(result.committed().isEmpty());
-    assertTrue(result.failures().isEmpty());
+    assertTrue(result.committedResults().isEmpty());
+    assertTrue(result.failureResults().isEmpty());
   }
 }

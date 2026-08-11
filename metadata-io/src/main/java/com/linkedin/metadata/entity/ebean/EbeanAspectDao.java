@@ -137,27 +137,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private final boolean isPostgres;
   // Opt-in per-entity write serialization via the Postgres advisory lock (pg_advisory_xact_lock).
   private final boolean entityWriteAdvisoryLockEnabled;
-  // Max seconds a db-backend advisory-lock acquire waits (bounded) before proceeding lockless — CAS
-  // still guards. Wired from ebean.entityWriteLockAcquireTimeoutSeconds; bounds the Postgres
-  // pg_try_advisory_xact_lock poll.
-  private final int entityWriteLockAcquireTimeoutSeconds;
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
-
-  /**
-   * Poll granularity for the Postgres {@code pg_try_advisory_xact_lock} spin-wait within the
-   * acquire timeout. 50ms is a deliberate balance: short enough that a contended waiter reacts to a
-   * released lock within one human-imperceptible tick, long enough that the spin issues at most ~20
-   * round-trips per second per waiting URN (vs a tight loop that would hammer the connection). Not
-   * made configurable to avoid another knob — prefer {@code backend=hazelcast} for large hot-key
-   * batches, where waits are off-connection entirely.
-   */
-  private static final long PG_ADVISORY_LOCK_POLL_MILLIS = 50L;
-
-  // Above this URN count, the advisory lock does many per-URN round trips per batch under
-  // contention; warn once per batch recommending the hazelcast write gate (off-connection waits).
-  private static final int PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD = 100;
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -243,8 +225,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Postgres deadlock-ordering advisory lock — independent of the Hazelcast write-gate backend.
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
-    this.entityWriteLockAcquireTimeoutSeconds =
-        ebeanConfiguration.getEntityWriteLockAcquireTimeoutSeconds();
     this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
     if (optimisticLocking) {
       log.info(
@@ -308,25 +288,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * and {@link #deleteUrn} take a transaction-scoped advisory lock per urn <em>before</em>
    * acquiring any row locks, so a multi-row {@code FOR UPDATE} writer (e.g. logical-model linking)
    * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
-   * advisory lock ({@code pg_advisory_xact_lock}) is released automatically on commit/rollback, so
-   * no explicit release is needed. No-op unless the store is Postgres and the feature is enabled.
-   * Acquire waits are bounded by {@code entityWriteLockAcquireTimeoutSeconds}, then degrade to
-   * lockless (CAS still guards).
+   * advisory lock is released automatically on commit/rollback. No-op unless the store is Postgres
+   * and the feature is enabled.
    *
-   * <p>Keyed by {@code pg_try_advisory_xact_lock(<namespace>, hashtext(urn))} (polled up to the
-   * acquire timeout). {@code hashtext} is a 32-bit hash, so distinct urns can collide on the same
-   * lock key and serialize against each other. That is a false serialization: it costs throughput
-   * but never affects correctness. It is acceptable here because the feature is opt-in and
-   * collisions are rare relative to the set of entities being written concurrently.
+   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn))}. {@code hashtext} is a
+   * 32-bit hash, so distinct urns can collide on the same lock key and serialize against each
+   * other. That is a false serialization: it costs throughput but never affects correctness. It is
+   * acceptable here because the feature is opt-in and collisions are rare relative to the set of
+   * entities being written concurrently.
    */
   @Override
   public void lockUrnsForWrite(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
-    if (!canWrite || !entityWriteAdvisoryLockEnabled || urns.isEmpty()) {
+    if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
       return;
-    }
-    if (!isPostgres) {
-      return; // advisory locking is implemented only for Postgres
     }
     txnFactory.runInScope(
         opContext,
@@ -338,76 +313,31 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           if (!hasActiveTransaction("lockUrnsForWrite")) {
             return null;
           }
-          // Sort so every transaction presents the per-entity lock keys in the SAME order —
-          // advisory locks self-deadlock across transactions otherwise. This sorted order is also
-          // the deterministic write order the persist path applies.
+          // Acquire all the advisory locks in ONE round trip. Sort first so every transaction
+          // presents the keys in the same order (advisory locks can self-deadlock across
+          // transactions otherwise), then lock them in a single statement over a VALUES list — a
+          // logical-model link can carry hundreds/thousands of urns, and a round trip per urn would
+          // swamp the DB. The VALUES scan evaluates the (void-returning) function once per row, in
+          // list order. Result discarded.
           final List<String> sortedUrns =
               urns.stream().distinct().sorted().collect(Collectors.toList());
-          lockUrnsPostgres(sortedUrns);
+          final StringBuilder sql =
+              new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
+          for (int i = 0; i < sortedUrns.size(); i++) {
+            if (i > 0) {
+              sql.append(", ");
+            }
+            sql.append("(:u").append(i).append(")");
+          }
+          sql.append(") as v(urn)");
+          final SqlQuery lockQuery =
+              server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
+          for (int i = 0; i < sortedUrns.size(); i++) {
+            lockQuery.setParameter("u" + i, sortedUrns.get(i));
+          }
+          lockQuery.findList();
           return null;
         });
-  }
-
-  /**
-   * Postgres: per-urn {@code pg_try_advisory_xact_lock} (non-blocking; returns a boolean —
-   * true=acquired, false=contended), polled in sorted order up to {@link
-   * #entityWriteLockAcquireTimeoutSeconds}. A false is a held lock (poll); a query error is NOT
-   * polled — it propagates to the outer transaction retry (see {@link #tryAdvisoryLockPostgres}).
-   * On timeout the write proceeds WITHOUT the lock — CAS on {@code SystemMetadata.version} remains
-   * the correctness floor — rather than pinning the pooled connection indefinitely as the blocking
-   * {@code pg_advisory_xact_lock} would. Released automatically on commit/rollback. (Per-urn round
-   * trips, unlike the old single VALUES batch, are the cost of honoring the acquire timeout; the db
-   * backend is the simple fallback — prefer the hazelcast backend for large hot-key batches.)
-   */
-  private void lockUrnsPostgres(@Nonnull List<String> sortedUrns) {
-    if (sortedUrns.size() > PG_ADVISORY_LOCK_LARGE_BATCH_THRESHOLD) {
-      log.warn(
-          "advisory locking a large batch of {} URNs; this issues per-URN "
-              + "pg_try_advisory_xact_lock round trips and can be slow under contention. Prefer "
-              + "entityWriteLockBackend=hazelcast for large hot-key batches (waits off the DB "
-              + "connection).",
-          sortedUrns.size());
-    }
-    for (String urn : sortedUrns) {
-      // Per-URN deadline: each URN gets the full acquire timeout. A single shared deadline would
-      // starve later URNs of any wait budget once an earlier hot URN consumed it.
-      final long deadlineMs =
-          System.currentTimeMillis() + entityWriteLockAcquireTimeoutSeconds * 1000L;
-      boolean acquired = tryAdvisoryLockPostgres(urn);
-      while (!acquired && System.currentTimeMillis() < deadlineMs) {
-        try {
-          Thread.sleep(PG_ADVISORY_LOCK_POLL_MILLIS);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-        acquired = tryAdvisoryLockPostgres(urn);
-      }
-      if (!acquired) {
-        log.warn(
-            "pg_try_advisory_xact_lock for urn={} not acquired within {}s; proceeding without the "
-                + "advisory lock (CAS still guards correctness).",
-            urn,
-            entityWriteLockAcquireTimeoutSeconds);
-      }
-    }
-  }
-
-  /**
-   * @return {@code true} = lock acquired, {@code false} = held by another writer (contended — the
-   *     caller polls until the acquire timeout). A query/runtime error is NOT contention: it is
-   *     typically a broken/aborted transaction that cannot "proceed lockless", so it PROPAGATES to
-   *     the outer {@code runInTransactionWithRetry}, which re-runs in a fresh transaction — rather
-   *     than being polled repeatedly as if it were a held lock.
-   */
-  private boolean tryAdvisoryLockPostgres(@Nonnull String urn) {
-    final SqlRow row =
-        server
-            .sqlQuery("select pg_try_advisory_xact_lock(:ns, hashtext(:urn)) as acquired")
-            .setParameter("ns", ADVISORY_LOCK_NAMESPACE)
-            .setParameter("urn", urn)
-            .findOne();
-    return row != null && Boolean.TRUE.equals(row.getBoolean("acquired"));
   }
 
   /**
