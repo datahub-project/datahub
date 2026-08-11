@@ -302,3 +302,58 @@ def test_powerbi_api_passes_certificate_credential_to_msal(
         assert_certificate_credential(
             call.kwargs["client_credential"], key_and_certificate
         )
+
+
+def test_token_failure_surfaces_entra_error_details(
+    key_and_certificate: KeyAndCertificate,
+) -> None:
+    config = make_config(
+        certificate_data=key_and_certificate.key_pem
+        + key_and_certificate.certificate_pem
+    )
+    with mock.patch("msal.ConfidentialClientApplication") as mock_msal:
+        mock_msal.return_value.acquire_token_for_client.return_value = {
+            "error": "invalid_client",
+            "error_codes": [700027],
+            # Entra returns error_description as a multi-line CRLF blob.
+            "error_description": (
+                "AADSTS700027: Client assertion contains an invalid signature.\r\n"
+                "Trace ID: trace-1\r\nCorrelation ID: abc-123\r\n"
+            ),
+            "trace_id": "trace-1",
+            "correlation_id": "abc-123",
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            PowerBiAPI(config, PowerBiDashboardSourceReport())
+
+    # Entra's diagnostics are the only actionable detail for certificate auth.
+    message = str(exc_info.value)
+    assert "AADSTS700027" in message
+    assert "invalid_client" in message
+    assert "700027" in message
+    assert "trace-1" in message
+    assert "abc-123" in message
+    # Collapsed onto a single line so the error stays readable in the console.
+    assert "\n" not in message and "\r" not in message
+
+
+def test_token_failure_does_not_echo_unexpected_response_fields(
+    key_and_certificate: KeyAndCertificate,
+) -> None:
+    config = make_config(
+        certificate_data=key_and_certificate.key_pem
+        + key_and_certificate.certificate_pem
+    )
+    with mock.patch("msal.ConfidentialClientApplication") as mock_msal:
+        mock_msal.return_value.acquire_token_for_client.return_value = {
+            "error": "invalid_client",
+            # Token responses can carry arbitrary extra fields; only the
+            # allow-listed diagnostics may reach the user-facing error.
+            "not_an_allowlisted_field": "must-not-be-echoed",
+        }
+        with pytest.raises(ConfigurationError) as exc_info:
+            PowerBiAPI(config, PowerBiDashboardSourceReport())
+
+    message = str(exc_info.value)
+    assert "invalid_client" in message
+    assert "must-not-be-echoed" not in message
