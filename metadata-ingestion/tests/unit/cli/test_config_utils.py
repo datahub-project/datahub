@@ -3,7 +3,6 @@ from unittest.mock import mock_open, patch
 
 import pytest
 import yaml
-
 from datahub.cli import config_utils
 from datahub.cli.config_utils import (
     DATAHUB_CONFIG_PATH,
@@ -267,6 +266,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 }
@@ -322,6 +322,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 },
@@ -357,6 +358,7 @@ class TestConfigUtils:
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "server_config_retry_max_times": None,
                     "tcp_keepalive": False,
                     "default_emit_mode": None,
                 }
