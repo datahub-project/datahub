@@ -221,21 +221,23 @@ class TestDataHubRestEmitter:
             server_config_retry_max_times=3,
         )
         get_default_graph.cache_clear()
-        with (
-            patch(
-                "datahub.ingestion.graph.client.config_utils.load_client_config",
-                return_value=loaded,
-            ),
-            patch.object(DataHubGraph, "test_connection"),
-            patch("datahub.ingestion.graph.client.telemetry_instance"),
-        ):
-            graph = get_default_graph(server_config_retry_max_times=None)
-            assert graph._server_config_retry_max_times == 3
+        try:
+            with (
+                patch(
+                    "datahub.ingestion.graph.client.config_utils.load_client_config",
+                    return_value=loaded,
+                ),
+                patch.object(DataHubGraph, "test_connection"),
+                patch("datahub.ingestion.graph.client.telemetry_instance"),
+            ):
+                graph = get_default_graph(server_config_retry_max_times=None)
+                assert graph._server_config_retry_max_times == 3
 
+                get_default_graph.cache_clear()
+                graph = get_default_graph(server_config_retry_max_times=0)
+                assert graph._server_config_retry_max_times == 0
+        finally:
             get_default_graph.cache_clear()
-            graph = get_default_graph(server_config_retry_max_times=0)
-            assert graph._server_config_retry_max_times == 0
-        get_default_graph.cache_clear()
 
     def test_datahub_client_from_env_passes_config_retry_limit(self) -> None:
         with patch("datahub.sdk.main_client.get_default_graph") as get_default_graph:
