@@ -1,10 +1,13 @@
 package com.linkedin.metadata.kafka.config;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -229,6 +232,27 @@ public class PgQueueMaePollerSourcesConfigurationTest {
 
     verify(processor).consume(eq(Topics.DATAHUB_USAGE_EVENT), eq(List.of(msg)));
     verify(store).commitForGroup(eq("usage-group"), eq(List.of(msg.handle())), eq(true));
+  }
+
+  @Test
+  public void pgQueueUsageSource_handlerFailureReleasesLeases() throws Exception {
+    DataHubUsageEventsProcessor processor = mock(DataHubUsageEventsProcessor.class);
+    doThrow(new RuntimeException("insert failed")).when(processor).consume(anyString(), anyList());
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    PgQueuePollerRegistration reg =
+        configuration
+            .pgQueueUsageSource(processor, "usage-group", Topics.DATAHUB_USAGE_EVENT)
+            .registrations()
+            .findFirst()
+            .orElseThrow();
+
+    QueueReceivedMessage msg = sampleMessage();
+    PgQueuePollContext ctx =
+        new PgQueuePollContext(store, "usage-group", Duration.ofSeconds(30), null);
+    reg.handler().handleBatch(Topics.DATAHUB_USAGE_EVENT, List.of(msg), ctx);
+
+    verify(store).releaseForGroup(eq("usage-group"), eq(List.of(msg.handle())));
+    verify(store, never()).commitForGroup(anyString(), anyList(), any(Boolean.class));
   }
 
   @Test

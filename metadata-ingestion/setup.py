@@ -702,6 +702,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
+    "datahub-analytics-compaction": set(),
     "datahub-documents": unstructured_lib,
     "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
@@ -1138,6 +1139,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
+        "datahub-analytics-compaction = datahub.ingestion.source.analytics_compaction.analytics_compaction_source:DataHubAnalyticsCompactionSource",
         "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
         "datahub-documents = datahub.ingestion.source.datahub_documents.datahub_documents_source:DataHubDocumentsSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",

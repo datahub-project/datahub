@@ -1,0 +1,3 @@
+source:
+  type: datahub-analytics-compaction
+  config: {}

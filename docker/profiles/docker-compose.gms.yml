@@ -21,6 +21,16 @@ x-primary-datastore-postgres-env: &primary-datastore-postgres-env
   DATAHUB_PGTIMESERIES_ENABLED: ${DATAHUB_PGTIMESERIES_ENABLED:-true}
   TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION: ${TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION:-postgres}
   DATAHUB_PGTIMESERIES_MAINTENANCE_CRON_ENABLED: ${DATAHUB_PGTIMESERIES_MAINTENANCE_CRON_ENABLED:-true}
+  # Exclusive pgAnalytics SoT for product usage events (no ES usage-event index writes).
+  # Override DATAHUB_USAGE_EVENTS_IMPLEMENTATION=elasticsearch to keep search as SoT.
+  DATAHUB_PGANALYTICS_ENABLED: ${DATAHUB_PGANALYTICS_ENABLED:-true}
+  DATAHUB_PGANALYTICS_MAINTENANCE_CRON_ENABLED: ${DATAHUB_PGANALYTICS_MAINTENANCE_CRON_ENABLED:-true}
+  DATAHUB_USAGE_EVENTS_IMPLEMENTATION: ${DATAHUB_USAGE_EVENTS_IMPLEMENTATION:-postgres}
+  # Land api_usage flush (incl. active identities) + system entity-count gauges into pgAnalytics.
+  DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED: ${DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED:-true}
+  DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED: ${DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED:-true}
+  # Progressive compaction: SYSTEM source datahub-analytics-compaction (bootstrap, hourly) → GMS compact API.
+  # Requires actions + GMS. Soft-skips when pgAnalytics is off.
 
 x-primary-datastore-cassandra-env: &primary-datastore-cassandra-env
   CASSANDRA_DATASOURCE_USERNAME: cassandra

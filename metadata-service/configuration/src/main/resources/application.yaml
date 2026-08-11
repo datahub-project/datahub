@@ -8,6 +8,14 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
+# Generic analytics compaction budgets (OpenAPI + SYSTEM source). Backend is pgAnalytics when enabled.
+analytics:
+  compact:
+    maxHoursToSeal: ${DATAHUB_ANALYTICS_COMPACT_MAX_HOURS:6}
+    maxDaysToCompact: ${DATAHUB_ANALYTICS_COMPACT_MAX_DAYS:2}
+    maxMonthsToCompact: ${DATAHUB_ANALYTICS_COMPACT_MAX_MONTHS:1}
+    maxWallClockMillis: ${DATAHUB_ANALYTICS_COMPACT_WALL_CLOCK_MILLIS:30000}
+
 # Kubernetes environment (global). When the process runs in a K8 pod, the cluster sets KUBERNETES_SERVICE_HOST.
 kubernetes:
   serviceHost: ${KUBERNETES_SERVICE_HOST:}
@@ -465,6 +473,9 @@ configEntityRegistry:
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+  usage-events:
+    implementation: ${DATAHUB_USAGE_EVENTS_IMPLEMENTATION:elasticsearch}
+    recommendationLookbackDays: ${DATAHUB_USAGE_EVENTS_RECOMMENDATION_LOOKBACK_DAYS:30}
   usageExport:
     enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
     usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent,DeletePolicyEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
@@ -644,6 +655,54 @@ postgres:
     # Extra named stores + aspect routing (usually from DATAHUB_PGTIMESERIES_CONFIG_FILE / ConfigMap).
     stores: {}
     routing: {}
+
+  pgAnalytics:
+    enabled: ${DATAHUB_PGANALYTICS_ENABLED:false}
+    defaultStore: ${DATAHUB_PGANALYTICS_DEFAULT_STORE:default}
+    tablePrefix: ${DATAHUB_PGANALYTICS_TABLE_PREFIX:metadata_analytics}
+    inputLagSeconds: ${DATAHUB_PGANALYTICS_INPUT_LAG_SECONDS:900}
+    partitioning:
+      partmanPartitionInterval: ${DATAHUB_PGANALYTICS_PARTITIONING_PARTMAN_INTERVAL:1 day}
+      partmanPremake: ${DATAHUB_PGANALYTICS_PARTITIONING_PARTMAN_PREMAKE:4}
+      forceOverwritePartmanConfig: ${DATAHUB_PGANALYTICS_PARTITIONING_FORCE_OVERWRITE:false}
+    retention:
+      # Default / ops store (api_usage, system_usage). Product usage uses the `product` store
+      # below (1y raw for browserId MAU).
+      rawMaxAgeSeconds: ${DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS:7776000}
+      hourlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_HOURLY_MAX_AGE_SECONDS:15552000}
+      dailyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_DAILY_MAX_AGE_SECONDS:46656000}
+      monthlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_MONTHLY_MAX_AGE_SECONDS:94608000}
+    maintenance:
+      cronEnabled: ${DATAHUB_PGANALYTICS_MAINTENANCE_CRON_ENABLED:false}
+      intervalSeconds: ${DATAHUB_PGANALYTICS_MAINTENANCE_INTERVAL_SECONDS:3600}
+    sinks:
+      apiUsageFlushEnabled: ${DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED:false}
+      entityCountEnabled: ${DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED:false}
+    pool:
+      url: ${DATAHUB_PGANALYTICS_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGANALYTICS_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGANALYTICS_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGANALYTICS_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGANALYTICS_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGANALYTICS_MAX_CONNECTIONS:12}
+      maxInactiveTimeSeconds: ${DATAHUB_PGANALYTICS_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGANALYTICS_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGANALYTICS_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGANALYTICS_WAIT_TIMEOUT_MILLIS:1000}
+    # Named stores + metric_family routing. Overlay (DATAHUB_PGANALYTICS_CONFIG_FILE) can replace.
+    # Product store: longer raw retention for browserId MAU; ops stay on default (90d raw).
+    stores:
+      product:
+        tablePrefix: ${DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX:metadata_analytics_product}
+        retention:
+          rawMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS:31536000}
+          hourlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_HOURLY_MAX_AGE_SECONDS:15552000}
+          dailyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_DAILY_MAX_AGE_SECONDS:46656000}
+          monthlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_MONTHLY_MAX_AGE_SECONDS:94608000}
+    routing:
+      datahub_usage: product
+      # api_usage / system_usage → defaultStore
+
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:
     cronSchema: ${DATAHUB_POSTGRES_PG_CRON_SCHEMA:cron}

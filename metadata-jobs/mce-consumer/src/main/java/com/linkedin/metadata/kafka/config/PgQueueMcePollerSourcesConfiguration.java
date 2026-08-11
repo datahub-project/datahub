@@ -125,7 +125,8 @@ public class PgQueueMcePollerSourcesConfiguration {
                     batchProcessor.consume(systemOperationContext, synthetic, inboundProperties);
                     ctx.commit(handles);
                   } catch (Exception e) {
-                    log.error("Batch MCP pgQueue processing failed; leases expire for retry", e);
+                    log.error("Batch MCP pgQueue processing failed; releasing leases for retry", e);
+                    ctx.release(handles);
                   }
                 }));
   }

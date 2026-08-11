@@ -769,6 +769,13 @@
       "platform_name": "DataHub",
       "support_status": "CERTIFIED"
     },
+    "datahub-analytics-compaction": {
+      "capabilities": [],
+      "classname": "datahub.ingestion.source.analytics_compaction.analytics_compaction_source.DataHubAnalyticsCompactionSource",
+      "platform_id": "datahub-analytics-compaction",
+      "platform_name": "DataHubAnalyticsCompaction",
+      "support_status": "INCUBATING"
+    },
     "datahub-apply": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.apply.datahub_apply.DataHubApplySource",

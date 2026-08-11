@@ -1596,6 +1596,10 @@
     "duration": "82.178s"
   },
   {
+    "testId": "tests.openapi.v1.test_tracking::test_tracking_api_usage_sot",
+    "duration": "20.636s"
+  },
+  {
     "testId": "tests.openapi.v1.test_tracking::test_tracking_api_elasticsearch",
     "duration": "16.408s"
   },
