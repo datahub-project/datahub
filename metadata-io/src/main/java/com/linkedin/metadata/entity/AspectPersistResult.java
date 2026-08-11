@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -30,7 +31,10 @@ public final class AspectPersistResult {
   /** A committed write carrying the {@link UpdateAspectResult} for retention / MCL emission. */
   @Nonnull
   public static AspectPersistResult committed(@Nonnull UpdateAspectResult result) {
-    return new AspectPersistResult(AspectWriteOutcome.COMMITTED, result);
+    // COMMITTED must carry a result — fail fast here rather than deferring an NPE to a downstream
+    // retention / MCL consumer if a caller ever passes null.
+    return new AspectPersistResult(
+        AspectWriteOutcome.COMMITTED, Objects.requireNonNull(result, "committed result required"));
   }
 
   /** Aspect + system metadata unchanged; nothing written and nothing to retry. */

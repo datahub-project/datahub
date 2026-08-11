@@ -1419,7 +1419,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   // txn back), so commit-good/DLQ-unresolved (design step 4/5) is a
                                   // Mode B (per-branch atomic commit unit) feature, not safe here.
                                   //
-                                  // KNOWN LIMITATION (reviewer issue #6, lock-across-backoff): this
+                                  // KNOWN LIMITATION (lock-across-backoff): this
                                   // throw propagates to the DAO's runInTransactionWithRetry, whose
                                   // outer retry sleeps (sleepBeforeRetry) between attempts WHILE
                                   // the

@@ -225,7 +225,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // Postgres deadlock-ordering advisory lock — independent of the Hazelcast write-gate backend.
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
-    this.scopedRetryEnabled = ebeanConfiguration.isScopedRetryEnabled();
+    // Scoped retry is an OL-only flow; enforce the prerequisite at the source so it can never read
+    // "on" while optimistic locking is off.
+    this.scopedRetryEnabled = optimisticLocking && ebeanConfiguration.isScopedRetryEnabled();
     if (optimisticLocking) {
       log.info(
           "EbeanAspectDao optimistic locking enabled (dialect={}, scopedRetry={})",
@@ -540,6 +542,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private void throwOnDuplicateKeyInsertConflict(
       @Nonnull SystemAspect aspect, @Nonnull PersistenceException original) {
     incrementOptimisticMetric("optimistic_lock_insert_fallback");
+    // Also tag by entity type so creation-race conflicts show up on the same per-entity dashboard
+    // as CAS-update conflicts (updateAspectConditional), not just in the aggregate counter.
+    incrementConflictByEntityType(aspect.getUrn().toString());
     throw new OptimisticLockConflictException(
         String.format(
             "Optimistic lock conflict on concurrent v0 insert urn=%s aspect=%s",

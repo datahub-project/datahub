@@ -285,8 +285,11 @@ public class EbeanAspectDaoOptimisticLockingPostgresIT {
 
     a.start();
     b.start();
-    // Release both writers only once both have started and captured the same expected version.
-    ready.await(10, TimeUnit.SECONDS);
+    // Release both writers only once both have armed. They use a fixed expected version ("1"), so
+    // there's nothing to capture — the gate just guarantees both threads are started before the
+    // race, which is what makes the CAS collision deterministic. Assert the latch actually reached
+    // zero so a timeout can't silently release writers that weren't both ready.
+    assertTrue(ready.await(10, TimeUnit.SECONDS), "both writers must arm before release");
     go.countDown();
     a.join(15_000);
     b.join(15_000);

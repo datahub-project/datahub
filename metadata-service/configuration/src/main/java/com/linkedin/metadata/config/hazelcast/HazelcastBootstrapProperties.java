@@ -13,8 +13,8 @@ public final class HazelcastBootstrapProperties {
 
   /**
    * Entity write-lock backend ({@code ebean.entityWriteLockBackend} / {@code
-   * ENTITY_WRITE_LOCK_BACKEND}). Only {@code hazelcast} needs the embedded node; {@code
-   * none}/{@code db} do not.
+   * ENTITY_WRITE_LOCK_BACKEND}), one of {@code none} | {@code hazelcast}. Only {@code hazelcast}
+   * needs the embedded node; {@code none} does not.
    */
   public static final String ENTITY_WRITE_LOCK_BACKEND = "ebean.entityWriteLockBackend";
 

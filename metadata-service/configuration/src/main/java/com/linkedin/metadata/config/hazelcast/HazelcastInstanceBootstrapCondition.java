@@ -24,10 +24,13 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
         env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
       return true;
     }
-    // The Hazelcast entity write-lock (OL + scoped mode) needs the embedded node; none/db do not.
+    // The Hazelcast entity write-lock (optimistic-locking mode) needs the embedded node; none does
+    // not. Trim to match the backend parsing elsewhere (getNormalizedEntityWriteLockBackend) so a
+    // whitespace-padded value boots consistently.
     if ("hazelcast"
         .equalsIgnoreCase(
-            env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none"))) {
+            env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none")
+                .trim())) {
       return true;
     }
     if (Boolean.parseBoolean(

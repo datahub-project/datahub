@@ -59,45 +59,81 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
     // Sorted + de-duplicated acquisition order → no ABBA hold-and-wait between overlapping batches.
     final List<String> sorted = urns.stream().distinct().sorted().collect(Collectors.toList());
     final List<String> acquired = new ArrayList<>(sorted.size());
+    // ONE acquisition deadline for the whole batch: total wait is bounded by acquireTimeoutSeconds,
+    // NOT acquireTimeoutSeconds * urns.size(). Each URN gets whatever budget remains; once the
+    // deadline passes, remaining URNs get a non-blocking tryLock and degrade lockless.
+    final long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(acquireTimeoutSeconds);
     for (String urn : sorted) {
+      final long remainingNanos = Math.max(0L, deadlineNanos - System.nanoTime());
       boolean ok = false;
       try {
         ok =
             lockMap.tryLock(
-                urn, acquireTimeoutSeconds, TimeUnit.SECONDS, leaseSeconds, TimeUnit.SECONDS);
+                urn, remainingNanos, TimeUnit.NANOSECONDS, leaseSeconds, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         // Interrupt is external cancellation (shutdown / request timeout), NOT a lock failure.
         // Preserve the flag so the cancellation propagates — the in-flight write may then be
-        // aborted
-        // downstream by it, which is the correct response to cancellation. Skip remaining locks.
+        // aborted downstream by it. Stop acquiring; keys already taken still release via the
+        // handle.
         Thread.currentThread().interrupt();
         incMetric(opContext, "acquire_interrupted");
         log.warn(
-            "Interrupted acquiring entity write-lock for urn={}; interrupt preserved, skipping "
-                + "remaining locks.",
+            "Interrupted acquiring entity write-lock for urn={}; interrupt preserved, stopping.",
             urn);
         break;
       } catch (RuntimeException e) {
-        // Hazelcast unavailable / partitioned: degrade to lockless rather than fail the write.
-        // Distinct metric from a plain timeout so an outage is not misdiagnosed as contention.
+        // Hazelcast unavailable / partitioned: degrade to lockless and STOP for this batch.
+        // Retrying every remaining URN would issue a failing remote op + stack trace each,
+        // amplifying latency and log volume during an outage. Already-acquired keys still release.
         incMetric(opContext, "acquire_error");
         log.warn(
-            "Entity write-lock acquire failed for urn={}; proceeding lockless (CAS guards).",
+            "Entity write-lock acquire failed for urn={}; proceeding lockless for the rest of this "
+                + "batch (CAS guards).",
             urn,
             e);
-        continue;
+        break;
       }
       if (ok) {
         acquired.add(urn);
       } else {
         incMetric(opContext, "acquire_timeout");
         log.debug(
-            "Entity write-lock not acquired for urn={} within {}s; proceeding lockless.",
-            urn,
-            acquireTimeoutSeconds);
+            "Entity write-lock not acquired for urn={} within the batch deadline; proceeding "
+                + "lockless.",
+            urn);
       }
     }
-    return () -> release(opContext, acquired);
+    // A single contended URN missing the gate is normal (best-effort degrade), so single-URN
+    // acquires (e.g. the delete path) never warn here. But if a large fraction of a real BATCH
+    // misses, that usually signals a misconfig (acquire timeout too low, or Hazelcast
+    // overloaded/partitioned) rather than genuine contention — surface it once per batch at WARN so
+    // it isn't invisible behind the per-URN debug lines.
+    final int missed = sorted.size() - acquired.size();
+    if (sorted.size() > 1 && missed * 2 >= sorted.size()) {
+      log.warn(
+          "Entity write-gate acquired only {}/{} URNs (>= half missed) within {}s; those writers "
+              + "proceed lockless (CAS still guards). Check ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS "
+              + "and Hazelcast health.",
+          acquired.size(),
+          sorted.size(),
+          acquireTimeoutSeconds);
+    }
+    // One-shot handle: IMap locks are reentrant per (thread, key), so a double close() would unlock
+    // a LATER re-acquisition of the same URN on this thread and let a concurrent writer through the
+    // gate. Release exactly once. (acquire + close run on the same thread — no synchronization
+    // needed.)
+    return new LockHandle() {
+      private boolean closed = false;
+
+      @Override
+      public void close() {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        release(opContext, acquired);
+      }
+    };
   }
 
   private void release(@Nonnull OperationContext opContext, @Nonnull List<String> acquired) {

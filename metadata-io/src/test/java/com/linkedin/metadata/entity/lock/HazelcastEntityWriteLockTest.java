@@ -77,19 +77,21 @@ public class HazelcastEntityWriteLockTest {
     ExecutorService batch1 = Executors.newSingleThreadExecutor();
     CountDownLatch held = new CountDownLatch(1);
     CountDownLatch release = new CountDownLatch(1);
+    Future<?> holder = null;
     try {
-      batch1.submit(
-          () -> {
-            EntityWriteLock.LockHandle h =
-                lock.acquire(opContext, List.of("urn:a", "urn:b", "urn:c"));
-            held.countDown();
-            try {
-              release.await(10, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-              Thread.currentThread().interrupt();
-            }
-            h.close();
-          });
+      holder =
+          batch1.submit(
+              () -> {
+                EntityWriteLock.LockHandle h =
+                    lock.acquire(opContext, List.of("urn:a", "urn:b", "urn:c"));
+                held.countDown();
+                try {
+                  release.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                  Thread.currentThread().interrupt();
+                }
+                h.close();
+              });
       assertTrue(held.await(10, TimeUnit.SECONDS));
 
       // b held by batch-1 -> a second writer cannot take it (hot key serialized).
@@ -103,6 +105,11 @@ public class HazelcastEntityWriteLockTest {
       release.countDown();
       batch1.shutdown();
       assertTrue(batch1.awaitTermination(10, TimeUnit.SECONDS));
+      // Surface any exception thrown by the holder task — notably h.close() (the release path);
+      // an executor otherwise swallows it and the test would pass despite a broken release.
+      if (holder != null) {
+        holder.get(5, TimeUnit.SECONDS);
+      }
     }
 
     // After batch-1 released, b drains and is acquirable again.

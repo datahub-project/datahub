@@ -3,14 +3,16 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * Result of a single aspect write on the optimistic-locking path. Identity is carried inline
  * ({@code urn} + {@code aspectName}) so a {@link BatchWriteResult} can group results by URN /
  * branch without a separate key type.
+ *
+ * <p>Effectively immutable (all fields final), but intentionally NOT annotated {@code @Immutable}:
+ * the FAILED variant carries a {@link Throwable}, which is mutable, so the strict contract would
+ * not hold.
  */
-@Immutable
 public final class AspectWriteResult {
 
   @Nonnull private final Urn urn;
