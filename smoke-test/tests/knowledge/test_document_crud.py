@@ -121,7 +121,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Old content"},
             }
         }
-        create_res = execute_graphql(auth_session, create_mutation, variables)
+        create_res = execute_graphql(
+            auth_session, create_mutation, variables, no_sync_wait=True
+        )
         urn = create_res["data"]["createDocument"]
 
         # Update contents
@@ -137,10 +139,14 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "New content"},
             }
         }
-        update_res = execute_graphql(auth_session, update_mutation, update_vars)
+        update_res = execute_graphql(
+            auth_session, update_mutation, update_vars, no_sync_wait=True
+        )
         assert update_res["data"]["updateDocumentContents"] is True
 
-        wait_for_writes_to_sync()
+        # Only the state after this create+update batch matters for the read
+        # below, so wait once here instead of after each individual write.
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify update and that lastModified changed
         get_query = """
@@ -228,7 +234,7 @@ class TestDocumentCrudAndMutations:
         assert "errors" not in status_res, f"GraphQL errors: {status_res.get('errors')}"
         assert status_res["data"]["updateDocumentStatus"] is True
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify status changed and lastModified was updated
         final_res = execute_graphql(auth_session, get_query, {"urn": urn})
@@ -406,7 +412,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Parent content"},
             }
         }
-        parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+        parent_res = execute_graphql(
+            auth_session, create_mutation, parent_vars, no_sync_wait=True
+        )
         parent_urn = parent_res["data"]["createDocument"]
 
         # Create child document
@@ -418,7 +426,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Child content"},
             }
         }
-        child_res = execute_graphql(auth_session, create_mutation, child_vars)
+        child_res = execute_graphql(
+            auth_session, create_mutation, child_vars, no_sync_wait=True
+        )
         child_urn = child_res["data"]["createDocument"]
 
         # Move child to parent
@@ -428,6 +438,8 @@ class TestDocumentCrudAndMutations:
             }
         """
         move_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
+        # No intermediate reads above, so skip the intermediate waits and let this
+        # final write's normal wait cover the whole create/create/move batch.
         move_res = execute_graphql(auth_session, move_mutation, move_vars)
         assert move_res["data"]["moveDocument"] is True
 
@@ -466,7 +478,9 @@ class TestDocumentCrudAndMutations:
         delete_mutation = """
             mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": child_urn}, no_sync_wait=True
+        )
         execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
 
     def test_update_document_subtype(self, auth_session):
@@ -493,7 +507,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "SubType content"},
             }
         }
-        create_res = execute_graphql(auth_session, create_mutation, variables)
+        create_res = execute_graphql(
+            auth_session, create_mutation, variables, no_sync_wait=True
+        )
         urn = create_res["data"]["createDocument"]
 
         # Update sub-type
@@ -503,10 +519,14 @@ class TestDocumentCrudAndMutations:
             }
         """
         update_vars = {"input": {"urn": urn, "subType": "tutorial"}}
-        update_res = execute_graphql(auth_session, update_mutation, update_vars)
+        update_res = execute_graphql(
+            auth_session, update_mutation, update_vars, no_sync_wait=True
+        )
         assert update_res["data"]["updateDocumentSubType"] is True
 
-        wait_for_writes_to_sync()
+        # Only the state after this create+update batch matters for the read
+        # below, so wait once here instead of after each individual write.
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify update
         get_query = """
@@ -552,7 +572,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Main content"},
             }
         }
-        main_res = execute_graphql(auth_session, create_mutation, main_vars)
+        main_res = execute_graphql(
+            auth_session, create_mutation, main_vars, no_sync_wait=True
+        )
         main_urn = main_res["data"]["createDocument"]
 
         related1_vars = {
@@ -563,7 +585,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Related1 content"},
             }
         }
-        related1_res = execute_graphql(auth_session, create_mutation, related1_vars)
+        related1_res = execute_graphql(
+            auth_session, create_mutation, related1_vars, no_sync_wait=True
+        )
         related1_urn = related1_res["data"]["createDocument"]
 
         related2_vars = {
@@ -574,7 +598,9 @@ class TestDocumentCrudAndMutations:
                 "contents": {"text": "Related2 content"},
             }
         }
-        related2_res = execute_graphql(auth_session, create_mutation, related2_vars)
+        related2_res = execute_graphql(
+            auth_session, create_mutation, related2_vars, no_sync_wait=True
+        )
         related2_urn = related2_res["data"]["createDocument"]
 
         # Update related entities
@@ -589,10 +615,14 @@ class TestDocumentCrudAndMutations:
                 "relatedDocuments": [related1_urn, related2_urn],
             }
         }
-        update_res = execute_graphql(auth_session, update_mutation, update_vars)
+        update_res = execute_graphql(
+            auth_session, update_mutation, update_vars, no_sync_wait=True
+        )
         assert update_res["data"]["updateDocumentRelatedEntities"] is True
 
-        wait_for_writes_to_sync()
+        # Only the state after this batch of three creates + the related-entities
+        # update matters for the read below, so wait once here.
+        wait_for_writes_to_sync(mae_only=True)
 
         # Verify related documents via GraphQL walk
         get_query = """
@@ -628,6 +658,10 @@ class TestDocumentCrudAndMutations:
         delete_mutation = """
             mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": main_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": related1_urn})
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": main_urn}, no_sync_wait=True
+        )
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": related1_urn}, no_sync_wait=True
+        )
         execute_graphql(auth_session, delete_mutation, {"urn": related2_urn})
