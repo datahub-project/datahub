@@ -41,6 +41,29 @@ public class HazelcastInstanceBootstrapConditionTest {
     assertFalse(evaluate("caffeine", "false", "false", "false"));
   }
 
+  @Test
+  public void testWriteLockHazelcastWithOptimisticLockingEnablesInstance() {
+    assertTrue(evaluateWriteLock("hazelcast", "true"));
+  }
+
+  @Test
+  public void testWriteLockHazelcastWithoutOptimisticLockingSkipsInstance() {
+    // The gate is bypassed when optimistic locking is off, so the embedded node must NOT boot for
+    // it.
+    assertFalse(evaluateWriteLock("hazelcast", "false"));
+  }
+
+  private boolean evaluateWriteLock(String backend, String optimisticLockingEnabled) {
+    ConditionContext context = Mockito.mock(ConditionContext.class);
+    Environment environment = Mockito.mock(Environment.class);
+    when(context.getEnvironment()).thenReturn(environment);
+    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none"))
+        .thenReturn(backend);
+    when(environment.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false"))
+        .thenReturn(optimisticLockingEnabled);
+    return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
+  }
+
   private boolean evaluate(
       String cacheImplementation,
       String endpointEnabled,

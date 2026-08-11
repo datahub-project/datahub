@@ -13,10 +13,20 @@ public final class HazelcastBootstrapProperties {
 
   /**
    * Entity write-lock backend ({@code ebean.entityWriteLockBackend} / {@code
-   * ENTITY_WRITE_LOCK_BACKEND}), one of {@code none} | {@code hazelcast}. Only {@code hazelcast}
-   * needs the embedded node; {@code none} does not.
+   * ENTITY_WRITE_LOCK_BACKEND}), one of {@code none} | {@code hazelcast}. The {@code hazelcast}
+   * gate needs the embedded node, but only when it will actually engage: it activates when
+   * optimistic locking is enabled ({@link #OPTIMISTIC_LOCKING_ENABLED}), independently of scoped
+   * retry. With OL off the gate is bypassed, so the node is not booted for it. {@code none} never
+   * needs it.
    */
   public static final String ENTITY_WRITE_LOCK_BACKEND = "ebean.entityWriteLockBackend";
+
+  /**
+   * Optimistic locking toggle ({@code ebean.optimisticLockingEnabled} / {@code
+   * OPTIMISTIC_LOCKING_ENABLED}). The Hazelcast write gate only engages in OL mode, so the embedded
+   * node is booted for the gate only when this is also true.
+   */
+  public static final String OPTIMISTIC_LOCKING_ENABLED = "ebean.optimisticLockingEnabled";
 
   /**
    * Canonical gate: {@code featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}.

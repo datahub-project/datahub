@@ -63,6 +63,11 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
     // NOT acquireTimeoutSeconds * urns.size(). Each URN gets whatever budget remains; once the
     // deadline passes, remaining URNs get a non-blocking tryLock and degrade lockless.
     final long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(acquireTimeoutSeconds);
+    // Set when the loop stops early (interrupt/outage). URNs left unattempted after an early break
+    // are NOT deadline misses, so the aggregate "half missed" WARN below must not fire on top of
+    // the
+    // specific acquire_interrupted/acquire_error warning (which already explains what happened).
+    boolean stoppedEarly = false;
     for (String urn : sorted) {
       final long remainingNanos = Math.max(0L, deadlineNanos - System.nanoTime());
       boolean ok = false;
@@ -80,6 +85,7 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
         log.warn(
             "Interrupted acquiring entity write-lock for urn={}; interrupt preserved, stopping.",
             urn);
+        stoppedEarly = true;
         break;
       } catch (RuntimeException e) {
         // Hazelcast unavailable / partitioned: degrade to lockless and STOP for this batch.
@@ -91,6 +97,7 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
                 + "batch (CAS guards).",
             urn,
             e);
+        stoppedEarly = true;
         break;
       }
       if (ok) {
@@ -109,7 +116,7 @@ public final class HazelcastEntityWriteLock implements EntityWriteLock {
     // overloaded/partitioned) rather than genuine contention — surface it once per batch at WARN so
     // it isn't invisible behind the per-URN debug lines.
     final int missed = sorted.size() - acquired.size();
-    if (sorted.size() > 1 && missed * 2 >= sorted.size()) {
+    if (!stoppedEarly && sorted.size() > 1 && missed * 2 >= sorted.size()) {
       log.warn(
           "Entity write-gate acquired only {}/{} URNs (>= half missed) within {}s; those writers "
               + "proceed lockless (CAS still guards). Check ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS "

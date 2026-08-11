@@ -24,13 +24,20 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
         env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
       return true;
     }
-    // The Hazelcast entity write-lock (optimistic-locking mode) needs the embedded node; none does
-    // not. Trim to match the backend parsing elsewhere (getNormalizedEntityWriteLockBackend) so a
-    // whitespace-padded value boots consistently. Null-safe: getProperty can return null (no
-    // default honored) under a mocked Environment.
+    // The Hazelcast entity write-gate needs the embedded node — but ONLY when it will actually
+    // engage: optimistic-locking mode with the hazelcast backend. With OL off the gate is bypassed
+    // (EntityWriteLockFactory logs it), so booting a cluster for it would waste resources and
+    // expose
+    // startup to Hazelcast join failures for an inactive feature. Trim to match the backend parsing
+    // elsewhere (getNormalizedEntityWriteLockBackend); null-safe (mocked Environment).
     final String writeLockBackend =
         env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none");
-    if (writeLockBackend != null && "hazelcast".equalsIgnoreCase(writeLockBackend.trim())) {
+    final boolean optimisticLockingEnabled =
+        Boolean.parseBoolean(
+            env.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false"));
+    if (optimisticLockingEnabled
+        && writeLockBackend != null
+        && "hazelcast".equalsIgnoreCase(writeLockBackend.trim())) {
       return true;
     }
     if (Boolean.parseBoolean(
