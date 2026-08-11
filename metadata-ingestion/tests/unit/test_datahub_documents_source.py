@@ -96,7 +96,7 @@ class TestDataHubDocumentsConfig:
         assert config.platform_filter is None  # Default: None = all NATIVE documents
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
-        assert config.min_text_length == 50
+        assert config.min_text_length == 0
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"
