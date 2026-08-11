@@ -10,7 +10,7 @@ from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
+from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
@@ -115,16 +115,6 @@ def describe(source_type: str) -> None:
         _fail(str(exc), EXIT_USER)
 
 
-@recipe.command()
-@click.argument("source_type")
-def capabilities(source_type: str) -> None:
-    try:
-        spec = describe_source(source_type)
-        _emit({"source_type": source_type, "capabilities": spec.capabilities})
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
-
-
 @recipe.command(name="scaffold")
 @click.argument("source_type")
 def recipe_scaffold(source_type: str) -> None:
@@ -139,15 +129,6 @@ def recipe_scaffold(source_type: str) -> None:
 def recipe_validate(path: str) -> None:
     try:
         _emit(validate_recipe(_load_recipe(path)))
-    except (ValueError, TypeError, AssertionError) as exc:
-        _fail(str(exc), EXIT_USER)
-
-
-@recipe.command(name="explain")
-@click.argument("path")
-def recipe_explain(path: str) -> None:
-    try:
-        _emit(explain(_load_recipe(path)))
     except (ValueError, TypeError, AssertionError) as exc:
         _fail(str(exc), EXIT_USER)
 

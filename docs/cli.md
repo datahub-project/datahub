@@ -487,20 +487,16 @@ wrong" from "I could not reach the source".
 These need only a source type or a recipe file — no connection, no credentials.
 
 ```shell
-# What configuration fields does this source accept? (types, required, defaults, which are secrets)
+# What configuration fields does this source accept, and what does the connector
+# declare it can do? Reports each field's type, whether it is required or a secret,
+# and for AllowDenyPattern fields which hierarchy level it filters.
 datahub recipe describe snowflake
-
-# Which capabilities does the connector declare? (lineage, profiling, ownership, ...)
-datahub recipe capabilities snowflake
 
 # Emit a starter recipe for a source type
 datahub recipe scaffold snowflake
 
 # Validate a recipe's configuration without connecting
 datahub recipe validate my_recipe.yml
-
-# Explain what a recipe will do
-datahub recipe explain my_recipe.yml
 ```
 
 #### Live commands
