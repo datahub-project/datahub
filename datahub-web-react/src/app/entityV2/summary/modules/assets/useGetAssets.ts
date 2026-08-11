@@ -1,8 +1,12 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { isDataSourcesModule } from '@app/entityV2/summary/modules/assets/constants';
 import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
 import { useGetChartAssets } from '@app/entityV2/summary/modules/assets/useGetChartAssets';
 import { useGetContainerAssets } from '@app/entityV2/summary/modules/assets/useGetContainerAssets';
-import { useGetDashboardAssets } from '@app/entityV2/summary/modules/assets/useGetDashboardAssets';
+import {
+    useGetDashboardContents,
+    useGetDashboardDataSources,
+} from '@app/entityV2/summary/modules/assets/useGetDashboardAssets';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
 import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
@@ -11,8 +15,9 @@ import { EntityType } from '@types';
 
 const NUMBER_OF_ASSETS_TO_FETCH = 10;
 
-export function useGetAssets() {
+export function useGetAssets(moduleUrn?: string) {
     const { entityType } = useEntityData();
+    const useDataSources = entityType === EntityType.Dashboard && isDataSourcesModule(moduleUrn);
 
     const {
         loading: domainAssetsLoading,
@@ -49,11 +54,18 @@ export function useGetAssets() {
     } = useGetContainerAssets(NUMBER_OF_ASSETS_TO_FETCH);
 
     const {
-        loading: dashboardAssetsLoading,
-        fetchAssets: fetchDashboardAssets,
-        total: dashboardAssetsTotal,
-        navigateToAssetsTab: navigateToDashboardAssetsTab,
-    } = useGetDashboardAssets();
+        loading: dashboardContentsLoading,
+        fetchAssets: fetchDashboardContents,
+        total: dashboardContentsTotal,
+        navigateToAssetsTab: navigateToDashboardContentsTab,
+    } = useGetDashboardContents(entityType === EntityType.Dashboard && useDataSources);
+
+    const {
+        loading: dashboardDataSourcesLoading,
+        fetchAssets: fetchDashboardDataSources,
+        total: dashboardDataSourcesTotal,
+        navigateToAssetsTab: navigateToDashboardDataSourcesTab,
+    } = useGetDashboardDataSources(entityType !== EntityType.Dashboard || !useDataSources);
 
     const {
         loading: chartAssetsLoading,
@@ -99,10 +111,17 @@ export function useGetAssets() {
             navigateToAssetsTab = navigateToContainerAssetsTab;
             break;
         case EntityType.Dashboard:
-            fetchAssets = fetchDashboardAssets;
-            loading = dashboardAssetsLoading;
-            total = dashboardAssetsTotal;
-            navigateToAssetsTab = navigateToDashboardAssetsTab;
+            if (useDataSources) {
+                fetchAssets = fetchDashboardDataSources;
+                loading = dashboardDataSourcesLoading;
+                total = dashboardDataSourcesTotal;
+                navigateToAssetsTab = navigateToDashboardDataSourcesTab;
+            } else {
+                fetchAssets = fetchDashboardContents;
+                loading = dashboardContentsLoading;
+                total = dashboardContentsTotal;
+                navigateToAssetsTab = navigateToDashboardContentsTab;
+            }
             break;
         case EntityType.Chart:
             fetchAssets = fetchChartAssets;

@@ -16,29 +16,27 @@ import { DataHubPageModuleType, Entity, EntityType } from '@types';
 
 const DEFAULT_PAGE_SIZE = 10;
 
-const RELATED_ASSETS_ENTITY_TYPES = [EntityType.Dashboard];
-
 export default function AssetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { loading, fetchAssets, total, navigateToAssetsTab } = useGetAssets();
+    const { t: tEntity } = useTranslation('entity.types');
+    const { loading, fetchAssets, total, navigateToAssetsTab } = useGetAssets(props.module.urn);
     const { entityType } = useEntityData();
 
     const canAddToAssets = ENTITIES_TO_ADD_TO_ASSETS.includes(entityType);
     const [showAddAssetsModal, setShowAddAssetsModal] = useState(false);
 
-    // Dashboards historically labeled this "Related Assets"; other entities use "Assets".
     const module = useMemo(() => {
-        if (!RELATED_ASSETS_ENTITY_TYPES.includes(entityType)) {
+        if (entityType !== EntityType.Chart) {
             return props.module;
         }
         return {
             ...props.module,
             properties: {
                 ...props.module.properties,
-                name: t('assets.relatedModuleName'),
+                name: tEntity('dashboard.namePlural'),
             },
         };
-    }, [entityType, props.module, t]);
+    }, [entityType, props.module, tEntity]);
 
     return (
         <LargeModule

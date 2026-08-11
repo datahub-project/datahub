@@ -2,22 +2,11 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { GetChartQuery } from '@graphql/chart.generated';
 import { Entity, EntityType } from '@types';
-
-function dedupeEntities(entities: Entity[]): Entity[] {
-    const seen = new Set<string>();
-    const result: Entity[] = [];
-    entities.forEach((entity) => {
-        if (!seen.has(entity.urn)) {
-            seen.add(entity.urn);
-            result.push(entity);
-        }
-    });
-    return result;
-}
 
 export const useGetChartAssets = () => {
     const { urn, entityType, loading: entityLoading } = useEntityData();
@@ -29,14 +18,9 @@ export const useGetChartAssets = () => {
         if (entityType !== EntityType.Chart) {
             return [];
         }
-        const dataSources = (chart?.inputs?.relationships
-            ?.map((relationship) => relationship.entity)
-            ?.filter((entity) => entity?.__typename === 'Dataset') || []) as Entity[];
-        const dashboards = (chart?.dashboards?.relationships
-            ?.map((relationship) => relationship.entity)
-            .filter(Boolean) || []) as Entity[];
-        return dedupeEntities([...dataSources, ...dashboards]);
-    }, [chart?.dashboards?.relationships, chart?.inputs?.relationships, entityType]);
+        return (chart?.dashboards?.relationships?.map((relationship) => relationship.entity).filter(Boolean) ||
+            []) as Entity[];
+    }, [chart?.dashboards?.relationships, entityType]);
 
     const fetchAssets = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
@@ -46,7 +30,16 @@ export const useGetChartAssets = () => {
     );
 
     const navigateToAssetsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`);
+        history.push(
+            getEntityPath(
+                entityType,
+                urn,
+                entityRegistry,
+                false,
+                false,
+                entityRegistry.getCollectionName(EntityType.Dashboard),
+            ),
+        );
     };
 
     return {
