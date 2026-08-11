@@ -26,6 +26,7 @@ test.describe('SearchV2 Features', () => {
 
   test('should perform autocomplete search', async ({ page }) => {
     await searchPage.searchInput.fill('playwright');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(1000);
     await expect(searchPage.autocompleteDropdown).toBeVisible();
   });
@@ -57,6 +58,7 @@ test.describe('SearchV2 Features', () => {
     const moreFiltersBtn = searchPage.moreFiltersDropdown;
     await expect(moreFiltersBtn).toBeVisible({ timeout: 10000 });
     await moreFiltersBtn.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(500);
     // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const moreFilterOption = page.locator('[data-testid^="more-filter-"]').first();
@@ -108,6 +110,7 @@ test.describe('SearchV2 Features', () => {
     const facetCount = await expandFacetIcon.count();
     if (facetCount > 0) {
       await expandFacetIcon.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(500);
       await page.waitForLoadState('networkidle');
     }

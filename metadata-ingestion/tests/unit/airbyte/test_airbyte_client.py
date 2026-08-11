@@ -185,6 +185,36 @@ class TestAirbyteOSSClient:
             result_key="data",
         )
 
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
+    def test_list_connections_skips_inactive_by_default(self, mock_paginate_results):
+        mock_paginate_results.return_value = [
+            {
+                "connectionId": "active-id",
+                "name": "Active Connection",
+                "sourceId": "source-id-1",
+                "destinationId": "destination-id-1",
+                "status": "active",
+            },
+            {
+                "connectionId": "inactive-id",
+                "name": "Inactive Connection",
+                "sourceId": "source-id-2",
+                "destinationId": "destination-id-2",
+                "status": "inactive",
+            },
+        ]
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        connections = client.list_connections("workspace-id-1")
+        assert [c.connection_id for c in connections] == ["active-id"]
+
+        connections = client.list_connections("workspace-id-1", include_inactive=True)
+        assert [c.connection_id for c in connections] == ["active-id", "inactive-id"]
+
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_http_error_handling(self, mock_make_request):
         mock_make_request.side_effect = requests.exceptions.HTTPError(
@@ -226,7 +256,9 @@ class TestAirbyteClientBase:
             def list_destinations(self, workspace_id, pattern=None):
                 return []
 
-            def list_connections(self, workspace_id, pattern=None):
+            def list_connections(
+                self, workspace_id, pattern=None, include_inactive=False
+            ):
                 return []
 
         class IncompleteClient(AirbyteBaseClient):
@@ -1418,6 +1450,29 @@ class TestFetchStreamApiMetadata:
         assert metadata.namespaces_by_name == {}
         # Flagged so the source can warn once per source instead of failing quietly.
         assert metadata.unavailable is True
+        assert metadata.namespaces_absent is False
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_flags_namespaceless_response(
+        self, mock_list_streams
+    ):
+        # Airbyte below 1.7.0 describes the streams but has no namespace field,
+        # which the source can only warn about if the client flags it.
+        mock_list_streams.return_value = [
+            {"streamName": "users", "propertyFields": [["id"]]}
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is True
+        assert metadata.unavailable is False
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_caches_per_source(self, mock_list_streams):
@@ -1483,6 +1538,26 @@ class TestFetchStreamApiMetadata:
         assert len(metadata.skipped_rows) == 1
         assert metadata.skipped_rows[0].startswith("/streams[0]")
         assert metadata.namespaces_by_name == {"users": ["public"]}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_does_not_flag_unreadable_response(
+        self, mock_list_streams
+    ):
+        # No namespace survives, but the cause is the payloads rather than the
+        # Airbyte version, so the version warning must not claim this one.
+        mock_list_streams.return_value = ["not-an-object", 7]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 2
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is False
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_ignores_404_substring_without_status(
