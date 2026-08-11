@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
 from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
@@ -11,7 +12,7 @@ from datahub.ingestion.source.mode import (
 )
 
 
-class ModeProbeSource(ModeSource):
+class ModeProbeSource(RestApiPassthrough, ModeSource):
     """Exists because ModeSource's inherited Closeable.__exit__ closes only the
     report, deliberately not the session -- a real ingestion run's session lives
     for the whole pipeline and must not close early. Pipeline.run() calls
@@ -38,7 +39,8 @@ class ModeProbeSource(ModeSource):
     # reports listing the only route to a report token. Trim the "duplicates" and
     # the four token-addressed entries below become unreachable, which is to say
     # `probe api` stops working. test_every_token_addressed_endpoint_has_a_route
-    # pins the chain.
+    # pins the chain. The `api` command itself is inherited from
+    # RestApiPassthrough; only this list and the fetcher below are Mode's.
     #
     # This does NOT replace the getters. A raw record leaves the caller to guess
     # which field a pattern is matched against, and for a Space that is the raw
@@ -54,14 +56,11 @@ class ModeProbeSource(ModeSource):
         "GET /definitions",
     )
 
-    @probe_method(name="api", scoped_path_param="path")
-    def api(self, path: str) -> object:
-        """Fetch one read endpoint from Mode's API, for a question no other
-        getter answers. Only GET, and only a path in api_allowlist above -- the
-        framework checks `path` before calling this. Prefer a typed getter where
-        one exists: it returns the names patterns are matched against, whereas a
-        raw record leaves you guessing which field that is."""
-        return self._get_request_json(f"{self.workspace_uri}{path}")
+    def api_fetch_json(self, url: str) -> object:
+        # Mode's own fetcher, not the mixin's requests call: it logs a curl
+        # equivalent and counts rate-limit/timeout retries, so a probe request
+        # behaves and reports exactly as an ingestion request does.
+        return self._get_request_json(url)
 
     def __exit__(self, *exc: object) -> None:
         self.session.close()
@@ -84,6 +83,11 @@ class ModeProbeSource(ModeSource):
         # run_probe_method reads this back after each command, so a listing that
         # degraded reports why instead of looking like an empty workspace.
         probe.warnings = []
+        # Mode's base carries the workspace segment, so `api` appends a path to the
+        # workspace URI rather than to the host. Primed here rather than as a
+        # property because for_probe builds via __new__ and primes every attribute
+        # the probe needs.
+        probe.api_base_url = workspace_uri
         return probe
 
     def _listing(self, fetch: Callable[[], List[str]]) -> List[str]:
