@@ -547,9 +547,11 @@ datahub init --sso
 datahub init --host https://<your-instance-id>.acryl.io/gms --sso --token-duration ONE_MONTH
 ```
 
-**Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — driven where it is already installed, so your existing session, enterprise policy and certificate store all apply. There is no flag to choose it: change your default browser and the next login follows. If your default cannot be driven, the CLI falls back to a browser Playwright downloaded and says so.
+**Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — launched from where it is already installed, so machine-level policy and your certificate store apply. There is no flag to choose it: change your default browser and the next login follows. If your default cannot be driven, the CLI falls back to a browser Playwright downloaded and says so.
 
-**Signing in only once.** The browser profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
+It opens that browser with **its own profile**, not your everyday one, so your normal cookies do not carry over and the first run always asks you to sign in. `--seed-profile` below is how you skip even that.
+
+**Signing in only once.** The profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
 
 | Flag                 | Use it when                                                                             |
 | -------------------- | --------------------------------------------------------------------------------------- |
@@ -566,9 +568,14 @@ cp -r ~/Library/Application\ Support/Firefox/Profiles/abc123.default /tmp/profil
 datahub init --sso --seed-profile /tmp/profile-copy
 ```
 
-Point it at a **copy**. Browsers hold an exclusive lock on a profile they have open, and copying a live one produces a torn, unusable directory. Seeding is skipped once a session is saved; use `--fresh-login` to seed again.
+Two things to know:
 
-**`--remember-session`** stores the cookies the login establishes in `~/.datahub/sso-sessions` (`0600`) and replays them next time. You only need it if your provider issues a session cookie with no expiry — no browser writes one of those to disk, so profile reuse alone cannot carry it across a browser restart. With a stored session the login runs headless and shows no window at all, opening a visible browser only if it does not land.
+- Point it at a **copy**. Browsers hold an exclusive lock on a profile they have open, and copying a live one produces a torn, unusable directory.
+- The seed must come from the same browser engine as your default — a Firefox profile for a Firefox default, a Chrome or Edge profile for either of those. The formats are not interchangeable, and a mismatch is refused rather than copied.
+
+Seeding only happens while the CLI's own profile directory is still empty, which includes the case where an earlier failed attempt left something behind. Use `--fresh-login` to empty it and seed again.
+
+**`--remember-session`** stores the cookies the login establishes in `~/.datahub/sso-sessions` — the directory `0700`, the files inside it `0600` — and replays them next time. You only need it if your provider issues a session cookie with no expiry — no browser writes one of those to disk, so profile reuse alone cannot carry it across a browser restart. With a stored session the next login is tried headlessly first, showing no window; if that does not authenticate, a visible browser opens as usual.
 
 It is opt-in because it takes a credential your provider deliberately kept in memory and writes it to a file. Prefer plain profile reuse where that is enough.
 

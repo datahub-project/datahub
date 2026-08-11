@@ -73,11 +73,21 @@ Playwright cannot automate Safari. If Safari is the default, run
 `playwright install chromium` once, and login opens that Chromium instead. If
 no browser can be opened at all, the error says which one to install.
 
-The browser profile is reused per instance, so a still-valid identity provider
-session skips the login form on later runs. `--fresh-login` discards it to sign
-in as somebody else, `--seed-profile DIR` copies an existing profile in on first
-use, and `--remember-session` stores and replays the login cookies for providers
-whose session cookie no browser persists. All three require `--sso`.
+Login runs in its own browser profile under `~/.datahub/sso-browser-profiles`,
+not the user's everyday one, so the first run always signs in. That profile is
+reused per instance, so a still-valid identity provider session skips the login
+form on later runs.
+
+- `--fresh-login` deletes both stores for this instance — the saved browser
+  profiles and any remembered session — to sign in as somebody else.
+- `--seed-profile DIR` copies an existing profile in, but only while the CLI's
+  own profile directory is still empty. The seed must come from the same engine
+  as the browser being driven; a mismatch is refused.
+- `--remember-session` stores the login cookies and replays them, for providers
+  whose session cookie no browser persists. The next run then tries the login
+  headlessly first and opens a visible browser if that does not authenticate.
+
+All three require `--sso`.
 
 `--sso` is mutually exclusive with `--token`, `--username`, and `--password`.
 If Playwright is not installed, the command prints step-by-step install instructions and exits.

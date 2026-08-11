@@ -339,8 +339,8 @@ def _validate_init_inputs(
     is_flag=True,
     default=False,
     help=(
-        "Open browser for SSO login, using the browser your OS defaults to "
-        "(requires: pip install 'acryl-datahub[sso]')"
+        "Open browser for SSO login, preferring the browser your OS defaults "
+        "to (requires: pip install 'acryl-datahub[sso]')"
     ),
 )
 @click.option(

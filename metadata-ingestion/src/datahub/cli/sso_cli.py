@@ -231,21 +231,58 @@ def _prepare_profile_dir(profile_dir: Path) -> None:
             logger.debug("Could not tighten permissions on %s", path, exc_info=True)
 
 
-def _seed_profile_dir(profile_dir: Path, seed_from: Path) -> None:
+_FIREFOX_PROFILE_MARKERS = ("prefs.js", "cookies.sqlite", "places.sqlite")
+
+_CHROMIUM_PROFILE_MARKERS = ("Local State", "Preferences", "Default")
+
+
+def _profile_engine(profile_dir: Path) -> Optional[str]:
+    """Which engine wrote this profile, or None if the directory does not say.
+
+    Told apart by the files each engine keeps at the top of a profile. An
+    unrecognised layout returns None and is allowed through: refusing something
+    merely unfamiliar would block a directory that works.
+    """
+    try:
+        names = {entry.name for entry in profile_dir.iterdir()}
+    except OSError:
+        return None
+    if names.intersection(_FIREFOX_PROFILE_MARKERS):
+        return "firefox"
+    if names.intersection(_CHROMIUM_PROFILE_MARKERS):
+        return "chromium"
+    return None
+
+
+def _seed_profile_dir(profile_dir: Path, seed_from: Path, engine: str) -> None:
     """Copy an existing browser profile in, so even the first login is skipped.
 
     Point this at a copy of a profile you already sign in with, and its identity
     provider session comes along. Never point it at a profile the browser
     currently has open: browsers hold an exclusive lock and a live copy is torn.
 
-    Only runs into an empty directory. Once a session is saved here, re-seeding
-    would throw it away, which is what --fresh-login is for.
-    """
-    if any(profile_dir.iterdir()):
-        return
+    A seed written by another engine is refused rather than copied. The two
+    profile formats are not interchangeable, and copying one into the other's
+    directory leaves a profile the browser resets or refuses to open.
 
+    Only runs into an empty directory, so a saved session is never thrown away.
+    Re-seeding is what --fresh-login is for.
+    """
     if not seed_from.is_dir():
         raise click.UsageError(f"--seed-profile is not a directory: {seed_from}")
+
+    seed_engine = _profile_engine(seed_from)
+    if seed_engine is not None and seed_engine != engine:
+        raise click.UsageError(
+            f"--seed-profile holds a {seed_engine} profile, but the browser "
+            f"this machine defaults to runs on {engine}. Copying it in would "
+            f"leave an unusable profile.\n"
+            f"Seed from a {engine} profile, or change your default browser to "
+            f"one that runs on {seed_engine}."
+        )
+
+    if any(profile_dir.iterdir()):
+        return
 
     click.echo(f"Seeding browser profile from {seed_from} ...")
     shutil.copytree(
@@ -279,6 +316,24 @@ _PROFILE_PROBLEM_MARKERS = (
     "permission denied",
     "is not a directory",
 )
+
+
+_MISSING_EXECUTABLE_MARKERS = (
+    "executable doesn't exist",
+    "executable does not exist",
+    "looks like playwright was just installed",
+    "please run the following command to download",
+)
+
+
+def _is_missing_executable(error: Exception) -> bool:
+    """Is this launch failure Playwright saying it has no such browser?
+
+    Only that failure is fixed by downloading one. A build that is present but
+    will not start — missing system libraries, a blocked sandbox — needs its own
+    error read, not an install command that will report nothing to do.
+    """
+    return any(marker in str(error).lower() for marker in _MISSING_EXECUTABLE_MARKERS)
 
 
 def _is_profile_problem(error: Exception) -> bool:
@@ -316,13 +371,14 @@ def _open_browser_context(
     """
     tried = _launch_targets(target)
     last_error: Optional[Exception] = None
+    downloadable: List[str] = []
     for candidate in tried:
         engine = getattr(playwright, candidate.engine)
         launch_args = {"channel": candidate.channel} if candidate.channel else {}
         profile_dir = _sso_profile_dir(frontend_url, support, _profile_key(candidate))
         _prepare_profile_dir(profile_dir)
         if seed_from is not None and candidate.engine == target.engine:
-            _seed_profile_dir(profile_dir, seed_from)
+            _seed_profile_dir(profile_dir, seed_from, candidate.engine)
         try:
             context = engine.launch_persistent_context(
                 str(profile_dir), headless=headless, **launch_args
@@ -337,6 +393,8 @@ def _open_browser_context(
                     "with --fresh-login."
                 ) from e
             last_error = e
+            if candidate.channel is None and _is_missing_executable(e):
+                downloadable.append(candidate.engine)
             logger.debug("Could not launch %s", _describe(candidate), exc_info=True)
             continue
 
@@ -346,16 +404,19 @@ def _open_browser_context(
             )
         return context
 
-    # Every candidate without a channel is a build Playwright has to download,
-    # so a machine that reaches here has not downloaded any of them.
-    missing = sorted({c.engine for c in tried if c.channel is None})
+    # Only a browser Playwright said it does not have is fixed by downloading
+    # one. Anything else failed for a reason the last error explains.
+    hint = (
+        "Install the browser your operating system defaults to, or download "
+        "one for Playwright to drive instead:\n"
+        f"    playwright install {' '.join(sorted(set(downloadable)))}"
+        if downloadable
+        else "None of them reported a missing browser, so read the error above."
+    )
     raise click.ClickException(
         "Could not open a browser for SSO login. Tried: "
         f"{', '.join(_describe(t) for t in tried)}.\n"
-        f"Last error: {last_error}\n"
-        "Install the browser your operating system defaults to, or download "
-        "one for Playwright to drive instead:\n"
-        f"    playwright install {' '.join(missing)}"
+        f"Last error: {last_error}\n" + hint
     )
 
 
