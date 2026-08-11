@@ -38,7 +38,19 @@ instead of `SqlParsingAggregator` / `create_lineage_from_sql_statements` with a
 platform map, then:
 - Flag correctness/consistency risk. Prefer the central aggregator.
 
+If a connector adds or changes a SQL parsing path that bypasses sqlglot /
+`SqlParsingAggregator` (e.g. Tableau native SQL, SQLAlchemy dialect crutches),
+then:
+- Flag accuracy risk. Prefer sqlglot or a shared dialect fix over a local parser.
+
 If a connector emits column-level lineage but leaves edges coarse (no schema
 resolve from graph / known URNs / case-insensitive column match when peers do),
 then:
 - Medium–High incomplete lineage. Best-effort resolve upstream/downstream schemas.
+
+## Breaking recipe / URN changes
+
+If an ingestion source changes URN format, recipe config keys, or default
+hierarchy/region/scan behavior, then:
+- High. Prefer transparent upgrade / dual-read; do not break existing recipes.
+- Flag missing entries in `docs/how/updating-datahub.md` and connector `*_pre.md`.

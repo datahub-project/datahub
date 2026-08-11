@@ -98,6 +98,15 @@ If one thread writes multi-field progress/health state read by another without
 synchronization, then:
 - Flag race; use a lock or atomic snapshot.
 
+## Billing / rollups / watermarks
+
+If billing, usage, or rollup code changes transaction IDs, watermarks, window
+stamps, or aggregation (`LATEST` vs first-seen / min / MAX-of-measure), then:
+- Flag non-deterministic IDs on Kafka retry (do not stamp buckets with newest
+  event Instant when the stamp is for windowing/txn identity).
+- Flag dual watermarks for the same source events (split-brain).
+- Flag silent drops of Tier C / usage events when flags default off.
+- Prefer High/Critical for revenue or metering correctness.
 
 ## Batch job failure scope
 
@@ -147,6 +156,54 @@ optional actor/scope, then:
 If default nav/redirect targets change, then:
 - Flag targets that can be feature-flagged off or privilege-gated (blank landing).
 
+## Packaging / deploy (SaaS)
+
+If a Dockerfile, requirements file, or service build copies or editable-installs
+local `metadata-ingestion` (`COPY`, `-e`, path deps) for a deployable service,
+then:
+- Flag it. SaaS must use pinned published wheels/releases.
+- Label: packaging
+
+If Logback XML is added/changed under `metadata-jobs/*/src/main/resources`, then:
+- Flag that these are often ignored at runtime; logging should be configured via
+  helm/charts, not the jar resources.
+
+## Search pagination
+
+If new search/ops code deep-pages Elasticsearch with `from`/`size` (especially
+beyond shallow UI pages), then:
+- Flag. Prefer `scroll` / `search_after` / existing `scrollAcrossEntities` helpers.
+
+## Error propagation
+
+If a user-visible API, write path, or authz decision swallows failures as
+best-effort/logged-only (catch + log / return null / empty success), then:
+- Flag when the caller cannot see or handle the failure.
+- Prefer propagate, or explicitly document intentional fire-and-forget.
+- Do not flag metrics, cache warmers, or secondary enrichers that already
+  document best-effort behavior.
+
+## Retries
+
+If production HTTP/Kafka shared clients add reconnect/retry loops, then:
+- Flag hard-coded retry counts/delays; prefer config.
+- Document which failures are retried and terminal behavior after exhaustion.
+- Skip tests, one-off scripts, and short fixed retries in local tooling.
+
+## MCL / index batching
+
+If a PR parallelizes MCL or search-index updates across entities that share
+aspects (or otherwise batches conflicting default-aspect writes), then:
+- Flag conflict/deadlock scenarios across batches.
+- Require an explicit retry/idempotency story.
+
+## Null / empty sentinels
+
+If UI/API uses empty string as a missing URN/id sentinel, then:
+- High. Prefer null/undefined/Optional.empty; empty string hides bugs.
+If new code reads DB/search rows and dereferences URN/id fields without a null
+guard on a path that historically sees corrupt/partial rows, then:
+- Medium. Flag NPE risk; do not demand guards on every field access.
 
 ## Frontend
 
