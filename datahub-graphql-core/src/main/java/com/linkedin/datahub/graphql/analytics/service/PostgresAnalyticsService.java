@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -132,5 +134,34 @@ public final class PostgresAnalyticsService implements AnalyticsService {
       return 0;
     }
     return postgresAnalytics.getHighlights(indexName, dateRange, filters, mustNotFilters, uniqueOn);
+  }
+
+  @Override
+  public Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn) {
+    if (!isUsageIndex(indexName) || keyedRanges.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    Map<String, Integer> results = new LinkedHashMap<>();
+    for (Map.Entry<String, DateRange> entry : keyedRanges.entrySet()) {
+      results.put(
+          entry.getKey(),
+          postgresAnalytics.getHighlights(
+              indexName,
+              Optional.of(entry.getValue()),
+              Collections.emptyMap(),
+              Collections.emptyMap(),
+              Optional.of(uniqueOn)));
+    }
+    return results;
+  }
+
+  @Override
+  public Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    return Collections.emptyMap();
   }
 }

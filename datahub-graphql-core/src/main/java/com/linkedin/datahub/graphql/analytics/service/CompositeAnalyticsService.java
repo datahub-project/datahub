@@ -132,4 +132,20 @@ public final class CompositeAnalyticsService implements AnalyticsService {
     return delegateFor(indexName)
         .getHighlights(opContext, indexName, dateRange, filters, mustNotFilters, uniqueOn);
   }
+
+  @Override
+  public Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn) {
+    return delegateFor(indexName)
+        .getUniqueCountsByRange(opContext, indexName, keyedRanges, uniqueOn);
+  }
+
+  @Override
+  public Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    return entityAnalytics.getEntityStats(opContext, entityTypes, facetFields);
+  }
 }

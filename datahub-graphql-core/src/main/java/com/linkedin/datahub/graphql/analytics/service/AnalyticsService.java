@@ -104,4 +104,18 @@ public interface AnalyticsService {
       Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn);
+
+  /** Unique count per date range in one query. Keys of the result match {@code keyedRanges}. */
+  Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn);
+
+  /**
+   * Total document count plus one count per facet field, for every requested entity type.
+   * Soft-deleted entities are excluded.
+   */
+  Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields);
 }
