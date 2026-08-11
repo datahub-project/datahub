@@ -12,9 +12,26 @@ from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClas
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
+    _SchemaResolverWithExtras,
     _TableName,
     match_columns_to_schema,
 )
+
+
+def test_schema_resolver_with_extras_includes_temp_tables_reflects_state() -> None:
+    """includes_temp_tables() must be False until temp tables are registered.
+
+    A hardcoded True marked every session-less query as temp-bearing and forced
+    it onto the inline serial path, defeating parallelism for connectors that
+    never set a session id."""
+    base = SchemaResolver(platform="redshift", env="PROD", graph=None)
+    resolver = _SchemaResolverWithExtras(base_resolver=base, extra_schemas={})
+    assert resolver.includes_temp_tables() is False
+
+    resolver.add_temp_tables(
+        {"urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tmp,PROD)": None}
+    )
+    assert resolver.includes_temp_tables() is True
 
 
 def create_default_schema_resolver(urn: str) -> SchemaResolver:

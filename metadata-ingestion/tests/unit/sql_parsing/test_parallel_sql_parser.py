@@ -423,6 +423,9 @@ def test_executor_submit_failure_becomes_error_outcome(
         assert outcome.failed
         assert outcome.error is not None
         assert outcome.result is None
+        # A per-query executor error (NOT a BrokenProcessPool) must not trip the
+        # sticky pool_broke flag — the pool stays usable for the rest of the run.
+        assert not parser.pool_broke.is_set()
 
         # Restore real submit; the parser must still be usable afterwards.
         executor.submit = original_submit  # type: ignore[assignment]

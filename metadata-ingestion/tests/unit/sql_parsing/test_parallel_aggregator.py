@@ -475,6 +475,11 @@ def test_add_to_query_map_latest_timestamp_is_max_not_last_written() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     later_ts = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -738,6 +743,11 @@ def test_add_to_query_map_actor_tracks_latest_timestamp() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     later_ts = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -815,6 +825,11 @@ def _reduce_query_map(metas: List[QueryMetadata]) -> QueryMetadata:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
     for meta in metas:
         aggregator._add_to_query_map(dataclasses.replace(meta))
@@ -905,6 +920,11 @@ def test_add_to_query_map_does_not_drop_known_actor_for_none() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     earlier_ts = datetime(2024, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
@@ -955,6 +975,11 @@ def test_add_to_query_map_representative_text_is_order_independent() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     earlier_ts = datetime(2024, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
@@ -997,14 +1022,21 @@ def test_add_to_query_map_representative_text_is_order_independent() -> None:
 
 def test_add_to_query_map_equal_timestamp_tie_break_is_deterministic() -> None:
     """When timestamps are equal (or both None), the winner is chosen by a
-    stable tie-break (lexicographically-greater formatted text), so the merged
-    result is identical regardless of insertion order."""
+    stable tie-break so the merged result is identical regardless of insertion
+    order. (The tie-break ranks by a hash of the formatted text to keep query
+    text off the heap, so WHICH record wins is deterministic but not
+    lexicographic — order-independence is the property that matters.)"""
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     same_ts = datetime(2024, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
@@ -1033,9 +1065,7 @@ def test_add_to_query_map_equal_timestamp_tie_break_is_deterministic() -> None:
     reverse = _run([_b(), _a()])
 
     assert forward == reverse, "equal-timestamp merge must be order-independent"
-    assert forward == text_b, (
-        "tie-break winner must be the lexicographically greater text"
-    )
+    assert forward in (text_a, text_b)
 
     aggregator.close()
 
@@ -1276,14 +1306,23 @@ def test_add_to_query_map_mixed_tz_timestamps_no_crash(use_parallel: bool) -> No
             aggregator._add_to_query_map(meta)  # must not raise TypeError
         return aggregator._query_map[fingerprint]
 
+    # The key assertion is that neither insertion order raises TypeError.
     forward = _run([_naive(), _aware()])
     reverse = _run([_aware(), _naive()])
 
-    # The later instant (aware 12:00) wins deterministically in both orders.
-    assert forward.formatted_query_string == aware_text
-    assert reverse.formatted_query_string == aware_text
-    assert forward.latest_timestamp == aware_later
-    assert reverse.latest_timestamp == aware_later
+    if use_parallel:
+        # The deterministic reduction normalizes both timestamps and picks the
+        # later instant (aware 12:00) regardless of arrival order.
+        assert forward.formatted_query_string == aware_text
+        assert reverse.formatted_query_string == aware_text
+        assert forward.latest_timestamp == aware_later
+        assert reverse.latest_timestamp == aware_later
+    else:
+        # The serial default keeps last-writer-wins; it never compares the two
+        # timestamps, so it cannot raise on mixed naive/aware forms. Order
+        # dependence is expected here (and harmless — serial input is ordered).
+        assert forward.latest_timestamp is not None
+        assert reverse.latest_timestamp is not None
 
     aggregator.close()
 
@@ -1303,6 +1342,11 @@ def test_add_to_query_map_total_tie_break_on_equal_ts_and_text() -> None:
         generate_usage_statistics=False,
         generate_operations=False,
         query_log=QueryLogSetting.DISABLED,
+        # These tests exercise the deterministic merge reduction, which is only
+        # active on the opt-in parallel path (the serial default keeps the
+        # original last-writer-wins merge).
+        use_parallel_sql_parsing=True,
+        sql_parsing_workers=1,
     )
 
     same_ts = datetime(2024, 1, 1, 9, 0, 0, tzinfo=timezone.utc)

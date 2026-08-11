@@ -455,6 +455,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         The source connection must be quiescent (no concurrent writers) when this is
         called: we flush with ``synchronous=OFF`` so the OS page cache may not have
         been synced to disk; copying mid-write could produce a corrupt snapshot.
+        The aggregator satisfies this by snapshotting at parallel-scope entry,
+        before any worker or PartitionExecutor thread starts — it must never be
+        called from inside an active scope.
         """
         self._schema_cache.flush()
         shutil.copyfile(self._schema_cache.filename, path)
@@ -572,7 +575,13 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         return self._base_resolver.platform
 
     def includes_temp_tables(self) -> bool:
-        return True
+        # Only claims temp tables when some have actually been registered
+        # (add_temp_tables populates _extra_schemas). The previous unconditional
+        # True marked every session-less query as temp-bearing, which (a) tagged
+        # its QueryMetadata.used_temp_tables even with no temps and (b) forced the
+        # parallel path to route every session-less query inline — defeating
+        # parallelism for connectors that never set a session id.
+        return bool(self._extra_schemas)
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self._base_resolver.get_urn_for_table(

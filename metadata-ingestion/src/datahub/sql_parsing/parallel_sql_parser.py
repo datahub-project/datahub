@@ -3,6 +3,7 @@ import pathlib
 import threading
 import time
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -14,7 +15,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverInterface,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
-from datahub.sql_parsing.sqlglot_utils import try_format_query
+from datahub.sql_parsing.sqlglot_utils import DialectOrStr, try_format_query
 
 
 class ParallelParserUnavailable(Exception):
@@ -31,7 +32,11 @@ class ParseTask:
     query: str
     default_db: Optional[str]
     default_schema: Optional[str]
-    override_dialect: Optional[str] = None
+    # Passed through unchanged (not stringified) so a sqlglot.Dialect round-trips
+    # exactly as it does on the serial path, where get_dialect() accepts either
+    # form. Must be picklable to cross to the worker (str always is; a Dialect
+    # object is what the serial path already holds).
+    override_dialect: Optional[DialectOrStr] = None
     generate_column_lineage: bool = True
 
 
@@ -285,24 +290,27 @@ class ParallelSqlParser(Closeable):
         """Parse a single task in a worker process and block until its outcome.
 
         Submits exactly one task and waits for it, so the caller drives its own
-        per-task ordering (e.g. a PartitionExecutor). A dead worker process is
+        per-task ordering (e.g. a PartitionExecutor). An executor-layer failure is
         surfaced as a :class:`ParseOutcome` with ``error`` set rather than
-        propagating an executor exception.
+        propagating (a raise would be miscounted upstream as an ordinary parse
+        failure and the query silently dropped). Only a genuine
+        :class:`BrokenProcessPool` trips the sticky ``pool_broke`` flag; a
+        per-query executor error (e.g. a result that fails to unpickle) is
+        reported as an error outcome WITHOUT disabling the pool for the rest of
+        the run — the caller reparses that one query inline.
         """
         executor = self._ensure_executor()
         try:
-            # submit() and result() are wrapped together so that ANY
-            # executor-layer failure — a BrokenProcessPool raised immediately by
-            # submit() when the pool is already broken, or a worker death
-            # surfaced at result() — is treated as an infra failure. These are
-            # NOT parse failures: trip pool_broke so the caller falls back to
-            # serial, and return an error outcome. No executor exception may
-            # escape this method (a raise here would be miscounted upstream as an
-            # ordinary parse failure and the query silently dropped).
             future = executor.submit(_worker_parse, task)
             return future.result()
-        except Exception as e:
+        except BrokenProcessPool as e:
+            # The pool itself is unusable — trip the sticky flag so the caller
+            # falls the REST of the run back to serial.
             self.pool_broke.set()
+            return ParseOutcome(result=None, error=repr(e))
+        except Exception as e:
+            # A per-query executor-layer failure: surface it (the caller reparses
+            # this query inline) but leave the pool usable for other queries.
             return ParseOutcome(result=None, error=repr(e))
 
     def close(self) -> None:
