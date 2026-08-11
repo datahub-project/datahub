@@ -58,7 +58,7 @@ export function useGetAssets(moduleUrn?: string) {
         fetchAssets: fetchDashboardContents,
         total: dashboardContentsTotal,
         navigateToAssetsTab: navigateToDashboardContentsTab,
-    } = useGetDashboardContents(entityType === EntityType.Dashboard && useDataSources);
+    } = useGetDashboardContents(entityType !== EntityType.Dashboard || useDataSources);
 
     const {
         loading: dashboardDataSourcesLoading,

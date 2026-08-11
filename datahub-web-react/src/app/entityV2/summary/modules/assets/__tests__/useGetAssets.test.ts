@@ -152,6 +152,8 @@ describe('useGetAssets', () => {
 
     it('should return dashboard contents by default when entity type is Dashboard', () => {
         const { result } = setup(EntityType.Dashboard);
+        expect(useGetDashboardContents).toHaveBeenCalledWith(false);
+        expect(useGetDashboardDataSources).toHaveBeenCalledWith(true);
         expect(result.current.fetchAssets).toBe(mockDashboardContents.fetchAssets);
         expect(result.current.loading).toBe(mockDashboardContents.loading);
         expect(result.current.total).toBe(mockDashboardContents.total);
@@ -160,10 +162,18 @@ describe('useGetAssets', () => {
 
     it('should return dashboard data sources when the data sources module is active', () => {
         const { result } = setup(EntityType.Dashboard, DATA_SOURCES_MODULE_URN);
+        expect(useGetDashboardContents).toHaveBeenCalledWith(true);
+        expect(useGetDashboardDataSources).toHaveBeenCalledWith(false);
         expect(result.current.fetchAssets).toBe(mockDashboardDataSources.fetchAssets);
         expect(result.current.loading).toBe(mockDashboardDataSources.loading);
         expect(result.current.total).toBe(mockDashboardDataSources.total);
         expect(result.current.navigateToAssetsTab).toBe(mockDashboardDataSources.navigateToAssetsTab);
+    });
+
+    it('should skip both dashboard hooks on non-dashboard entities', () => {
+        setup(EntityType.Chart);
+        expect(useGetDashboardContents).toHaveBeenCalledWith(true);
+        expect(useGetDashboardDataSources).toHaveBeenCalledWith(true);
     });
 
     it('should return chart assets info when entity type is Chart', () => {
