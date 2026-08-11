@@ -57,6 +57,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -1733,18 +1734,19 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        # Athena-specific processing: catalog stripping and federated table platform override
-        if (
-            platform_pair.datahub_data_platform_name
-            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
-        ):
-            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
-            # This ensures URN consistency with the standalone Athena connector
-            result = self._strip_athena_catalog_from_lineage(result)
-            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
-            result = self._apply_table_platform_override(result, dsn)
+        return self._post_process_athena(result, platform_pair, dsn)
 
-        return result
+    def _post_process_athena(
+        self, result: Lineage, platform_pair: DataPlatformPair, dsn: str
+    ) -> Lineage:
+        """Athena-specific post-processing for both the query and hierarchical
+        navigation paths. Strips the catalog prefix so URNs match the standalone
+        Athena connector's database.table shape, then applies federated table
+        platform overrides (e.g. athena -> mysql). No-op for other platforms."""
+        if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
+            return result
+        result = self._strip_athena_catalog_from_lineage(result)
+        return self._apply_table_platform_override(result, dsn)
 
     @staticmethod
     def _transform_lineage_urns(
@@ -1818,8 +1820,17 @@ class OdbcLineage(AbstractLineage):
             """Strip first part from 3-part table names in URN."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception as e:
-                logger.warning(f"Failed to parse URN for catalog stripping: {urn}: {e}")
+            except InvalidUrnError as e:
+                self.reporter.warning(
+                    title="Failed to normalize Athena URN",
+                    message=(
+                        "Could not parse an Athena upstream URN to strip its catalog "
+                        "prefix; the emitted URN may not match the standalone Athena "
+                        "connector."
+                    ),
+                    context=f"table-name={self.table.full_name}, urn={urn}",
+                    exc=e,
+                )
                 return urn
 
             parts = parsed.name.split(".")
@@ -1854,8 +1865,16 @@ class OdbcLineage(AbstractLineage):
             """Check if table matches override config and replace platform."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception as e:
-                logger.warning(f"Failed to parse URN for platform override: {urn}: {e}")
+            except InvalidUrnError as e:
+                self.reporter.warning(
+                    title="Failed to apply Athena table platform override",
+                    message=(
+                        "Could not parse an Athena upstream URN to apply the "
+                        "configured platform override; leaving the original platform."
+                    ),
+                    context=f"table-name={self.table.full_name}, dsn={dsn}, urn={urn}",
+                    exc=e,
+                )
                 return urn
 
             urn_name = parsed.name  # format: "database.table"
@@ -2072,17 +2091,7 @@ class OdbcLineage(AbstractLineage):
             column_lineage=column_lineage,
         )
 
-        # Match query_lineage: Athena hierarchical nav / DSN backfill can produce
-        # catalog.database.table; strip to database.table so URNs match the
-        # standalone Athena connector, then apply federated platform overrides.
-        if (
-            platform_pair.datahub_data_platform_name
-            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
-        ):
-            result = self._strip_athena_catalog_from_lineage(result)
-            result = self._apply_table_platform_override(result, dsn)
-
-        return result
+        return self._post_process_athena(result, platform_pair, dsn)
 
     @staticmethod
     def create_platform_pair(
