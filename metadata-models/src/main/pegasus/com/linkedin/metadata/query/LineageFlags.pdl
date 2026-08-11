@@ -26,4 +26,23 @@ record LineageFlags {
       * a large amount of additional hops to occur and should be used with caution.
       */
       ignoreAsHops: optional map[string, array[Urn]]
+
+    /**
+     * Read results off the lineage graph rather than by looking each one up in the entity search
+     * index. Applies to searchAcrossLineage only; nothing else honors it.
+     *
+     * Chiefly this returns entities the index has nothing to return for, because they were never
+     * materialized -- lineage graphs point at those constantly, since fine-grained lineage writes
+     * graph edges without creating the schema fields it connects. They cannot be hydrated, so they
+     * come back as a urn and entity type only.
+     *
+     * Internal. It is only servable under narrow conditions -- a "*" query, no sort criteria, and
+     * filters limited to the fields derivable from a urn alone -- and a request that sets it
+     * without meeting them is rejected rather than quietly answered from the index instead.
+     *
+     * Counts read this way are approximate. Nothing here is verified against the entities that
+     * actually exist, so a relation whose parent is missing is still counted, and view-based
+     * access control is not applied -- unlike the entity index, which filters both.
+     */
+    useLightningMode: optional boolean = false
 }

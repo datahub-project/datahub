@@ -28,13 +28,16 @@ import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -45,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -92,6 +96,12 @@ public class LineageSearchService {
   @Setter @Nullable private MetricUtils metricUtils;
 
   private static final String DEGREE_FILTER = "degree";
+  private static final String PARENT_FILTER = "parent";
+
+  /** Filter fields the graph-only path can answer from a urn, without the entity index. */
+  private static final Set<String> LIGHTNING_FILTER_FIELDS =
+      Set.of("platform", "origin", PARENT_FILTER);
+
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
           .setName(DEGREE_FILTER)
@@ -249,7 +259,13 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
 
-      if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriteria)) {
+      boolean useLightningMode =
+          Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
+              .map(LineageFlags::isUseLightningMode)
+              .orElse(false);
+
+      if (canDoLightning(
+          lineageRelationships, finalInput, reducedFilters, sortCriteria, useLightningMode)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         LineageSearchResult lineageSearchResult =
@@ -266,6 +282,12 @@ public class LineageSearchService {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
+      } else if (useLightningMode) {
+        // Falling through would answer from the entity index, which has nothing to return for an
+        // entity that does not exist -- so the caller would silently get a short result rather than
+        // what it asked for
+        throw new IllegalArgumentException(
+            unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
       } else {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult =
@@ -298,7 +320,8 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       String input,
       Filter inputFilters,
-      List<SortCriterion> sortCriteria) {
+      List<SortCriterion> sortCriteria,
+      boolean useLightningMode) {
     boolean simpleFilters =
         inputFilters == null
             || inputFilters.getOr() == null
@@ -308,13 +331,84 @@ public class LineageSearchService {
                         criterion.getAnd().stream()
                             .allMatch(
                                 criterion1 ->
-                                    "platform".equals(criterion1.getField())
-                                        || "origin".equals(criterion1.getField())));
-    return (lineageRelationships.size()
-            > appConfig.getCache().getSearch().getLineage().getLightningThreshold())
+                                    LIGHTNING_FILTER_FIELDS.contains(criterion1.getField())));
+    // Use lightning path when the caller asks for it -- it gives us the exact results we want
+    boolean worthwhile =
+        useLightningMode
+            || lineageRelationships.size()
+                > appConfig.getCache().getSearch().getLineage().getLightningThreshold();
+    return worthwhile
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
+  }
+
+  /** Explains why lightning mode cannot be served, naming what the request actually asked for. */
+  private static String unservableLightningMessage(
+      String input, @Nullable List<SortCriterion> sortCriteria, @Nullable Filter filters) {
+    return String.format(
+        "useLightningMode reads results off the lineage graph, which cannot serve this query. It "
+            + "needs a '*' query, no sort criteria, and filters only on %s, but got query '%s', %d "
+            + "sort criteria, and filters on %s.",
+        LIGHTNING_FILTER_FIELDS,
+        input,
+        sortCriteria == null ? 0 : sortCriteria.size(),
+        filterFields(filters));
+  }
+
+  /** The distinct fields the filters constrain, for reporting what a query asked for. */
+  private static Set<String> filterFields(@Nullable Filter filters) {
+    if (filters == null || filters.getOr() == null) {
+      return Set.of();
+    }
+    return filters.getOr().stream()
+        .map(ConjunctiveCriterion::getAnd)
+        .flatMap(CriterionArray::stream)
+        .map(Criterion::getField)
+        .collect(Collectors.toCollection(java.util.TreeSet::new));
+  }
+
+  /**
+   * Whether a urn passes the `parent` criteria in the filters. A schema field nests its parent
+   * inside its own urn, so this is answerable without the entity. Entities with no parent to read
+   * pass only negated criteria.
+   *
+   * <p>Unlike the platform and origin criteria, negation is honored: excluding columns that the
+   * graph draws folded into some other node is expressed that way.
+   */
+  @VisibleForTesting
+  static boolean passesParentCriteria(Urn urn, @Nullable Filter inputFilters) {
+    if (inputFilters == null || inputFilters.getOr() == null) {
+      return true;
+    }
+    List<Criterion> parentCriteria =
+        inputFilters.getOr().stream()
+            .map(ConjunctiveCriterion::getAnd)
+            .flatMap(CriterionArray::stream)
+            .filter(criterion -> PARENT_FILTER.equals(criterion.getField()))
+            .collect(Collectors.toList());
+    if (parentCriteria.isEmpty()) {
+      return true;
+    }
+
+    String parent =
+        SchemaFieldUtils.parseSchemaFieldUrn(urn)
+            .map(parsed -> parsed.getFirst().toString())
+            .orElse(null);
+    for (Criterion criterion : parentCriteria) {
+      boolean matches =
+          parent != null
+              && criterion.getValues().stream()
+                  .anyMatch(
+                      value ->
+                          Condition.CONTAIN.equals(criterion.getCondition())
+                              ? parent.contains(value)
+                              : parent.equals(value));
+      if (matches == Boolean.TRUE.equals(criterion.isNegated())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @VisibleForTesting
@@ -382,7 +476,8 @@ public class LineageSearchService {
               && (CollectionUtils.isEmpty(platformCriteriaValues)
                   || (platform != null && platformCriteriaValues.contains(platform)))
               && (CollectionUtils.isEmpty(originCriteriaValues)
-                  || (environment != null && originCriteriaValues.contains(environment)));
+                  || (environment != null && originCriteriaValues.contains(environment)))
+              && passesParentCriteria(entityUrn, inputFilters);
 
       if (isNotFiltered) {
         start++;
@@ -801,6 +896,7 @@ public class LineageSearchService {
       Filter reducedFilters =
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+
       LineageScrollResult scrollResult =
           getScrollResultInBatches(
               opContext,
