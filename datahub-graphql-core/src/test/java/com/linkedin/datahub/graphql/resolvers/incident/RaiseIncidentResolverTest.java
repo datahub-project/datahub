@@ -259,7 +259,7 @@ public class RaiseIncidentResolverTest {
   }
 
   @Test
-  public void testGetWithEmptyIdThrowsBadRequest() throws Exception {
+  public void testGetWithBlankIdThrowsBadRequest() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     QueryContext mockContext = getMockAllowContext();
@@ -267,7 +267,6 @@ public class RaiseIncidentResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     RaiseIncidentInput testInput = new RaiseIncidentInput();
-    testInput.setId("");
     testInput.setType(com.linkedin.datahub.graphql.generated.IncidentType.SQL);
     testInput.setResourceUrn("urn:li:dataset:(test,test,test)");
 
@@ -275,14 +274,17 @@ public class RaiseIncidentResolverTest {
 
     RaiseIncidentResolver resolver = new RaiseIncidentResolver(mockClient);
 
-    try {
-      resolver.get(mockEnv).get();
-      Assert.fail("Expected exception was not thrown");
-    } catch (ExecutionException e) {
-      Assert.assertTrue(e.getCause() instanceof DataHubGraphQLException);
-      Assert.assertEquals(
-          ((DataHubGraphQLException) e.getCause()).errorCode(),
-          DataHubGraphQLErrorCode.BAD_REQUEST);
+    for (String invalidId : List.of("", "   ")) {
+      testInput.setId(invalidId);
+      try {
+        resolver.get(mockEnv).get();
+        Assert.fail("Expected exception was not thrown for invalid id: " + invalidId);
+      } catch (ExecutionException e) {
+        Assert.assertTrue(e.getCause() instanceof DataHubGraphQLException);
+        Assert.assertEquals(
+            ((DataHubGraphQLException) e.getCause()).errorCode(),
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
     }
     Mockito.verifyNoInteractions(mockClient);
   }
