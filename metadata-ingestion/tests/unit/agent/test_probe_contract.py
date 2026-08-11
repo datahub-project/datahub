@@ -18,6 +18,7 @@ from typing import Dict, List, Set, Tuple
 
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
+    ProbeProvider,
     _iter_specs,
     _provider_class,
     config_class_for,
@@ -107,15 +108,19 @@ def test_the_scan_actually_reached_providers():
     )
 
 
-def test_every_advertised_provider_can_actually_be_built_and_has_commands():
+def test_every_advertised_provider_satisfies_the_provider_protocol():
     """`probe methods` describes a provider; `probe run` builds and invokes it.
 
-    Both now go through the single class `probe_provider_class()` returns, so they
-    cannot name different things -- the Snowflake/BigQuery bug, where discovery
-    inherited the SQLAlchemy answer while execution used the connector's own
-    client, is unrepresentable rather than merely tested for. What is still worth
-    checking is that the class it names is usable: constructible from a config,
-    and carrying at least one command to run.
+    Both go through the single class `probe_provider_class()` returns, so they cannot
+    name different things -- the Snowflake/BigQuery bug, where discovery inherited the
+    SQLAlchemy answer while execution used the connector's own client, is
+    unrepresentable rather than merely tested for. What is still worth checking is
+    that the class it names is usable.
+
+    Checked with issubclass against ProbeProvider rather than by listing members here:
+    the Protocol is where the contract is written, and a test that restated it would
+    be a second copy to drift from. It covers for_config (constructible from a
+    recipe), __enter__ and __exit__ (so whatever it opened gets closed).
     """
     broken: Dict[str, str] = {}
     for source_type in sorted(source_registry.mapping):
@@ -125,13 +130,38 @@ def test_every_advertised_provider_can_actually_be_built_and_has_commands():
             continue  # covered by test_the_scan_actually_reached_providers
         if provider_cls is None:
             continue
-        if not callable(getattr(provider_cls, "for_config", None)):
-            broken[source_type] = (
-                f"{provider_cls.__name__} has no for_config(config) classmethod"
-            )
+        if not issubclass(provider_cls, ProbeProvider):
+            missing = [
+                member
+                for member in ("for_config", "__enter__", "__exit__")
+                if not hasattr(provider_cls, member)
+            ]
+            broken[source_type] = f"{provider_cls.__name__} lacks {missing}"
         elif not _iter_specs(provider_cls):
             broken[source_type] = f"{provider_cls.__name__} declares no probe methods"
     assert broken == {}, broken
+
+
+def test_the_protocol_rejects_a_provider_that_cannot_be_built_or_closed():
+    # Proving the check above can fail: it is the only thing standing between a
+    # half-written provider and a `probe run` that dies inside the with-block.
+    class NoBuilder:
+        def __enter__(self) -> "NoBuilder":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+    class NoExit:
+        @classmethod
+        def for_config(cls, config: object) -> "NoExit":
+            return cls()
+
+        def __enter__(self) -> "NoExit":
+            return self
+
+    assert not issubclass(NoBuilder, ProbeProvider)
+    assert not issubclass(NoExit, ProbeProvider)
 
 
 def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
@@ -155,28 +185,6 @@ def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
                     f"{provider_cls.__name__} takes SQL but declares no sql_dialect"
                 )
     assert missing == {}, missing
-
-
-def test_every_provider_is_a_context_manager():
-    """__exit__ is where a probe's connection gets closed.
-
-    SqlCatalogPassthrough supplies __enter__ but deliberately not __exit__, since
-    what closing means differs -- dispose a pool, close a connection, close a
-    client. A provider that inherits the first and forgets the second fails only
-    when `probe run` opens the `with` block, which is after a connection exists.
-    """
-    incomplete: Dict[str, str] = {}
-    for source_type in sorted(source_registry.mapping):
-        try:
-            provider_cls = _provider_class(source_type)
-        except Exception:
-            continue
-        if provider_cls is None:
-            continue
-        missing = [m for m in ("__enter__", "__exit__") if not hasattr(provider_cls, m)]
-        if missing:
-            incomplete[source_type] = f"{provider_cls.__name__} lacks {missing}"
-    assert incomplete == {}, incomplete
 
 
 # Every hook the framework reads off a config by name. A method that looks like one

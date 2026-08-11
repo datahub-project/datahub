@@ -8,9 +8,11 @@ from typing import (
     Optional,
     Protocol,
     Tuple,
+    Type,
     Union,
     get_args,
     get_origin,
+    runtime_checkable,
 )
 
 from datahub.configuration.env_vars import get_disable_agent_probe_raw_access
@@ -192,6 +194,7 @@ def probe_method(
     return deco
 
 
+@runtime_checkable
 class ProbeProvider(Protocol):
     """What a connector's probe provider must be: constructible from the recipe's
     config, and a context manager so whatever it opened gets closed.
@@ -261,7 +264,7 @@ def config_class_for(source_type: str) -> Any:
     return get_config_class() if get_config_class is not None else None
 
 
-def _provider_class(source_type: str) -> Optional[type]:
+def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
     getter = getattr(config_class_for(source_type), "probe_provider_class", None)
     return getter() if callable(getter) else None
 
