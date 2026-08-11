@@ -118,8 +118,16 @@ the access. Set it where the probe runs (the ingestion executor).
 reference resolves into the dialect's catalog schemas. Two of its rules are not obvious:
 
 - **A relation in a catalog schema is not automatically metadata.** `pg_stat_statements` and
-  Snowflake's `ACCOUNT_USAGE.QUERY_HISTORY` carry the literal text of user queries, values in
-  `WHERE` clauses included. Those are excluded by name.
+  `pg_stat_activity` carry the literal text of user queries, values in `WHERE` clauses included, so
+  they are excluded by name even though `pg_catalog` is permitted. Query history reaches the same
+  place three ways per dialect and each is stopped by a different rule — worth knowing when adding
+  a schema to the allowlist, because only the first of these travels with it:
+
+  | Surface                                       | Refused by                             |
+  | --------------------------------------------- | -------------------------------------- |
+  | `pg_catalog.pg_stat_statements`               | the query-text exclusion list, by name |
+  | `snowflake.account_usage.query_history`        | the schema allowlist (`ACCOUNT_USAGE` is not a permitted schema) |
+  | `information_schema.query_history()` (Snowflake) | the vendor-function rule — it is a table function inside a permitted schema |
 - **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
   their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
   reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
@@ -147,6 +155,20 @@ the attributes those methods touch. `ModeSource.for_probe()` is the worked examp
 
 A provider that degrades rather than fails exposes a `warnings: List[str]`; `run_probe_method`
 reads it back, so an empty result carries its reason.
+
+### When the display name is not the address
+
+Mode addresses objects by opaque token while the probe addresses them by the display name a
+pattern is matched against, so each space-scoped command spends one spaces listing resolving the
+name. Any BI source that shows a name while addressing by an internal ID lands here — Tableau's
+LUIDs, Sigma, Qlik.
+
+Resolve once per command and no more. The cost is inherent — each `probe run` is a fresh process
+holding only what the caller typed — but it multiplies if one command fans out to sub-fetches that
+each resolve independently: when a single command listed a Space's reports *and* datasets, it
+listed every space in the workspace twice. One command per listing is what fixed that, and
+`test_a_space_scoped_command_lists_spaces_exactly_once` pins it. Do not add a convenience wrapper
+that revives the fan-out.
 
 ### Override `probe_provider_class` and `build_probe_provider` together
 

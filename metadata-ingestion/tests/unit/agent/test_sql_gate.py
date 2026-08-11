@@ -126,13 +126,29 @@ def test_permits_information_schema_on_snowflake():
 
 def test_rejects_snowflake_account_usage_query_history():
     # ACCOUNT_USAGE.QUERY_HISTORY.QUERY_TEXT holds the literal text of customer
-    # queries, including values in WHERE clauses. Living in a catalog schema does
-    # not make it metadata.
-    with pytest.raises(SqlScopeError, match="(?i)account_usage"):
+    # queries, including values in WHERE clauses. It is refused because
+    # ACCOUNT_USAGE is not one of the permitted schemas -- not by the query-text
+    # exclusion list, which never sees it. Asserting the schema wording keeps the
+    # two mechanisms from being confused if either changes.
+    with pytest.raises(SqlScopeError, match="(?i)outside the catalog metadata"):
         check_query_scope(
             "SELECT query_text FROM snowflake.account_usage.query_history",
             platform="snowflake",
         )
+
+
+def test_rejects_snowflakes_query_history_table_function():
+    # This is Snowflake's actual "in a catalog schema but not metadata" case:
+    # INFORMATION_SCHEMA.QUERY_HISTORY() is a table function inside a permitted
+    # schema, so the schema rule clears it and the vendor-function rule is what
+    # refuses it. A name-based exclusion list would have to know the function
+    # exists; refusing the whole exp.Anonymous class does not.
+    for query in (
+        "SELECT * FROM information_schema.query_history()",
+        "SELECT * FROM TABLE(information_schema.query_history())",
+    ):
+        with pytest.raises(SqlScopeError, match="(?i)vendor-specific function"):
+            check_query_scope(query, platform="snowflake")
 
 
 def test_rejects_pg_stat_statements():

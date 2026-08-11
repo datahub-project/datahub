@@ -26,9 +26,19 @@ class ModeProbeSource(ModeSource):
     # which no type checker can see priming an attribute.
     warnings: List[str]
 
-    # Read endpoints `probe api` may reach. These are the listings the getters
-    # below already cover, plus the per-object detail endpoints they do not --
-    # the escape hatch for a question no getter anticipated.
+    # Read endpoints `probe api` may reach: the escape hatch for a question no
+    # getter anticipated (a report's last-run time, whether a space is
+    # restricted).
+    #
+    # Three of these look redundant against the getters below and are not -- they
+    # are the bootstrap. Mode addresses objects by token, and no getter returns
+    # one: they all return the display name a pattern is matched against (see
+    # test_spaces_report_the_same_raw_name_space_token_resolves_by). So the raw
+    # /spaces listing is the only route to a space token, and a space's raw
+    # reports listing the only route to a report token. Trim the "duplicates" and
+    # the four token-addressed entries below become unreachable, which is to say
+    # `probe api` stops working. test_every_token_addressed_endpoint_has_a_route
+    # pins the chain.
     #
     # This does NOT replace the getters. A raw record leaves the caller to guess
     # which field a pattern is matched against, and for a Space that is the raw

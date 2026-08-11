@@ -334,6 +334,42 @@ def test_queries_are_addressed_by_space_and_report_name():
     assert _probe(_cfg()).queries("Personal", "Weekly") == ["q_main"]
 
 
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda p: p.reports("Personal"),
+        lambda p: p.datasets("Personal"),
+        lambda p: p.queries("Personal", "Weekly"),
+    ],
+)
+def test_a_space_scoped_command_lists_spaces_exactly_once(call):
+    """One name-to-token resolution per command, not one per sub-fetch.
+
+    Mode addresses objects by opaque token while the probe addresses them by the
+    display name a pattern is matched against, so every space-scoped command
+    resolves the name by listing spaces. When one command listed a Space's
+    children it invoked the reports and datasets listers together and each
+    resolved independently, so a single command listed every space in the
+    workspace twice. Commands are now separate, which is what fixed it.
+
+    The residual cost is one spaces listing per command and it is inherent: each
+    `probe run` is a fresh process holding only what the caller typed. This pins
+    "once" so a future convenience wrapper cannot quietly reintroduce the double
+    fetch.
+    """
+    cfg = _cfg()
+    call(_probe(cfg))
+    # Counts listings, not requests: one listing is several paged requests, the
+    # last of which comes back empty to terminate. Its first page is the marker.
+    listings = [
+        c
+        for c in cfg._session.calls
+        if c.split("?")[0].endswith("/spaces")
+        and parse_qs(urlparse(c).query).get("page") == ["1"]
+    ]
+    assert len(listings) == 1, cfg._session.calls
+
+
 def test_an_unknown_space_degrades_with_a_warning_not_a_false_empty():
     probe = _probe(_cfg())
     assert probe.reports("NoSuchSpace") == []
@@ -542,3 +578,22 @@ def test_probe_methods_registered():
         "reports",
         "spaces",
     ]
+
+
+# Every token-addressed endpoint, and where its token can only come from. The
+# probe never returns tokens -- getters return the display name a pattern is
+# matched against -- so `probe api` bootstraps its own from the raw listings.
+_TOKEN_CHAIN = [
+    ("GET /spaces", "the bootstrap: needs no token, and yields space tokens"),
+    ("GET /spaces/{token}/reports", "space token from /spaces; yields report tokens"),
+    ("GET /reports/{token}/queries", "report token from a space's reports listing"),
+    ("GET /reports/{token}", "same report token"),
+]
+
+
+@pytest.mark.parametrize("entry,why", _TOKEN_CHAIN)
+def test_every_token_addressed_endpoint_has_a_route_to_its_token(entry, why):
+    # The three entries that look like duplicates of the getters are what make the
+    # other four reachable. Removing one as redundant does not shrink the surface,
+    # it strands everything downstream of it.
+    assert entry in set(ModeProbeSource.api_allowlist), f"{entry} missing -- {why}"
