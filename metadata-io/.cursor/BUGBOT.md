@@ -1,10 +1,8 @@
 # metadata-io Bugbot rules
 
-# Classification + redaction for new config properties is in the root
-
-# `.cursor/BUGBOT.md` (config often lands under `metadata-service/`). Keep
-
-# metadata-io-specific notes here only.
+Classification + redaction for new config properties is in the root
+`.cursor/BUGBOT.md` (config often lands under `metadata-service/`). Keep
+metadata-io-specific notes here only.
 
 If this module changes `PropertiesCollector` redaction patterns or
 `PropertiesCollectorConfigurationTest` lists, then:

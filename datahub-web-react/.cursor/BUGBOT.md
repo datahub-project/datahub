@@ -1,8 +1,7 @@
 # datahub-web-react Bugbot rules
 
-# UUID secure-context + semantic color-token guidance lives in root
-
-# `.cursor/BUGBOT.md`. Keep React-specific checks here only.
+UUID secure-context + semantic color-token guidance lives in root
+`.cursor/BUGBOT.md`. Keep React-specific checks here only.
 
 If alchemy `<Text>` / `<Icon>` is given explicit `color` / `colorLevel` props, then:
 

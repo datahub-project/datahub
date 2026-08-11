@@ -6,6 +6,11 @@ shortcut) is defined in a spec file rather than a Page Object Model class, then:
 - Blocking for new helpers. Put helpers on a POM (`BasePage` /
   `BaseSettingsPage` / feature page), not inline in the spec.
 - Title: "Move helper into POM"
+
+If a spec calls `page.addInitScript(...)` (or similar page-setup APIs) directly
+instead of a POM wrapper (e.g. `HomeV2Page.skipIntroducePage()`), then:
+
+- Blocking for new call sites. Move the call into the page object.
 - Do not flag ordinary in-spec calls like `page.click`, `page.reload`,
   `page.waitForURL`, or assertions that use an existing POM.
 

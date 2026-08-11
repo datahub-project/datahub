@@ -239,12 +239,14 @@ If default nav/redirect targets change, then:
 
 ## Packaging / logging
 
-If a Dockerfile, requirements file, or service build editable-installs or
-path-depends on local `metadata-ingestion` for a **published** package or
-deployable image, then:
+If a published package (`setup.py` / `pyproject.toml` / plugin wheel) introduces
+an editable (`-e`) or path dependency on local `metadata-ingestion`, then:
 
 - Flag it. Prefer a pinned released version.
 - Label: packaging
+- Do not flag first-party image builds under `docker/datahub-ingestion` or
+  `docker/datahub-actions` that intentionally COPY + editable-install the
+  checkout (those stamp `RELEASE_VERSION` at build time).
 
 If Logback XML is added/changed under `metadata-jobs/*/src/main/resources`, then:
 

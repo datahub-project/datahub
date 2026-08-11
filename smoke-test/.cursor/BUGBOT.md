@@ -12,10 +12,11 @@ then:
 - Do not flag merely for inlining GraphQL or using a test-local helper when the
   assertions tolerate empty results.
 
-If a test registers multiple independently active `page.route` / HTTP intercept
-handlers that can concurrently match the same request without deterministic
-ordering, then:
+If a Cypress test registers multiple independently active `cy.intercept` handlers
+that can concurrently match the same request without deterministic ordering,
+then:
 
 - Flag flaky mock races.
-- Do not flag sequential or explicitly ordered mock registrations, or intentional
+- Do not flag sequential or explicitly ordered intercepts, or intentional
   single-handler replacements.
+- Playwright `page.route` guidance lives under `e2e-test/` (not here).
