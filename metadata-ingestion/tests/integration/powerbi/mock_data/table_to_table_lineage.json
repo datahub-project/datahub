@@ -1,0 +1,107 @@
+{
+  "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "workspaces": [
+        {
+          "id": "64ED5CAD-7C10-4684-8180-826122881108",
+          "name": "Analytics",
+          "type": "Workspace",
+          "state": "Active",
+          "datasets": [
+            {
+              "id": "a8149dea-aa76-44e7-b6a2-cb888b71443f",
+              "name": "sales-dataset",
+              "description": "Dataset whose tables reference each other by name",
+              "tables": [
+                {
+                  "name": "fact_orders",
+                  "source": [
+                    {
+                      "expression": "let\n    Source = Sql.Database(\"localhost\", \"warehouse\"),\n    dbo_orders = Source{[Schema=\"dbo\",Item=\"orders\"]}[Data]\nin\n    dbo_orders"
+                    }
+                  ],
+                  "columns": [
+                    {
+                      "name": "name",
+                      "dataType": "String",
+                      "isHidden": false
+                    },
+                    {
+                      "name": "region",
+                      "dataType": "String",
+                      "isHidden": false
+                    }
+                  ]
+                },
+                {
+                  "name": "orders_ref",
+                  "source": [
+                    {
+                      "expression": "let\n    Source = #\"fact_orders\"\nin\n    Source"
+                    }
+                  ],
+                  "columns": [
+                    {
+                      "name": "name",
+                      "dataType": "String",
+                      "isHidden": false
+                    },
+                    {
+                      "name": "region",
+                      "dataType": "String",
+                      "isHidden": false
+                    }
+                  ]
+                },
+                {
+                  "name": "orders_combined",
+                  "source": [
+                    {
+                      "expression": "let\n    Source = Table.Combine({#\"fact_orders\", #\"orders_ref\"})\nin\n    Source"
+                    }
+                  ],
+                  "columns": [
+                    {
+                      "name": "name",
+                      "dataType": "String",
+                      "isHidden": false
+                    },
+                    {
+                      "name": "region",
+                      "dataType": "String",
+                      "isHidden": false
+                    }
+                  ]
+                },
+                {
+                  "name": "orders_summary",
+                  "source": [
+                    {
+                      "expression": "summarize('fact_orders', 'fact_orders'[name])"
+                    }
+                  ],
+                  "columns": [
+                    {
+                      "name": "name",
+                      "dataType": "String",
+                      "isHidden": false
+                    },
+                    {
+                      "name": "region",
+                      "dataType": "String",
+                      "isHidden": false
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dashboards": [],
+          "reports": []
+        }
+      ]
+    }
+  }
+}

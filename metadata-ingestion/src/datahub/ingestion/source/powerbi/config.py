@@ -265,6 +265,33 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Table-to-table lineage edges emitted from M-Query / DAX references to
+    # sibling tables in the same PowerBI dataset, with representative
+    # child -> sibling samples.
+    m_query_table_to_table_lineage: int = 0
+    m_query_table_to_table_lineage_samples: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    # Candidate references that matched no table in the dataset and were dropped,
+    # with representative child -> candidate samples.
+    m_query_table_to_table_unmatched: int = 0
+    m_query_table_to_table_unmatched_samples: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    # References dropped as self-references, and candidates that could not be
+    # resolved because the table had no parent dataset. Counted so the report
+    # accounts for every candidate rather than dropping some silently.
+    m_query_table_to_table_self_reference: int = 0
+    m_query_table_to_table_no_dataset: int = 0
+    # Tables skipped because extract_table_to_table_lineage is disabled, kept
+    # distinct from genuinely unsupported expressions.
+    m_query_table_to_table_disabled: int = 0
+    # Reference collection raised — contained so external lineage still emits.
+    m_query_table_reference_errors: int = 0
+    # DAX calculated-table expressions that yielded sibling-table references.
+    m_query_dax_table_lineage: int = 0
+    # DAX reference extraction failed — almost always a PyDAXLexer API change.
+    m_query_dax_extraction_errors: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -681,6 +708,14 @@ class PowerBiDashboardSourceConfig(
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
         "enabled. "
         "Works for M-Query where native SQL is used for transformation.",
+    )
+
+    extract_table_to_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to extract lineage between tables in the same PowerBI "
+        "dataset that reference each other by name (in M-Query or DAX calculated "
+        "tables). Disable to suppress these edges if name collisions produce false "
+        "positives in your models.",
     )
 
     profile_pattern: AllowDenyPattern = pydantic.Field(

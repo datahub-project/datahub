@@ -259,6 +259,37 @@ class PowerBIDataset:
         )
 
 
+def matching_sibling_tables(
+    current_table: "Table", candidate_names: List[str]
+) -> List["Table"]:
+    """Candidate reference names resolved to real tables in the same dataset.
+
+    Matching is case-insensitive; a table referencing itself is not a match. Kept
+    here so the parser (which only counts) and the mapper (which builds URNs)
+    cannot drift apart on how a name is normalised.
+    """
+    dataset = current_table.dataset
+    if not candidate_names or dataset is None:
+        return []
+
+    # A name that normalises to several tables (e.g. `Sales` and `SALES`) is
+    # ambiguous; binding it to whichever came last would be arbitrary, so skip it.
+    by_name: Dict[str, List["Table"]] = {}
+    for table in dataset.tables:
+        by_name.setdefault(table.name.casefold(), []).append(table)
+    matched: List["Table"] = []
+    for name in candidate_names:
+        candidates = by_name.get(name.casefold(), [])
+        sibling = candidates[0] if len(candidates) == 1 else None
+        if (
+            sibling is not None
+            and sibling.full_name != current_table.full_name
+            and sibling not in matched
+        ):
+            matched.append(sibling)
+    return matched
+
+
 @dataclass
 class Page:
     id: str

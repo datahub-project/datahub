@@ -4,7 +4,7 @@ entries (recognized data-source function calls with their navigation chain).
 """
 
 import logging
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, List, NamedTuple, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
@@ -56,8 +56,7 @@ def resolve_to_data_access_functions(
     _walk(
         node_map=node_map,
         node=output_node,
-        current_let=root_let,
-        current_let_id=root_let_id,
+        scopes=(_Scope(scope_id=root_let_id, let_node=root_let),),
         accessor_chain=None,
         results=results,
         seen=seen,
@@ -66,15 +65,116 @@ def resolve_to_data_access_functions(
     return results
 
 
+def resolve_to_table_references(
+    node_map: NodeIdMap,
+    parameters: Optional[Dict[str, str]] = None,
+    parent_by_id: Optional[Dict[int, int]] = None,
+) -> List[str]:
+    """
+    Find identifier names in the expression that do not resolve to a local `let`
+    variable — i.e. references to another table in the same PowerBI dataset.
+
+    Covers bare identifiers (``DimDate``), quoted identifiers
+    (``#"tbl_PayrollHistory"``), and identifiers inside wrapper functions
+    (``Table.Combine({tblA, tblB})``). The returned names are candidates: the
+    caller validates them against the dataset's actual table names before
+    emitting lineage, which is what guards against false positives.
+    """
+    if not node_map:
+        return []
+
+    let_nodes = [
+        (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
+    ]
+    if let_nodes:
+        # Use the outermost let (smallest id = parsed first / outermost scope)
+        root_let_id, root_let = min(let_nodes, key=lambda kv: kv[0])
+        root_node = root_let.get("expression")
+        root_scopes: Tuple[_Scope, ...] = (
+            _Scope(scope_id=root_let_id, let_node=root_let),
+        )
+    else:
+        # No let scope. Whether a call's arguments may be sibling tables is
+        # decided per callee while walking (see _walk_invoke), not by scanning the
+        # whole expression — an unknown call in one argument must not suppress
+        # references in the others.
+        # The root is the one node with no parent. Falling back to the lowest id
+        # is only an approximation — for `TblA & TblB` it picks the left operand
+        # and the right one is never walked.
+        root_id = _root_node_id(node_map, parent_by_id)
+        root_node = node_map[root_id]
+        root_scopes = (_Scope(scope_id=root_id),)
+
+    if root_node is None:
+        return []
+
+    unresolved: Set[str] = set()
+    _walk(
+        node_map=node_map,
+        node=root_node,
+        scopes=root_scopes,
+        accessor_chain=None,
+        results=[],
+        seen=set(),
+        parameters={},
+        unresolved=unresolved,
+    )
+    # Names bound by the expression are resolved through the scope chain during
+    # the walk, so only external query parameters need excluding here.
+    excluded = {name.casefold() for name in (parameters or {})}
+    return sorted(name for name in unresolved if name.casefold() not in excluded)
+
+
+class _Scope(NamedTuple):
+    """One lexical scope: either a `let` (with its variables) or a function's parameters."""
+
+    scope_id: int
+    let_node: Optional[dict] = None
+    param_names: FrozenSet[str] = frozenset()
+
+
+def _function_param_names(node: dict) -> FrozenSet[str]:
+    """Parameter names bound by a FunctionExpression, e.g. `(Country) => ...`."""
+    params = node.get("parameters", {})
+    content = params.get("content", {}) if isinstance(params, dict) else {}
+    names = set()
+    for elem in content.get("elements", []) if isinstance(content, dict) else []:
+        inner = _unwrap_csv(elem)
+        if not isinstance(inner, dict) or inner.get("kind") != "Parameter":
+            continue
+        name_node = inner.get("name", {})
+        if isinstance(name_node, dict):
+            literal = _strip_quoted_identifier(name_node.get("literal", ""))
+            if literal:
+                names.add(literal.casefold())
+    return frozenset(names)
+
+
+def _root_node_id(node_map: NodeIdMap, parent_by_id: Optional[Dict[int, int]]) -> int:
+    """The node that has no parent, or the lowest id when parents are unavailable."""
+    if parent_by_id:
+        roots = [node_id for node_id in node_map if node_id not in parent_by_id]
+        if len(roots) == 1:
+            return roots[0]
+    return min(node_map.keys())
+
+
+def _strip_quoted_identifier(literal: str) -> str:
+    """Turn a quoted identifier (``#"name"``) into its bare name."""
+    if literal.startswith('#"') and literal.endswith('"'):
+        return literal[2:-1]
+    return literal
+
+
 def _walk(
     node_map: NodeIdMap,
     node: Optional[dict],
-    current_let: dict,
-    current_let_id: int,
+    scopes: Tuple[_Scope, ...],
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     if node is None:
         return
@@ -84,36 +184,35 @@ def _walk(
     # -- IdentifierExpression (wraps Identifier) --
     if kind == "IdentifierExpression":
         identifier = node.get("identifier", {})
-        name = identifier.get("literal", "")
-        # Strip quoted identifier prefix/suffix (#"name" → name)
-        if name.startswith('#"') and name.endswith('"'):
-            name = name[2:-1]
+        raw_name = identifier.get("literal", "")
+        name = _strip_quoted_identifier(raw_name)
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
+            was_quoted=raw_name != name,
         )
         return
 
     # -- Identifier --
     if kind == "Identifier":
-        name = node.get("literal", "")
-        if name.startswith('#"') and name.endswith('"'):
-            name = name[2:-1]
+        raw_name = node.get("literal", "")
+        name = _strip_quoted_identifier(raw_name)
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
+            was_quoted=raw_name != name,
         )
         return
 
@@ -124,12 +223,12 @@ def _walk(
         _walk(
             node_map,
             inner_output,
-            node,
-            inner_let_id,
+            (_Scope(scope_id=inner_let_id, let_node=node),) + scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -140,12 +239,12 @@ def _walk(
         _walk_recursive_primary(
             node_map,
             node,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -160,12 +259,12 @@ def _walk(
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
-                    seen.copy(),
+                    _fork_seen(seen, unresolved),
                     parameters,
+                    unresolved,
                 )
         return
 
@@ -176,12 +275,61 @@ def _walk(
             _walk(
                 node_map,
                 body,
-                current_let,
-                current_let_id,
+                (
+                    _Scope(
+                        scope_id=node.get("id", -1),
+                        param_names=_function_param_names(node),
+                    ),
+                )
+                + scopes,
                 accessor_chain,
                 results,
                 seen,
                 parameters,
+                unresolved,
+            )
+        return
+
+    # -- ParenthesizedExpression — transparent, unwrap and continue --
+    if kind == "ParenthesizedExpression":
+        _walk(
+            node_map,
+            node.get("content"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+            unresolved,
+        )
+        return
+
+    # -- EachExpression (`each <body>`) — the body is an ordinary expression --
+    if kind == "EachExpression":
+        _walk(
+            node_map,
+            node.get("paired"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+            unresolved,
+        )
+        return
+
+    # -- Binary expressions (e.g. `TblA & TblB`, `a ?? b`) — walk both operands --
+    if kind in ("ArithmeticExpression", "NullCoalescingExpression"):
+        for side in ("left", "right"):
+            _walk(
+                node_map,
+                node.get(side),
+                scopes,
+                accessor_chain,
+                results,
+                _fork_seen(seen, unresolved),
+                parameters,
+                unresolved,
             )
         return
 
@@ -190,22 +338,22 @@ def _walk(
         _walk(
             node_map,
             node.get("trueExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
         )
         _walk(
             node_map,
             node.get("falseExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
-            seen.copy(),
+            _fork_seen(seen, unresolved),
             parameters,
+            unresolved,
         )
         return
 
@@ -215,12 +363,12 @@ def _walk(
 def _walk_recursive_primary(
     node_map: NodeIdMap,
     node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Tuple[_Scope, ...],
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -230,12 +378,12 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -247,12 +395,12 @@ def _walk_recursive_primary(
             node_map,
             head,
             first,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -271,12 +419,12 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             new_accessor,
             results,
             seen,
             parameters,
+            unresolved,
         )
         return
 
@@ -284,12 +432,12 @@ def _walk_recursive_primary(
     _walk(
         node_map,
         head,
-        current_let,
-        current_let_id,
+        scopes,
         accessor_chain,
         results,
         seen,
         parameters,
+        unresolved,
     )
 
 
@@ -297,12 +445,12 @@ def _walk_invoke(
     node_map: NodeIdMap,
     head: Optional[dict],
     invoke_node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Tuple[_Scope, ...],
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -320,24 +468,52 @@ def _walk_invoke(
         )
         return
 
-    # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
-    # Recurse into first argument
-    if callee:
+    # Unrecognized wrapper (Table.RenameColumns, Table.NestedJoin, ...) — descend
+    # into its arguments to reach the source underneath.
+    #
+    # When collecting *table references* only, skip bare callees: M library
+    # functions are always namespaced, so a bare callee is an unknown or
+    # unsupported source whose arguments are parameters rather than sibling
+    # tables. Data-access resolution must still descend, or a pipeline that wraps
+    # an already-bound warehouse source in such a call loses its lineage.
+    if callee and (unresolved is None or "." in callee):
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
             for elem in content.get("elements", []):
                 inner = _unwrap_csv(elem)
+                # Use a fresh copy of `seen` per argument so sibling arguments
+                # that share a common ancestor don't trigger false circular-ref
+                # warnings (same rationale as the ListExpression branch).
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
-                    seen,
+                    _fork_seen(seen, unresolved),
                     parameters,
+                    unresolved,
                 )
-                return  # only first arg
+                # Data-access resolution follows only the first argument (the
+                # pipeline chain). Table-reference collection walks every
+                # argument, since joins (Table.NestedJoin / Table.Join) name
+                # sibling tables in later arguments too.
+                if unresolved is None:
+                    return
+
+
+def _fork_seen(
+    seen: Set[Tuple[int, str]], unresolved: Optional[Set[str]]
+) -> Set[Tuple[int, str]]:
+    """Per-branch visited set for the data-access walk; shared for collection.
+
+    The data-access walk builds a path-dependent accessor chain, so each branch
+    needs its own visited set. Table-reference collection has no path-dependent
+    state, so it shares one set — memoizing subtrees that are reachable from
+    several arguments. Copying there instead made a merge chain (each step
+    joining two earlier steps) re-walk shared subtrees exponentially.
+    """
+    return seen if unresolved is not None else seen.copy()
 
 
 def _unwrap_csv(elem: object) -> Optional[dict]:
@@ -352,31 +528,63 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
 def _walk_identifier_name(
     node_map: NodeIdMap,
     name: str,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Tuple[_Scope, ...],
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    unresolved: Optional[Set[str]] = None,
+    was_quoted: bool = False,
 ) -> None:
-    """Resolve a variable name in the current let scope and continue walking."""
+    """Resolve a name against the scope chain (innermost outward) and keep walking."""
     if not name:
         return
-    # Circular reference guard: (let_id, variable_name) pair
-    guard_key = (current_let_id, name)
-    if guard_key in seen:
-        logger.warning("Circular reference detected for variable '%s', stopping", name)
-        return
-    seen.add(guard_key)
 
-    resolved = resolve_identifier(node_map, current_let, name)
-    _walk(
-        node_map,
-        resolved,
-        current_let,
-        current_let_id,
-        accessor_chain,
-        results,
-        seen,
-        parameters,
-    )
+    # Walk outward: M scoping is lexical, so a name not bound by the innermost
+    # `let` may still be bound by an enclosing one. Resolving per scope chain is
+    # what lets a nested `let` shadow a name without suppressing a genuine
+    # sibling reference of the same name in an outer scope.
+    for depth, scope in enumerate(scopes):
+        if name.casefold() in scope.param_names:
+            # Bound as a function parameter: a value, never a sibling table.
+            return
+
+        if scope.let_node is None:
+            continue
+
+        # Circular reference guard, per (scope, name). During table-reference
+        # collection the set is shared across branches (see _fork_seen), so a
+        # repeat visit means "already resolved" rather than a cycle — skip quietly.
+        guard_key = (scope.scope_id, name)
+        if guard_key in seen:
+            if unresolved is None:
+                logger.warning(
+                    "Circular reference detected for variable '%s', stopping", name
+                )
+            return
+
+        resolved = resolve_identifier(node_map, scope.let_node, name)
+        if resolved is None:
+            continue
+        seen.add(guard_key)
+        # The bound value belongs to the scope that binds it, so continue from
+        # there outward rather than from the (deeper) reference site.
+        _walk(
+            node_map,
+            resolved,
+            scopes[depth:],
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+            unresolved,
+        )
+        return
+
+    # Bound by nothing in the chain. When collecting table references this is a
+    # candidate sibling table — but skip *unquoted* dotted identifiers, which are
+    # M library/enum references (QuoteStyle.Csv, JoinKind.LeftOuter) and never
+    # table names. A quoted #"My.Table" is a real, dotted table name.
+    if unresolved is not None and (was_quoted or "." not in name):
+        unresolved.add(name)
+    return
