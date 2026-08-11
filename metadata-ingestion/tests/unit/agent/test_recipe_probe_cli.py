@@ -114,3 +114,52 @@ def test_probe_run_normalizes_then_redacts(monkeypatch, tmp_path):
     assert res.exit_code == 0, res.output
     assert "topsecret" not in res.output
     assert "***" in res.output
+
+
+def test_report_to_writes_the_redacted_payload(monkeypatch, tmp_path):
+    # The report file exists for a caller that captures a structured result
+    # instead of parsing stdout, so it must carry no more than stdout does --
+    # in particular the same redaction.
+    import json
+
+    from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mysql", {}, {"s3cr3t"}))
+    monkeypatch.setattr(
+        rc,
+        "check_filters",
+        lambda **kw: FilterCheckResult(
+            source_type="mysql",
+            kind="Table",
+            parent_path=["s3cr3t"],
+            pattern_field="table_pattern",
+            results=[
+                FilterVerdict(
+                    name="orders",
+                    target="s3cr3t.orders",
+                    included=False,
+                    excluded_by="table_pattern",
+                )
+            ],
+        ),
+    )
+    out_file = tmp_path / "report.json"
+    result = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--names",
+            "orders",
+            "--report-to",
+            str(out_file),
+        ],
+    )
+    assert result.exit_code == 0
+    written = json.loads(out_file.read_text())
+    assert "s3cr3t" not in json.dumps(written)
+    assert written["results"][0]["target"] == "***.orders"

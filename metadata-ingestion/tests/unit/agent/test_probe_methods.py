@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Dict, List
 
 import pytest
 
@@ -237,3 +237,69 @@ def test_coerce_bool_from_string():
     param = ProbeParam(name="flag", type="bool", required=True)
     assert _coerce(param, "true") is True
     assert _coerce(param, "no") is False
+
+
+# --- the gate is wired into the execution path, not just importable ----------
+# _enforce_gates and run_probe_method are each covered above and in
+# test_scoped_probe_methods, but nothing exercised them TOGETHER: the call
+# joining them could be deleted and every other test would still pass. These
+# drive a scoped method through run_probe_method so the wiring itself is pinned.
+
+
+class _GatedProvider:
+    """A provider whose sql method declares its raw-SQL parameter."""
+
+    sql_dialect = "postgres"
+    ran: List[str] = []
+
+    def __enter__(self) -> "_GatedProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        pass
+
+    @probe_method(name="sql", scoped_sql_param="query")
+    def sql(self, query: str) -> Dict[str, object]:
+        """Run a catalog query."""
+        _GatedProvider.ran.append(query)
+        return {"ok": True}
+
+
+class _GatedConfig:
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        return _GatedProvider
+
+    @classmethod
+    def model_validate(cls, d: object) -> "_GatedConfig":
+        return cls()
+
+    def build_probe_provider(self) -> _GatedProvider:
+        return _GatedProvider()
+
+
+def _patch_gated(monkeypatch):
+    import datahub.ingestion.agent.probe_methods as pm
+
+    _GatedProvider.ran = []
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _GatedProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _GatedConfig)
+    return pm
+
+
+def test_run_probe_method_refuses_a_query_the_gate_rejects(monkeypatch):
+    from datahub.ingestion.agent.sql_gate import SqlScopeError
+
+    pm = _patch_gated(monkeypatch)
+    with pytest.raises(SqlScopeError):
+        pm.run_probe_method("x", {}, "sql", {"query": "SELECT * FROM public.orders"})
+    # The provider must never have been called: the gate runs before dispatch.
+    assert _GatedProvider.ran == []
+
+
+def test_run_probe_method_admits_a_query_the_gate_allows(monkeypatch):
+    pm = _patch_gated(monkeypatch)
+    query = "SELECT table_name FROM information_schema.tables"
+    result = pm.run_probe_method("x", {}, "sql", {"query": query})
+    assert result.result == {"ok": True}
+    assert _GatedProvider.ran == [query]

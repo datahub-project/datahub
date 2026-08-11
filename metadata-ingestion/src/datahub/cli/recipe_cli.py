@@ -1,7 +1,7 @@
 import importlib.resources
 import json
 import sys
-from typing import Dict, NoReturn, Set, Tuple
+from typing import Dict, NoReturn, Optional, Set, Tuple
 
 import click
 import yaml
@@ -58,6 +58,15 @@ def _json_default(o: object) -> object:
     if isinstance(o, (SecretStr, SecretBytes)):
         return "***"
     return getattr(o, "__dict__", str(o))
+
+
+def _write_report(report_to: Optional[str], payload: object) -> None:
+    # Redacted payload only -- this file is written for a caller that captures
+    # a structured report instead of parsing stdout, and it must carry no more
+    # than stdout does.
+    if report_to:
+        with open(report_to, "w") as f:
+            json.dump(payload, f)
 
 
 def _fail(message: str, code: int) -> NoReturn:
@@ -250,6 +259,13 @@ def probe_methods_cmd(recipe_path: str) -> None:
     "change before making it.",
 )
 @click.option("--try-deny", "try_deny", multiple=True, help="As --try-allow, for deny.")
+@click.option(
+    "--report-to",
+    "report_to",
+    default=None,
+    help="Write the redacted result as JSON to this file, in addition to stdout. "
+    "For a caller that captures a structured report rather than parsing stdout.",
+)
 def probe_filter_cmd(
     recipe_path: str,
     kind: str,
@@ -257,6 +273,7 @@ def probe_filter_cmd(
     names: str,
     try_allow: Tuple[str, ...],
     try_deny: Tuple[str, ...],
+    report_to: Optional[str],
 ) -> None:
     """Would the recipe's filters keep these objects, and what decided?
 
@@ -279,7 +296,9 @@ def probe_filter_cmd(
             try_allow=list(try_allow),
             try_deny=list(try_deny),
         )
-        _emit(redact(result.to_dict(), secret_values))
+        payload = redact(result.to_dict(), secret_values)
+        _write_report(report_to, payload)
+        _emit(payload)
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
@@ -293,7 +312,19 @@ def probe_filter_cmd(
 @click.argument("command")
 @click.option("--recipe", "recipe_path", required=True)
 @click.argument("params", nargs=-1, type=click.UNPROCESSED)
-def probe_run_cmd(command: str, recipe_path: str, params: Tuple[str, ...]) -> None:
+@click.option(
+    "--report-to",
+    "report_to",
+    default=None,
+    help="Write the redacted result as JSON to this file, in addition to stdout. "
+    "For a caller that captures a structured report rather than parsing stdout.",
+)
+def probe_run_cmd(
+    command: str,
+    recipe_path: str,
+    params: Tuple[str, ...],
+    report_to: Optional[str],
+) -> None:
     secret_values: Set[str] = set()
     try:
         source_type, resolved, secret_values = _resolve_for_probe(
@@ -305,7 +336,9 @@ def probe_run_cmd(command: str, recipe_path: str, params: Tuple[str, ...]) -> No
         # exception/driver object nested in the result cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
         safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
-        _emit(redact(safe, secret_values))
+        payload = redact(safe, secret_values)
+        _write_report(report_to, payload)
+        _emit(payload)
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: exception text may embed a resolved secret (e.g. a
         # connection-string password) surfaced by a failed provider call.
