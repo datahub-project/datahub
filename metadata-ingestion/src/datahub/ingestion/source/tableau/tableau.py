@@ -2665,14 +2665,8 @@ class TableauSiteSource:
                     f"project id ({ds_result.project_id}) of datasource {ds_result.name} is not present in project "
                     f"registry"
                 )
-            elif ds_result.id is None:
-                self.report.warning(
-                    title="Datasource without an id skipped",
-                    message="A datasource returned by the Tableau API has no id and was excluded from the datasource-to-project map.",
-                    context=f"name={ds_result.name}, project_id={ds_result.project_id}",
-                )
             else:
-                self.datasource_project_map[ds_result.id] = ds_result.project_id
+                self.datasource_project_map[ds_luid] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
             self.report.warning(
@@ -3934,7 +3928,7 @@ class TableauSiteSource:
         ):
             workbook_luid = workbook.get(c.LUID)
             logger.debug(f"Ingest access roles of workbook-id='{workbook_luid}'")
-            if workbook_luid is not None:
+            if workbook_luid:
                 workbook_instance = self.server.workbooks.get_by_id(workbook_luid)
                 self.server.workbooks.populate_permissions(workbook_instance)
                 custom_props = self._create_workbook_properties(
