@@ -372,7 +372,13 @@ def _enforce_gates(
                 f"probe method '{spec.command}' takes SQL but its provider "
                 f"declares no sql_dialect, so the query cannot be checked"
             )
-        check_query_scope(str(call_kwargs[spec.scoped_sql_param]), platform=dialect)
+        # The scope is the connector's declaration of what its dialect's catalog
+        # is; absent one, check_query_scope falls back to information_schema only.
+        check_query_scope(
+            str(call_kwargs[spec.scoped_sql_param]),
+            platform=dialect,
+            scope=getattr(provider, "catalog_scope", None),
+        )
 
     if spec.scoped_path_param is not None:
         from datahub.ingestion.agent.api_gate import check_api_request

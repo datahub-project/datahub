@@ -31,6 +31,9 @@ from datahub.configuration.time_window_config import (
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -288,6 +291,23 @@ class ClickHouseConfig(
             )
 
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # ClickHouse has information_schema, and its idiomatic catalog is the
+        # `system` database. Not allowed wholesale: system.query_log holds executed
+        # SQL -- our own usage extraction reads it -- and the *_log family generally
+        # carries statement text.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "system.tables",
+                    "system.columns",
+                    "system.databases",
+                    "system.dictionaries",
+                }
+            ),
+        )
 
 
 PROPERTIES_COLUMNS = (

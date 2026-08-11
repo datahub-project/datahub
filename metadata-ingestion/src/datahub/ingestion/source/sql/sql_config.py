@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -199,6 +200,20 @@ class SQLCommonConfig(
         check on every SQL Schema-level node; see RedshiftConfig's override.
         """
         return None
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        """What `probe sql` may read on this dialect.
+
+        The default is `information_schema` and nothing else, which is correct for
+        the standard dialects and safe for the rest. A dialect whose catalog lives
+        elsewhere overrides this -- Oracle and Teradata have no information_schema
+        at all, so without an override their `sql` command can answer nothing.
+
+        Name relations rather than whole schemas for a vendor catalog: see
+        CatalogScope's docstring for why that is not merely stylistic.
+        """
+        return CatalogScope()
 
     @classmethod
     def probe_provider_class(cls) -> type:

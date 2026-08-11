@@ -1,27 +1,69 @@
-from typing import Dict, FrozenSet, List, Set
+from dataclasses import dataclass, field
+from typing import Dict, FrozenSet, List, Optional, Set
 
 import sqlglot
 from sqlglot import exp
 
-from datahub.sql_parsing.sqlglot_utils import get_dialect, is_dialect_instance
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
-# Schemas whose contents are catalog metadata rather than user data. Everything
-# outside these is refused.
+# The one schema that is catalog metadata by definition, in every dialect that has
+# it. Everything beyond this is the connector's to declare.
 INFORMATION_SCHEMA = "information_schema"
-PG_CATALOG = "pg_catalog"
 
-_DEFAULT_CATALOG_SCHEMAS: FrozenSet[str] = frozenset({INFORMATION_SCHEMA})
-_POSTGRES_CATALOG_SCHEMAS: FrozenSet[str] = frozenset({INFORMATION_SCHEMA, PG_CATALOG})
 
-_POSTGRES_LIKE_DIALECTS = ("postgres", "redshift")
+@dataclass(frozen=True)
+class CatalogScope:
+    """What one dialect considers catalog metadata a probe may read.
 
-# Relations that live inside a catalog schema but carry the text of user
-# queries -- literal values from WHERE clauses, i.e. row data arriving by
-# another route. A schema-level allowlist alone would wave these through, which
-# is the whole reason this list exists.
-_QUERY_TEXT_RELATIONS: FrozenSet[str] = frozenset(
-    {"pg_stat_statements", "pg_stat_activity"}
-)
+    Declared per connector (see SQLCommonConfig.probe_catalog_scope) rather than
+    held centrally, because a central table has to know every dialect's catalog
+    surface and this one did not: Oracle and Teradata have no `information_schema`
+    at all -- their catalogs are `DBA_*`/`ALL_*` and `DBC.*` -- so both advertised
+    a `sql` command whose every legitimate query was refused.
+
+    **Prefer `relations` over `schemas`.** A vendor catalog schema is almost never
+    wholly metadata, and our own ingestion code is the evidence: it reads
+    `system.query_log` on ClickHouse, `DBC.QryLogV` on Teradata and
+    `sys.dm_exec_cached_plans` on MSSQL. Those carry the text of user queries --
+    WHERE-clause literals included -- so a schema-level allow with a list of
+    exclusions is a denylist, and would let the next text-bearing view somebody
+    adds through by default. Naming relations keeps the default deny.
+    """
+
+    # Whole schemas whose every relation is metadata by definition. In practice
+    # this is `information_schema`, and `pg_catalog` where the exclusions below
+    # are also declared.
+    schemas: FrozenSet[str] = field(
+        default_factory=lambda: frozenset({INFORMATION_SCHEMA})
+    )
+
+    # Individually permitted relations, for a schema that is not wholly safe.
+    # "schema.relation", or a bare name where the dialect exposes the relation
+    # unqualified (Oracle's dictionary views are public synonyms).
+    relations: FrozenSet[str] = field(default_factory=frozenset)
+
+    # Relations to refuse inside an otherwise-permitted schema. Only sound where
+    # the schema really is metadata apart from a known few, which is pg_catalog
+    # and its query-text views.
+    excluded_relations: FrozenSet[str] = field(default_factory=frozenset)
+
+    def permits(self, schema: str, relation: str) -> bool:
+        if schema.lower() in {s.lower() for s in self.schemas}:
+            return relation.lower() not in {r.lower() for r in self.excluded_relations}
+        return f"{schema}.{relation}".lower() in {r.lower() for r in self.relations}
+
+    def permits_unqualified(self, relation: str) -> bool:
+        return relation.lower() in {r.lower() for r in self.relations if "." not in r}
+
+    def describe(self) -> str:
+        """What to tell a caller whose reference was refused."""
+        parts = [f"schemas {sorted(self.schemas)}"] if self.schemas else []
+        if self.relations:
+            parts.append(f"{len(self.relations)} individually listed relations")
+        return " and ".join(parts) or "nothing"
+
+
+_DEFAULT_SCOPE = CatalogScope()
 
 # sqlglot models standard SQL functions as their own node types (count -> exp.Count)
 # and leaves anything vendor-specific as exp.Anonymous. That split is doing real
@@ -73,13 +115,20 @@ class SqlScopeError(ValueError):
     """
 
 
-def check_query_scope(sql: str, platform: str) -> None:
+def check_query_scope(
+    sql: str, platform: str, scope: Optional[CatalogScope] = None
+) -> None:
     """Raise SqlScopeError unless `sql` is a single SELECT over catalog metadata.
 
-    Fail-closed at every step: an unresolvable dialect, an unparseable query, an
-    unqualified table, or any reference outside the dialect's catalog schemas is
-    a refusal, never a warning and never a guess.
+    `scope` is the connector's declaration of what its dialect's catalog is; with
+    none given it defaults to `information_schema` only, which is safe everywhere
+    and sufficient for the standard dialects.
+
+    Fail-closed at every step: an unresolvable dialect, an unparseable query, a
+    reference the scope does not permit, or an unqualified name the scope does not
+    list is a refusal, never a warning and never a guess.
     """
+    permitted = scope or _DEFAULT_SCOPE
     dialect = _resolve_dialect(platform)
     statement = _parse_single_statement(sql, dialect, platform)
 
@@ -108,11 +157,10 @@ def check_query_scope(sql: str, platform: str) -> None:
     # table-based check alone never sees it.
     _check_functions(statement)
 
-    allowed = _catalog_schemas(dialect)
     cte_names = {cte.alias_or_name.lower() for cte in statement.find_all(exp.CTE)}
 
     for table in statement.find_all(exp.Table):
-        _check_table(table, allowed=allowed, cte_names=cte_names)
+        _check_table(table, scope=permitted, cte_names=cte_names)
 
 
 def _check_functions(statement: exp.Expr) -> None:
@@ -159,15 +207,7 @@ def _parse_single_statement(
     return statements[0]
 
 
-def _catalog_schemas(dialect: sqlglot.Dialect) -> FrozenSet[str]:
-    if is_dialect_instance(dialect, _POSTGRES_LIKE_DIALECTS):
-        return _POSTGRES_CATALOG_SCHEMAS
-    return _DEFAULT_CATALOG_SCHEMAS
-
-
-def _check_table(
-    table: exp.Table, allowed: FrozenSet[str], cte_names: Set[str]
-) -> None:
+def _check_table(table: exp.Table, scope: CatalogScope, cte_names: Set[str]) -> None:
     if not isinstance(table.this, exp.Identifier):
         # A set-returning function in FROM position. Caught here as well as in
         # _check_functions so that a vendor function sqlglot *does* model still
@@ -197,21 +237,22 @@ def _check_table(
         # legitimate catalog queries that use WITH.
         if name.lower() in cte_names:
             return
+        # Some dialects expose their catalog unqualified: Oracle's dictionary
+        # views are public synonyms, so `FROM dba_tables` is the idiomatic read
+        # and there is no schema to qualify it with.
+        if scope.permits_unqualified(name):
+            return
         raise SqlScopeError(
             f"'{name}' is not schema-qualified, so it cannot be shown to be "
-            f"catalog metadata; qualify it (e.g. {INFORMATION_SCHEMA}.{name})"
+            f"catalog metadata; qualify it (e.g. {INFORMATION_SCHEMA}.{name}), or "
+            f"use one of the relations this source lists"
         )
 
     relation, schema = parts[-1], parts[-2]
     rendered = ".".join(parts)
 
-    if schema.lower() not in allowed:
+    if not scope.permits(schema, relation):
         raise SqlScopeError(
             f"'{rendered}' is outside the catalog metadata this probe may read; "
-            f"permitted schemas: {', '.join(sorted(allowed))}"
-        )
-    if relation.lower() in _QUERY_TEXT_RELATIONS:
-        raise SqlScopeError(
-            f"'{rendered}' exposes the text of user queries, which can embed "
-            f"row values, so it is excluded even though its schema is catalog"
+            f"this source permits {scope.describe()}"
         )

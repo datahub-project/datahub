@@ -17,8 +17,18 @@ def test_permits_a_catalog_reference_qualified_by_database():
     )
 
 
-def test_permits_pg_catalog_on_postgres():
-    check_query_scope("SELECT relname FROM pg_catalog.pg_class", platform="postgres")
+def test_pg_catalog_is_permitted_only_because_postgres_declares_it():
+    # No longer central. The gate's default is information_schema and nothing else,
+    # so pg_catalog is reachable only through PostgresConfig's declaration -- which
+    # is the point: a central table had to know every dialect and did not.
+    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
+
+    query = "SELECT relname FROM pg_catalog.pg_class"
+    with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+        check_query_scope(query, platform="postgres")
+    check_query_scope(
+        query, platform="postgres", scope=PostgresConfig.probe_catalog_scope()
+    )
 
 
 def test_rejects_a_user_table():
@@ -151,12 +161,20 @@ def test_rejects_snowflakes_query_history_table_function():
             check_query_scope(query, platform="snowflake")
 
 
+def _postgres_scope():
+    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
+
+    return PostgresConfig.probe_catalog_scope()
+
+
 def test_rejects_pg_stat_statements():
     # The Postgres analogue of query history: normalized query text, still
     # carrying literals in many configurations.
     with pytest.raises(SqlScopeError, match="(?i)pg_stat_statements"):
         check_query_scope(
-            "SELECT query FROM pg_catalog.pg_stat_statements", platform="postgres"
+            "SELECT query FROM pg_catalog.pg_stat_statements",
+            platform="postgres",
+            scope=_postgres_scope(),
         )
 
 

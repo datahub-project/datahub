@@ -184,6 +184,7 @@ def test_every_provider_is_a_context_manager():
 _CONFIG_HOOKS = frozenset(
     {
         "probe_provider_class",
+        "probe_catalog_scope",
         "probe_match_target",
         "probe_filter_target",
         "probe_schema_verdict_override",

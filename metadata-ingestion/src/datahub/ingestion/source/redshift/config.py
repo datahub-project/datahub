@@ -12,6 +12,10 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.sql_gate import (
+    INFORMATION_SCHEMA,
+    CatalogScope,
+)
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -338,3 +342,20 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Postgres-derived catalog, plus the svv_* system views ingestion reads.
+        # stl_query and stl_querytext hold executed SQL, so they are not listed --
+        # naming relations rather than a schema is what keeps them out.
+        return CatalogScope(
+            schemas=frozenset({INFORMATION_SCHEMA, "pg_catalog"}),
+            excluded_relations=frozenset({"pg_stat_statements", "pg_stat_activity"}),
+            relations=frozenset(
+                {
+                    "pg_catalog.svv_table_info",
+                    "pg_catalog.svv_external_schemas",
+                    "pg_catalog.svv_redshift_databases",
+                }
+            ),
+        )

@@ -35,6 +35,9 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -391,6 +394,37 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     @property
     def db(self):
         return self.database
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # `sys` is NOT allowed wholesale: it holds sql_modules (procedure source),
+        # syscomments (the same, legacy) and the dm_exec_* dynamic views, which
+        # carry executed SQL and cached plans -- our own source reads
+        # sys.dm_exec_cached_plans, so this is not hypothetical. Relations are named
+        # individually: the ones ingestion reads, plus the structural counterparts
+        # an agent would reach for.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "sys.tables",
+                    "sys.views",
+                    "sys.columns",
+                    "sys.all_columns",
+                    "sys.objects",
+                    "sys.schemas",
+                    "sys.types",
+                    "sys.indexes",
+                    "sys.index_columns",
+                    "sys.foreign_keys",
+                    "sys.foreign_key_columns",
+                    "sys.key_constraints",
+                    "sys.procedures",
+                    "sys.parameters",
+                    "sys.extended_properties",
+                    "sys.databases",
+                }
+            ),
+        )
 
 
 @platform_name("Microsoft SQL Server", id="mssql")

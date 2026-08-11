@@ -103,6 +103,12 @@ class Db2Config(BasicSQLAlchemyConfig):
             {**self.uri_args, **(uri_opts or {})}, database
         )
 
+    # No probe_catalog_scope here on purpose. sqlglot has no db2 dialect, so
+    # sql_gate cannot parse a DB2 query and refuses it at dialect resolution --
+    # before any scope is consulted. Declaring SYSCAT relations would read as though
+    # `probe sql` worked on DB2, which it cannot; the typed commands do. Revisit if
+    # sqlglot gains a db2 dialect, and see test_dialects_the_gate_cannot_resolve.
+
 
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'

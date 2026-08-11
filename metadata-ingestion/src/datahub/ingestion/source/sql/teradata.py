@@ -57,6 +57,9 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp_builder import ContainerKey, add_owner_to_entity_wu
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -1196,6 +1199,25 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
     scheme: str = Field(default="teradatasql", description="database scheme")
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Teradata has no information_schema; its catalog is DBC. Not allowed
+        # wholesale, because DBC.QryLogV is the query log -- our own usage
+        # extraction reads it -- and DBC.SessionInfoV carries session detail.
+        return CatalogScope(
+            schemas=frozenset(),
+            relations=frozenset(
+                {
+                    "dbc.tablesv",
+                    "dbc.columnsv",
+                    "dbc.indicesv",
+                    "dbc.databasesv",
+                    "dbc.all_ri_childrenv",
+                    "dbc.tablesizev",
+                }
+            ),
+        )
 
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):

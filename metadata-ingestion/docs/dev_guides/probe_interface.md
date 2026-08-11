@@ -136,6 +136,46 @@ Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `over
 so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
 not at import.
 
+### Declaring what your dialect's catalog is
+
+`probe sql` permits only reads of catalog metadata, and **which relations those are is your
+connector's declaration, not the framework's guess.** Override `probe_catalog_scope()` on your
+config:
+
+```python
+@classmethod
+def probe_catalog_scope(cls) -> CatalogScope:
+    return CatalogScope(
+        relations=frozenset({"sys.tables", "sys.columns", "sys.objects"}),
+    )
+```
+
+The default is `information_schema` and nothing else — right for the standard dialects, and safe
+for the rest. It used to be a table inside `sql_gate`, and that table was wrong: Oracle and Teradata
+have no `information_schema` at all (their catalogs are `DBA_*`/`ALL_*` and `DBC.*`), so both
+advertised a `sql` command whose every legitimate query was refused.
+
+**Name relations, not whole schemas** — for anything other than `information_schema`. A vendor
+catalog schema is almost never wholly metadata, and our own ingestion code is the proof: it reads
+`system.query_log` on ClickHouse, `DBC.QryLogV` on Teradata and `sys.dm_exec_cached_plans` on
+MSSQL. Those carry executed SQL with WHERE-clause literals in it. Allowing the schema and listing
+exclusions makes that a denylist, so the next text-bearing view somebody adds is permitted by
+default; naming relations keeps the default deny. `excluded_relations` exists for the one case
+where a schema really is metadata apart from a known few, which is `pg_catalog`.
+
+Two things to know before writing one:
+
+- **Some dialects have no `information_schema` and address their catalog unqualified.** Oracle's
+  dictionary views are public synonyms, so `FROM dba_tables` is idiomatic. List those without a
+  schema; the gate permits an unqualified name only when the scope names it.
+- **sqlglot must have your dialect, or `sql` cannot work at all.** It has none for DB2 or Vertica,
+  so the gate refuses at dialect resolution — before any scope is read. `db2.py` therefore declares
+  no scope and says why. The typed commands still work; only `sql` is affected.
+
+A test asserts no declaration opens a schema where user tables live (`public`, `dbo`, `system`, …).
+That is the exposure this design creates, and it is the same one `api_allowlist` has: pushing policy
+to connectors means a careless declaration can widen it.
+
 ### If your source speaks SQL but is not SQLAlchemy-backed
 
 Inherit `SqlCatalogPassthrough` (`agent/sql_passthrough.py`) and implement one method:

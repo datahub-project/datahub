@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Sequence, TypeVar
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.sql_gate import CatalogScope
 from datahub.ingestion.agent.sql_query import sql_result
 
 # `__enter__` must hand back the concrete provider, not this base: a caller writing
@@ -44,6 +45,10 @@ class SqlCatalogPassthrough:
     `execute_catalog_query`, and owns `__exit__`, since what closing means differs:
     dispose a connection pool, close a connection, close a client.
     """
+
+    # What `probe sql` may read here. The default is information_schema only; a
+    # dialect whose catalog lives elsewhere declares its own (see CatalogScope).
+    catalog_scope: CatalogScope = CatalogScope()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         """Run one already-scope-checked query, returning at most `limit` rows.

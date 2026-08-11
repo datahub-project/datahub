@@ -37,6 +37,10 @@ from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.agent.sql_gate import (
+    INFORMATION_SCHEMA,
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -159,6 +163,18 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
         "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
         "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # pg_catalog is metadata throughout apart from its query-text views, which
+        # is the rare case where a schema-level allow plus exclusions is sound.
+        # pg_stat_statements holds normalized query text and pg_stat_activity the
+        # running statement; both can carry WHERE-clause literals.
+        # Inherited by CockroachDB and TimescaleDB.
+        return CatalogScope(
+            schemas=frozenset({INFORMATION_SCHEMA, "pg_catalog"}),
+            excluded_relations=frozenset({"pg_stat_statements", "pg_stat_activity"}),
+        )
 
 
 class PostgresConfig(BasePostgresConfig, BaseUsageConfig):

@@ -42,6 +42,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -754,6 +757,48 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             if db:
                 return f"{db}.{regular}"
         return regular
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Oracle has no information_schema. Its data dictionary is exposed as public
+        # synonyms, so the idiomatic read is unqualified -- these are listed without
+        # a schema for that reason, and the gate permits an unqualified name only
+        # when the scope lists it.
+        #
+        # Deliberately absent: ALL_SOURCE / DBA_SOURCE (PL/SQL body text) and the
+        # whole V$ family (V$SQL, V$SQLTEXT hold executed SQL). Qualifying with
+        # `sys.` is refused too, since permitting the SYS schema would reach both.
+        return CatalogScope(
+            schemas=frozenset(),
+            relations=frozenset(
+                {
+                    "all_tables",
+                    "all_views",
+                    "all_tab_columns",
+                    "all_tab_comments",
+                    "all_col_comments",
+                    "all_constraints",
+                    "all_cons_columns",
+                    "all_indexes",
+                    "all_ind_columns",
+                    "all_mviews",
+                    "all_users",
+                    "dba_tables",
+                    "dba_views",
+                    "dba_tab_columns",
+                    "dba_tab_cols",
+                    "dba_tab_comments",
+                    "dba_col_comments",
+                    "dba_constraints",
+                    "dba_cons_columns",
+                    "dba_indexes",
+                    "dba_mviews",
+                    "user_tables",
+                    "user_views",
+                    "user_tab_columns",
+                }
+            ),
+        )
 
 
 class OracleInspectorObjectWrapper:

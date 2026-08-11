@@ -12,6 +12,9 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 # grammar (see sql_gate._resolve_dialect).
 _SQLALCHEMY_TO_SQLGLOT_DIALECT: Dict[str, str] = {
     "postgresql": "postgres",
+    # CockroachDB implements the Postgres wire protocol and dialect, so this names
+    # the grammar it actually speaks rather than guessing a near-enough one.
+    "cockroachdb": "postgres",
     "awsathena": "athena",
     "teradatasql": "teradata",
 }
@@ -47,9 +50,14 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
         from datahub.ingestion.source.sql.sql_probe import engine_options
 
-        return cls(
+        probe = cls(
             create_engine(config.get_sql_alchemy_url(), **engine_options(config))
         )
+        # One provider class serves ~15 dialects, so the catalog surface cannot be a
+        # class attribute here -- it comes from the connector's own config, which is
+        # per dialect.
+        probe.catalog_scope = config.probe_catalog_scope()
+        return probe
 
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()
