@@ -690,6 +690,67 @@ class TestSeedProfile:
         assert chromium_dir.is_dir(), "fallback should still prepare its own dir"
         assert not (chromium_dir / "cookies.sqlite").exists()
 
+    def test_seed_is_not_applied_to_a_fallback_on_the_same_engine(
+        self, mock_playwright: dict, seed: Path, tmp_path: Path
+    ) -> None:
+        """Same engine is still a different build.
+
+        Stock Firefox and the build Playwright ships get separate directories
+        precisely because a profile does not survive the crossing. Seeding the
+        fallback copies a session it cannot read and reports success.
+        """
+        pw = mock_playwright["playwright"]
+        pw.firefox.launch_persistent_context.side_effect = [
+            Exception("moz-firefox is not installed"),
+            mock_playwright["context"],
+        ]
+
+        self._login(seed_profile=str(seed))
+
+        bundled = tmp_path / "profiles" / "firefox" / "localhost_9002"
+        assert bundled.is_dir()
+        assert not (bundled / "cookies.sqlite").exists()
+
+    def test_an_inner_chromium_profile_is_refused(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        """Chromium is launched against the directory above `Default`.
+
+        Seeding `Default` itself copies cleanly, puts the cookies a level too
+        high for the browser to read, and skips no login.
+        """
+        inner = tmp_path / "Default"
+        inner.mkdir()
+        (inner / "Preferences").write_text("{}")
+        (inner / "Cookies").write_text("jar")
+
+        with (
+            patch("datahub.cli.sso_cli.browser_target", return_value=BUNDLED_TARGET),
+            pytest.raises(click.UsageError, match="single Chromium profile"),
+        ):
+            browser_sso_login(
+                "http://localhost:9002", "ONE_HOUR", seed_profile=str(inner)
+            )
+
+    def test_a_chromium_user_data_root_is_accepted(
+        self, mock_playwright: dict, tmp_path: Path
+    ) -> None:
+        root = tmp_path / "chrome-user-data"
+        (root / "Default").mkdir(parents=True)
+        (root / "Local State").write_text("{}")
+        (root / "Default" / "Cookies").write_text("jar")
+
+        with (
+            patch("datahub.cli.sso_cli.browser_target", return_value=BUNDLED_TARGET),
+            patch("datahub.cli.sso_cli.requests", mock_requests()),
+        ):
+            browser_sso_login(
+                "http://localhost:9002", "ONE_HOUR", seed_profile=str(root)
+            )
+
+        dest = tmp_path / "profiles" / "chromium" / "localhost_9002"
+        assert (dest / "Default" / "Cookies").read_text() == "jar"
+
 
 class TestAllBrowsersFail:
     def test_raises_instead_of_silently_switching_browser(
