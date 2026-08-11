@@ -262,14 +262,14 @@ the report. Different emissions depend on different probes.
 
 **Happy path — all three available:**
 
-| Emission                                             | Depends on                                                                           |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Dataset entities + schema + lineage                  | nothing (just project files)                                                         |
-| Sibling URN routing                                  | nothing                                                                              |
-| Assertion **definitions** (audit only)               | nothing                                                                              |
-| Assertion **run events** (audit pass/fail)           | `audit_results_path` JSON file (no probes needed)                                    |
-| Volume `DatasetProfile.rowCount`                     | `has_state` (for authoritative fingerprint name) + `has_warehouse_query` (for COUNT) |
-| Pipeline `OperationAspect.lastUpdatedTimestamp`      | `has_state` (for `snapshot.updated_ts`)                                              |
+| Emission                                        | Depends on                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Dataset entities + schema + lineage             | nothing (just project files)                                                         |
+| Sibling URN routing                             | nothing                                                                              |
+| Assertion **definitions** (audit only)          | nothing                                                                              |
+| Assertion **run events** (audit pass/fail)      | `audit_results_path` JSON file (no probes needed)                                    |
+| Volume `DatasetProfile.rowCount`                | `has_state` (for authoritative fingerprint name) + `has_warehouse_query` (for COUNT) |
+| Pipeline `OperationAspect.lastUpdatedTimestamp` | `has_state` (for `snapshot.updated_ts`)                                              |
 
 **Minimal path — state store unavailable** (`has_state: false`):
 
