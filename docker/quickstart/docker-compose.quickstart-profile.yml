@@ -117,6 +117,8 @@ services:
       USAGE_AGGREGATION_ENABLED: 'true'
       USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: '30'
       USAGE_AGGREGATION_INCLUDE_AGENT_NAME: 'true'
+      ZDU_STAGE_10: 'true'
+      ZDU_STAGE_20: 'true'
       UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
     expose:
     - '4319'
@@ -453,6 +455,8 @@ services:
       SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: 'true'
       SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: 'true'
       USE_CONFLUENT_SCHEMA_REGISTRY: 'false'
+      ZDU_STAGE_10: 'true'
+      ZDU_STAGE_20: 'true'
     hostname: datahub-system-update
     image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
     labels:

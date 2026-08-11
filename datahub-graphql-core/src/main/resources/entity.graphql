@@ -674,6 +674,11 @@ type Mutation {
   moveDomain(input: MoveDomainInput!): Boolean
 
   """
+  Moves a data product to be parented under another data product.
+  """
+  moveDataProduct(input: MoveDataProductInput!): Boolean
+
+  """
   Delete a Domain
   """
   deleteDomain("The urn of the Domain to delete" urn: String!): Boolean
@@ -9686,6 +9691,21 @@ input MoveDomainInput {
 }
 
 """
+Input for updating the parent data product of a data product.
+"""
+input MoveDataProductInput {
+  """
+  The new parent data product urn. If parentDataProduct is null, this will remove the parent from this entity
+  """
+  parentDataProduct: String
+
+  """
+  The primary key of the resource to update the parent data product for
+  """
+  resourceUrn: String!
+}
+
+"""
 Input for updating the name of an entity
 """
 input UpdateNameInput {
@@ -13590,6 +13610,11 @@ type DataProduct implements Entity {
   Whether the Data Product exists in DataHub
   """
   exists: Boolean
+
+  """
+  All ancestor data products from immediate parent up to the root, ordered nearest-first.
+  """
+  parentDataProducts: [DataProduct!]!
 }
 
 """
@@ -13625,6 +13650,11 @@ type DataProductProperties {
   A Resolved Audit Stamp corresponding to the creation of this resource
   """
   createdOn: ResolvedAuditStamp
+
+  """
+  The direct parent Data Product in the taxonomy. Null for root Data Products.
+  """
+  parentDataProduct: DataProduct
 }
 
 """
@@ -13684,6 +13714,11 @@ input CreateDataProductPropertiesInput {
   An optional description for the DataProduct
   """
   description: String
+
+  """
+  Optional URN of the parent Data Product
+  """
+  parentDataProduct: String
 }
 
 """
@@ -13699,6 +13734,11 @@ input UpdateDataProductInput {
   An optional description for the DataProduct
   """
   description: String
+
+  """
+  Optional URN of the parent Data Product. If omitted, the existing parent is unchanged.
+  """
+  parentDataProduct: String
 }
 
 """
@@ -13758,6 +13798,16 @@ type Application implements Entity {
   Ownership metadata of the Application
   """
   ownership: Ownership
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean
+
+  """
+  Soft deletion status.
+  """
+  status: Status
 
   """
   References to internal resources related to the Application

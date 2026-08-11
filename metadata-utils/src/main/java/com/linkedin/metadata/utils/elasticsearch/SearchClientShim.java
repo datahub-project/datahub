@@ -155,6 +155,11 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     Integer getSocketTimeout();
 
     SSLContext getSSLContext();
+
+    /** Whether the engine type was auto-detected rather than explicitly configured. */
+    default boolean isEngineTypeAutoDetected() {
+      return false;
+    }
   }
 
   @OperationContextExempt(reason = "Local accessor, no I/O.")
