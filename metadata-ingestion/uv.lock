@@ -129,7 +129,6 @@ all = [
     { name = "deltalake" },
     { name = "dlt" },
     { name = "dnspython" },
-    { name = "elasticsearch" },
     { name = "fastavro" },
     { name = "filelock" },
     { name = "flatdict" },
@@ -171,6 +170,7 @@ all = [
     { name = "numpy" },
     { name = "okta" },
     { name = "openpyxl" },
+    { name = "opensearch-py" },
     { name = "oracledb" },
     { name = "packaging" },
     { name = "pandas" },
@@ -509,7 +509,6 @@ dev = [
     { name = "dlt" },
     { name = "docker" },
     { name = "duckdb" },
-    { name = "elasticsearch" },
     { name = "expandvars" },
     { name = "faker" },
     { name = "fastapi" },
@@ -559,6 +558,7 @@ dev = [
     { name = "nltk" },
     { name = "numpy" },
     { name = "okta" },
+    { name = "opensearch-py" },
     { name = "oracledb" },
     { name = "orderly-set" },
     { name = "packaging" },
@@ -703,7 +703,6 @@ docs = [
     { name = "dlt" },
     { name = "docker" },
     { name = "duckdb" },
-    { name = "elasticsearch" },
     { name = "expandvars" },
     { name = "faker" },
     { name = "fastapi" },
@@ -753,6 +752,7 @@ docs = [
     { name = "nltk" },
     { name = "numpy" },
     { name = "okta" },
+    { name = "opensearch-py" },
     { name = "oracledb" },
     { name = "orderly-set" },
     { name = "packaging" },
@@ -887,7 +887,7 @@ dynamodb = [
 ]
 elasticsearch = [
     { name = "cachetools" },
-    { name = "elasticsearch" },
+    { name = "opensearch-py" },
 ]
 excel = [
     { name = "azure-core" },
@@ -1193,7 +1193,6 @@ microstrategy = [
 ]
 mlflow = [
     { name = "mlflow-skinny" },
-    { name = "setuptools" },
 ]
 mode = [
     { name = "cachetools" },
@@ -1933,10 +1932,6 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'datahub-lite'", specifier = ">=1.0.0,<2.0.0" },
     { name = "duckdb", marker = "extra == 'dev'", specifier = ">=1.0.0,<2.0.0" },
     { name = "duckdb", marker = "extra == 'docs'", specifier = ">=1.0.0,<2.0.0" },
-    { name = "elasticsearch", marker = "extra == 'all'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'dev'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'docs'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'elasticsearch'", specifier = "==7.13.4" },
     { name = "expandvars", specifier = ">=0.6.5,<2.0.0" },
     { name = "expandvars", marker = "extra == 'dev'", specifier = ">=0.6.5,<2.0.0" },
     { name = "expandvars", marker = "extra == 'docs'", specifier = ">=0.6.5,<2.0.0" },
@@ -2235,6 +2230,10 @@ requires-dist = [
     { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.5,<4.0.0" },
     { name = "openpyxl", marker = "extra == 'excel'", specifier = ">=3.1.5,<4.0.0" },
     { name = "openpyxl", marker = "extra == 'integration-tests'", specifier = ">=3.1.5,<4.0.0" },
+    { name = "opensearch-py", marker = "extra == 'all'", specifier = ">=2.6.0,<4.0.0" },
+    { name = "opensearch-py", marker = "extra == 'dev'", specifier = ">=2.6.0,<4.0.0" },
+    { name = "opensearch-py", marker = "extra == 'docs'", specifier = ">=2.6.0,<4.0.0" },
+    { name = "opensearch-py", marker = "extra == 'elasticsearch'", specifier = ">=2.6.0,<4.0.0" },
     { name = "oracledb", marker = "extra == 'all'", specifier = "<4.0.0" },
     { name = "oracledb", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "oracledb", marker = "extra == 'docs'", specifier = "<4.0.0" },
@@ -2496,7 +2495,6 @@ requires-dist = [
     { name = "setuptools", marker = "extra == 'all'", specifier = "<82" },
     { name = "setuptools", marker = "extra == 'dev'", specifier = "<82.0.0" },
     { name = "setuptools", marker = "extra == 'docs'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'mlflow'", specifier = "<82" },
     { name = "setuptools", marker = "extra == 'powerbi'", specifier = "<82" },
     { name = "simple-salesforce", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'dev'", specifier = "<2.0.0" },
@@ -4985,19 +4983,6 @@ wheels = [
 ]
 
 [[package]]
-name = "elasticsearch"
-version = "7.13.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "certifi" },
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/06/50/220b2d903eccaf6065b4d2d546c06d216e3c8eabcb8d9cd56af691cb712b/elasticsearch-7.13.4.tar.gz", hash = "sha256:52dda85f76eeb85ec873bf9ffe0ba6849e544e591f66d4048a5e48016de268e0", size = 218961, upload-time = "2021-07-20T17:09:12.967Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/82/c3ce164af6f1e4f82e747c50e684b3fd74c418b194c2062e0e30ade933f0/elasticsearch-7.13.4-py2.py3-none-any.whl", hash = "sha256:5920df0ab2630778680376d86bea349dc99860977eec9b6d2bd0860f337313f2", size = 356300, upload-time = "2021-07-20T17:09:09.711Z" },
-]
-
-[[package]]
 name = "emoji"
 version = "2.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5013,6 +4998,14 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
+]
+
+[[package]]
+name = "events"
+version = "0.5"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/ed/e47dec0626edd468c84c04d97769e7ab4ea6457b7f54dcb3f72b17fcd876/Events-0.5-py3-none-any.whl", hash = "sha256:a7286af378ba3e46640ac9825156c93bdba7502174dd696090fdfcd4d80a1abd", size = 6758, upload-time = "2023-07-31T08:23:13.645Z" },
 ]
 
 [[package]]
@@ -7883,6 +7876,35 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
+]
+
+[[package]]
+name = "opensearch-protobufs"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "protobuf" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/2f/e0cc165af7bb7b44cb00023b9fcaa01a28d1755a059ede28d0cd970c3cec/opensearch_protobufs-1.2.0-py3-none-any.whl", hash = "sha256:e806730894d0a0c8cdaa3cdbe07e4b7c46e1823f453777b36caf39e9cba28e2c", size = 54751, upload-time = "2026-01-22T18:51:56.805Z" },
+]
+
+[[package]]
+name = "opensearch-py"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "events" },
+    { name = "opensearch-protobufs" },
+    { name = "python-dateutil" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/9e/e77844cb2d625ca32331bfdd28930113b3778399c01dd5f1c350ceb55e65/opensearch_py-3.2.0.tar.gz", hash = "sha256:f40fb3a295275422df2ad6d9459f667af94472d5a9e567072e9ecf163eb22613", size = 259927, upload-time = "2026-04-27T18:17:50.467Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/63/7abb96bf2e3619acbd27de99e60619bfacfb7c55b68c4792a258e6d92871/opensearch_py-3.2.0-py3-none-any.whl", hash = "sha256:721a0d3b13fbed9e82278aed748285cf63a1855354ab7e73e3d4992d1b93418b", size = 387286, upload-time = "2026-04-27T18:17:48.658Z" },
 ]
 
 [[package]]

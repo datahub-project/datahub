@@ -436,7 +436,7 @@ dynamodb = [
 
 elasticsearch = [
     "cachetools<6.0.0",
-    "elasticsearch==7.13.4",
+    "opensearch-py>=2.6.0,<4.0.0",
 ]
 
 excel = [
@@ -701,7 +701,6 @@ microstrategy = [
 
 mlflow = [
     "mlflow-skinny>=2.3.0,<2.21.0",
-    "setuptools<82",
 ]
 
 mode = [
@@ -1203,7 +1202,6 @@ all = [
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
-    "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
     "filelock>=3.13.1,<4.0.0",
     "flatdict!=4.0.1",
@@ -1244,6 +1242,7 @@ all = [
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
+    "opensearch-py>=2.6.0,<4.0.0",
     "oracledb<4.0.0",
     "packaging<26.0.0",
     "pandas<2.2.0",
@@ -1347,7 +1346,6 @@ dev = [
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
-    "elasticsearch==7.13.4",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi<0.129.0",
@@ -1396,6 +1394,7 @@ dev = [
     "nltk<3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
+    "opensearch-py>=2.6.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",
@@ -1539,7 +1538,6 @@ docs = [
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
-    "elasticsearch==7.13.4",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi<0.129.0",
@@ -1588,6 +1586,7 @@ docs = [
     "nltk<3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
+    "opensearch-py>=2.6.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",
