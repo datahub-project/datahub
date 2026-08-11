@@ -52,6 +52,16 @@ import org.testng.annotations.Test;
  * forgetting the other two fails here rather than in production. This test is the guardrail only;
  * closing the gaps is #18911. Until they close, {@link #KNOWN_GAPS} carries them explicitly, and
  * that map is meant to shrink to empty.
+ *
+ * <p><b>Known limitation.</b> The read check inspects the SDL only, which is necessary but not
+ * sufficient. Read support is itself two independently maintained things: the {@code extend type X
+ * { incidents }} block in {@code incident.graphql}, and a hardcoded {@code entitiesWithIncidents}
+ * list in {@code GmsGraphQLEngine}. A type present in the SDL but absent from that list resolves
+ * through the default {@code PropertyDataFetcher} and returns null with no error, so this test
+ * would pass on that half-finished state. The two agree today (Dataset, DataJob, DataFlow,
+ * Dashboard, Chart), so nothing is currently misreported; the exposure is future drift. Deriving a
+ * fourth set probably wants runtime resolver registration rather than scraping a Java literal.
+ * Raised by @cnpierrepapi on #18999.
  */
 public class IncidentEntitySupportConsistencyTest {
 
