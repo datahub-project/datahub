@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,10 @@ public class LoadIndicesIndexManager {
   /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
   @Getter private boolean settingsOptimized = false;
 
-  private boolean indicesDiscovered = false;
+  // Identity of the operation context the current managedIndexConfigs were discovered for. Keyed so
+  // that an operation resolving a different index prefix re-discovers instead of reusing a prior
+  // operation's indices.
+  private String discoveredForContextId = null;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
@@ -157,11 +161,15 @@ public class LoadIndicesIndexManager {
       return;
     }
 
-    // Discover indices lazily on first use (after BuildIndicesStep has run)
-    if (!indicesDiscovered) {
+    // Discover indices lazily on first use (after BuildIndicesStep has run), re-discovering when
+    // the
+    // operation context changes (e.g. a different resolved index prefix) so a prior operation's
+    // discovery is never reused for another.
+    final String currentContextId = opContext.getSearchContextId();
+    if (!Objects.equals(currentContextId, discoveredForContextId)) {
       log.info("Discovering DataHub indices for settings optimization...");
       this.managedIndexConfigs = discoverDataHubIndexConfigs(opContext);
-      this.indicesDiscovered = true;
+      this.discoveredForContextId = currentContextId;
     }
 
     log.info("Optimizing settings for bulk operations on {} indices", managedIndexConfigs.size());

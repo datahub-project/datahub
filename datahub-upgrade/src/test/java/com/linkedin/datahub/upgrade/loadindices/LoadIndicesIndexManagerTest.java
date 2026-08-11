@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -36,6 +35,7 @@ public class LoadIndicesIndexManagerTest {
     mockIndexConvention = mock(IndexConvention.class);
     mockIndexBuilder = mock(ESIndexBuilder.class);
     mockOpContext = mock(OperationContext.class);
+    when(mockOpContext.getSearchContextId()).thenReturn("test-load-indices-context");
 
     // Create a fresh instance for each test to avoid state accumulation
     indexManager =
@@ -69,19 +69,19 @@ public class LoadIndicesIndexManagerTest {
 
     // Mock the search client to return different responses for different indices
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -134,6 +134,9 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockConfig5);
 
     var result = indexManager.discoverDataHubIndexConfigs(mockOpContext);
+    // Propagation: discovery must use the exact operation context it was given, not a fabricated
+    // one.
+    verify(mockIndexConvention).getAllEntityIndicesPatterns(eq(mockOpContext));
 
     assertNotNull(result);
     assertEquals(result.size(), 5);
@@ -148,12 +151,12 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testDiscoverDataHubIndexConfigsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection failed"));
 
     assertThrows(IOException.class, () -> indexManager.discoverDataHubIndexConfigs(mockOpContext));
@@ -166,7 +169,7 @@ public class LoadIndicesIndexManagerTest {
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -183,9 +186,7 @@ public class LoadIndicesIndexManagerTest {
 
     // Mock update settings
     when(mockSearchClient.updateIndexSettings(
-            any(OperationFingerprint.class),
-            any(UpdateSettingsRequest.class),
-            any(RequestOptions.class)))
+            eq(mockOpContext), any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     indexManager.optimizeForBulkOperations(mockOpContext);
@@ -196,12 +197,12 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testOptimizeForBulkOperationsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException during discovery
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Discovery failed"));
 
     assertThrows(IOException.class, () -> indexManager.optimizeForBulkOperations(mockOpContext));
@@ -214,7 +215,7 @@ public class LoadIndicesIndexManagerTest {
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -231,9 +232,7 @@ public class LoadIndicesIndexManagerTest {
 
     // Mock update settings
     when(mockSearchClient.updateIndexSettings(
-            any(OperationFingerprint.class),
-            any(UpdateSettingsRequest.class),
-            any(RequestOptions.class)))
+            eq(mockOpContext), any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     // Optimize settings first
@@ -253,7 +252,7 @@ public class LoadIndicesIndexManagerTest {
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -301,19 +300,19 @@ public class LoadIndicesIndexManagerTest {
     when(mockSystemMetadataResponse.getIndices()).thenReturn(new String[0]);
 
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -363,19 +362,19 @@ public class LoadIndicesIndexManagerTest {
 
     // Mock the search client to return different responses for different patterns
     when(mockSearchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
     when(mockIndexConvention.getIndexName(
-            any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig with different per-index settings

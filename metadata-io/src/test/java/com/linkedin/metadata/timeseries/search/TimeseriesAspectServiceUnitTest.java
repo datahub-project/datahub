@@ -133,6 +133,8 @@ public class TimeseriesAspectServiceUnitTest {
     List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes(opContext);
 
     Assert.assertEquals(results.get(0).getSizeInMb(), 8078.398031);
+    // Propagation: the index pattern must be resolved with the exact operation context passed in.
+    verify(indexConvention).getAllTimeseriesAspectIndicesPattern(eq(opContext));
   }
 
   @Test

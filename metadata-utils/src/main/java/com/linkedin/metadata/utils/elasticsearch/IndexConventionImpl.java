@@ -12,12 +12,11 @@ import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -44,14 +43,9 @@ public class IndexConventionImpl implements IndexConvention {
   // (prefixes × base names). A miss just recomputes the (cheap) name.
   private static final int INDEX_NAME_CACHE_MAX_SIZE = 10_000;
 
-  private final Map<String, String> indexNameMapping =
-      Collections.synchronizedMap(
-          new LinkedHashMap<String, String>(16, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(final Map.Entry<String, String> eldest) {
-              return size() > INDEX_NAME_CACHE_MAX_SIZE;
-            }
-          });
+  // Cleared wholesale once it exceeds the bound (see getIndexName) rather than per-entry LRU, so
+  // cache hits stay lock-free on a ConcurrentHashMap instead of contending on a single monitor.
+  private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
   private final IndexPrefixResolver prefixResolver;
 
   @Getter private final IndexConventionConfig indexConventionConfig;
@@ -173,8 +167,14 @@ public class IndexConventionImpl implements IndexConvention {
     // could
     // cache a value under a mismatched key and target the wrong index until LRU eviction.
     final String prefixToken = prefixToken(operation);
-    return indexNameMapping.computeIfAbsent(
-        prefixToken + baseIndexName, key -> (prefixToken + baseIndexName).toLowerCase(Locale.ROOT));
+    final String key = prefixToken + baseIndexName;
+    // Bounded to cap growth (prefixes × base names) on this singleton; clear-on-overflow keeps
+    // cache
+    // hits lock-free. A miss just recomputes the cheap name.
+    if (indexNameMapping.size() >= INDEX_NAME_CACHE_MAX_SIZE) {
+      indexNameMapping.clear();
+    }
+    return indexNameMapping.computeIfAbsent(key, k -> k.toLowerCase(Locale.ROOT));
   }
 
   @Nonnull
