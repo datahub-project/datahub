@@ -120,9 +120,8 @@ public class BuildIndicesIncrementalStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(inPlaceConfig));
-    verify(indexBuilder, never())
-        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    verify(indexBuilder).buildIndex(eq(inPlaceConfig));
+    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
   }
 
   @Test
@@ -138,25 +137,17 @@ public class BuildIndicesIncrementalStepTest {
     IncrementalReindexResult incrementalResult =
         new IncrementalReindexResult(
             NEXT_INDEX_NAME, 1679000000000L, "task1", false, 2, 0L, Map.of());
-    when(indexBuilder.buildIndexIncremental(
-            any(OperationContext.class), eq(inPlaceConfig), eq(UPGRADE_VERSION)))
+    when(indexBuilder.buildIndexIncremental(eq(inPlaceConfig), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
     when(indexBuilder.pollReindexCompletion(
-            any(OperationContext.class),
-            eq(INDEX_NAME),
-            eq(NEXT_INDEX_NAME),
-            any(),
-            anyInt(),
-            anyMap(),
-            eq("task1")))
+            eq(INDEX_NAME), eq(NEXT_INDEX_NAME), any(), anyInt(), anyMap(), eq("task1")))
         .thenReturn(new PollReindexResult(true, Map.of(), Pair.of(100L, 100L)));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder)
-        .buildIndexIncremental(any(OperationContext.class), eq(inPlaceConfig), eq(UPGRADE_VERSION));
-    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), eq(inPlaceConfig));
+    verify(indexBuilder).buildIndexIncremental(eq(inPlaceConfig), eq(UPGRADE_VERSION));
+    verify(indexBuilder, never()).buildIndex(eq(inPlaceConfig));
   }
 
   @Test
