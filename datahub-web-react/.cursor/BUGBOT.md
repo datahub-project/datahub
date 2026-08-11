@@ -23,6 +23,11 @@ If Apollo cache updaters are edited, then:
 If sibling schemas/versions are merged in one control, then:
 - Flag hard assumptions that siblings are identical.
 
+If a connection/integration settings form saves secret fields, then:
+- High when masked/obfuscated values from a read query are written back unchanged
+  without an unchanged-secret sentinel or omit-if-masked merge.
+- Bad: treating `****` / `4a****556` display strings as real credentials.
+
 If SaaS-only JSX or logic is added to an OSS React file (not `*.acryl.*` /
 `*.saas.*` / `acryl/` subfolder), then:
 - Flag Medium licensing/separation risk. Move SaaS-only UI into the Acryl path.

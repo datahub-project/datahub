@@ -12,3 +12,10 @@ config property that can surface via system info, then:
 If loaders call embedding providers in a loop, then:
 - Separate systemic vs per-item failure; do not abort the corpus on one poison doc.
 - Wrap credential/token supply in the same exception normalization as HTTP calls.
+
+## Kafka / oversized aspects
+
+If consumer or emission code handles oversized aspects / `RecordTooLargeException`,
+then:
+- High when the failure crashes the consumer pod instead of DLQ, skip, or
+  validation reject.

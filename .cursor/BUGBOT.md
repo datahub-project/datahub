@@ -125,6 +125,36 @@ cluster state, then:
 - Flag missing completion marker so the step becomes skippable after success.
 - High when deletes are at-most-once / non-idempotent and the step would re-run.
 
+If a PR touches `CleanUpIndicesStep`, `IncrementalReindexCatchUpStep`, or ZDU
+step ordering, then:
+- High / Critical when cleanup can delete ES backing indices still needed by
+  incomplete catch-up (alias-less ≠ orphan during ZDU).
+
+If a PR bumps an existing bootstrap MCP file version (templates, defaults that
+write org/user state), then:
+- High overwrite risk. Prefer a new bootstrap file or idempotent/migration guard.
+
+## User status / eligibility
+
+If a PR adds or changes login, auth eligibility, or "is user active" checks, then:
+- High. Use `corpUserStatus` (ACTIVE/…); do not read deprecated
+  `corpUserInfo.active`.
+
+## Masked secrets on save
+
+If a PR adds/edits connection or integration save flows (GraphQL mutation + form
+state), then:
+- High when masked/obfuscated secret fields from a read query are sent unchanged
+  in an upsert without an "unchanged secret" sentinel or server-side merge.
+- Bad: persisting display values like `4a****556` as the real secret.
+
+## Kafka consumer failure paths
+
+If a PR handles aspect/MCL emission or Kafka consumer error handling, then:
+- High when `RecordTooLargeException` / oversized aspects crash the consumer
+  instead of DLQ, drop, or validation reject.
+- Per-item poison records must not crash-loop the pod.
+
 ## Multi-surface fixes
 
 If a bugfix touches identifier quoting, casing, escaping, or auth scheme in

@@ -54,3 +54,15 @@ If an ingestion source changes URN format, recipe config keys, or default
 hierarchy/region/scan behavior, then:
 - High. Prefer transparent upgrade / dual-read; do not break existing recipes.
 - Flag missing entries in `docs/how/updating-datahub.md` and connector `*_pre.md`.
+
+If a PR changes URN normalization / `convert_urns_to_lowercase` / platform-instance
+casing, then:
+- High when platform-instance (or other identity segments) are lowercased without
+  a migration / dedup plan — creates duplicate entities and breaks assertions.
+
+## Identity / corp user status
+
+If a PR touches LDAP/OIDC/Okta/user-provisioning emitters for `corpuser`, then:
+- Flag if `corpUserStatus` is not emitted alongside `corpUserInfo`.
+- Login/eligibility depends on `corpUserStatus`, not deprecated
+  `corpUserInfo.active`.

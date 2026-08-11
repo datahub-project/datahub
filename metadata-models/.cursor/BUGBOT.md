@@ -20,3 +20,9 @@ If GraphQL/OpenAPI exposes a new model field, then:
 If timeseries aspects/rows add time or measure fields, then:
 - Flag missing `@TimeseriesField` (and related) annotations.
 - Per-observation attributes (e.g. origin) must not live only on the definition.
+
+## Entity registry
+
+If a PR adds a new `@Aspect` PDL record (or a new aspect key), then:
+- High when `entity-registry.yml` is not updated for the owning entity.
+- Title: "Register new aspect in entity-registry.yml"
