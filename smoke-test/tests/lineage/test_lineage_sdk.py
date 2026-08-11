@@ -65,7 +65,7 @@ def test_datasets(
         column_lineage=True,
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     yield datasets
 

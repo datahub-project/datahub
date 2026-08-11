@@ -152,7 +152,7 @@ Essential for modern data teams and reliable AI agents:
 
 - [FAQ](#-frequently-asked-questions)
 - [See DataHub in Action](#-see-datahub-in-action)
-- [Quick Start](#-quick-start-60-seconds)
+- [Quick Start](#-quick-start)
 - [Installation Options](#-installation-options)
 - [Architecture](#-architecture-overview)
 - [Use Cases & Examples](#-use-cases--examples)
@@ -201,7 +201,7 @@ pip install acryl-datahub
 datahub docker quickstart
 ```
 
-See the [Quick Start](#-quick-start-60-seconds) section below for full instructions. The PyPI package is [`acryl-datahub`](https://pypi.org/project/acryl-datahub/); the Homebrew tap is [`datahub-project/homebrew-tap`](https://github.com/datahub-project/homebrew-tap).
+See the [Quick Start](#-quick-start) section below for full instructions. The PyPI package is [`acryl-datahub`](https://pypi.org/project/acryl-datahub/); the Homebrew tap is [`datahub-project/homebrew-tap`](https://github.com/datahub-project/homebrew-tap).
 
 </details>
 

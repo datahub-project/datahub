@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { SemanticModel } from '@app/metrics/metricsTypes';
-import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+import {
+    DEFAULT_METRICS_SIDEBAR_SORT,
+    MetricsSidebarSortValue,
+    metricsSidebarSortToCriterion,
+} from '@app/metrics/utils/metricsSidebarSort';
 
 import { useScrollSemanticModelsQuery } from '@graphql/metricsBrowse.generated';
-import { EntityType, SortOrder } from '@types';
+import { EntityType } from '@types';
 
 export const SEMANTIC_MODEL_COUNT = 50;
 
-function buildScrollInput(scrollId: string | null) {
+function buildScrollInput(scrollId: string | null, sort: MetricsSidebarSortValue) {
     return {
         input: {
             scrollId,
@@ -17,23 +21,34 @@ function buildScrollInput(scrollId: string | null) {
             types: [EntityType.SemanticModel],
             count: SEMANTIC_MODEL_COUNT,
             sortInput: {
-                sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
+                sortCriteria: [metricsSidebarSortToCriterion(sort)],
             },
             searchFlags: { skipCache: true },
         },
     };
 }
 
-export default function useSemanticModelRoots() {
+export default function useSemanticModelRoots(
+    sort: MetricsSidebarSortValue = DEFAULT_METRICS_SIDEBAR_SORT,
+    skip = false,
+) {
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [data, setData] = useState<SemanticModel[]>([]);
+
+    useEffect(() => {
+        setScrollId(null);
+        setData([]);
+    }, [sort]);
+
+    const variables = useMemo(() => buildScrollInput(scrollId, sort), [scrollId, sort]);
 
     const {
         data: scrollData,
         loading,
         refetch,
     } = useScrollSemanticModelsQuery({
-        variables: buildScrollInput(scrollId),
+        variables,
+        skip,
         notifyOnNetworkStatusChange: true,
     });
 
@@ -45,6 +60,9 @@ export default function useSemanticModelRoots() {
             const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
 
             setData((currData) => {
+                if (scrollId === null) {
+                    return fresh;
+                }
                 const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
                 const seenUrns = new Set(updated.map((e) => e.urn));
                 const additions = fresh.filter((e) => !seenUrns.has(e.urn));

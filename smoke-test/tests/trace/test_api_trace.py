@@ -46,7 +46,7 @@ def test_successful_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -83,7 +83,7 @@ def test_mcp_fail_aspect_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -122,7 +122,7 @@ def test_overwritten_async_write(auth_session):
     original_trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{original_trace_id}",
@@ -156,7 +156,7 @@ def test_overwritten_async_write(auth_session):
     second_trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{second_trace_id}",
@@ -207,7 +207,7 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -320,7 +320,7 @@ def test_noop_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -346,7 +346,7 @@ def test_noop_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -377,7 +377,7 @@ def test_noop_with_fmcp_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
@@ -411,7 +411,7 @@ def test_noop_with_fmcp_async_write(auth_session):
     trace_id = compare_trace_header_system_metadata(
         resp, resp.json()[0][aspect_name]["systemMetadata"]
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     resp = auth_session.post(
         f"{auth_session.gms_url()}/openapi/v1/trace/write/{trace_id}",
