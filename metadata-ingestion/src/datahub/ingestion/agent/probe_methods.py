@@ -71,6 +71,11 @@ class ProbeMethodSpec:
     # rows, so a limit of 10_000_000 is a fetch the connector really performs,
     # and trimming the output afterwards would be too late to matter.
     row_limit_param: Optional[str] = None
+    # The parameters that name this command's container, outermost first. A
+    # caller that already passed `schema` to list its tables should not have to
+    # restate it as --parent to get verdicts: the command knows where it looked.
+    # Same principle as `kind` -- the getter states a fact it already has.
+    parent_params: Tuple[str, ...] = ()
     # The DataHub subtype the returned names are, for a command that returns a
     # listing. Declared here because the getter knows it and the caller would
     # otherwise have to guess an exact subtype string to pass to `probe filter`.
@@ -84,6 +89,7 @@ class ProbeMethodSpec:
             "command": self.command,
             "description": self.description,
             "params": [p.to_dict() for p in self.params],
+            "parent_params": list(self.parent_params),
             "kind": self.kind,
         }
 
@@ -96,6 +102,7 @@ class ProbeMethodSpec:
         scoped_path_param: Optional[str] = None,
         kind: Optional[str] = None,
         row_limit_param: Optional[str] = None,
+        parent_params: Tuple[str, ...] = (),
     ) -> "ProbeMethodSpec":
         sig = inspect.signature(fn)
         params: List[ProbeParam] = []
@@ -123,6 +130,12 @@ class ProbeMethodSpec:
                 f"help text shown to users and to the agent"
             )
         declared = {p.name for p in params}
+        for parent_param in parent_params:
+            if parent_param not in declared:
+                raise ValueError(
+                    f"probe method '{fn.__name__}' declares parent_params "
+                    f"'{parent_param}' but has no such parameter"
+                )
         for label, scoped in (
             ("scoped_sql_param", scoped_sql_param),
             ("scoped_path_param", scoped_path_param),
@@ -142,6 +155,7 @@ class ProbeMethodSpec:
             scoped_path_param=scoped_path_param,
             kind=str(kind) if kind is not None else None,
             row_limit_param=row_limit_param,
+            parent_params=tuple(parent_params),
         )
 
 
@@ -169,6 +183,7 @@ def probe_method(
     scoped_path_param: Optional[str] = None,
     kind: Optional[Any] = None,
     row_limit_param: Optional[str] = None,
+    parent_params: Tuple[str, ...] = (),
 ) -> Callable[[Callable], Callable]:
     """Mark a provider method as an agent/CLI probe command.
 
@@ -186,7 +201,13 @@ def probe_method(
             fn,
             "__probe_command__",
             ProbeMethodSpec.from_func(
-                fn, name, scoped_sql_param, scoped_path_param, kind, row_limit_param
+                fn,
+                name,
+                scoped_sql_param,
+                scoped_path_param,
+                kind,
+                row_limit_param,
+                parent_params,
             ),
         )
         return fn
@@ -225,6 +246,11 @@ class ProbeMethodResult:
     # The subtype the returned names are, when the command declared one. Echoed
     # so a caller can pass it to `probe filter` without knowing the vocabulary.
     kind: Optional[str] = None
+    # The container these names live under, taken from the arguments the command was
+    # called with (see ProbeMethodSpec.parent_params). `probe filter` needs it to
+    # build the identifier ingestion matches, and asking the caller to restate what
+    # it just passed is how it ends up missing.
+    parent_path: List[str] = field(default_factory=list)
     # Non-fatal problems the provider hit while building `result` (see
     # agent.verdicts.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
     # it degraded to an empty/partial contribution instead of failing the
@@ -240,6 +266,7 @@ class ProbeMethodResult:
             "command": self.command,
             "params": self.params,
             "kind": self.kind,
+            "parent_path": self.parent_path,
             "result": self.result,
             "warnings": self.warnings,
         }
@@ -437,11 +464,22 @@ def run_probe_method(
         # rather than part of the ProbeProvider Protocol, since most
         # providers have nothing to report and shouldn't need to declare it.
         provider_warnings = getattr(provider, "warnings", None)
+    spec = specs[command]
+    # A command whose kind depends on the recipe rather than the class declares it
+    # here: get_schema_names() returns Schemas on a three-tier source and Databases
+    # on a two-tier one, and the same provider class serves both.
+    overrides = getattr(provider, "kind_overrides", None)
+    kind = spec.kind
+    if isinstance(overrides, dict) and command in overrides:
+        kind = str(overrides[command])
     return ProbeMethodResult(
         source_type=source_type,
         command=command,
         params=call_kwargs,
-        kind=specs[command].kind,
+        kind=kind,
+        parent_path=[
+            str(call_kwargs[p]) for p in spec.parent_params if p in call_kwargs
+        ],
         result=result,
         warnings=list(provider_warnings) if provider_warnings else [],
     )

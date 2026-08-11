@@ -86,7 +86,21 @@ lists schemas, and `columns(schema, table)` under that. Call one with:
 datahub recipe probe run columns --recipe recipe.yml --schema public --table orders
 ```
 
-**SQL sources expose a `sql` command** for catalog queries, usually the faster route. It is
+**SQL sources list their objects with `containers`, `tables` and `views`** — prefer these over
+writing a catalog query. They come from the connector's own inspector, so `tables` excludes views
+(which `views` returns, judged by `view_pattern` rather than `table_pattern`), and each reports the
+schema it looked in, so `probe filter` needs no `--parent` from you:
+
+```bash
+datahub recipe probe run containers --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml --schema public
+```
+
+`containers` reports `kind` as `Schema` or `Database` depending on the source — two-tier sources
+like MySQL filter their databases with `database_pattern`, not `schema_pattern`. Use the `kind` it
+reports rather than assuming.
+
+**`sql` is the escape hatch** for a question the listings do not answer. It is
 an ordinary command in the list above — nothing special to remember:
 
 ```bash

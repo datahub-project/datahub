@@ -203,6 +203,18 @@ class SQLCommonConfig(
         return None
 
     @classmethod
+    def probe_container_kind(cls) -> str:
+        """What `containers` returns on this source: Schema, or Database.
+
+        The same Inspector call (get_schema_names) means different things per tier --
+        three-tier sources return schemas filtered by schema_pattern, two-tier ones
+        return databases filtered by database_pattern, where schema_pattern is
+        deprecated. One provider class serves both, so the class cannot say which;
+        the recipe's config can.
+        """
+        return DatasetContainerSubTypes.SCHEMA
+
+    @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
         """What `probe sql` may read on this dialect.
 

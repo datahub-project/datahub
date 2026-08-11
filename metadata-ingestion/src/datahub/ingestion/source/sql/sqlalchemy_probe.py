@@ -5,6 +5,7 @@ from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
@@ -37,6 +38,11 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         self._engine = engine
         self._insp = inspect(engine)
 
+    # `containers` returns Schemas on a three-tier source and Databases on a two-tier
+    # one, and this class serves both -- so the kind comes from the recipe's config,
+    # primed in for_config and read back by run_probe_method.
+    kind_overrides: Dict[str, str] = {}
+
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
         """Build over an engine of this recipe's own making.
@@ -57,6 +63,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # class attribute here -- it comes from the connector's own config, which is
         # per dialect.
         probe.catalog_scope = config.probe_catalog_scope()
+        probe.kind_overrides = {"containers": str(config.probe_container_kind())}
         return probe
 
     def __exit__(self, *exc: object) -> None:
@@ -73,6 +80,35 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             return CatalogRows(
                 columns=list(result.keys()), rows=[list(row) for row in rows]
             )
+
+    @probe_method(row_limit_param="limit")
+    def containers(self, limit: int = 200) -> List[str]:
+        """Every schema this connection can see -- or database, on a two-tier source
+        like MySQL; the reported `kind` says which, because the pattern that filters
+        them differs. Includes ones the recipe's pattern would exclude, so
+        `probe filter` can explain them, and comes from the connector's own Inspector
+        rather than a catalog query, so it is the list ingestion itself enumerates."""
+        return self._insp.get_schema_names()[:limit]
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE, row_limit_param="limit", parent_params=("schema",)
+    )
+    def tables(self, schema: str, limit: int = 200) -> List[str]:
+        """Tables in one schema, excluding views -- the split ingestion makes when it
+        applies table_pattern rather than view_pattern. A catalog query against
+        information_schema.tables returns both kinds together, so judging that listing
+        as tables gives views a verdict from the wrong pattern.
+
+        The schema travels with the result, so `probe filter` needs no --parent."""
+        return self._insp.get_table_names(schema=schema)[:limit]
+
+    @probe_method(
+        kind=DatasetSubTypes.VIEW, row_limit_param="limit", parent_params=("schema",)
+    )
+    def views(self, schema: str, limit: int = 200) -> List[str]:
+        """Views in one schema, judged by view_pattern. Separate from `tables` for the
+        reason given there."""
+        return self._insp.get_view_names(schema=schema)[:limit]
 
     @probe_method()
     def foreign_keys(self, schema: str, table: str) -> List[Dict[str, object]]:

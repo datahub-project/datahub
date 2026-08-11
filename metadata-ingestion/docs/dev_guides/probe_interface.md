@@ -34,9 +34,9 @@ and its docstring is the help text. Nothing is declared twice.
 ## What you implement
 
 **If your source is in the SQLAlchemy family, nothing.** `SQLCommonConfig` already supplies the
-whole contract, so a connector inheriting it gets seven probe commands — `sql`, `columns`,
-`foreign_keys`, `indexes`, `primary_key`, `table_comment`, `view_definition` — the moment it
-registers. Check with `datahub recipe probe methods --recipe r.yml` before writing anything. The
+whole contract, so a connector inheriting it gets ten probe commands the moment it registers:
+the listings `containers`, `tables`, `views`; the per-object `columns`, `foreign_keys`, `indexes`,
+`primary_key`, `table_comment`, `view_definition`; and `sql`. Check with `datahub recipe probe methods --recipe r.yml` before writing anything. The
 rest of this section is for a source that is not SQLAlchemy-backed, or one whose verdicts come out
 wrong.
 
@@ -105,6 +105,7 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `scoped_sql_param`  | names the parameter carrying raw SQL; the framework scope-checks it first                                                                                                                 |
 | `scoped_path_param` | names the parameter carrying an API path; allowlist-checked first                                                                                                                         |
 | `row_limit_param`   | names the parameter bounding the result; clamped to `1..MAX_PROBE_ITEMS` before the fetch                                                                                                 |
+| `parent_params`     | names the parameters identifying the container these names live under; the result reports their values, so a caller need not restate them as `--parent`                                   |
 
 Parameters must be annotated `str`, `int` or `bool` (or `Optional` of those) and the docstring is
 required — it is the help text the agent reads.
@@ -135,6 +136,30 @@ identifier; otherwise the default, the bare name, is already right.
 Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `override(schema=name)`,
 so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
 not at import.
+
+### The SQL family's listings come from the Inspector, not from a query
+
+`containers()`, `tables(schema)` and `views(schema)` on `SqlAlchemyMetadataProbe` go
+through SQLAlchemy's Inspector -- `get_schema_names`, `get_table_names`,
+`get_view_names` -- which is what ingestion itself enumerates through. That matters
+beyond convenience:
+
+- **`tables` and `views` are separate, as the two patterns are.** A catalog query
+  against `information_schema.tables` returns both kinds in one result set, so judging
+  that listing as tables hands a view a verdict from `table_pattern` when ingestion
+  would have used `view_pattern`.
+- **The parent travels with the result.** `tables(schema)` declares
+  `parent_params=("schema",)`, so the result reports `parent_path=["analytics"]` and
+  `probe filter` needs no `--parent` from the caller. Threading it by hand is how it
+  goes missing, and for a SQL source a missing container flips the verdict.
+- **They work where `sql` cannot.** sqlglot has no dialect for DB2 or Vertica, so the
+  gate refuses every query on them; before these listings existed, those two probes
+  could enumerate nothing at all.
+
+`containers` declares no `kind`, because the same Inspector call means different things
+per tier: three-tier sources return schemas filtered by `schema_pattern`, two-tier ones
+return databases filtered by `database_pattern`. The config states which via
+`probe_container_kind()`, and the result carries the resolved value.
 
 ### Declaring what your dialect's catalog is
 

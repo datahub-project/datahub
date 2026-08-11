@@ -69,6 +69,14 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
                 uri_opts=uri_opts,
             )
 
+    @classmethod
+    def probe_container_kind(cls) -> str:
+        # get_schema_names() returns databases here, and get_inspectors filters them
+        # with database_pattern (schema_pattern is deprecated on this config), so a
+        # probe reporting them as Schemas would send `probe filter` to the wrong
+        # pattern field.
+        return DatasetContainerSubTypes.DATABASE
+
 
 class TwoTierSQLAlchemySource(SQLAlchemySource):
     def __init__(self, config, ctx, platform):

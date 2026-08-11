@@ -93,6 +93,10 @@ def test_to_dict_shape():
         "command": "m",
         "description": "help",
         "params": [{"name": "a", "type": "str", "required": True, "default": None}],
+        # Empty because this command takes no container argument. A listing that does
+        # -- tables(schema) -- names it here, and the result carries the value so the
+        # caller need not restate it as --parent.
+        "parent_params": [],
         # None because this command declares no kind: `probe filter` then needs
         # the caller to say, which is only true for commands like `sql`.
         "kind": None,
