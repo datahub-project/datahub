@@ -12,10 +12,11 @@ import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,10 +35,22 @@ public class IndexConventionImpl implements IndexConvention {
         entityIndexConfiguration);
   }
 
-  // Cache of resolved index names, keyed by (prefix, base name). The prefix varies per operation,
-  // so it is part of the key — otherwise a per-operation prefix would be memoized against the wrong
-  // base name and leak across operations.
-  private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
+  // Bounded LRU cache of resolved index names, keyed by (prefix, base name). The prefix varies per
+  // operation, so it is part of the key — otherwise a per-operation prefix would be memoized
+  // against
+  // the wrong base name and leak across operations. The bound matters because this is a singleton
+  // bean: a multi-prefix (e.g. per-namespace) deployment would otherwise grow the map without limit
+  // (prefixes × base names). A miss just recomputes the (cheap) name.
+  private static final int INDEX_NAME_CACHE_MAX_SIZE = 10_000;
+
+  private final Map<String, String> indexNameMapping =
+      Collections.synchronizedMap(
+          new LinkedHashMap<String, String>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(final Map.Entry<String, String> eldest) {
+              return size() > INDEX_NAME_CACHE_MAX_SIZE;
+            }
+          });
   private final IndexPrefixResolver prefixResolver;
 
   @Getter private final IndexConventionConfig indexConventionConfig;

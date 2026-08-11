@@ -74,7 +74,11 @@ public class SearchContextTest {
             .getCacheKeyComponent(),
         "Expected differences in search flags to result in different caches");
 
-    assertNotEquals(
+    // The index-name prefix is intentionally NOT part of the SearchContext cache key: it is
+    // resolved per operation (see SearchContext#getCacheKeyComponent), so two contexts differing
+    // only by their index-prefix resolver now share a cache key. A deployment that scopes the
+    // prefix per operation folds that discriminator into the OperationContext-level key instead.
+    assertEquals(
         testNoFlags.getCacheKeyComponent(),
         SearchContext.builder()
             .indexConvention(
@@ -85,7 +89,7 @@ public class SearchContextTest {
             .searchFlags(null)
             .build()
             .getCacheKeyComponent(),
-        "Expected differences in index convention to result in different caches");
+        "Index-name prefix is intentionally excluded from the SearchContext cache key");
 
     assertNotEquals(
         SearchContext.builder()

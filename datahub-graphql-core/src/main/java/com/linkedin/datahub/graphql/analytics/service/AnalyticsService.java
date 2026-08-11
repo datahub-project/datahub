@@ -431,7 +431,8 @@ public class AnalyticsService {
     }
 
     Filter aggregationResult =
-        executeAndExtract(opContext, buildEntityStatsRequest(distinctTypes, facetFields));
+        executeAndExtract(
+            opContext, buildEntityStatsRequest(opContext, distinctTypes, facetFields));
 
     Map<EntityType, EntityStats> results = new LinkedHashMap<>();
     for (EntityType entityType : distinctTypes) {
@@ -442,14 +443,16 @@ public class AnalyticsService {
   }
 
   @VisibleForTesting
-  SearchRequest buildEntityStatsRequest(List<EntityType> entityTypes, List<String> facetFields) {
+  SearchRequest buildEntityStatsRequest(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
     KeyedFilter[] entityFilters =
         entityTypes.stream()
             .map(
                 entityType ->
                     new KeyedFilter(
                         entityType.name(),
-                        QueryBuilders.termQuery(INDEX_FIELD, getEntityIndexName(entityType))))
+                        QueryBuilders.termQuery(
+                            INDEX_FIELD, getEntityIndexName(opContext, entityType))))
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
@@ -464,7 +467,10 @@ public class AnalyticsService {
     AggregationBuilder filteredAgg = nonRemovedFilteredAggregation();
     filteredAgg.subAggregation(byEntityAgg);
 
-    String[] indices = entityTypes.stream().map(this::getEntityIndexName).toArray(String[]::new);
+    String[] indices =
+        entityTypes.stream()
+            .map(entityType -> getEntityIndexName(opContext, entityType))
+            .toArray(String[]::new);
     SearchRequest searchRequest = constructSearchRequest(indices, filteredAgg);
     // A single absent index must not fail the whole batch. Previously a missing index threw out of
     // the per-type query, propagated uncaught, and left the resolver's catch-all to blank the

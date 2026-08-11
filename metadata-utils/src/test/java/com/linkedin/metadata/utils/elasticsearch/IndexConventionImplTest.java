@@ -75,7 +75,11 @@ public class IndexConventionImplTest {
    */
   @Test
   public void testPrefixResolvedPerOperation() {
-    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    EntityIndexConfiguration entityIndexConfiguration =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+            .build();
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -457,6 +461,34 @@ public class IndexConventionImplTest {
     assertFalse(
         indexConvention.isSemanticEntityIndex(OP, "datasetindex_v2_semantic_1700000000000"),
         "Should not identify a versioned semantic backing index");
+  }
+
+  /**
+   * The resolved-name cache is a bounded LRU (see {@code
+   * IndexConventionImpl#INDEX_NAME_CACHE_MAX_SIZE}): resolving more distinct (prefix, base) pairs
+   * than it can hold must never return a stale or wrong name for an evicted entry — an eviction
+   * just forces a (cheap) recompute. Guards the singleton bean against per-prefix (e.g. per-tenant)
+   * unbounded growth and stale reads after eviction.
+   */
+  @Test
+  public void testBoundedNameCacheStaysCorrectUnderManyPrefixes() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new PrefixEnrichmentResolver("fallback"),
+            entityIndexConfiguration);
+
+    // Exceed the LRU bound (10_000) with distinct prefixes; every resolved name must be correct.
+    for (int i = 0; i < 15_000; i++) {
+      assertEquals(
+          indexConvention.getEntityIndexName(operationWithPrefix("t" + i), "dataset"),
+          "t" + i + "_datasetindex_v2");
+    }
+    // "t0" is now evicted — re-resolving it must still yield the correct name, never a stale one.
+    assertEquals(
+        indexConvention.getEntityIndexName(operationWithPrefix("t0"), "dataset"),
+        "t0_datasetindex_v2");
   }
 
   // --- Test fixtures for per-operation prefix resolution -------------------------------------

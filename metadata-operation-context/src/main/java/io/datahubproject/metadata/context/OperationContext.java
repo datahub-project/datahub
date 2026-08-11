@@ -581,78 +581,93 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   public String getGlobalContextId() {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getAuthorizationContext())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
-            .add(getRetrieverContext())
-            .add(getObjectMapperContext())
-            .add(
-                getSystemTelemetryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getSystemTelemetryContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+                .add(getOperationContextConfig())
+                .add(getAuthorizationContext())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
+                .add(getRetrieverContext())
+                .add(getObjectMapperContext())
+                .add(
+                    getSystemTelemetryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getSystemTelemetryContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum()
+            + enrichmentCacheKeyComponent());
   }
 
   // Context id specific to contexts which impact search responses
   public String getSearchContextId() {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRetrieverContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRetrieverContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum()
+            + enrichmentCacheKeyComponent());
   }
 
   // Context id specific to entity lookups (not search)
   public String getEntityContextId() {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getPrimaryStorageContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getPrimaryStorageContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum()
+            + enrichmentCacheKeyComponent());
+  }
+
+  /**
+   * Discriminator folded into {@link #getGlobalContextId()}, {@link #getSearchContextId()}, and
+   * {@link #getEntityContextId()} for any per-request enrichment (a request-scoped identity), so a
+   * cache keyed on those ids isolates by enrichment. The empty bundle hashes to {@code 0}, so this
+   * is a no-op when no enrichments are present and only starts to discriminate once a deployment
+   * stamps one — discharging the "fold that discriminator into the OperationContext-level cache
+   * key" obligation noted on {@code SearchContext#getCacheKeyComponent}.
+   */
+  private int enrichmentCacheKeyComponent() {
+    return getEnrichmentBundle().hashCode();
   }
 
   @Nonnull
@@ -712,8 +727,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    * unchanged. Useful for downstream services that need to enhance an existing enrichment, e.g.:
    *
    * <pre>{@code
-   * TenantConfig existing = opContext.getEnrichment(TenantConfig.class).orElseThrow();
-   * OperationContext promoted = opContext.withEnrichment(existing.withTier("premium"));
+   * MyEnrichment existing = opContext.getEnrichment(MyEnrichment.class).orElseThrow();
+   * OperationContext updated = opContext.withEnrichment(existing.withFoo("bar"));
    * }</pre>
    *
    * <p>The record's own {@code withXxx(...)} methods (idiomatic Java records) produce the updated
