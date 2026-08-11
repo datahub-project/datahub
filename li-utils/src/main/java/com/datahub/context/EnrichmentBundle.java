@@ -145,7 +145,12 @@ public final class EnrichmentBundle {
    * 32-bit int prone to collisions (e.g. record values {@code "Aa"} and {@code "BB"} share a Java
    * hash) that would let two distinct enrichments collapse onto the same cache key — this
    * concatenates each enrichment's type and value, sorted by type name so it is independent of
-   * insertion order. Empty bundle returns {@code ""}.
+   * insertion order. Each segment is length-prefixed ({@code len:text}) so a value containing the
+   * {@code =} or {@code ;} delimiters cannot make two differently-shaped bundles produce the same
+   * token. Empty bundle returns {@code ""}.
+   *
+   * <p>Value identity comes from each {@link Enrichment}'s {@code toString()}: implementations used
+   * for cache isolation must have a value-distinguishing {@code toString()} (records satisfy this).
    */
   @Nonnull
   public String stableCacheToken() {
@@ -157,7 +162,16 @@ public final class EnrichmentBundle {
             Comparator.comparing(
                 (Map.Entry<Class<? extends Enrichment>, Enrichment> entry) ->
                     entry.getKey().getName()))
-        .map(entry -> entry.getKey().getName() + "=" + entry.getValue())
+        .map(
+            entry ->
+                lengthPrefixed(entry.getKey().getName())
+                    + "="
+                    + lengthPrefixed(String.valueOf(entry.getValue())))
         .collect(Collectors.joining(";"));
+  }
+
+  /** {@code text} prefixed with its length ({@code "5:acme_"}) so segments are self-delimiting. */
+  private static String lengthPrefixed(@Nonnull String text) {
+    return text.length() + ":" + text;
   }
 }

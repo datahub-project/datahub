@@ -15,6 +15,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -35,7 +36,7 @@ public class LoadIndicesIndexManagerTest {
     mockIndexConvention = mock(IndexConvention.class);
     mockIndexBuilder = mock(ESIndexBuilder.class);
     mockOpContext = mock(OperationContext.class);
-    when(mockOpContext.getSearchContextId()).thenReturn("test-load-indices-context");
+    when(mockIndexConvention.getPrefix(eq(mockOpContext))).thenReturn(Optional.of("datahub"));
 
     // Create a fresh instance for each test to avoid state accumulation
     indexManager =

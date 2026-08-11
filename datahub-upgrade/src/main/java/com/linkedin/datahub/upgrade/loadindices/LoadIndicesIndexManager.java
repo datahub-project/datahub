@@ -37,10 +37,10 @@ public class LoadIndicesIndexManager {
   /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
   @Getter private boolean settingsOptimized = false;
 
-  // Identity of the operation context the current managedIndexConfigs were discovered for. Keyed so
-  // that an operation resolving a different index prefix re-discovers instead of reusing a prior
-  // operation's indices.
-  private String discoveredForContextId = null;
+  // Resolved index prefix the current managedIndexConfigs were discovered for. Keyed by the prefix
+  // (the actual routing value) rather than the search-context id, so an operation resolving a
+  // different prefix re-discovers instead of reusing a prior operation's indices.
+  private String discoveredForPrefix = null;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
@@ -163,13 +163,12 @@ public class LoadIndicesIndexManager {
 
     // Discover indices lazily on first use (after BuildIndicesStep has run), re-discovering when
     // the
-    // operation context changes (e.g. a different resolved index prefix) so a prior operation's
-    // discovery is never reused for another.
-    final String currentContextId = opContext.getSearchContextId();
-    if (!Objects.equals(currentContextId, discoveredForContextId)) {
+    // resolved index prefix changes so a prior operation's discovery is never reused for another.
+    final String currentPrefix = indexConvention.getPrefix(opContext).orElse("");
+    if (!Objects.equals(currentPrefix, discoveredForPrefix)) {
       log.info("Discovering DataHub indices for settings optimization...");
       this.managedIndexConfigs = discoverDataHubIndexConfigs(opContext);
-      this.discoveredForContextId = currentContextId;
+      this.discoveredForPrefix = currentPrefix;
     }
 
     log.info("Optimizing settings for bulk operations on {} indices", managedIndexConfigs.size());

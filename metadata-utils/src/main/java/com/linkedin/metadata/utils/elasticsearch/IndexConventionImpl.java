@@ -35,7 +35,7 @@ public class IndexConventionImpl implements IndexConvention {
         entityIndexConfiguration);
   }
 
-  // Bounded LRU cache of resolved index names, keyed by (prefix, base name). The prefix varies per
+  // Bounded cache of resolved index names, keyed by (prefix, base name). The prefix varies per
   // operation, so it is part of the key — otherwise a per-operation prefix would be memoized
   // against
   // the wrong base name and leak across operations. The bound matters because this is a singleton
@@ -168,13 +168,19 @@ public class IndexConventionImpl implements IndexConvention {
     // cache a value under a mismatched key and target the wrong index until LRU eviction.
     final String prefixToken = prefixToken(operation);
     final String key = prefixToken + baseIndexName;
-    // Bounded to cap growth (prefixes × base names) on this singleton; clear-on-overflow keeps
-    // cache
-    // hits lock-free. A miss just recomputes the cheap name.
+    // Lock-free hit fast-path: hits never evict.
+    final String cached = indexNameMapping.get(key);
+    if (cached != null) {
+      return cached;
+    }
+    final String value = key.toLowerCase(Locale.ROOT);
+    // Bounded to cap growth (prefixes × base names) on this singleton; clear only on a miss at the
+    // cap. A miss just recomputes the cheap name, so an occasional flush is cheap.
     if (indexNameMapping.size() >= INDEX_NAME_CACHE_MAX_SIZE) {
       indexNameMapping.clear();
     }
-    return indexNameMapping.computeIfAbsent(key, k -> k.toLowerCase(Locale.ROOT));
+    indexNameMapping.putIfAbsent(key, value);
+    return value;
   }
 
   @Nonnull
