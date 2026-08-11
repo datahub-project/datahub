@@ -233,15 +233,15 @@ Cursor supports remote MCP servers via the `url` field and handles OAuth flows a
 1. Open **Cursor → Settings → Cursor Settings → Tools & MCP → New MCP Server** (or edit `~/.cursor/mcp.json` for global config / `.cursor/mcp.json` for project-scoped config).
 2. Paste:
 
-    ```json
-    {
-        "mcpServers": {
-            "datahub": {
-                "url": "https://mcp.datahub.com/mcp"
-            }
-        }
-    }
-    ```
+   ```json
+   {
+     "mcpServers": {
+       "datahub": {
+         "url": "https://mcp.datahub.com/mcp"
+       }
+     }
+   }
+   ```
 
 3. Save. Cursor triggers the OAuth flow in your browser using the `cursor://anysphere.cursor-mcp/oauth/callback` callback — enter your DataHub domain and sign in.
 4. The MCP settings page should show a green dot and list the DataHub tools.
@@ -267,25 +267,25 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
 
 1. Create an API integration using DCR (run as `ACCOUNTADMIN`):
 
-    ```sql
-    CREATE API INTEGRATION datahub_mcp_api_integration
-      API_PROVIDER = external_mcp
-      API_ALLOWED_PREFIXES = ('https://mcp.datahub.com')
-      API_USER_AUTHENTICATION = (
-        TYPE = OAUTH_DYNAMIC_CLIENT,
-        OAUTH_RESOURCE_URL = 'https://mcp.datahub.com/mcp'
-      )
-      ENABLED = TRUE;
-    ```
+   ```sql
+   CREATE API INTEGRATION datahub_mcp_api_integration
+     API_PROVIDER = external_mcp
+     API_ALLOWED_PREFIXES = ('https://mcp.datahub.com')
+     API_USER_AUTHENTICATION = (
+       TYPE = OAUTH_DYNAMIC_CLIENT,
+       OAUTH_RESOURCE_URL = 'https://mcp.datahub.com/mcp'
+     )
+     ENABLED = TRUE;
+   ```
 
 2. Create the MCP server object:
 
-    ```sql
-    CREATE EXTERNAL MCP SERVER datahub_mcp_server
-      WITH DISPLAY_NAME = 'DataHub'
-      URL = 'https://mcp.datahub.com/mcp'
-      API_INTEGRATION = datahub_mcp_api_integration;
-    ```
+   ```sql
+   CREATE EXTERNAL MCP SERVER datahub_mcp_server
+     WITH DISPLAY_NAME = 'DataHub'
+     URL = 'https://mcp.datahub.com/mcp'
+     API_INTEGRATION = datahub_mcp_api_integration;
+   ```
 
 3. In Snowsight, navigate to **AI & ML → Agents**, open your agent, choose **MCP Connectors**, and add the DataHub connector.
 4. In Snowflake Intelligence, click **Connect** next to the DataHub connector — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
@@ -346,26 +346,23 @@ Your managed MCP server URL is:
 https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
 
-There are two ways to authenticate:
+Authenticate by passing your token as a Bearer token in the `Authorization` header:
 
-1. **Authorization header** — pass your token as a Bearer token in the `Authorization` header:
+```
+Authorization: Bearer <token>
+```
 
-    ```
-    Authorization: Bearer <token>
-    ```
-
-2. **Token in URL** — append your token as a query parameter:
-
-    ```
-    https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
-    ```
-
-    This is a convenient alternative when your MCP client doesn't support custom headers.
+:::caution The `?token=` query parameter no longer works
+Requests that include a `token` query parameter get a `400 Bad Request`. A token in the URL
+shows up in proxy and CDN logs, in browser history, and in `Referer` headers. If your MCP
+client can't set headers itself, use `mcp-remote` with `--header` (shown below) and it will
+send the header for you.
+:::
 
 <details>
   <summary>On-Premises DataHub Cloud</summary>
 
-For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/?token=<token>`.
+For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/`.
 
 </details>
 
@@ -379,12 +376,18 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
 
 ```json
 {
-    "mcpServers": {
-        "datahub-cloud": {
-            "command": "npx",
-            "args": ["-y", "mcp-remote", "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"]
-        }
+  "mcpServers": {
+    "datahub-cloud": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://<tenant>.acryl.io/integrations/ai/mcp/",
+        "--header",
+        "Authorization: Bearer <token>"
+      ]
     }
+  }
 }
 ```
 
@@ -416,14 +419,14 @@ For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/
 
 ```json
 {
-    "mcpServers": {
-        "datahub-cloud": {
-            "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
-            "headers": {
-                "Authorization": "Bearer <token>"
-            }
-        }
+  "mcpServers": {
+    "datahub-cloud": {
+      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
     }
+  }
 }
 ```
 
@@ -453,15 +456,17 @@ For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-gui
 Most AI tools support remote MCP servers. Provide the hosted MCP server URL:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
+https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
+
+with the header `Authorization: Bearer <token>`.
 
 Make sure authentication mode is _not_ set to "OAuth" (if applicable).
 
 For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 - Command: `npx`
-- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
+- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/ --header "Authorization: Bearer <token>"`
 
 </details>
 
@@ -491,10 +496,10 @@ Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub
 
 1. Install [`uv`](https://github.com/astral-sh/uv):
 
-    ```bash
-    # macOS and Linux
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    ```
+   ```bash
+   # macOS and Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
 2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
 3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
@@ -512,12 +517,7 @@ The self-hosted server authenticates via environment variables:
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
-The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud
-and any auth-enabled instance need. If your instance has Metadata Service Authentication
-disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave
-`DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples,
-remember to drop the trailing comma after the `DATAHUB_GMS_URL` value once the token line is
-gone, or the config will fail to parse.
+The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse.
 
 ### Configure
 
@@ -571,16 +571,16 @@ For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/
 
 ```json
 {
-    "mcpServers": {
-        "datahub": {
-            "command": "uvx",
-            "args": ["mcp-server-datahub@latest"],
-            "env": {
-                "DATAHUB_GMS_URL": "<your-datahub-url>",
-                "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
-            }
-        }
+  "mcpServers": {
+    "datahub": {
+      "command": "uvx",
+      "args": ["mcp-server-datahub@latest"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-datahub-url>",
+        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+      }
     }
+  }
 }
 ```
 
@@ -613,8 +613,8 @@ For other AI tools, provide the following configuration:
 - Command: `uvx`
 - Args: `mcp-server-datahub@latest`
 - Env:
-    - `DATAHUB_GMS_URL`: `<your-datahub-url>`
-    - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
+  - `DATAHUB_GMS_URL`: `<your-datahub-url>`
+  - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
 
 </details>
 
