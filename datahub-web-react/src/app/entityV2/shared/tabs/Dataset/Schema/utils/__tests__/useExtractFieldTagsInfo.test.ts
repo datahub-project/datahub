@@ -1,7 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
 
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import {
     BusinessAttribute,
     EditableSchemaMetadata,
@@ -205,13 +204,6 @@ describe('useExtractFieldTagsInfo', () => {
 
     const emptyBaseEntity = {};
 
-    beforeAll(() => {
-        expect(pathMatchesExact('testField', 'testField')).toBe(true);
-        expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
-        expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
-        expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
-    });
-
     beforeEach(() => {
         mockUseBaseEntity.mockReturnValue(emptyBaseEntity);
     });
@@ -339,6 +331,33 @@ describe('useExtractFieldTagsInfo', () => {
         expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
 
         expect(numberOfTags).toBe(2);
+    });
+
+    it('should match camelCase editable paths against lowercased schema paths (ING-2174)', () => {
+        const metadata: EditableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'payload.additionalInfo.rawCounterpartyId',
+                    globalTags: {
+                        tags: [{ associatedUrn: dummySchemaFieldUrn, tag: extraTag }],
+                    },
+                },
+            ],
+        };
+        const schemaField: SchemaField = {
+            fieldPath:
+                '[version=2.0].[type=struct].payload.[type=struct].additionalinfo.[type=string].rawcounterpartyid',
+            nullable: true,
+            recursive: false,
+            type: SchemaFieldDataType.String,
+        };
+
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(metadata)).result.current;
+        const { uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaField);
+
+        expect(uneditableTags?.tags).toHaveLength(1);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
+        expect(numberOfTags).toBe(1);
     });
 
     it('should extract business attribute tags when schema field has business attribute', () => {

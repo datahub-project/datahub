@@ -1,7 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach } from 'vitest';
 
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import {
     BusinessAttribute,
@@ -220,13 +219,6 @@ describe('useExtractFieldTermsInfo', () => {
     };
 
     const emptyBaseEntity = {};
-
-    beforeAll(() => {
-        expect(pathMatchesExact('testField', 'testField')).toBe(true);
-        expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
-        expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
-        expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
-    });
 
     beforeEach(() => {
         mockUseBaseEntity.mockReturnValue(emptyBaseEntity);

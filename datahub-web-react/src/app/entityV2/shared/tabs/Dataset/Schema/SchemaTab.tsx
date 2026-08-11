@@ -148,14 +148,25 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         filteredRows,
         expandedRowsFromFilter,
         matches = [],
-    } = filterSchemaRows(
-        schemaMetadata?.fields,
-        editableSchemaMetadata,
-        filterText,
-        schemaFilterTypes,
-        expandedDrawerFieldPath,
-        entityRegistry,
-        false,
+    } = useMemo(
+        () =>
+            filterSchemaRows(
+                schemaMetadata?.fields,
+                editableSchemaMetadata,
+                filterText,
+                schemaFilterTypes,
+                expandedDrawerFieldPath,
+                entityRegistry,
+                false,
+            ),
+        [
+            schemaMetadata?.fields,
+            editableSchemaMetadata,
+            filterText,
+            schemaFilterTypes,
+            expandedDrawerFieldPath,
+            entityRegistry,
+        ],
     );
 
     useEffect(() => {
