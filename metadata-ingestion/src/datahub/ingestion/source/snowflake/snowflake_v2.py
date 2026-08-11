@@ -658,6 +658,8 @@ class SnowflakeV2Source(
                         query_dedup_strategy=self.config.query_dedup_strategy,
                         push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
                         additional_database_names_allowlist=self.config.additional_database_names_allowlist,
+                        use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+                        sql_parsing_workers=self.config.sql_parsing_workers,
                     ),
                     structured_report=self.report,
                     filters=self.filters,

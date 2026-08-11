@@ -65,6 +65,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
+    SqlParsingParallelismConfig,
     TableRename,
     TableSwap,
     UrnStr,
@@ -126,7 +127,7 @@ UserEmail = str
 UsersMapping = Dict[UserName, UserEmail]
 
 
-class SnowflakeQueriesExtractorConfig(ConfigModel):
+class SnowflakeQueriesExtractorConfig(SqlParsingParallelismConfig, ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -282,6 +283,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 is_temp_table=self.is_temp_table,
                 is_allowed_table=self.is_allowed_table,
                 format_queries=False,
+                use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+                sql_parsing_workers=self.config.sql_parsing_workers,
             )
         )
         self.report.sql_aggregator = self.aggregator.report
@@ -421,7 +424,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         )
         self.report.stored_proc_lineage = stored_proc_tracker.report
 
-        with self.report.audit_log_load_timer:
+        with (
+            self.report.audit_log_load_timer,
+            self.aggregator.parallel_sql_parsing_scope(),
+        ):
             for i, query in enumerate(queries):
                 if i % 1000 == 0:
                     logger.info(f"Added {i} query log entries to SQL aggregator")
