@@ -31,6 +31,115 @@ dozen candidate patterns against one listing without touching the source again.
 a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
 and its docstring is the help text. Nothing is declared twice.
 
+## What you implement
+
+**If your source is in the SQLAlchemy family, nothing.** `SQLCommonConfig` already supplies the
+whole contract, so a connector inheriting it gets seven probe commands — `sql`, `columns`,
+`foreign_keys`, `indexes`, `primary_key`, `table_comment`, `view_definition` — the moment it
+registers. Check with `datahub recipe probe methods --recipe r.yml` before writing anything. The
+rest of this section is for a source that is not SQLAlchemy-backed, or one whose verdicts come out
+wrong.
+
+None of these hooks are declared on a base class or a `Protocol`. The framework looks them up by
+name on your config, so you add a method with the right name and signature and it is picked up. The
+names below are the contract, and the failure modes differ: omit `probe_provider_class` and the
+source cleanly reports "no probe methods", but **misspell one of the verdict hooks in the last
+table and nothing happens at all** — the probe silently falls back to its default and reports a
+verdict your ingestion does not make. Assert those against what ingestion computes; do not eyeball
+them.
+
+### Required: two hooks on the config class, one provider class
+
+```python
+class MySourceConfig(ConfigModel):
+    # What `probe methods` describes.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.mysource.probe import MyMetadataProbe
+
+        return MyMetadataProbe
+
+    # What `probe run` invokes. MUST name the same class as above.
+    def build_probe_provider(self) -> ProbeProvider:
+        from datahub.ingestion.source.mysource.probe import MyMetadataProbe
+
+        return MyMetadataProbe(self.get_client())
+
+
+class MyMetadataProbe:
+    def __init__(self, client: MyClient) -> None:
+        self._client = client
+
+    def __enter__(self) -> "MyMetadataProbe":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._client.close()
+
+    @probe_method(kind=DatasetSubTypes.TABLE, row_limit_param="limit")
+    def tables(self, limit: int = 200) -> List[str]:
+        """Tables this workspace exposes, including ones table_pattern would
+        exclude -- a denied table is reported, not hidden. Metadata only."""
+        return self._client.list_tables()[:limit]
+```
+
+That is a working probe. Everything below is conditional.
+
+### The provider
+
+| Member                         | When you need it                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `__enter__` / `__exit__`       | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes    |
+| at least one `@probe_method`   | always                                                                                        |
+| `sql_dialect: str`             | if any method declares `scoped_sql_param` — a name sqlglot resolves                           |
+| `api_allowlist: Sequence[str]` | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")` |
+| `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                    |
+
+### `@probe_method` options
+
+| Option              | Effect                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`              | command name; defaults to the method name                                                                                                                                                 |
+| `kind`              | the DataHub subtype the returned names are, so `probe filter` picks the right `*_pattern` without the caller guessing a string. Omit only when the caller chooses what comes back (`sql`) |
+| `scoped_sql_param`  | names the parameter carrying raw SQL; the framework scope-checks it first                                                                                                                 |
+| `scoped_path_param` | names the parameter carrying an API path; allowlist-checked first                                                                                                                         |
+| `row_limit_param`   | names the parameter bounding the result; clamped to `1..MAX_PROBE_ITEMS` before the fetch                                                                                                 |
+
+Parameters must be annotated `str`, `int` or `bool` (or `Optional` of those) and the docstring is
+required — it is the help text the agent reads.
+
+### Optional: making verdicts match ingestion
+
+`probe filter` resolves a verdict in this order. Every step has a default that is right for most
+connectors, so implement a hook only when the default gives the wrong answer.
+
+| Step | What it does                                                                                                                                                    | Hook to override it                                                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`)                                                              | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field                                                                                  |
+| 2    | decide the string the pattern is matched against — bare name for container kinds, bare name (with a warning) when no parent was given, otherwise ask the config | `probe_match_target(self, ctx: ClassifyContext) -> str`                                                                                                     |
+| 2a   | the SQL family's per-connector escape hatch, consulted by the shim `probe_match_target` routes to                                                               | `probe_filter_target(self, schema: str, entity: str, warn: Callable[[str], None]) -> Optional[str]`                                                         |
+| 3    | apply exclusions the user's pattern does not express, before the pattern                                                                                        | `default_databases()` / `default_schemas()` (classmethods returning `FrozenSet[str]`), `probe_schema_verdict_override(self, schema: str) -> Optional[bool]` |
+| 4    | match the pattern against the target                                                                                                                            | —                                                                                                                                                           |
+
+Step 2 is the one that bites, and step 1 is the one you are most likely to need: declare `Filters`
+whenever your config field follows the source's own vocabulary (`collection_pattern`,
+`object_pattern`) rather than DataHub's subtype name. A connector whose display name **is** its
+filter target — Kafka topics, Mode spaces — needs no hook at all.
+
+Copy those signatures exactly. `probe_schema_verdict_override` is invoked as
+`override(schema=name)`, so the parameter name is part of the contract — renaming it to
+`schema_name` raises at probe time, not at import.
+
+### Checklist
+
+- [ ] `probe_provider_class()` and `build_probe_provider()` both overridden, on the same class
+- [ ] `@probe_method` on each listing, with `kind=` and `row_limit_param=` where they apply
+- [ ] `sql_dialect` / `api_allowlist` present if any method declares a scoped parameter
+- [ ] `Filters(...)` on any pattern field whose name does not follow the subtype
+- [ ] verdicts checked against what ingestion computes for the same inputs
+- [ ] `pytest tests/unit/agent/test_probe_contract.py` — the registry-wide scan covers you now
+- [ ] listings return metadata only, and report degradation as a warning instead of an empty result
+
 ## Everything a connector exposes is a probe method
 
 There is one execution command. A connector adds capability by annotating a
@@ -68,11 +177,11 @@ def api(self, path: str) -> object:
 There are three such declarations, and every one of them exists so the framework can act before
 the method runs:
 
-| Declaration           | What the framework does first                                    |
-| --------------------- | ---------------------------------------------------------------- |
-| `scoped_sql_param`    | scope-checks the query (`sql_gate`), refusing anything else      |
-| `scoped_path_param`   | allowlist-checks the path (`api_gate`), GET only                 |
-| `row_limit_param`     | clamps the value into `1..MAX_PROBE_ITEMS`                       |
+| Declaration         | What the framework does first                               |
+| ------------------- | ----------------------------------------------------------- |
+| `scoped_sql_param`  | scope-checks the query (`sql_gate`), refusing anything else |
+| `scoped_path_param` | allowlist-checks the path (`api_gate`), GET only            |
+| `row_limit_param`   | clamps the value into `1..MAX_PROBE_ITEMS`                  |
 
 Enforcement lives in `probe_methods._enforce_gates` and `_bounded_kwargs`, never in the method — a
 connector cannot forget a check it does not perform. Same split as `Filters(...)` on a config
@@ -123,11 +232,12 @@ reference resolves into the dialect's catalog schemas. Two of its rules are not 
   place three ways per dialect and each is stopped by a different rule — worth knowing when adding
   a schema to the allowlist, because only the first of these travels with it:
 
-  | Surface                                       | Refused by                             |
-  | --------------------------------------------- | -------------------------------------- |
-  | `pg_catalog.pg_stat_statements`               | the query-text exclusion list, by name |
-  | `snowflake.account_usage.query_history`        | the schema allowlist (`ACCOUNT_USAGE` is not a permitted schema) |
+  | Surface                                          | Refused by                                                                  |
+  | ------------------------------------------------ | --------------------------------------------------------------------------- |
+  | `pg_catalog.pg_stat_statements`                  | the query-text exclusion list, by name                                      |
+  | `snowflake.account_usage.query_history`          | the schema allowlist (`ACCOUNT_USAGE` is not a permitted schema)            |
   | `information_schema.query_history()` (Snowflake) | the vendor-function rule — it is a table function inside a permitted schema |
+
 - **Vendor-specific functions are refused wholesale.** sqlglot models standard SQL functions as
   their own node types and leaves unmodelled ones as `exp.Anonymous` — and every known way to
   reach data without naming a table (`pg_read_file`, `pg_ls_dir`, `dblink`, `load_file`,
@@ -165,7 +275,7 @@ LUIDs, Sigma, Qlik.
 
 Resolve once per command and no more. The cost is inherent — each `probe run` is a fresh process
 holding only what the caller typed — but it multiplies if one command fans out to sub-fetches that
-each resolve independently: when a single command listed a Space's reports *and* datasets, it
+each resolve independently: when a single command listed a Space's reports _and_ datasets, it
 listed every space in the workspace twice. One command per listing is what fixed that, and
 `test_a_space_scoped_command_lists_spaces_exactly_once` pins it. Do not add a convenience wrapper
 that revives the fan-out.
