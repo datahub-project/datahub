@@ -22,7 +22,7 @@ class ProbeLeafKind(StrEnum):
 # can name a kind that has no shared-subtype member yet without editing a central
 # union — prefer an existing subtype where one fits, else a plain descriptive string.
 #
-# StrEnum is `class StrEnum(str, Enum)`, so StrEnum | str is exactly str to a type
+# Since StrEnum subclasses str, StrEnum | str is exactly str to a type
 # checker — this alias carries no static information beyond "a string". One real
 # consequence follows from it: because ProbeLeafKind.COLUMN == "Column" is True (str
 # equality, not identity), a connector that spells its kind as the bare string
@@ -114,7 +114,7 @@ class ProbeResult:
     nodes: List[ProbeNode] = field(default_factory=list)
     truncated: bool = False
     fallback: Optional[str] = None
-    # Non-fatal problems hit while listing (see agent.probe.ProbeSoftError):
+    # Non-fatal problems hit while listing (see agent.verdicts.ProbeSoftError):
     # one endpoint/sibling level couldn't be read cleanly (a 404/403), so it
     # contributed zero nodes instead of aborting the whole call. An empty (or
     # smaller-than-expected) `nodes` alongside a non-empty `warnings` means

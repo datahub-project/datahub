@@ -54,10 +54,10 @@ method **declares which parameter carries the dangerous value**, and the framewo
 before invoking:
 
 ```python
-@probe_method(name="sql", scoped_sql_param="query")
+@probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
 def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
     """Run a read-only catalog query."""
-    ...                     # `query` has already been scope-checked
+    ...                     # `query` scope-checked, `limit` already clamped
 
 @probe_method(name="api", scoped_path_param="path")
 def api(self, path: str) -> object:
@@ -65,10 +65,32 @@ def api(self, path: str) -> object:
     ...                     # `path` has already been allowlist-checked
 ```
 
-Enforcement lives in `probe_methods._enforce_gates`, never in the method — a connector cannot
-forget a check it does not perform. Same split as `Filters(...)` on a config field: declare the
-fact, let the framework act on it. A declaration naming a parameter that does not exist raises at
-decoration time, because a typo would otherwise gate nothing silently.
+There are three such declarations, and every one of them exists so the framework can act before
+the method runs:
+
+| Declaration           | What the framework does first                                    |
+| --------------------- | ---------------------------------------------------------------- |
+| `scoped_sql_param`    | scope-checks the query (`sql_gate`), refusing anything else      |
+| `scoped_path_param`   | allowlist-checks the path (`api_gate`), GET only                 |
+| `row_limit_param`     | clamps the value into `1..MAX_PROBE_ITEMS`                       |
+
+Enforcement lives in `probe_methods._enforce_gates` and `_bounded_kwargs`, never in the method — a
+connector cannot forget a check it does not perform. Same split as `Filters(...)` on a config
+field: declare the fact, let the framework act on it. A declaration naming a parameter that does
+not exist raises at decoration time, because a typo would otherwise gate nothing silently.
+
+**Declare `row_limit_param` on anything that takes a `limit`,** not just on `sql`. The getter
+fetches `limit + 1` items, so an unclamped limit is a fetch the connector really performs and
+trimming the output afterwards is too late — and `limit=-1` slices to `items[:-1]`, quietly
+dropping the last item and then reporting the result as truncated.
+
+**The declaration is the only thing the framework can see.** A method that takes a query and
+declares nothing runs completely unchecked, and `probe methods` still advertises it. Nothing at
+decoration time can tell that parameter apart from a harmless one, so
+`tests/unit/agent/test_probe_contract.py` scans every registered connector for parameters that
+look dangerous (`query`, `sql`, `path`, `url`, `limit`, …) and fails on any that no declaration
+covers. It is a tripwire, not a boundary — renaming a parameter defeats it — which is why it lives
+in a test where it is greppable and arguable rather than as a hard import-time failure.
 
 An earlier design gave these their own CLI commands so that `probe run` had no path to a query
 surface at all. That was a stronger _kind_ of guarantee — structural rather than enforced — but it
@@ -77,9 +99,18 @@ what a connector could do. The guarantee is now "the channel is gated by a decla
 framework enforces," which is worth knowing when reviewing a new `scoped_*` declaration.
 
 A provider supplies what each gate needs: `sql_dialect` (a name sqlglot resolves) for queries, and
-`api_allowlist` for paths. A missing `sql_dialect` refuses the query rather than guessing a
-grammar. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs `postgres`),
-add it to the map in `sqlalchemy_probe.py`.
+`api_allowlist` for paths. Either one missing refuses the call and says the provider is what is
+incomplete — rather than guessing a grammar, or reporting an unlistable path as though the caller
+had chosen a bad one. If your connector's dialect name differs from SQLAlchemy's (`postgresql` vs
+`postgres`), add it to the map in `sqlalchemy_probe.py`.
+
+### Turning the passthroughs off
+
+`DATAHUB_PROBE_DISABLE_RAW_ACCESS=true` refuses every command that takes a caller-supplied query or
+path, for an operator who does not want an agent issuing its own SQL against a source at all. Typed
+listings keep working, so recipe diagnosis still functions. It is an environment variable rather
+than a recipe field because the agent authors the recipe — a field there would let it grant itself
+the access. Set it where the probe runs (the ingestion executor).
 
 ### The scope gate
 
@@ -117,8 +148,19 @@ the attributes those methods touch. `ModeSource.for_probe()` is the worked examp
 A provider that degrades rather than fails exposes a `warnings: List[str]`; `run_probe_method`
 reads it back, so an empty result carries its reason.
 
+### Override `probe_provider_class` and `build_probe_provider` together
+
+Two hooks name the provider, and they answer different callers: `probe_provider_class()` is what
+`probe methods` describes, `build_probe_provider()` is what `probe run` invokes. Override one and
+inherit the other and the probe advertises commands that fail at invocation — Snowflake and
+BigQuery each inherited the SQLAlchemy answer for discovery while executing against their own
+client, so both advertised six typed getters their provider does not have, and every one would have
+raised `no probe method bound for command 'columns'`. `test_probe_contract.py` now pins the pairing.
+
 **Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
-column values, or message payloads.
+column values, or message payloads. This one is convention, enforced by review and by the docstring
+rule on `@probe_method`: nothing checks a return value's contents, and `agent/redact.py` is not the
+net — it masks credentials drawn from the recipe, not data drawn from the source.
 
 ## Making verdicts match ingestion
 
@@ -193,7 +235,10 @@ empty".
   table-based check never sees it). Also test the false-positive side — a legitimate catalog
   query with a trailing semicolon, a recursive CTE, standard aggregates — because a gate that
   refuses real queries is also broken.
-- **`execute_sql` stays unannotated.** One assertion per provider.
+- **The contract scan is registry-wide, so a new connector is covered the moment it registers.**
+  You do not add a case to `test_probe_contract.py`; you either declare the gate it asks for or
+  argue in review why the parameter is safe. If you add a rule there, prove it fires — the file
+  keeps a deliberately-bad provider per rule for exactly that reason.
 - **Filter targets.** If the connector has a `get_identifier` equivalent, assert the probe's
   target equals what ingestion computes for the same inputs. `test_sql_filter_target.py` covers
   the SQLAlchemy family, including the Redshift schema override.

@@ -332,7 +332,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             )
         return self
 
-    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     def list_databases(self, conn: Connection) -> List[str]:
         # Raw database listing shared with get_inspectors() below -- no
         # database_pattern applied here; callers (get_inspectors() and the

@@ -147,7 +147,7 @@ class SQLCommonConfig(
     def get_sql_alchemy_url(self):
         pass
 
-    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
+    # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     # Generic SQL sources are a 2-level namespace (schema -> table -> column).
     # Database-aware sources (Snowflake, BigQuery) override these.
     # Schemas the source drops regardless of schema_pattern (system catalogs like

@@ -111,7 +111,8 @@ multiple statements, non-SELECT statements, and vendor-specific functions (`pg_r
 `<dataset>.INFORMATION_SCHEMA.TABLES`, which is understood.
 
 Results come back as `columns` plus positional `rows`, with `truncated` telling you whether
-more exist beyond `--limit`.
+more exist beyond `--limit`. `--limit` is clamped to 1000 however large a value you pass, so
+narrow the query rather than raising the limit when a listing comes back truncated.
 
 **Some sources expose an `api` command**, a read passthrough to their own API, for questions
 no typed command answers:
@@ -123,6 +124,10 @@ datahub recipe probe run api --recipe recipe.yml --path /spaces/sp1/reports
 Only GET, and only paths the connector lists; anything else exits 2. Prefer `probe run` where a
 getter exists — it returns the names patterns are matched against, whereas a raw record leaves
 you guessing which field that is.
+
+Both passthroughs can be switched off for a deployment
+(`DATAHUB_PROBE_DISABLE_RAW_ACCESS`). If you see that named in a refusal, the typed commands are
+still available — use those and do not look for another route to raw access.
 
 ## Which levels a source has, and in what order
 

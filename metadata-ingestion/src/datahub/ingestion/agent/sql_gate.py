@@ -215,7 +215,3 @@ def _check_table(
             f"'{rendered}' exposes the text of user queries, which can embed "
             f"row values, so it is excluded even though its schema is catalog"
         )
-
-
-def _render(table: exp.Table) -> str:
-    return ".".join(part for part in (table.catalog, table.db, table.name) if part)
