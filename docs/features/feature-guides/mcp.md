@@ -516,6 +516,11 @@ The self-hosted server authenticates via environment variables:
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
+The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud
+and any auth-enabled instance need. If your instance has Metadata Service Authentication
+disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave
+`DATAHUB_GMS_URL` on its own — the server starts unauthenticated.
+
 ### Configure
 
 <details>
