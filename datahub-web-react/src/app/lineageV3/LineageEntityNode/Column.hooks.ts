@@ -14,7 +14,12 @@ import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { useGetColumnLineageCountsLazyQuery } from '@graphql/lineage.generated';
 import { AndFilterInput, FacetFilterInput, FilterOperator } from '@types';
 
-/** Field holding a schema field's parent dataset urn. Schema fields have no platform field. */
+/**
+ * Field holding a schema field's parent dataset urn, which is where a column's platform has to be
+ * matched. `platform` is not an option: it is not indexed for schema fields, and GMS cannot resolve
+ * one for them on the graph-only path it uses to count ghost entities either -- so `parent` is the
+ * only field both paths can filter columns on.
+ */
 const PARENT_FILTER_NAME = 'parent';
 
 /**
@@ -27,7 +32,7 @@ const PARENT_FILTER_NAME = 'parent';
 export function buildRelatedColumnFilters(mergedUrns: Set<string>): AndFilterInput[] {
     const and: FacetFilterInput[] = [
         { field: DEGREE_FILTER_NAME, values: ['1'] },
-        // Matched inside the parent urn, as the platform is not indexed for schema fields
+        // Contains rather than equals: the platform urn sits inside the parent dataset urn
         { field: PARENT_FILTER_NAME, values: [DBT_URN], condition: FilterOperator.Contain, negated: true },
     ];
     if (mergedUrns.size) {
