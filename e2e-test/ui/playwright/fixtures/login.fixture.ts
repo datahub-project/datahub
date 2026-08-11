@@ -166,12 +166,13 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
       // cannot race a torn writeFileSync against that producer (or each other).
       const tokenFile = gmsTokenPath(user.username);
       await withArtifactLock(tokenFile, async () => {
-        const cookies = await ctx.cookies();
+        const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+        const graphqlUrl = new URL(DATAHUB_GRAPHQL_PATH, baseURL).toString();
+        const cookies = await ctx.cookies(graphqlUrl);
         const actorCookie = cookies.find((c) => c.name === 'actor');
         if (!actorCookie) return;
 
         const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-        const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
         const apiCtx = await playwright.request.newContext({
           baseURL,
           extraHTTPHeaders: { Cookie: cookieHeader },
