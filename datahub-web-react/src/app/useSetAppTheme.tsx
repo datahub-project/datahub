@@ -30,6 +30,7 @@ export function useSetAppTheme() {
         setThemeIdLocalStorage(customThemeId);
     }, [customThemeId]);
 
+    // Load custom JSON themes or preset themes (only when customThemeId changes)
     useEffect(() => {
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
@@ -52,12 +53,19 @@ export function useSetAppTheme() {
             }
         } else if (customThemeId && themes[customThemeId]) {
             updateTheme(themes[customThemeId]);
-        } else if (isDarkMode) {
-            updateTheme(themes.themeV2Dark);
-        } else {
-            updateTheme(themes.themeV2);
         }
-    }, [customThemeId, isDarkMode, updateTheme]);
+    }, [customThemeId, updateTheme]);
+
+    // Apply default theme based on dark mode (when no custom theme is set)
+    useEffect(() => {
+        if (!customThemeId) {
+            if (isDarkMode) {
+                updateTheme(themes.themeV2Dark);
+            } else {
+                updateTheme(themes.themeV2);
+            }
+        }
+    }, [isDarkMode, customThemeId, updateTheme]);
 }
 
 function setThemeIdLocalStorage(customThemeId: string | null) {

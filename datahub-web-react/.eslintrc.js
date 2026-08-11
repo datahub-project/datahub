@@ -35,11 +35,6 @@ const COLOR_ENFORCEMENT_RULES = {
             ],
             paths: [
                 {
-                    name: '@conf/theme/colorThemes/color',
-                    message:
-                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
-                },
-                {
                     name: '@src/alchemy-components/theme/foundations/colors',
                     message:
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
