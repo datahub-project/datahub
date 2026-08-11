@@ -64,7 +64,7 @@ public class LoadIndicesIndexManager {
     List<ReindexConfig> configs = new ArrayList<>();
 
     // Get entity indices using IndexConvention patterns
-    List<String> entityPatterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> entityPatterns = indexConvention.getAllEntityIndicesPatterns(opContext);
     log.debug("Querying entity indices with patterns: {}", entityPatterns);
 
     for (String entityPattern : entityPatterns) {
@@ -88,7 +88,8 @@ public class LoadIndicesIndexManager {
     }
 
     // Get graph service index
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
     log.debug("Querying graph service index: {}", graphIndexName);
     GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
     try {
@@ -116,7 +117,7 @@ public class LoadIndicesIndexManager {
 
     // Get system metadata index
     String systemMetadataIndexName =
-        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
     log.debug("Querying system metadata index: {}", systemMetadataIndexName);
     GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
     try {

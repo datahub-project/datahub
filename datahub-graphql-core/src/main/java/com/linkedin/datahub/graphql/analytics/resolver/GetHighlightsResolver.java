@@ -57,7 +57,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     int activeUsersThisRange =
         _analyticsService.getHighlights(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(dateRangeThis),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -65,7 +65,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     int activeUsersLastRange =
         _analyticsService.getHighlights(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(dateRangeLast),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -125,7 +125,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
   private Optional<Highlight> getEntityMetadataStats(
       @Nonnull final OperationContext opContext, String title, EntityType entityType) {
-    String index = _analyticsService.getEntityIndexName(entityType);
+    String index = _analyticsService.getEntityIndexName(opContext, entityType);
     int numEntities = getNumEntitiesFiltered(opContext, index, ImmutableMap.of());
     // If there are no entities for the type, do not show the highlight
     if (numEntities == 0) {

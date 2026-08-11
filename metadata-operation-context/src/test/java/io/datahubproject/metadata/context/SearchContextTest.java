@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNotEquals;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.testng.annotations.Test;
 
@@ -78,10 +79,8 @@ public class SearchContextTest {
         SearchContext.builder()
             .indexConvention(
                 new IndexConventionImpl(
-                    IndexConventionImpl.IndexConventionConfig.builder()
-                        .prefix("Some Prefix")
-                        .hashIdAlgo("MD5")
-                        .build(),
+                    IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+                    new ConfiguredIndexPrefixResolver("Some Prefix"),
                     entityIndexConfig))
             .searchFlags(null)
             .build()

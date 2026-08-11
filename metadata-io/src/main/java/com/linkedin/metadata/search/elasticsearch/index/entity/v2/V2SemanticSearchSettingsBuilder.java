@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -65,17 +66,21 @@ public class V2SemanticSearchSettingsBuilder implements SettingsBuilder {
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
 
     // Only apply k-NN settings to semantic search indices
-    if (!indexConvention.isSemanticEntityIndex(indexName)) {
+    // No OperationContext is available in this SettingsBuilder bootstrap path; the index
+    // naming convention resolves to the deploy-wide prefix regardless of caller context.
+    if (!indexConvention.isSemanticEntityIndex(OperationFingerprint.EMPTY, indexName)) {
       log.debug("Index '{}' is not a semantic index, returning empty settings", indexName);
       return Map.of();
     }
 
-    Optional<String> entityName = indexConvention.getEntityNameSemantic(indexName);
+    Optional<String> entityName =
+        indexConvention.getEntityNameSemantic(OperationFingerprint.EMPTY, indexName);
     if (entityName.isEmpty()) {
       return Map.of();
     }
 
-    String v2IndexName = indexConvention.getEntityIndexName(entityName.get());
+    String v2IndexName =
+        indexConvention.getEntityIndexName(OperationFingerprint.EMPTY, entityName.get());
     Map<String, Object> settings =
         new HashMap<>(v2SettingsBuilder.getSettings(indexConfiguration, v2IndexName));
 

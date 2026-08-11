@@ -59,18 +59,18 @@ public class AnalyticsService {
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
 
   @Nonnull
-  public String getEntityIndexName(EntityType entityType) {
-    return _indexConvention.getEntityIndexName(EntityTypeMapper.getName(entityType));
+  public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
+    return _indexConvention.getEntityIndexName(opContext, EntityTypeMapper.getName(entityType));
   }
 
   @Nonnull
-  public String getAllEntityIndexName() {
-    return _indexConvention.getEntityIndexName("*");
+  public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
+    return _indexConvention.getEntityIndexName(opContext, "*");
   }
 
   @Nonnull
-  public String getUsageIndexName() {
-    return _indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return _indexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   public List<NamedLine> getTimeseriesChart(

@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -71,37 +72,43 @@ public class SearchUtil {
   }
 
   private static Criterion transformEntityTypeCriterion(
-      Criterion criterion, IndexConvention indexConvention) {
+      @Nonnull OperationFingerprint operation,
+      Criterion criterion,
+      IndexConvention indexConvention) {
     return buildCriterion(
         ES_INDEX_FIELD,
         Condition.EQUAL,
         criterion.isNegated(),
         criterion.getValues().stream()
             .map(value -> String.join("", value.split("_")))
-            .map(indexConvention::getEntityIndexName)
+            .map(value -> indexConvention.getEntityIndexName(operation, value))
             .collect(Collectors.toList()));
   }
 
   private static ConjunctiveCriterion transformConjunctiveCriterion(
-      ConjunctiveCriterion conjunctiveCriterion, IndexConvention indexConvention) {
+      @Nonnull OperationFingerprint operation,
+      ConjunctiveCriterion conjunctiveCriterion,
+      IndexConvention indexConvention) {
     return new ConjunctiveCriterion()
         .setAnd(
             conjunctiveCriterion.getAnd().stream()
                 .map(
                     criterion ->
                         criterion.getField().equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                            ? transformEntityTypeCriterion(criterion, indexConvention)
+                            ? transformEntityTypeCriterion(operation, criterion, indexConvention)
                             : criterion)
                 .collect(Collectors.toCollection(CriterionArray::new)));
   }
 
   private static ConjunctiveCriterionArray transformConjunctiveCriterionArray(
-      ConjunctiveCriterionArray criterionArray, IndexConvention indexConvention) {
+      @Nonnull OperationFingerprint operation,
+      ConjunctiveCriterionArray criterionArray,
+      IndexConvention indexConvention) {
     return new ConjunctiveCriterionArray(
         criterionArray.stream()
             .map(
                 conjunctiveCriterion ->
-                    transformConjunctiveCriterion(conjunctiveCriterion, indexConvention))
+                    transformConjunctiveCriterion(operation, conjunctiveCriterion, indexConvention))
             .collect(Collectors.toList()));
   }
 
@@ -109,15 +116,18 @@ public class SearchUtil {
    * Allows filtering on entities which are stored as different indices under the hood by
    * transforming the tag _entityType to _index and updating the type to the index name.
    *
+   * @param operation The operation whose prefix scopes the resolved index names
    * @param filter The filter to parse and transform if needed
    * @param indexConvention The index convention used to generate the index name for an entity
    * @return A filter, with the changes if necessary
    */
   public static Filter transformFilterForEntities(
-      Filter filter, @Nonnull IndexConvention indexConvention) {
+      @Nonnull OperationFingerprint operation,
+      Filter filter,
+      @Nonnull IndexConvention indexConvention) {
     if (filter != null && filter.getOr() != null) {
       return new Filter()
-          .setOr(transformConjunctiveCriterionArray(filter.getOr(), indexConvention));
+          .setOr(transformConjunctiveCriterionArray(operation, filter.getOr(), indexConvention));
     }
     return filter;
   }

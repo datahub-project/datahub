@@ -75,11 +75,15 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -146,7 +150,7 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testDiscoverDataHubIndexConfigsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException
@@ -194,7 +198,7 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testOptimizeForBulkOperationsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException during discovery
@@ -305,11 +309,15 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -365,11 +373,15 @@ public class LoadIndicesIndexManagerTest {
         .thenReturn(mockSystemMetadataResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(
+            mockIndexConvention.getIndexName(
+                any(OperationFingerprint.class), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig with different per-index settings
