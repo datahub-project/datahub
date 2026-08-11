@@ -326,8 +326,7 @@ public class LineageSearchService {
                             .allMatch(
                                 criterion1 ->
                                     LIGHTNING_FILTER_FIELDS.contains(criterion1.getField())));
-    // Ghost entities are only reachable here: every other path answers from the entity index,
-    // which by definition has nothing to return for them. Take it whatever the result size.
+    // Use lightning path when including ghost entities -- it gives us the exact results we want
     boolean worthwhile =
         includeGhostEntities
             || lineageRelationships.size()
