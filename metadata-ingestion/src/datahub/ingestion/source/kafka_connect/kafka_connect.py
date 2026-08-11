@@ -252,10 +252,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, catalog_connector, all_cluster_topics
         )
 
-        use_catalog_lineages = catalog_lineages is not None and (
+        # Catalog lineage wins when it applies (not None) and either the
+        # connector is recognised or the catalog actually returned edges. Inlined
+        # rather than stored in a bool so mypy narrows catalog_lineages to a
+        # non-None list in this branch.
+        if catalog_lineages is not None and (
             connector is not None or bool(catalog_lineages)
-        )
-        if use_catalog_lineages:
+        ):
             connector_manifest.lineages = catalog_lineages
         elif connector:
             connector_manifest.lineages = connector.extract_lineages()
