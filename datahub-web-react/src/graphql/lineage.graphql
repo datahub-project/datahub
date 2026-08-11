@@ -986,6 +986,12 @@ query getLineageCounts(
 # How many columns a column is directly related to, counted the way the lineage graph draws them.
 # `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
 # graph -- see `buildRelatedColumnFilters`.
+# How many columns a column is directly related to, counted the way the lineage graph draws them.
+#
+# Counts only: the related columns are mostly schema fields that were never materialized as entities
+# -- fine-grained lineage writes graph edges without creating them -- so there is nothing to return
+# for them, and `includeGhostEntities` is what stops them being left out of the count. See the
+# caveats on that field: the count is approximate.
 query getColumnLineageCounts(
     $urn: String!
     $startTimeMillis: Long
@@ -994,46 +1000,36 @@ query getColumnLineageCounts(
     $includeSoftDeleted: Boolean = false
     $orFilters: [AndFilterInput!]
 ) {
-    upstream: searchAcrossLineage(
+    upstream: searchAcrossLineageCounts(
         input: {
             urn: $urn
             direction: UPSTREAM
             types: [SCHEMA_FIELD]
-            start: 0
-            count: 0
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
                 ignoreAsHops: $ignoreAsHops
             }
-            searchFlags: {
-                groupingSpec: { groupingCriteria: [] }
-                filterNonLatestVersions: false
-                includeSoftDeleted: $includeSoftDeleted
-            }
+            includeGhostEntities: true
+            includeSoftDeleted: $includeSoftDeleted
         }
     ) {
         total
     }
-    downstream: searchAcrossLineage(
+    downstream: searchAcrossLineageCounts(
         input: {
             urn: $urn
             direction: DOWNSTREAM
             types: [SCHEMA_FIELD]
-            start: 0
-            count: 0
             orFilters: $orFilters
             lineageFlags: {
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
                 ignoreAsHops: $ignoreAsHops
             }
-            searchFlags: {
-                groupingSpec: { groupingCriteria: [] }
-                filterNonLatestVersions: false
-                includeSoftDeleted: $includeSoftDeleted
-            }
+            includeGhostEntities: true
+            includeSoftDeleted: $includeSoftDeleted
         }
     ) {
         total
