@@ -25,6 +25,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingParallelismConfig
 
 logger = logging.Logger(__name__)
 
@@ -77,6 +78,7 @@ class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
 
 
 class RedshiftConfig(
+    SqlParsingParallelismConfig,
     BasicSQLAlchemyConfig,
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,

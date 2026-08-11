@@ -249,7 +249,10 @@ class RedshiftUsageExtractor:
                             ):
                                 access_events.append(event)
 
-                        with self.report.usage_parsing_timer:
+                        with (
+                            self.report.usage_parsing_timer,
+                            aggregator.parallel_sql_parsing_scope(),
+                        ):
                             for event in access_events:
                                 aggregator.add_preparsed_query(
                                     self._access_event_to_preparsed_query(event)
@@ -466,6 +469,8 @@ class RedshiftUsageExtractor:
             usage_config=self.config,
             format_queries=False,
             is_allowed_table=self._is_allowed_table,
+            use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+            sql_parsing_workers=self.config.sql_parsing_workers,
         )
 
     def _is_allowed_table(self, name: str) -> bool:
