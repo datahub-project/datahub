@@ -44,12 +44,20 @@ class ProbeMethodSpec:
     # Names a parameter carrying an API path, checked against the provider's
     # api_allowlist the same way.
     scoped_path_param: Optional[str] = None
+    # The DataHub subtype the returned names are, for a command that returns a
+    # listing. Declared here because the getter knows it and the caller would
+    # otherwise have to guess an exact subtype string to pass to `probe filter`.
+    # None for commands that return something other than one kind of name --
+    # `sql` cannot declare one, since what a catalog query selects is the
+    # caller's choice.
+    kind: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
             "command": self.command,
             "description": self.description,
             "params": [p.to_dict() for p in self.params],
+            "kind": self.kind,
         }
 
     @classmethod
@@ -59,6 +67,7 @@ class ProbeMethodSpec:
         name: Optional[str],
         scoped_sql_param: Optional[str] = None,
         scoped_path_param: Optional[str] = None,
+        kind: Optional[str] = None,
     ) -> "ProbeMethodSpec":
         sig = inspect.signature(fn)
         params: List[ProbeParam] = []
@@ -102,6 +111,7 @@ class ProbeMethodSpec:
             description=doc,
             scoped_sql_param=scoped_sql_param,
             scoped_path_param=scoped_path_param,
+            kind=str(kind) if kind is not None else None,
         )
 
 
@@ -127,6 +137,7 @@ def probe_method(
     name: Optional[str] = None,
     scoped_sql_param: Optional[str] = None,
     scoped_path_param: Optional[str] = None,
+    kind: Optional[Any] = None,
 ) -> Callable[[Callable], Callable]:
     """Mark a provider method as an agent/CLI probe command.
 
@@ -143,7 +154,9 @@ def probe_method(
         setattr(  # noqa: B010
             fn,
             "__probe_command__",
-            ProbeMethodSpec.from_func(fn, name, scoped_sql_param, scoped_path_param),
+            ProbeMethodSpec.from_func(
+                fn, name, scoped_sql_param, scoped_path_param, kind
+            ),
         )
         return fn
 
@@ -162,6 +175,9 @@ class ProbeMethodResult:
     command: str
     params: Dict[str, object]
     result: object
+    # The subtype the returned names are, when the command declared one. Echoed
+    # so a caller can pass it to `probe filter` without knowing the vocabulary.
+    kind: Optional[str] = None
     # Non-fatal problems the provider hit while building `result` (see
     # agent.probe.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
     # it degraded to an empty/partial contribution instead of failing the
@@ -177,6 +193,7 @@ class ProbeMethodResult:
             "source_type": self.source_type,
             "command": self.command,
             "params": self.params,
+            "kind": self.kind,
             "result": self.result,
             "warnings": self.warnings,
         }
@@ -324,6 +341,7 @@ def run_probe_method(
         source_type=source_type,
         command=command,
         params=call_kwargs,
+        kind=specs[command].kind,
         result=result,
         warnings=list(provider_warnings) if provider_warnings else [],
     )

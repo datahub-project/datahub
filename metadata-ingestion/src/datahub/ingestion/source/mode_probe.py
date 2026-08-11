@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
     ModeConfig,
     ModeSource,
@@ -77,7 +78,7 @@ class ModeProbeSource(ModeSource):
                 self.warnings.append(message)
             return []
 
-    @probe_method()
+    @probe_method(kind="Space")
     def spaces(self) -> List[str]:
         """Every space (Mode's UI calls them Collections) in this workspace,
         including ones space_pattern would exclude -- a denied space is
@@ -86,19 +87,19 @@ class ModeProbeSource(ModeSource):
             lambda: [_space_pattern_name(space) for space in _fetch_spaces(self)]
         )
 
-    @probe_method()
+    @probe_method(kind=BIAssetSubTypes.MODE_REPORT)
     def reports(self, space: str) -> List[str]:
         """Reports in one space, by space name. Excludes archived reports when
         the recipe sets exclude_archived, matching what ingestion would see."""
         return self._listing(lambda: [_display_name(r) for r in self._reports(space)])
 
-    @probe_method()
+    @probe_method(kind=BIAssetSubTypes.MODE_DATASET)
     def datasets(self, space: str) -> List[str]:
         """Datasets in one space, by space name. A Mode dataset is a special
         kind of report, so these come from the space's /datasets endpoint."""
         return self._listing(lambda: [_display_name(d) for d in self._datasets(space)])
 
-    @probe_method()
+    @probe_method(kind=BIAssetSubTypes.MODE_QUERY)
     def queries(self, space: str, report: str) -> List[str]:
         """Queries belonging to one report, addressed by space and report name."""
         return self._listing(

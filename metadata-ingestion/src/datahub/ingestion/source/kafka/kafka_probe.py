@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 
 
 class KafkaMetadataProbe:
@@ -26,7 +27,7 @@ class KafkaMetadataProbe:
         if callable(close):
             close()
 
-    @probe_method()
+    @probe_method(kind=DatasetSubTypes.TOPIC)
     def topics(self, limit: int = 500) -> List[Dict[str, object]]:
         """Live topics on the broker with partition and replication counts.
         Internal topics (name starting with '__') are hidden. Metadata only —

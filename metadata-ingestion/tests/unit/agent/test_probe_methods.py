@@ -93,6 +93,9 @@ def test_to_dict_shape():
         "command": "m",
         "description": "help",
         "params": [{"name": "a", "type": "str", "required": True, "default": None}],
+        # None because this command declares no kind: `probe filter` then needs
+        # the caller to say, which is only true for commands like `sql`.
+        "kind": None,
     }
 
 

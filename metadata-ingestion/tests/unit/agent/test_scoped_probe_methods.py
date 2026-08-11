@@ -54,7 +54,9 @@ class DialectlessProvider:
 
 
 def _spec(provider: object, command: str) -> ProbeMethodSpec:
-    spec = getattr(type(provider), command).__probe_command__
+    # Accepts an instance or a class: the spec is stamped on the function.
+    owner = provider if isinstance(provider, type) else type(provider)
+    spec = getattr(getattr(owner, command), "__probe_command__", None)
     assert isinstance(spec, ProbeMethodSpec)
     return spec
 
@@ -127,3 +129,19 @@ def test_sql_result_coerces_values_the_json_encoder_cannot_handle():
     )
     assert out["rows"] == [["2020-01-02", "1.5", "raw"]]
     assert out["truncated"] is False
+
+
+def test_a_listing_command_declares_the_kind_it_returns():
+    # The getter knows what it returns; making the caller retype an exact subtype
+    # string is a guess it should never have to make.
+    from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+    spec = _spec(KafkaMetadataProbe, "topics")
+    assert spec.kind == "Topic"
+    assert spec.to_dict()["kind"] == "Topic"
+
+
+def test_sql_declares_no_kind_because_the_caller_chooses_what_to_select():
+    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
+
+    assert _spec(SqlAlchemyMetadataProbe, "sql").kind is None
