@@ -174,9 +174,7 @@ class TestDataHubRestEmitter:
             server_config_retry_max_times=0,
         )
 
-        assert (
-            emitter._session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total == 42
-        )
+        assert emitter._session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total == 42
         assert emitter._config_session is not None
         assert (
             emitter._config_session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total

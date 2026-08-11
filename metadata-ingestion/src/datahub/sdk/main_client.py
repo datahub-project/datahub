@@ -88,8 +88,8 @@ class DataHubClient:
         Args:
             client_mode: [internal] The client mode to use. Defaults to "SDK".
             datahub_component: [internal] The DataHub component name to include in the user agent.
-            server_config_retry_max_times: Maximum retries for the initial server
-                configuration probe. Other requests retain their configured retry policy.
+            server_config_retry_max_times: Maximum retries for server configuration
+                probes. Other requests retain their configured retry policy.
 
         Returns:
             A DataHubClient instance.
