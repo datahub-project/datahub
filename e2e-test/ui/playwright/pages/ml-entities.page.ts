@@ -111,15 +111,7 @@ export class MLEntitiesPage extends BasePage {
    * Click on a tab by its testid (e.g., "Features-entity-tab-header")
    */
   async clickTab(
-    tabName:
-      | 'Features'
-      | 'Properties'
-      | 'Group'
-      | 'Models'
-      | 'Summary'
-      | 'Documents'
-      | 'Incidents'
-      | 'Contents',
+    tabName: 'Features' | 'Properties' | 'Group' | 'Models' | 'Summary' | 'Documents' | 'Incidents' | 'Contents',
   ): Promise<void> {
     const tab = this.getTabLocator(tabName);
     await tab.click();
