@@ -143,11 +143,15 @@ def test_get_parent_container(auth_session):
 def test_update_container(auth_session):
     container_urn = "urn:li:container:SCHEMA"
 
+    # add_tag/add_term/addOwner/addLink below are back-to-back writes to the same
+    # container with no intermediate read -- only the combined state after the
+    # whole batch (checked once via get_container_query below) matters, so all
+    # but the last write skip the sync wait.
     new_tag = "urn:li:tag:Test"
-    assert add_tag(auth_session, container_urn, new_tag)
+    assert add_tag(auth_session, container_urn, new_tag, no_sync_wait=True)
 
     new_term = "urn:li:glossaryTerm:Term"
-    assert add_term(auth_session, container_urn, new_term)
+    assert add_term(auth_session, container_urn, new_term, no_sync_wait=True)
 
     new_owner = "urn:li:corpuser:jdoe"
 
@@ -163,7 +167,9 @@ def test_update_container(auth_session):
         }
     }
 
-    res_data = execute_graphql(auth_session, add_owner_query, add_owner_variables)
+    res_data = execute_graphql(
+        auth_session, add_owner_query, add_owner_variables, no_sync_wait=True
+    )
 
     assert res_data["data"]["addOwner"] is True
 
@@ -180,10 +186,13 @@ def test_update_container(auth_session):
         }
     }
 
-    res_data = execute_graphql(auth_session, add_link_query, add_link_variables)
+    res_data = execute_graphql(
+        auth_session, add_link_query, add_link_variables, no_sync_wait=True
+    )
 
     assert res_data["data"]["addLink"] is True
 
+    # Last write in the batch -- keeps the real sync wait.
     new_description = "New description"
     assert update_description(auth_session, container_urn, new_description)
 

@@ -43,6 +43,11 @@ base_requirements = {
     # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
     # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
+    # Floor at 2.5.0 — the highest the airflow-plugin CI
+    # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
+    # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies, keeping this bound Airflow-satisfiable.
+    "urllib3>=2.5.0,<3.0",
 }
 
 gcp_sm_common = {
@@ -174,43 +179,6 @@ pyarrow_common = {
     "pyarrow>14.0.0,<24.0.0",
 }
 
-great_expectations_lib = {
-    # 1. Our original dep was this:
-    # "great-expectations>=0.15.12, <=0.15.50",
-    # 2. For hive, we had additional restrictions:
-    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
-    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-    #    https://github.com/great-expectations/great_expectations/pull/6149.
-    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
-    # 3. Since then, we've ended up forking great-expectations in order to
-    #    add pydantic 2.x support. The fork is pretty simple
-    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
-    #    This was derived from work done by @jskrzypek in
-    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
-    "acryl-great-expectations==0.15.50.1",
-    "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
-}
-
-profiling_ge = {
-    *great_expectations_lib,
-    # scipy version restricted to reduce backtracking, used by great-expectations.
-    "scipy>=1.7.2,<2.0.0",
-    # GE added handling for higher version of jinja2.
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # datahub does not depend on traitlets directly but great-expectations does.
-    # https://github.com/ipython/traitlets/issues/741
-    "traitlets!=5.2.2,<6.0.0",
-    # GE depends on IPython - we have no direct dependency on it.
-    # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
-    # version requirement of traitlets>5.
-    # See https://github.com/ipython/ipython/issues/14352.
-    # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
-    # which first appeared in IPython 8.22.1.
-    # As such, we just need to avoid that version in order to get the
-    # dependencies that we need. IPython probably should've yanked 8.22.0.
-    "IPython!=8.22.0,<9.0.0",
-}
-
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
@@ -235,10 +203,6 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
-    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -593,9 +557,6 @@ plugins: Dict[str, Set[str]] = {
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
-    # Opt-in extra for the legacy Great Expectations SQL profiler.
-    # Without this extra, SQL connectors fall back to the SQLAlchemy profiler.
-    "profiling-ge": profiling_ge,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -654,11 +615,8 @@ plugins: Dict[str, Set[str]] = {
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
-    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
-    # UnsupportedProductError
-    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
-    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
+    "elasticsearch": {"opensearch-py>=2.6.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -741,9 +699,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
@@ -814,7 +769,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.34,<=0.40"} | sqlglot_lib,
     "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
@@ -1368,6 +1323,7 @@ setuptools.setup(
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
+        "datahub.cli.datapack.resources": ["*.md", "*.json"],
     },
     # Install .pth files that run at interpreter startup:
     # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks

@@ -922,6 +922,24 @@ public class ESIndexBuilder {
       Pair<Long, Long> finalDocumentCounts) {}
 
   /**
+   * Outcome of looking up an ES {@code _reindex} task. Distinguishes blank ids and confirmed
+   * not-found (safe for count-based completion) from transient lookup failures (must not complete
+   * on counts alone — that reopens the mid-copy false-complete hole).
+   */
+  enum ReindexTaskLookup {
+    /** No usable task id (blank / malformed) — typical on some resume paths. */
+    BLANK_TASK_ID,
+    /** Task exists and is still running. */
+    RUNNING,
+    /** Task exists and reports completed. */
+    COMPLETED,
+    /** Task API returned empty (e.g. 404 after ES purged a finished task). */
+    NOT_FOUND,
+    /** Transient transport / API error fetching task status. */
+    LOOKUP_ERROR
+  }
+
+  /**
    * Polls an in-progress reindex until document counts converge or timeout. Includes stall
    * detection with automatic reindex re-submission and progress estimation.
    *
@@ -929,6 +947,13 @@ public class ESIndexBuilder {
    * poll iteration. For the legacy blocked-writes path, pass {@code () -> getCount(sourceIndex)} to
    * re-query the live source (stable since writes are blocked). For incremental reindex where
    * writes continue to the source, pass a fixed snapshot: {@code () -> snapshotCount}.
+   *
+   * <p>Completion requires {@code dest >= expected} once the reindex task is known finished
+   * (completed or confirmed not-found), or when there is no usable task id. A mid-copy sample where
+   * counts already match while the task is still running does not complete. Transient task-status
+   * lookup failures also do not complete on counts alone. Destination overshoot ({@code dest >
+   * expected}) after the task finishes is accepted — writes between the launch-time snapshot and
+   * scroll open are copied into the destination and are expected on busy indices.
    *
    * @param sourceIndex the source index name (for logging and stall-retry resubmission)
    * @param destIndex the destination index name
@@ -987,44 +1012,65 @@ public class ESIndexBuilder {
               currentTime - pollStartTimeMillis,
               latestCounts.getFirst() - latestCounts.getSecond());
 
-      if (documentCounts.getFirst().equals(documentCounts.getSecond())) {
+      final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
+      final long expectedCount = documentCounts.getFirst();
+      final long destCount = documentCounts.getSecond();
+
+      // dest >= expected: equality or overshoot after scroll captured writes past the launch
+      // snapshot. Only accept when the task is known finished (or there is no usable task id) —
+      // not while RUNNING, and not on LOOKUP_ERROR (transient getTask failures).
+      if (destCount >= expectedCount && allowsCountBasedCompletion(taskLookup)) {
         log.info(
-            "Reindex {} -> {} complete. Doc count: {}",
+            "Reindex {} -> {} complete. expected={} dest={} taskLookup={} taskId={}",
             sourceIndex,
             destIndex,
-            documentCounts.getFirst());
+            expectedCount,
+            destCount,
+            taskLookup,
+            activeTaskId);
         return new PollReindexResult(true, latestReindexInfo, documentCounts);
       }
 
-      float progressPercentage =
-          documentCounts.getFirst() > 0
-              ? (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst()
-              : 0;
+      if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.RUNNING) {
+        log.info(
+            "Document counts meet expected for {} -> {} (dest={} expected={}), but reindex task"
+                + " [{}] is still running. Continuing to poll.",
+            sourceIndex,
+            destIndex,
+            destCount,
+            expectedCount,
+            activeTaskId);
+      } else if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.LOOKUP_ERROR) {
+        log.warn(
+            "Document counts meet expected for {} -> {} (dest={} expected={}), but task status"
+                + " lookup failed for [{}]. Continuing to poll (will not complete on counts alone).",
+            sourceIndex,
+            destIndex,
+            destCount,
+            expectedCount,
+            activeTaskId);
+      } else if (destCount < expectedCount) {
+        float progressPercentage =
+            expectedCount > 0 ? (100 * (1.0f * destCount)) / expectedCount : 0;
 
-      // Read the ES _reindex task itself rather than inferring only from doc counts: doc-count-only
-      // monitoring cannot tell a still-running reindex apart from one that finished while dropping
-      // documents (version conflicts, and any bulk failures the task's own retries could not clear,
-      // are skipped because the request uses setAbortOnVersionConflict(false)). Logging the task
-      // counters turns an opaque timeout into an actionable diagnosis.
-      final Optional<GetTaskResponse> taskStatus = tryGetReindexTaskStatus(opContext, activeTaskId);
-      log.warn(
-          "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes. Reindex task [{}]: {}",
-          documentCounts.getFirst(),
-          documentCounts.getSecond(),
-          progressPercentage,
-          estimatedMinutesRemaining,
-          activeTaskId,
-          describeReindexTaskStatus(taskStatus));
+        log.warn(
+            "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {}"
+                + " minutes. Reindex task [{}]: {}",
+            expectedCount,
+            destCount,
+            progressPercentage,
+            estimatedMinutesRemaining,
+            activeTaskId,
+            taskLookup);
+      }
 
       // A completed task whose destination is still short of the source dropped documents. Waiting
       // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by
       // numRetries) lets a transient shortfall converge on a fresh attempt, and a persistent one
-      // fails loudly once retries are exhausted. Guard on the direction of the mismatch: with live
-      // dual-writes the destination can legitimately exceed the fixed source snapshot, which is not
-      // a drop.
+      // fails loudly once retries are exhausted. Overshoot (dest > expected) is accepted above once
+      // the task is finished — it is not treated as a drop.
       final boolean completedButShort =
-          taskStatus.map(GetTaskResponse::isCompleted).orElse(false)
-              && documentCounts.getSecond() < documentCounts.getFirst();
+          taskLookup == ReindexTaskLookup.COMPLETED && destCount < expectedCount;
 
       final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
       final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
@@ -1038,7 +1084,7 @@ public class ESIndexBuilder {
                   ? "task completed but destination is short"
                   : String.format("no progress for %d minutes", noProgressRetryMinutes),
               activeTaskId,
-              describeReindexTaskStatus(taskStatus));
+              taskLookup);
           latestReindexInfo =
               submitReindex(
                   opContext,
@@ -1073,32 +1119,39 @@ public class ESIndexBuilder {
         documentCounts.getSecond(),
         documentCounts.getFirst(),
         activeTaskId,
-        describeReindexTaskStatus(tryGetReindexTaskStatus(opContext, activeTaskId)));
+        lookupReindexTask(opContext, activeTaskId));
     return new PollReindexResult(false, latestReindexInfo, documentCounts);
   }
 
   /**
-   * Best-effort fetch of the ES {@code _reindex} task status for diagnostics. Never throws: a
-   * blank/malformed task id (e.g. an empty id passed on resume) or any transport error yields
-   * {@link Optional#empty()}, so a status lookup can never break the polling loop it is meant to
-   * instrument.
+   * Whether count-based poll completion is allowed for this task-lookup outcome. Blank task ids
+   * (resume) and finished/not-found tasks are safe; running or lookup-error are not.
    */
-  private Optional<GetTaskResponse> tryGetReindexTaskStatus(
-      @Nonnull OperationContext opContext, @Nullable final String taskId) {
-    if (taskId == null || taskId.isBlank() || !taskId.contains(":")) {
-      return Optional.empty();
-    }
-    try {
-      return getTaskStatus(opContext, taskId);
-    } catch (Exception e) {
-      log.debug("Unable to fetch reindex task status for {}: {}", taskId, e.getMessage());
-      return Optional.empty();
-    }
+  static boolean allowsCountBasedCompletion(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.BLANK_TASK_ID
+        || lookup == ReindexTaskLookup.COMPLETED
+        || lookup == ReindexTaskLookup.NOT_FOUND;
   }
 
-  /** Renders an optional task status for logging, or {@code "status unavailable"} when absent. */
-  private static String describeReindexTaskStatus(Optional<GetTaskResponse> status) {
-    return status.map(ESIndexBuilder::describeReindexTaskStatus).orElse("status unavailable");
+  /**
+   * Resolves the ES {@code _reindex} task state for poll gating. Never throws: transport errors
+   * become {@link ReindexTaskLookup#LOOKUP_ERROR}.
+   */
+  private ReindexTaskLookup lookupReindexTask(
+      @Nonnull OperationContext opContext, @Nullable final String taskId) {
+    if (taskId == null || taskId.isBlank() || !taskId.contains(":")) {
+      return ReindexTaskLookup.BLANK_TASK_ID;
+    }
+    try {
+      final Optional<GetTaskResponse> status = getTaskStatus(opContext, taskId);
+      if (status.isEmpty()) {
+        return ReindexTaskLookup.NOT_FOUND;
+      }
+      return status.get().isCompleted() ? ReindexTaskLookup.COMPLETED : ReindexTaskLookup.RUNNING;
+    } catch (Exception e) {
+      log.debug("Unable to fetch reindex task status for {}: {}", taskId, e.getMessage());
+      return ReindexTaskLookup.LOOKUP_ERROR;
+    }
   }
 
   /**
@@ -1550,37 +1603,53 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
-   * alias to point to the new index.
+   * Validates that the new backing index holds at least the documents the reindex set out to copy,
+   * then atomically swaps the alias to point to the new index.
+   *
+   * <p>The comparison is against {@code expectedSourceDocCount} — the source count snapshotted when
+   * the reindex was launched — and deliberately <b>not</b> against a live count read from the
+   * alias. Reading the alias here compares "what the source holds right now" against "what the copy
+   * captured a while ago"; on an index that keeps taking writes for the duration of the copy those
+   * two can never agree, which makes the swap permanently unsatisfiable. The incremental (ZDU) path
+   * does not block writes, and the writes landing during the copy window are replayed afterwards by
+   * the Phase 2 catch-up step, so that residual gap is expected by design rather than an error.
+   *
+   * <p>The check requires {@code nextCount >= expectedSourceDocCount}: the destination must hold at
+   * least the documents present when the reindex launched. Destination overshoot is accepted —
+   * writes landing between the launch-time count and scroll open are copied into the destination on
+   * busy indices. Undershoot (next below expected) fails the gate.
    *
    * @param aliasName the alias to swap
    * @param newBackingIndex the physical index to point the alias to
-   * @return true if swapped, false if doc counts didn't match
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
+   * @return true if swapped, false if the destination doc count does not match
    * @throws Exception if the swap operation fails
    */
   public boolean validateAndSwapAlias(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
-      @Nonnull String newBackingIndex)
+      @Nonnull String newBackingIndex,
+      final long expectedSourceDocCount)
       throws Exception {
-    long currentCount = getCount(opContext, aliasName);
-    long nextCount = getCount(opContext, newBackingIndex);
+    final long nextCount = getCount(opContext, newBackingIndex);
 
-    if (currentCount != nextCount) {
+    if (nextCount < expectedSourceDocCount) {
       log.warn(
-          "Doc count mismatch for alias swap {} -> {}: current={}, next={}",
+          "Doc count mismatch for alias swap {} -> {}: expected>={} (source count at reindex"
+              + " start), next={}",
           aliasName,
           newBackingIndex,
-          currentCount,
+          expectedSourceDocCount,
           nextCount);
       return false;
     }
 
     log.info(
-        "Doc counts match for {} -> {}: count={}. Swapping alias.",
+        "Doc counts acceptable for {} -> {}: expected>={}, next={}. Swapping alias.",
         aliasName,
         newBackingIndex,
-        currentCount);
+        expectedSourceDocCount,
+        nextCount);
     renameReindexedIndices(
         searchClient, opContext, aliasName, null, newBackingIndex, false, requestOptionsLong);
     return true;

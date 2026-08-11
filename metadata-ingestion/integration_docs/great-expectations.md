@@ -108,17 +108,17 @@ For `token`, prefer a GX config variable (e.g. `token="${DATAHUB_TOKEN}"`) rathe
 
 Each expectation becomes a DataHub assertion (plus an `assertionRunEvent` per checkpoint run).
 
-| GX input                                             | DataHub field                                                                                                  |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Expectation type + kwargs                            | Assertion URN identity (`nativeType` / `nativeParameters`) and mapped `datasetAssertion` when known            |
-| Expectation `description`                            | `AssertionInfo.description`                                                                                    |
-| Expectation suite name                               | `AssertionInfo.customProperties.expectation_suite_name`                                                        |
-| Expectation `id` (when present)                      | `AssertionInfo.customProperties.expectation_id` (not used in the URN — IDs can change if a suite is recreated) |
-| Checkpoint name / id                                 | `AssertionInfo.customProperties.checkpoint_name` / `checkpoint_id`                                             |
-| Validation definition name / id                      | `AssertionInfo.customProperties.validation_definition_name` / `validation_id`                                  |
-| Expectation `severity` on **failure**                | `AssertionResult.severity`: `critical`→`HIGH`, `warning`→`MEDIUM`, `info`→`LOW`                                |
-| `result_url`, else Data Docs URL from a prior action | `AssertionResult.externalUrl`                                                                                  |
-| Pass/fail + counts / observed values                 | `AssertionResult` (`type`, `rowCount`, `unexpectedCount`, `missingCount`, `actualAggValue`, `nativeResults`)   |
+| GX input                                             | DataHub field                                                                                                        |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Expectation type + kwargs                            | Assertion URN identity (`nativeType` / `nativeParameters`) and mapped `customAssertion` structured fields when known |
+| Expectation `description`                            | `AssertionInfo.description`                                                                                          |
+| Expectation suite name                               | `AssertionInfo.customProperties.expectation_suite_name`                                                              |
+| Expectation `id` (when present)                      | `AssertionInfo.customProperties.expectation_id` (not used in the URN — IDs can change if a suite is recreated)       |
+| Checkpoint name / id                                 | `AssertionInfo.customProperties.checkpoint_name` / `checkpoint_id`                                                   |
+| Validation definition name / id                      | `AssertionInfo.customProperties.validation_definition_name` / `validation_id`                                        |
+| Expectation `severity` on **failure**                | `AssertionResult.severity`: `critical`→`HIGH`, `warning`→`MEDIUM`, `info`→`LOW`                                      |
+| `result_url`, else Data Docs URL from a prior action | `AssertionResult.externalUrl`                                                                                        |
+| Pass/fail + counts / observed values                 | `AssertionResult` (`type`, `rowCount`, `unexpectedCount`, `missingCount`, `actualAggValue`, `nativeResults`)         |
 
 **Dataset URN resolution (V1):** explicit action `platform` + `dataset_name` → SQLAlchemy `batch_spec` table identity → GX `asset_name` / `data_asset_name` with platform hints.
 

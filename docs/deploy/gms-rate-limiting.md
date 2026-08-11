@@ -1,24 +1,26 @@
 ---
 title: GMS Rate Limiting
 slug: /deploy/gms-rate-limiting
-description: Enable and tune GMS HTTP service rate limiting (not MCP ingestion or Kafka backpressure).
+description: Enable and tune GMS HTTP service rate limiting, plus MCP/Kafka ingest throttling (MCL lag backpressure).
 ---
 
 # GMS Rate Limiting
 
 This guide explains how to enable, configure, observe, and troubleshoot **GMS HTTP service rate limiting** — limits on **incoming API traffic to GMS** (GraphQL, OpenAPI, Rest.li, native auth routes). It protects the Metadata Service from overload and caps abuse on sensitive endpoints such as `/auth/signUp`.
 
+It also documents **MCP / Kafka ingest throttling** — lag-based backpressure on metadata writes and the MCE consumer when the Metadata Change Log (MCL) pipeline falls behind. That mechanism is separate from HTTP rate limits; see [MCP / Kafka ingest throttling](#mcp--kafka-ingest-throttling).
+
 ## What this is — and is not
 
-DataHub has **three separate load-protection mechanisms**. They are easy to confuse because several can return **429**. This guide covers **only the first**:
+DataHub has **three separate load-protection mechanisms**. They are easy to confuse because several can return **429**. This guide covers **GMS HTTP rate limiting** in depth and **MCP / Kafka ingest throttling** in a dedicated section:
 
-| Mechanism                                                                                                                              | What it limits                                                                                 | When it applies                                         | Configuration                                                                                                                        |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **GMS service rate limiting** (**this guide**)                                                                                         | **HTTP requests served by GMS** — UI GraphQL, OpenAPI, Rest.li, `/auth/*` on GMS               | Before/during request handling on the GMS pod           | `RATE_LIMITS_*` env vars; bundled defaults under `datahub.gms.rateLimits` in `application.yaml`                                      |
-| **MCP / Kafka ingest throttle** ([`APIThrottle`](../../metadata-io/src/main/java/com/linkedin/metadata/dao/throttle/APIThrottle.java)) | **Metadata write APIs** when **Kafka consumer lag** (MCL backlog) is too high                  | Backpressure after ingest pipeline falls behind         | `MCP_*` throttle env vars (see [Environment Variables — MCP Throttle](./environment-vars.md#metadata-change-proposal-configuration)) |
-| **MCP consumer throttling**                                                                                                            | **Internal MCE/MCL consumer processing** — slows how fast GMS/consumers accept or process MCPs | Pipeline-side backpressure, not a per-client HTTP quota | `MCP_MCE_CONSUMER_THROTTLE_*`, `MCP_VERSIONED_*`, `MCP_TIMESERIES_*`                                                                 |
+| Mechanism                                                                        | What it limits                                                                   | When it applies                                         | Configuration                                                                                                                        |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **GMS service rate limiting** (**this guide**)                                   | **HTTP requests served by GMS** — UI GraphQL, OpenAPI, Rest.li, `/auth/*` on GMS | Before/during request handling on the GMS pod           | `RATE_LIMITS_*` env vars; bundled defaults under `datahub.gms.rateLimits` in `application.yaml`                                      |
+| **MCP / Kafka ingest throttle** ([section below](#mcp--kafka-ingest-throttling)) | **Sync metadata write APIs** when **MCL consumer lag** is too high               | Backpressure after ingest pipeline falls behind         | `MCP_*` throttle env vars (see [Environment Variables — MCP Throttle](./environment-vars.md#metadata-change-proposal-configuration)) |
+| **MCP consumer throttling** ([section below](#mcp--kafka-ingest-throttling))     | **MCE consumer** — pauses MCP consumption while MCL lag is high                  | Pipeline-side backpressure, not a per-client HTTP quota | `MCP_MCE_CONSUMER_THROTTLE_ENABLED`, `MCP_VERSIONED_*`, `MCP_TIMESERIES_*`                                                           |
 
-**This feature does not:**
+**GMS HTTP rate limiting does not:**
 
 - Rate-limit **ingestion connectors** (Python CLI, `datahub ingest`) — those are separate clients with their own retry behavior
 - Replace **MCP throttle** or **Kafka lag backpressure** — enabling GMS rate limits does not change `metadataChangeProposal.throttle` or consumer lag behavior
@@ -38,10 +40,10 @@ Both **GMS service rate limiting** and **MCP ingest throttle** can return **429*
 |                       | **GMS service rate limiting**                                                                          | **MCP / Kafka ingest throttle**                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | **Question answered** | “Is this GMS pod accepting more HTTP work right now?”                                                  | “Is the metadata pipeline too far behind to accept more writes?” |
-| **Trigger**           | Configured rules + live request latency (Gradient2) or token buckets                                   | Kafka MCL topic backlog / lag                                    |
-| **Retry-After**       | Capacity: `minRetryAfterSeconds`. Endpoint: `max(minRetryAfterSeconds, Bucket4j refill wait)` + jitter | Dynamic from lag estimate                                        |
-| **Debug headers**     | `X-DataHub-RateLimit-*`                                                                                | Same `X-DataHub-RateLimit-*` (`Type`: `ingest` or `search`)      |
-| **Ops entry point**   | `/openapi/v1/rate-limits/*`, `gms.rate_limit.*` metrics                                                | `/openapi/operations/throttle/*`, MCP throttle env vars          |
+| **Trigger**           | Configured rules + live request latency (Gradient2) or token buckets                                   | Kafka (or pgQueue) MCL topic backlog / lag                       |
+| **Retry-After**       | Capacity: `minRetryAfterSeconds`. Endpoint: `max(minRetryAfterSeconds, Bucket4j refill wait)` + jitter | Dynamic from exponential backoff on lag                          |
+| **Debug headers**     | `X-DataHub-RateLimit-*`                                                                                | Same `X-DataHub-RateLimit-*` (`Type`: `ingest`)                  |
+| **Ops entry point**   | `/openapi/v1/rate-limits/*`, `gms.rate_limit.*` metrics                                                | MCP throttle env vars / sensor logs and lag gauges               |
 
 **Scope**
 
@@ -476,3 +478,148 @@ Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`,
 | `GET /openapi/v1/rate-limits/status` | Live state on the pod that served the request |
 
 Status response includes `capacityEnabled`, `endpointEnabled`, `scopedEnabled`, plus per-rule `adaptive` (limit/inflight) and `endpoint` (remaining/capacity) maps, and a `scoped` map with the fixed-key buckets (`global`, `browser`, `sdk` — each remaining/capacity). Per-actor scoped buckets are omitted since their keys are unbounded.
+
+## MCP / Kafka ingest throttling
+
+Lag-based backpressure for the metadata write pipeline. When the **Metadata Change Log (MCL)** consumer falls behind, DataHub can slow or reject new writes so the backlog can drain — instead of letting Kafka lag grow without bound.
+
+This is **not** GMS HTTP rate limiting (`RATE_LIMITS_*`). It is configured under `metadataChangeProposal.throttle` and uses `MCP_*` environment variables. Full env-var tables: [Environment Variables — Metadata Change Proposal](./environment-vars.md#metadata-change-proposal-configuration).
+
+### What it protects
+
+Metadata writes flow roughly:
+
+```text
+API / connector  →  MCP (sync write or async proposal)  →  primary store + MCL
+                                                              ↓
+                                                    MAE consumer (search, graphs, …)
+```
+
+If MAE (or equivalent) cannot keep up with MCL production, median consumer lag rises. The throttle sensor watches that lag and, when thresholds are exceeded, applies backpressure to configured **components**.
+
+| Component                                   | Env var                             | Default | Effect when lag is high                                                                                      |
+| ------------------------------------------- | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| **API requests** (`components.apiRequests`) | `MCP_API_REQUESTS_THROTTLE_ENABLED` | `false` | Sync metadata write APIs throw `APIThrottleException` → **HTTP 429** with `X-DataHub-RateLimit-Type: ingest` |
+| **MCE consumer** (`components.mceConsumer`) | `MCP_MCE_CONSUMER_THROTTLE_ENABLED` | `false` | Pauses the MCP Kafka listener container so async proposals stop being consumed until lag clears              |
+
+You can enable either or both. Lag monitoring itself is controlled separately per MCL topic family (versioned vs timeseries).
+
+### How lag is measured
+
+A scheduled sensor (`KafkaThrottleSensor`, or `PgQueueThrottleSensor` when `datahub.messaging.transport=pgqueue`) runs every `MCP_THROTTLE_UPDATE_INTERVAL_MS` (default **60s**):
+
+1. Reads committed offsets for the MCL consumer group (default `generic-mae-consumer-job-client`, overridable via `METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID`)
+2. Compares them to topic end offsets for the **versioned** and **timeseries** MCL topics
+3. Computes **median lag** per topic family
+4. If median lag **exceeds** the configured threshold and that topic family is enabled, enters a throttled state with **exponential backoff**
+
+```mermaid
+flowchart TD
+  Sensor[Throttle sensor every updateIntervalMs] --> Lag[Median MCL lag]
+  Lag -->|lag > threshold| Backoff[Exponential backoff]
+  Backoff --> API[API requests component: 429 on sync writes]
+  Backoff --> MCE[MCE consumer component: pause listener]
+  Lag -->|lag ≤ threshold| Clear[Clear throttle / resume]
+```
+
+**Sensor requirements:**
+
+- `MCP_THROTTLE_UPDATE_INTERVAL_MS` must be **> 0** (default 60000). Set to `0` to disable the sensor entirely (`NoOpSensor`).
+- At least one of `MCP_VERSIONED_THROTTLE_ENABLED` / `MCP_TIMESERIES_THROTTLE_ENABLED` must be `true` for lag checks to run.
+- Kafka bootstrap must be resolvable (or pgQueue store available for the pgQueue transport).
+
+### Versioned vs timeseries lag
+
+Versioned and timeseries MCL topics are throttled **independently**:
+
+| Topic family | Enable flag                       | Threshold (default)                 | Applied to                                      |
+| ------------ | --------------------------------- | ----------------------------------- | ----------------------------------------------- |
+| Versioned    | `MCP_VERSIONED_THROTTLE_ENABLED`  | `MCP_VERSIONED_THRESHOLD` (`4000`)  | Non-timeseries sync writes; MCE pause callbacks |
+| Timeseries   | `MCP_TIMESERIES_THROTTLE_ENABLED` | `MCP_TIMESERIES_THRESHOLD` (`4000`) | Timeseries sync writes; MCE pause callbacks     |
+
+Backoff tuning (same shape for both families):
+
+| Setting          | Versioned env var                   | Timeseries env var                   | Default |
+| ---------------- | ----------------------------------- | ------------------------------------ | ------- |
+| Max attempts     | `MCP_VERSIONED_MAX_ATTEMPTS`        | `MCP_TIMESERIES_MAX_ATTEMPTS`        | `1000`  |
+| Initial interval | `MCP_VERSIONED_INITIAL_INTERVAL_MS` | `MCP_TIMESERIES_INITIAL_INTERVAL_MS` | `100`   |
+| Multiplier       | `MCP_VERSIONED_MULTIPLIER`          | `MCP_TIMESERIES_MULTIPLIER`          | `10`    |
+| Max interval     | `MCP_VERSIONED_MAX_INTERVAL_MS`     | `MCP_TIMESERIES_MAX_INTERVAL_MS`     | `30000` |
+
+While throttled, the sensor sleeps for the current backoff interval before notifying resume callbacks. Suggested wait is surfaced to API clients as `Retry-After` (seconds) on 429 responses.
+
+### API request throttling behavior
+
+When `MCP_API_REQUESTS_THROTTLE_ENABLED=true` and the sensor reports active lag:
+
+- **Sync** metadata writes (Rest.li / OpenAPI / GraphQL entity updates that commit to the primary store) are evaluated by [`APIThrottle`](../../metadata-io/src/main/java/com/linkedin/metadata/dao/throttle/APIThrottle.java).
+- **Async** non-timeseries writes (proposal written to the MCP topic only) are **not** rejected here — use **MCE consumer throttling** to slow that path.
+- **Browser** UI traffic (`AgentClass.BROWSER`) is **exempt** so interactive UI edits are not blocked by ingest backlog. SDK / CLI / connector traffic is not exempt.
+- Internal calls without a request context are exempt.
+
+**429 response** (OpenAPI / Rest.li handlers convert `APIThrottleException`):
+
+```json
+{ "error": "Too many requests" }
+```
+
+Headers (same family as GMS rate limits):
+
+| Header                       | Typical value                                     |
+| ---------------------------- | ------------------------------------------------- |
+| `X-DataHub-RateLimit-Type`   | `ingest`                                          |
+| `X-DataHub-RateLimit-Source` | `metadata-write`                                  |
+| `X-DataHub-RateLimit-Rule`   | Active types, e.g. `MCL_VERSIONED_LAG`            |
+| `Retry-After`                | Suggested wait in seconds (when backoff is known) |
+
+### MCE consumer throttling behavior
+
+When `MCP_MCE_CONSUMER_THROTTLE_ENABLED=true`, the MCE consumer registers a callback on the same lag sensor. On throttle it **pauses** the MCP listener container; after the backoff sleep it **resumes**. That slows async ingest without returning 429 to the original API caller (the caller already returned after writing the proposal).
+
+Apply the same `MCP_VERSIONED_*` / `MCP_TIMESERIES_*` flags and thresholds on **GMS and MCE Consumer** so both see consistent lag policy. See [Environment Variables — MCP](./environment-vars.md#metadata-change-proposal-configuration) for the component list.
+
+### Enabling (typical staging / production)
+
+**Default:** all MCP throttle flags are **off**.
+
+Minimum useful enablement for API backpressure on versioned lag:
+
+```bash
+export MCP_API_REQUESTS_THROTTLE_ENABLED=true
+export MCP_VERSIONED_THROTTLE_ENABLED=true
+# optional: also pause async MCP consumption
+# export MCP_MCE_CONSUMER_THROTTLE_ENABLED=true
+# restart GMS (and MCE consumer if mceConsumer throttle is enabled)
+```
+
+Tune threshold to your cluster’s normal MCL lag headroom. `4000` is a starting point, not a universal safe value — set it above expected steady-state median lag and below the lag that causes search/graph staleness incidents.
+
+Config lives under `metadataChangeProposal.throttle` in `application.yaml`:
+
+```yaml
+metadataChangeProposal:
+  throttle:
+    updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
+    components:
+      mceConsumer:
+        enabled: ${MCP_MCE_CONSUMER_THROTTLE_ENABLED:false}
+      apiRequests:
+        enabled: ${MCP_API_REQUESTS_THROTTLE_ENABLED:false}
+    versioned:
+      enabled: ${MCP_VERSIONED_THROTTLE_ENABLED:false}
+      threshold: ${MCP_VERSIONED_THRESHOLD:4000}
+      maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
+      initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
+      multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
+      maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
+    timeseries:
+      enabled: ${MCP_TIMESERIES_THROTTLE_ENABLED:false}
+      threshold: ${MCP_TIMESERIES_THRESHOLD:4000}
+      # … same backoff shape as versioned
+```
+
+### Observability
+
+- Sensor logs median MCL lag on each refresh and warns when entering throttle (`Throttled Topic: … Duration: … MedianLag: …`).
+- Gauges / counters on the sensor class: `{topic}_throttled` (0/1) and `{topic}_throttledCount`.
+- API denials share the `X-DataHub-RateLimit-*` headers with `Type=ingest` — distinguish from capacity/endpoint denials (`Type=capacity` / `endpoint`) described earlier in this guide.

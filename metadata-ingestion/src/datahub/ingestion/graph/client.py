@@ -2046,8 +2046,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         platform_name: Optional[str] = None,
         platform_urn: Optional[str] = None,
         field_path: Optional[str] = None,
+        field_paths: Optional[List[str]] = None,
         external_url: Optional[str] = None,
         logic: Optional[str] = None,
+        scope: Optional[str] = None,
+        aggregation: Optional[str] = None,
+        operator: Optional[str] = None,
+        parameters: Optional[Dict] = None,
+        native_type: Optional[str] = None,
+        native_parameters: Optional[List[Dict[str, str]]] = None,
     ) -> Dict:
         graph_query: str = """
             mutation upsertCustomAssertion(
@@ -2056,22 +2063,36 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $type: String!,
                 $description: String!,
                 $fieldPath: String,
+                $fieldPaths: [String!],
                 $platformName: String,
                 $platformUrn: String,
                 $externalUrl: String,
-                $logic: String
+                $logic: String,
+                $scope: DatasetAssertionScope,
+                $aggregation: AssertionStdAggregation,
+                $operator: AssertionStdOperator,
+                $parameters: AssertionStdParametersInput,
+                $nativeType: String,
+                $nativeParameters: [StringMapEntryInput!]
             ) {
                 upsertCustomAssertion(urn: $assertionUrn, input: {
                     entityUrn: $entityUrn
                     type: $type
                     description: $description
                     fieldPath: $fieldPath
+                    fieldPaths: $fieldPaths
                     platform: {
                         urn: $platformUrn
                         name: $platformName
                     }
                     externalUrl: $externalUrl
                     logic: $logic
+                    scope: $scope
+                    aggregation: $aggregation
+                    operator: $operator
+                    parameters: $parameters
+                    nativeType: $nativeType
+                    nativeParameters: $nativeParameters
                 }) {
                         urn
                 }
@@ -2084,10 +2105,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "type": type,
             "description": description,
             "fieldPath": field_path,
+            "fieldPaths": field_paths,
             "platformName": platform_name,
             "platformUrn": platform_urn,
             "externalUrl": external_url,
             "logic": logic,
+            "scope": scope,
+            "aggregation": aggregation,
+            "operator": operator,
+            "parameters": parameters,
+            "nativeType": native_type,
+            "nativeParameters": native_parameters,
         }
 
         res = self.execute_graphql(

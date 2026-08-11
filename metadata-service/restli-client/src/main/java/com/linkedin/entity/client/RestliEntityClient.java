@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -132,11 +133,29 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private final ExecutorService batchGetV2Pool;
   private final ExecutorService batchIngestPool;
 
+  /**
+   * Legacy no-resolver constructor — pass-through outbound decoration (see {@link BaseClient}).
+   * Production wiring should prefer the overload that accepts a {@link
+   * RestliRequestContextResolver} so any registered enrichers' headers land on every Restli call.
+   */
   public RestliEntityClient(
       @Nonnull final Client restliClient,
       EntityClientConfig entityClientConfig,
       MetricUtils metricUtils) {
-    super(restliClient, entityClientConfig);
+    this(restliClient, entityClientConfig, metricUtils, null);
+  }
+
+  public RestliEntityClient(
+      @Nonnull final Client restliClient,
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils,
+      @Nullable final RestliRequestContextResolver restliRequestContextResolver) {
+    super(
+        restliClient,
+        entityClientConfig,
+        restliRequestContextResolver != null
+            ? restliRequestContextResolver
+            : new RestliRequestContextResolver(java.util.Collections.emptyList()));
     this.batchGetV2Pool =
         new ThreadPoolExecutor(
             entityClientConfig.getBatchGetV2Concurrency(), // core threads
