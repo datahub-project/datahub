@@ -1,15 +1,27 @@
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
 import time_machine
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceConfig
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
+from datahub.metadata.schema_classes import (
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
+from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -397,4 +409,107 @@ def test_empty_owner_criteria_includes_all_users(
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_empty_criteria_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+MYSQL_EMPLOYEES_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+)
+
+
+class _OfflineGraph(MockDataHubGraph):
+    def get_config(self) -> Dict[str, Any]:
+        # PipelineContext asks the server about URN casing while constructing;
+        # there is no server behind the mock.
+        return {}
+
+
+def _mysql_employees_schema(column_names: List[str]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="employees",
+        platform="urn:li:dataPlatform:mysql",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=column_name,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="VARCHAR",
+            )
+            for column_name in column_names
+        ],
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_upstream_column_lineage_uses_the_upstream_casing(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Column-level lineage must point at the columns as the upstream spells them.
+
+    The PowerBI model here reports `emp_no`; the warehouse in DataHub stores
+    `Emp_No`. schemaField URNs are compared as exact strings, so emitting
+    PowerBI's casing produces an edge to a field that does not exist and the
+    column-level lineage silently disappears in the UI.
+    """
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/mysql_mock_response.json"
+        ),
+    )
+
+    upstream_columns = [
+        "Emp_No",
+        "Birth_Date",
+        "First_Name",
+        "Last_Name",
+        "Gender",
+        "Hire_Date",
+    ]
+    graph = _OfflineGraph(
+        {
+            MYSQL_EMPLOYEES_URN: {
+                "schemaMetadata": _mysql_employees_schema(upstream_columns)
+            }
+        }
+    )
+
+    source = PowerBiDashboardSource(
+        config=PowerBiDashboardSourceConfig.parse_obj(
+            {
+                "tenant_id": "0b0c960b-fcdf-4d0f-8c45-2e03bb59ddeb",
+                "client_id": "a8d655a6-f521-477e-8c22-255018583bf4",
+                "client_secret": "ababa~cdcdcdcdcdcdcdcdcdcd-abcd.defghijk",
+                "extract_column_level_lineage": True,
+                "workspace_name_pattern": {"allow": ["^Employees$"]},
+            }
+        ),
+        ctx=PipelineContext(run_id="powerbi-test", graph=graph),
+    )
+
+    emitted_upstream_columns = set()
+    for work_unit in source.get_workunits():
+        lineage = work_unit.get_aspect_of_type(UpstreamLineageClass)
+        if lineage is None:
+            continue
+        for fine_grained in lineage.fineGrainedLineages or []:
+            for upstream in fine_grained.upstreams or []:
+                if MYSQL_EMPLOYEES_URN in upstream:
+                    emitted_upstream_columns.add(upstream.rsplit(",", 1)[1].rstrip(")"))
+
+    assert emitted_upstream_columns, (
+        "no column-level lineage was emitted to the mysql upstream"
+    )
+    # Every emitted column follows the warehouse's casing, not PowerBI's.
+    assert emitted_upstream_columns <= set(upstream_columns), (
+        f"expected upstream casing, got {sorted(emitted_upstream_columns)}"
     )

@@ -48,8 +48,16 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Table,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.metadata.schema_classes import (
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+)
 from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    _convert_schema_aspect_to_info,
+    match_columns_to_schema,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -182,6 +190,25 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
         return value.lower()
 
     return value
+
+
+def _fetch_upstream_schema(ctx: PipelineContext, urn: str) -> Optional[SchemaInfo]:
+    """The upstream table's columns as DataHub already stores them.
+
+    Returns None when the pipeline has no graph connection (e.g. a file sink) or
+    the upstream has not been ingested yet — the caller then keeps PowerBI's own
+    casing rather than dropping the edge. Reads the aspect directly instead of
+    going through SchemaResolver, which would add a per-table on-disk cache we
+    have no use for here.
+    """
+    if ctx.graph is None:
+        return None
+
+    aspect = ctx.graph.get_aspect(urn, SchemaMetadataClass)
+    if aspect is None:
+        return None
+
+    return _convert_schema_aspect_to_info(aspect)
 
 
 def _remap_column_lineage_to_pbi_fields(
@@ -475,34 +502,44 @@ class AbstractLineage(ABC):
         )
 
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
+        if not self.table.columns:
+            return []
+
+        # This path names the upstream columns from the PowerBI model, which can
+        # disagree in casing with the warehouse — most commonly when the upstream
+        # source was ingested with convert_column_urns_to_lowercase. schemaField
+        # URNs are compared as exact strings, so a mismatch silently yields an
+        # edge pointing at a field that does not exist. Ask DataHub how the
+        # upstream actually spells its columns; the SQL-parsing path gets the
+        # same correction for free from sqlglot's schema resolver.
+        schema_info = _fetch_upstream_schema(self.ctx, urn)
+        pbi_column_names = [column.name for column in self.table.columns]
+        if schema_info:
+            upstream_column_names = match_columns_to_schema(
+                schema_info, pbi_column_names
+            )
+        else:
+            upstream_column_names = pbi_column_names
+            self.reporter.m_query_upstream_schema_unresolved += 1
+
         column_lineage = []
+        for column, upstream_column_name in zip(
+            self.table.columns, upstream_column_names, strict=True
+        ):
+            downstream = DownstreamColumnRef(
+                table=self.table.name,
+                column=column.name,
+                column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
+                native_column_type=column.dataType or "UNKNOWN",
+            )
 
-        if self.table.columns is not None:
-            for column in self.table.columns:
-                downstream = DownstreamColumnRef(
-                    table=self.table.name,
-                    column=column.name,
-                    column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
-                    native_column_type=column.dataType or "UNKNOWN",
-                )
+            # Lowercasing of the dataset portion of the URN is governed
+            # separately by convert_lineage_urns_to_lowercase in powerbi.py.
+            upstreams = [ColumnRef(table=urn, column=upstream_column_name)]
 
-                upstreams = [
-                    ColumnRef(
-                        table=urn,
-                        # Preserve the source column casing so the upstream
-                        # schemaField URN matches the warehouse's field, which
-                        # stores columns in their original casing. Lowercasing is
-                        # governed for the dataset portion by
-                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
-                        column=column.name,
-                    )
-                ]
-
-                column_lineage_info = ColumnLineageInfo(
-                    downstream=downstream, upstreams=upstreams
-                )
-
-                column_lineage.append(column_lineage_info)
+            column_lineage.append(
+                ColumnLineageInfo(downstream=downstream, upstreams=upstreams)
+            )
 
         return column_lineage
 

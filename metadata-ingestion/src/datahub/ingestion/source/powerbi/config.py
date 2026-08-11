@@ -265,6 +265,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Tables whose upstream schema could not be read back from DataHub, so
+    # column-level lineage had to assume PowerBI and the upstream spell their
+    # columns identically. A high count next to missing column-level lineage
+    # points at the upstream not being ingested (yet) or at no graph connection.
+    m_query_upstream_schema_unresolved: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
