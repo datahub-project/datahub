@@ -22,8 +22,11 @@ from datahub.ingestion.source.hex.config import HexSourceConfig
 from datahub.ingestion.source.hex.constants import HEX_CATEGORY_KIND
 from datahub.ingestion.source.hex.hex_probe import HexMetadataProbe
 from datahub.ingestion.source.hex.model import (
+    Analytics,
     Category,
+    Collection,
     Component,
+    Owner,
     Project,
     RunRecord,
     Status,
@@ -69,6 +72,29 @@ class _FakeApi:
                 categories=[Category(name="Design")],
             )
 
+    def fetch_single_project(
+        self, project_id: str
+    ) -> Optional[Union[Project, Component]]:
+        if project_id != PROJECT_ID:
+            return None
+        return Project(
+            id=PROJECT_ID,
+            title="Revenue, EMEA",
+            description="Quarterly revenue",
+            status=Status(name="Published"),
+            categories=[Category(name="Finance")],
+            collections=[Collection(name="Exec")],
+            owner=Owner(email="owner@example.com"),
+            creator=Owner(email="creator@example.com"),
+            analytics=Analytics(
+                appviews_all_time=42,
+                appviews_last_7_days=1,
+                appviews_last_14_days=2,
+                appviews_last_30_days=3,
+                last_viewed_at=None,
+            ),
+        )
+
     def fetch_queried_tables(self, hex_item_id: str) -> Optional[List[dict]]:
         self.queried_ids.append(hex_item_id)
         if self.enterprise:
@@ -107,8 +133,18 @@ class _FakeApi:
         }
 
 
+def _config(**overrides: Any) -> HexSourceConfig:
+    base: Dict[str, Any] = {"workspace_name": "ws", "token": "t"}
+    base.update(overrides)
+    return HexSourceConfig(**base)
+
+
+def _probe_for(api: "_FakeApi", **config_overrides: Any) -> HexMetadataProbe:
+    return HexMetadataProbe(api, _config(**config_overrides))  # type: ignore[arg-type]
+
+
 def _probe() -> HexMetadataProbe:
-    return HexMetadataProbe(_FakeApi())  # type: ignore[arg-type]
+    return _probe_for(_FakeApi())
 
 
 def _spec(command: str) -> ProbeMethodSpec:
@@ -142,7 +178,7 @@ def test_listing_projects_does_not_also_fetch_components():
     # /projects is paged and rate limited, so components asked for and discarded
     # are real requests against a 57-per-minute budget.
     api = _FakeApi()
-    HexMetadataProbe(api).projects()  # type: ignore[arg-type]
+    _probe_for(api).projects()
     assert api.sweeps == [False]
 
 
@@ -206,7 +242,7 @@ def test_the_passthrough_uses_hexs_own_auth_and_session():
     # Not a bare requests call: HexApi installs a 57-per-minute limiter by patching
     # session.request, and a direct request would escape it.
     api = _FakeApi()
-    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    probe = _probe_for(api)
     assert probe.api_session is api.session
     assert probe.api_base_url == api.base_url
     assert probe.api_headers() == {"Authorization": "Bearer tok"}
@@ -258,7 +294,7 @@ def test_the_provider_closes_the_session_it_opened():
     api = _FakeApi()
     closed: List[bool] = []
     api.session.close = lambda: closed.append(True)  # type: ignore[method-assign]
-    with HexMetadataProbe(api):  # type: ignore[arg-type]
+    with _probe_for(api):  # type: ignore[arg-type]
         pass
     assert closed == [True]
 
@@ -267,7 +303,7 @@ def test_queried_tables_delegates_to_hexs_own_fetcher():
     # Reaching /queriedTables as a raw path would work and would lose the tier
     # handling below, which is the reason this command exists at all.
     api = _FakeApi(enterprise=True)
-    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    probe = _probe_for(api)
     assert probe.queried_tables("Revenue, EMEA") == ["ANALYTICS.PUBLIC.ORDERS"]
     # Addressed by title: the id was resolved here, so no caller ever holds one.
     assert api.queried_ids == [PROJECT_ID]
@@ -278,7 +314,7 @@ def test_a_non_enterprise_workspace_reports_why_rather_than_looking_empty():
     # Enterprise. Raw, that same call is an HTTPError with no explanation; here the
     # empty result arrives with the connector's own reason attached.
     api = _FakeApi(enterprise=False)
-    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    probe = _probe_for(api)
     assert probe.queried_tables("Revenue, EMEA") == []
     assert any("Enterprise" in w for w in probe.warnings)
 
@@ -306,7 +342,54 @@ def test_the_probe_surfaces_the_connectors_own_warnings():
     # run_probe_method reads `warnings` back after each command, so anything HexApi
     # recorded while serving it reaches the caller.
     api = _FakeApi(enterprise=True)
-    probe = HexMetadataProbe(api)  # type: ignore[arg-type]
+    probe = _probe_for(api)
     assert probe.warnings == []
     api.report.warning(title="Something degraded", message="and here is why")
     assert probe.warnings == ["Something degraded: and here is why"]
+
+
+def test_project_detail_reports_what_ingestion_would_emit():
+    detail = _probe().project("Revenue, EMEA")
+    assert detail["name"] == "Revenue, EMEA"
+    assert detail["description"] == "Quarterly revenue"
+    # Counts are metadata about the asset, unlike its contents.
+    assert detail["appviews_all_time"] == 42
+
+
+def test_project_tags_follow_the_flags_that_govern_them():
+    # An empty `tags` must mean "the flags are off", not "the project is untagged" --
+    # otherwise the probe answers a question ingestion never asked.
+    all_on = _probe_for(
+        _FakeApi(),
+        categories_as_tags=True,
+        collections_as_tags=True,
+        status_as_tag=True,
+    ).project("Revenue, EMEA")
+    assert all_on["tags"] == ["Finance", "Exec", "Published"]
+
+    all_off = _probe_for(
+        _FakeApi(),
+        categories_as_tags=False,
+        collections_as_tags=False,
+        status_as_tag=False,
+    ).project("Revenue, EMEA")
+    assert all_off["tags"] == []
+
+
+def test_owners_are_reported_only_when_the_recipe_would_set_them():
+    on = _probe_for(_FakeApi(), set_ownership_from_email=True).project("Revenue, EMEA")
+    assert on["owners"] == ["owner@example.com", "creator@example.com"]
+
+    off = _probe_for(_FakeApi(), set_ownership_from_email=False).project(
+        "Revenue, EMEA"
+    )
+    assert "owners" not in off
+
+
+def test_project_detail_needs_no_allowlist_entry():
+    # The whole reason this command exists rather than a raw /projects/{id} path: it
+    # resolves the id from the title, so no placeholder enters the allowlist -- and a
+    # placeholder is what would have re-admitted /projects/export.
+    assert HexMetadataProbe.api_allowlist == ("GET /projects", "GET /data-connections")
+    with pytest.raises(ApiScopeError):
+        _enforce_gates(_spec("api"), _probe(), {"path": f"/projects/{PROJECT_ID}"})

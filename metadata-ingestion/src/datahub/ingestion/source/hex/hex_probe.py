@@ -45,8 +45,11 @@ class HexMetadataProbe(RestApiPassthrough):
         "GET /data-connections",
     )
 
-    def __init__(self, api: HexApi) -> None:
+    def __init__(self, api: HexApi, config: HexSourceConfig) -> None:
         self._api = api
+        # Held because several commands answer "what would ingestion emit", and
+        # that depends on the recipe's flags rather than on what the API holds.
+        self._config = config
         self.api_session = api.session
         self.api_base_url = api.base_url
 
@@ -62,7 +65,8 @@ class HexMetadataProbe(RestApiPassthrough):
                 token=config.token.get_secret_value(),
                 base_url=config.base_url,
                 page_size=config.page_size,
-            )
+            ),
+            config,
         )
 
     def __enter__(self) -> "HexMetadataProbe":
@@ -137,6 +141,48 @@ class HexMetadataProbe(RestApiPassthrough):
             }
             for connection_id, conn in self._api.fetch_connections().items()
         }
+
+    @probe_method()
+    def project(self, project: str) -> Dict[str, object]:
+        """One project or component in full, by title -- what ingestion would
+        actually emit for it, not everything Hex holds. Each field here is gated by
+        the recipe flag that governs it, so an empty `tags` means the flags are off
+        rather than that the project is untagged, and `owners` is absent unless
+        set_ownership_from_email is on. Use it to answer "will documentation, tags
+        and ownership be populated for this one?" before running anything."""
+        item = self._api.fetch_single_project(self._project_id_or_raise(project))
+        if item is None:
+            # fetch_single_project degrades to None and records why; the reason
+            # reaches the caller through `warnings`.
+            return {}
+
+        config = self._config
+        tags: List[str] = []
+        if config.categories_as_tags:
+            tags.extend(c.name for c in item.categories or [])
+        if config.collections_as_tags:
+            tags.extend(c.name for c in item.collections or [])
+        if config.status_as_tag and item.status:
+            tags.append(item.status.name)
+
+        detail: Dict[str, object] = {
+            "name": item.title,
+            "description": item.description,
+            "status": item.status.name if item.status else None,
+            "tags": tags,
+            "last_published_at": str(item.last_published_at)
+            if item.last_published_at
+            else None,
+            "upstream_datasets": len(item.upstream_datasets),
+        }
+        if config.set_ownership_from_email:
+            detail["owners"] = [
+                owner.email for owner in (item.owner, item.creator) if owner is not None
+            ]
+        if item.analytics:
+            # Counts, not contents: view totals are metadata about the asset.
+            detail["appviews_all_time"] = item.analytics.appviews_all_time
+        return detail
 
     @probe_method(row_limit_param="limit")
     def queried_tables(self, project: str, limit: int = 200) -> List[str]:
