@@ -346,26 +346,23 @@ Your managed MCP server URL is:
 https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
 
-There are two ways to authenticate:
+Authenticate by passing your token as a Bearer token in the `Authorization` header:
 
-1. **Authorization header** — pass your token as a Bearer token in the `Authorization` header:
+```
+Authorization: Bearer <token>
+```
 
-   ```
-   Authorization: Bearer <token>
-   ```
-
-2. **Token in URL** — append your token as a query parameter:
-
-   ```
-   https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
-   ```
-
-   This is a convenient alternative when your MCP client doesn't support custom headers.
+:::caution The `?token=` query parameter no longer works
+Requests that include a `token` query parameter get a `400 Bad Request`. A token in the URL
+shows up in proxy and CDN logs, in browser history, and in `Referer` headers. If your MCP
+client can't set headers itself, use `mcp-remote` with `--header` (shown below) and it will
+send the header for you.
+:::
 
 <details>
   <summary>On-Premises DataHub Cloud</summary>
 
-For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/?token=<token>`.
+For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/`.
 
 </details>
 
@@ -385,7 +382,9 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
       "args": [
         "-y",
         "mcp-remote",
-        "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+        "https://<tenant>.acryl.io/integrations/ai/mcp/",
+        "--header",
+        "Authorization: Bearer <token>"
       ]
     }
   }
@@ -457,15 +456,17 @@ For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-gui
 Most AI tools support remote MCP servers. Provide the hosted MCP server URL:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
+https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
+
+with the header `Authorization: Bearer <token>`.
 
 Make sure authentication mode is _not_ set to "OAuth" (if applicable).
 
 For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 - Command: `npx`
-- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
+- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/ --header "Authorization: Bearer <token>"`
 
 </details>
 
