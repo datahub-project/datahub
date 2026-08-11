@@ -184,3 +184,65 @@ def test_declared_scopes_carry_no_user_schema():
         "these declarations allow a whole schema that holds user tables (or a vendor "
         f"catalog that holds query text); name relations instead: {offenders}"
     )
+
+
+def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
+    """`target` must be what the pattern was matched against, or it misleads.
+
+    Redshift matches "database.schema" once match_fully_qualified_names is on, and
+    the probe used to report the bare name regardless. A caller then saw
+    target='analytics' excluded by a pattern of '^analytics$' -- a verdict that
+    contradicts its own explanation -- and would "fix" the pattern in the wrong
+    direction. `target` is the one field probe filter exists to get right.
+    """
+    from datahub.ingestion.agent.filter_check import check_filters
+
+    base: Dict[str, Any] = {
+        "host_port": "h:5439",
+        "database": "dev",
+        "username": "u",
+        "password": "p",
+        "match_fully_qualified_names": True,
+    }
+
+    matched = check_filters(
+        source_type="redshift",
+        config_dict={**base, "schema_pattern": {"allow": [r"^dev\.analytics$"]}},
+        kind="Schema",
+        parent_path=[],
+        names=["analytics"],
+    ).results[0]
+    assert matched.target == "dev.analytics"
+    assert matched.included is True
+
+    # The bare name does not match, and the report says so against the same target.
+    missed = check_filters(
+        source_type="redshift",
+        config_dict={**base, "schema_pattern": {"allow": ["^analytics$"]}},
+        kind="Schema",
+        parent_path=[],
+        names=["analytics"],
+    ).results[0]
+    assert missed.target == "dev.analytics"
+    assert missed.included is False
+    assert missed.excluded_by == "schema_pattern"
+
+
+def test_without_the_flag_redshift_matches_the_bare_schema_name():
+    from datahub.ingestion.agent.filter_check import check_filters
+
+    result = check_filters(
+        source_type="redshift",
+        config_dict={
+            "host_port": "h:5439",
+            "database": "dev",
+            "username": "u",
+            "password": "p",
+            "schema_pattern": {"allow": ["^analytics$"]},
+        },
+        kind="Schema",
+        parent_path=[],
+        names=["analytics"],
+    ).results[0]
+    assert result.target == "analytics"
+    assert result.included is True

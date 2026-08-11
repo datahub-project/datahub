@@ -18,10 +18,29 @@ class Verdict:
 
     included: bool
     excluded_by: Optional[str] = None
+    # The string the connector matched, when it is not the node's own name.
+    # Redshift matches "database.schema" once match_fully_qualified_names is on, and
+    # reporting the bare name there tells a caller the opposite of what decided:
+    # they see target='analytics' excluded by a pattern of '^analytics$' and conclude
+    # the probe is broken. `target` is the one field probe filter exists to get right.
+    matched_target: Optional[str] = None
 
     @classmethod
     def include(cls) -> "Verdict":
         return cls(True, None)
+
+
+@dataclass(frozen=True)
+class SchemaMatch:
+    """A connector's own verdict for a container node, and the string it matched.
+
+    Returned by probe_schema_verdict_override. Both facts travel together because
+    only the override knows them: it runs the connector's own predicate (Redshift's
+    is_schema_allowed over "database.schema"), so nothing else can say what decided.
+    """
+
+    included: bool
+    target: str
 
 
 _INCLUDED = Verdict.include()

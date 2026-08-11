@@ -14,7 +14,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.sql_gate import CatalogScope
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext, SchemaMatch
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -189,14 +189,15 @@ class SQLCommonConfig(
         """
         return None
 
-    def probe_schema_verdict_override(self, schema: str) -> Optional[bool]:
+    def probe_schema_verdict_override(self, schema: str) -> Optional["SchemaMatch"]:
         """Override point for a connector whose schema-level container
         classification isn't just "does schema_pattern allow the bare
         `schema` name" -- e.g. Redshift's match_fully_qualified_names flag
         makes ingestion check `database.schema` instead once enabled (see
         is_schema_allowed, datahub.configuration.pattern_utils). Return None
-        (the default) to keep sql_probe.py's generic bare-name check;
-        True/False reports that verdict directly. Checked before the generic
+        (the default) to keep sql_probe.py's generic bare-name check; a
+        SchemaMatch reports both the verdict and the string it matched, so the
+        result can say what actually decided rather than the bare name. Checked before the generic
         check on every SQL Schema-level node; see RedshiftConfig's override.
         """
         return None

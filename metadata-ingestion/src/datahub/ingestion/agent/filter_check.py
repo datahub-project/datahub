@@ -136,9 +136,15 @@ def _structural_verdict(
         return Verdict(False, "default_schema")
 
     override = getattr(config, "probe_schema_verdict_override", None)
-    allowed = override(schema=name) if callable(override) else None
-    if allowed is not None:
-        return Verdict.include() if allowed else Verdict(False, pattern_field)
+    match = override(schema=name) if callable(override) else None
+    if match is not None:
+        # The override did the matching itself, so it is the only thing that knows
+        # which string decided -- carry it out rather than reporting the bare name.
+        return Verdict(
+            included=match.included,
+            excluded_by=None if match.included else pattern_field,
+            matched_target=match.target,
+        )
     return None
 
 
@@ -202,8 +208,15 @@ def check_filters(
             parent_path=tuple(parent_path),
             warn=warn,
         )
-        target = _match_target(config, kind, ctx)
-        verdict = _structural_verdict(config, kind, name, pattern_field) or (
+        structural = _structural_verdict(config, kind, name, pattern_field)
+        # A structural verdict that matched on its own string reports that string;
+        # otherwise the target is resolved the usual way and the pattern decides.
+        target = (
+            structural.matched_target
+            if (structural and structural.matched_target)
+            else _match_target(config, kind, ctx)
+        )
+        verdict = structural or (
             Verdict.include()
             if pattern.allowed(target)
             else Verdict(False, pattern_field)

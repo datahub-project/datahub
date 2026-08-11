@@ -16,6 +16,7 @@ from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
     CatalogScope,
 )
+from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -291,7 +292,7 @@ class RedshiftConfig(
         # this override never degrades.
         return dataset_name(self.database, schema, entity)
 
-    def probe_schema_verdict_override(self, schema: str) -> Optional[bool]:
+    def probe_schema_verdict_override(self, schema: str) -> Optional[SchemaMatch]:
         # Same gap one level up: sql_probe.py's generic Schema-level
         # classifier matches schema_pattern against the bare schema name,
         # but redshift.py's own is_schema_allowed(...) calls (see e.g.
@@ -301,7 +302,14 @@ class RedshiftConfig(
         # bigquery_probe.py's _classify_dataset calls.
         if not self.match_fully_qualified_names:
             return None
-        return is_schema_allowed(self.schema_pattern, schema, self.database, True)
+        # Reports "database.schema" as the target because that is the string
+        # is_schema_allowed matched; the bare name would contradict the verdict.
+        return SchemaMatch(
+            included=is_schema_allowed(
+                self.schema_pattern, schema, self.database, True
+            ),
+            target=f"{self.database}.{schema}",
+        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
