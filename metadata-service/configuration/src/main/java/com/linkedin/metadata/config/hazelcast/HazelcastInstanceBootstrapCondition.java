@@ -26,11 +26,11 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
     }
     // The Hazelcast entity write-lock (optimistic-locking mode) needs the embedded node; none does
     // not. Trim to match the backend parsing elsewhere (getNormalizedEntityWriteLockBackend) so a
-    // whitespace-padded value boots consistently.
-    if ("hazelcast"
-        .equalsIgnoreCase(
-            env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none")
-                .trim())) {
+    // whitespace-padded value boots consistently. Null-safe: getProperty can return null (no
+    // default honored) under a mocked Environment.
+    final String writeLockBackend =
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none");
+    if (writeLockBackend != null && "hazelcast".equalsIgnoreCase(writeLockBackend.trim())) {
       return true;
     }
     if (Boolean.parseBoolean(
