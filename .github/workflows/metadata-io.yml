@@ -31,6 +31,11 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  # Enables the Depot remote Gradle build cache. settings.gradle gates it on
+  # DEPOT_TOKEN being present, so without this the workflow has no cross-run task
+  # output reuse at all -- which is why the run-scoped actions/cache entry below
+  # was given a prefix restore-key and grew without bound.
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
 
 jobs:
   setup:
@@ -71,13 +76,26 @@ jobs:
           # build-cache-1 is managed explicitly below with a run-scoped key so the legs restore
           # exactly this run's compiled output.
           gradle-home-cache-excludes: caches/build-cache-1
+      # Deliberately no restore-keys. This entry exists to hand the seed job's
+      # build cache to the parallel jobs in the SAME run, which match on the exact
+      # run-scoped key. A prefix restore-key here instead made it a ratchet: each
+      # run restored the previous run's cache, compiled into it, and saved the
+      # union, with nothing pruning it. gradle-metadata-io-build-cache reached
+      # 16.6GB, at which point `tar | zstd` ran the runner out of disk mid-save:
+      #
+      #   zstd: error 70 : Write error : cannot write block : No space left on device
+      #   ##[warning]Failed to save: "/usr/bin/tar" failed with exit code 2
+      #
+      # A failed save is a warning, so nothing went red -- and because the entry
+      # could never be replaced, every run since restored the same frozen blob.
+      # It cost 194s to restore and 128s to fail to save, against 106s of actual
+      # compile, while hitting on only 23 of 183 tasks. The cache had become
+      # slower than not having one.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-metadata-io-build-cache-
       - name: Compile metadata-io test classes once (no tests)
         run: ./gradlew :metadata-io:testClasses --build-cache
 
@@ -119,12 +137,14 @@ jobs:
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (seed's output, this run)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        # cache/restore, not cache: these jobs consume the seed's output and
+        # must never write. With the full action they also saved at post-step,
+        # and the prefix restore-key let them pull a previous run's cache and
+        # re-save the union -- the same ratchet the seed job had.
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-metadata-io-build-cache-
       - name: Gradle test (${{ matrix.suite.name }} suite)
         run: |
           ./gradlew :metadata-io:${{ matrix.suite.task }} --build-cache
@@ -213,12 +233,14 @@ jobs:
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (seed's output, this run)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        # cache/restore, not cache: these jobs consume the seed's output and
+        # must never write. With the full action they also saved at post-step,
+        # and the prefix restore-key let them pull a previous run's cache and
+        # re-save the union -- the same ratchet the seed job had.
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-metadata-io-build-cache-
       - name: Materialize generated sources (FROM-CACHE)
         run: ./gradlew :metadata-io:testClasses --build-cache
       - name: Ensure codegen is updated

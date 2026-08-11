@@ -122,7 +122,9 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
 
     mock_client.list_workspaces.assert_called_once()
     mock_client.list_connections.assert_called_once_with(
-        "workspace-1", pattern=AllowDenyPattern.allow_all()
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=False,
     )
     mock_client.get_connection.assert_called_once_with("connection-1")
     mock_client.get_source.assert_called_once_with("source-1")
@@ -189,6 +191,73 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     source = AirbyteSource(config, mock_ctx)
     pipelines = list(source._get_pipelines())
     assert len(pipelines) == 0
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_get_pipelines_include_inactive_connections(
+    mock_create_client, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+        include_inactive_connections=True,
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-1",
+        name="Test Workspace",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="inactive-connection-1",
+        name="Disabled Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="inactive",
+    )
+    source_model = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="postgres",
+        source_definition_id="source-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="destination-1",
+        name="Test Destination",
+        destination_type="postgres",
+        destination_definition_id="dest-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+
+    mock_client.list_workspaces.return_value = [workspace]
+    mock_client.list_connections.return_value = [connection]
+    mock_client.get_connection.return_value = connection
+    mock_client.get_source.return_value = source_model
+    mock_client.get_destination.return_value = destination
+
+    pipelines = list(source._get_pipelines())
+
+    assert len(pipelines) == 1
+    assert isinstance(pipelines[0], AirbytePipelineInfo)
+    assert pipelines[0].workspace.workspace_id == "workspace-1"
+    assert pipelines[0].connection.connection_id == "inactive-connection-1"
+    assert pipelines[0].connection.status == "inactive"
+    assert pipelines[0].source.source_id == "source-1"
+    assert pipelines[0].destination.destination_id == "destination-1"
+
+    mock_client.list_connections.assert_called_once_with(
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=True,
+    )
+    mock_client.get_connection.assert_called_once_with("inactive-connection-1")
+    mock_client.get_source.assert_called_once_with("source-1")
+    mock_client.get_destination.assert_called_once_with("destination-1")
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
