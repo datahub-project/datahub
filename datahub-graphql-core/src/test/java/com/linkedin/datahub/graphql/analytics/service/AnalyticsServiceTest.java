@@ -195,7 +195,9 @@ public class AnalyticsServiceTest {
     when(byRange.getBucketByKey("weekly_current")).thenReturn(bucket);
 
     assertEquals(
-        DefaultAnalyticsService.extractUniqueCount(filterWith("by_range", byRange), "weekly_current"), 30);
+        DefaultAnalyticsService.extractUniqueCount(
+            filterWith("by_range", byRange), "weekly_current"),
+        30);
   }
 
   @Test
@@ -206,7 +208,8 @@ public class AnalyticsServiceTest {
     when(byEntity.getBucketByKey("DATASET")).thenReturn(datasetBucket);
 
     EntityStats stats =
-        DefaultAnalyticsService.extractEntityStats(filterWith("by_entity", byEntity), "DATASET", FACETS);
+        DefaultAnalyticsService.extractEntityStats(
+            filterWith("by_entity", byEntity), "DATASET", FACETS);
 
     assertEquals(stats.getTotal(), 100);
     assertEquals(stats.countWithFacet("hasOwners"), 40);
@@ -222,7 +225,8 @@ public class AnalyticsServiceTest {
     when(byEntity.getBucketByKey("CHART")).thenReturn(emptyBucket);
 
     EntityStats stats =
-        DefaultAnalyticsService.extractEntityStats(filterWith("by_entity", byEntity), "CHART", FACETS);
+        DefaultAnalyticsService.extractEntityStats(
+            filterWith("by_entity", byEntity), "CHART", FACETS);
 
     assertEquals(stats.getTotal(), 0);
     assertEquals(stats.countWithFacet("hasOwners"), 0);
@@ -239,7 +243,8 @@ public class AnalyticsServiceTest {
     Filter result = filterWith("by_range", byRange);
 
     assertThrows(
-        IllegalStateException.class, () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
+        IllegalStateException.class,
+        () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
   }
 
   @Test
@@ -247,7 +252,8 @@ public class AnalyticsServiceTest {
     Filter result = filterWith("by_range", null);
 
     assertThrows(
-        IllegalStateException.class, () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
+        IllegalStateException.class,
+        () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
   }
 
   @Test
