@@ -2150,6 +2150,75 @@ class TestEnterpriseConfigCompatPatches:
         assert loader_mod.convert_config_type is wrapped_once
 
 
+@pytest.fixture
+def _process_pool_patch_isolated():
+    """Save/restore the patch sentinel and the SQLMesh factory attributes the
+    patch swaps, so installing it in a test doesn't leak into the rest of the suite."""
+    pytest.importorskip("sqlmesh.core.loader")
+    import sqlmesh.core.loader as loader_mod
+    import sqlmesh.core.model.cache as cache_mod
+
+    import datahub.ingestion.source.sqlmesh.compat as compat_mod
+
+    saved_flag = compat_mod._process_pool_patched
+    saved_loader = loader_mod.create_process_pool_executor
+    saved_cache = cache_mod.create_process_pool_executor
+    compat_mod._process_pool_patched = False
+    try:
+        yield compat_mod, loader_mod, cache_mod
+    finally:
+        compat_mod._process_pool_patched = saved_flag
+        loader_mod.create_process_pool_executor = saved_loader
+        cache_mod.create_process_pool_executor = saved_cache
+
+
+class TestProcessPoolPatch:
+    """Contract tests for _install_process_pool_patch (the fork-deadlock guard)."""
+
+    def test_redirects_loader_and_cache_factories(self, _process_pool_patch_isolated):
+        compat_mod, loader_mod, cache_mod = _process_pool_patch_isolated
+        from sqlmesh.utils.process import SynchronousPoolExecutor
+
+        compat_mod._install_process_pool_patch()
+
+        assert compat_mod._process_pool_patched is True
+        # Both call sites that captured the factory by name now build a synchronous
+        # in-process pool instead of forking a worker.
+        assert isinstance(
+            loader_mod.create_process_pool_executor(), SynchronousPoolExecutor
+        )
+        assert isinstance(
+            cache_mod.create_process_pool_executor(), SynchronousPoolExecutor
+        )
+
+    def test_is_idempotent(self, _process_pool_patch_isolated):
+        compat_mod, loader_mod, _ = _process_pool_patch_isolated
+
+        compat_mod._install_process_pool_patch()
+        first = loader_mod.create_process_pool_executor
+        compat_mod._install_process_pool_patch()
+
+        # Second call is a no-op: the same replacement is left in place, not re-wrapped.
+        assert loader_mod.create_process_pool_executor is first
+
+    def test_import_error_leaves_unpatched_without_raising(
+        self, _process_pool_patch_isolated, monkeypatch
+    ):
+        compat_mod, _, _ = _process_pool_patch_isolated
+        # Simulate the private SynchronousPoolExecutor symbol moving in a future
+        # sqlmesh: the install must log and carry on rather than raise, and must
+        # not publish the sentinel (so a half-applied state is never claimed done).
+        monkeypatch.setitem(
+            sys.modules,
+            "sqlmesh.utils.process",
+            types.ModuleType("sqlmesh.utils.process"),
+        )
+
+        compat_mod._install_process_pool_patch()
+
+        assert compat_mod._process_pool_patched is False
+
+
 class TestScopedTobikoCloudEnv:
     """The credential injection channel is sqlmesh's documented
     SQLMESH__GATEWAYS__<gw>__STATE_CONNECTION__* env-var override (the same

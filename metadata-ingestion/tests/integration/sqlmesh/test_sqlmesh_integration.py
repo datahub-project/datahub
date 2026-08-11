@@ -55,7 +55,10 @@ def _aspects_of_type(
 
 pytestmark = pytest.mark.integration_batch_2
 
-FROZEN_TIME = "2024-07-01 00:00:00"
+# Explicit UTC offset so time_machine doesn't interpret this as host-local time —
+# a naive value shifts the emitted "now" timestamps by the runner's TZ, which makes
+# golden regeneration environment-dependent.
+FROZEN_TIME = "2024-07-01 00:00:00+00:00"
 INTEGRATION_DIR = pathlib.Path(__file__).parent
 GOLDEN_FILE = INTEGRATION_DIR / "sqlmesh_mces_golden.json"
 HAPPY_PATH_GOLDEN_FILE = INTEGRATION_DIR / "sqlmesh_mces_happy_path_golden.json"

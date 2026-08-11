@@ -236,10 +236,12 @@ export const SQLMESH_REMOVE_STALE_METADATA: RecipeField = {
     },
     type: FieldType.BOOLEAN,
     fieldPath: removeStaleMetadataPath,
-    // Read reflects the labelled setting itself (remove_stale_metadata) so a recipe
-    // with stateful ingestion on but stale-delete off renders unchecked, rather than
-    // reading stateful_ingestion.enabled and showing the opposite of the real setting.
-    getValueFromRecipeOverride: (recipe: any) => get(recipe, removeStaleMetadataPath) === true,
+    // Mirror the backend default: StatefulStaleMetadataRemovalConfig defaults
+    // remove_stale_metadata to true, so a recipe with stateful ingestion on and the
+    // key omitted is really deleting stale entities — render it checked. Only an
+    // explicit remove_stale_metadata: false (or stateful ingestion off) is unchecked.
+    getValueFromRecipeOverride: (recipe: any) =>
+        get(recipe, statefulIngestionEnabledPath) === true && get(recipe, removeStaleMetadataPath) !== false,
     // Write flips both keys together: remove_stale_metadata is a no-op unless stateful
     // ingestion is enabled, so turning it on sets enabled too, and turning it off drops
     // remove_stale (leaving enabled untouched isn't possible without a partial state, so

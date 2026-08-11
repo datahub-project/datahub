@@ -33,8 +33,16 @@ try:
 except ImportError:
     SqlmeshContextType = Any  # type: ignore[assignment,misc]
 
+# SQLMesh uses ProcessPoolExecutor internally to parse SQL models. Serialise
+# context initialisation to avoid racing over worker process spawning, and reuse
+# the same lock to serialise the process-pool patch install below so a second
+# source can't build a Context while the patch is half-installed. The lock is
+# held only for the patch install and SqlmeshContext.__init__ (~sub-second).
+_sqlmesh_context_load_lock = threading.Lock()
+
 # Idempotency sentinel for _install_process_pool_patch(): the patch is a global
-# module-state mutation, so it must run at most once per process.
+# module-state mutation, so it must run at most once per process. Only published
+# under _sqlmesh_context_load_lock after the module assignments succeed.
 _process_pool_patched = False
 
 
@@ -62,51 +70,54 @@ def _install_process_pool_patch() -> None:
     sqlmesh is installed whenever this runs (the connector guards on
     ``SqlmeshContext is None`` first), so a failure here means an API rename
     rather than a missing package — log loudly and carry on without the patch.
+
+    The whole check/install/publish runs under ``_sqlmesh_context_load_lock`` —
+    the same lock that guards ``SqlmeshContext.__init__`` — so a concurrent source
+    can neither run a second install nor construct a Context while the patch is
+    only half-applied. The sentinel is published only after both module
+    assignments succeed, so a partially-installed state is never observable.
     """
     global _process_pool_patched
-    if _process_pool_patched or SqlmeshContext is None:
+    if SqlmeshContext is None:
         return
-    _process_pool_patched = True
+    with _sqlmesh_context_load_lock:
+        if _process_pool_patched:
+            return
+        try:
+            import sqlmesh.core.loader as _loader_mod
+            import sqlmesh.core.model.cache as _cache_mod
+            from sqlmesh.utils.process import SynchronousPoolExecutor
 
-    try:
-        import sqlmesh.core.loader as _loader_mod
-        import sqlmesh.core.model.cache as _cache_mod
-        from sqlmesh.utils.process import SynchronousPoolExecutor
+            def _sync_pool(
+                initializer: Optional[Callable[..., object]] = None,
+                initargs: tuple = (),
+                **_ignored: object,
+            ) -> SynchronousPoolExecutor:
+                # create_process_pool_executor's real contract is (initializer,
+                # initargs); a sqlmesh version may also pass max_workers /
+                # mp_context, which we deliberately drop — running synchronously
+                # in-process is the whole point. Naming the two we use keeps that
+                # contract visible instead of hiding it behind **kwargs.
+                return SynchronousPoolExecutor(
+                    initializer=initializer,  # type: ignore[arg-type]
+                    initargs=initargs,
+                )
 
-        def _sync_pool(
-            initializer: Optional[Callable[..., object]] = None,
-            initargs: tuple = (),
-            **_ignored: object,
-        ) -> SynchronousPoolExecutor:
-            # create_process_pool_executor's real contract is (initializer,
-            # initargs); a sqlmesh version may also pass max_workers / mp_context,
-            # which we deliberately drop — running synchronously in-process is the
-            # whole point. Naming the two we use keeps that contract visible
-            # instead of hiding it behind **kwargs.
-            return SynchronousPoolExecutor(
-                initializer=initializer,  # type: ignore[arg-type]
-                initargs=initargs,
+            # Patch every module that captured create_process_pool_executor by
+            # name at import time. Hitting the factory in sqlmesh.utils.process is
+            # not enough — call sites that did `from ... import
+            # create_process_pool_executor` have their own binding.
+            _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+            _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+            _process_pool_patched = True
+        except ImportError:
+            logger.warning(
+                "Could not patch SQLMesh's process-pool factory (private API "
+                "moved in this sqlmesh version). Model parsing will fork worker "
+                "processes, which can hang when the DataHub async sink is active.",
+                exc_info=True,
             )
 
-        # Patch every module that captured create_process_pool_executor by name
-        # at import time. Hitting the factory in sqlmesh.utils.process is not
-        # enough — call sites that did `from ... import create_process_pool_executor`
-        # have their own binding.
-        _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
-        _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
-    except ImportError:
-        logger.warning(
-            "Could not patch SQLMesh's process-pool factory (private API moved "
-            "in this sqlmesh version). Model parsing will fork worker processes, "
-            "which can hang when the DataHub async sink is active.",
-            exc_info=True,
-        )
-
-
-# SQLMesh uses ProcessPoolExecutor internally to parse SQL models. Serialise
-# context initialisation to avoid racing over worker process spawning.
-# The lock is held only for SqlmeshContext.__init__ (~sub-second).
-_sqlmesh_context_load_lock = threading.Lock()
 
 # Exact substring of the ConfigError raised by RemoteCloudSchedulerConfig when
 # no Tobiko Cloud token is available. We match on this so the shim never

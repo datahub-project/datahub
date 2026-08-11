@@ -24,6 +24,16 @@ describe('SQLMesh (legacy ingest) Remove Stale Metadata toggle', () => {
             };
             expect(SQLMESH_REMOVE_STALE_METADATA.getValueFromRecipeOverride?.(recipe)).toBe(true);
         });
+
+        it('is checked when stateful ingestion is on and remove_stale_metadata is omitted', () => {
+            // The backend defaults remove_stale_metadata to true, so the compact
+            // recipe (enabled: true, key omitted) is really soft-deleting stale
+            // entities — the toggle must not conceal that by rendering unchecked.
+            const recipe = {
+                source: { config: { stateful_ingestion: { enabled: true } } },
+            };
+            expect(SQLMESH_REMOVE_STALE_METADATA.getValueFromRecipeOverride?.(recipe)).toBe(true);
+        });
     });
 
     describe('setValueOnRecipeOverride', () => {

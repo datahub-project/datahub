@@ -16,7 +16,7 @@ single unified view in the UI.
   in the SQLMesh project config—the source plugin loads the SQLMesh context which opens
   a connection to resolve model metadata
 
-### Concepts and setup
+#### Concepts and setup
 
 The rest of this section covers the concepts and setup you need before configuring
 a recipe.
