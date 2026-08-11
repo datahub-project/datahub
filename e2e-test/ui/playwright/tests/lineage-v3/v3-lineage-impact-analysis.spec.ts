@@ -62,6 +62,15 @@ const UI_TEXT = {
 
 // ── Test Suite ──────────────────────────────────────────────────────────────
 
+// beforeAll below seeds shared, time-stamped lineage edges via delete-then-
+// recreate (see lineage-time-seeder.ts) and assumes it runs exactly once for
+// the whole suite. That only holds on a single worker: under
+// workers_per_shard > 1, fullyParallel can schedule this describe block's
+// tests across two workers, each running its own beforeAll concurrently and
+// racing the delete/recreate against each other's async graph-edge
+// propagation. Force one worker so beforeAll is genuinely single-shot.
+test.describe.configure({ mode: 'default' });
+
 test.describe('impact analysis', () => {
   let lineagePage: LineageV3Page;
 
