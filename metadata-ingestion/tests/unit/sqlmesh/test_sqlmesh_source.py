@@ -532,10 +532,11 @@ class TestAssertionTarget:
         info = assertion_infos[0]
         assert info.customAssertion is not None
         assert info.customAssertion.type == "SQLMesh"
+        # Provenance stays in customProperties; the audit name and its kwargs are
+        # structured on customAssertion (nativeType / nativeParameters).
         assert info.customProperties.get("sqlmesh.audit") == "custom_drift_check"
-        assert "threshold" in (
-            info.customProperties.get("sqlmesh.native_parameters") or ""
-        )
+        assert info.customAssertion.nativeType == "custom_drift_check"
+        assert "threshold" in (info.customAssertion.nativeParameters or {})
 
 
 class TestFreshnessAndVolumeSignals:
@@ -581,7 +582,41 @@ class TestFreshnessAndVolumeSignals:
         assert len(infos) == 1
         assert infos[0].type == AssertionTypeClass.CUSTOM
         assert infos[0].customAssertion.type == "SQLMesh"
-        assert infos[0].customProperties["sqlmesh.operator"] == "NOT_NULL"
+        # Operator/scope/aggregation are structured on customAssertion (dbt
+        # parity), not stringified into customProperties.
+        assert infos[0].customAssertion.operator == "NOT_NULL"
+        assert infos[0].customAssertion.field is not None
+
+    def test_builtin_audit_carries_std_parameters(self):
+        """A built-in with bounds (accepted_range) emits structured
+        AssertionStdParameters on customAssertion, not string customProperties."""
+        source = _make_source()
+        model = _make_mock_model()
+        col = MagicMock()
+        col.name = "amount"
+        model.audits = [
+            (
+                "accepted_range",
+                {
+                    "columns": MagicMock(expressions=[col]),
+                    "min_v": MagicMock(this="0"),
+                    "max_v": MagicMock(this="100"),
+                },
+            )
+        ]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+        ]
+        assert len(infos) == 1
+        ca = infos[0].customAssertion
+        assert ca.operator == "BETWEEN"
+        assert ca.parameters is not None
+        assert ca.parameters.minValue.value == "0"
+        assert ca.parameters.maxValue.value == "100"
 
     def test_pipeline_operation_emitted_when_state_available(self):
         source = _make_source()

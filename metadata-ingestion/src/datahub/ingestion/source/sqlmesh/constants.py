@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from datahub.metadata.schema_classes import (
     AssertionStdAggregationClass,
@@ -79,34 +79,33 @@ PROP_PARTITIONED_BY = "sqlmesh.partitioned_by"
 PROP_GRAIN = "sqlmesh.grain"
 PROP_AUDITS = "sqlmesh.audits"
 PROP_FINGERPRINT_STALE = "sqlmesh.fingerprint_stale"
+# Only provenance stays in customProperties; the check's semantics (scope /
+# operator / aggregation / parameters / nativeParameters / fields) live on
+# CustomAssertionInfo so the UI can render them structurally, matching dbt.
 PROP_AUDIT = "sqlmesh.audit"
-PROP_SCOPE = "sqlmesh.scope"
-PROP_OPERATOR = "sqlmesh.operator"
-PROP_AGGREGATION = "sqlmesh.aggregation"
-PROP_NATIVE_PARAMETERS = "sqlmesh.native_parameters"
-PROP_FIELDS = "sqlmesh.fields"
-PROP_THRESHOLD = "sqlmesh.threshold"
-PROP_MIN_VALUE = "sqlmesh.min_value"
-PROP_MAX_VALUE = "sqlmesh.max_value"
-PROP_ACCEPTED_VALUES = "sqlmesh.accepted_values"
 
 
-# Describes the semantics of each SQLMesh built-in audit. Every audit becomes a
-# CUSTOM DataHub assertion (SQLMesh, not DataHub, executes them) — these values
-# are carried as customProperties so the check's shape stays inspectable.
-# Audits not listed here are emitted as CUSTOM without the semantic properties.
+# Describes the semantics of each SQLMesh built-in audit so it can be emitted as
+# a structured CUSTOM DataHub assertion (SQLMesh, not DataHub, executes them).
+# scope / operator / aggregation and the AssertionStdParameters shape land on
+# CustomAssertionInfo. Audits not listed here fall back to a NATIVE row-level
+# CUSTOM assertion with no structured parameters.
 class _AuditAssertionParams(BaseModel):
     scope: str
     operator: str
     aggregation: str
     uses_columns: bool = True  # True when audit columns → individual field assertions
-    # Declarative extra customProperties, so all per-audit property mappings
-    # live here rather than being hardcoded inline in _emit_single_audit.
-    # literal_props: audit kwarg (a SQLGlot Literal) → customProperty key.
-    literal_props: Dict[str, str] = Field(default_factory=dict)
-    # expression_list_props: audit kwarg (a SQLGlot expression list) →
-    # customProperty key; the extracted scalars are comma-joined.
-    expression_list_props: Dict[str, str] = Field(default_factory=dict)
+    # AssertionStdParameters shape for the built-in (dbt parity). At most one of
+    # these applies; all unset → the assertion carries no structured parameters.
+    # const_value: a fixed scalar `value` with no backing kwarg.
+    const_value: str = ""
+    # value_kwarg: audit kwarg whose extracted scalar (or list, when
+    # value_is_set) becomes the `value` parameter.
+    value_kwarg: str = ""
+    value_is_set: bool = False
+    # min_kwarg / max_kwarg: audit kwargs → minValue / maxValue (accepted_range).
+    min_kwarg: str = ""
+    max_kwarg: str = ""
 
 
 _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
@@ -119,6 +118,7 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.EQUAL_TO,
         aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
+        const_value="1.0",
     ),
     "unique_combination_of_columns": _AuditAssertionParams(
         scope=DatasetAssertionScopeClass.DATASET_ROWS,
@@ -131,7 +131,7 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         operator=AssertionStdOperatorClass.GREATER_THAN,
         aggregation=AssertionStdAggregationClass.ROW_COUNT,
         uses_columns=False,
-        literal_props={"threshold": PROP_THRESHOLD},
+        value_kwarg="threshold",
     ),
     "forall": _AuditAssertionParams(
         scope=DatasetAssertionScopeClass.DATASET_ROWS,
@@ -143,12 +143,14 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.BETWEEN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
-        literal_props={"min_v": PROP_MIN_VALUE, "max_v": PROP_MAX_VALUE},
+        min_kwarg="min_v",
+        max_kwarg="max_v",
     ),
     "accepted_values": _AuditAssertionParams(
         scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.IN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
-        expression_list_props={"values": PROP_ACCEPTED_VALUES},
+        value_kwarg="values",
+        value_is_set=True,
     ),
 }

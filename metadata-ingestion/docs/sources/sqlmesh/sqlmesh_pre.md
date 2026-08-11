@@ -275,9 +275,10 @@ the report. Different emissions depend on different probes.
 
 The connector still emits the full metadata model — datasets, schema,
 column-level lineage, audits, assertion definitions, siblings,
-containers, ownership, tags. Cloud Monitor evaluation against the
-assertion definitions also continues to work (Monitor reads warehouse
-state directly, not through us). What you **lose**:
+containers, ownership, tags. The audit assertions are `CUSTOM` (SQLMesh
+runs them, DataHub records the definition and the pass/fail run events
+from `audit_results_path`), so they populate the Validation tab
+regardless of state availability. What you **lose**:
 
 - `OperationAspect` for fingerprint rebuild timestamps — DataHub doesn't
   see "when did SQLMesh last apply this model".

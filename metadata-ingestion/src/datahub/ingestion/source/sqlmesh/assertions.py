@@ -37,12 +37,7 @@ from datahub.ingestion.source.sqlmesh.constants import (
     INCIDENT_CUSTOM_TYPE_PREFIX,
     INGEST_ACTOR,
     NATIVE_RESULT_FAILING_ROWS,
-    PROP_AGGREGATION,
     PROP_AUDIT,
-    PROP_FIELDS,
-    PROP_NATIVE_PARAMETERS,
-    PROP_OPERATOR,
-    PROP_SCOPE,
     _AuditAssertionParams,
 )
 from datahub.ingestion.source.sqlmesh.models import (
@@ -56,9 +51,15 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
+    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     IncidentInfoClass,
     IncidentSourceClass,
     IncidentSourceTypeClass,
@@ -418,18 +419,74 @@ class AssertionMixin(SqlmeshSourceBase):
                     exc=e,
                 )
 
-    def _audit_native_parameters(self, kw: Dict[str, Any]) -> Optional[str]:
-        """JSON-encode an audit's kwargs as flat key → string pairs.
+    def _audit_native_parameters(self, kw: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """Render an audit's kwargs as a flat ``map[string, string]``.
 
-        SQLMesh hands audit arguments over as SQLGlot expressions whose default
-        repr is the whole parse tree, so long values are truncated rather than
-        dumped into a custom property.
+        Carried on ``CustomAssertionInfo.nativeParameters`` (not as a JSON blob
+        in customProperties) so the UI can show each argument as its own row,
+        matching dbt. SQLMesh hands arguments over as SQLGlot expressions whose
+        default repr is the whole parse tree, so long values are truncated.
         """
         rendered: Dict[str, str] = {}
         for key, value in (kw or {}).items():
             text = str(value)
             rendered[str(key)] = text if len(text) <= 200 else text[:200] + "…"
-        return json.dumps(rendered, sort_keys=True) if rendered else None
+        return rendered or None
+
+    def _build_std_parameters(
+        self, kw: Dict[str, Any], params: _AuditAssertionParams
+    ) -> Optional[AssertionStdParametersClass]:
+        """Build ``AssertionStdParameters`` for a built-in audit from its spec.
+
+        Mirrors dbt's per-test parameter lambdas but stays declarative: the
+        parameter shape (fixed value, kwarg-backed value, set, or min/max
+        bounds) is declared on ``_AuditAssertionParams`` in _SQLMESH_AUDIT_MAP.
+        Returns None when the audit declares no structured parameters.
+        """
+        if params.const_value:
+            return AssertionStdParametersClass(
+                value=AssertionStdParameterClass(
+                    value=params.const_value,
+                    type=AssertionStdParameterTypeClass.NUMBER,
+                )
+            )
+        if params.min_kwarg or params.max_kwarg:
+            min_v = self._extract_literal_value(kw, params.min_kwarg)
+            max_v = self._extract_literal_value(kw, params.max_kwarg)
+            if min_v is None and max_v is None:
+                return None
+            return AssertionStdParametersClass(
+                minValue=AssertionStdParameterClass(
+                    value=min_v or "", type=AssertionStdParameterTypeClass.NUMBER
+                )
+                if min_v is not None
+                else None,
+                maxValue=AssertionStdParameterClass(
+                    value=max_v or "", type=AssertionStdParameterTypeClass.NUMBER
+                )
+                if max_v is not None
+                else None,
+            )
+        if params.value_kwarg and params.value_is_set:
+            values = self._extract_expression_values(kw, params.value_kwarg)
+            if not values:
+                return None
+            return AssertionStdParametersClass(
+                value=AssertionStdParameterClass(
+                    value=json.dumps(values),
+                    type=AssertionStdParameterTypeClass.SET,
+                )
+            )
+        if params.value_kwarg:
+            value = self._extract_literal_value(kw, params.value_kwarg)
+            if value is None:
+                return None
+            return AssertionStdParametersClass(
+                value=AssertionStdParameterClass(
+                    value=value, type=AssertionStdParameterTypeClass.NUMBER
+                )
+            )
+        return None
 
     def _emit_custom_audit(
         self,
@@ -439,8 +496,7 @@ class AssertionMixin(SqlmeshSourceBase):
         dataset_urn: str,
         *,
         assertion_urn: str,
-        field_urn: Optional[str] = None,
-        extra_properties: Optional[Dict[str, str]] = None,
+        field_urns: Optional[List[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit one SQLMesh audit as an ``AssertionTypeClass.CUSTOM`` assertion.
 
@@ -451,30 +507,42 @@ class AssertionMixin(SqlmeshSourceBase):
         it can't — and the SQL variant needed a fake ``SELECT 0`` statement to
         satisfy the schema.
 
-        The audit's semantics (scope / operator / aggregation for the built-ins)
-        and its arguments are carried as custom properties so the check stays
-        inspectable in the UI.
+        The check's semantics (scope / operator / aggregation / parameters /
+        nativeParameters / fields) live on ``CustomAssertionInfo`` so the UI can
+        render them structurally, matching dbt. customProperties carries only
+        ``sqlmesh.audit`` for provenance. Unknown / non-built-in audits
+        (``params is None``) fall back to a NATIVE row-level shape.
         """
-        custom_properties: Dict[str, str] = {PROP_AUDIT: audit_name}
+        fields = field_urns or None
         if params is not None:
-            custom_properties[PROP_SCOPE] = params.scope
-            custom_properties[PROP_OPERATOR] = params.operator
-            custom_properties[PROP_AGGREGATION] = params.aggregation
-        native_parameters = self._audit_native_parameters(kw)
-        if native_parameters:
-            custom_properties[PROP_NATIVE_PARAMETERS] = native_parameters
-        if extra_properties:
-            custom_properties.update(extra_properties)
+            scope = params.scope
+            operator = params.operator
+            aggregation = params.aggregation
+            parameters = self._build_std_parameters(kw, params)
+        else:
+            scope = DatasetAssertionScopeClass.DATASET_ROWS
+            operator = AssertionStdOperatorClass._NATIVE_
+            aggregation = AssertionStdAggregationClass._NATIVE_
+            parameters = None
 
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.CUSTOM,
             source=make_assertion_source(),
-            customProperties=custom_properties,
+            customProperties={PROP_AUDIT: audit_name},
             description=f"SQLMesh audit '{audit_name}'. Executed by SQLMesh; results are ingested from audit_results_path.",
             customAssertion=CustomAssertionInfoClass(
                 type=CUSTOM_ASSERTION_TYPE,
                 entity=dataset_urn,
-                field=field_urn,
+                # Singular `field` only for the single-column case; multi-column
+                # audits populate `fields` and leave `field` unset.
+                field=fields[0] if fields and len(fields) == 1 else None,
+                fields=fields,
+                scope=scope,
+                operator=operator,
+                aggregation=aggregation,
+                parameters=parameters,
+                nativeType=audit_name,
+                nativeParameters=self._audit_native_parameters(kw),
                 logic=self._extract_audit_logic(kw),
             ),
         )
@@ -519,28 +587,23 @@ class AssertionMixin(SqlmeshSourceBase):
         params: Optional[_AuditAssertionParams],
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        # Per-audit extra properties (min/max bounds, accepted values, row-count
-        # threshold, ...) are declared on _AuditAssertionParams so every audit's
-        # semantics live in _SQLMESH_AUDIT_MAP and this method stays generic.
         # Unknown / custom audits (params is None) carry no columns or semantics.
         cols = self._extract_audit_columns(kw) if params is not None else []
-        declared_extra = (
-            self._audit_declared_properties(kw, params) if params is not None else {}
-        )
 
         # Derive suffixes from the same helper the run-event side uses, so a
         # definition and its run events always hash to the same assertion URN.
         for suffix in self._audit_assertion_suffixes(params, cols):
-            field_urn: Optional[str] = None
-            extra = dict(declared_extra)
+            field_urns: List[str] = []
             if params is not None and params.uses_columns:
-                # Column-level: the suffix is a single column ("" when none named).
-                field_urn = (
-                    make_schema_field_urn(dataset_urn, suffix) if suffix else None
-                )
+                # Column-level: one assertion per column; the suffix is the
+                # single column name ("" when the audit named none).
+                if suffix:
+                    field_urns = [make_schema_field_urn(dataset_urn, suffix)]
             elif params is not None and cols:
-                # Dataset-level: record every column the audit covers.
-                extra[PROP_FIELDS] = ",".join(cols)
+                # Dataset-level over specific columns (e.g.
+                # unique_combination_of_columns): one assertion covering all of
+                # them, so populate `fields`, not the singular `field`.
+                field_urns = [make_schema_field_urn(dataset_urn, c) for c in cols]
 
             yield from self._emit_custom_audit(
                 audit_name,
@@ -548,29 +611,8 @@ class AssertionMixin(SqlmeshSourceBase):
                 params,
                 dataset_urn,
                 assertion_urn=self._assertion_urn(dataset_urn, audit_name, suffix),
-                field_urn=field_urn,
-                extra_properties=extra,
+                field_urns=field_urns,
             )
-
-    def _audit_declared_properties(
-        self, kw: Dict[str, Any], params: _AuditAssertionParams
-    ) -> Dict[str, str]:
-        """Build the customProperties an audit declares in _SQLMESH_AUDIT_MAP.
-
-        Keeps _emit_single_audit generic: literal kwargs (thresholds, bounds)
-        and expression-list kwargs (accepted values) are extracted per the
-        audit's declarative spec rather than per-audit ``if`` branches.
-        """
-        extra: Dict[str, str] = {}
-        for kwarg, prop_key in params.literal_props.items():
-            value = self._extract_literal_value(kw, kwarg)
-            if value is not None:
-                extra[prop_key] = value
-        for kwarg, prop_key in params.expression_list_props.items():
-            values = self._extract_expression_values(kw, kwarg)
-            if values:
-                extra[prop_key] = ",".join(values)
-        return extra
 
     def _extract_expression_values(self, kw: Dict[str, Any], key: str) -> List[str]:
         expr = kw.get(key)
