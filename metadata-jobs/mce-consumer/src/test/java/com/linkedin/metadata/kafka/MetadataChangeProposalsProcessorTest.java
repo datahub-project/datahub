@@ -26,6 +26,7 @@ import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
@@ -240,13 +241,21 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Invalid fabric type fails during AspectsBatch construction (ValidationException wrapping
     // IllegalArgumentException), before EntityService.ingestProposal is invoked.
-    Throwable validationException = exceptionCaptor.getValue();
-    verify(mockSpan).recordException(validationException);
+    Throwable thrown = exceptionCaptor.getValue();
+    assertTrue(thrown instanceof ValidationException);
+    ValidationException validationException = (ValidationException) thrown;
+    assertTrue(
+        validationException
+            .getMessage()
+            .startsWith(
+                "Invalid MetadataChangeProposal: Invalid urn:"
+                    + " urn:li:dataset:(urn:li:dataPlatform:hive,test,INVALID)"));
     assertTrue(
         validationException
             .getMessage()
             .contains("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
     assertTrue(validationException.getCause() instanceof IllegalArgumentException);
+    verify(mockSpan).recordException(validationException);
     verify(mockSpan).setStatus(StatusCode.ERROR, validationException.getMessage());
   }
 

@@ -219,8 +219,8 @@ public class AspectsBatchImpl implements AspectsBatch {
                       }
                     } catch (IllegalArgumentException e) {
                       // Surface as ValidationException so API layers reject the request instead of
-                      // HTTP 200 with the proposal silently dropped (see #19086). Preserve the
-                      // IllegalArgumentException cause so GraphQL maps this to BAD_REQUEST.
+                      // returning HTTP 200 with the proposal silently dropped (see #19086).
+                      // Preserve the IllegalArgumentException cause for diagnostics.
                       throw new ValidationException(
                           "Invalid MetadataChangeProposal: " + e.getMessage(), e);
                     }
