@@ -233,25 +233,49 @@ def _prepare_profile_dir(profile_dir: Path) -> None:
 
 _FIREFOX_PROFILE_MARKERS = ("prefs.js", "cookies.sqlite", "places.sqlite")
 
-_CHROMIUM_PROFILE_MARKERS = ("Local State", "Preferences", "Default")
+# What Chromium keeps at the root of a user data directory, which is the level
+# it is launched against.
+_CHROMIUM_ROOT_MARKERS = ("Local State", "Default")
+
+# What it keeps one level down, inside a single profile such as Default.
+_CHROMIUM_PROFILE_MARKERS = ("Preferences", "Cookies", "History", "Web Data")
+
+
+def _dir_names(path: Path) -> set:
+    try:
+        return {entry.name for entry in path.iterdir()}
+    except OSError:
+        return set()
 
 
 def _profile_engine(profile_dir: Path) -> Optional[str]:
     """Which engine wrote this profile, or None if the directory does not say.
 
-    Told apart by the files each engine keeps at the top of a profile. An
-    unrecognised layout returns None and is allowed through: refusing something
-    merely unfamiliar would block a directory that works.
+    Told apart by the files each engine keeps in a profile. An unrecognised
+    layout returns None and is allowed through: refusing something merely
+    unfamiliar would block a directory that works.
     """
-    try:
-        names = {entry.name for entry in profile_dir.iterdir()}
-    except OSError:
-        return None
+    names = _dir_names(profile_dir)
     if names.intersection(_FIREFOX_PROFILE_MARKERS):
         return "firefox"
-    if names.intersection(_CHROMIUM_PROFILE_MARKERS):
+    if names.intersection(_CHROMIUM_ROOT_MARKERS + _CHROMIUM_PROFILE_MARKERS):
         return "chromium"
     return None
+
+
+def _is_inner_chromium_profile(profile_dir: Path) -> bool:
+    """Is this one Chromium profile rather than the directory that holds them?
+
+    Chromium is launched against the user data directory — the one holding
+    `Local State` and `Default` — not against `Default` itself. Seeding the
+    inner directory copies the cookies one level too high, where the browser
+    never reads them, so the login is not skipped and nothing says why.
+    """
+    names = _dir_names(profile_dir)
+    return bool(
+        names.intersection(_CHROMIUM_PROFILE_MARKERS)
+        and not names.intersection(_CHROMIUM_ROOT_MARKERS)
+    )
 
 
 def _seed_profile_dir(profile_dir: Path, seed_from: Path, engine: str) -> None:
@@ -263,7 +287,9 @@ def _seed_profile_dir(profile_dir: Path, seed_from: Path, engine: str) -> None:
 
     A seed written by another engine is refused rather than copied. The two
     profile formats are not interchangeable, and copying one into the other's
-    directory leaves a profile the browser resets or refuses to open.
+    directory leaves a profile the browser resets or refuses to open. A Chromium
+    seed pointed one level too deep is refused for the same reason: it would
+    copy cleanly and then be ignored.
 
     Only runs into an empty directory, so a saved session is never thrown away.
     Re-seeding is what --fresh-login is for.
@@ -279,6 +305,14 @@ def _seed_profile_dir(profile_dir: Path, seed_from: Path, engine: str) -> None:
             f"leave an unusable profile.\n"
             f"Seed from a {engine} profile, or change your default browser to "
             f"one that runs on {seed_engine}."
+        )
+
+    if seed_engine == "chromium" and _is_inner_chromium_profile(seed_from):
+        raise click.UsageError(
+            f"--seed-profile points at a single Chromium profile: {seed_from}\n"
+            "Seed from the directory above it — the one holding `Local State` "
+            "and `Default` — otherwise the cookies land a level too high and "
+            "the browser never reads them."
         )
 
     if any(profile_dir.iterdir()):
@@ -377,7 +411,11 @@ def _open_browser_context(
         launch_args = {"channel": candidate.channel} if candidate.channel else {}
         profile_dir = _sso_profile_dir(frontend_url, support, _profile_key(candidate))
         _prepare_profile_dir(profile_dir)
-        if seed_from is not None and candidate.engine == target.engine:
+        # Only the browser the user meant. A fallback on the same engine is
+        # still a different build — Chrome and bundled Chromium encrypt cookies
+        # against different keychain entries — so handing it the seed copies a
+        # session it cannot read.
+        if seed_from is not None and candidate == target:
             _seed_profile_dir(profile_dir, seed_from, candidate.engine)
         try:
             context = engine.launch_persistent_context(

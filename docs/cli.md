@@ -549,7 +549,7 @@ datahub init --host https://<your-instance-id>.acryl.io/gms --sso --token-durati
 
 **Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — launched from where it is already installed, so machine-level policy and your certificate store apply. There is no flag to choose it: change your default browser and the next login follows. If your default cannot be driven, the CLI falls back to a browser Playwright downloaded and says so.
 
-It opens that browser with **its own profile**, not your everyday one, so your normal cookies do not carry over and the first run always asks you to sign in. `--seed-profile` below is how you skip even that.
+It opens that browser with **its own profile**, not your everyday one, so your normal cookies do not carry over and by default the first run asks you to sign in. `--seed-profile` below is how you skip even that.
 
 **Signing in only once.** The profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
 
@@ -568,12 +568,13 @@ cp -r ~/Library/Application\ Support/Firefox/Profiles/abc123.default /tmp/profil
 datahub init --sso --seed-profile /tmp/profile-copy
 ```
 
-Two things to know:
+Three things to know:
 
 - Point it at a **copy**. Browsers hold an exclusive lock on a profile they have open, and copying a live one produces a torn, unusable directory.
 - The seed must come from the same browser engine as your default — a Firefox profile for a Firefox default, a Chrome or Edge profile for either of those. The formats are not interchangeable, and a mismatch is refused rather than copied.
+- For Chrome or Edge, point at the **user data directory** — the one holding `Local State` and `Default` — not at `Default` itself. Seeding a single profile puts the cookies a level above where the browser looks for them. That is refused too.
 
-Seeding only happens while the CLI's own profile directory is still empty, which includes the case where an earlier failed attempt left something behind. Use `--fresh-login` to empty it and seed again.
+Seeding happens only while the CLI's own profile directory is empty. Anything an earlier run left there makes it non-empty and the seed is skipped, including remnants of an attempt that failed, so use `--fresh-login` to clear it and seed again.
 
 **`--remember-session`** stores the cookies the login establishes in `~/.datahub/sso-sessions` — the directory `0700`, the files inside it `0600` — and replays them next time. You only need it if your provider issues a session cookie with no expiry — no browser writes one of those to disk, so profile reuse alone cannot carry it across a browser restart. With a stored session the next login is tried headlessly first, showing no window; if that does not authenticate, a visible browser opens as usual.
 
