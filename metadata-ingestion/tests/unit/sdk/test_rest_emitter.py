@@ -3,20 +3,34 @@ import os
 import time
 import warnings
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
 import requests
-from requests import Response, Session
-from requests.adapters import HTTPAdapter
-
 from datahub.configuration.common import (
     ConfigurationError,
     OperationalError,
     TraceTimeoutError,
     TraceValidationError,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetProfile,
+    DatasetProperties,
+)
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    KEY_ASPECTS,
+    ChangeTypeClass,
+)
+from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.server_config_util import RestServiceConfig
+from requests import Response, Session
+from requests.adapters import HTTPAdapter
+
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.response_helper import TraceData
@@ -34,21 +48,7 @@ from datahub.emitter.rest_emitter import (
 )
 from datahub.errors import APITracingWarning
 from datahub.ingestion.graph.config import ClientMode
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    Status,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProfile,
-    DatasetProperties,
-)
-from datahub.metadata.schema_classes import (
-    KEY_ASPECT_NAMES,
-    KEY_ASPECTS,
-    ChangeTypeClass,
-)
 from datahub.sdk.main_client import DataHubClient
-from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.server_config_util import RestServiceConfig
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -167,19 +167,24 @@ class TestDataHubRestEmitter:
         assert emitter._session_config.retry_status_codes == [418]
         assert emitter._session_config.retry_max_times == 42
 
-    def test_server_config_uses_dedicated_retry_policy(self, mock_response) -> None:
+    def test_server_config_uses_dedicated_retry_policy(
+        self, mock_response: Response
+    ) -> None:
         emitter = DatahubRestEmitter(
             MOCK_GMS_ENDPOINT,
             retry_max_times=42,
             server_config_retry_max_times=0,
         )
 
-        assert emitter._session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total == 42
-        assert emitter._config_session is not None
-        assert (
-            emitter._config_session.get_adapter(MOCK_GMS_ENDPOINT).max_retries.total
-            == 0
+        session_adapter = cast(
+            HTTPAdapter, emitter._session.get_adapter(MOCK_GMS_ENDPOINT)
         )
+        assert session_adapter.max_retries.total == 42
+        assert emitter._config_session is not None
+        config_adapter = cast(
+            HTTPAdapter, emitter._config_session.get_adapter(MOCK_GMS_ENDPOINT)
+        )
+        assert config_adapter.max_retries.total == 0
 
         config_session = MagicMock(spec=Session)
         config_session.get.return_value = mock_response
