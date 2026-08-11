@@ -100,38 +100,58 @@ input RaiseIncidentInput {
 
 ### Supported entity types
 
-Incidents are stored on the entity named by `resourceUrn`, so that entity must
-carry the `incidentsSummary` aspect. As of the current entity registry, that is:
+Whether an entity supports incidents is decided in three separate places, and
+they do not all agree today. Every entity passed in `resourceUrn`, and every
+entity in the `resourceUrns` list for a multi-resource incident, is subject to
+all three.
 
-| Entity | URN prefix |
-| --- | --- |
-| Dataset | `urn:li:dataset:` |
-| Data Job | `urn:li:dataJob:` |
-| Data Flow | `urn:li:dataFlow:` |
-| Chart | `urn:li:chart:` |
-| Dashboard | `urn:li:dashboard:` |
-| Service | `urn:li:service:` |
-| AI Agent | `urn:li:aiAgent:` |
+1. **Accepts a write.** The `IncidentOn` relationship on `IncidentInfo.pdl`
+   lists the entity types `raiseIncident` will accept as a destination.
+2. **Carries a summary.** The `incidentsSummary` aspect, declared per entity in
+   the entity registry, is what `IncidentsSummaryHook` maintains on the asset.
+3. **Can be read back.** GraphQL exposes `incidents` only on the types that
+   `incident.graphql` extends and that are wired to a resolver.
 
-Anything else is rejected and nothing is written. Two different messages come
-back for the same failure, depending on which validation the request trips
-first, so both are listed here:
+As of the current entity registry:
 
-```
-"urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not a valid destination"
-```
+| Entity       | URN prefix            | Accepts a write | Carries a summary | Readable in GraphQL |
+| ------------ | --------------------- | --------------- | ----------------- | ------------------- |
+| Dataset      | `urn:li:dataset:`     | yes             | yes               | yes                 |
+| Data Job     | `urn:li:dataJob:`     | yes             | yes               | yes                 |
+| Data Flow    | `urn:li:dataFlow:`    | yes             | yes               | yes                 |
+| Chart        | `urn:li:chart:`       | yes             | yes               | yes                 |
+| Dashboard    | `urn:li:dashboard:`   | yes             | yes               | yes                 |
+| Service      | `urn:li:service:`     | yes             | yes               | no                  |
+| AI Agent     | `urn:li:aiAgent:`     | yes             | yes               | no                  |
+| ML Model     | `urn:li:mlModel:`     | yes             | no                | no                  |
+| ML Feature   | `urn:li:mlFeature:`   | yes             | no                | no                  |
+| Schema Field | `urn:li:schemaField:` | yes             | no                | no                  |
+
+Only the first five are supported end to end. Any type not listed at all,
+including `mlModelGroup`, `mlFeatureTable` and `dataProcessInstance`, is
+rejected outright and nothing is written.
+
+A rejected destination fails the whole mutation, including any other entity
+sent in the same call. The wording has changed between releases, so search for
+the entity type rather than the sentence:
 
 ```
 java.lang.RuntimeException: Invalid format for aspect: incident
- Cause: ERROR :: /entities/0 :: "Provided urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD)" is invalid:
-        Entity type for urn urn:li:mlModel:(urn:li:dataPlatform:mlflow,my-model,PROD) is not supported
+ Cause: ERROR :: /entities/0 :: "Provided urn <urn>" is invalid:
+        Entity type for urn: <urn> is not a valid destination for field path: /entities/*
 ```
 
-ML entities are worth calling out because they are a natural thing to reach for.
-`mlModel`, `mlModelGroup`, `mlFeatureTable` and `mlFeature` do **not** support
-incidents. For an issue concerning a model, raise the incident on the dataset
-the model was trained on, which is reachable from the model in one hop of
-lineage, and name the model in the title.
+ML entities are worth calling out, because they are a natural thing to reach
+for and because a write to one can look like it worked. On a build that
+includes [#18478](https://github.com/datahub-project/datahub/pull/18478),
+`mlModel` and `mlFeature` accept the write and return an incident URN, but
+neither type exposes an `incidents` field in GraphQL, so nothing reads it back
+and nothing renders it on the entity page. On earlier builds the same call is
+rejected. Closing that gap is tracked in
+[#18911](https://github.com/datahub-project/datahub/issues/18911).
+
+Until it closes, raise the incident on a training dataset linked to the model,
+directly or through a training run, and name the model in the title.
 
 ### Examples
 
