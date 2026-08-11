@@ -34,7 +34,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Builder(toBuilder = true)
 public class AspectsBatchImpl implements AspectsBatch {
 
@@ -169,6 +171,15 @@ public class AspectsBatchImpl implements AspectsBatch {
   }
 
   public static class AspectsBatchImplBuilder {
+
+    /**
+     * Construction-time IllegalArgumentException failures deferred until {@link
+     * #build(OperationContext)}. API paths (requestContext present) fail hard; consumer/system
+     * paths soft-skip and proceed with valid items (see #11187 / #19086).
+     */
+    private final List<Pair<MetadataChangeProposal, IllegalArgumentException>>
+        constructionFailures = new ArrayList<>();
+
     /**
      * Just one aspect record template
      *
@@ -218,13 +229,13 @@ public class AspectsBatchImpl implements AspectsBatch {
                             .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
-                      // Surface as ValidationException so API layers reject the request instead of
-                      // returning HTTP 200 with the proposal silently dropped (see #19086).
-                      // Preserve the IllegalArgumentException cause for diagnostics.
-                      throw new ValidationException(
-                          "Invalid MetadataChangeProposal: " + e.getMessage(), e);
+                      // Defer fail-hard vs soft-skip until build(opContext): API RequestContext →
+                      // ValidationException; consumer/system (null RequestContext) → skip (#11187).
+                      constructionFailures.add(Pair.of(mcp, e));
+                      return null;
                     }
                   })
+              .filter(Objects::nonNull)
               .collect(Collectors.toList()));
       return this;
     }
@@ -249,6 +260,29 @@ public class AspectsBatchImpl implements AspectsBatch {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
+
+      if (!constructionFailures.isEmpty()) {
+        boolean failHard = operationContext != null && operationContext.getRequestContext() != null;
+        if (failHard) {
+          IllegalArgumentException firstCause = constructionFailures.get(0).getSecond();
+          String message =
+              constructionFailures.stream()
+                  .map(
+                      failure ->
+                          "Invalid MetadataChangeProposal: " + failure.getSecond().getMessage())
+                  .collect(Collectors.joining("; "));
+          throw new ValidationException(message, firstCause);
+        }
+        for (Pair<MetadataChangeProposal, IllegalArgumentException> failure :
+            constructionFailures) {
+          log.error(
+              "Invalid proposal, skipping and proceeding with batch: {}",
+              failure.getFirst(),
+              failure.getSecond());
+        }
+        constructionFailures.clear();
+      }
+
       this.nonRepeatedItems = filterRepeats(this.items);
 
       // operationContext serves dual roles here: OperationFingerprint for routing (1st arg)

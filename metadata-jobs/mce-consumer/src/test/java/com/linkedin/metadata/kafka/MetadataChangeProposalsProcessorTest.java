@@ -26,7 +26,6 @@ import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
@@ -227,36 +226,13 @@ public class MetadataChangeProposalsProcessorTest {
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
 
-    // Execute test
+    // Execute test — consumer path (no RequestContext) soft-skips construction failures (#11187).
     processor.consume(mockConsumerRecord);
 
-    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
-    verify(mockKafkaProducer)
-        .produceFailedMetadataChangeProposal(
-            eq(opContext), eq(List.of(mcp)), exceptionCaptor.capture());
-
-    // Verify kafkaProducer was called to produce the failed MCP
-    verify(mockKafkaProducer, times(1))
-        .produceFailedMetadataChangeProposal(eq(opContext), eq(List.of(mcp)), any(Throwable.class));
-
-    // Invalid fabric type fails during AspectsBatch construction (ValidationException wrapping
-    // IllegalArgumentException), before EntityService.ingestProposal is invoked.
-    Throwable thrown = exceptionCaptor.getValue();
-    assertTrue(thrown instanceof ValidationException);
-    ValidationException validationException = (ValidationException) thrown;
-    assertTrue(
-        validationException
-            .getMessage()
-            .startsWith(
-                "Invalid MetadataChangeProposal: Invalid urn:"
-                    + " urn:li:dataset:(urn:li:dataPlatform:hive,test,INVALID)"));
-    assertTrue(
-        validationException
-            .getMessage()
-            .contains("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
-    assertTrue(validationException.getCause() instanceof IllegalArgumentException);
-    verify(mockSpan).recordException(validationException);
-    verify(mockSpan).setStatus(StatusCode.ERROR, validationException.getMessage());
+    // Soft-skip: no FMCP, ingest proceeds with an empty/no-op batch.
+    verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
+    verify(mockEntityService, times(1))
+        .ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false));
   }
 
   @Test
