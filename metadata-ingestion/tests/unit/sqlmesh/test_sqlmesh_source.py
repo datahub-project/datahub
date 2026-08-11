@@ -536,7 +536,7 @@ class TestAssertionTarget:
         # structured on customAssertion (nativeType / nativeParameters).
         assert info.customProperties.get("sqlmesh.audit") == "custom_drift_check"
         assert info.customAssertion.nativeType == "custom_drift_check"
-        assert "threshold" in (info.customAssertion.nativeParameters or {})
+        assert info.customAssertion.nativeParameters == {"threshold": "0.05"}
 
 
 class TestFreshnessAndVolumeSignals:
