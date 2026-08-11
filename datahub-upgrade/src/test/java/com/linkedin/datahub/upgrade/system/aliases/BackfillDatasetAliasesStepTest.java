@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -251,14 +252,25 @@ public class BackfillDatasetAliasesStepTest {
   }
 
   @Test
-  public void testEmitFailureFailsTheRunWithoutMarker() {
+  public void testEmitFailureStopsTheScanWithoutMarker() {
     stubScroll(page(null, URN_MIXED_CASE, URN_OTHER));
     doThrow(new RuntimeException("kafka down"))
         .when(mockEntityService)
-        .ingestProposal(eq(OP_CONTEXT), any(), any(), eq(true));
+        .ingestProposal(
+            eq(OP_CONTEXT),
+            argThat(p -> UrnUtils.getUrn(URN_MIXED_CASE).equals(p.getEntityUrn())),
+            any(),
+            eq(true));
 
     expectThrows(RuntimeException.class, () -> buildStep(false).executable().apply(mockContext));
 
+    // the urn after the failure is never attempted
+    verify(mockEntityService, never())
+        .ingestProposal(
+            eq(OP_CONTEXT),
+            argThat(p -> UrnUtils.getUrn(URN_OTHER).equals(p.getEntityUrn())),
+            any(),
+            eq(true));
     verify(mockUpgrade, never())
         .setUpgradeResult(any(OperationContext.class), any(Urn.class), any(), any(), any());
   }

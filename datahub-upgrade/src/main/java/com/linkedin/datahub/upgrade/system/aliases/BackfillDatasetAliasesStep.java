@@ -54,7 +54,7 @@ import lombok.extern.slf4j.Slf4j;
  * each, leaving the writes to mce-consumer. The query is self-narrowing, so an interrupted run
  * resumes simply by running again — there is no checkpoint. The SUCCEEDED marker on {@code
  * urn:li:dataHubUpgrade:dataset-aliases-v1} gates case-insensitive resolution and is written when
- * the scroll is exhausted. A urn that cannot be lowercased is counted and skipped, since it can
+ * the scroll is exhausted. A URN that cannot be lowercased is counted and skipped, since it can
  * never carry the aspect, but a failed emit ends the run: ingestion is asynchronous, so the only
  * error reachable here is the proposal not making it onto the topic at all.
  */
@@ -97,11 +97,6 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
 
   protected Urn getUpgradeIdUrn() {
     return BootstrapStep.getUpgradeUrn(id());
-  }
-
-  @Override
-  public int retryCount() {
-    return 3;
   }
 
   @Override
