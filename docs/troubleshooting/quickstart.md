@@ -41,6 +41,7 @@ By default the quickstart deploy will require the following ports to be free on 
 - 9092 for the Kafka broker
 - 9002 for the DataHub Web Application (datahub-frontend)
 - 8080 for the DataHub Metadata Service (datahub-gms)
+- 4319 for the datahub-gms management endpoint (Spring Actuator / Micrometer, `MANAGEMENT_SERVER_PORT`)
 
 The quickstart profile runs Kafka in KRaft mode and uses the schema registry built into
 `datahub-gms`, so it no longer starts ZooKeeper (2181) or a standalone Schema Registry (8081).
@@ -48,6 +49,8 @@ The quickstart profile runs Kafka in KRaft mode and uses the schema registry bui
 In case the default ports conflict with software you are already running on your machine, you can override these ports by passing additional flags to the `datahub docker quickstart` command.
 e.g. To override the MySQL port with 53306 (instead of the default 3306), you can say: `datahub docker quickstart --mysql-port 53306`. Use `datahub docker quickstart --help` to see all the supported options.
 For the metadata service container (datahub-gms), you need to use an environment variable, `DATAHUB_MAPPED_GMS_PORT`. So for instance to use the port 58080, you would say `DATAHUB_MAPPED_GMS_PORT=58080 datahub docker quickstart`
+
+Note that 4319 is published on a fixed host port and has no override flag, so it must be free.
 
 </details>
 
@@ -80,23 +83,27 @@ If you set up the `datahub` CLI tool (see [here](../../metadata-ingestion/README
 datahub docker check
 ```
 
-You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log similar to the below:
+You can also list the running containers with `docker container ls`. The quickstart profile
+starts these services:
 
-```
-CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
-979830a342ce        acryldata/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
-3abfc72e205d        acryldata/datahub-frontend-react:latest              "datahub-frontend…"   10 hours ago        Up 10 hours         0.0.0.0:9002->9002/tcp                                     datahub-frontend
-50b2308a8efd        acryldata/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
-4d6b03d77113        acryldata/datahub-gms:latest                         "/datahub/datahub-g…"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
-c267c287a235        landoop/schema-registry-ui:latest                     "/run.sh"                10 hours ago        Up 10 hours         0.0.0.0:8000->8000/tcp                                     schema-registry-ui
-4b38899cc29a        confluentinc/cp-schema-registry:5.2.1                 "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:8081->8081/tcp                                     schema-registry
-37c29781a263        confluentinc/cp-kafka:5.2.1                           "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
-15440d99a510        docker.elastic.co/kibana/kibana:5.6.8                 "/bin/bash /usr/loca…"   10 hours ago        Up 10 hours         0.0.0.0:5601->5601/tcp                                     kibana
-943e60f9b4d0        neo4j:4.0.6                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
-6d79b6f02735        confluentinc/cp-zookeeper:5.2.1                       "/etc/confluent/dock…"   10 hours ago        Up 10 hours         2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
-491d9f2b2e9e        docker.elastic.co/elasticsearch/elasticsearch:5.6.8   "/bin/bash bin/es-do…"   10 hours ago        Up 10 hours         0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
-ce14b9758eb3        mysql:8.2
-```
+| Service (hostname)        | Image                            | Published host ports |
+| ------------------------- | -------------------------------- | -------------------- |
+| `datahub-gms`             | `acryldata/datahub-gms`          | 8080, 4319           |
+| `datahub-frontend-react`  | `acryldata/datahub-frontend-react` | 9002               |
+| `broker`                  | `confluentinc/cp-kafka`          | 9092                 |
+| `mysql`                   | `mysql`                          | 3306                 |
+| `search`                  | `opensearchproject/opensearch`   | 9200                 |
+| `actions`                 | `acryldata/datahub-actions`      | none                 |
+
+`datahub-system-update` is expected to be **missing** from that list. It is a one-shot job that
+`datahub-gms` and `datahub-frontend-react` wait on with `service_completed_successfully`, so it
+runs to completion and exits before the stack finishes coming up. An exited
+`datahub-system-update` is normal; one that exited non-zero is not, and its logs will say why.
+
+Older versions of this page listed ZooKeeper, a standalone Schema Registry, Kibana, Neo4j,
+Elasticsearch and separate `datahub-mae-consumer` / `datahub-mce-consumer` containers. The
+current quickstart profile starts none of those, so their absence is not a sign of a broken
+deployment.
 
 Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you should see a log similar to this at the end of the initialization:
 
