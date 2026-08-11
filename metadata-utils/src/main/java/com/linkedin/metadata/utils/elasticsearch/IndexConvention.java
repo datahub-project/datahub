@@ -16,9 +16,9 @@ import javax.annotation.Nonnull;
  * <p>Every method that produces or parses an index name takes an {@link OperationFingerprint}: the
  * index-name prefix is resolved per operation via an {@link IndexPrefixResolver}, so a single
  * convention instance serves every operation. In OSS the prefix is a static deploy-wide value; an
- * extension module may resolve it per operation (e.g. per-namespace index isolation) without callers
- * knowing how. {@code OperationContext} implements {@link OperationFingerprint}, so callers holding
- * a full context pass it straight through; bootstrap / test paths pass {@link
+ * extension module may resolve it per operation (e.g. per-namespace index isolation) without
+ * callers knowing how. {@code OperationContext} implements {@link OperationFingerprint}, so callers
+ * holding a full context pass it straight through; bootstrap / test paths pass {@link
  * OperationFingerprint#EMPTY}.
  */
 public interface IndexConvention {
