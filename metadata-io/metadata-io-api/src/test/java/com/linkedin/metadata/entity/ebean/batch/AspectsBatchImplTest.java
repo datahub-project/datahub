@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +41,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -337,7 +340,8 @@ public class AspectsBatchImplTest {
   }
 
   @Test
-  public void singleInvalidDoesntBreakBatch() {
+  public void singleInvalidDoesntBreakBatchOnConsumerPath() {
+    // Null RequestContext (consumer/system): soft-skip invalid MCP, keep valids (#11187).
     MetadataChangeProposal proposal1 =
         new DatasetPropertiesPatchBuilder()
             .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
@@ -373,6 +377,100 @@ public class AspectsBatchImplTest {
             .size(),
         1,
         "Expected 1 valid mcp to be passed through.");
+  }
+
+  @Test
+  public void allInvalidConsumerYieldsEmptyBatch() {
+    MetadataChangeProposal invalidProposal =
+        new MetadataChangeProposal()
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
+            .setChangeType(ChangeType.UPSERT);
+
+    AspectsBatchImpl testBatch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                ImmutableList.of(invalidProposal),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .retrieverContext(retrieverContext)
+            .build(null);
+
+    assertTrue(testBatch.getItems().isEmpty());
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void invalidProposalFailsBatchOnApiPath() {
+    // Missing entityUrn and entity key — API RequestContext must fail hard (#19086).
+    MetadataChangeProposal invalidProposal =
+        new MetadataChangeProposal()
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
+            .setChangeType(ChangeType.UPSERT);
+
+    AspectsBatchImpl.builder()
+        .mcps(
+            ImmutableList.of(invalidProposal),
+            AuditStampUtils.createDefaultAuditStamp(),
+            retrieverContext)
+        .retrieverContext(retrieverContext)
+        .build(apiOperationContext());
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void invalidUrnFailsBatchOnApiPath() {
+    // URN with trailing whitespace always fails validation (independent of STRICT mode).
+    MetadataChangeProposal invalidUrnProposal =
+        new MetadataChangeProposal()
+            .setEntityUrn(
+                UrnUtils.getUrn(
+                    "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD) "))
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(STATUS_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+            .setChangeType(ChangeType.UPSERT);
+
+    AspectsBatchImpl.builder()
+        .mcps(
+            ImmutableList.of(invalidUrnProposal),
+            AuditStampUtils.createDefaultAuditStamp(),
+            retrieverContext)
+        .retrieverContext(retrieverContext)
+        .build(apiOperationContext());
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void oneInvalidProposalFailsEntireBatchOnApiPath() {
+    MetadataChangeProposal validProposal =
+        new DatasetPropertiesPatchBuilder()
+            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
+            .setDescription("something")
+            .setName("name")
+            .addCustomProperty("prop1", "propVal1")
+            .addCustomProperty("prop2", "propVal2")
+            .build();
+    MetadataChangeProposal invalidProposal =
+        new MetadataChangeProposal()
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
+            .setChangeType(ChangeType.UPSERT);
+
+    AspectsBatchImpl.builder()
+        .mcps(
+            ImmutableList.of(validProposal, invalidProposal),
+            AuditStampUtils.createDefaultAuditStamp(),
+            retrieverContext)
+        .retrieverContext(retrieverContext)
+        .build(apiOperationContext());
+  }
+
+  private static OperationContext apiOperationContext() {
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getRequestContext()).thenReturn(mock(RequestContext.class));
+    return opContext;
   }
 
   /** Converts unsupported to status aspect */

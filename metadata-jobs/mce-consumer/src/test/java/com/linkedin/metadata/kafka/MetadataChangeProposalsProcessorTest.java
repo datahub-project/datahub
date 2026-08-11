@@ -225,27 +225,14 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
-    when(mockEntityService.ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false)))
-        .thenThrow(
-            new IllegalArgumentException("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
 
-    // Execute test
+    // Execute test — consumer path (no RequestContext) soft-skips construction failures (#11187).
     processor.consume(mockConsumerRecord);
 
-    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
-    verify(mockKafkaProducer)
-        .produceFailedMetadataChangeProposal(
-            eq(opContext), eq(List.of(mcp)), exceptionCaptor.capture());
-
-    // Verify kafkaProducer was called to produce the failed MCP
-    verify(mockKafkaProducer, times(1))
-        .produceFailedMetadataChangeProposal(eq(opContext), eq(List.of(mcp)), any(Throwable.class));
-
-    // Verify error handling
-    Throwable validationException = exceptionCaptor.getValue();
-    verify(mockSpan).recordException(validationException);
-    verify(mockSpan)
-        .setStatus(StatusCode.ERROR, "ERROR :: /origin :: \"INVALID\" is not an enum symbol");
+    // Soft-skip: no FMCP, ingest proceeds with an empty/no-op batch.
+    verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
+    verify(mockEntityService, times(1))
+        .ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false));
   }
 
   @Test
