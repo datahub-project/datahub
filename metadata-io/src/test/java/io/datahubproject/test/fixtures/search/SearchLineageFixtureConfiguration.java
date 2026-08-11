@@ -7,7 +7,6 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static org.mockito.Mockito.*;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -149,8 +148,7 @@ public abstract class SearchLineageFixtureConfiguration {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,

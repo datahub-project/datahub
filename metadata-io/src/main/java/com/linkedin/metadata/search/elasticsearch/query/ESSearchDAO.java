@@ -569,7 +569,10 @@ public class ESSearchDAO {
                 field,
                 transformFilterForEntities(opContext, requestParams, indexConvention),
                 limit);
-    if (entityNames == null) {
+    // An empty list must fall through to the operation-scoped patterns, not to the else branch:
+    // an empty indices array makes Elasticsearch search ALL indices, letting aggregates span
+    // prefixes. Mirror the null handling of the entitySpec branch above.
+    if (entityNames == null || entityNames.isEmpty()) {
       List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns(opContext);
       searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {

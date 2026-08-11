@@ -141,4 +141,27 @@ public interface IndexConvention {
    * @return true if the index name is a semantic entity index
    */
   boolean isSemanticEntityIndex(@Nonnull OperationFingerprint operation, @Nonnull String indexName);
+
+  // Prefix-INDEPENDENT type checks for an already-resolved index name — is it a V2 / V3 / semantic
+  // entity index, regardless of any deployment or per-operation (e.g. per-namespace) prefix? Use
+  // these in index-build / settings paths that receive a fully-resolved name and only need its
+  // TYPE. The operation-scoped overloads above are for prefix-scoped matching (e.g. orphan cleanup
+  // that must touch only the current operation's indices) and would wrongly reject a name whose
+  // prefix came from a different operation than the caller's.
+
+  /** True if {@code indexName} is a V2 entity index, ignoring any prefix. */
+  default boolean isV2EntityIndexType(@Nonnull String indexName) {
+    return indexName.endsWith("index_v2") && indexName.length() > "index_v2".length();
+  }
+
+  /** True if {@code indexName} is a V3 entity index, ignoring any prefix. */
+  default boolean isV3EntityIndexType(@Nonnull String indexName) {
+    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
+  }
+
+  /** True if {@code indexName} is a V2 semantic entity index, ignoring any prefix. */
+  default boolean isSemanticEntityIndexType(@Nonnull String indexName) {
+    return indexName.endsWith("index_v2_semantic")
+        && indexName.length() > "index_v2_semantic".length();
+  }
 }

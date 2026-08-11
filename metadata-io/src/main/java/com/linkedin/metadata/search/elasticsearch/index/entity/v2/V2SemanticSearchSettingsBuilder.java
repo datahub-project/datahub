@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -8,7 +7,6 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +24,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class V2SemanticSearchSettingsBuilder implements SettingsBuilder {
+  // A semantic index name is the V2 index name plus this suffix (e.g. "…index_v2_semantic").
+  private static final String SEMANTIC_SUFFIX = "_semantic";
+
   private final IndexConvention indexConvention;
   private final SettingsBuilder v2SettingsBuilder;
   private final SearchClientShim<?> searchClientShim;
@@ -65,22 +66,19 @@ public class V2SemanticSearchSettingsBuilder implements SettingsBuilder {
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
 
-    // Only apply k-NN settings to semantic search indices
-    // No OperationContext is available in this SettingsBuilder bootstrap path; the index
-    // naming convention resolves to the deploy-wide prefix regardless of caller context.
-    if (!indexConvention.isSemanticEntityIndex(OperationFingerprint.EMPTY, indexName)) {
+    // Only apply k-NN settings to semantic search indices. Prefix-INDEPENDENT type check: the index
+    // name is already fully resolved (may carry a per-operation prefix); this bootstrap path only
+    // needs its type, not a prefix-scoped match.
+    if (!indexConvention.isSemanticEntityIndexType(indexName)) {
       log.debug("Index '{}' is not a semantic index, returning empty settings", indexName);
       return Map.of();
     }
 
-    Optional<String> entityName =
-        indexConvention.getEntityNameSemantic(OperationFingerprint.EMPTY, indexName);
-    if (entityName.isEmpty()) {
-      return Map.of();
-    }
-
-    String v2IndexName =
-        indexConvention.getEntityIndexName(OperationFingerprint.EMPTY, entityName.get());
+    // A semantic index name is its V2 index name plus the "_semantic" suffix; strip that to reuse
+    // the V2 settings verbatim (they are prefix-independent) and layer k-NN on top. Deriving the V2
+    // name from the already-resolved semantic name avoids re-resolving a prefix that could differ
+    // from this index's.
+    String v2IndexName = indexName.substring(0, indexName.length() - SEMANTIC_SUFFIX.length());
     Map<String, Object> settings =
         new HashMap<>(v2SettingsBuilder.getSettings(indexConfiguration, v2IndexName));
 

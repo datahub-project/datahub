@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -76,7 +77,12 @@ public class IndexConventionImpl implements IndexConvention {
   /** The prefix for {@code operation}, empty string meaning "no prefix". */
   private String prefix(@Nonnull OperationFingerprint operation) {
     String resolved = prefixResolver.resolvePrefix(operation);
-    return StringUtils.isEmpty(resolved) ? "" : resolved;
+    // Canonicalize to lower case (Locale.ROOT) so index names, cleanup/search patterns, and inverse
+    // parsing all agree: index names are lower-cased at creation, so the prefix must be too.
+    // Without
+    // this, a resolver returning "Acme" would build "acme_datasetindex_v2" but produce "Acme_*"
+    // patterns and expect an "Acme_" prefix when parsing.
+    return StringUtils.isEmpty(resolved) ? "" : resolved.toLowerCase(Locale.ROOT);
   }
 
   /** The prefix token spliced ahead of a base name, e.g. {@code "prod_"} or {@code ""}. */
@@ -111,10 +117,6 @@ public class IndexConventionImpl implements IndexConvention {
   @Override
   public String getIdHashAlgo() {
     return indexConventionConfig.getHashIdAlgo();
-  }
-
-  private String createIndexName(@Nonnull OperationFingerprint operation, String baseName) {
-    return (prefixToken(operation) + baseName).toLowerCase();
   }
 
   private Optional<String> extractIndexBase(
@@ -166,8 +168,13 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(@Nonnull OperationFingerprint operation, String baseIndexName) {
+    // Resolve the prefix ONCE, then derive both the cache key and the cached value from the same
+    // token — otherwise a pluggable resolver observing a routing refresh between the two calls
+    // could
+    // cache a value under a mismatched key and target the wrong index until LRU eviction.
+    final String prefixToken = prefixToken(operation);
     return indexNameMapping.computeIfAbsent(
-        prefixToken(operation) + baseIndexName, key -> createIndexName(operation, baseIndexName));
+        prefixToken + baseIndexName, key -> (prefixToken + baseIndexName).toLowerCase(Locale.ROOT));
   }
 
   @Nonnull

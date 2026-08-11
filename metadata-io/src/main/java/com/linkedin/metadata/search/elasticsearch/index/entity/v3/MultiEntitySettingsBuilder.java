@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
@@ -49,10 +48,10 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
   @Override
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
-    // For v3, only apply settings to indices that match the v3 entity naming pattern.
-    // No OperationContext is available in this SettingsBuilder bootstrap path; the index
-    // naming convention resolves to the deploy-wide prefix regardless of caller context.
-    if (!indexConvention.isV3EntityIndex(OperationFingerprint.EMPTY, indexName)) {
+    // For v3, only apply settings to indices that match the v3 entity naming pattern. Prefix-
+    // INDEPENDENT type check: the index name is already fully resolved (may carry a per-operation
+    // prefix); this bootstrap path only needs its type, not a prefix-scoped match.
+    if (!indexConvention.isV3EntityIndexType(indexName)) {
       // Return empty settings if this is not a v3 entity index
       return new HashMap<>();
     }

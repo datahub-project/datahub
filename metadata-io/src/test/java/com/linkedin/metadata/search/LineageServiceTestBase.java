@@ -16,7 +16,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -152,8 +151,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
-    when(mockIndexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());

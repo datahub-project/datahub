@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Map;
@@ -23,8 +22,7 @@ public class V2LegacySettingsBuilderTest {
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
     // Test v2 entity index - should return settings
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), eq("datasetindex_v2")))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "datasetindex_v2");
 
     // Should have basic settings
@@ -55,29 +53,25 @@ public class V2LegacySettingsBuilderTest {
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
     // Test v2 entity index - should return settings
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), eq("datasetindex_v2")))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
     Map<String, Object> v2Settings = builder.getSettings(indexConfiguration, "datasetindex_v2");
     assertFalse(v2Settings.isEmpty(), "Should return settings for v2 entity index");
 
     // Test v3 entity index - should return empty settings
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), eq("datasetindex_v3")))
-        .thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("datasetindex_v3"))).thenReturn(false);
     Map<String, Object> v3Settings = builder.getSettings(indexConfiguration, "datasetindex_v3");
     assertTrue(v3Settings.isEmpty(), "Should return empty settings for v3 entity index");
 
     // Test non-entity index - should return empty settings
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), eq("timeseriesindex_v1")))
-        .thenReturn(false);
+    when(indexConvention.isV2EntityIndexType(eq("timeseriesindex_v1"))).thenReturn(false);
     Map<String, Object> timeseriesSettings =
         builder.getSettings(indexConfiguration, "timeseriesindex_v1");
     assertTrue(timeseriesSettings.isEmpty(), "Should return empty settings for non-entity index");
 
     // Verify that isV2EntityIndex was called for each index
-    verify(indexConvention).isV2EntityIndex(any(OperationFingerprint.class), eq("datasetindex_v2"));
-    verify(indexConvention).isV2EntityIndex(any(OperationFingerprint.class), eq("datasetindex_v3"));
-    verify(indexConvention)
-        .isV2EntityIndex(any(OperationFingerprint.class), eq("timeseriesindex_v1"));
+    verify(indexConvention).isV2EntityIndexType(eq("datasetindex_v2"));
+    verify(indexConvention).isV2EntityIndexType(eq("datasetindex_v3"));
+    verify(indexConvention).isV2EntityIndexType(eq("timeseriesindex_v1"));
   }
 
   @Test
@@ -89,8 +83,7 @@ public class V2LegacySettingsBuilderTest {
     // This should not compile with the new constructor, but let's test the old behavior
     // by creating a mock that always returns true
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
 
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
@@ -112,8 +105,7 @@ public class V2LegacySettingsBuilderTest {
             .build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
@@ -143,8 +135,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build(); // Set required default value
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
@@ -228,8 +219,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build(); // Set required default value
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
@@ -262,8 +252,7 @@ public class V2LegacySettingsBuilderTest {
     // Don't set any specific values, use defaults
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
@@ -280,8 +269,7 @@ public class V2LegacySettingsBuilderTest {
         IndexConfiguration.builder().minSearchFilterLength(3).mainTokenizer(null).build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
@@ -330,8 +318,7 @@ public class V2LegacySettingsBuilderTest {
         IndexConfiguration.builder().minSearchFilterLength(3).mainTokenizer("").build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");

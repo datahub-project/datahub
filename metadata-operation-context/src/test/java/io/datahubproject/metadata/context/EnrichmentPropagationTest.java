@@ -35,6 +35,17 @@ public class EnrichmentPropagationTest {
    */
   private record OtherSampleEnrichment(String name) implements Enrichment {}
 
+  /**
+   * Forces a hashCode collision (constant 42) so two distinct values share a Java hash — used to
+   * prove the context cache id discriminates by content, not by the collision-prone hashCode.
+   */
+  private record ConstantHashEnrichment(String value) implements Enrichment {
+    @Override
+    public int hashCode() {
+      return 42;
+    }
+  }
+
   @Test
   public void enrichmentsFlowFromRequestAttributeToSessionOpContext() {
     // Arrange: system context + request bearing enrichments on the standard attribute.
@@ -237,6 +248,24 @@ public class EnrichmentPropagationTest {
     assertEquals(first.getSearchContextId(), second.getSearchContextId());
     assertEquals(first.getEntityContextId(), second.getEntityContextId());
     assertEquals(first.getGlobalContextId(), second.getGlobalContextId());
+  }
+
+  @Test
+  public void hashCollidingEnrichmentsStillYieldDistinctCacheIds() {
+    // Two enrichments with equal hashCodes but different values. A hashCode-based discriminator
+    // would collapse them onto one cache id (serving one identity's data to the other); the stable
+    // content token must keep them distinct.
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    ConstantHashEnrichment x = new ConstantHashEnrichment("x");
+    ConstantHashEnrichment y = new ConstantHashEnrichment("y");
+    assertEquals(x.hashCode(), y.hashCode(), "test premise: hashCodes must collide");
+
+    OperationContext cx = base.withEnrichment(x);
+    OperationContext cy = base.withEnrichment(y);
+
+    assertNotEquals(cx.getSearchContextId(), cy.getSearchContextId());
+    assertNotEquals(cx.getEntityContextId(), cy.getEntityContextId());
+    assertNotEquals(cx.getGlobalContextId(), cy.getGlobalContextId());
   }
 
   @Test

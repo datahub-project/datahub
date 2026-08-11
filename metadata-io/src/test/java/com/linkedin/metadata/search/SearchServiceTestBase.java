@@ -7,13 +7,11 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.SearchTestUtils.getTestOsSearchConfigWithPit;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -128,8 +126,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
-    when(mockIndexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService(getSearchConfiguration());
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());

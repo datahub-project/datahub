@@ -580,7 +580,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public String getGlobalContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
+            ImmutableSet.<ContextInterface>builder()
                 .add(getOperationContextConfig())
                 .add(getAuthorizationContext())
                 .add(getSessionActorContext())
@@ -605,14 +605,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 .map(ContextInterface::getCacheKeyComponent)
                 .filter(Optional::isPresent)
                 .mapToInt(Optional::get)
-                .sum()
-            + enrichmentCacheKeyComponent());
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to contexts which impact search responses
   public String getSearchContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
+            ImmutableSet.<ContextInterface>builder()
                 .add(getOperationContextConfig())
                 .add(getSessionActorContext())
                 .add(getSearchContext())
@@ -630,14 +630,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 .map(ContextInterface::getCacheKeyComponent)
                 .filter(Optional::isPresent)
                 .mapToInt(Optional::get)
-                .sum()
-            + enrichmentCacheKeyComponent());
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to entity lookups (not search)
   public String getEntityContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
+            ImmutableSet.<ContextInterface>builder()
                 .add(getOperationContextConfig())
                 .add(getSessionActorContext())
                 .add(
@@ -654,8 +654,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 .map(ContextInterface::getCacheKeyComponent)
                 .filter(Optional::isPresent)
                 .mapToInt(Optional::get)
-                .sum()
-            + enrichmentCacheKeyComponent());
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   /**
@@ -666,8 +666,12 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    * stamps one — discharging the "fold that discriminator into the OperationContext-level cache
    * key" obligation noted on {@code SearchContext#getCacheKeyComponent}.
    */
-  private int enrichmentCacheKeyComponent() {
-    return getEnrichmentBundle().hashCode();
+  private String enrichmentCacheKeySuffix() {
+    // Collision-resistant string token (not the 32-bit hashCode) so two distinct enrichments can
+    // never share a cache key. Empty bundle -> "", keeping the id byte-identical to a context with
+    // no enrichments.
+    String token = getEnrichmentBundle().stableCacheToken();
+    return token.isEmpty() ? "" : "|" + token;
   }
 
   @Nonnull

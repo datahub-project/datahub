@@ -14,7 +14,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.datahub.context.OperationFingerprint;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.aspect.EntityAspect;
@@ -217,8 +216,7 @@ public class SampleDataFixtureConfiguration {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(any(OperationFingerprint.class), anyString()))
-        .thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder settingsBuilder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
