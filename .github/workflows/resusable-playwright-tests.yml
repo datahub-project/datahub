@@ -51,6 +51,11 @@ on:
         required: false
         type: boolean
         default: false
+      workers_per_shard:
+        description: "Number of Playwright workers per shard. Defaults to 1; values above 1 share the shard's stack and filesystem."
+        required: false
+        type: string
+        default: "1"
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -60,7 +65,7 @@ jobs:
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: playwright-${{ runner.os }}-yarn-
 
       - name: Check out the repo
@@ -72,7 +77,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
+          distribution: "temurin"
           java-version: 21
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
@@ -169,9 +174,12 @@ jobs:
           PLAYWRIGHT_REUSE_SERVER: "1"
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
         run: |
+          echo "Running Playwright shard $SHARD/$SHARD_COUNT at $WORKERS_PER_SHARD worker(s)"
           npx playwright test \
-            --shard="$SHARD/$SHARD_COUNT"
+            --shard="$SHARD/$SHARD_COUNT" \
+            --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -268,4 +276,4 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}

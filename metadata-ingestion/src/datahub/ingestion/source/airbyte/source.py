@@ -281,6 +281,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 for connection in self.client.list_connections(
                     workspace.workspace_id,
                     pattern=self.source_config.connection_pattern,
+                    include_inactive=self.source_config.include_inactive_connections,
                 ):
                     try:
                         if (

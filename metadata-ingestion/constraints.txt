@@ -1371,7 +1371,7 @@ stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
-tableauserverclient==0.25
+tableauserverclient==0.40
     # via acryl-datahub
 tableschema==1.21.0
     # via acryl-datahub
@@ -1538,6 +1538,7 @@ typing-extensions==4.15.0
     #   snowflake-connector-python
     #   sqlalchemy2-stubs
     #   starlette
+    #   tableauserverclient
     #   textual
     #   typeguard
     #   typing-inspect
@@ -1579,7 +1580,7 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
-urllib3==1.26.20
+urllib3==2.7.0
     # via
     #   acryl-datahub
     #   botocore
