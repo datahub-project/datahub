@@ -132,7 +132,11 @@ class UrnAliasCache:
 
 
 class _Lookup(Protocol):
-    """How a reference is matched against the dataset URNs DataHub stores."""
+    """How a reference is matched against the dataset URNs DataHub stores.
+
+    Given a cache, a lookup answers from what it has already learned and `prefetch` fills
+    it a batch at a time. Without one it keeps nothing, so every `matches` queries.
+    """
 
     def add(self, urn: str) -> None:
         """Record `urn` as stored, from a bulk load."""
@@ -141,7 +145,7 @@ class _Lookup(Protocol):
         """Learn what is not already known about `urns`, in one query."""
 
     def matches(self, urn: str) -> List[str]:
-        """Stored URNs matching `urn` ignoring case, from what is already known."""
+        """Stored URNs matching `urn` ignoring case."""
 
     def count(self) -> int:
         """How many stored URNs are recorded."""
@@ -152,11 +156,15 @@ class _AliasIndexLookup:
     including casings nothing could have guessed.
     """
 
-    def __init__(self, graph: Optional["DataHubGraph"]) -> None:
+    def __init__(
+        self, graph: Optional["DataHubGraph"], cache: Optional[UrnAliasCache]
+    ) -> None:
         self._graph = graph
-        self._cache = UrnAliasCache()
+        self._cache = cache
 
     def add(self, urn: str) -> None:
+        if self._cache is None:
+            return
         key = _lowercased_urn(urn)
         if key is not None:
             self._cache.add(key, urn)
@@ -165,22 +173,40 @@ class _AliasIndexLookup:
         key = _lowercased_urn(urn)
         if key is None:
             return []
-        return self._cache.get(key) or []
+        if self._cache is not None:
+            return self._cache.get(key) or []
+        # Nothing held, so this reference pays for its own search.
+        return self._search([key]).get(key, [])
 
     def prefetch(self, urns: List[str]) -> None:
-        graph = self._graph
-        if graph is None:
+        cache = self._cache
+        if cache is None:
+            # Nothing to fill; matches() searches per reference.
             return
-        # One key covers every casing of a name; doubles as the accumulator for the response.
-        matches_by_key: Dict[str, List[str]] = {}
+        # One key covers every casing of a name.
+        seen: Set[str] = set()
+        keys: List[str] = []
         for urn in urns:
             key = _lowercased_urn(urn)
-            if key is not None and self._cache.get(key) is None:
-                matches_by_key[key] = []
-        if not matches_by_key:
+            if key is None or key in seen or cache.get(key) is not None:
+                continue
+            seen.add(key)
+            keys.append(key)
+        if not keys:
             return
 
-        keys = list(matches_by_key)
+        for key, matches in self._search(keys).items():
+            cache.replace(key, matches)
+
+    def _search(self, keys: List[str]) -> Dict[str, List[str]]:
+        """Stored URNs for each of `keys`, from one search, keyed by the key they matched.
+
+        Empty on failure, never a partial answer: a failure recorded as "absent" would
+        decline every later reference to the same entity for the rest of the run.
+        """
+        graph = self._graph
+        if graph is None:
+            return {}
         try:
             stored_urns = list(
                 graph.get_urns_by_filter(
@@ -195,22 +221,20 @@ class _AliasIndexLookup:
                 )
             )
         except Exception as e:
-            # Not recorded: a failure cached as "absent" would decline every later
-            # reference to the same entity for the rest of the run.
             logger.warning(
                 f"URN alias lookup failed for {len(keys)} key(s): {e}", exc_info=True
             )
-            return
+            return {}
 
+        matches_by_key: Dict[str, List[str]] = {key: [] for key in keys}
         for stored_urn in stored_urns:
             key = _lowercased_urn(stored_urn)
             if key in matches_by_key:
                 matches_by_key[key].append(stored_urn)
-        for key, matches in matches_by_key.items():
-            self._cache.replace(key, matches)
+        return matches_by_key
 
     def count(self) -> int:
-        return self._cache.count()
+        return self._cache.count() if self._cache is not None else 0
 
 
 class _CasingProbeLookup:
@@ -221,27 +245,40 @@ class _CasingProbeLookup:
     """
 
     def __init__(
-        self, graph: Optional["DataHubGraph"], platform_instance: Optional[str]
+        self,
+        graph: Optional["DataHubGraph"],
+        platform_instance: Optional[str],
+        cache: Optional[UrnAliasCache],
     ) -> None:
         self._graph = graph
         self._platform_instance = platform_instance
         # Keyed by the exact URN: `[urn]` where it exists, `[]` where it does not.
-        self._cache = UrnAliasCache()
+        self._cache = cache
 
     def add(self, urn: str) -> None:
+        if self._cache is None:
+            return
         # Only proves existence: absence is never recorded, so unknown casings still probe.
         self._cache.add(urn, urn)
 
     def matches(self, urn: str) -> List[str]:
-        return [
-            candidate
-            for candidate in _casing_candidates(urn, self._platform_instance)
-            if self._cache.get(candidate)
-        ]
+        candidates = _casing_candidates(urn, self._platform_instance)
+        cache = self._cache
+        if cache is not None:
+            return [candidate for candidate in candidates if cache.get(candidate)]
+        # Nothing held, so this reference pays for its own probe. A non-dataset URN has no
+        # casing to guess and must not be probed as a dataset, as in prefetch.
+        if _lowercased_urn(urn) is None:
+            return []
+        existing = self._probe(candidates)
+        if existing is None:
+            return []
+        return [candidate for candidate in candidates if candidate in existing]
 
     def prefetch(self, urns: List[str]) -> None:
-        graph = self._graph
-        if graph is None:
+        cache = self._cache
+        if cache is None:
+            # Nothing to fill; matches() probes per reference.
             return
         # Checked per candidate rather than against the whole index, which can be far
         # larger than the batch.
@@ -251,35 +288,46 @@ class _CasingProbeLookup:
             if _lowercased_urn(urn) is None:
                 continue
             for candidate in _casing_candidates(urn, self._platform_instance):
-                if candidate in seen or self._cache.get(candidate) is not None:
+                if candidate in seen or cache.get(candidate) is not None:
                     continue
                 seen.add(candidate)
                 unknown.append(candidate)
         if not unknown:
             return
 
+        existing = self._probe(unknown)
+        if existing is None:
+            return
+        for candidate in unknown:
+            cache.replace(candidate, [candidate] if candidate in existing else [])
+
+    def _probe(self, candidates: List[str]) -> Optional[Set[str]]:
+        """Which of `candidates` exist, or None on failure.
+
+        None rather than an empty set: a failure recorded as "absent" would decline every
+        later reference to the same entity for the rest of the run.
+        """
+        graph = self._graph
+        if graph is None:
+            return None
         try:
             entities = graph.get_entities(
                 entity_name=_DATASET_ENTITY_TYPE,
-                urns=unknown,
+                urns=candidates,
                 aspects=[DatasetKeyClass.ASPECT_NAME],
             )
         except Exception as e:
-            # Not recorded: a failure cached as "absent" would decline every later
-            # reference to the same entity for the rest of the run.
             logger.warning(
-                f"URN casing probe failed for {len(unknown)} URN(s): {e}", exc_info=True
+                f"URN casing probe failed for {len(candidates)} URN(s): {e}",
+                exc_info=True,
             )
-            return
-
+            return None
         # get_entities drops entities with none of the requested aspects, so presence means
         # "exists". Not schemaMetadata: a schemaless dataset is exactly what this must find.
-        existing = set(entities)
-        for candidate in unknown:
-            self._cache.replace(candidate, [candidate] if candidate in existing else [])
+        return set(entities)
 
     def count(self) -> int:
-        return self._cache.count()
+        return self._cache.count() if self._cache is not None else 0
 
 
 class UrnAliasResolver:
@@ -287,33 +335,41 @@ class UrnAliasResolver:
 
     Matching is delegated to the alias index, or to a casing probe when the server has no
     `aliases` aspect; which URN to pick out of either's answer is decided here.
+
+    `cached` keeps what has been learned for the resolver's lifetime, which a bulk load
+    requires — it has nowhere else to put a platform's URNs. Uncached, nothing is retained
+    and every lookup queries: memory for round trips, and nothing at all to resolve with
+    when there is no graph.
     """
 
     def __init__(
         self,
         graph: Optional["DataHubGraph"] = None,
         platform_instance: Optional[str] = None,
+        cached: bool = True,
     ) -> None:
+        cache = UrnAliasCache() if cached else None
         # platform_instance is read only by the casing probe: the alias index keys on the
         # whole name lowercased, instance prefix included.
         self._lookup: _Lookup = (
-            _AliasIndexLookup(graph)
+            _AliasIndexLookup(graph, cache)
             if self._aliases_supported()
-            else _CasingProbeLookup(graph, platform_instance)
+            else _CasingProbeLookup(graph, platform_instance, cache)
         )
 
     def _aliases_supported(self) -> bool:
-        # yet to decide how to handle if feature is supported or not, for now we will assume it is supported
+        # TODO: Detect whether the server computes the `aliases` aspect and fall back to
+        # the casing probe when it does not. Assumed supported until that is decided.
         return True
 
     def add(self, urn: str) -> None:
         self._lookup.add(urn)
 
     def prefetch(self, urns: List[str]) -> None:
-        """Learn what is not already known about `urns`, in one query."""
+        """Learn what is not already known about `urns`, in one query; a no-op uncached."""
         self._lookup.prefetch(urns)
 
-    def find_matches(self, urn: str) -> List[str]:
+    def find_match(self, urn: str) -> List[str]:
         """Stored URNs matching `urn` ignoring case."""
         self._lookup.prefetch([urn])
         return self._lookup.matches(urn)
@@ -323,7 +379,7 @@ class UrnAliasResolver:
 
         `prefer_lowercased` settles a collision between casings on the lowercase-named URN.
         """
-        matches = self.find_matches(urn)
+        matches = self.find_match(urn)
         if len(matches) == 1:
             return matches[0]
         if urn in matches:

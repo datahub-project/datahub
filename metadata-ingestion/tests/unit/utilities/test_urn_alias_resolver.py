@@ -58,14 +58,14 @@ def test_cache_does_not_hand_out_its_stored_list() -> None:
 def test_lookup_matches_a_different_casing() -> None:
     resolver = _loaded(_LOWER)
 
-    assert resolver.find_matches(_UPPER) == [_LOWER]
-    assert resolver.find_matches(_MIXED) == [_LOWER]
+    assert resolver.find_match(_UPPER) == [_LOWER]
+    assert resolver.find_match(_MIXED) == [_LOWER]
 
 
 def test_lookup_returns_the_stored_urn_for_an_exact_match() -> None:
     resolver = _loaded(_MIXED)
 
-    assert resolver.find_matches(_MIXED) == [_MIXED]
+    assert resolver.find_match(_MIXED) == [_MIXED]
 
 
 def test_lookup_returns_every_urn_of_a_case_collision() -> None:
@@ -73,14 +73,14 @@ def test_lookup_returns_every_urn_of_a_case_collision() -> None:
     # see the ambiguity.
     resolver = _loaded(_LOWER, _UPPER)
 
-    assert resolver.find_matches(_MIXED) == [_LOWER, _UPPER]
+    assert resolver.find_match(_MIXED) == [_LOWER, _UPPER]
 
 
 def test_lookup_flattens_unknown_and_absent_to_empty() -> None:
     resolver = _loaded(_LOWER)
 
     # Callers get one "no match" answer and never have to interpret None.
-    assert resolver.find_matches(_OTHER) == []
+    assert resolver.find_match(_OTHER) == []
 
 
 def test_cached_urn_count_is_the_number_of_urns_recorded() -> None:
@@ -223,6 +223,73 @@ def test_without_a_graph_an_unknown_urn_is_simply_unresolved() -> None:
     assert UrnAliasResolver().resolve(_LOWER) is None
 
 
+# --- cacheless resolution ----------------------------------------------------------
+
+
+def _graph_answering_every_call(*matches: str) -> mock.MagicMock:
+    """A graph that answers every search with `matches`, not only the first.
+
+    `_graph` hands back one iterator, which a second search would find exhausted — fine
+    for a cached resolver, which only ever queries once per key.
+    """
+    graph = mock.MagicMock()
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(matches)
+    return graph
+
+
+def test_cacheless_resolves_what_a_cached_resolver_resolves() -> None:
+    graph = _graph(_LOWER)
+
+    assert UrnAliasResolver(graph=graph, cached=False).resolve(_UPPER) == _LOWER
+
+
+def test_cacheless_queries_per_reference_and_retains_nothing() -> None:
+    graph = _graph_answering_every_call(_LOWER)
+    resolver = UrnAliasResolver(graph=graph, cached=False)
+
+    assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.resolve(_UPPER) == _LOWER
+
+    # The point of the mode: nothing is held, so a repeated reference is paid for again.
+    assert graph.get_urns_by_filter.call_count == 2
+    assert resolver.cached_urn_count() == 0
+
+
+def test_cacheless_add_does_not_accumulate() -> None:
+    graph = _graph(_LOWER)
+    resolver = UrnAliasResolver(graph=graph, cached=False)
+
+    resolver.add(_LOWER)
+
+    assert resolver.cached_urn_count() == 0
+    # A bulk load has nowhere to land, so the reference is still resolved by querying.
+    assert resolver.resolve(_UPPER) == _LOWER
+    graph.get_urns_by_filter.assert_called_once()
+
+
+def test_cacheless_prefetch_neither_queries_nor_spares_a_later_lookup() -> None:
+    graph = _graph_answering_every_call(_LOWER)
+    resolver = UrnAliasResolver(graph=graph, cached=False)
+
+    resolver.prefetch([_UPPER])
+    graph.get_urns_by_filter.assert_not_called()
+
+    assert resolver.resolve(_UPPER) == _LOWER
+    assert graph.get_urns_by_filter.call_count == 1
+
+
+def test_cacheless_query_failure_is_simply_unresolved() -> None:
+    graph = mock.MagicMock()
+    graph.get_urns_by_filter.side_effect = Exception("boom")
+
+    assert UrnAliasResolver(graph=graph, cached=False).resolve(_LOWER) is None
+
+
+def test_cacheless_without_a_graph_resolves_nothing() -> None:
+    # Nothing retained and nothing to query: the resolver is inert rather than wrong.
+    assert UrnAliasResolver(cached=False).resolve(_LOWER) is None
+
+
 # --- casing probe, for a server without the aliases aspect -------------------------
 
 
@@ -346,6 +413,31 @@ def test_casing_probe_keeps_the_instance_however_the_reference_spells_it() -> No
             graph=graph, platform_instance=_PLATFORM_INSTANCE.lower()
         )
         assert resolver.resolve(_UPPER) == _INSTANCE_KEPT
+
+
+def test_cacheless_casing_probe_resolves_and_retains_nothing() -> None:
+    graph = _existing(_LOWER)
+
+    with _unsupported():
+        resolver = UrnAliasResolver(graph=graph, cached=False)
+        assert resolver.resolve(_UPPER) == _LOWER
+        assert resolver.resolve(_UPPER) == _LOWER
+
+    assert graph.get_entities.call_count == 2
+    assert resolver.cached_urn_count() == 0
+
+
+def test_cacheless_casing_probe_ignores_a_non_dataset_reference() -> None:
+    graph = _existing()
+
+    with _unsupported():
+        assert (
+            UrnAliasResolver(graph=graph, cached=False).resolve("urn:li:corpuser:alice")
+            is None
+        )
+
+    # There is no dataset casing to guess, so it must not be probed as a dataset.
+    graph.get_entities.assert_not_called()
 
 
 def test_casing_probe_ignores_an_instance_the_reference_does_not_carry() -> None:
