@@ -350,11 +350,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             return []
         fine_grained_lineage: List[FineGrainedLineage] = []
         for column_lineage in lineage.column_lineage:
-            # Skip blank names — they produce invalid schemaField URNs that GMS
-            # rejects, failing the whole ingest batch (including table lineage).
-            source_col = (column_lineage.source_column or "").strip()
-            dest_col = (column_lineage.destination_column or "").strip()
-            if not source_col or not dest_col:
+            # Blank names → invalid schemaField URNs → GMS 422 kills the batch.
+            # Keep raw values for URNs; strip only for the emptiness check.
+            # `or ""`: DB-log reader can pass SQL NULL through as None.
+            source_col = column_lineage.source_column or ""
+            dest_col = column_lineage.destination_column or ""
+            if not source_col.strip() or not dest_col.strip():
+                self.report.num_column_lineage_edges_skipped_blank_name += 1
                 continue
             fine_grained_lineage.append(
                 FineGrainedLineage(

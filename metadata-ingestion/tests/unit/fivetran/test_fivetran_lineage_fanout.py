@@ -299,6 +299,9 @@ def test_no_column_lineage_when_source_urn_unresolved(source):
 
 
 def test_empty_column_names_skipped_from_fine_grained_lineage(source):
+    """Blank Fivetran column names build invalid schemaField URNs that GMS
+    rejects with 422, failing the whole ingest batch (including table lineage).
+    Skip those edges; keep padded names unchanged for URN fidelity."""
     lineage = TableLineage(
         source_table="dbo.orders",
         destination_table="dbo.orders",
@@ -306,6 +309,8 @@ def test_empty_column_names_skipped_from_fine_grained_lineage(source):
             ColumnLineage(source_column="", destination_column=""),
             ColumnLineage(source_column="  ", destination_column="id"),
             ColumnLineage(source_column="id", destination_column=""),
+            ColumnLineage(source_column=None, destination_column="id"),  # type: ignore[arg-type]
+            ColumnLineage(source_column=" id ", destination_column="id"),
             ColumnLineage(source_column="id", destination_column="id"),
             ColumnLineage(source_column="name", destination_column="name"),
         ],
@@ -320,11 +325,14 @@ def test_empty_column_names_skipped_from_fine_grained_lineage(source):
 
     fgls = source._build_fine_grained_lineages(lineage, input_urn, output_urn)
 
-    assert len(fgls) == 2
-    assert fgls[0].upstreams == [f"urn:li:schemaField:({input_urn},id)"]
+    assert source.report.num_column_lineage_edges_skipped_blank_name == 4
+    assert len(fgls) == 3
+    assert fgls[0].upstreams == [f"urn:li:schemaField:({input_urn}, id )"]
     assert fgls[0].downstreams == [f"urn:li:schemaField:({output_urn},id)"]
-    assert fgls[1].upstreams == [f"urn:li:schemaField:({input_urn},name)"]
-    assert fgls[1].downstreams == [f"urn:li:schemaField:({output_urn},name)"]
+    assert fgls[1].upstreams == [f"urn:li:schemaField:({input_urn},id)"]
+    assert fgls[1].downstreams == [f"urn:li:schemaField:({output_urn},id)"]
+    assert fgls[2].upstreams == [f"urn:li:schemaField:({input_urn},name)"]
+    assert fgls[2].downstreams == [f"urn:li:schemaField:({output_urn},name)"]
 
 
 def test_stale_removal_processor_is_wired(source):
