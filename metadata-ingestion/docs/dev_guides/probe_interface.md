@@ -40,35 +40,35 @@ registers. Check with `datahub recipe probe methods --recipe r.yml` before writi
 rest of this section is for a source that is not SQLAlchemy-backed, or one whose verdicts come out
 wrong.
 
-None of these hooks are declared on a base class or a `Protocol`. The framework looks them up by
-name on your config, so you add a method with the right name and signature and it is picked up. The
-names below are the contract, and the failure modes differ: omit `probe_provider_class` and the
-source cleanly reports "no probe methods", but **misspell one of the verdict hooks in the last
-table and nothing happens at all** — the probe silently falls back to its default and reports a
-verdict your ingestion does not make. Assert those against what ingestion computes; do not eyeball
-them.
+The hooks are resolved by name, not declared on a base class, so a method with the right name and
+signature is picked up and a misspelled one is simply never called. That matters differently in the
+two halves below: get the **required** hook wrong and the source reports "no probe methods", which
+you will notice immediately; get a **verdict** hook wrong and the probe silently falls back to a
+default and reports a verdict your ingestion does not make. `test_probe_contract.py` catches a
+misspelled `probe_*` hook for you; it cannot catch a misspelled `default_schemas`.
 
-### Required: two hooks on the config class, one provider class
+### Required: one hook, one provider class
 
 ```python
 class MySourceConfig(ConfigModel):
-    # What `probe methods` describes.
+    # The config's ONLY statement about its provider. `probe methods` describes
+    # this class and `probe run` builds it, so the two cannot disagree.
     @classmethod
     def probe_provider_class(cls) -> type:
         from datahub.ingestion.source.mysource.probe import MyMetadataProbe
 
         return MyMetadataProbe
 
-    # What `probe run` invokes. MUST name the same class as above.
-    def build_probe_provider(self) -> ProbeProvider:
-        from datahub.ingestion.source.mysource.probe import MyMetadataProbe
-
-        return MyMetadataProbe(self.get_client())
-
 
 class MyMetadataProbe:
     def __init__(self, client: MyClient) -> None:
         self._client = client
+
+    # How the framework builds you. Owning construction here is what keeps the
+    # config down to one hook.
+    @classmethod
+    def for_config(cls, config: MySourceConfig) -> "MyMetadataProbe":
+        return cls(config.get_client())
 
     def __enter__(self) -> "MyMetadataProbe":
         return self
@@ -83,7 +83,8 @@ class MyMetadataProbe:
         return self._client.list_tables()[:limit]
 ```
 
-That is a working probe. Everything below is conditional.
+That is a working probe, and for a non-SQL source it is usually the whole of it: Kafka and Mode
+implement exactly this one hook and nothing else in this guide. Everything below is conditional.
 
 ### The provider
 
@@ -117,22 +118,46 @@ connectors, so implement a hook only when the default gives the wrong answer.
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`)                                                              | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field                                                                                  |
 | 2    | decide the string the pattern is matched against — bare name for container kinds, bare name (with a warning) when no parent was given, otherwise ask the config | `probe_match_target(self, ctx: ClassifyContext) -> str`                                                                                                     |
-| 2a   | the SQL family's per-connector escape hatch, consulted by the shim `probe_match_target` routes to                                                               | `probe_filter_target(self, schema: str, entity: str, warn: Callable[[str], None]) -> Optional[str]`                                                         |
 | 3    | apply exclusions the user's pattern does not express, before the pattern                                                                                        | `default_databases()` / `default_schemas()` (classmethods returning `FrozenSet[str]`), `probe_schema_verdict_override(self, schema: str) -> Optional[bool]` |
 | 4    | match the pattern against the target                                                                                                                            | —                                                                                                                                                           |
 
-Step 2 is the one that bites, and step 1 is the one you are most likely to need: declare `Filters`
-whenever your config field follows the source's own vocabulary (`collection_pattern`,
+**Step 1 is the one you are most likely to need**, and for many connectors the only one: declare
+`Filters` whenever your config field follows the source's own vocabulary (`collection_pattern`,
 `object_pattern`) rather than DataHub's subtype name. A connector whose display name **is** its
-filter target — Kafka topics, Mode spaces — needs no hook at all.
+filter target — Kafka topics, Mode spaces — needs nothing here at all.
 
-Copy those signatures exactly. `probe_schema_verdict_override` is invoked as
-`override(schema=name)`, so the parameter name is part of the contract — renaming it to
-`schema_name` raises at probe time, not at import.
+Be aware how narrow the rest is. Step 3 only runs for `Schema` and `Database` kinds, so a source
+with neither (Mode's Space/Report/Query, Kafka's Topic) can never reach it. And step 2's hook has
+exactly one implementor in the tree — `SQLCommonConfig` — because the SQL family is where display
+identity and addressing identity come apart. Implement it if your source filters on a qualified
+identifier; otherwise the default, the bare name, is already right.
+
+Copy the signatures exactly. `probe_schema_verdict_override` is invoked as `override(schema=name)`,
+so the parameter name is part of the contract — renaming it to `schema_name` raises at probe time,
+not at import.
+
+### If your source IS in the SQL family
+
+`probe_filter_target` is not a framework hook and is deliberately absent from the table above:
+nothing in `agent/` reads it. It is the SQL family's own extension point, consulted by the
+`get_identifier` shim in `sql_probe.py` that `SQLCommonConfig.probe_match_target` routes to.
+Override it when your real `Source` is not a `SQLAlchemySource`, so that shim has no
+`get_identifier` to call — `RedshiftConfig` and `UnityCatalogSourceConfig` are the two that do:
+
+```python
+def probe_filter_target(
+    self, schema: str, entity: str, warn: Callable[[str], None]
+) -> Optional[str]:
+    """The exact string ingestion filters table_pattern/view_pattern against,
+    or None to let the shim keep resolving it."""
+```
+
+Call `warn` if you fall back to something less precise than your real ingestion identifier; it
+feeds the same warnings list, deduplicated by message so one connector-wide reason is reported once.
 
 ### Checklist
 
-- [ ] `probe_provider_class()` and `build_probe_provider()` both overridden, on the same class
+- [ ] `probe_provider_class()` on the config, `for_config(config)` on the provider
 - [ ] `@probe_method` on each listing, with `kind=` and `row_limit_param=` where they apply
 - [ ] `sql_dialect` / `api_allowlist` present if any method declares a scoped parameter
 - [ ] `Filters(...)` on any pattern field whose name does not follow the subtype
@@ -280,14 +305,17 @@ listed every space in the workspace twice. One command per listing is what fixed
 `test_a_space_scoped_command_lists_spaces_exactly_once` pins it. Do not add a convenience wrapper
 that revives the fan-out.
 
-### Override `probe_provider_class` and `build_probe_provider` together
+### One hook names the provider, and it used to be two
 
-Two hooks name the provider, and they answer different callers: `probe_provider_class()` is what
-`probe methods` describes, `build_probe_provider()` is what `probe run` invokes. Override one and
-inherit the other and the probe advertises commands that fail at invocation — Snowflake and
-BigQuery each inherited the SQLAlchemy answer for discovery while executing against their own
-client, so both advertised six typed getters their provider does not have, and every one would have
-raised `no probe method bound for command 'columns'`. `test_probe_contract.py` now pins the pairing.
+`probe_provider_class()` is the whole answer: `probe methods` describes that class and `probe run`
+builds it through the provider's own `for_config`. It was two hooks — a `build_probe_provider()` on
+the config as well — and the pair could disagree. For Snowflake and BigQuery it did: both inherited
+the SQLAlchemy answer for discovery while executing against their own client, so each advertised six
+typed getters its provider does not have, every one of which failed at invocation with `no probe
+method bound for command 'columns'` after the recipe had validated and a connection had opened.
+
+Worth knowing because it is the argument against adding a second naming site back for convenience.
+A test can catch two hooks disagreeing; one hook cannot disagree with itself.
 
 **Probe output is metadata only** — names, types, constraints, DDL, counts. Never table rows,
 column values, or message payloads. This one is convention, enforced by review and by the docstring
