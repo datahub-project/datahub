@@ -702,11 +702,11 @@ extend type MLModel {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -718,7 +718,7 @@ extend type MLModel {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult
@@ -734,11 +734,11 @@ extend type MLFeature {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -750,7 +750,7 @@ extend type MLFeature {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult
