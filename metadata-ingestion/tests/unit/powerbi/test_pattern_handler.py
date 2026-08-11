@@ -1060,6 +1060,36 @@ def test_odbc_oracle_default_database_emits_three_part_urn():
     ]
 
 
+def test_odbc_hive_ignores_oracle_default_database():
+    """The server resolver keys only on the server name, so a Hive server that
+    happens to map to an OraclePlatformDetail must NOT gain a database tier —
+    Hive stays two-tier schema.table. _resolve_oracle_default_database is gated
+    on the Oracle platform to guarantee this."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="ORCL")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "analytics"),
+            ("Table", "events"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="hive_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.events,PROD)"
+    ]
+
+
 def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
     """Athena expression_lineage must strip catalog from three-part names
     (same as query_lineage) so URNs match the standalone Athena connector.
@@ -1088,14 +1118,11 @@ def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
 
 
 def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
-    """Athena's Kind=Database node is only the strippable catalog; without a
-    schema (Athena's real database) the connector must not emit catalog.table —
-    that leading catalog would masquerade as the database and point at the wrong
-    dataset. A one-part dsn mapping fills the catalog slot, not the schema, so it
-    cannot rescue this either: warn and skip instead."""
-    instance = _build_odbc_lineage(
-        dsn_to_database_schema={"athena_dsn": "mydb"},
-    )
+    """Athena's Kind=Database node is only the strippable catalog; with no schema
+    (Athena's real database) and no dsn_to_database_schema mapping to supply one,
+    the connector must not emit catalog.table — that leading catalog would
+    masquerade as the database and point at the wrong dataset. Warn and skip."""
+    instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
         data_access_function_name="Odbc.DataSource",
@@ -1119,6 +1146,65 @@ def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
         w.title == "Can not determine qualified table name"
         for w in instance.reporter.warnings
     )
+
+
+def test_odbc_athena_nav_catalog_one_part_dsn_backfills_database():
+    """When Athena navigation exposes a Kind=Database catalog + Table but no
+    schema, a one-part dsn_to_database_schema value supplies the missing database
+    (schema slot). The nav catalog is stripped, so the URN is database.table —
+    matching the SQL path, which also builds database.table from a one-part DSN."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_schema_table_without_catalog_emits_database_table():
+    """Athena navigation exposing Schema + Table but no catalog already carries
+    Athena's real database in the schema slot, so a valid database.table URN must
+    be emitted rather than dropped."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "mydb"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
 
 
 def test_odbc_athena_table_only_one_part_dsn_emits_database_table():

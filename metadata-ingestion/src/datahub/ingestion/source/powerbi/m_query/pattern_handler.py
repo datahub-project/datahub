@@ -1600,6 +1600,7 @@ ODBC_THREE_TIER_PLATFORMS = {
 }
 
 ATHENA_PLATFORM = SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+ORACLE_PLATFORM = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
 
 # Platforms that backfill a missing schema tier from dsn_to_database_schema:
 # three-tier platforms need the middle tier, and Athena needs its real database
@@ -1899,7 +1900,9 @@ class OdbcLineage(AbstractLineage):
         """Oracle over ODBC opts into 3-part database.schema.table URNs only when
         default_database is configured under server_to_platform_instance (i.e. the
         Oracle ingestion runs add_database_name_to_urn=true); otherwise it stays
-        2-part. Resolve against the federated platform_pair, not the ODBC pair."""
+        2-part."""
+        if platform_pair.datahub_data_platform_name != ORACLE_PLATFORM:
+            return None
         platform_detail = self.platform_instance_resolver.get_platform_instance(
             PowerBIPlatformDetail(
                 data_platform_pair=platform_pair,
@@ -1937,9 +1940,10 @@ class OdbcLineage(AbstractLineage):
             skips rather than emitting a truncated database.table.
           - Athena: navigation is catalog.database.table, later stripped to
             database.table by the caller, so its database occupies the schema slot.
-            The Kind=Database node is only the strippable catalog, so a nav-supplied
-            catalog with no schema skips rather than emitting catalog.table; a
-            config-supplied database (one-part DSN) still yields database.table.
+            The database is resolved from navigation Schema, the DSN schema segment,
+            or a one-part DSN database (matching the SQL path); the Kind=Database
+            node is only the strippable catalog and can never stand in for it, so a
+            missing database skips rather than emitting catalog.table.
           - everything else (MySQL/Teradata/ClickHouse/...): database.table, and the
             schema tier is never backfilled to avoid splicing a spurious middle level.
         """
@@ -1964,12 +1968,11 @@ class OdbcLineage(AbstractLineage):
         # Three-tier platforms must not fall back to a truncated database.table.
         if data_platform in ODBC_THREE_TIER_PLATFORMS:
             return None
-        # Athena's Kind=Database node is the strippable catalog, not its database,
-        # so a nav-supplied catalog without a schema would emit catalog.table (a
-        # wrong-dataset edge) — skip. A config-only database (one-part DSN, i.e.
-        # database_name is None) is the user's Athena database, so still emit it.
-        if data_platform == ATHENA_PLATFORM and database_name is not None:
-            return None
+        if data_platform == ATHENA_PLATFORM:
+            athena_database = schema_name or config_schema or config_database
+            if athena_database is None:
+                return None
+            return f"{athena_database}.{table_name}"
         if database is not None:
             return f"{database}.{table_name}"
         return None
@@ -2032,7 +2035,7 @@ class OdbcLineage(AbstractLineage):
                 self.reporter.warning(
                     title="Cannot build two-tier ODBC table name",
                     message="Two-tier ODBC navigation had no schema level; skipping lineage.",
-                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, dsn={dsn}, database={database_name}, table={table_name}",
                 )
             else:
                 self.reporter.warning(
