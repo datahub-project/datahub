@@ -121,6 +121,17 @@ export class SearchPage extends BasePage {
     await this.page.getByText(resultName).first().click();
   }
 
+  /**
+   * Click a specific search result row by URN. Unlike clickResult(), this is safe when
+   * other seeded entities share substrings of the display name — e.g. under CI global
+   * seeding, every feature's fixture data is present simultaneously, so a generic text
+   * match risks landing on an unrelated result. See EntitySearchResults.tsx's
+   * `search-result-row-${urn}` data-testid.
+   */
+  async clickResultByUrn(urn: string): Promise<void> {
+    await this.page.getByTestId(`search-result-row-${urn}`).first().click();
+  }
+
   async clickAdvanced(): Promise<void> {
     await this.advancedButton.click();
   }

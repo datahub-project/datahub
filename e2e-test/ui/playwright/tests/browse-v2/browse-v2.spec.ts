@@ -49,6 +49,10 @@ const CONTAINER_URNS = {
   SCHEMA: 'urn:li:container:playwright_browse_entity_schema_container',
 };
 
+const DATASET_URNS = {
+  CUSTOMERS: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,PlaywrightBrowseEntity.test_schema.customers,PROD)',
+};
+
 const SEARCH_QUERIES = {
   WILDCARD: '*',
   ENTITY_TYPE: 'dataset',
@@ -284,7 +288,10 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     logger?.step('click on customers dataset to open profile');
-    await searchPage.clickResult(SEARCH_QUERIES.CUSTOMERS);
+    // Match by URN, not clickResult()'s generic text search: under CI global seeding,
+    // other features' fixtures also reference "customers"/"bigquery", so a substring
+    // + .first() match can land on the wrong search result.
+    await searchPage.clickResultByUrn(DATASET_URNS.CUSTOMERS);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     logger?.step('verify dataset profile page is loaded');
