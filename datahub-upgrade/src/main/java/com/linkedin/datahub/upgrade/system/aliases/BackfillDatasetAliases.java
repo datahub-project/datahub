@@ -43,8 +43,6 @@ public class BackfillDatasetAliases implements NonBlockingSystemUpgrade {
 
   @Override
   public String id() {
-    // short, stable id so operators can run this standalone:
-    //   datahub-upgrade -u SystemUpdateNonBlocking -n BackfillDatasetAliases
     return "BackfillDatasetAliases";
   }
 
