@@ -1,6 +1,11 @@
 import { STRUCTURED_PROPERTY_FILTER_PREFIX } from '@app/entityV2/view/builder/constants';
-import { structuredPropertyToViewProperty } from '@app/entityV2/view/builder/useViewBuilderProperties';
+import {
+    buildViewBuilderProperties,
+    structuredPropertyToViewProperty,
+} from '@app/entityV2/view/builder/useViewBuilderProperties';
+import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/sharedV2/queryBuilder/builder/property/constants';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
 import { EntityType, StructuredPropertyEntity } from '@types';
@@ -76,5 +81,28 @@ describe('structuredPropertyToViewProperty', () => {
     it('skips properties without a qualified name', () => {
         expect(structuredPropertyToViewProperty(makeEntity({ displayName: 'No Name' }))).toBeUndefined();
         expect(structuredPropertyToViewProperty(makeEntity(undefined))).toBeUndefined();
+    });
+});
+
+describe('buildViewBuilderProperties', () => {
+    it('nests structured properties under a single Structured Property group', () => {
+        const result = buildViewBuilderProperties([
+            makeEntity({ qualifiedName: 'io.acryl.tier', valueType: { urn: STRING_TYPE_URN } }),
+            makeEntity({ qualifiedName: 'io.acryl.retentionDays', valueType: { urn: NUMBER_TYPE_URN } }),
+        ]);
+
+        expect(result).toHaveLength(viewBuilderProperties.length + 1);
+        const group = result[result.length - 1];
+        expect(group.id).toBe(STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID);
+        expect(group.displayName).toBe('Structured Property');
+        expect(group.children).toHaveLength(2);
+        expect(group.children?.map((child) => child.id)).toEqual([
+            `${STRUCTURED_PROPERTY_FILTER_PREFIX}io.acryl.tier`,
+            `${STRUCTURED_PROPERTY_FILTER_PREFIX}io.acryl.retentionDays`,
+        ]);
+    });
+
+    it('returns only the static properties when there are no structured properties', () => {
+        expect(buildViewBuilderProperties([])).toBe(viewBuilderProperties);
     });
 });

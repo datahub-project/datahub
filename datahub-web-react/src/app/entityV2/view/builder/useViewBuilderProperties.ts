@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { STRUCTURED_PROPERTY_FILTER_PREFIX } from '@app/entityV2/view/builder/constants';
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { DATE_TYPE_URN, NUMBER_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/sharedV2/queryBuilder/builder/property/constants';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { SelectInputMode, SelectOption, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
@@ -10,6 +11,7 @@ import { useSearchStructuredPropertiesQuery } from '@graphql/structuredPropertie
 import { EntityType, StructuredPropertyEntity } from '@types';
 
 const STRUCTURED_PROPERTY_FETCH_COUNT = 1000;
+const STRUCTURED_PROPERTY_GROUP_NAME = 'Structured Property';
 
 function toAllowedValueOptions(entity: StructuredPropertyEntity): SelectOption[] {
     const allowedValues = entity.definition?.allowedValues ?? [];
@@ -73,6 +75,26 @@ export function structuredPropertyToViewProperty(entity: StructuredPropertyEntit
     return { id, displayName, description: description || undefined, valueType: ValueTypeId.STRING };
 }
 
+// Nests the structured properties under one parent entry so the user picks
+// "Structured Property" first and then the specific property, rather than
+// scrolling a flat list of every definition alongside the static fields.
+export function buildViewBuilderProperties(entities: StructuredPropertyEntity[]): Property[] {
+    const structuredPropertyProperties = entities
+        .map(structuredPropertyToViewProperty)
+        .filter((property): property is Property => !!property);
+
+    if (structuredPropertyProperties.length === 0) {
+        return viewBuilderProperties;
+    }
+
+    const structuredPropertyGroup: Property = {
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: STRUCTURED_PROPERTY_GROUP_NAME,
+        children: structuredPropertyProperties,
+    };
+    return [...viewBuilderProperties, structuredPropertyGroup];
+}
+
 export function useViewBuilderProperties(): Property[] {
     const { data } = useSearchStructuredPropertiesQuery({
         variables: { query: '*', start: 0, count: STRUCTURED_PROPERTY_FETCH_COUNT },
@@ -80,10 +102,9 @@ export function useViewBuilderProperties(): Property[] {
     });
 
     return useMemo(() => {
-        const results = data?.searchAcrossEntities?.searchResults ?? [];
-        const structuredPropertyProperties = (results.map((result) => result.entity) as StructuredPropertyEntity[])
-            .map(structuredPropertyToViewProperty)
-            .filter((property): property is Property => !!property);
-        return [...viewBuilderProperties, ...structuredPropertyProperties];
+        const entities = (data?.searchAcrossEntities?.searchResults ?? []).map(
+            (result) => result.entity,
+        ) as StructuredPropertyEntity[];
+        return buildViewBuilderProperties(entities);
     }, [data]);
 }
