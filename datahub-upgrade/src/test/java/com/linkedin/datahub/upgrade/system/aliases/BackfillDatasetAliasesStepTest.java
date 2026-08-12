@@ -142,6 +142,16 @@ public class BackfillDatasetAliasesStepTest {
         item.getMetadataChangeProposal().getAspect().getValue().asString(StandardCharsets.UTF_8));
   }
 
+  /** The result map written with `state`, which carries the run counters and the resume cursor. */
+  private Map<String, String> capturedResult(DataHubUpgradeState state) {
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(mockUpgrade)
+        .setUpgradeResult(
+            any(OperationContext.class), any(Urn.class), any(), eq(state), captor.capture());
+    return captor.getValue();
+  }
+
   private Filter capturedFilter() {
     ArgumentCaptor<Filter> captor = ArgumentCaptor.forClass(Filter.class);
     verify(mockSearchService)
@@ -243,18 +253,10 @@ public class BackfillDatasetAliasesStepTest {
     buildStep(false).executable().apply(mockContext);
 
     capturedProposals(2);
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-    verify(mockUpgrade)
-        .setUpgradeResult(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(),
-            eq(DataHubUpgradeState.SUCCEEDED),
-            captor.capture());
     // the marker carries the run counts so they outlive the job and can be alerted on
-    assertEquals(captor.getValue().get("emitted"), "2");
-    assertEquals(captor.getValue().get("unparseable"), "0");
+    Map<String, String> result = capturedResult(DataHubUpgradeState.SUCCEEDED);
+    assertEquals(result.get("emitted"), "2");
+    assertEquals(result.get("unparseable"), "0");
   }
 
   @Test
@@ -299,6 +301,8 @@ public class BackfillDatasetAliasesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
+    // the counter is the only signal that bad data was stepped over
+    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("unparseable"), "1");
   }
 
   @Test
@@ -309,17 +313,7 @@ public class BackfillDatasetAliasesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
-
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-    verify(mockUpgrade)
-        .setUpgradeResult(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(),
-            eq(DataHubUpgradeState.SUCCEEDED),
-            captor.capture());
-    assertEquals(captor.getValue().get("alreadyLowercased"), "1");
+    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("alreadyLowercased"), "1");
   }
 
   @Test
@@ -373,15 +367,7 @@ public class BackfillDatasetAliasesStepTest {
 
     buildStep(false).executable().apply(mockContext);
 
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-    verify(mockUpgrade)
-        .setUpgradeResult(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(),
-            eq(DataHubUpgradeState.IN_PROGRESS),
-            captor.capture());
-    assertEquals(captor.getValue().get("lastUrn"), URN_ALREADY_LOWERCASED);
+    assertEquals(
+        capturedResult(DataHubUpgradeState.IN_PROGRESS).get("lastUrn"), URN_ALREADY_LOWERCASED);
   }
 }
