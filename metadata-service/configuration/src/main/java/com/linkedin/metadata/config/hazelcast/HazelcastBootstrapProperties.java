@@ -29,6 +29,13 @@ public final class HazelcastBootstrapProperties {
   public static final String OPTIMISTIC_LOCKING_ENABLED = "ebean.optimisticLockingEnabled";
 
   /**
+   * Entity service implementation ({@code entityService.impl}), {@code ebean} (default when
+   * missing) or {@code cassandra}. Only Ebean implements optimistic locking, so the write gate can
+   * engage only on Ebean — the node is not booted for the gate on Cassandra.
+   */
+  public static final String ENTITY_SERVICE_IMPL = "entityService.impl";
+
+  /**
    * Canonical gate: {@code featureFlags.retentionBufferEnabled} / {@code RETENTION_BUFFER_ENABLED}.
    * The retention buffer's only backend is Hazelcast (cluster-wide shared map + drain lock), so
    * this flag alone decides whether the embedded node must boot for it.

@@ -237,16 +237,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private static final EntityWriteLock.LockHandle NOOP_WRITE_GATE = () -> {};
 
   /**
-   * Acquires the pre-transaction write gate on {@code urns} when the gate is engaged (see {@link
-   * #writeGateEngaged()}), otherwise returns a no-op handle. Use with try-with-resources; {@link
+   * Acquires the pre-transaction write gate on {@code gateKeys} when the gate is engaged (see
+   * {@link #writeGateEngaged()}), otherwise returns a no-op handle. Keys are per-{@code (urn,
+   * aspect)} — the actual CAS conflict unit — so cross-aspect writers on the same URN do not
+   * serialize; see {@link #writeGateKey}. Use with try-with-resources; {@link
    * EntityWriteLock.LockHandle#close()} never throws. Centralizes the engaged check so ingest and
    * delete share one gate seam.
    */
   @Nonnull
   private EntityWriteLock.LockHandle acquireWriteGate(
-      @Nonnull final OperationContext opContext, @Nonnull final Collection<String> urns) {
+      @Nonnull final OperationContext opContext, @Nonnull final Collection<String> gateKeys) {
     if (writeGateEngaged()) {
-      return entityWriteLock.acquire(opContext, urns);
+      return entityWriteLock.acquire(opContext, gateKeys);
     }
     return NOOP_WRITE_GATE;
   }
@@ -267,6 +269,27 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private boolean writeGateEngaged() {
     return aspectDao.isOptimisticLockingEnabled() && entityWriteLock.isActive();
+  }
+
+  // Write-gate key separator. NUL cannot appear in a urn or an aspect name, so "<urn>\0<aspect>" is
+  // an unambiguous composite key.
+  private static final char WRITE_GATE_KEY_SEP = '\u0000';
+
+  /**
+   * The write-gate key for one {@code (urn, aspect)} — the CAS conflict unit. CAS and {@code FOR
+   * UPDATE} contend on the {@code (urn, aspect, version)} row, so two writers on the same URN but
+   * different aspects share no row and must not share a gate key (URN-level keys would
+   * over-serialize the common cross-aspect case).
+   */
+  static String writeGateKey(@Nonnull String urn, @Nonnull String aspectName) {
+    return urn + WRITE_GATE_KEY_SEP + aspectName;
+  }
+
+  /** The write-gate keys a batch touches: one per {@code (urn, aspect)} written. */
+  static List<String> writeGateKeys(@Nonnull Map<String, Set<String>> urnAspects) {
+    return urnAspects.entrySet().stream()
+        .flatMap(e -> e.getValue().stream().map(a -> writeGateKey(e.getKey(), a)))
+        .collect(Collectors.toList());
   }
 
   /**
@@ -1227,7 +1250,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             // Parents only — derived aspects rely on CAS.
             final IngestAspectsResult result;
             try (EntityWriteLock.LockHandle writeGate =
-                acquireWriteGate(opContext, inputBatch.getUrnAspectsMap().keySet())) {
+                acquireWriteGate(opContext, writeGateKeys(inputBatch.getUrnAspectsMap()))) {
               result =
                   aspectDao
                       .runInTransactionWithRetry(
@@ -3483,14 +3506,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
         new PropertyDefinitionBeforeHardDelete();
 
-    // Gate the shared DB-delete primitive: acquire the same pre-transaction write gate ingest uses
-    // (scoped mode only; no-op otherwise) off the DB connection BEFORE opening the delete
-    // transaction, and release it after commit/rollback. Because every delete (deleteUrn) and every
-    // rollback (rollbackWithConditions) funnels through this method, gating here serializes both
-    // against concurrent ingest on the same URN, while keeping the async MCL emission that callers
-    // run after this returns OUT from under the lock.
+    // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
+    // connection,
+    // BEFORE opening the delete transaction; release after commit/rollback. (scoped mode only;
+    // no-op
+    // otherwise.) A normal delete touches one aspect, so it locks just (urn, aspectName). A
+    // hard-delete of the KEY aspect wipes the whole entity (deleteUrn), so it must serialize
+    // against
+    // ANY aspect write on this URN — it locks the entity's full aspect key-set (wide).
+    // Delete↔upsert
+    // safety is key-set overlap, not a permanent URN-wide lock on every ingest. The async MCL
+    // emission callers run after this returns stays OUT from under the lock.
+    final Collection<String> gateKeys =
+        (hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn)))
+            ? opContext.getEntityAspectNames(entityUrn).stream()
+                .map(a -> writeGateKey(urn, a))
+                .collect(Collectors.toList())
+            : List.of(writeGateKey(urn, aspectName));
     final RollbackResult result;
-    try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, List.of(urn))) {
+    try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, gateKeys)) {
       result =
           aspectDao
               .runInTransactionWithRetry(

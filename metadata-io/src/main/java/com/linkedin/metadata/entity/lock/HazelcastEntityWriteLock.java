@@ -12,8 +12,9 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Hazelcast-backed write gate: a distributed per-URN mutex over a shared {@code IMap<String,
- * Boolean>}. Concurrent writers on the same URN queue here instead of thrashing CAS, and they wait
+ * Hazelcast-backed write gate: a distributed per-key mutex over a shared {@code IMap<String,
+ * Boolean>}. Keys are opaque strings supplied by the caller (the {@code (urn, aspect)} conflict
+ * unit), so concurrent writers on the same key queue here instead of thrashing CAS, and they wait
  * in Hazelcast rather than pinning a pooled DB connection.
  *
  * <ul>

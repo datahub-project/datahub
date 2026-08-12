@@ -121,4 +121,30 @@ public class EntityServiceImplScopedRetryTest {
 
     assertEquals(EntityServiceImpl.branchScopedRecompute(result, Map.of()), Set.of(URN_A));
   }
+
+  @Test
+  public void writeGateKeysAreOnePerUrnAspect() {
+    // The write gate keys on the (urn, aspect) conflict unit: cross-aspect writers on the same URN
+    // get DISTINCT keys (they don't serialize), while two writers of the SAME (urn, aspect) share a
+    // key (they do serialize).
+    Map<String, Set<String>> urnAspects =
+        Map.of(
+            URN_A.toString(), Set.of("status", "ownership"),
+            URN_B.toString(), Set.of("status"));
+
+    List<String> keys = EntityServiceImpl.writeGateKeys(urnAspects);
+
+    assertEquals(keys.size(), 3);
+    assertTrue(keys.contains(EntityServiceImpl.writeGateKey(URN_A.toString(), "status")));
+    assertTrue(keys.contains(EntityServiceImpl.writeGateKey(URN_A.toString(), "ownership")));
+    assertTrue(keys.contains(EntityServiceImpl.writeGateKey(URN_B.toString(), "status")));
+    // same URN, different aspect → different key (no cross-aspect over-serialization)
+    assertTrue(
+        !EntityServiceImpl.writeGateKey(URN_A.toString(), "status")
+            .equals(EntityServiceImpl.writeGateKey(URN_A.toString(), "ownership")));
+    // same (urn, aspect) → identical key (concurrent writers of it serialize)
+    assertEquals(
+        EntityServiceImpl.writeGateKey(URN_A.toString(), "status"),
+        EntityServiceImpl.writeGateKey(URN_A.toString(), "status"));
+  }
 }

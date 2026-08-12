@@ -132,9 +132,15 @@ public class AspectsBatchImpl implements AspectsBatch {
       applyMCPSideEffects(operationContext, upsertBatchItems).forEach(newItems::add);
     } else {
       // Branch-scoped retry needs parent->child provenance, so run side effects per input item and
-      // attribute each derived MCP to the item that produced it. All in-transaction side effects
-      // are
-      // per-item, so this yields the same derived MCPs as the whole-batch run.
+      // attribute each derived MCP to the item that produced it.
+      //
+      // CONTRACT: this is equivalent to the whole-batch run above ONLY IF every in-transaction
+      // MCPSideEffect is ITEM-LOCAL — i.e. the derived MCPs it emits for an input depend only on
+      // that input (plus DB/registry lookups), never on the other items in the batch. All current
+      // in-transaction side effects satisfy this (VersionProperties, VersionSet, Aliases,
+      // DataProductUnset, PropertyDefinitionDelete, CustomDataQualityRules each stream per-item;
+      // SchemaField is a no-op in-transaction). A future non-item-local in-transaction side effect
+      // would diverge here vs the whole-batch path and must not be added without revisiting this.
       for (ChangeMCP parent : upsertBatchItems) {
         applyMCPSideEffects(operationContext, List.of(parent))
             .forEach(

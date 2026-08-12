@@ -32,10 +32,23 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
     // elsewhere (getNormalizedEntityWriteLockBackend); null-safe (mocked Environment).
     final String writeLockBackend =
         env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none");
+    // Trim before parsing (Spring's relaxed binding trims at runtime, so " true " enables OL
+    // there);
+    // not trimming here would boot-skip Hazelcast while the gate is live, degrading it to no-op.
+    final String optimisticLockingRaw =
+        env.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false");
     final boolean optimisticLockingEnabled =
-        Boolean.parseBoolean(
-            env.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false"));
-    if (optimisticLockingEnabled
+        optimisticLockingRaw != null && Boolean.parseBoolean(optimisticLockingRaw.trim());
+    // Only Ebean implements OL; on Cassandra the gate never engages, so don't boot HZ for it even
+    // if
+    // OPTIMISTIC_LOCKING_ENABLED is left true. entityService.impl defaults to ebean (missing →
+    // ebean).
+    final String entityServiceImpl =
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, "ebean");
+    final boolean isEbean =
+        entityServiceImpl == null || "ebean".equalsIgnoreCase(entityServiceImpl.trim());
+    if (isEbean
+        && optimisticLockingEnabled
         && writeLockBackend != null
         && "hazelcast".equalsIgnoreCase(writeLockBackend.trim())) {
       return true;
