@@ -129,6 +129,7 @@ test.describe('impact analysis', () => {
     const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
     await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await lineagePage.clickImpactAnalysis();
@@ -140,6 +141,7 @@ test.describe('impact analysis', () => {
 
     // Toggle off column-level impact analysis
     await lineagePage.clickColumnLineageToggle();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.SHORT);
 
     await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
@@ -153,6 +155,7 @@ test.describe('impact analysis', () => {
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await lineagePage.clickImpactAnalysis();
@@ -172,6 +175,7 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await lineagePage.clickSidebarLineageTab();
@@ -187,6 +191,7 @@ test.describe('impact analysis', () => {
       `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await lineagePage.clickSidebarLineageTab();
@@ -204,6 +209,7 @@ test.describe('impact analysis', () => {
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.SHORT);
 
     await lineagePage.clickSidebarLineageTab();
@@ -216,6 +222,7 @@ test.describe('impact analysis', () => {
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.SHORT);
 
     await lineagePage.clickSidebarLineageTab();

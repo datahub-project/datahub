@@ -124,6 +124,8 @@ function list_markdown_files(): string[] {
     /^\.github\//,
     // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
     /^\.[^/]+\//,
+    // Ignore nested agent/Bugbot rule files (e.g. docs/.cursor/BUGBOT.md).
+    /\/\.cursor\//,
     // Ignore everything within this directory.
     /^docs-website\//,
     // Ignore third-party dependencies and library documentation.
