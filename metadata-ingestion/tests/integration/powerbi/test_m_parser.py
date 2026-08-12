@@ -1724,6 +1724,33 @@ _ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA = (
     "in\n    ORDERS_Table"
 )
 
+# Athena ODBC navigation that surfaces only the leaf table; the database
+# (which occupies Athena's schema slot) is backfilled from a one-part
+# dsn_to_database_schema value. extract_server resolves the DSN as the server
+# name, so a server_to_platform_instance mapping keyed on the DSN applies — the
+# resulting two-part database.table URN must keep its platform_instance prefix
+# (the pre-fix bug stripped the instance because make_urn embeds it as the
+# leading name segment).
+_ODBC_ATHENA_NAV_TABLE_ONLY = (
+    'let\n    Source = Odbc.DataSource("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", [HierarchicalNavigation=true]),\n'
+    '    accounts_Table = Source{[Name="accounts",Kind="Table"]}[Data]\n'
+    "in\n    accounts_Table"
+)
+
+# Athena ODBC navigation that surfaces the Kind=Database catalog, the Schema
+# (Athena's real database) and the leaf table. The catalog is stripped to match
+# the standalone Athena connector; with a server_to_platform_instance mapping the
+# strip must drop the catalog, not the embedded platform_instance prefix.
+_ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE = (
+    'let\n    Source = Odbc.DataSource("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", [HierarchicalNavigation=true]),\n'
+    '    awsdatacatalog_Database = Source{[Name="awsdatacatalog",Kind="Database"]}[Data],\n'
+    '    mydb_Schema = awsdatacatalog_Database{[Name="mydb",Kind="Schema"]}[Data],\n'
+    '    accounts_Table = mydb_Schema{[Name="accounts",Kind="Table"]}[Data]\n'
+    "in\n    accounts_Table"
+)
+
 
 # Each case exercises a distinct ODBC navigation / dsn_to_database_schema backfill
 # branch: (expression, table name, full_name, override_config, expected_urn).
@@ -1819,6 +1846,37 @@ _ODBC_NAV_SUCCESS_CASES = [
         {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}},
         "urn:li:dataset:(urn:li:dataPlatform:mysql,warehouse.employees,PROD)",
         id="mysql-table-only-two-part-stays-two-part",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_NAV_TABLE_ONLY,
+        "accounts",
+        "mydb.accounts",
+        {
+            "dsn_to_database_schema": {"athena_prod": "mydb"},
+            "server_to_platform_instance": {
+                "athena_prod": {
+                    "platform_instance": "my_instance",
+                    "env": "PROD",
+                }
+            },
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
+        id="athena-table-only-preserves-platform-instance",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE,
+        "accounts",
+        "mydb.accounts",
+        {
+            "server_to_platform_instance": {
+                "athena_prod": {
+                    "platform_instance": "my_instance",
+                    "env": "PROD",
+                }
+            },
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
+        id="athena-catalog-strip-preserves-platform-instance",
     ),
 ]
 

@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, FrozenSet, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -1582,31 +1582,39 @@ class NativeQueryLineage(AbstractLineage):
 # ODBC nav for these must not prepend Kind=Database or a dsn_to_database_schema
 # database onto Schema+Table (that would force three-part URNs that mismatch
 # the connector). Hive also drops its constant "HIVE" pseudo-catalog.
-ODBC_TWO_TIER_PLATFORMS = {
-    SupportedDataPlatform.HIVE.value.datahub_data_platform_name,
-    SupportedDataPlatform.ORACLE.value.datahub_data_platform_name,
-}
+ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
+    {
+        SupportedDataPlatform.HIVE.value.datahub_data_platform_name,
+        SupportedDataPlatform.ORACLE.value.datahub_data_platform_name,
+    }
+)
 
 # Platforms whose standalone connectors emit database.schema.table (or the
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
 # dsn_to_database_schema backfill) yields database + table but no schema, these
 # must warn-and-skip rather than emit a truncated database.table URN.
-ODBC_THREE_TIER_PLATFORMS = {
-    SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
-    SupportedDataPlatform.SNOWFLAKE.value.datahub_data_platform_name,
-    SupportedDataPlatform.POSTGRES_SQL.value.datahub_data_platform_name,
-    SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
-    SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
-    SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
-}
+ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
+    {
+        SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
+        SupportedDataPlatform.SNOWFLAKE.value.datahub_data_platform_name,
+        SupportedDataPlatform.POSTGRES_SQL.value.datahub_data_platform_name,
+        SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
+        SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
+        SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
+    }
+)
 
-ATHENA_PLATFORM = SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
-ORACLE_PLATFORM = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
+ATHENA_PLATFORM: str = (
+    SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+)
+ORACLE_PLATFORM: str = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
 
 # Platforms that backfill a missing schema tier from dsn_to_database_schema:
 # three-tier platforms need the middle tier, and Athena needs its real database
 # (which occupies the schema slot below the strippable Kind=Database catalog).
-ODBC_SCHEMA_BACKFILL_PLATFORMS = ODBC_THREE_TIER_PLATFORMS | {ATHENA_PLATFORM}
+ODBC_SCHEMA_BACKFILL_PLATFORMS: FrozenSet[str] = ODBC_THREE_TIER_PLATFORMS | {
+    ATHENA_PLATFORM
+}
 
 
 class OdbcLineage(AbstractLineage):
