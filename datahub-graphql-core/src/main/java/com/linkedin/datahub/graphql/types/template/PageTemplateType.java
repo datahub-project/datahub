@@ -55,8 +55,8 @@ public class PageTemplateType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          // dataHubPageTemplateProperties is a mapper-required aspect (see
-          // AspectUtils.MAPPER_REQUIRED_ASPECTS) so it is always fetched.
+          // dataHubPageTemplateProperties is a hydration-required aspect (see
+          // AspectUtils.HYDRATION_REQUIRED_ASPECTS) so it is always fetched.
           AspectUtils.getOptimizedAspects(
               context, "DataHubPageTemplate", ASPECTS_TO_FETCH, "dataHubPageTemplateKey");
       final Map<Urn, EntityResponse> entities =

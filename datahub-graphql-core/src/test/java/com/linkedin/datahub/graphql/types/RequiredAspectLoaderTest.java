@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -44,10 +43,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.testng.annotations.Test;
 
 /**
- * DataHubFileMapper and PageTemplateMapper map an entity to null when their required aspect is
- * absent. Both are non-null GraphQL fields, so a selection that only asks for {@code @noAspects}
- * fields (e.g. {@code createDataHubFile { file { urn } }}) must still fetch that aspect — otherwise
- * the mapper returns null and the whole operation fails with a non-nullable field error.
+ * Some loaders depend on an aspect no matter which fields were selected: DataHubFileMapper and
+ * PageTemplateMapper map the entity to null without theirs (and both are non-null GraphQL fields,
+ * so {@code createDataHubFile { file { urn } }} fails the whole operation), while DocumentMapper
+ * feeds its aspects into an access decision. A selection made up entirely of {@code @noAspects}
+ * fields must still fetch them.
  */
 public class RequiredAspectLoaderTest {
 
@@ -191,32 +191,59 @@ public class RequiredAspectLoaderTest {
   }
 
   /**
-   * Mechanism guard for every entry in the central required-aspect table: a urn-only selection must
-   * still yield an optimized set containing the mapper-required aspects. This is what protects the
-   * Test / Incident / DataContract / DataHubConnection loaders (whose mappers null or throw on a
-   * missing aspect) without each needing a bespoke behavioral test.
+   * Aspect names each loader depends on, stated literally so this test is an independent source of
+   * truth rather than a mirror of the production table. Reading the expectation back out of {@code
+   * AspectUtils} would only catch removal of the fold-in, not a wrong or outdated aspect name.
+   *
+   * <p>Structural dependencies (mapper nulls or throws) for the first six; authorization dependency
+   * (canViewDocument redacts) for Document.
+   */
+  private static final Map<String, Set<String>> EXPECTED_HYDRATION_REQUIRED_ASPECTS =
+      Map.of(
+          "DataHubFile", Set.of("dataHubFileInfo"),
+          "DataHubPageTemplate", Set.of("dataHubPageTemplateProperties"),
+          "Test", Set.of("testInfo"),
+          "Incident", Set.of("incidentInfo"),
+          "DataContract", Set.of("dataContractProperties"),
+          "DataHubConnection", Set.of("dataHubConnectionDetails", "dataPlatformInstance"),
+          "Document", Set.of("documentInfo", "subTypes"));
+
+  /**
+   * A urn-only selection must still fetch every hydration-required aspect. This protects the
+   * loaders whose mappers null/throw (Test, Incident, DataContract, DataHubConnection, File,
+   * PageTemplate) and the one whose authorization depends on aspects (Document), without each
+   * needing a bespoke behavioral test.
    */
   @Test
-  public void testMapperRequiredAspectsFoldedIntoOptimizedSet() {
-    for (String typeName :
-        List.of(
-            "DataHubFile",
-            "DataHubPageTemplate",
-            "Test",
-            "Incident",
-            "DataContract",
-            "DataHubConnection",
-            "Document")) {
-      Set<String> required = AspectUtils.getMapperRequiredAspects(typeName);
-      assertFalse(required.isEmpty(), typeName + " should have mapper-required aspects registered");
-
+  public void testHydrationRequiredAspectsFoldedIntoOptimizedSet() {
+    for (Map.Entry<String, Set<String>> expected : EXPECTED_HYDRATION_REQUIRED_ASPECTS.entrySet()) {
+      String typeName = expected.getKey();
       QueryContext context = new UrnOnlySelectionContext(getMockAllowContext(), typeName);
+
       Set<String> optimized =
           AspectUtils.getOptimizedAspects(context, typeName, Set.of("someDefault"), "someKey");
 
       assertTrue(
-          optimized.containsAll(required),
-          typeName + " urn-only selection must still fetch " + required + ", got " + optimized);
+          optimized.containsAll(expected.getValue()),
+          typeName
+              + " urn-only selection must still fetch "
+              + expected.getValue()
+              + ", got "
+              + optimized);
+    }
+  }
+
+  /**
+   * Registration guard: the production table must cover exactly the types above. Catches both a
+   * silently dropped entry and a new entry added without a stated expectation here.
+   */
+  @Test
+  public void testHydrationRequiredTableMatchesExpectations() {
+    for (Map.Entry<String, Set<String>> expected : EXPECTED_HYDRATION_REQUIRED_ASPECTS.entrySet()) {
+      assertEquals(
+          AspectUtils.getHydrationRequiredAspects(expected.getKey()),
+          expected.getValue(),
+          "registered aspects for " + expected.getKey() + " drifted from the expected set");
     }
   }
 

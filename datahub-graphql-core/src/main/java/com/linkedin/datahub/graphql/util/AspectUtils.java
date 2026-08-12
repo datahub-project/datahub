@@ -8,6 +8,7 @@ import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.SelectedField;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,18 +24,30 @@ import lombok.extern.slf4j.Slf4j;
 public class AspectUtils {
 
   /**
-   * Aspects that some entity mappers treat as mandatory: they return null or throw when the aspect
-   * is absent, regardless of which fields were selected. Optimized fetching can produce an empty
+   * Aspects that must be fetched for an entity type regardless of which fields were selected,
+   * because hydrating the entity correctly depends on them. Optimized fetching can produce an empty
    * required set for a selection made up entirely of {@code @noAspects} fields (e.g. {@code
-   * createDataHubFile { file { urn } }}), which would starve these mappers and fail hydration of a
-   * non-nullable field. Keyed by GraphQL type name; {@link #getOptimizedAspects} always folds these
-   * into the optimized set so the mapper can run.
+   * createDataHubFile { file { urn } }}); without these, hydration silently produces a wrong
+   * result. Keyed by GraphQL type name; {@link #getOptimizedAspects} always folds them into the
+   * optimized set.
    *
-   * <p>This is the single source of truth — add an entry here (rather than per-loader
-   * always-include args) whenever a mapper hard-requires a non-key aspect.
+   * <p>Two kinds of dependency qualify, both of which are selection-independent:
+   *
+   * <ul>
+   *   <li><b>Structural</b> — the mapper returns null or throws when the aspect is absent, so the
+   *       entity fails to hydrate at all (and a non-nullable GraphQL field then fails the whole
+   *       operation).
+   *   <li><b>Authorization</b> — the mapper feeds the aspect into an access decision, so a missing
+   *       aspect can change whether the entity is redacted. Note this does not require the mapper
+   *       to null or throw.
+   * </ul>
+   *
+   * <p>This is the single source of truth — add an entry here, rather than per-loader
+   * always-include args, whenever a loader gains either kind of dependency.
    */
-  private static final Map<String, Set<String>> MAPPER_REQUIRED_ASPECTS =
+  private static final Map<String, Set<String>> HYDRATION_REQUIRED_ASPECTS =
       Map.of(
+          // Structural: mapper returns null or throws without these.
           "DataHubFile", Set.of(Constants.DATAHUB_FILE_INFO_ASPECT_NAME),
           "DataHubPageTemplate", Set.of(Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME),
           "Test", Set.of(Constants.TEST_INFO_ASPECT_NAME),
@@ -44,17 +57,19 @@ public class AspectUtils {
               Set.of(
                   Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
                   Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME),
-          // DocumentMapper's authorization (canViewDocument) reads documentInfo + subTypes, so a
-          // bridge document is wrongly redacted if a selection omits them. Auth runs on every
-          // selection, so both must always be fetched.
+          // Authorization: DocumentMapper passes these to canViewDocument, which wrongly redacts a
+          // bridge document when they are absent.
           "Document", Set.of(Constants.DOCUMENT_INFO_ASPECT_NAME, Constants.SUB_TYPES_ASPECT_NAME));
 
   private AspectUtils() {}
 
-  /** Aspects a mapper hard-requires for {@code entityTypeName}, or an empty set if none. */
+  /**
+   * Aspects that must always be fetched for {@code entityTypeName} to hydrate correctly (structural
+   * or authorization dependencies), or an empty set if none.
+   */
   @Nonnull
-  public static Set<String> getMapperRequiredAspects(@Nonnull final String entityTypeName) {
-    return MAPPER_REQUIRED_ASPECTS.getOrDefault(entityTypeName, Set.of());
+  public static Set<String> getHydrationRequiredAspects(@Nonnull final String entityTypeName) {
+    return HYDRATION_REQUIRED_ASPECTS.getOrDefault(entityTypeName, Set.of());
   }
 
   /**
@@ -164,13 +179,13 @@ public class AspectUtils {
     }
 
     Set<String> optimizedAspects = loadContext.resolve(defaultAspects, alwaysIncludeAspects);
-    if (!loadContext.isFetchAll()) {
-      // Fold in aspects the mapper treats as mandatory. resolve() returns a mutable set on the
-      // non-fetch-all path; on fetch-all it returns defaultAspects, which already includes them.
-      Set<String> mapperRequired = MAPPER_REQUIRED_ASPECTS.get(entityTypeName);
-      if (mapperRequired != null) {
-        optimizedAspects.addAll(mapperRequired);
-      }
+    // On the fetch-all path resolve() returns defaultAspects, which already covers these.
+    Set<String> hydrationRequired = HYDRATION_REQUIRED_ASPECTS.get(entityTypeName);
+    if (!loadContext.isFetchAll() && hydrationRequired != null) {
+      // resolve() documents that its result may be immutable, so copy rather than depend on the
+      // current non-fetch-all path happening to return a mutable set.
+      optimizedAspects = new HashSet<>(optimizedAspects);
+      optimizedAspects.addAll(hydrationRequired);
     }
     log.debug("Fetching optimized aspect set for {}: {}", entityTypeName, optimizedAspects);
     return optimizedAspects;

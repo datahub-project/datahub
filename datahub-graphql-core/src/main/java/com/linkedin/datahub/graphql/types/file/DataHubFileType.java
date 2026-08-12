@@ -52,7 +52,8 @@ public class DataHubFileType
 
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections. dataHubFileInfo is a
-      // mapper-required aspect (see AspectUtils.MAPPER_REQUIRED_ASPECTS) so it is always fetched.
+      // hydration-required aspect (see AspectUtils.HYDRATION_REQUIRED_ASPECTS) so it is always
+      // fetched.
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
               context, "DataHubFile", ASPECTS_TO_FETCH, "dataHubFileKey");
