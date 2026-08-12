@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
 
 # Conditional import for OpenLineage (may not be installed)
 try:
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from openlineage.client.run import Dataset as OpenLineageDataset
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin import _connection_mapping as connection_mapping
+from datahub_airflow_plugin._config import AssetConnectionDetail
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +85,21 @@ def _sanitize_ol_dataset_name(name: str) -> str:
 
 
 def translate_ol_to_datahub_urn(
-    ol_uri: "OpenLineageDataset", env: str = builder.DEFAULT_ENV
+    ol_uri: "OpenLineageDataset",
+    env: str = builder.DEFAULT_ENV,
+    connections: Optional[Dict[str, "AssetConnectionDetail"]] = None,
 ) -> str:
     """Translate OpenLineage dataset URI to DataHub URN.
 
     Args:
         ol_uri: OpenLineage dataset with namespace and name
         env: DataHub environment (default: PROD for backward compatibility)
+        connections: Connection mapping from `[datahub] asset_connections`, keyed by
+            `<scheme>://<authority>`. When an entry matches this dataset's namespace it
+            supplies the platform_instance and casing needed to match what the
+            platform's own connector emits — OL producers report Snowflake names in
+            upper case, for instance, while the Snowflake source lowercases them. With
+            no matching entry the URN is built exactly as before.
 
     Returns:
         DataHub dataset URN string
@@ -98,6 +108,18 @@ def translate_ol_to_datahub_urn(
     name = _sanitize_ol_dataset_name(ol_uri.name)
 
     scheme, *rest = namespace.split("://", maxsplit=1)
+    authority = rest[0] if rest else ""
 
-    platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
-    return builder.make_dataset_urn(platform=platform, name=name, env=env)
+    detail = connection_mapping.lookup(connections, scheme, authority)
+    platform = (
+        detail.platform if detail else None
+    ) or connection_mapping.platform_for_scheme(scheme)
+    return connection_mapping.build_named_urn(
+        platform=platform,
+        name=name,
+        detail=detail,
+        env=env,
+        # OL supplies the platform's own dotted name, so the mapping's casing rule is
+        # exactly what is needed to line it up with the warehouse source.
+        lowercase=bool(detail and detail.convert_urns_to_lowercase),
+    )

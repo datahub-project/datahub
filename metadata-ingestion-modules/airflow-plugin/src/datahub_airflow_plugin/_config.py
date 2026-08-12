@@ -1,12 +1,17 @@
+import json
 import logging
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from airflow.configuration import conf
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformDetail,
+)
 from datahub.emitter.rest_emitter import EmitMode
 
 logger = logging.getLogger(__name__)
@@ -21,6 +26,98 @@ if TYPE_CHECKING:
 class DatajobUrl(Enum):
     GRID = "grid"
     TASKS = "tasks"  # /dags/{dag_id}/tasks/{task_id}
+
+
+class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
+    """How to turn one connection's Airflow Asset URIs and OpenLineage namespaces into
+    URNs that match what that platform's own DataHub connector emits.
+
+    Keyed by connection identity (`<scheme>://<authority>`, e.g. `snowflake://myacct`,
+    `postgres://db.host:5432`) — the same key Spark's `metadata.dataset.connections` and
+    the OpenLineage converter's `connectionInstanceMap` use, so the three stay
+    interchangeable. Mirrors Fivetran's `sources_to_platform_instance` shape.
+
+    A URI alone cannot be split reliably: only the operator knows whether the authority
+    is a Snowflake account (drop it) or a BigQuery project (keep it), which
+    `platform_instance` the warehouse recipe used, or whether that platform lowercases
+    its URNs. Rather than guess, we ask.
+    """
+
+    # convert_urns_to_lowercase comes from LowerCaseDatasetUrnConfigMixin, whose default
+    # is False. Override to True: the point of a mapping is to match a warehouse's own
+    # URNs, and snowflake/unity/dbt all default their sources to True. BigQuery
+    # preserves case, so bigquery entries should set this back to False.
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Lowercase the whole dataset name so it matches sources that "
+        "lowercase their URNs (snowflake, unity, dbt). Set False for platforms that "
+        "preserve case, such as bigquery.",
+    )
+
+    platform: Optional[str] = Field(
+        default=None,
+        description="Override the platform inferred from the URI scheme.",
+    )
+
+    database: Optional[str] = Field(
+        default=None,
+        description="Prepended as the leading name segment when the URI omits it. "
+        "Also the way to keep a BigQuery project, which sits in the URI authority that "
+        "is otherwise dropped.",
+    )
+
+
+def parse_asset_connections(raw: Optional[str]) -> Dict[str, AssetConnectionDetail]:
+    """Parse the `asset_connections` JSON blob from airflow.cfg.
+
+    airflow.cfg is INI, so nested config arrives as a JSON string — the same approach
+    the existing `dag_filter_str` option uses. A malformed blob is reported and treated
+    as empty rather than breaking task execution: losing the mapping degrades lineage,
+    whereas raising here would fail the task.
+    """
+    if not raw or not raw.strip():
+        return {}
+
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning(
+            "Could not parse [datahub] asset_connections as JSON (%s); "
+            "connection mapping is disabled. Airflow Assets with table-shaped URIs "
+            "will be skipped until this is fixed.",
+            e,
+        )
+        return {}
+
+    if not isinstance(decoded, dict):
+        logger.warning(
+            "[datahub] asset_connections must be a JSON object of "
+            "connection -> settings; got %s. Connection mapping is disabled.",
+            type(decoded).__name__,
+        )
+        return {}
+
+    connections: Dict[str, AssetConnectionDetail] = {}
+    for key, value in decoded.items():
+        try:
+            connections[normalize_connection_key(key)] = (
+                AssetConnectionDetail.model_validate(value)
+            )
+        except Exception as e:
+            logger.warning(
+                "Ignoring invalid [datahub] asset_connections entry %r: %s", key, e
+            )
+    return connections
+
+
+def normalize_connection_key(key: str) -> str:
+    """Canonical form of a connection key, so config and emitted URIs match.
+
+    Hosts and schemes are case-insensitive, and Airflow's URI sanitiser can leave a
+    trailing slash on authority-only URIs, so neither should decide whether a mapping
+    applies.
+    """
+    return key.strip().rstrip("/").lower()
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -83,6 +180,16 @@ class DatahubLineageConfig(ConfigModel):
 
     dag_filter_pattern: AllowDenyPattern = Field(
         description="regex patterns for DAGs to ingest",
+    )
+
+    # Connection identity -> how to name that connection's datasets, so Airflow Asset
+    # URIs and OpenLineage namespaces produce the same URNs the platform's own DataHub
+    # connector emits. Empty by default: table-shaped Asset URIs are then skipped rather
+    # than guessed at.
+    asset_connections: Dict[str, AssetConnectionDetail] = Field(
+        default_factory=dict,
+        description="Mapping of `<scheme>://<authority>` to platform_instance/env/"
+        "naming settings for that connection.",
     )
 
     log_level: Optional[str]
@@ -188,9 +295,13 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
+    asset_connections = parse_asset_connections(
+        conf.get("datahub", "asset_connections", fallback=None)
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
+        asset_connections=asset_connections,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
         platform_instance=platform_instance,

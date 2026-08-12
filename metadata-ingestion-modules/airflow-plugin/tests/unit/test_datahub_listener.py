@@ -35,11 +35,12 @@ def _make_listener_stub(capture_airflow_assets: bool = True) -> Any:
 
     We avoid instantiating DataHubListener to skip its emitter / log-level
     setup. _get_outlet_urns only reads self.config.{capture_airflow_assets,
-    cluster}, so a SimpleNamespace is sufficient.
+    cluster, asset_connections}, so a SimpleNamespace is sufficient.
     """
     config = SimpleNamespace(
         capture_airflow_assets=capture_airflow_assets,
         cluster="PROD",
+        asset_connections={},
     )
     return SimpleNamespace(config=config)
 

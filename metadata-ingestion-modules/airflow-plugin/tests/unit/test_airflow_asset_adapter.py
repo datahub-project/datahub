@@ -117,44 +117,35 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
         )
 
-    def test_postgres_uri(self) -> None:
+    # Table-shaped schemes (postgres/mysql/bigquery/snowflake) used to fold the URI
+    # authority into the dataset name and keep the slashes, producing URNs like
+    # `myhost/mydb/mytable` that match nothing the platform's own connector emits. They
+    # now require a [datahub] asset_connections entry; see test_connection_mapping.py for
+    # the mapped behaviour.
+
+    def test_postgres_uri_without_mapping_is_skipped(self) -> None:
         class Asset:
             uri = "postgresql://myhost/mydb/mytable"
 
-        urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/mytable,PROD)"
-        )
+        assert translate_airflow_asset_to_urn(Asset()) is None
 
-    def test_mysql_uri(self) -> None:
+    def test_mysql_uri_without_mapping_is_skipped(self) -> None:
         class Asset:
             uri = "mysql://myhost/mydb/mytable"
 
-        urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,myhost/mydb/mytable,PROD)"
-        )
+        assert translate_airflow_asset_to_urn(Asset()) is None
 
-    def test_bigquery_uri(self) -> None:
+    def test_bigquery_uri_without_mapping_is_skipped(self) -> None:
         class Asset:
             uri = "bigquery://project/dataset/table"
 
-        urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)"
-        )
+        assert translate_airflow_asset_to_urn(Asset()) is None
 
-    def test_snowflake_uri(self) -> None:
+    def test_snowflake_uri_without_mapping_is_skipped(self) -> None:
         class Asset:
             uri = "snowflake://account/db/schema/table"
 
-        urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,account/db/schema/table,PROD)"
-        )
+        assert translate_airflow_asset_to_urn(Asset()) is None
 
     def test_hdfs_uri(self) -> None:
         class Asset:
@@ -989,10 +980,21 @@ class TestRealAirflowDataset:
 
             pytest.skip("Could not create Airflow Dataset - ProvidersManager issue")
 
-        urn = translate_airflow_asset_to_urn(dataset)
+        # Unmapped table-shaped scheme: skipped rather than folding the host into the
+        # dataset name.
+        assert translate_airflow_asset_to_urn(dataset) is None
+
+        # With a mapping it resolves to the naming the postgres connector emits. Uses a
+        # real Airflow Dataset, so this covers the object the plugin actually receives.
+        from datahub_airflow_plugin._config import AssetConnectionDetail
+
+        urn = translate_airflow_asset_to_urn(
+            dataset,
+            connections={"postgres://myhost": AssetConnectionDetail()},
+        )
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.table,PROD)"
         )
 
     def test_translate_real_airflow_dataset_custom_env(self) -> None:
@@ -1015,13 +1017,24 @@ class TestRealAirflowDataset:
 
             pytest.skip("Could not create Airflow Dataset - ProvidersManager issue")
 
+        from datahub_airflow_plugin._config import AssetConnectionDetail
+
+        # The connection mapping reaches translate_airflow_asset_to_urn through
+        # extract_urns_from_iolets. s3 needs no entry; bigquery does, and keeps its
+        # project via `database` since the authority is otherwise dropped.
         urns = extract_urns_from_iolets(
-            [dataset1, dataset2], capture_airflow_assets=True
+            [dataset1, dataset2],
+            capture_airflow_assets=True,
+            connections={
+                "bigquery://project": AssetConnectionDetail(
+                    database="project", convert_urns_to_lowercase=False
+                )
+            },
         )
 
         assert urns == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/input.parquet,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
         ]
 
     def test_mixed_datahub_entity_and_real_airflow_dataset(self) -> None:

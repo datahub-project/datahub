@@ -58,26 +58,27 @@ No additional configuration is required to use the plugin. However, there are so
 enabled = True  # default
 ```
 
-| Name                               | Default value        | Description                                                                                                                                                                                                                 |
-| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| enabled                            | true                 | If the plugin should be enabled.                                                                                                                                                                                            |
-| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                                                                                                                    |
-| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                                                                                                                |
-| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                                                             |
-| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                                                                                                                      |
-| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                |
-| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                           |
-| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                    |
-| materialize_iolets                 | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                                                                |
-| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                        |
-| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                             |
-| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                             |
-| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                   |
-| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                    |
-| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                              |
-| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                            |
-| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                            |
-| emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
+| Name                               | Default value        | Description                                                                                                                                                                                                                              |
+| ---------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| enabled                            | true                 | If the plugin should be enabled.                                                                                                                                                                                                         |
+| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                                                                                                                                 |
+| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                                                                                                                             |
+| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                                                                          |
+| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                                                                                                                                   |
+| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                             |
+| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                                        |
+| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                                 |
+| materialize_iolets                 | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                                                                             |
+| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                                     |
+| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                                          |
+| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                                          |
+| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                                |
+| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                                 |
+| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                                           |
+| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                                         |
+| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                                         |
+| asset_connections                  | {}                   | JSON map of `<scheme>://<authority>` to that connection's `platform_instance`/`env`/naming, so Airflow Assets and OpenLineage datasets get the same URNs as the platform's own connector. See [Connection mapping](#connection-mapping). |
+| emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.              |
 
 ## Automatic lineage extraction
 
@@ -157,35 +158,80 @@ task = BashOperator(
 
 The plugin maps URI schemes to DataHub platforms:
 
-| URI Scheme            | DataHub Platform |
-| --------------------- | ---------------- |
-| `s3://`, `s3a://`     | s3               |
-| `gs://`, `gcs://`     | gcs              |
-| `postgresql://`       | postgres         |
-| `mysql://`            | mysql            |
-| `bigquery://`         | bigquery         |
-| `snowflake://`        | snowflake        |
-| `file://`             | file             |
-| `hdfs://`             | hdfs             |
-| `abfs://`, `abfss://` | adls             |
+| URI Scheme            | DataHub Platform | Needs a connection mapping? |
+| --------------------- | ---------------- | --------------------------- |
+| `s3://`, `s3a://`     | s3               | no                          |
+| `gs://`, `gcs://`     | gcs              | no                          |
+| `file://`             | file             | no                          |
+| `hdfs://`             | hdfs             | no                          |
+| `abfs://`, `abfss://` | adls             | no                          |
+| `postgresql://`       | postgres         | **yes**                     |
+| `mysql://`            | mysql            | **yes**                     |
+| `bigquery://`         | bigquery         | **yes**                     |
+| `snowflake://`        | snowflake        | **yes**                     |
 
 Plain name assets (e.g., from the `@asset` decorator) default to the `airflow` platform.
 
-#### Configuration
+For object stores the URI is already the naming DataHub uses — `s3://bucket/key` becomes
+`bucket/key` — so nothing else is needed. Warehouse URIs are different: `snowflake://acct/DB/SCH/TBL`
+holds an account in the authority and slashes where DataHub uses dots, and the Snowflake
+connector lowercases its names. Without knowing which `platform_instance` your Snowflake
+recipe uses, the plugin cannot construct a matching URN, so **warehouse Assets are skipped
+unless you map their connection** (a warning naming the URI is logged once per connection).
+Guessing would create a dataset that looks real but is linked to nothing.
+
+#### Connection mapping
+
+`asset_connections` maps a connection to how its datasets should be named, so both the
+Airflow Asset path and the OpenLineage facet path produce the URNs your warehouse's own
+ingestion already emits. It follows the same pattern as Fivetran's
+`sources_to_platform_instance` and the Spark agent's `metadata.dataset.connections`.
 
 ```ini title="airflow.cfg"
 [datahub]
 # Set to false to disable capturing Airflow Assets as lineage (default: true)
 capture_airflow_assets = true
+
+# Keys are <scheme>://<authority>, matched case-insensitively. `postgresql://` and
+# `postgres://` share one entry.
+asset_connections = {
+    "snowflake://myacct": {"platform_instance": "prod_acct"},
+    "postgres://db.host:5432": {"platform_instance": "analytics_pg", "database": "warehouse"},
+    "bigquery://my-project": {"database": "my-project", "convert_urns_to_lowercase": false}
+  }
 ```
+
+| Setting                     | Default | Purpose                                                                                                                                                     |
+| --------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform_instance`         | None    | Must match the `platform_instance` in that platform's ingestion recipe, or the URNs will not line up.                                                       |
+| `env`                       | PROD    | Environment for this connection's datasets, overriding the plugin-wide `cluster`.                                                                           |
+| `convert_urns_to_lowercase` | true    | Lowercases the dataset name to match sources that lowercase their URNs (snowflake, unity, dbt). Set `false` for bigquery, which preserves case.             |
+| `database`                  | None    | Prepended as the leading name segment when the URI omits it, and the way to keep a BigQuery project, which sits in the authority that is otherwise dropped. |
+| `platform`                  | None    | Override the platform inferred from the URI scheme.                                                                                                         |
+
+With the mapping in place, a table reached through both paths resolves to one URN:
+
+```
+Airflow Asset  snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS  ─┐
+OpenLineage    snowflake://myacct  MY_DB.MY_SCHEMA.EVENTS  ─┼─→  prod_acct.my_db.my_schema.events
+Snowflake ingestion                                              ─┘
+```
+
+Without it, those would be three separate datasets, because DataHub identity is exact
+string matching — there is no fuzzy resolution between similar names.
+
+> **Note:** `materialize_iolets` is not the right lever for duplicates. It does not create
+> the extra URN; it only emits a key aspect so referenced URNs exist as browsable
+> entities. Turning it off hides a mismatched dataset from search while leaving the
+> lineage edge pointing at an entity that does not exist.
 
 #### Limitations
 
 Native Airflow Assets have the following limitations compared to using DataHub's `Dataset` or `Urn` entities directly:
 
-1. **No `platform_instance` support**: The URN generated from an Airflow Asset URI cannot include a platform instance. The plugin only extracts the platform, dataset name, and environment from the URI.
+1. **Warehouse URIs need a connection mapping**: `platform_instance`, per-connection `env`, and casing all come from `asset_connections` (above). Unmapped warehouse Assets are skipped rather than emitted with a name that matches nothing.
 
-2. **Environment uses global plugin config**: All native Airflow Assets use the `cluster` setting from the plugin configuration as their environment. You cannot specify a different environment per asset.
+2. **Settings are per connection, not per asset**: every Asset on a connection shares that entry's `platform_instance`, `env`, and naming. You cannot vary them for individual assets.
 
 If you need `platform_instance` or per-asset environment control, use the DataHub entity classes instead:
 
