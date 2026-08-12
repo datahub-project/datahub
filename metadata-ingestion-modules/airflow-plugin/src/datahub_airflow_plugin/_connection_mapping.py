@@ -18,33 +18,15 @@ from datahub_airflow_plugin._config import (
     AssetConnectionDetail,
     normalize_connection_key,
 )
+from datahub_airflow_plugin._platform_schemes import (
+    SCHEME_TO_PLATFORM,
+    platform_for_scheme,
+    scheme_of,
+)
+
+__all__ = ["SCHEME_TO_PLATFORM", "platform_for_scheme", "scheme_of"]
 
 logger = logging.getLogger(__name__)
-
-# Canonical URI-scheme -> DataHub-platform map, shared by both writers so one mapping
-# entry serves both. This matters because the same connection is spelled differently by
-# each: an Airflow Asset uses the SQLAlchemy-style `postgresql://`, while an OpenLineage
-# namespace uses `postgres://`. Canonicalising the scheme before building the lookup key
-# means the user configures `postgres://host:5432` once.
-SCHEME_TO_PLATFORM = {
-    # object stores / filesystems
-    "s3": "s3",
-    "s3a": "s3",
-    "gs": "gcs",
-    "gcs": "gcs",
-    "file": "file",
-    "hdfs": "hdfs",
-    "abfs": "adls",
-    "abfss": "adls",
-    # warehouses / databases
-    "postgresql": "postgres",
-    "postgres": "postgres",
-    "mysql": "mysql",
-    "bigquery": "bigquery",
-    "snowflake": "snowflake",
-    "sqlserver": "mssql",
-    "awsathena": "athena",
-}
 
 
 class TableNaming(NamedTuple):
@@ -79,10 +61,6 @@ TABLE_NAMING = {
 }
 
 
-def platform_for_scheme(scheme: str) -> str:
-    return SCHEME_TO_PLATFORM.get(scheme.lower(), scheme.lower())
-
-
 # A DAG can declare hundreds of Assets sharing one connection and one defect. Warn once
 # per (cause, connection) so the task log stays readable: the first occurrence carries the
 # offending URI and stays actionable, and the rest would only repeat it.
@@ -94,15 +72,6 @@ def warn_once(dedup_key: str, message: str, *args: object) -> None:
         return
     _warned_keys.add(dedup_key)
     logger.warning(message, *args)
-
-
-def scheme_of(uri: str) -> str:
-    """Scheme prefix of a URI, without parsing it.
-
-    Used to group warnings for URIs that cannot be parsed at all, where no connection key
-    can be derived.
-    """
-    return uri.split("://", maxsplit=1)[0][:40]
 
 
 def connection_key(scheme: str, authority: str) -> str:

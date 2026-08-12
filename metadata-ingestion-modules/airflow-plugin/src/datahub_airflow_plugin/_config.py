@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     PlatformDetail,
 )
 from datahub.emitter.rest_emitter import EmitMode
+from datahub_airflow_plugin._platform_schemes import platform_for_scheme
 
 logger = logging.getLogger(__name__)
 
@@ -142,11 +143,8 @@ def canonical_connection_key(key: str) -> str:
     Config keys must go through the scheme -> platform map too, otherwise an entry written
     with the URI's own scheme (`postgresql://host`, which is what a user copies off an
     Airflow Asset) would never match a lookup built from the platform (`postgres://host`)
-    — and the docs promise the two forms share one entry. Imported here rather than at
-    module scope because _connection_mapping imports this module.
+    — and the docs promise the two forms share one entry.
     """
-    from datahub_airflow_plugin._connection_mapping import platform_for_scheme
-
     normalized = normalize_connection_key(key)
     scheme, separator, rest = normalized.partition("://")
     if not separator:

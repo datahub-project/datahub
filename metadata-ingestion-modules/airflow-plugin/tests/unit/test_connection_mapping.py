@@ -386,8 +386,9 @@ def test_platform_override_outside_the_table_naming_table_does_not_raise():
         },
     )
 
-    assert urn is not None
-    assert "some_other_platform" in urn
+    # Naming falls back to snowflake's shape, but casing keys off the overridden platform,
+    # which is unrecognised and therefore case-preserving.
+    assert urn == _urn("some_other_platform", "DB.SCH.TBL")
 
 
 def test_database_is_not_prepended_when_the_authority_already_supplied_it():
@@ -451,7 +452,7 @@ def test_many_unparseable_assets_do_not_flood_the_task_log():
     urns, warnings = _count_warnings([Asset(f"snowflake://[bad{i}") for i in range(25)])
 
     assert urns == []
-    assert len(warnings) <= 2, warnings
+    assert len(warnings) == 1, warnings
 
 
 def test_many_assets_with_no_table_path_do_not_flood_the_task_log():
@@ -460,7 +461,7 @@ def test_many_assets_with_no_table_path_do_not_flood_the_task_log():
     urns, warnings = _count_warnings([Asset("snowflake://acct") for _ in range(25)])
 
     assert urns == []
-    assert len(warnings) <= 2, warnings
+    assert len(warnings) == 1, warnings
 
 
 def test_the_first_occurrence_still_names_the_offending_uri():
@@ -478,3 +479,33 @@ def _reset_warning_dedup():
     from datahub_airflow_plugin import _connection_mapping
 
     _connection_mapping._warned_keys.clear()
+
+
+def test_assets_that_cannot_yield_a_urn_are_never_dropped_silently():
+    """Every path that returns None must warn, because the caller only logs at debug now.
+    An asset vanishing from lineage with nothing in the task log is worse than noise."""
+    for label, uri in [
+        ("empty uri", ""),
+        ("scheme only", "s3://"),
+        ("whitespace", "   "),
+    ]:
+        _reset_warning_dedup()
+        urns, warnings = _count_warnings([Asset(uri)])
+        assert urns == [], label
+        assert len(warnings) == 1, f"{label}: {warnings}"
+        assert uri.strip() in warnings[0] or "empty" in warnings[0].lower(), (
+            f"{label}: {warnings}"
+        )
+
+
+def test_a_non_string_uri_does_not_raise():
+    """`uri` reaches us from a user-authored Asset, so a non-string must degrade to a
+    warning rather than an AttributeError inside the error handler itself."""
+    _reset_warning_dedup()
+
+    class OddAsset:
+        uri = 12345
+
+    urn = translate_airflow_asset_to_urn(OddAsset(), connections={})
+
+    assert urn is None or isinstance(urn, str)

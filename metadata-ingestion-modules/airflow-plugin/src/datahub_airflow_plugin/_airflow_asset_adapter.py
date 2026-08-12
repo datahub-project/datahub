@@ -97,7 +97,15 @@ def translate_airflow_asset_to_urn(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
     """
     uri = getattr(asset, "uri", None)
-    if not uri:
+    if not uri or not str(uri).strip():
+        # The caller only logs at debug, so every path that yields no URN warns here.
+        # An asset quietly missing from lineage is worse than a noisy log.
+        connection_mapping.warn_once(
+            "empty-uri",
+            "Airflow asset of type %r has no usable URI, so it is excluded from lineage; "
+            "further assets with an empty URI are not reported again.",
+            type(asset).__name__,
+        )
         return None
 
     try:
@@ -165,7 +173,14 @@ def translate_airflow_asset_to_urn(
 
     # Ensure we have a valid name
     if not name:
-        logger.debug(f"Airflow asset URI has empty name: '{uri}'. Skipping.")
+        connection_mapping.warn_once(
+            f"empty-name:{connection_mapping.scheme_of(uri)}",
+            "Airflow asset URI %r has a scheme but no name after it, so no dataset name "
+            "could be built. Excluded from lineage; further %s:// URIs with the same "
+            "problem are not reported again.",
+            uri,
+            connection_mapping.scheme_of(uri),
+        )
         return None
 
     try:

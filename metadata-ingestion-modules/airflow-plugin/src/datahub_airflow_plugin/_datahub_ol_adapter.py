@@ -111,15 +111,14 @@ def translate_ol_to_datahub_urn(
     authority = rest[0] if rest else ""
 
     detail = connection_mapping.lookup(connections, scheme, authority)
-    # With no mapping entry this path must stay byte-identical to before, so only
-    # OL_SCHEME_TWEAKS applies. The wider scheme -> platform map canonicalises more
-    # schemes (gs -> gcs, s3a -> s3, abfs -> adls), which would silently re-key existing
-    # unmapped datasets; opting into it is what configuring a connection means.
-    platform = (detail.platform if detail else None) or (
-        connection_mapping.platform_for_scheme(scheme)
-        if detail is not None
-        else OL_SCHEME_TWEAKS.get(scheme, scheme)
-    )
+    if detail is None:
+        # No mapping entry: stay byte-identical to before, so only OL_SCHEME_TWEAKS
+        # applies. The wider scheme -> platform map canonicalises more schemes
+        # (gs -> gcs, s3a -> s3, abfs -> adls), which would silently re-key existing
+        # unmapped datasets; opting into it is what configuring a connection means.
+        platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
+    else:
+        platform = detail.platform or connection_mapping.platform_for_scheme(scheme)
     return connection_mapping.build_named_urn(
         platform=platform,
         name=name,
