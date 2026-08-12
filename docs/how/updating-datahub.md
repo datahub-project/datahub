@@ -376,6 +376,90 @@ Requirements:
 
 - **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
 
+## v1.6.0.1
+
+Patch release for v1.6.0 — security patches, bug fixes, and stability improvements. No new features; no schema or model changes.
+
+Requirements:
+
+- CLI / Python SDK: 1.6.0.17, 1.7.0.3
+- Helm Chart: 1.1.2
+
+### Breaking Changes
+
+- #17904 **(Auth / Logical Parent)** Linking a physical dataset to a logical parent now requires **Edit Entity** on both the **child dataset** and the **proposed parent** dataset. Clearing a logical parent requires Edit Entity on the child only. This runs as an `AspectPayloadValidator` across all APIs (GraphQL, OpenAPI, RestLI, ingestion MCPs). System-sourced writes are exempt. **Action:** Grant Edit Entity on logical-parent datasets to principals that create or change logical-parent links, or disable via `metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled=false` in Spring config.
+
+- #17904 **(Auth / Data Products)** Modifying `dataProductProperties.assets` (adding or removing members from a data product) now requires authorization. The actor must satisfy **either**: `MANAGE_DATA_PRODUCTS` on at least one domain associated with the data product, **or** `EDIT_ENTITY_DATA_PRODUCTS` on every changed asset entity. `EDIT_ENTITY` satisfies both paths. This applies to UPSERT and PATCH operations. **Action:** Ensure service accounts have the required privileges, or disable via `metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled=false` in Spring config.
+
+- #17904 **(Auth / Query entities)** When view authorization is enabled (`VIEW_AUTHORIZATION_ENABLED=true`, default `false`), reading a Query entity now requires `VIEW_ENTITY_PAGE` or `EDIT_QUERIES` (or `EDIT_ENTITY`) on **every subject dataset** of that query. Queries with no subjects are denied. **Action:** Only affects deployments with `VIEW_AUTHORIZATION_ENABLED=true`. Grant view or edit-queries privileges on subject datasets as needed.
+
+- #18533 **(GMS / Structured Properties)** Creating a structured property is now rejected when its `qualifiedName` would collide with another property's Elasticsearch field name after `.` → `_` normalization (e.g. `certification.status` vs `certification_status`). Additionally, string-backed structured property values (`string`, `rich_text`, `date`, `urn`) are now rejected when their UTF-8 encoding exceeds the keyword max length (default **32,766 bytes**, configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH`). Previously oversized values were accepted by the primary store and failed silently at ES indexing time. **Action:** Choose `qualifiedName` values that remain distinct after `.` → `_` normalization. Shorten text property values under the limit, or store large content as asset documentation.
+
+- #18579 **(GMS / PATCH validation)** Six aspect validators now run on `PATCH` operations in addition to `CREATE`/`UPSERT`: `StructuredPropertiesValidator`, `FieldPathValidator`, `FormPromptValidator`, `LifecycleStageValidator`, `PolicyFieldTypeValidator`, and `LogicalParentFieldPathValidator`. PATCH validation only checks `add`/`replace` values — `remove` operations and already-stored values are not re-validated. There is no env var to disable PATCH validation specifically; individual validators can be disabled entirely via their `@ConditionalOnProperty` where available, but `StructuredPropertiesValidator`, `FieldPathValidator`, `FormPromptValidator`, `LifecycleStageValidator`, and `PolicyFieldTypeValidator` have no config toggle. **Action:** None for valid data; a PATCH that now fails was writing a value an equivalent upsert would already have rejected.
+
+- #18798 **(GMS / Ebean transaction retries)** When a metadata write exhausts retries on a retryable database transaction conflict (SQLState `40001` / `40P01`, or MySQL vendor code `1213`), GMS now surfaces a structured conflict error instead of a generic 500. OpenAPI and Rest.li return **HTTP 503** with body `{"error": "...", "code": "DATABASE_TRANSACTION_CONFLICT", "retryable": true}` and a `Retry-After` header (default `1` second). GraphQL returns error extensions `{"code": 503, "type": "SERVICE_UNAVAILABLE"}` (no `Retry-After` in GraphQL; HTTP status remains 200 per GraphQL convention). Non-deadlock retry exhaustion is unchanged (generic 500). PostgreSQL writes also acquire row locks in consistent primary-key order to prevent lock-order deadlocks. **Action:** Clients that previously retried or alerted on 500 for write failures should treat `DATABASE_TRANSACTION_CONFLICT` / GraphQL `SERVICE_UNAVAILABLE` as retryable. Configuration: `EBEAN_MAX_TRANSACTION_RETRY` (default `null` → 3 retries / 4 total attempts), `EBEAN_RETRY_INITIAL_BACKOFF_MS` (default `50`), `EBEAN_RETRY_MAX_BACKOFF_MS` (default `1000`), `EBEAN_RETRY_AFTER_SECONDS` (default `1`), `EBEAN_RETRY_BACKOFF_SQL_STATES` (default `40001,40P01`), `EBEAN_RETRY_BACKOFF_VENDOR_CODES` (default `1213`). Opt-in `EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED` (default `false`, PostgreSQL only) serializes concurrent writers to the same entity via `pg_advisory_xact_lock`.
+
+- #18115 **(System-update)** `RestoreColumnLineageIndices` and `RestoreDbtSiblingsIndices` bootstrap steps are now **disabled by default** (previously always-on). These index-repair steps ran on every GMS startup; they now require `RESTORE_COLUMN_LINEAGE_INDICES_ENABLED=true` or `SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED=true` to run. **Action:** If you relied on these steps to repair lineage or dbt sibling index data on startup, set the corresponding env var to `true`.
+
+### Known Issues
+
+### Potential Downtime
+
+- **(Search / Structured Properties)** With both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` (the latter defaults to true), system-update reindexes entity search indices when an existing structured-property field's Elasticsearch type differs from the definition-driven target (e.g. `float` vs intended `double`). Expect longer system-update runtime on the first upgrade if mismatched fields exist. Set `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=false` to skip. (#18698, #18768)
+
+- #18531 **(GMS / MySQL collation repair)** `SqlSetup` now automatically detects and repairs non-binary collation on `metadata_aspect_v2` `urn` and `aspect` columns. If your MySQL table uses a case-insensitive collation (e.g. `utf8mb4_general_ci`, `utf8mb4_0900_ai_ci`), startup runs `ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin`, which **rebuilds and locks the entire table**. On large tables (millions of rows) this can take minutes to hours. There is no env var to skip this check. PostgreSQL is unaffected. **Action:** Before upgrading, check collation with `SELECT COLUMN_NAME, COLLATION_NAME FROM information_schema.columns WHERE table_name='metadata_aspect_v2' AND column_name IN ('urn','aspect')`. If already `utf8mb4_bin`, no action needed. If not, schedule the upgrade during a maintenance window.
+
+### Other Notable Changes
+
+**Security fixes:**
+
+- #18140 **(Auth)** `DataHubOAuthAuthenticator` no longer logs bearer tokens at DEBUG level. Tokens are now redacted in all log output.
+- #17252 **(Security)** Profile image URLs (`pictureLink`) are now validated server-side. Only HTTPS URLs pointing to public hosts are accepted; `javascript:`, `data:`, `file:`, and private-network URLs are rejected. Configure via `MCP_VALIDATION_URL_ENABLED` (default `true`), `MCP_VALIDATION_URL_ALLOW_HTTP` (default `false`), and `MCP_VALIDATION_URL_EXTRA_DENY_HOSTS`.
+- #18023 **(GraphQL)** Typed `LoadableType` resolvers now reject Restricted placeholder entities, preventing authorization bypass on restricted content.
+- **(Deps)** wire-runtime 5.2.0 → 6.3.0 (CVE-2026-45799), cryptography >= 49.0.0 (CVE-2026-69249), lz4-java → 1.11.1 (CVE-2025-12183), jackson-databind → 2.21.5 (CVE-2026-54512/54513), PostgreSQL JDBC → 42.7.12 (CVE-2026-54291), Netty → 4.2.16.Final, Jetty → 12.1.10, spring-security (patch bump), commons-configuration2 (patch bump), Shiro → 2.2.1, PyJWT → 2.13.0 (GHSA-xgmm-8j9v-c9wx), redshift-connector >= 2.1.14 (CVE-2026-8838), idna >= 3.15 (CVE-2026-45409), pyasn1 and gitpython (patch bumps).
+
+**Search & indexing:**
+
+- #17716, #18842 **(Search)** Structured property filters now honor `valueType` and return complete result sets for URN-typed and number-typed properties.
+- #18549, #18552, #18708, #18768 **(Search)** String-backed structured property keyword mappings now set a byte-safe `ignore_above` limit (default 8191 chars). Applied in-place without forcing a full reindex. Reverted on TEXT fields to avoid breaking text search. Values exceeding the limit remain in `_source` but are excluded from the keyword inverted index (not searchable/filterable) — this is graceful degradation replacing the previous behavior where oversized values caused the entire document to be dropped from the index.
+- #18725 **(Search)** Invalid URN values are skipped with a warning during structured property string mapping instead of failing the entire mapping.
+- #18276 **(Search)** `allowedValues` ordering on structured properties is preserved in search filter dropdowns.
+- #17641, #17644 **(Search)** Fixed ES8 spurious reindex loops caused by mapping normalization differences, and legacy range queries in aggregations that failed under ES8's stricter parser.
+- #17668 **(Search)** Search no longer truncates result pages when individual hits contain unparseable URNs.
+
+**GMS & backend:**
+
+- #18334, #18346 **(Patch)** Fixed `ArrayMergingTemplate` dropping the map key when a patch creates a new element through a deeper path — e.g. adding a field-level tag to a schema field with no existing `editableSchemaMetadata` entry produced an entry with no `fieldPath` (HTTP 422). Applies to tags, terms, ownership, and all keyed arrays.
+- #18401 **(GMS)** Aspect keys are now sorted before `FOR UPDATE` to prevent lock-order deadlocks between concurrent multi-row writes and hard-deletes on MySQL.
+- #17415, #17604 **(GMS)** `ownerTypes` are now materialized from the owners list on both `CREATE_ENTITY` and regular upsert writes.
+- #17959 **(GMS)** Hard-deleting an entity no longer throws a `NullPointerException` when the version range for an aspect is empty.
+- #17732 **(GMS)** `hasChildDomains()` now cross-checks OpenSearch results against MySQL before blocking parent deletion, preventing stale search index results from blocking valid deletes.
+- #17634 **(GMS)** `getMergedEdges` now keys by the full `Edge` object instead of `hashCode`, preventing "Duplicate key" exceptions on hash collisions.
+- #17449, #17905 **(Patch)** PATCH operations with JSON Pointer paths ending in `/` no longer throw `JsonException` when the targeted aspect doesn't exist.
+
+**Auth & policies:**
+
+- #18011 **(Auth)** REST API tag writes now accept the `EDIT_ENTITY_TAGS` privilege as intended.
+- #17977 **(Auth)** Authorization checks for data product mutations now read domain info directly instead of through the entity client cache.
+- #18117 **(Auth)** The policy list endpoint no longer throws on policies with unrecognized types or states.
+- #18119 **(Auth)** The role policies list API now filters out non-policy entities.
+- #18446 **(GraphQL)** Data products with no associated domain can now be deleted.
+
+**Frontend:**
+
+- #18481 **(UI)** The Data Contract tab now displays custom assertion names when set.
+- #18012 **(UI)** Field-level profile data now matches correctly when BigQuery returns lowercased column paths.
+- #17757 **(UI)** Fixed a regression that caused timezone data to be unavailable in date/time pickers.
+- #18394 **(UI)** Documents marked as hidden no longer inflate search result counts.
+
+**Upgrade & system-update:**
+
+- #18598 **(Upgrade)** The reindex alias swap now retries on doc-count mismatch instead of failing immediately.
+- #18308 **(Upgrade)** Consistency check IDs are now filtered per entity type before `checkBatch`.
+- #18384, #18535 **(ZDU)** Zero-downtime upgrade orphan cleanup no longer deletes the semantic search index; missing-index case handled gracefully.
+- #18204 **(GMS)** Dashboard usage statistics now correctly set per-user view counts.
+- #18307, #18043 **(Consumer)** MCE consumer `commitAndContinue` catches `RejectedExecutionException` during shutdown; OpenTelemetry span export switched to non-blocking.
+
 ## v1.6.0
 
 Requirements:
