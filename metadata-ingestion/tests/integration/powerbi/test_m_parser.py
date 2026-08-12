@@ -1857,6 +1857,19 @@ _ODBC_NAV_SUCCESS_CASES = [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,sales.orders,PROD)",
         id="oracle-schema-table-two-tier",
     ),
+    # End-to-end opt-in: driven from a real server_to_platform_instance entry (not
+    # an injected resolver), keyed on the server that extract_server derives from
+    # the ODBC connect string — the DSN "oracle_prod" for this DSN-only string, not
+    # a TNS alias. Pins that the key resolves on this path so default_database
+    # actually prepends the database tier (a wrong key would silently stay 2-part).
+    pytest.param(
+        _ODBC_ORACLE_NAV_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {"server_to_platform_instance": {"oracle_prod": {"default_database": "MYDB"}}},
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,mydb.sales.orders,PROD)",
+        id="oracle-default-database-opt-in-resolves-from-config",
+    ),
     pytest.param(
         M_QUERIES[35],
         "employees",
