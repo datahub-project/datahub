@@ -110,9 +110,10 @@ public class ProductUpdateParser {
     // Parse legacy CTA fields (backward compatibility)
     // Only use if primary CTA is not provided
     if (!hasPrimaryCta) {
-      String ctaText = json.has("ctaText") ? json.get("ctaText").asText() : "Learn more";
+      String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "Learn more";
       String ctaLink =
-          maybeDecorateUrl(json.has("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
+          maybeDecorateUrl(
+              json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
 
       productUpdate.setCtaText(ctaText);
       productUpdate.setCtaLink(ctaLink);
