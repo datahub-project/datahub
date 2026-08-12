@@ -5,15 +5,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.types.file.DataHubFileType;
 import com.linkedin.datahub.graphql.types.template.PageTemplateType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -23,6 +28,7 @@ import com.linkedin.file.BucketStorageLocation;
 import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import com.linkedin.template.DataHubPageTemplateRowArray;
 import com.linkedin.template.DataHubPageTemplateSurface;
@@ -52,9 +58,18 @@ public class RequiredAspectLoaderTest {
   private static final class UrnOnlySelectionContext implements QueryContext {
     private final ConcurrentHashMap<String, AspectLoadContext> contexts = new ConcurrentHashMap<>();
     private final QueryContext delegate;
+    private final com.linkedin.metadata.config.DataHubAppConfiguration appConfigOverride;
 
     UrnOnlySelectionContext(QueryContext delegate, String entityTypeName) {
+      this(delegate, entityTypeName, null);
+    }
+
+    UrnOnlySelectionContext(
+        QueryContext delegate,
+        String entityTypeName,
+        com.linkedin.metadata.config.DataHubAppConfiguration appConfigOverride) {
       this.delegate = delegate;
+      this.appConfigOverride = appConfigOverride;
       this.contexts.put(entityTypeName, AspectLoadContext.of(Set.of()));
     }
 
@@ -80,7 +95,7 @@ public class RequiredAspectLoaderTest {
 
     @Override
     public com.linkedin.metadata.config.DataHubAppConfiguration getDataHubAppConfig() {
-      return delegate.getDataHubAppConfig();
+      return appConfigOverride != null ? appConfigOverride : delegate.getDataHubAppConfig();
     }
 
     @Override
@@ -173,6 +188,53 @@ public class RequiredAspectLoaderTest {
         results.get(0).getData(),
         "urn-only selection must still fetch dataHubPageTemplateProperties; the mapper nulls the"
             + " entity without it");
+  }
+
+  /**
+   * Mechanism guard for every entry in the central required-aspect table: a urn-only selection must
+   * still yield an optimized set containing the mapper-required aspects. This is what protects the
+   * Test / Incident / DataContract / DataHubConnection loaders (whose mappers null or throw on a
+   * missing aspect) without each needing a bespoke behavioral test.
+   */
+  @Test
+  public void testMapperRequiredAspectsFoldedIntoOptimizedSet() {
+    for (String typeName :
+        List.of(
+            "DataHubFile",
+            "DataHubPageTemplate",
+            "Test",
+            "Incident",
+            "DataContract",
+            "DataHubConnection")) {
+      Set<String> required = AspectUtils.getMapperRequiredAspects(typeName);
+      assertFalse(required.isEmpty(), typeName + " should have mapper-required aspects registered");
+
+      QueryContext context = new UrnOnlySelectionContext(getMockAllowContext(), typeName);
+      Set<String> optimized =
+          AspectUtils.getOptimizedAspects(context, typeName, Set.of("someDefault"), "someKey");
+
+      assertTrue(
+          optimized.containsAll(required),
+          typeName + " urn-only selection must still fetch " + required + ", got " + optimized);
+    }
+  }
+
+  /** With the kill switch off, hydration must revert to the full default aspect set. */
+  @Test
+  public void testOptimizationDisabledFallsBackToDefaults() {
+    FeatureFlags flags = new FeatureFlags();
+    flags.setGraphQLAspectOptimizationEnabled(false);
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setFeatureFlags(flags);
+
+    QueryContext context = new UrnOnlySelectionContext(getMockAllowContext(), "Dataset", appConfig);
+    Set<String> defaults = Set.of("datasetKey", "ownership", "globalTags");
+
+    Set<String> resolved =
+        AspectUtils.getOptimizedAspects(context, "Dataset", defaults, "datasetKey");
+
+    assertEquals(
+        resolved, defaults, "disabled optimization must return the full default aspect set");
   }
 
   private static DataHubFileInfo fileInfo() {

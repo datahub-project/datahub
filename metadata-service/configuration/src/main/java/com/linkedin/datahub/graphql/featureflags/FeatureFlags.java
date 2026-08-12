@@ -92,4 +92,8 @@ public class FeatureFlags {
   // Uses conditional updates on SystemMetadata.version instead of SELECT FOR UPDATE for aspect
   // writes. Legacy null-version rows fall back to plain updates until stamped.
   private boolean optimisticLocking = false;
+  // Kill switch for schema-driven GraphQL aspect optimization. When true, entity hydration fetches
+  // only the aspects required by the selected fields. When false, every loader falls back to
+  // fetching its full default aspect set (legacy behavior). Default ON.
+  private boolean graphQLAspectOptimizationEnabled = true;
 }

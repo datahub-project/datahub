@@ -3,10 +3,13 @@ package com.linkedin.datahub.graphql.util;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.SelectedField;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,7 +22,36 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectUtils {
 
+  /**
+   * Aspects that some entity mappers treat as mandatory: they return null or throw when the aspect
+   * is absent, regardless of which fields were selected. Optimized fetching can produce an empty
+   * required set for a selection made up entirely of {@code @noAspects} fields (e.g. {@code
+   * createDataHubFile { file { urn } }}), which would starve these mappers and fail hydration of a
+   * non-nullable field. Keyed by GraphQL type name; {@link #getOptimizedAspects} always folds these
+   * into the optimized set so the mapper can run.
+   *
+   * <p>This is the single source of truth — add an entry here (rather than per-loader
+   * always-include args) whenever a mapper hard-requires a non-key aspect.
+   */
+  private static final Map<String, Set<String>> MAPPER_REQUIRED_ASPECTS =
+      Map.of(
+          "DataHubFile", Set.of(Constants.DATAHUB_FILE_INFO_ASPECT_NAME),
+          "DataHubPageTemplate", Set.of(Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME),
+          "Test", Set.of(Constants.TEST_INFO_ASPECT_NAME),
+          "Incident", Set.of(Constants.INCIDENT_INFO_ASPECT_NAME),
+          "DataContract", Set.of(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME),
+          "DataHubConnection",
+              Set.of(
+                  Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
+                  Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+
   private AspectUtils() {}
+
+  /** Aspects a mapper hard-requires for {@code entityTypeName}, or an empty set if none. */
+  @Nonnull
+  public static Set<String> getMapperRequiredAspects(@Nonnull final String entityTypeName) {
+    return MAPPER_REQUIRED_ASPECTS.getOrDefault(entityTypeName, Set.of());
+  }
 
   /**
    * Computes the aspect selection for a single GraphQL field invocation from its selection set.
@@ -116,6 +148,11 @@ public class AspectUtils {
       @Nonnull final Set<String> defaultAspects,
       @Nonnull final String... alwaysIncludeAspects) {
 
+    if (!isAspectOptimizationEnabled(context)) {
+      log.debug("Aspect optimization disabled, fetching all aspects for {}", entityTypeName);
+      return defaultAspects;
+    }
+
     AspectLoadContext loadContext = context.getAspectLoadContext(entityTypeName);
     if (loadContext == null) {
       log.debug("AspectLoadContext not available for {}, fetching all aspects", entityTypeName);
@@ -123,7 +160,27 @@ public class AspectUtils {
     }
 
     Set<String> optimizedAspects = loadContext.resolve(defaultAspects, alwaysIncludeAspects);
+    if (!loadContext.isFetchAll()) {
+      // Fold in aspects the mapper treats as mandatory. resolve() returns a mutable set on the
+      // non-fetch-all path; on fetch-all it returns defaultAspects, which already includes them.
+      Set<String> mapperRequired = MAPPER_REQUIRED_ASPECTS.get(entityTypeName);
+      if (mapperRequired != null) {
+        optimizedAspects.addAll(mapperRequired);
+      }
+    }
     log.debug("Fetching optimized aspect set for {}: {}", entityTypeName, optimizedAspects);
     return optimizedAspects;
+  }
+
+  /**
+   * Honors the {@code graphQLAspectOptimizationEnabled} feature flag. Absent config (e.g. unit
+   * tests with a mocked context) keeps optimization enabled, matching the default-on flag.
+   */
+  private static boolean isAspectOptimizationEnabled(@Nonnull final QueryContext context) {
+    DataHubAppConfiguration appConfig = context.getDataHubAppConfig();
+    if (appConfig == null || appConfig.getFeatureFlags() == null) {
+      return true;
+    }
+    return appConfig.getFeatureFlags().isGraphQLAspectOptimizationEnabled();
   }
 }
