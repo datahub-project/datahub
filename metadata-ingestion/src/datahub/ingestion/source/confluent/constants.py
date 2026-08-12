@@ -10,6 +10,14 @@ DEFAULT_TIMEOUT_SECONDS: Final[int] = 30
 
 CONFLUENT_CLOUD_DOMAIN_SUFFIX: Final[str] = ".confluent.cloud"
 
+# Confluent Cloud console link for a topic. The path deliberately stops at the
+# topic: the console redirects a bare topic path to whichever tab it currently
+# defaults to, so no tab segment is pinned here.
+CONFLUENT_CLOUD_TOPIC_URL: Final[str] = (
+    "https://confluent.cloud/environments/{environment_id}"
+    "/clusters/{cluster_id}/topics/{topic}"
+)
+
 # Confluent Cloud rejects page sizes above this.
 MAX_PAGE_SIZE: Final[int] = 1000
 

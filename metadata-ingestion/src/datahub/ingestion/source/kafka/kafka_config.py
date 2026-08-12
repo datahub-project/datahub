@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
+from datahub.ingestion.source.confluent.constants import CONFLUENT_CLOUD_TOPIC_URL
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
@@ -73,7 +74,17 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         default=None,
         description="Kafka cluster id, e.g. `lkc-xxxxx`. Only needed when the environment "
         "behind this Schema Registry holds more than one Kafka cluster, since the catalog "
-        "covers the whole environment and topic names can repeat across clusters.",
+        "covers the whole environment and topic names can repeat across clusters. Also used, "
+        "together with `environment_id`, to build the Confluent Cloud console link on each "
+        "topic; when it is not set the cluster id carried by the topic's own catalog entry "
+        "is used instead.",
+    )
+    environment_id: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud environment id, e.g. `env-xxxxx`. Only needed to build the "
+        "Confluent Cloud console link emitted as each topic's `externalUrl` (the 'View in Kafka' "
+        "link in DataHub); the catalog itself does not require it. An explicitly configured "
+        "`external_url_base` takes precedence over the link derived from this.",
     )
     include_tags: bool = Field(
         default=True,
@@ -84,6 +95,21 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         description="Emit Confluent Cloud business metadata attributes on topics as DataHub "
         "custom properties.",
     )
+
+    def get_topic_external_url(
+        self, topic: str, catalog_cluster_id: Optional[str] = None
+    ) -> Optional[str]:
+        """Confluent Cloud console URL for a topic, or None if the ids are unknown."""
+        if not self.enabled or not self.environment_id:
+            return None
+        cluster_id = self.cluster_id or catalog_cluster_id
+        if not cluster_id:
+            return None
+        return CONFLUENT_CLOUD_TOPIC_URL.format(
+            environment_id=self.environment_id,
+            cluster_id=cluster_id,
+            topic=topic,
+        )
 
 
 class KafkaSourceConfig(
@@ -153,7 +179,7 @@ class KafkaSourceConfig(
     )
     external_url_base: Optional[str] = Field(
         default=None,
-        description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
+        description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL. When set, it also overrides the Confluent Cloud console link that `confluent_catalog` would otherwise derive.",
     )
     profiling: ProfilerConfig = Field(
         default_factory=ProfilerConfig,

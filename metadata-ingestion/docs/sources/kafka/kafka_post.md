@@ -100,6 +100,21 @@ source:
 Confluent tags become DataHub tags and business metadata attributes become custom properties on
 the topic. Set `include_tags` or `include_business_metadata` to `false` to take only one of the two.
 
+Adding `environment_id` also puts a **View in Kafka** link on every topic, pointing at the topic in
+the Confluent Cloud console:
+
+```yml
+    confluent_catalog:
+      enabled: true
+      environment_id: "env-xxxxx"
+      cluster_id: "lkc-xxxxx" # optional, see below
+```
+
+The link is `https://confluent.cloud/environments/<environment_id>/clusters/<cluster_id>/topics/<topic>`.
+The cluster id comes from `cluster_id` when set, otherwise from the topic's own catalog entry, so a
+single-cluster environment only needs `environment_id`. Setting `external_url_base` overrides the
+derived link entirely, for deployments that front the console at another address.
+
 Requirements and limitations:
 
 - **Confluent Cloud only**, and the environment needs the **Stream Governance Advanced** package.

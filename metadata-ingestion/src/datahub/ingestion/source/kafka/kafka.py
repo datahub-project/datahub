@@ -1277,12 +1277,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
+        # Only topics have somewhere to link to; a Schema Registry subject is not
+        # addressable under a broker's topic path.
         if not is_subject:
-            self._apply_catalog_metadata(topic, all_tags, custom_props)
+            external_url = self._apply_catalog_metadata(topic, all_tags, custom_props)
 
-        if self.source_config.external_url_base:
-            base_url = self.source_config.external_url_base.rstrip("/")
-            external_url = f"{base_url}/{dataset_name}"
+            # An explicitly configured base always wins: it is the only way to point
+            # at a private or non-Confluent console.
+            if self.source_config.external_url_base:
+                base_url = self.source_config.external_url_base.rstrip("/")
+                external_url = f"{base_url}/{dataset_name}"
 
         domain_urn: Optional[str] = None
         for domain, pattern in self.source_config.domain.items():
@@ -1312,15 +1316,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _apply_catalog_metadata(
         self, topic: str, all_tags: List[str], custom_props: Dict[str, str]
-    ) -> None:
+    ) -> Optional[str]:
+        """Apply Stream Catalog tags and business metadata, and return the topic's
+        Confluent Cloud console URL when it can be derived."""
         if self.topic_catalog is None:
-            return
-
-        catalog_topic = self.topic_catalog.get_topic(topic)
-        if catalog_topic is None:
-            return
+            return None
 
         config = self.source_config.confluent_catalog
+        catalog_topic = self.topic_catalog.get_topic(topic)
+        if catalog_topic is None:
+            # The console URL is addressed by ids alone, so it still holds for a
+            # topic the catalog has no entry for.
+            return config.get_topic_external_url(topic)
+
         if config.include_tags and catalog_topic.tags:
             all_tags.extend(
                 self.source_config.tag_prefix + tag for tag in catalog_topic.tags
@@ -1338,6 +1346,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1
+
+        return config.get_topic_external_url(topic, catalog_topic.cluster_id)
 
     def build_custom_properties(
         self,

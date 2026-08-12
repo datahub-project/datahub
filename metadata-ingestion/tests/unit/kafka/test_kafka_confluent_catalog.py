@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
@@ -12,11 +13,23 @@ from datahub.ingestion.source.kafka.confluent_catalog import (
 )
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    KafkaSchemaClass,
+    SchemaMetadataClass,
+)
+from datahub.sdk.dataset import Dataset
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
 TOPIC = "orders"
+ENVIRONMENT_ID = "env-abc12"
+CLUSTER_ID = "lkc-def34"
+CONSOLE_URL = (
+    f"https://confluent.cloud/environments/{ENVIRONMENT_ID}"
+    f"/clusters/{CLUSTER_ID}/topics/{TOPIC}"
+)
 
 
 @pytest.fixture
@@ -31,6 +44,7 @@ def make_source_config(
     catalog: Optional[Dict[str, object]] = None,
     schema_registry_config: Optional[Dict[str, str]] = None,
     schema_registry_url: str = CONFLUENT_SCHEMA_REGISTRY_URL,
+    external_url_base: Optional[str] = None,
 ) -> KafkaSourceConfig:
     return KafkaSourceConfig.model_validate(
         {
@@ -40,6 +54,7 @@ def make_source_config(
                 "schema_registry_config": schema_registry_config or {},
             },
             "confluent_catalog": catalog or {},
+            "external_url_base": external_url_base,
         }
     )
 
@@ -157,6 +172,16 @@ class TestCatalogConnectionInheritance:
         assert "confluent_catalog.api_key" in message
         assert "confluent_catalog.api_secret" in message
 
+    def test_a_disabled_catalog_derives_no_console_url(self) -> None:
+        catalog = make_source_config(
+            catalog={
+                "environment_id": ENVIRONMENT_ID,
+                "cluster_id": CLUSTER_ID,
+            }
+        ).confluent_catalog
+
+        assert catalog.get_topic_external_url(TOPIC) is None
+
     def test_inherited_schema_registry_url_must_be_http(self) -> None:
         with pytest.raises(ValueError, match="schema_registry_url"):
             make_source_config(
@@ -248,6 +273,14 @@ class TestTopicLookup:
         )
 
 
+def external_urls_of(workunits: List[MetadataWorkUnit]) -> List[Optional[str]]:
+    return [
+        aspect.externalUrl
+        for aspect in aspects_of(workunits, "datasetProperties")
+        if isinstance(aspect, DatasetPropertiesClass)
+    ]
+
+
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 class TestCatalogMetadataOnTopics:
     def build_source(
@@ -255,6 +288,7 @@ class TestCatalogMetadataOnTopics:
         mock_kafka: Mock,
         topics: List[CatalogKafkaTopic],
         topic_detail: Optional[object] = None,
+        external_url_base: Optional[str] = None,
         **catalog_overrides: object,
     ) -> KafkaSource:
         cluster_metadata = MagicMock()
@@ -265,6 +299,7 @@ class TestCatalogMetadataOnTopics:
             make_source_config(
                 catalog=enabled_catalog_config(**catalog_overrides),
                 schema_registry_url=SCHEMA_REGISTRY_URL,
+                external_url_base=external_url_base,
             ),
             PipelineContext(run_id="test"),
         )
@@ -395,6 +430,148 @@ class TestCatalogMetadataOnTopics:
         assert any(
             "Partitions" in warning.context[0] for warning in source.report.warnings
         )
+
+    def test_console_url_is_derived_from_the_configured_ids(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id=CLUSTER_ID)],
+            environment_id=ENVIRONMENT_ID,
+            cluster_id=CLUSTER_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert CONSOLE_URL in external_urls_of(workunits)
+
+    def test_console_url_uses_the_cluster_id_from_the_catalog_entry(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id=CLUSTER_ID)],
+            environment_id=ENVIRONMENT_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert CONSOLE_URL in external_urls_of(workunits)
+
+    def test_a_topic_missing_from_the_catalog_still_gets_a_console_url(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name="some_other_topic", logical_cluster_id=CLUSTER_ID)],
+            environment_id=ENVIRONMENT_ID,
+            cluster_id=CLUSTER_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert CONSOLE_URL in external_urls_of(workunits)
+
+    def test_no_console_url_without_an_environment_id(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id=CLUSTER_ID)],
+            cluster_id=CLUSTER_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert external_urls_of(workunits)
+        assert not any(external_urls_of(workunits))
+
+    def test_no_console_url_when_no_cluster_id_is_known(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC)],
+            environment_id=ENVIRONMENT_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert external_urls_of(workunits)
+        assert not any(external_urls_of(workunits))
+
+    def test_an_explicit_external_url_base_wins_over_the_derived_url(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id=CLUSTER_ID)],
+            external_url_base="https://console.aiven.io/project/p/kafka/topics/",
+            environment_id=ENVIRONMENT_ID,
+            cluster_id=CLUSTER_ID,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert (
+            f"https://console.aiven.io/project/p/kafka/topics/{TOPIC}"
+            in external_urls_of(workunits)
+        )
+        assert CONSOLE_URL not in external_urls_of(workunits)
+
+    def test_subjects_get_no_external_url(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, logical_cluster_id=CLUSTER_ID)],
+            external_url_base="https://console.aiven.io/project/p/kafka/topics/",
+            environment_id=ENVIRONMENT_ID,
+            cluster_id=CLUSTER_ID,
+        )
+
+        subjects = list(
+            source._emit_dataset(
+                topic=TOPIC,
+                is_subject=True,
+                topic_detail=None,
+                extra_topic_config=None,
+                schema_metadata=SchemaMetadataClass(
+                    schemaName=f"{TOPIC}-value",
+                    platform=make_data_platform_urn("kafka"),
+                    version=0,
+                    hash="",
+                    platformSchema=KafkaSchemaClass(documentSchema=""),
+                    fields=[],
+                ),
+            )
+        )
+
+        assert subjects
+        assert all(
+            isinstance(subject, Dataset) and subject.external_url is None
+            for subject in subjects
+        )
+
+    def test_external_url_base_still_applies_with_the_catalog_off(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(
+                schema_registry_url=SCHEMA_REGISTRY_URL,
+                external_url_base="https://console.aiven.io/topics",
+            ),
+            PipelineContext(run_id="test"),
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert source.topic_catalog is None
+        assert f"https://console.aiven.io/topics/{TOPIC}" in external_urls_of(workunits)
 
     def test_non_confluent_cloud_endpoint_skips_the_catalog(
         self, mock_kafka: Mock, mock_admin_client: Mock
