@@ -257,8 +257,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Concatenate whichever PR body sections were generated (empty files contribute nothing)
-          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md ./pr-body-playwright.md 2>/dev/null)
+          # Concatenate whichever PR body sections were generated. gradle/playwright only
+          # write their file when changed, so cat can hit a missing file -- `|| true` keeps
+          # that from failing this step (errexit) when some other suite is what triggered
+          # create_pr, since $(cat ...)'s exit code would otherwise propagate.
+          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md ./pr-body-playwright.md 2>/dev/null || true)
 
           # Create PR (gh pr create prints the PR URL to stdout)
           PR_URL=$(gh pr create \

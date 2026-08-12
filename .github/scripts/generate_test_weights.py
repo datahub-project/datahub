@@ -233,9 +233,11 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
                 except ValueError:
                     print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
                     continue
-                if duration > 0:
-                    totals = per_run_totals.setdefault(run_dir, {})
-                    totals[file_path] = totals.get(file_path, 0.0) + duration
+                # Reject non-finite/negative (float() accepts nan/inf, and inf passes ">0").
+                if not math.isfinite(duration) or duration < 0:
+                    continue
+                totals = per_run_totals.setdefault(run_dir, {})
+                totals[file_path] = totals.get(file_path, 0.0) + duration
         except ET.ParseError as e:
             print(f"Warning: Failed to parse {xml_file}: {e}")
         except Exception as e:
@@ -244,7 +246,8 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
     test_durations: Dict[str, List[float]] = {}
     for totals in per_run_totals.values():
         for file_path, total in totals.items():
-            test_durations.setdefault(file_path, []).append(total)
+            if total > 0:
+                test_durations.setdefault(file_path, []).append(total)
 
     return test_durations
 
