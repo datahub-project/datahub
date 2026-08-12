@@ -357,6 +357,22 @@ class FivetranSource(StatefulIngestionSourceBase):
             dest_col = column_lineage.destination_column or ""
             if not source_col.strip() or not dest_col.strip():
                 self.report.num_column_lineage_edges_skipped_blank_name += 1
+                if self.report.num_column_lineage_edges_skipped_blank_name == 1:
+                    self.report.warning(
+                        title="Column lineage skipped due to blank column name",
+                        message=(
+                            "Skipping column lineage edges with blank source or "
+                            "destination column names. Subsequent occurrences will "
+                            "be skipped silently (see "
+                            "num_column_lineage_edges_skipped_blank_name for the total)."
+                        ),
+                        context=(
+                            f"source_table={lineage.source_table}, "
+                            f"destination_table={lineage.destination_table}, "
+                            f"source_column={source_col!r}, "
+                            f"destination_column={dest_col!r}"
+                        ),
+                    )
                 continue
             fine_grained_lineage.append(
                 FineGrainedLineage(

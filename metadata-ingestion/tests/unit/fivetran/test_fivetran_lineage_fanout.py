@@ -326,6 +326,12 @@ def test_empty_column_names_skipped_from_fine_grained_lineage(source):
     fgls = source._build_fine_grained_lineages(lineage, input_urn, output_urn)
 
     assert source.report.num_column_lineage_edges_skipped_blank_name == 4
+    warnings = [
+        w
+        for w in source.report._structured_logs.warnings
+        if w.title == "Column lineage skipped due to blank column name"
+    ]
+    assert len(warnings) == 1
     assert len(fgls) == 3
     assert fgls[0].upstreams == [f"urn:li:schemaField:({input_urn}, id )"]
     assert fgls[0].downstreams == [f"urn:li:schemaField:({output_urn},id)"]
