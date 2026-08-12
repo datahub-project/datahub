@@ -178,12 +178,18 @@ public class EbeanAspectDaoLockingPostgresIT {
           bAcquiredAtNanos.get() >= releasedAtNanos,
           "B must acquire only after A released on commit");
     } else {
-      // Non-blocking proof (no sleep): A KEEPS holding its lock while we judge B. If B
-      // acquires while A holds, the lock is not over-serializing (correct). If B
-      // blocks (bug), the latch times out and the test fails. Do NOT release A
-      // before judging B -- releasing A early would let an over-serializing lock
-      // unblock B and pass spuriously, hiding the regression this test is meant
-      // to catch. Release A only after the judgment so threads can finish.
+      // Non-blocking proof (no sleep): A KEEPS holding its lock while we judge B.
+      // Anchor the judgment window on bAttempting (B is in its transaction and
+      // about to lock), not on aHoldsLock, so the NON_BLOCK_ACQUIRE_SECONDS
+      // window starts only once B is actually ready to lock. This avoids a
+      // spurious timeout if B is slow to schedule between aHoldsLock and its
+      // lock call. If B acquires while A holds, the lock is not over-serializing
+      // (correct). If B blocks (bug), the latch times out and the test fails.
+      // Do NOT release A before judging B -- releasing A early would let an
+      // over-serializing lock unblock B and pass spuriously, hiding the
+      // regression this test is meant to catch. Release A only after the
+      // judgment so threads can finish.
+      bAttempting.await(LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
       boolean acquired = bAcquired.await(NON_BLOCK_ACQUIRE_SECONDS, TimeUnit.SECONDS);
       releaseA.countDown();
       a.join(THREAD_JOIN_MILLIS);
@@ -193,8 +199,9 @@ public class EbeanAspectDaoLockingPostgresIT {
           acquired,
           "B did not acquire within "
               + NON_BLOCK_ACQUIRE_SECONDS
-              + "s while A held its lock; it appears blocked behind A, which means"
-              + " the lock over-serialized when it should not have");
+              + "s after signaling it was about to lock (while A held its lock);"
+              + " it appears blocked behind A, which means the lock"
+              + " over-serialized when it should not have");
     }
   }
 
