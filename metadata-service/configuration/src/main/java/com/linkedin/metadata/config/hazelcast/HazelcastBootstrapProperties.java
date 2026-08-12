@@ -11,6 +11,30 @@ public final class HazelcastBootstrapProperties {
   public static final String RATE_LIMIT_SCOPED_ENABLED = "datahub.gms.rateLimits.scoped.enabled";
   public static final String ENTITY_GRAPH_CACHE_ENABLED = "datahub.gms.entityGraphCache.enabled";
 
+  /**
+   * Entity write-lock backend ({@code ebean.entityWriteLockBackend} / {@code
+   * ENTITY_WRITE_LOCK_BACKEND}), one of {@code none} | {@code hazelcast}. The {@code hazelcast}
+   * gate needs the embedded node, but only when it will actually engage: it activates when
+   * optimistic locking is enabled ({@link #OPTIMISTIC_LOCKING_ENABLED}), independently of scoped
+   * retry. With OL off the gate is bypassed, so the node is not booted for it. {@code none} never
+   * needs it.
+   */
+  public static final String ENTITY_WRITE_LOCK_BACKEND = "ebean.entityWriteLockBackend";
+
+  /**
+   * Optimistic locking toggle ({@code ebean.optimisticLockingEnabled} / {@code
+   * OPTIMISTIC_LOCKING_ENABLED}). The Hazelcast write gate only engages in OL mode, so the embedded
+   * node is booted for the gate only when this is also true.
+   */
+  public static final String OPTIMISTIC_LOCKING_ENABLED = "ebean.optimisticLockingEnabled";
+
+  /**
+   * Entity service implementation ({@code entityService.impl}), {@code ebean} (default when
+   * missing) or {@code cassandra}. Only Ebean implements optimistic locking, so the write gate can
+   * engage only on Ebean — the node is not booted for the gate on Cassandra.
+   */
+  public static final String ENTITY_SERVICE_IMPL = "entityService.impl";
+
   private HazelcastBootstrapProperties() {}
 
   /**
