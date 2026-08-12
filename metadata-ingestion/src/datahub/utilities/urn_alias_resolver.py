@@ -1,7 +1,7 @@
 import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set
 
-from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
 from datahub.metadata.schema_classes import DatasetKeyClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 # The `aliases` aspect's search field. Filter values are OR'd, so one query carries a batch.
 _LOWERCASED_URN_FIELD = "lowercasedUrn"
+
+# Searched alongside it: a dataset written before the `aliases` aspect existed carries no
+# alias until the backfill reaches it, and is findable only under its own urn.
+_URN_FIELD = "urn"
 
 _DATASET_ENTITY_TYPE = "dataset"
 
@@ -154,6 +158,9 @@ class _Lookup(Protocol):
 class _AliasIndexLookup:
     """Matches via the `aliases.lowercasedUrn` index: one search returns every stored casing,
     including casings nothing could have guessed.
+
+    The search matches `urn` as well as the alias field: a dataset predating the `aliases`
+    aspect carries no alias until the backfill reaches it, so it is findable only under its urn.
     """
 
     def __init__(
@@ -207,17 +214,21 @@ class _AliasIndexLookup:
         graph = self._graph
         if graph is None:
             return {}
+        or_filters: RawSearchFilter = [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field=field, condition="EQUAL", values=keys
+                    ).to_raw()
+                ]
+            }
+            for field in (_LOWERCASED_URN_FIELD, _URN_FIELD)
+        ]
         try:
             stored_urns = list(
                 graph.get_urns_by_filter(
                     entity_types=[_DATASET_ENTITY_TYPE],
-                    extraFilters=[
-                        SearchFilterRule(
-                            field=_LOWERCASED_URN_FIELD,
-                            condition="EQUAL",
-                            values=keys,
-                        ).to_raw()
-                    ],
+                    extra_or_filters=or_filters,
                 )
             )
         except Exception as e:
@@ -227,7 +238,8 @@ class _AliasIndexLookup:
             return {}
 
         matches_by_key: Dict[str, List[str]] = {key: [] for key in keys}
-        for stored_urn in stored_urns:
+        # Deduped: a scroll that repeated a urn would otherwise read as a casing collision.
+        for stored_urn in dict.fromkeys(stored_urns):
             key = _lowercased_urn(stored_urn)
             if key in matches_by_key:
                 matches_by_key[key].append(stored_urn)

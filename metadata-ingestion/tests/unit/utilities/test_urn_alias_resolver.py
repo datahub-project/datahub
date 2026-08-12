@@ -1,3 +1,4 @@
+from typing import Dict, List
 from unittest import mock
 
 from datahub.utilities.urn_alias_resolver import UrnAliasCache, UrnAliasResolver
@@ -143,14 +144,31 @@ def _graph(*matches: str) -> mock.MagicMock:
     return graph
 
 
+def _queried(graph: mock.MagicMock) -> Dict[str, List[str]]:
+    """The keys the last search asked for, by the field they were asked under."""
+    _, kwargs = graph.get_urns_by_filter.call_args
+    rules = [group["and"][0] for group in kwargs["extra_or_filters"]]
+    return {rule["field"]: rule["values"] for rule in rules}
+
+
 def test_on_demand_lookup_resolves_a_urn_the_index_never_loaded() -> None:
     graph = _graph(_UPPER)
 
     assert UrnAliasResolver(graph=graph).resolve(_UPPER) == _UPPER
     # Filtered on the key GMS indexes: the name lowercased, platform and env untouched.
     # `_LOWER` is exactly that form of `_UPPER`, so it doubles as the expected key.
-    _, kwargs = graph.get_urns_by_filter.call_args
-    assert kwargs["extraFilters"][0]["values"] == [_LOWER]
+    assert _queried(graph)["lowercasedUrn"] == [_LOWER]
+
+
+def test_on_demand_lookup_asks_under_the_urn_field_too() -> None:
+    # A dataset predating the `aliases` aspect has no alias until the backfill reaches it,
+    # leaving it findable only under `urn`.
+    graph = _graph(_LOWER)
+
+    assert UrnAliasResolver(graph=graph).resolve(_UPPER) == _LOWER
+    # One search, both fields, the same keys — the two clauses are OR'd.
+    assert _queried(graph) == {"lowercasedUrn": [_LOWER], "urn": [_LOWER]}
+    graph.get_urns_by_filter.assert_called_once()
 
 
 def test_on_demand_lookup_batches_references_into_one_query() -> None:
@@ -160,8 +178,7 @@ def test_on_demand_lookup_batches_references_into_one_query() -> None:
     resolver.prefetch([_UPPER, _OTHER])
 
     assert graph.get_urns_by_filter.call_count == 1
-    _, kwargs = graph.get_urns_by_filter.call_args
-    assert sorted(kwargs["extraFilters"][0]["values"]) == sorted([_LOWER, _OTHER])
+    assert sorted(_queried(graph)["lowercasedUrn"]) == sorted([_LOWER, _OTHER])
     # Each reference is answered from the one round trip, with no further calls.
     assert resolver.resolve(_UPPER) == _LOWER
     assert resolver.resolve(_OTHER) == _OTHER
@@ -176,8 +193,7 @@ def test_on_demand_lookup_queries_only_the_references_still_unknown() -> None:
     resolver.prefetch([_UPPER, _OTHER])
 
     # Only the unknown reference is queried; the loaded one is not re-fetched.
-    _, kwargs = graph.get_urns_by_filter.call_args
-    assert kwargs["extraFilters"][0]["values"] == [_OTHER]
+    assert _queried(graph)["lowercasedUrn"] == [_OTHER]
 
 
 def test_on_demand_lookup_ignores_a_non_dataset_reference() -> None:
